@@ -8,12 +8,14 @@ export interface CardType {
 }
 
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
-export type Declaration = 'HIGH' | 'LOW' | 'SWING' | null;
+export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | null;
 
 export interface HandEvaluation {
   description: string;
   usedHoleCardIndices: number[];
   usedCommunityCardIndices: number[];
+  isValidBadugi?: boolean;
+  badugiRankValues?: number[];
 }
 
 export interface Player {
@@ -30,10 +32,13 @@ export interface Player {
   isWinner?: boolean;
   isLoser?: boolean;
   score?: {
-    high: string;
-    low: string;
+    high?: string;
+    low?: string;
     highEval?: HandEvaluation;
     lowEval?: HandEvaluation;
+    description?: string;
+    isValidBadugi?: boolean;
+    badugiRankValues?: number[];
   };
 }
 
@@ -48,7 +53,12 @@ export type GamePhase =
   | 'BET_2'
   | 'REVEAL_FACTOR_CARD'
   | 'DECLARE_AND_BET'
-  | 'SHOWDOWN';
+  | 'SHOWDOWN'
+  | 'DRAW_1'
+  | 'DRAW_2'
+  | 'DRAW_3'
+  | 'DECLARE'
+  | 'BET_3';
 
 export interface ChatMessage {
   id: string;

@@ -58,10 +58,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
-  if (phase === 'DRAW') {
+  const isDrawPhase = phase === 'DRAW' || phase === 'DRAW_1' || phase === 'DRAW_2' || phase === 'DRAW_3';
+  if (isDrawPhase) {
+    let maxDiscards = 2;
+    if (phase === 'DRAW_1') maxDiscards = 3;
+    if (phase === 'DRAW_2') maxDiscards = 2;
+    if (phase === 'DRAW_3') maxDiscards = 1;
+
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO 2 CARDS TO DISCARD ({selectedCardsCount}/2)</div>
+        <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO {maxDiscards} CARDS TO DISCARD ({selectedCardsCount}/{maxDiscards})</div>
         <Button onClick={() => onAction('draw')} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
           {selectedCardsCount > 0 ? `Discard ${selectedCardsCount} Cards` : 'Stand Pat (Keep All)'}
         </Button>
@@ -103,6 +109,19 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  if (phase === 'DECLARE' && !pendingDeclaration) {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">DECLARE YOUR INTENT</div>
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => onAction('declare', { declaration: 'HIGH' })}>HIGH</Button>
+          <Button variant="outline" className="border-slate-500/50 hover:bg-slate-500/20 text-slate-100" onClick={() => onAction('declare', { declaration: 'FOLD' })}>FOLD</Button>
+          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => onAction('declare', { declaration: 'LOW' })}>LOW</Button>
+        </div>
+      </div>
+    );
+  }
+
   const handleBetAction = (actionName: string, amount?: number) => {
     if (phase === 'DECLARE_AND_BET') {
       onAction('declare_and_bet', { declaration: pendingDeclaration, action: actionName, amount });
@@ -124,7 +143,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       
       <div className="flex justify-between items-center px-2">
         <Badge variant="outline" className="bg-black/50 font-mono">Pot: ${pot}</Badge>
-        <Badge variant="outline" className="bg-black/50 font-mono">To Call: ${callAmount}</Badge>
+        {callAmount > 0 && <Badge variant="outline" className="bg-black/50 font-mono">To Call: ${callAmount}</Badge>}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

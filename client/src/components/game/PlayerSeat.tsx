@@ -92,6 +92,11 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                Low: {player.score.low}
              </Badge>
           )}
+          {player.score.description && (
+             <Badge className={cn("w-full justify-center text-[10px] py-1", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+               {player.score.description}
+             </Badge>
+          )}
         </div>
       )}
 
