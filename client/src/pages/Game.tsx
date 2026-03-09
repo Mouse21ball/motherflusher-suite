@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { useMockEngine } from "@/lib/poker/MockEngine";
+import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
+import { SwingPokerMode } from "@/lib/poker/modes/swing";
 import { GameTable } from "@/components/game/GameTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 
 export default function Game() {
   const myId = 'p1';
-  const { state, handleAction } = useMockEngine(myId);
+  const { state, handleAction } = useGameEngine(SwingPokerMode, myId);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
 
   const me = state.players.find(p => p.id === myId);
