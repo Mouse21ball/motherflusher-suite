@@ -14,7 +14,6 @@ export interface HandEvaluation {
   description: string;
   usedHoleCardIndices: number[];
   usedCommunityCardIndices: number[];
-  scoreArr?: number[];
 }
 
 export interface Player {

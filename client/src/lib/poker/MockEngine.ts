@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase } from './types';
-import { getBestHands, compareHigh, compareLow } from './evaluator';
 
 // Mock Deck Generator
 const createDeck = (): CardType[] => {
@@ -546,23 +545,19 @@ export function useMockEngine(myId: string = 'p1') {
             const newCards = p.cards.map(c => ({...c, isHidden: false}));
             
             // Generate mock hand evaluations
-            const evalResult = getBestHands(newCards, s.communityCards);
-            
             const score = {
-              high: evalResult.high?.description || 'High Card',
-              low: evalResult.low?.description || 'No Low',
-              highEval: evalResult.high ? {
-                description: evalResult.high.description,
-                usedHoleCardIndices: evalResult.high.usedHoleCardIndices,
-                usedCommunityCardIndices: evalResult.high.usedCommunityCardIndices,
-                scoreArr: evalResult.high.scoreArr
-              } : undefined,
-              lowEval: evalResult.low ? {
-                description: evalResult.low.description,
-                usedHoleCardIndices: evalResult.low.usedHoleCardIndices,
-                usedCommunityCardIndices: evalResult.low.usedCommunityCardIndices,
-                scoreArr: evalResult.low.scoreArr
-              } : undefined
+              high: ['Two Pair', 'Three of a Kind', 'Flush', 'Full House'][Math.floor(Math.random() * 4)],
+              low: ['8-Low', '7-Low', 'Perfect 6', 'No Low'][Math.floor(Math.random() * 4)],
+              highEval: {
+                description: 'Mock High Hand',
+                usedHoleCardIndices: [0, 1],
+                usedCommunityCardIndices: [0, 1, 2]
+              },
+              lowEval: {
+                description: 'Mock Low Hand',
+                usedHoleCardIndices: [0, 1],
+                usedCommunityCardIndices: [0, 1, 2]
+              }
             };
             
             return { ...p, cards: newCards, score };
@@ -571,44 +566,38 @@ export function useMockEngine(myId: string = 'p1') {
           // Generate my score too if I'm active
           const myIndex = finalPlayers.findIndex(p => p.id === myId);
           if (myIndex !== -1 && finalPlayers[myIndex].status !== 'folded') {
-            const myEvalResult = getBestHands(finalPlayers[myIndex].cards, s.communityCards);
             finalPlayers[myIndex] = {
               ...finalPlayers[myIndex],
               score: {
-                high: myEvalResult.high?.description || 'High Card',
-                low: myEvalResult.low?.description || 'No Low',
-                highEval: myEvalResult.high ? {
-                  description: myEvalResult.high.description,
-                  usedHoleCardIndices: myEvalResult.high.usedHoleCardIndices,
-                  usedCommunityCardIndices: myEvalResult.high.usedCommunityCardIndices,
-                  scoreArr: myEvalResult.high.scoreArr
-                } : undefined,
-                lowEval: myEvalResult.low ? {
-                  description: myEvalResult.low.description,
-                  usedHoleCardIndices: myEvalResult.low.usedHoleCardIndices,
-                  usedCommunityCardIndices: myEvalResult.low.usedCommunityCardIndices,
-                  scoreArr: myEvalResult.low.scoreArr
-                } : undefined
+                high: ['Two Pair', 'Three of a Kind', 'Flush', 'Full House'][Math.floor(Math.random() * 4)],
+                low: ['8-Low', '7-Low', 'Perfect 6', 'No Low'][Math.floor(Math.random() * 4)],
+                highEval: {
+                  description: 'Mock High Hand',
+                  usedHoleCardIndices: [0, 1],
+                  usedCommunityCardIndices: [0, 1, 2]
+                },
+                lowEval: {
+                  description: 'Mock Low Hand',
+                  usedHoleCardIndices: [0, 1],
+                  usedCommunityCardIndices: [0, 1, 2]
+                }
               }
             };
           }
           
           // MOCK EVALUATOR LOGIC
-          const highPlayers = finalPlayers.filter(p => (p.declaration === 'HIGH' || p.declaration === 'SWING') && p.score?.highEval);
-          const lowPlayers = finalPlayers.filter(p => (p.declaration === 'LOW' || p.declaration === 'SWING') && p.score?.lowEval);
+          const highPlayers = finalPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
+          const lowPlayers = finalPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING');
           
           let highWinner: Player | null = null;
           let lowWinners: Player[] = [];
           
-          if (highPlayers.length > 0) {
-            highPlayers.sort((a, b) => compareHigh(b.score!.highEval!.scoreArr!, a.score!.highEval!.scoreArr!));
-            highWinner = highPlayers[0];
-          }
+          if (highPlayers.length > 0) highWinner = highPlayers[Math.floor(Math.random() * highPlayers.length)];
           
           if (lowPlayers.length > 0) {
-            lowPlayers.sort((a, b) => compareLow(b.score!.lowEval!.scoreArr!, a.score!.lowEval!.scoreArr!));
-            const bestLowScore = lowPlayers[0].score!.lowEval!.scoreArr!;
-            lowWinners = lowPlayers.filter(p => compareLow(p.score!.lowEval!.scoreArr!, bestLowScore) === 0);
+            const tiedLows = lowPlayers.slice(0, 2); 
+            if (tiedLows.length === 1) lowWinners = [tiedLows[0]];
+            else lowWinners = Math.random() > 0.5 ? [tiedLows[0]] : tiedLows;
           }
           
           let payoutMessage = "Showdown!";
