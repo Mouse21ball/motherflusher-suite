@@ -146,7 +146,7 @@ export function useMockEngine(myId: string = 'p1') {
     if (state.activePlayerId === myId) return;
     
     // Only act in these phases
-    if (!['DRAW', 'BET_1', 'BET_2', 'DECLARE_AND_BET'].includes(state.phase)) return;
+    if (!['ANTE', 'DRAW', 'BET_1', 'BET_2', 'DECLARE_AND_BET'].includes(state.phase)) return;
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
@@ -164,7 +164,12 @@ export function useMockEngine(myId: string = 'p1') {
         
         const bIdx = newPlayers.findIndex(p => p.id === botId);
 
-        if (s.phase === 'DRAW') {
+        if (s.phase === 'ANTE') {
+            newPlayers[bIdx] = { ...newPlayers[bIdx], chips: newPlayers[bIdx].chips - 1, hasActed: true };
+            newPot += 1;
+            addMessage(`${bot.name} paid $1 Ante`);
+        }
+        else if (s.phase === 'DRAW') {
           // Bot draws 0-2 cards
           const numDraws = Math.floor(Math.random() * 3);
           if (numDraws > 0 && newDeck.length >= numDraws) {
@@ -260,7 +265,7 @@ export function useMockEngine(myId: string = 'p1') {
       setState(s => {
         const newPlayers = s.players.map(p => {
           // All cards start hidden to the table, but we show them on the client if it's our id
-          const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: true}));
+          const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
           return { ...p, cards };
         });
         return { ...s, players: newPlayers, deck: newDeck };
@@ -340,22 +345,24 @@ export function useMockEngine(myId: string = 'p1') {
 
     if (action === 'ante') {
       setState(s => {
-        const newPlayers = s.players.map(p => ({ ...p, chips: p.chips - 1 }));
-        
-        // After everyone antes, action should start to the left of the dealer for the first drawing round (though DRAW doesn't have betting, players still act)
-        const dealerIdx = getDealerIndex(newPlayers);
-        const firstToActIdx = getNextActivePlayerIndex(newPlayers, dealerIdx);
+        const newPlayers = s.players.map(p => {
+          if (p.id === myId) return { ...p, chips: p.chips - 1, hasActed: true };
+          return p;
+        });
         
         return {
             ...s,
-            pot: s.pot + s.players.length * 1, // Everyone antes 1
-            players: newPlayers,
-            activePlayerId: newPlayers[firstToActIdx].id
+            pot: s.pot + 1, // Add my ante
+            players: newPlayers
         }
       });
       
-      addMessage("Everyone paid $1 Ante");
-      advancePhase(); // Go to DEAL
+      addMessage("You paid $1 Ante");
+      
+      // Since it's a mock engine, we simulate other active players paying the ante
+      // We process action end, which will handle turning it to the next player
+      // or advancing the phase if everyone has anted
+      processActionEnd();
       return;
     }
 
