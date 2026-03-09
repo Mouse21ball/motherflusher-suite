@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { GamePhase } from "@/lib/poker/types";
-import { useState } from "react";
+import { GamePhase, Declaration } from "@/lib/poker/types";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface ActionControlsProps {
@@ -17,10 +17,18 @@ interface ActionControlsProps {
 
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
+  const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   
   const callAmount = currentBet - myBet;
   const canCheck = callAmount === 0;
   const maxBet = Math.min(chips, pot + callAmount * 2); // Pot limit simplified
+
+  useEffect(() => {
+    if (phase !== 'DECLARE_AND_BET') {
+      setPendingDeclaration(null);
+    }
+    setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
+  }, [phase, callAmount]);
 
   if (!isMyTurn) {
     return (
@@ -46,19 +54,6 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <Button size="lg" onClick={() => onAction('ante')} className="w-full sm:w-auto font-bold uppercase">
           Pay Ante ($1)
         </Button>
-      </div>
-    );
-  }
-
-  if (phase === 'DECLARE') {
-    return (
-      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10">
-        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">DECLARE YOUR INTENT</div>
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => onAction('declare', 1)}>HIGH</Button>
-          <Button variant="outline" className="border-purple-500/50 hover:bg-purple-500/20 text-purple-100" onClick={() => onAction('declare', 3)}>SWING</Button>
-          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => onAction('declare', 2)}>LOW</Button>
-        </div>
       </div>
     );
   }
@@ -95,18 +90,48 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  if (phase === 'DECLARE_AND_BET' && !pendingDeclaration) {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">STEP 1: DECLARE YOUR INTENT</div>
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => setPendingDeclaration('HIGH')}>HIGH</Button>
+          <Button variant="outline" className="border-purple-500/50 hover:bg-purple-500/20 text-purple-100" onClick={() => setPendingDeclaration('SWING')}>SWING</Button>
+          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => setPendingDeclaration('LOW')}>LOW</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleBetAction = (actionName: string, amount?: number) => {
+    if (phase === 'DECLARE_AND_BET') {
+      onAction('declare_and_bet', { declaration: pendingDeclaration, action: actionName, amount });
+    } else {
+      onAction(actionName, amount);
+    }
+  };
+
   return (
-    <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
-      <div className="flex justify-between items-center mb-4 px-2">
+    <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl flex flex-col gap-4">
+      {phase === 'DECLARE_AND_BET' && (
+        <div className="flex justify-between items-center px-2">
+          <span className="text-xs font-mono text-white/50">STEP 2: BETTING ACTION</span>
+          <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border-blue-500/30">
+            Declaring: {pendingDeclaration}
+          </Badge>
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center px-2">
         <Badge variant="outline" className="bg-black/50 font-mono">Pot: ${pot}</Badge>
         <Badge variant="outline" className="bg-black/50 font-mono">To Call: ${callAmount}</Badge>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button 
           variant="destructive" 
           className="bg-red-500/20 text-red-400 hover:bg-red-500/40 border-0"
-          onClick={() => onAction('fold')}
+          onClick={() => handleBetAction('fold')}
         >
           Fold
         </Button>
@@ -114,7 +139,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <Button 
           variant="secondary"
           className="bg-slate-800 text-white hover:bg-slate-700 border-0"
-          onClick={() => onAction(canCheck ? 'check' : 'call')}
+          onClick={() => handleBetAction(canCheck ? 'check' : 'call')}
         >
           {canCheck ? 'Check' : `Call $${callAmount}`}
         </Button>
@@ -122,26 +147,37 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <div className="col-span-2 flex gap-2">
           <Button 
             className="flex-1 font-bold"
-            onClick={() => onAction('raise', betAmount)}
-            disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2)}
+            onClick={() => handleBetAction('raise', betAmount)}
+            disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < betAmount}
           >
             {callAmount > 0 ? 'Raise' : 'Bet'} ${betAmount}
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 px-2">
-        <span className="text-xs font-mono text-slate-400 min-w-[30px]">${callAmount > 0 ? callAmount * 2 : 2}</span>
-        <Slider 
-          value={[betAmount]} 
-          min={callAmount > 0 ? callAmount * 2 : 2} 
-          max={maxBet} 
-          step={1}
-          onValueChange={(val) => setBetAmount(val[0])}
-          className="flex-1"
-        />
-        <span className="text-xs font-mono text-slate-400 min-w-[40px]">${maxBet}</span>
-      </div>
+      {chips > 0 && maxBet > 0 && (
+        <div className="flex items-center gap-4 px-2">
+          <span className="text-xs font-mono text-slate-400 min-w-[30px]">${callAmount > 0 ? callAmount * 2 : 2}</span>
+          <Slider 
+            value={[betAmount]} 
+            min={callAmount > 0 ? callAmount * 2 : 2} 
+            max={maxBet} 
+            step={1}
+            onValueChange={(val) => setBetAmount(val[0])}
+            className="flex-1"
+          />
+          <span className="text-xs font-mono text-slate-400 min-w-[40px]">${maxBet}</span>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-[10px] h-6 px-2 border-orange-500/50 text-orange-400 hover:bg-orange-500/20"
+            onClick={() => handleBetAction('raise', chips)}
+          >
+            ALL IN
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

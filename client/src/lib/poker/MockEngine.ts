@@ -110,7 +110,11 @@ export function useMockEngine(myId: string = 'p1') {
     }
     
     if (action === 'restart') {
-      setState(initialState);
+      setState(s => ({
+        ...initialState,
+        pot: s.pot, // Preserve pot for rollover
+        messages: [{ id: Math.random().toString(), text: 'New hand started.', time: Date.now() }]
+      }));
       setDeck([]);
       return;
     }
@@ -234,28 +238,130 @@ export function useMockEngine(myId: string = 'p1') {
       }, 1000);
     }
 
-    if (action === 'declare' && typeof payload === 'number') {
-      const declarations: Record<number, Declaration> = { 1: 'HIGH', 2: 'LOW', 3: 'SWING' };
-      setState(s => ({
-        ...s,
-        players: s.players.map(p => p.id === myId ? { ...p, declaration: declarations[payload] } : p)
-      }));
-      addMessage(`You declared ${declarations[payload]}`);
+    if (action === 'declare_and_bet' && payload) {
+      const { declaration, action: betAction, amount } = payload;
+      
+      setState(s => {
+        let newPot = s.pot;
+        let newCurrentBet = s.currentBet;
+        
+        let newPlayers = s.players.map(p => {
+          if (p.id !== myId) return p;
+          
+          let pChips = p.chips;
+          let pBet = p.bet;
+          let pStatus = p.status;
+          
+          if (betAction === 'fold') {
+            pStatus = 'folded';
+          } else if (betAction === 'call' || betAction === 'check') {
+            const callAmount = s.currentBet - p.bet;
+            pChips -= callAmount;
+            pBet = s.currentBet;
+            newPot += callAmount;
+          } else if (betAction === 'raise' && amount) {
+            pChips -= amount;
+            pBet = amount;
+            newPot += amount;
+            newCurrentBet = amount;
+          }
+          
+          return { ...p, status: pStatus, chips: pChips, bet: pBet, declaration };
+        });
+        
+        return { ...s, pot: newPot, currentBet: newCurrentBet, players: newPlayers };
+      });
+      
+      addMessage(`You declared ${payload.declaration} and ${payload.action}`);
       
       // Simulate bots declaring and showdown
       setTimeout(() => {
-        setState(s => ({
-          ...s,
-          players: s.players.map(p => {
+        setState(s => {
+          let newPot = s.pot;
+          
+          const finalPlayers = s.players.map(p => {
             if (p.id === myId || p.status === 'folded') return p;
             
             // Reveal all remaining bot cards
             const newCards = p.cards.map(c => ({...c, isHidden: false}));
-            const randDec = [1, 2, 3][Math.floor(Math.random() * 3)];
+            const randDec = [1, 2, 3][Math.floor(Math.random() * 3)] as 1 | 2 | 3;
+            const declarations: Record<number, Declaration> = { 1: 'HIGH', 2: 'LOW', 3: 'SWING' };
             return { ...p, declaration: declarations[randDec], cards: newCards };
-          })
-        }));
-        advancePhase(); // -> SHOWDOWN
+          });
+          
+          // MOCK EVALUATOR LOGIC:
+          // 1. Group players by declaration
+          const highPlayers = finalPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
+          const lowPlayers = finalPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING');
+          
+          let highWinner: Player | null = null;
+          let lowWinners: Player[] = [];
+          
+          // Mock HIGH eval
+          if (highPlayers.length > 0) {
+            highWinner = highPlayers[Math.floor(Math.random() * highPlayers.length)];
+          }
+          
+          // Mock LOW eval with FACTOR CARD rule
+          if (lowPlayers.length > 0) {
+            // Assume we evaluated and found a tie for best low hand
+            const tiedLows = lowPlayers.slice(0, 2); 
+            
+            if (tiedLows.length === 1) {
+              lowWinners = [tiedLows[0]];
+            } else {
+              // Apply factor card tiebreaker
+              // Compare the lowest card of the tied hands by suit (Spades > Hearts > Diamonds > Clubs)
+              const factorCardBreaksTie = Math.random() > 0.5;
+              if (factorCardBreaksTie) {
+                // Factor rule produces a single winner
+                lowWinners = [tiedLows[0]];
+              } else {
+                // Still tied (exact identical cards if using multiple decks, or mock scenario)
+                lowWinners = tiedLows;
+              }
+            }
+          }
+          
+          let payoutMessage = "Showdown!";
+          
+          if (!highWinner && lowWinners.length === 0) {
+            // Rollover
+            payoutMessage = `No qualifiers. $${newPot} rolls over!`;
+          } else {
+            // Payout
+            const halfPot = newPot / 2;
+            let highPot = halfPot;
+            let lowPot = halfPot;
+            
+            if (!highWinner) lowPot += highPot; // Scoop if no high
+            if (lowWinners.length === 0) highPot += lowPot; // Scoop if no low
+            
+            if (highWinner) {
+              const p = finalPlayers.find(p => p.id === highWinner!.id);
+              if (p) p.chips += highPot;
+            }
+            
+            if (lowWinners.length > 0) {
+              const split = lowPot / lowWinners.length;
+              lowWinners.forEach(winner => {
+                const p = finalPlayers.find(p => p.id === winner.id);
+                if (p) p.chips += split;
+              });
+            }
+            
+            newPot = 0; // Pot is cleared
+            payoutMessage = "Pot distributed to winners.";
+          }
+          
+          return { 
+            ...s, 
+            players: finalPlayers, 
+            phase: 'SHOWDOWN',
+            pot: newPot,
+            messages: [...s.messages, { id: Math.random().toString(), text: payoutMessage, time: Date.now() }].slice(-5)
+          };
+        });
       }, 1500);
     }
 
