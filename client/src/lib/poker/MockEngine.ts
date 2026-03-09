@@ -308,6 +308,12 @@ export function useMockEngine(myId: string = 'p1') {
         const newPlayers = s.players.map(p => {
           // All cards start hidden to the table, but we show them on the client if it's our id
           const cards = freshDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
+          if (p.id === myId) {
+            cards.sort((a, b) => {
+              const val = (r: string) => r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : parseInt(r, 10);
+              return val(b.rank) - val(a.rank);
+            });
+          }
           return { ...p, cards };
         });
         const newCommunityCards = freshDeck.splice(0, 15).map(c => ({...c, isHidden: true}));
@@ -506,6 +512,10 @@ export function useMockEngine(myId: string = 'p1') {
               const newCards = [...p.cards];
               indicesToDiscard.forEach(idx => {
                 newCards[idx] = { ...newDeck.shift()!, isHidden: true };
+              });
+              newCards.sort((a, b) => {
+                const val = (r: string) => r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : parseInt(r, 10);
+                return val(b.rank) - val(a.rank);
               });
               return { ...p, cards: newCards, hasActed: true };
             });
