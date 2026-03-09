@@ -43,7 +43,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}>
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
-          const canSelect = isSelf && selectableCards && (card.isHidden || selectedCardIndices.includes(idx));
+          const canSelect = isSelf && selectableCards;
           
           return (
             <div 

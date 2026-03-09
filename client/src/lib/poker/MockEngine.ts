@@ -154,9 +154,6 @@ export function useMockEngine(myId: string = 'p1') {
 
     const timer = setTimeout(() => {
       setState(s => {
-        const nextIdx = getNextActivePlayerIndex(s.players, s.players.findIndex(p => p.id === botId));
-        const isLastToAct = nextIdx === getNextActivePlayerIndex(s.players, getDealerIndex(s.players)); // Simplistic round-end check
-        
         let newPlayers = [...s.players];
         let newDeck = [...s.deck];
         let newPot = s.pot;
@@ -201,22 +198,41 @@ export function useMockEngine(myId: string = 'p1') {
           addMessage(`${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`);
         }
 
-        // Advance phase if everyone has acted. 
-        // This is a naive implementation: we assume the round ends when it circles back to the first player
-        const nextState = {
-           ...s,
-           players: newPlayers,
-           deck: newDeck,
-           pot: newPot,
-           currentBet: newCurrentBet,
-           activePlayerId: s.players[nextIdx].id
-        };
+        const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
+        const allActed = activePlayers.every(p => p.hasActed);
+        const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
+        const roundOver = allActed && allBetsMatch;
 
-        if (isLastToAct) {
+        if (roundOver) {
             setTimeout(advancePhase, 500);
+            return {
+               ...s,
+               players: newPlayers,
+               deck: newDeck,
+               pot: newPot,
+               currentBet: newCurrentBet
+            };
+        } else {
+            let nextIdx = (bIdx + 1) % newPlayers.length;
+            let count = 0;
+            while (count < newPlayers.length) {
+                const p = newPlayers[nextIdx];
+                if (p.status === 'active' && p.chips > 0 && (!p.hasActed || p.bet < newCurrentBet)) {
+                    break;
+                }
+                nextIdx = (nextIdx + 1) % newPlayers.length;
+                count++;
+            }
+            
+            return {
+               ...s,
+               players: newPlayers,
+               deck: newDeck,
+               pot: newPot,
+               currentBet: newCurrentBet,
+               activePlayerId: newPlayers[nextIdx].id
+            };
         }
-
-        return nextState;
       });
     }, 1500);
 
@@ -343,29 +359,6 @@ export function useMockEngine(myId: string = 'p1') {
       return;
     }
 
-    if (action === 'ante') {
-      setState(s => {
-        const newPlayers = s.players.map(p => {
-          if (p.id === myId) return { ...p, chips: p.chips - 1, hasActed: true };
-          return p;
-        });
-        
-        return {
-            ...s,
-            pot: s.pot + 1, // Add my ante
-            players: newPlayers
-        }
-      });
-      
-      addMessage("You paid $1 Ante");
-      
-      // Since it's a mock engine, we simulate other active players paying the ante
-      // We process action end, which will handle turning it to the next player
-      // or advancing the phase if everyone has anted
-      processActionEnd();
-      return;
-    }
-
     const processActionEnd = () => {
        setState(s => {
            const myIndex = s.players.findIndex(p => p.id === myId);
@@ -384,6 +377,42 @@ export function useMockEngine(myId: string = 'p1') {
            }
        });
     };
+
+    if (action === 'ante') {
+      setState(s => {
+        const newPlayers = s.players.map(p => {
+          if (p.id === myId) return { ...p, chips: p.chips - 1, hasActed: true };
+          return p;
+        });
+        
+        return {
+            ...s,
+            pot: s.pot + 1, // Add my ante
+            players: newPlayers
+        }
+      });
+      
+      addMessage("You paid $1 Ante");
+      
+      // Check if everyone has anted
+      setState(s => {
+        const activePlayers = s.players.filter(p => p.status === 'active');
+        const allAnted = activePlayers.every(p => p.hasActed);
+        
+        if (allAnted) {
+          setTimeout(advancePhase, 500);
+          return s;
+        } else {
+           const myIndex = s.players.findIndex(p => p.id === myId);
+           const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
+           return {
+               ...s,
+               activePlayerId: s.players[nextIdx].id
+           }
+        }
+      });
+      return;
+    }
 
 
     if (action === 'fold') {
