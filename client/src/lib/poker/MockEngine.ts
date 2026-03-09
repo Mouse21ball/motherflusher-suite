@@ -275,17 +275,27 @@ export function useMockEngine(myId: string = 'p1') {
   // Simulating Game Loop for dealing
   useEffect(() => {
     if (state.phase === 'DEAL') {
-      // Deal 5 cards to everyone
-      const newDeck = createDeck();
-      
       setState(s => {
+        // Generate deck inside setState so it's fresh if React runs the updater twice
+        const freshDeck = createDeck();
+        
         const newPlayers = s.players.map(p => {
           // All cards start hidden to the table, but we show them on the client if it's our id
-          const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
+          const cards = freshDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
           return { ...p, cards };
         });
-        const newCommunityCards = newDeck.splice(0, 15).map(c => ({...c, isHidden: true}));
-        return { ...s, players: newPlayers, communityCards: newCommunityCards, deck: newDeck };
+        const newCommunityCards = freshDeck.splice(0, 15).map(c => ({...c, isHidden: true}));
+        
+        // Debug Deck Integrity
+        const dealtCards = [...newPlayers.flatMap(p => p.cards), ...newCommunityCards];
+        const uniqueCards = new Set(dealtCards.map(c => `${c.rank}-${c.suit}`));
+        if (uniqueCards.size !== dealtCards.length) {
+            console.error("CRITICAL ERROR: Duplicate cards dealt!", dealtCards);
+        } else {
+            console.log(`Deck integrity verified. Dealt ${dealtCards.length} unique cards.`);
+        }
+
+        return { ...s, players: newPlayers, communityCards: newCommunityCards, deck: freshDeck };
       });
       
       setTimeout(advancePhase, 1500);
