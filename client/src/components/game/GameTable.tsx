@@ -4,9 +4,12 @@ import { PlayerSeat } from "./PlayerSeat";
 interface GameTableProps {
   gameState: GameState;
   myId: string;
+  selectedCardIndices: number[];
+  onCardClick: (index: number) => void;
+  selectableCards: boolean;
 }
 
-export function GameTable({ gameState, myId }: GameTableProps) {
+export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards }: GameTableProps) {
   // Logic to arrange players around the table, putting "me" at the bottom
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
@@ -36,11 +39,11 @@ export function GameTable({ gameState, myId }: GameTableProps) {
         
         {/* Table Center Info */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center">
-          <div className="text-white/30 text-sm font-mono tracking-[0.2em] mb-4 uppercase">
+          <div className="text-white/30 text-sm font-mono tracking-[0.2em] mb-4 uppercase text-center">
             {gameState.phase.replace('_', ' ')}
           </div>
           
-          <div className="bg-black/40 backdrop-blur-sm border border-white/10 px-6 py-3 rounded-full flex flex-col items-center">
+          <div className="bg-black/40 backdrop-blur-sm border border-white/10 px-6 py-3 rounded-full flex flex-col items-center transition-all duration-500 scale-100 hover:scale-105">
             <span className="text-[10px] text-primary uppercase font-bold tracking-widest mb-1">Total Pot</span>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
@@ -53,7 +56,7 @@ export function GameTable({ gameState, myId }: GameTableProps) {
           {/* Game Logs / Messages */}
           <div className="absolute top-full mt-8 w-64 text-center">
             {gameState.messages.slice(-1).map(msg => (
-              <p key={msg.id} className="text-white/60 text-xs font-mono animate-in fade-in slide-in-from-bottom-2">
+              <p key={msg.id} className="text-white/80 text-sm font-mono animate-in fade-in slide-in-from-bottom-2 drop-shadow-md">
                 {msg.text}
               </p>
             ))}
@@ -71,6 +74,9 @@ export function GameTable({ gameState, myId }: GameTableProps) {
                seatNumber={i}
                isActive={player?.id === gameState.activePlayerId}
                isSelf={player?.id === myId}
+               selectedCardIndices={player?.id === myId ? selectedCardIndices : undefined}
+               onCardClick={onCardClick}
+               selectableCards={selectableCards}
              />
           </div>
         );

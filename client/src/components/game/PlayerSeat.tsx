@@ -9,9 +9,12 @@ interface PlayerSeatProps {
   isSelf?: boolean;
   seatNumber: number;
   className?: string;
+  selectedCardIndices?: number[];
+  onCardClick?: (index: number) => void;
+  selectableCards?: boolean;
 }
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards }: PlayerSeatProps) {
   if (!player) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-white/10 bg-black/20 text-white/30 w-24 h-24", className)}>
@@ -36,14 +39,25 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className }: 
 
       {/* Cards */}
       <div className="relative flex justify-center -space-x-8 mb-[-20px] z-10 scale-75 origin-bottom">
-        {player.cards.map((card, idx) => (
-          <PlayingCard 
-            key={idx} 
-            card={card} 
-            className="rotate-[-5deg] hover:rotate-0 transition-transform origin-bottom" 
-            style={{ transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px)` }}
-          />
-        ))}
+        {player.cards.map((card, idx) => {
+          const isSelected = selectedCardIndices.includes(idx);
+          const canSelect = isSelf && selectableCards && (card.isHidden || selectedCardIndices.includes(idx));
+          
+          return (
+            <PlayingCard 
+              key={idx} 
+              card={card} 
+              selectable={canSelect}
+              selected={isSelected}
+              onClick={() => canSelect && onCardClick?.(idx)}
+              className="transition-all duration-300 origin-bottom" 
+              style={{ 
+                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px)' : ''}`,
+                zIndex: isSelected ? 30 : 10 + idx
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Avatar & Info Container */}

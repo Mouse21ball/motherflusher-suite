@@ -10,11 +10,12 @@ interface ActionControlsProps {
   myBet: number;
   pot: number;
   chips: number;
-  onAction: (action: string, amount?: number) => void;
+  onAction: (action: string, payload?: any) => void;
   isMyTurn: boolean;
+  selectedCardsCount: number;
 }
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   
   const callAmount = currentBet - myBet;
@@ -52,7 +53,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase === 'DECLARE') {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10">
-        <div className="text-center text-sm font-mono text-white/70 mb-4">DECLARE YOUR INTENT</div>
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
           <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => onAction('declare', 1)}>HIGH</Button>
           <Button variant="outline" className="border-purple-500/50 hover:bg-purple-500/20 text-purple-100" onClick={() => onAction('declare', 3)}>SWING</Button>
@@ -65,8 +66,10 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase === 'DRAW') {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO 2 CARDS TO DISCARD</div>
-        <Button onClick={() => onAction('draw')} size="lg" className="w-full sm:w-auto">Confirm Draw</Button>
+        <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO 2 CARDS TO DISCARD ({selectedCardsCount}/2)</div>
+        <Button onClick={() => onAction('draw')} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
+          {selectedCardsCount > 0 ? `Discard ${selectedCardsCount} Cards` : 'Stand Pat (Keep All)'}
+        </Button>
       </div>
     );
   }
@@ -74,8 +77,20 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase.startsWith('REVEAL')) {
      return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-white/70 mb-4">SELECT A CARD TO REVEAL</div>
-        <Button onClick={() => onAction('reveal')} size="lg" className="w-full sm:w-auto" disabled>Waiting for selection...</Button>
+        <div className="text-sm font-mono text-white/70 mb-4">SELECT A HIDDEN CARD TO REVEAL</div>
+        <Button onClick={() => onAction('reveal')} size="lg" className="w-full sm:w-auto" disabled={selectedCardsCount !== 1}>
+          {selectedCardsCount === 1 ? 'Reveal Selected Card' : 'Waiting for selection...'}
+        </Button>
+      </div>
+    );
+  }
+
+  if (phase === 'SHOWDOWN') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex justify-center">
+        <Button size="lg" onClick={() => onAction('restart')} className="w-full sm:w-auto font-bold uppercase">
+          Next Hand
+        </Button>
       </div>
     );
   }
@@ -125,7 +140,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           onValueChange={(val) => setBetAmount(val[0])}
           className="flex-1"
         />
-        <span className="text-xs font-mono text-slate-400 min-w-[40px]">Pot: ${maxBet}</span>
+        <span className="text-xs font-mono text-slate-400 min-w-[40px]">${maxBet}</span>
       </div>
     </div>
   );

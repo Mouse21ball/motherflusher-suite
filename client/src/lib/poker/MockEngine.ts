@@ -38,7 +38,7 @@ const initialState: GameState = {
   minBet: 2,
   activePlayerId: null,
   players: mockPlayers,
-  messages: [{ id: 'm1', text: 'Waiting for game to start...', time: Date.now() }]
+  messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }]
 };
 
 export function useMockEngine(myId: string = 'p1') {
@@ -64,12 +64,24 @@ export function useMockEngine(myId: string = 'p1') {
       const nextIdx = (phases.indexOf(s.phase) + 1) % phases.length;
       const nextPhase = phases[nextIdx];
       
-      addMessage(`Phase changed to ${nextPhase}`);
-      return { ...s, phase: nextPhase, currentBet: 0, activePlayerId: myId };
+      addMessage(`Phase changed to ${nextPhase.replace('_', ' ')}`);
+      
+      // Reset bets on new betting round
+      const isBetRound = nextPhase.startsWith('BET');
+      return { 
+        ...s, 
+        phase: nextPhase, 
+        currentBet: 0, 
+        activePlayerId: myId,
+        players: s.players.map(p => ({
+          ...p,
+          bet: isBetRound ? 0 : p.bet
+        }))
+      };
     });
   };
 
-  // Simulating Game Loop
+  // Simulating Game Loop for dealing and bot actions
   useEffect(() => {
     if (state.phase === 'DEAL') {
       // Deal 5 cards to everyone
@@ -77,22 +89,29 @@ export function useMockEngine(myId: string = 'p1') {
       
       setState(s => {
         const newPlayers = s.players.map(p => {
-          const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId})); // Only I see my cards initially
+          // All cards start hidden to the table, but we show them on the client if it's our id
+          const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: true}));
           return { ...p, cards };
         });
         return { ...s, players: newPlayers };
       });
       setDeck(newDeck);
       
-      setTimeout(advancePhase, 2000);
+      setTimeout(advancePhase, 1500);
     }
   }, [state.phase, myId]);
 
-  const handleAction = useCallback((action: string, amount?: number) => {
+  const handleAction = useCallback((action: string, payload?: any) => {
     if (state.activePlayerId !== myId) return;
 
     if (action === 'start') {
       advancePhase();
+      return;
+    }
+    
+    if (action === 'restart') {
+      setState(initialState);
+      setDeck([]);
       return;
     }
 
@@ -113,7 +132,6 @@ export function useMockEngine(myId: string = 'p1') {
         players: s.players.map(p => p.id === myId ? { ...p, status: 'folded' as const } : p)
       }));
       addMessage("You folded");
-      // Simulate others acting, then advance
       setTimeout(advancePhase, 1000);
     }
 
@@ -132,34 +150,113 @@ export function useMockEngine(myId: string = 'p1') {
       setTimeout(advancePhase, 1000);
     }
 
-    if (action === 'raise' && amount) {
+    if (action === 'raise' && typeof payload === 'number') {
       setState(s => ({
         ...s,
-        currentBet: amount,
-        pot: s.pot + amount,
+        currentBet: payload,
+        pot: s.pot + payload,
         players: s.players.map(p => p.id === myId ? { 
           ...p, 
-          chips: p.chips - amount,
-          bet: amount
+          chips: p.chips - payload,
+          bet: payload
         } : p)
       }));
-      addMessage(`You raised to $${amount}`);
+      addMessage(`You raised to $${payload}`);
       setTimeout(advancePhase, 1000);
     }
 
     if (action === 'draw') {
-      addMessage("You kept your hand");
-      setTimeout(advancePhase, 1000);
+      // payload is array of indices to discard
+      const indicesToDiscard: number[] = payload || [];
+      
+      if (indicesToDiscard.length > 0) {
+        setDeck(currentDeck => {
+          const newDeck = [...currentDeck];
+          
+          setState(s => ({
+            ...s,
+            players: s.players.map(p => {
+              if (p.id !== myId) return p;
+              
+              const newCards = [...p.cards];
+              indicesToDiscard.forEach(idx => {
+                newCards[idx] = { ...newDeck.shift()!, isHidden: true };
+              });
+              return { ...p, cards: newCards };
+            })
+          }));
+          
+          return newDeck;
+        });
+        addMessage(`You discarded ${indicesToDiscard.length} cards`);
+      } else {
+        addMessage("You stood pat");
+      }
+      
+      // Simulate bots drawing
+      addMessage("Other players drew cards");
+      setTimeout(advancePhase, 1500);
+    }
+    
+    if (action === 'reveal') {
+      // payload is the index to reveal
+      const indexToReveal: number = payload;
+      
+      setState(s => ({
+        ...s,
+        players: s.players.map(p => {
+          if (p.id !== myId) return p;
+          const newCards = [...p.cards];
+          newCards[indexToReveal] = { ...newCards[indexToReveal], isHidden: false };
+          return { ...p, cards: newCards };
+        })
+      }));
+      
+      addMessage("You revealed a card");
+      
+      // Simulate bots revealing a card
+      setTimeout(() => {
+        setState(s => ({
+          ...s,
+          players: s.players.map(p => {
+            if (p.id === myId || p.status === 'folded') return p;
+            const newCards = [...p.cards];
+            const hiddenIndices = newCards.map((c, i) => c.isHidden ? i : -1).filter(i => i !== -1);
+            if (hiddenIndices.length > 0) {
+              const randIdx = hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)];
+              newCards[randIdx] = { ...newCards[randIdx], isHidden: false };
+            }
+            return { ...p, cards: newCards };
+          })
+        }));
+        addMessage("Other players revealed a card");
+        setTimeout(advancePhase, 1500);
+      }, 1000);
     }
 
-    if (action === 'declare' && amount) {
+    if (action === 'declare' && typeof payload === 'number') {
       const declarations: Record<number, Declaration> = { 1: 'HIGH', 2: 'LOW', 3: 'SWING' };
       setState(s => ({
         ...s,
-        players: s.players.map(p => p.id === myId ? { ...p, declaration: declarations[amount] } : p)
+        players: s.players.map(p => p.id === myId ? { ...p, declaration: declarations[payload] } : p)
       }));
-      addMessage(`You declared ${declarations[amount]}`);
-      setTimeout(advancePhase, 1000);
+      addMessage(`You declared ${declarations[payload]}`);
+      
+      // Simulate bots declaring and showdown
+      setTimeout(() => {
+        setState(s => ({
+          ...s,
+          players: s.players.map(p => {
+            if (p.id === myId || p.status === 'folded') return p;
+            
+            // Reveal all remaining bot cards
+            const newCards = p.cards.map(c => ({...c, isHidden: false}));
+            const randDec = [1, 2, 3][Math.floor(Math.random() * 3)];
+            return { ...p, declaration: declarations[randDec], cards: newCards };
+          })
+        }));
+        advancePhase(); // -> SHOWDOWN
+      }, 1500);
     }
 
   }, [state, myId]);
