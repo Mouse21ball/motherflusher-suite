@@ -73,6 +73,8 @@ const moveDealer = (players: Player[]): Player[] => {
   }));
 };
 
+import { evaluateBestHand } from './evaluator';
+
 export function useMockEngine(myId: string = 'p1') {
   const [state, setState] = useState<GameState>(initialState);
 
@@ -239,6 +241,30 @@ export function useMockEngine(myId: string = 'p1') {
     return () => clearTimeout(timer);
   }, [state.activePlayerId, state.phase, myId]);
 
+
+  // Continuous Hand Evaluation for Local Player
+  useEffect(() => {
+    if (['REVEAL_TOP_ROW', 'DRAW', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'REVEAL_FACTOR_CARD', 'DECLARE_AND_BET'].includes(state.phase)) {
+      setState(s => {
+        const myPlayerIndex = s.players.findIndex(p => p.id === myId);
+        if (myPlayerIndex === -1 || s.players[myPlayerIndex].status === 'folded') return s;
+
+        const evaluation = evaluateBestHand(s.players[myPlayerIndex].cards, s.communityCards);
+        if (evaluation) {
+          const newPlayers = [...s.players];
+          newPlayers[myPlayerIndex] = {
+            ...newPlayers[myPlayerIndex],
+            score: evaluation
+          };
+          // Only update if evaluation changed to avoid infinite loops
+          if (JSON.stringify(newPlayers[myPlayerIndex].score) !== JSON.stringify(s.players[myPlayerIndex].score)) {
+              return { ...s, players: newPlayers };
+          }
+        }
+        return s;
+      });
+    }
+  }, [state.phase, state.communityCards, state.players.find(p => p.id === myId)?.cards]);
 
   // Automatic phase transitions for reveals
   useEffect(() => {
@@ -602,12 +628,22 @@ export function useMockEngine(myId: string = 'p1') {
           let highWinner: Player | null = null;
           let lowWinners: Player[] = [];
           
-          if (highPlayers.length > 0) highWinner = highPlayers[Math.floor(Math.random() * highPlayers.length)];
+          if (highPlayers.length > 0) {
+            highWinner = highPlayers.reduce((prev, current) => 
+               (prev.score?.highEval?.description || "") > (current.score?.highEval?.description || "") ? prev : current
+            );
+          }
           
           if (lowPlayers.length > 0) {
-            const tiedLows = lowPlayers.slice(0, 2); 
-            if (tiedLows.length === 1) lowWinners = [tiedLows[0]];
-            else lowWinners = Math.random() > 0.5 ? [tiedLows[0]] : tiedLows;
+            const sortedLows = [...lowPlayers].filter(p => p.score?.lowEval?.description !== "No Low").sort((a, b) => {
+              // This is a simple mock, we just want it to pick something consistent
+              const aVal = a.score?.lowEval?.description || "";
+              const bVal = b.score?.lowEval?.description || "";
+              return aVal.localeCompare(bVal);
+            });
+            if (sortedLows.length > 0) {
+              lowWinners = [sortedLows[0]]; // For mock, just take first
+            }
           }
           
           let payoutMessage = "Showdown!";
@@ -628,7 +664,10 @@ export function useMockEngine(myId: string = 'p1') {
             
             if (highWinner) {
               const p = finalPlayers.find(p => p.id === highWinner!.id);
-              if (p) p.chips += highPot;
+              if (p) {
+                 p.chips += highPot;
+                 p.isWinner = true;
+              }
             }
             
             if (lowWinners.length > 0) {
@@ -637,9 +676,19 @@ export function useMockEngine(myId: string = 'p1') {
               lowWinners.forEach((winner, idx) => {
                 const p = finalPlayers.find(p => p.id === winner.id);
                 // Give odd chip to first winner for simplicity
-                if (p) p.chips += split + (idx === 0 ? remainder : 0);
+                if (p) {
+                   p.chips += split + (idx === 0 ? remainder : 0);
+                   p.isWinner = true;
+                }
               });
             }
+            
+            // Mark losers for visual fade
+            finalPlayers.forEach(p => {
+               if (p.status !== 'folded' && !p.isWinner) {
+                  p.isLoser = true;
+               }
+            });
             
             newPot = 0;
             payoutMessage = "Pot distributed to winners.";

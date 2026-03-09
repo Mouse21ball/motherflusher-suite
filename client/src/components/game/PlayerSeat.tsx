@@ -79,11 +79,29 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         })}
       </div>
 
+      {/* Hand Evaluation Display */}
+      {player.score && (isSelf || showdownState) && (
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
+          {((isSelf && !showdownState) || (showdownState && ['HIGH', 'SWING'].includes(player.declaration || ''))) && player.score.high && (
+             <Badge className="w-full justify-center bg-blue-600/90 text-[10px] py-1 border-blue-400">
+               High: {player.score.high}
+             </Badge>
+          )}
+          {((isSelf && !showdownState) || (showdownState && ['LOW', 'SWING'].includes(player.declaration || ''))) && player.score.low && (
+             <Badge className="w-full justify-center bg-purple-600/90 text-[10px] py-1 border-purple-400">
+               Low: {player.score.low}
+             </Badge>
+          )}
+        </div>
+      )}
+
       {/* Avatar & Info Container */}
       <div className={cn(
         "relative w-full min-w-[100px] bg-slate-900 rounded-lg p-2 border-2 shadow-xl z-20 flex flex-col items-center",
         isActive ? "border-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-slate-700",
-        isSelf && !isActive ? "border-blue-500/50" : ""
+        isSelf && !isActive ? "border-blue-500/50" : "",
+        showdownState && player.isWinner && "border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)] animate-pulse",
+        showdownState && player.isLoser && "opacity-40 grayscale"
       )}>
         <div className="font-semibold text-sm truncate max-w-full text-white">
           {player.name}
@@ -92,32 +110,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           <span className="opacity-70">$</span>{player.chips}
         </div>
 
-        {/* Hand Evaluation Display during Showdown */}
-        {showdownState && player.score && (
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
-            {['HIGH', 'SWING'].includes(player.declaration || '') && player.score.high && (
-               <Badge className="w-full justify-center bg-blue-600/90 text-[10px] py-1 border-blue-400">
-                 High: {player.score.high}
-               </Badge>
-            )}
-            {['LOW', 'SWING'].includes(player.declaration || '') && player.score.low && (
-               <Badge className="w-full justify-center bg-purple-600/90 text-[10px] py-1 border-purple-400">
-                 Low: {player.score.low}
-               </Badge>
-            )}
-          </div>
-        )}
-
-        {/* Status/Declaration Badge */}
-        {player.declaration && (
-          <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-blue-600 text-white border-none shadow-sm">
-            {player.declaration}
-          </Badge>
-        )}
-        {player.status === 'folded' && !player.declaration && (
-          <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold">Folded</Badge>
-        )}
       </div>
+
+      {/* Status/Declaration Badge */}
+      {player.declaration && (
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-blue-600 text-white border-none shadow-sm z-30">
+          {player.declaration}
+        </Badge>
+      )}
+      {player.status === 'folded' && !player.declaration && (
+        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Folded</Badge>
+      )}
 
       {/* Current Bet */}
       {player.bet > 0 && (

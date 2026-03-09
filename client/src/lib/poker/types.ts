@@ -27,6 +27,8 @@ export interface Player {
   isDealer: boolean;
   declaration: Declaration;
   hasActed?: boolean;
+  isWinner?: boolean;
+  isLoser?: boolean;
   score?: {
     high: string;
     low: string;
