@@ -40,6 +40,7 @@ const initialState: GameState = {
   players: mockPlayers,
   communityCards: Array(15).fill({ suit: 'hearts', rank: '2', isHidden: true }),
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }],
+  chatMessages: [],
   deck: []
 };
 
@@ -270,6 +271,45 @@ export function useMockEngine(myId: string = 'p1') {
   }, [state.phase, myId]);
 
   const handleAction = useCallback((action: string, payload?: any) => {
+    // Chat action doesn't require it to be the user's turn
+    if (action === 'chat' && payload) {
+        setState(s => {
+            const me = s.players.find(p => p.id === myId);
+            return {
+                ...s,
+                chatMessages: [...s.chatMessages, {
+                    id: Math.random().toString(),
+                    senderId: myId,
+                    senderName: me?.name || 'Unknown',
+                    text: payload as string,
+                    time: Date.now()
+                }].slice(-50) // Keep last 50 messages
+            };
+        });
+        
+        // Simulate bot reply sometimes
+        if (Math.random() > 0.6) {
+             setTimeout(() => {
+                 setState(s => {
+                     const otherPlayers = s.players.filter(p => p.id !== myId);
+                     const randomBot = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+                     const responses = ["Nice hand!", "Wait what?", "I'm all in soon", "Good luck", "Fold to me please"];
+                     return {
+                         ...s,
+                         chatMessages: [...s.chatMessages, {
+                             id: Math.random().toString(),
+                             senderId: randomBot.id,
+                             senderName: randomBot.name,
+                             text: responses[Math.floor(Math.random() * responses.length)],
+                             time: Date.now()
+                         }].slice(-50)
+                     };
+                 });
+             }, 1500 + Math.random() * 2000);
+        }
+        return;
+    }
+
     if (state.activePlayerId !== myId) return;
 
     if (action === 'start') {

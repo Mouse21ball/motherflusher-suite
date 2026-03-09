@@ -40,6 +40,14 @@ export type GamePhase =
   | 'DECLARE_AND_BET'
   | 'SHOWDOWN';
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  time: number;
+}
+
 export interface GameState {
   tableId: string;
   phase: GamePhase;
@@ -50,5 +58,6 @@ export interface GameState {
   players: Player[];
   communityCards: CardType[];
   messages: { id: string; text: string; time: number }[];
+  chatMessages: ChatMessage[];
   deck: CardType[];
 }
