@@ -20,6 +20,7 @@ export interface Player {
   status: PlayerStatus;
   isDealer: boolean;
   declaration: Declaration;
+  hasActed?: boolean;
   score?: {
     high: string;
     low: string;
@@ -49,4 +50,5 @@ export interface GameState {
   players: Player[];
   communityCards: CardType[];
   messages: { id: string; text: string; time: number }[];
+  deck: CardType[];
 }
