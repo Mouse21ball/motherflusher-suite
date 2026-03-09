@@ -64,7 +64,7 @@ export default function Game() {
       </header>
 
       {/* Main Game Area */}
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden">
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-48">
         <GameTable 
           gameState={state} 
           myId={myId} 
@@ -75,8 +75,8 @@ export default function Game() {
       </main>
 
       {/* Bottom Controls Area */}
-      <div className="fixed bottom-0 left-0 w-full z-50 pointer-events-none pb-4 sm:pb-0">
-        <div className="pointer-events-auto">
+      <div className="fixed bottom-0 left-0 w-full z-50 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
+        <div className="pointer-events-auto w-full max-w-md px-2">
           {me?.status === 'active' && (
             <ActionControls 
               phase={state.phase}

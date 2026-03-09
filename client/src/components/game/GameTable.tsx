@@ -21,12 +21,12 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   // Map 0-5 index to CSS classes for positioning around an oval table
   const getSeatPosition = (index: number, total: number) => {
     const positions = [
-      "bottom-4 left-1/2 -translate-x-1/2", // Me (bottom center)
-      "bottom-20 -left-4",                  // Bottom left
+      "bottom-32 sm:bottom-40 left-1/2 -translate-x-1/2", // Me (bottom center)
+      "bottom-24 -left-4",                  // Bottom left
       "top-1/2 -left-4 -translate-y-1/2",   // Left center
       "top-4 left-1/2 -translate-x-1/2",    // Top center
       "top-1/2 -right-4 -translate-y-1/2",  // Right center
-      "bottom-20 -right-4",                 // Bottom right
+      "bottom-24 -right-4",                 // Bottom right
     ];
     return positions[index] || "hidden";
   };

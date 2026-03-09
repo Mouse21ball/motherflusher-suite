@@ -72,9 +72,9 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase.startsWith('REVEAL')) {
      return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-white/70 mb-4">SELECT A HIDDEN CARD TO REVEAL</div>
+        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">TAP ONE OF YOUR FACE-DOWN CARDS</div>
         <Button onClick={() => onAction('reveal')} size="lg" className="w-full sm:w-auto" disabled={selectedCardsCount !== 1}>
-          {selectedCardsCount === 1 ? 'Reveal Selected Card' : 'Waiting for selection...'}
+          {selectedCardsCount === 1 ? 'Reveal Selected Card' : 'Waiting for you to tap a card...'}
         </Button>
       </div>
     );

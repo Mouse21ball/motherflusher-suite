@@ -38,24 +38,40 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
 
       {/* Cards */}
-      <div className="relative flex justify-center -space-x-8 mb-[-20px] z-10 scale-75 origin-bottom">
+      <div className={cn(
+        "relative flex justify-center -space-x-8 mb-[-20px] transition-all duration-300 origin-bottom",
+        isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none"
+      )}>
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
           const canSelect = isSelf && selectableCards && (card.isHidden || selectedCardIndices.includes(idx));
           
           return (
-            <PlayingCard 
-              key={idx} 
-              card={card} 
-              selectable={canSelect}
-              selected={isSelected}
-              onClick={() => canSelect && onCardClick?.(idx)}
-              className="transition-all duration-300 origin-bottom" 
+            <div 
+              key={idx}
+              className="relative transition-all duration-300 origin-bottom"
               style={{ 
-                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px)' : ''}`,
-                zIndex: isSelected ? 30 : 10 + idx
+                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px) scale(1.1)' : ''}`,
+                zIndex: isSelected ? 40 : 10 + idx
               }}
-            />
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (canSelect && onCardClick) {
+                  onCardClick(idx);
+                }
+              }}
+            >
+              <PlayingCard 
+                card={card} 
+                selectable={canSelect}
+                selected={isSelected}
+                isSelfHidden={isSelf && card.isHidden}
+              />
+              {canSelect && !isSelected && (
+                <div className="absolute inset-0 z-50 rounded-md ring-2 ring-yellow-400/50 animate-pulse bg-yellow-400/10 pointer-events-none" />
+              )}
+            </div>
           );
         })}
       </div>

@@ -23,8 +23,8 @@ const suitSymbols = {
   spades: "♠"
 };
 
-export function PlayingCard({ card, className, onClick, selectable, selected }: CardProps) {
-  if (!card || card.isHidden) {
+export function PlayingCard({ card, className, onClick, selectable, selected, isSelfHidden }: CardProps & { isSelfHidden?: boolean }) {
+  if (!card || (card.isHidden && !isSelfHidden)) {
     return (
       <div 
         className={cn(
@@ -45,6 +45,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected }: 
         suitColors[card.suit],
         selectable && "cursor-pointer hover:-translate-y-2",
         selected && "-translate-y-4 ring-2 ring-primary ring-offset-2 ring-offset-slate-900",
+        isSelfHidden && "opacity-60 saturate-50 shadow-inner",
         className
       )}
       onClick={onClick}
