@@ -12,10 +12,6 @@ const rankValue = (rank: string): number => {
 export const evaluateBadugi = (cards: CardType[]) => {
   if (cards.length !== 4) return undefined;
 
-  const validCards = cards.filter(c => !c.isHidden);
-  // For the active player, they might see their own hidden cards in evaluation?
-  // Actually, local player cards are evaluated directly. Let's assume `cards` passed here are all considered for evaluation.
-  
   const ranks = new Set(cards.map(c => c.rank));
   const suits = new Set(cards.map(c => c.suit));
   
@@ -23,27 +19,23 @@ export const evaluateBadugi = (cards: CardType[]) => {
   
   let description = "Invalid Badugi";
   if (!isValidBadugi) {
-    if (ranks.size < 4 && suits.size < 4) description = "Duplicate Ranks & Suits";
-    else if (ranks.size < 4) description = "Duplicate Ranks";
-    else if (suits.size < 4) description = "Duplicate Suits";
+    const dupRank = ranks.size < 4;
+    const dupSuit = suits.size < 4;
+    if (dupRank && dupSuit) description = "Duplicate Rank & Suit";
+    else if (dupRank) description = "Duplicate Rank";
+    else if (dupSuit) description = "Duplicate Suit";
   } else {
-    // Valid Badugi
-    // Find the highest rank to determine what "Low" or "High" it is
     const sortedRanks = cards.map(c => rankValue(c.rank)).sort((a, b) => b - a);
     const highestCard = sortedRanks[0];
-    
-    // Example format: 8-High Badugi or K-High Badugi
     const rankNames: Record<number, string> = {
       1: 'A', 11: 'J', 12: 'Q', 13: 'K'
     };
     const highestName = rankNames[highestCard] || highestCard.toString();
-    description = `Valid ${highestName}-High Badugi`;
+    description = `${highestName}-High Badugi`;
   }
   
   return {
     description,
-    usedHoleCardIndices: [0, 1, 2, 3],
-    usedCommunityCardIndices: [],
     isValidBadugi,
     badugiRankValues: cards.map(c => rankValue(c.rank)).sort((a, b) => b - a)
   };
@@ -61,14 +53,14 @@ export const BadugiMode: GameMode = {
     'DRAW_2', 
     'BET_2', 
     'DRAW_3', 
-    'DECLARE_AND_BET', 
+    'DECLARE',
+    'BET_3',
     'SHOWDOWN'
   ],
 
   deal: (deck: CardType[], players: Player[], myId: string) => {
     const freshDeck = [...deck];
     const newPlayers = players.map(p => {
-      // 4 hole cards for Badugi
       const cards = freshDeck.splice(0, 4).map(c => ({...c, isHidden: p.id !== myId}));
       if (p.id === myId) {
         cards.sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
@@ -112,21 +104,18 @@ export const BadugiMode: GameMode = {
         message = `${bot.name} stood pat`;
       }
     } 
-    else if (state.phase === 'DECLARE_AND_BET') {
+    else if (state.phase === 'DECLARE') {
        const randDec = ['HIGH', 'LOW', 'FOLD'][Math.floor(Math.random() * 3)] as Declaration;
        
        if (randDec === 'FOLD') {
            newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true };
            message = `${bot.name} declared FOLD`;
        } else {
-           const callAmount = state.currentBet - bot.bet;
-           newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, declaration: randDec, hasActed: true };
-           newPot += callAmount;
-           message = `${bot.name} declared ${randDec} and called`;
+           newPlayers[bIdx] = { ...bot, declaration: randDec, hasActed: true };
+           message = `${bot.name} declared ${randDec}`;
        }
     }
     else {
-      // Betting logic (Check/Call)
       const callAmount = state.currentBet - bot.bet;
       newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
       newPot += callAmount;
@@ -136,7 +125,7 @@ export const BadugiMode: GameMode = {
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
     const allActed = activePlayers.every(p => p.hasActed);
     const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
-    const roundOver = allActed && allBetsMatch;
+    const roundOver = state.phase === 'DECLARE' ? allActed : (allActed && allBetsMatch);
 
     let nextPlayerId = undefined;
     if (!roundOver) {
@@ -144,7 +133,7 @@ export const BadugiMode: GameMode = {
         let count = 0;
         while (count < newPlayers.length) {
             const p = newPlayers[nextIdx];
-            if (p.status === 'active' && p.chips > 0 && (!p.hasActed || p.bet < newCurrentBet)) {
+            if (p.status === 'active' && p.chips > 0 && (!p.hasActed || (state.phase !== 'DECLARE' && p.bet < newCurrentBet))) {
                 break;
             }
             nextIdx = (nextIdx + 1) % newPlayers.length;
@@ -188,39 +177,34 @@ export const BadugiMode: GameMode = {
     let highWinner: Player | null = null;
     let lowWinner: Player | null = null;
     
-    // Compare Badugi ranks
-    // For HIGH: higher ranks are better. So we compare top down, higher number wins.
     if (highPlayers.length > 0) {
       highPlayers.sort((a, b) => {
         const aVals = a.score!.badugiRankValues!;
         const bVals = b.score!.badugiRankValues!;
         for (let i = 0; i < 4; i++) {
-          if (aVals[i] !== bVals[i]) return bVals[i] - aVals[i]; // Higher is better
+          if (aVals[i] !== bVals[i]) return bVals[i] - aVals[i];
         }
-        return 0; // Tie
+        return 0;
       });
-      highWinner = highPlayers[0]; // Simplified tie-breaking for now
+      highWinner = highPlayers[0];
     }
     
-    // For LOW: lower ranks are better. So we compare top down, lower number wins.
     if (lowPlayers.length > 0) {
       lowPlayers.sort((a, b) => {
         const aVals = a.score!.badugiRankValues!;
         const bVals = b.score!.badugiRankValues!;
         for (let i = 0; i < 4; i++) {
-          if (aVals[i] !== bVals[i]) return aVals[i] - bVals[i]; // Lower is better
+          if (aVals[i] !== bVals[i]) return aVals[i] - bVals[i];
         }
-        return 0; // Tie
+        return 0;
       });
       lowWinner = lowPlayers[0];
     }
     
-    let payoutMessage = "Showdown!";
-    let messages = [];
+    let messages: string[] = [];
     
     if (!highWinner && !lowWinner) {
-      payoutMessage = `No valid badugis made. $${pot} rolls over!`;
-      messages.push(payoutMessage);
+      messages.push(`No valid badugis made. $${pot} rolls over!`);
     } else {
       const halfPot = Math.floor(pot / 2);
       let highPot = halfPot;

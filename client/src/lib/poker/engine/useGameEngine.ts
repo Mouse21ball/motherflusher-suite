@@ -45,7 +45,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       const firstToActIdx = getNextActivePlayerIndex(s.players, dealerIdx);
       
       // Reset bets on new betting round
-      const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
+      const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET' || nextPhase === 'BET_3';
       return { 
         ...s, 
         phase: nextPhase, 
@@ -67,7 +67,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (!state.activePlayerId) return;
     
     // Check if the current phase requires bot action
-    if (!['ANTE', 'DRAW', 'BET_1', 'BET_2', 'DECLARE_AND_BET'].includes(state.phase)) return;
+    if (!['ANTE', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3', 'DECLARE', 'DECLARE_AND_BET'].includes(state.phase)) return;
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
@@ -100,7 +100,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Continuous Hand Evaluation for Local Player
   useEffect(() => {
-    if (['REVEAL_TOP_ROW', 'DRAW', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'REVEAL_FACTOR_CARD', 'DECLARE_AND_BET'].includes(state.phase)) {
+    if (['REVEAL_TOP_ROW', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'BET_3', 'REVEAL_FACTOR_CARD', 'DECLARE', 'DECLARE_AND_BET'].includes(state.phase)) {
       setState(s => {
         const myPlayerIndex = s.players.findIndex(p => p.id === myId);
         if (myPlayerIndex === -1 || s.players[myPlayerIndex].status === 'folded') return s;
@@ -339,6 +339,24 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            ...s,
            players: s.players.map(p => p.id === myId ? { ...p, hasActed: true } : p),
            messages: [...s.messages, { id: Math.random().toString(), text: "You stood pat", time: Date.now() }].slice(-5)
+        }));
+      }
+      processActionEnd();
+    }
+
+    if (action === 'declare' && payload) {
+      const { declaration } = payload;
+      if (declaration === 'FOLD') {
+        setState(s => ({
+          ...s,
+          players: s.players.map(p => p.id === myId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p),
+          messages: [...s.messages, { id: Math.random().toString(), text: `You declared FOLD`, time: Date.now() }].slice(-5)
+        }));
+      } else {
+        setState(s => ({
+          ...s,
+          players: s.players.map(p => p.id === myId ? { ...p, declaration, hasActed: true } : p),
+          messages: [...s.messages, { id: Math.random().toString(), text: `You declared ${declaration}`, time: Date.now() }].slice(-5)
         }));
       }
       processActionEnd();

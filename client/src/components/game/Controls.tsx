@@ -24,7 +24,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   const maxBet = Math.min(chips, pot + callAmount * 2); // Pot limit simplified
 
   useEffect(() => {
-    if (phase !== 'DECLARE_AND_BET') {
+    if (phase !== 'DECLARE_AND_BET' && phase !== 'DECLARE') {
       setPendingDeclaration(null);
     }
     setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
