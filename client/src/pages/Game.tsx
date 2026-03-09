@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useMockEngine } from "@/lib/poker/MockEngine";
 import { GameTable } from "@/components/game/GameTable";
 import { ActionControls } from "@/components/game/Controls";
-import { ChatBox } from "@/components/game/ChatBox";
 
 export default function Game() {
   const myId = 'p1';
@@ -32,10 +31,6 @@ export default function Game() {
     } else {
       handleAction(action, amount);
     }
-  };
-
-  const handleSendMessage = (text: string) => {
-    handleAction('chat', text);
   };
 
   const isSelectablePhase = state.phase === 'DRAW';
@@ -86,13 +81,6 @@ export default function Game() {
           )}
         </div>
       </div>
-
-      {/* Chat Component */}
-      <ChatBox 
-        messages={state.chatMessages} 
-        myId={myId} 
-        onSendMessage={handleSendMessage} 
-      />
     </div>
   );
 }
