@@ -45,5 +45,6 @@ export interface GameState {
   minBet: number;
   activePlayerId: string | null;
   players: Player[];
+  communityCards: CardType[];
   messages: { id: string; text: string; time: number }[];
 }

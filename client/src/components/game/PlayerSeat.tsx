@@ -26,7 +26,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
-      isActive && "scale-105",
       player.status === 'folded' && "opacity-50 grayscale",
       className
     )}>

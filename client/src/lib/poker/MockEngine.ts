@@ -38,6 +38,7 @@ const initialState: GameState = {
   minBet: 2,
   activePlayerId: 'p1',
   players: mockPlayers,
+  communityCards: Array(15).fill({ suit: 'hearts', rank: '2', isHidden: true }),
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }]
 };
 
