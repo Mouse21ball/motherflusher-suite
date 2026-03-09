@@ -30,10 +30,12 @@ export type GamePhase =
   | 'WAITING' 
   | 'ANTE' 
   | 'DEAL' 
+  | 'REVEAL_TOP_ROW'
   | 'DRAW' 
-  | 'REVEAL_1' | 'BET_1' 
-  | 'REVEAL_2' | 'BET_2'
-  | 'REVEAL_3' | 'BET_3'
+  | 'BET_1' 
+  | 'REVEAL_SECOND_ROW'
+  | 'BET_2'
+  | 'REVEAL_FACTOR_CARD'
   | 'DECLARE_AND_BET'
   | 'SHOWDOWN';
 

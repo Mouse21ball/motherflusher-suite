@@ -56,19 +56,25 @@ export function useMockEngine(myId: string = 'p1') {
   const advancePhase = () => {
     setState(s => {
       const phases: GamePhase[] = [
-        'WAITING', 'ANTE', 'DEAL', 'DRAW', 
-        'REVEAL_1', 'BET_1', 
-        'REVEAL_2', 'BET_2', 
-        'REVEAL_3', 'BET_3', 
-        'DECLARE', 'SHOWDOWN'
+        'WAITING', 
+        'ANTE', 
+        'DEAL', 
+        'REVEAL_TOP_ROW', 
+        'DRAW', 
+        'BET_1', 
+        'REVEAL_SECOND_ROW', 
+        'BET_2', 
+        'REVEAL_FACTOR_CARD', 
+        'DECLARE_AND_BET', 
+        'SHOWDOWN'
       ];
       const nextIdx = (phases.indexOf(s.phase) + 1) % phases.length;
       const nextPhase = phases[nextIdx];
       
-      addMessage(`Phase changed to ${nextPhase.replace('_', ' ')}`);
+      addMessage(`Phase changed to ${nextPhase.replace(/_/g, ' ')}`);
       
       // Reset bets on new betting round
-      const isBetRound = nextPhase.startsWith('BET');
+      const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
       return { 
         ...s, 
         phase: nextPhase, 
@@ -81,6 +87,38 @@ export function useMockEngine(myId: string = 'p1') {
       };
     });
   };
+
+  // Automatic phase transitions for reveals
+  useEffect(() => {
+    if (state.phase === 'REVEAL_TOP_ROW') {
+      setTimeout(() => {
+        setState(s => ({
+          ...s,
+          communityCards: s.communityCards.map((c, i) => i < 10 ? { ...c, isHidden: false } : c)
+        }));
+        addMessage("Top row (5 pairs) revealed");
+        setTimeout(advancePhase, 2000);
+      }, 1000);
+    } else if (state.phase === 'REVEAL_SECOND_ROW') {
+      setTimeout(() => {
+        setState(s => ({
+          ...s,
+          communityCards: s.communityCards.map((c, i) => (i >= 10 && i !== 12) ? { ...c, isHidden: false } : c)
+        }));
+        addMessage("Second row revealed (except factor card)");
+        setTimeout(advancePhase, 2000);
+      }, 1000);
+    } else if (state.phase === 'REVEAL_FACTOR_CARD') {
+      setTimeout(() => {
+        setState(s => ({
+          ...s,
+          communityCards: s.communityCards.map((c, i) => i === 12 ? { ...c, isHidden: false } : c)
+        }));
+        addMessage("Factor card revealed!");
+        setTimeout(advancePhase, 2000);
+      }, 1000);
+    }
+  }, [state.phase]);
 
   // Simulating Game Loop for dealing and bot actions
   useEffect(() => {
@@ -198,44 +236,10 @@ export function useMockEngine(myId: string = 'p1') {
         addMessage("You stood pat");
       }
       
-      // Simulate bots drawing
-      addMessage("Other players drew cards");
-      setTimeout(advancePhase, 1500);
-    }
-    
-    if (action === 'reveal') {
-      // payload is the index to reveal
-      const indexToReveal: number = payload;
-      
-      setState(s => ({
-        ...s,
-        players: s.players.map(p => {
-          if (p.id !== myId) return p;
-          const newCards = [...p.cards];
-          newCards[indexToReveal] = { ...newCards[indexToReveal], isHidden: false };
-          return { ...p, cards: newCards };
-        })
-      }));
-      
-      addMessage("You revealed a card");
-      
-      // Simulate bots revealing a card
+      // Simulate bots drawing sequentially
       setTimeout(() => {
-        setState(s => ({
-          ...s,
-          players: s.players.map(p => {
-            if (p.id === myId || p.status === 'folded') return p;
-            const newCards = [...p.cards];
-            const hiddenIndices = newCards.map((c, i) => c.isHidden ? i : -1).filter(i => i !== -1);
-            if (hiddenIndices.length > 0) {
-              const randIdx = hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)];
-              newCards[randIdx] = { ...newCards[randIdx], isHidden: false };
-            }
-            return { ...p, cards: newCards };
-          })
-        }));
-        addMessage("Other players revealed a card");
-        setTimeout(advancePhase, 1500);
+        addMessage("Other players are drawing...");
+        setTimeout(advancePhase, 2000);
       }, 1000);
     }
 

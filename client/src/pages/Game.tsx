@@ -22,28 +22,18 @@ export default function Game() {
         if (prev.length < 2) return [...prev, index];
         return prev; // Max 2
       });
-    } else if (state.phase.startsWith('REVEAL')) {
-      const card = me?.cards[index];
-      if (card && !card.isHidden) return; // Cannot select already revealed cards
-      
-      setSelectedCardIndices(prev => {
-        if (prev.includes(index)) return [];
-        return [index]; // Max 1 per reveal round
-      });
     }
   };
 
   const handleControlAction = (action: string, amount?: number) => {
     if (action === 'draw') {
       handleAction(action, selectedCardIndices);
-    } else if (action === 'reveal') {
-      handleAction(action, selectedCardIndices[0]);
     } else {
       handleAction(action, amount);
     }
   };
 
-  const isSelectablePhase = state.phase === 'DRAW' || state.phase.startsWith('REVEAL');
+  const isSelectablePhase = state.phase === 'DRAW';
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">

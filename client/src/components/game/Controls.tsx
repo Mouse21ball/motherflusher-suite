@@ -69,13 +69,13 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
-  if (phase.startsWith('REVEAL')) {
-     return (
+  if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD') {
+    // This is an automatic phase where the engine reveals community cards. 
+    // The player doesn't need to tap anything, just wait for the animation/transition.
+    // It could also just quickly pass through in the mock engine.
+    return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">TAP ONE OF YOUR FACE-DOWN CARDS</div>
-        <Button onClick={() => onAction('reveal')} size="lg" className="w-full sm:w-auto" disabled={selectedCardsCount !== 1}>
-          {selectedCardsCount === 1 ? 'Reveal Selected Card' : 'Waiting for you to tap a card...'}
-        </Button>
+        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">REVEALING CARDS...</div>
       </div>
     );
   }
