@@ -10,6 +10,12 @@ export interface CardType {
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
 export type Declaration = 'HIGH' | 'LOW' | 'SWING' | null;
 
+export interface HandEvaluation {
+  description: string;
+  usedHoleCardIndices: number[];
+  usedCommunityCardIndices: number[];
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -24,6 +30,8 @@ export interface Player {
   score?: {
     high: string;
     low: string;
+    highEval?: HandEvaluation;
+    lowEval?: HandEvaluation;
   };
 }
 

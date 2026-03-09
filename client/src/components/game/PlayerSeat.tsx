@@ -1,6 +1,8 @@
-import { cn } from "@/lib/utils";
-import { Player } from "@/lib/poker/types";
-import { PlayingCard } from "./Card";
+import { Player, CardType, HandEvaluation } from '@/lib/poker/types';
+import { PlayingCard } from './Card';
+import { cn } from '@/lib/utils';
+import { User, Coins } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Badge } from "@/components/ui/badge";
 
 interface PlayerSeatProps {
@@ -12,9 +14,11 @@ interface PlayerSeatProps {
   selectedCardIndices?: number[];
   onCardClick?: (index: number) => void;
   selectableCards?: boolean;
+  showdownState?: boolean;
+  communityCards?: CardType[];
 }
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState }: PlayerSeatProps) {
   if (!player) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-white/10 bg-black/20 text-white/30 w-24 h-24", className)}>
@@ -64,7 +68,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               <PlayingCard 
                 card={card} 
                 selectable={canSelect}
-                selected={isSelected}
+                selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
                 isSelfHidden={isSelf && card.isHidden}
               />
               {canSelect && !isSelected && (
@@ -87,6 +91,22 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <div className="text-primary font-mono text-xs flex items-center gap-1">
           <span className="opacity-70">$</span>{player.chips}
         </div>
+
+        {/* Hand Evaluation Display during Showdown */}
+        {showdownState && player.score && (
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
+            {['HIGH', 'SWING'].includes(player.declaration || '') && player.score.high && (
+               <Badge className="w-full justify-center bg-blue-600/90 text-[10px] py-1 border-blue-400">
+                 High: {player.score.high}
+               </Badge>
+            )}
+            {['LOW', 'SWING'].includes(player.declaration || '') && player.score.low && (
+               <Badge className="w-full justify-center bg-purple-600/90 text-[10px] py-1 border-purple-400">
+                 Low: {player.score.low}
+               </Badge>
+            )}
+          </div>
+        )}
 
         {/* Status/Declaration Badge */}
         {player.declaration && (

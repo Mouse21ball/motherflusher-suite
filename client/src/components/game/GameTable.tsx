@@ -62,10 +62,16 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               {Array.from({ length: 5 }).map((_, colIndex) => (
                 <div key={`pair-${colIndex}`} className="flex flex-col gap-1 bg-black/20 p-1 sm:p-2 rounded-lg border border-white/5">
                   <div className="scale-[0.6] sm:scale-75 origin-top w-[42px] sm:w-[60px] h-[60px] sm:h-[84px] mb-[-24px] sm:mb-[-20px]">
-                    <PlayingCard card={gameState.communityCards[colIndex * 2]} />
+                    <PlayingCard 
+                      card={gameState.communityCards[colIndex * 2]} 
+                      selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2))}
+                    />
                   </div>
                   <div className="scale-[0.6] sm:scale-75 origin-top w-[42px] sm:w-[60px] h-[60px] sm:h-[84px]">
-                    <PlayingCard card={gameState.communityCards[colIndex * 2 + 1]} />
+                    <PlayingCard 
+                      card={gameState.communityCards[colIndex * 2 + 1]} 
+                      selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1))}
+                    />
                   </div>
                 </div>
               ))}
@@ -76,7 +82,10 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               {Array.from({ length: 5 }).map((_, colIndex) => (
                 <div key={`single-${colIndex}`} className="flex justify-center w-[50px] sm:w-[76px]">
                   <div className="scale-[0.6] sm:scale-75 origin-center w-[42px] sm:w-[60px] h-[60px] sm:h-[84px]">
-                    <PlayingCard card={gameState.communityCards[10 + colIndex]} />
+                    <PlayingCard 
+                      card={gameState.communityCards[10 + colIndex]} 
+                      selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(10 + colIndex) || p.score?.lowEval?.usedCommunityCardIndices.includes(10 + colIndex))}
+                    />
                   </div>
                 </div>
               ))}
@@ -109,6 +118,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                selectedCardIndices={player?.id === myId ? selectedCardIndices : undefined}
                onCardClick={onCardClick}
                selectableCards={selectableCards}
+               showdownState={gameState.phase === 'SHOWDOWN'}
                className={player?.id === myId ? "bg-black/80 p-4 rounded-xl shadow-2xl border border-white/10 backdrop-blur-md pb-6" : ""}
              />
           </div>

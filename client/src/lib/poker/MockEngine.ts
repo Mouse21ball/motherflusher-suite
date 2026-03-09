@@ -38,7 +38,7 @@ const initialState: GameState = {
   minBet: 2,
   activePlayerId: 'p1',
   players: mockPlayers,
-  communityCards: Array(15).fill({ suit: 'hearts', rank: '2', isHidden: true }),
+  communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true })),
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }],
   chatMessages: [],
   deck: []
@@ -284,7 +284,8 @@ export function useMockEngine(myId: string = 'p1') {
           const cards = newDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
           return { ...p, cards };
         });
-        return { ...s, players: newPlayers, deck: newDeck };
+        const newCommunityCards = newDeck.splice(0, 15).map(c => ({...c, isHidden: true}));
+        return { ...s, players: newPlayers, communityCards: newCommunityCards, deck: newDeck };
       });
       
       setTimeout(advancePhase, 1500);
@@ -344,9 +345,10 @@ export function useMockEngine(myId: string = 'p1') {
             ...p,
             cards: [],
             bet: 0,
-            status: p.chips > 0 ? 'active' : 'folded',
+            status: p.chips > 0 ? 'active' as const : 'folded' as const,
             declaration: null,
-            hasActed: false
+            hasActed: false,
+            score: undefined
         }));
         
         return {
@@ -526,85 +528,153 @@ export function useMockEngine(myId: string = 'p1') {
       
       addMessage(`You declared ${payload.declaration} and ${payload.action}`);
       processActionEnd();
-      
-      // Simulate showdown eval if we are the last to act
-      setState(s => {
-          const myIndex = s.players.findIndex(p => p.id === myId);
-          const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
-          const firstToActIdx = getNextActivePlayerIndex(s.players, getDealerIndex(s.players));
-          
-          if (nextIdx === firstToActIdx) {
-              // Time for showdown
-              setTimeout(() => {
-                setState(s2 => {
-                  let newPot = s2.pot;
-                  
-                  const finalPlayers = s2.players.map(p => {
-                    if (p.id === myId || p.status === 'folded') return p;
-                    // Reveal all remaining bot cards
-                    const newCards = p.cards.map(c => ({...c, isHidden: false}));
-                    return { ...p, cards: newCards };
-                  });
-                  
-                  // MOCK EVALUATOR LOGIC
-                  const highPlayers = finalPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
-                  const lowPlayers = finalPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING');
-                  
-                  let highWinner: Player | null = null;
-                  let lowWinners: Player[] = [];
-                  
-                  if (highPlayers.length > 0) highWinner = highPlayers[Math.floor(Math.random() * highPlayers.length)];
-                  
-                  if (lowPlayers.length > 0) {
-                    const tiedLows = lowPlayers.slice(0, 2); 
-                    if (tiedLows.length === 1) lowWinners = [tiedLows[0]];
-                    else lowWinners = Math.random() > 0.5 ? [tiedLows[0]] : tiedLows;
-                  }
-                  
-                  let payoutMessage = "Showdown!";
-                  
-                  if (!highWinner && lowWinners.length === 0) {
-                    payoutMessage = `No qualifiers. $${newPot} rolls over!`;
-                  } else {
-                    const halfPot = newPot / 2;
-                    let highPot = halfPot;
-                    let lowPot = halfPot;
-                    
-                    if (!highWinner) lowPot += highPot;
-                    if (lowWinners.length === 0) highPot += lowPot;
-                    
-                    if (highWinner) {
-                      const p = finalPlayers.find(p => p.id === highWinner!.id);
-                      if (p) p.chips += highPot;
-                    }
-                    
-                    if (lowWinners.length > 0) {
-                      const split = lowPot / lowWinners.length;
-                      lowWinners.forEach(winner => {
-                        const p = finalPlayers.find(p => p.id === winner.id);
-                        if (p) p.chips += split;
-                      });
-                    }
-                    
-                    newPot = 0;
-                    payoutMessage = "Pot distributed to winners.";
-                  }
-                  
-                  return { 
-                    ...s2, 
-                    players: finalPlayers, 
-                    phase: 'SHOWDOWN',
-                    pot: newPot,
-                    messages: [...s2.messages, { id: Math.random().toString(), text: payoutMessage, time: Date.now() }].slice(-5)
-                  };
-                });
-              }, 1500);
-          }
-          return s;
-      });
     }
 
   }, [state, myId]);
+
+  // Showdown effect
+  useEffect(() => {
+    if (state.phase === 'SHOWDOWN') {
+      const timer = setTimeout(() => {
+        setState(s => {
+          let newPot = s.pot;
+          
+          const finalPlayers = s.players.map(p => {
+            if (p.id === myId || p.status === 'folded') return p;
+            // Reveal all remaining bot cards
+            const newCards = p.cards.map(c => ({...c, isHidden: false}));
+            
+            // Generate mock hand evaluations
+            const score = {
+              high: ['Two Pair', 'Three of a Kind', 'Flush', 'Full House'][Math.floor(Math.random() * 4)],
+              low: ['8-Low', '7-Low', 'Perfect 6', 'No Low'][Math.floor(Math.random() * 4)],
+              highEval: {
+                description: 'Mock High Hand',
+                usedHoleCardIndices: [0, 1],
+                usedCommunityCardIndices: [0, 1, 2]
+              },
+              lowEval: {
+                description: 'Mock Low Hand',
+                usedHoleCardIndices: [0, 1],
+                usedCommunityCardIndices: [0, 1, 2]
+              }
+            };
+            
+            return { ...p, cards: newCards, score };
+          });
+          
+          // Generate my score too if I'm active
+          const myIndex = finalPlayers.findIndex(p => p.id === myId);
+          if (myIndex !== -1 && finalPlayers[myIndex].status !== 'folded') {
+            finalPlayers[myIndex] = {
+              ...finalPlayers[myIndex],
+              score: {
+                high: ['Two Pair', 'Three of a Kind', 'Flush', 'Full House'][Math.floor(Math.random() * 4)],
+                low: ['8-Low', '7-Low', 'Perfect 6', 'No Low'][Math.floor(Math.random() * 4)],
+                highEval: {
+                  description: 'Mock High Hand',
+                  usedHoleCardIndices: [0, 1],
+                  usedCommunityCardIndices: [0, 1, 2]
+                },
+                lowEval: {
+                  description: 'Mock Low Hand',
+                  usedHoleCardIndices: [0, 1],
+                  usedCommunityCardIndices: [0, 1, 2]
+                }
+              }
+            };
+          }
+          
+          // MOCK EVALUATOR LOGIC
+          const highPlayers = finalPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
+          const lowPlayers = finalPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING');
+          
+          let highWinner: Player | null = null;
+          let lowWinners: Player[] = [];
+          
+          if (highPlayers.length > 0) highWinner = highPlayers[Math.floor(Math.random() * highPlayers.length)];
+          
+          if (lowPlayers.length > 0) {
+            const tiedLows = lowPlayers.slice(0, 2); 
+            if (tiedLows.length === 1) lowWinners = [tiedLows[0]];
+            else lowWinners = Math.random() > 0.5 ? [tiedLows[0]] : tiedLows;
+          }
+          
+          let payoutMessage = "Showdown!";
+          
+          if (!highWinner && lowWinners.length === 0) {
+            payoutMessage = `No qualifiers. $${newPot} rolls over!`;
+          } else {
+            const halfPot = Math.floor(newPot / 2);
+            let highPot = halfPot;
+            let lowPot = halfPot;
+            // Handle odd chip
+            if (newPot % 2 !== 0) {
+                highPot += 1; // High usually gets odd chip
+            }
+            
+            if (!highWinner) { lowPot += highPot; highPot = 0; }
+            if (lowWinners.length === 0) { highPot += lowPot; lowPot = 0; }
+            
+            if (highWinner) {
+              const p = finalPlayers.find(p => p.id === highWinner!.id);
+              if (p) p.chips += highPot;
+            }
+            
+            if (lowWinners.length > 0) {
+              const split = Math.floor(lowPot / lowWinners.length);
+              const remainder = lowPot % lowWinners.length;
+              lowWinners.forEach((winner, idx) => {
+                const p = finalPlayers.find(p => p.id === winner.id);
+                // Give odd chip to first winner for simplicity
+                if (p) p.chips += split + (idx === 0 ? remainder : 0);
+              });
+            }
+            
+            newPot = 0;
+            payoutMessage = "Pot distributed to winners.";
+          }
+          
+          return { 
+            ...s, 
+            players: finalPlayers, 
+            pot: newPot,
+            messages: [...s.messages, { id: Math.random().toString(), text: payoutMessage, time: Date.now() }].slice(-5)
+          };
+        });
+        
+        // Return to ANTE after a delay
+        setTimeout(() => {
+            setState(s => {
+                const nextPlayers = moveDealer(s.players).map(p => ({
+                    ...p, 
+                    cards: [], 
+                    bet: 0, 
+                    hasActed: false, 
+                    declaration: null, 
+                    status: p.chips > 0 ? 'active' : p.status,
+                    score: undefined
+                }));
+                const dealerIdx = getDealerIndex(nextPlayers);
+                const firstToActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
+                
+                return {
+                    ...s,
+                    phase: 'ANTE',
+                    currentBet: 0,
+                    activePlayerId: nextPlayers[firstToActIdx].id,
+                    players: nextPlayers,
+                    communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true })),
+                    deck: []
+                };
+            });
+            addMessage("Starting new hand...");
+        }, 8000);
+        
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [state.phase, myId]);
 
   return { state, handleAction };
 }
