@@ -38,8 +38,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
       {/* Cards */}
       <div className={cn(
-        "relative flex justify-center -space-x-8 mb-[-20px] transition-all duration-300 origin-bottom",
-        isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none"
+        "relative flex justify-center -space-x-4 sm:-space-x-2 mb-[-20px] transition-all duration-300 origin-bottom",
+        isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none -space-x-8"
       )}>
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
