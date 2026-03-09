@@ -41,7 +41,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
   return (
     <div 
       className={cn(
-        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 transition-transform",
+        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 transition-transform flex flex-col justify-between",
         suitColors[card.suit],
         selectable && "cursor-pointer hover:-translate-y-2",
         selected && "-translate-y-4 ring-2 ring-primary ring-offset-2 ring-offset-slate-900",
@@ -50,9 +50,9 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
       )}
       onClick={onClick}
     >
-      <div className="text-xs sm:text-base leading-none">{card.rank}</div>
-      <div className="text-xl sm:text-3xl text-center leading-none">{suitSymbols[card.suit]}</div>
-      <div className="text-xs sm:text-base leading-none text-right rotate-180">{card.rank}</div>
+      <div className="text-[10px] sm:text-sm leading-none font-bold">{card.rank}</div>
+      <div className="text-xl sm:text-3xl text-center leading-none flex-1 flex items-center justify-center">{suitSymbols[card.suit]}</div>
+      <div className="text-[10px] sm:text-sm leading-none font-bold text-right rotate-180">{card.rank}</div>
     </div>
   );
 }

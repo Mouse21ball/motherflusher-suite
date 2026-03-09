@@ -56,21 +56,23 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           </div>
           
           {/* 15-Card Community Board */}
-          <div className="flex flex-col items-center gap-4 sm:gap-8 mb-6 sm:mb-12 origin-center pointer-events-auto mt-16">
+          <div className="flex flex-col items-center gap-3 sm:gap-6 mb-4 sm:mb-10 origin-center pointer-events-auto mt-4 sm:mt-8">
             {/* Top Row: 5 Pairs */}
-            <div className="flex gap-2 sm:gap-5">
+            <div className="flex gap-2 sm:gap-4">
               {Array.from({ length: 5 }).map((_, colIndex) => (
-                <div key={`pair-${colIndex}`} className="flex flex-col gap-2 bg-black/30 p-2 sm:p-3 rounded-xl border border-white/10 shadow-inner">
-                  <div className="w-[42px] sm:w-[68px] h-[58px] sm:h-[95px] mb-[-22px] sm:mb-[-34px]">
+                <div key={`pair-${colIndex}`} className="flex flex-col gap-1.5 sm:gap-2.5 bg-black/30 p-2 sm:p-3 rounded-xl border border-white/10 shadow-inner">
+                  <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
                     <PlayingCard 
                       card={gameState.communityCards[colIndex * 2]} 
                       selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2))}
+                      className="w-full h-full"
                     />
                   </div>
-                  <div className="w-[42px] sm:w-[68px] h-[58px] sm:h-[95px]">
+                  <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
                     <PlayingCard 
                       card={gameState.communityCards[colIndex * 2 + 1]} 
                       selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1))}
+                      className="w-full h-full"
                     />
                   </div>
                 </div>
@@ -78,13 +80,14 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             </div>
             
             {/* Bottom Row: 5 Singles */}
-            <div className="flex gap-2 sm:gap-5 px-2 sm:px-4 mt-2">
+            <div className="flex gap-2 sm:gap-4 mt-2">
               {Array.from({ length: 5 }).map((_, colIndex) => (
-                <div key={`single-${colIndex}`} className="flex justify-center w-[54px] sm:w-[86px]">
-                  <div className="w-[42px] sm:w-[68px] h-[58px] sm:h-[95px]">
+                <div key={`single-${colIndex}`} className="flex justify-center w-[66px] sm:w-[92px]">
+                  <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
                     <PlayingCard 
                       card={gameState.communityCards[10 + colIndex]} 
                       selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(10 + colIndex) || p.score?.lowEval?.usedCommunityCardIndices.includes(10 + colIndex))}
+                      className="w-full h-full"
                     />
                   </div>
                 </div>
