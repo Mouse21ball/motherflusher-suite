@@ -36,7 +36,7 @@ const initialState: GameState = {
   pot: 0,
   currentBet: 0,
   minBet: 2,
-  activePlayerId: null,
+  activePlayerId: 'p1',
   players: mockPlayers,
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }]
 };
