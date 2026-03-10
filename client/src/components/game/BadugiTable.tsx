@@ -1,0 +1,116 @@
+import { GameState } from "@/lib/poker/types";
+import { PlayerSeat } from "./PlayerSeat";
+import { cn } from "@/lib/utils";
+
+interface BadugiTableProps {
+  gameState: GameState;
+  myId: string;
+  selectedCardIndices: number[];
+  onCardClick: (index: number) => void;
+  selectableCards: boolean;
+}
+
+export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards }: BadugiTableProps) {
+  const myIndex = gameState.players.findIndex(p => p.id === myId);
+  const orderedPlayers = [...gameState.players];
+  if (myIndex !== -1) {
+    const p1 = orderedPlayers.splice(myIndex);
+    orderedPlayers.unshift(...p1);
+  }
+
+  const opponents = orderedPlayers.slice(1);
+  const me = orderedPlayers[0];
+
+  const drawNumber = gameState.phase === 'DRAW_1' ? 1 : gameState.phase === 'DRAW_2' ? 2 : gameState.phase === 'DRAW_3' ? 3 : 0;
+  const isShowdown = gameState.phase === 'SHOWDOWN';
+
+  return (
+    <div className="relative w-full max-w-3xl mx-auto flex flex-col items-center gap-2 sm:gap-4 px-2 sm:px-6 pt-2 pb-4">
+      <div className="relative w-full rounded-[60px] sm:rounded-[100px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-hidden min-h-[420px] sm:min-h-[500px] flex flex-col">
+        <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none"></div>
+
+        <div className="relative z-10 flex flex-col items-center flex-1 px-4 sm:px-8 pt-6 pb-4">
+          <div className="w-full text-center mb-2">
+            {gameState.messages.slice(-1).map(msg => (
+              <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-md bg-black/40 inline-block px-3 py-1 rounded-full" data-testid="text-game-message">
+                {msg.text}
+              </p>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mt-2 mb-4 sm:mb-6">
+            {opponents.map((player, i) => (
+              <div key={player.id} className="flex-shrink-0">
+                <PlayerSeat
+                  player={player}
+                  seatNumber={i + 1}
+                  isActive={player.id === gameState.activePlayerId}
+                  isSelf={false}
+                  showdownState={isShowdown}
+                  className="scale-[0.8] sm:scale-90 origin-top"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col items-center gap-2 my-auto">
+            <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase" data-testid="text-phase">
+              {gameState.phase.replace(/_/g, ' ')}
+            </div>
+
+            {drawNumber > 0 && (
+              <div className="flex items-center gap-1.5" data-testid="text-draw-round">
+                {[1, 2, 3].map(d => (
+                  <div
+                    key={d}
+                    className={cn(
+                      "w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border",
+                      d < drawNumber ? "bg-green-600/60 border-green-400 text-white" :
+                      d === drawNumber ? "bg-yellow-500/80 border-yellow-300 text-black animate-pulse" :
+                      "bg-white/10 border-white/20 text-white/30"
+                    )}
+                  >
+                    {d}
+                  </div>
+                ))}
+                <span className="text-white/40 text-[9px] sm:text-[10px] font-mono ml-1">DRAW</span>
+              </div>
+            )}
+
+            <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-5 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
+              <span className="text-[9px] sm:text-[10px] text-green-400 uppercase font-bold tracking-widest mb-0.5">Total Pot</span>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+                </div>
+                <span className="text-lg sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
+              </div>
+            </div>
+
+            {gameState.phase === 'DECLARE' && (
+              <div className="text-yellow-400/80 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse mt-1" data-testid="text-declare-prompt">
+                Declaration Round
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full flex justify-center -mt-8 sm:-mt-10 relative z-20">
+        {me && (
+          <PlayerSeat
+            player={me}
+            seatNumber={0}
+            isActive={me.id === gameState.activePlayerId}
+            isSelf={true}
+            selectedCardIndices={selectedCardIndices}
+            onCardClick={onCardClick}
+            selectableCards={selectableCards}
+            showdownState={isShowdown}
+            className="bg-black/80 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/10 backdrop-blur-md pb-4 sm:pb-6"
+          />
+        )}
+      </div>
+    </div>
+  );
+}

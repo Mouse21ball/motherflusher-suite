@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
-import { GameTable } from "@/components/game/GameTable";
+import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 
@@ -69,8 +69,8 @@ export default function BadugiGame() {
       </header>
 
       {/* Main Game Area */}
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-48">
-        <GameTable 
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
+        <BadugiTable 
           gameState={state} 
           myId={myId} 
           selectedCardIndices={selectedCardIndices}
