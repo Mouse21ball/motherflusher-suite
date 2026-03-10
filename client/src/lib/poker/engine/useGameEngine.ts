@@ -46,6 +46,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       
       // Reset bets on new betting round
       const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET' || nextPhase === 'BET_3';
+      const isDrawRound = nextPhase.startsWith('DRAW');
       return { 
         ...s, 
         phase: nextPhase, 
@@ -54,7 +55,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         players: s.players.map(p => ({
           ...p,
           hasActed: false,
-          bet: isBetRound ? 0 : p.bet
+          bet: (isBetRound || isDrawRound) ? 0 : p.bet
         })),
         messages: [...s.messages, { id: Math.random().toString(), text: `Phase changed to ${nextPhase.replace(/_/g, ' ')}`, time: Date.now() }].slice(-5)
       };

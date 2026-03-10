@@ -27,25 +27,25 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
   const isShowdown = gameState.phase === 'SHOWDOWN';
 
   const getOpponentPosition = (index: number, total: number) => {
-    if (total === 1) return "top-6 sm:top-8 left-1/2 -translate-x-1/2";
+    if (total === 1) return "-top-2 sm:top-2 left-1/2 -translate-x-1/2";
     if (total === 2) {
       return [
-        "top-[15%] left-[22%] -translate-x-1/2",
-        "top-[15%] right-[22%] translate-x-1/2",
+        "-top-2 sm:top-2 left-[20%] sm:left-[25%] -translate-x-1/2",
+        "-top-2 sm:top-2 right-[20%] sm:right-[25%] translate-x-1/2",
       ][index];
     }
     if (total === 3) {
       return [
-        "top-[20%] left-[12%] sm:left-[15%]",
-        "top-4 sm:top-6 left-1/2 -translate-x-1/2",
-        "top-[20%] right-[12%] sm:right-[15%]",
+        "top-[18%] -left-2 sm:left-2",
+        "-top-2 sm:top-2 left-1/2 -translate-x-1/2",
+        "top-[18%] -right-2 sm:right-2",
       ][index];
     }
     return [
-      "left-4 sm:left-8 top-[35%] -translate-y-1/2",
-      "top-4 sm:top-6 left-[30%] -translate-x-1/2",
-      "top-4 sm:top-6 right-[30%] translate-x-1/2",
-      "right-4 sm:right-8 top-[35%] -translate-y-1/2",
+      "top-[30%] -left-4 sm:-left-1 -translate-y-1/2",
+      "-top-2 sm:top-2 left-[28%] sm:left-[30%] -translate-x-1/2",
+      "-top-2 sm:top-2 right-[28%] sm:right-[30%] translate-x-1/2",
+      "top-[30%] -right-4 sm:-right-1 -translate-y-1/2",
     ][index] || "hidden";
   };
 

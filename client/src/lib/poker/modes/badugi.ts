@@ -125,7 +125,8 @@ export const BadugiMode: GameMode = {
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
     const allActed = activePlayers.every(p => p.hasActed);
     const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
-    const roundOver = state.phase === 'DECLARE' ? allActed : (allActed && allBetsMatch);
+    const isDrawRound = ['DRAW_1', 'DRAW_2', 'DRAW_3'].includes(state.phase);
+    const roundOver = (state.phase === 'DECLARE' || isDrawRound) ? allActed : (allActed && allBetsMatch);
 
     let nextPlayerId = undefined;
     if (!roundOver) {
