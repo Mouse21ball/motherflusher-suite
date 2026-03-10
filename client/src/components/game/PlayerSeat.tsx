@@ -119,7 +119,13 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       </div>
 
       {/* Status/Declaration Badge */}
-      {player.declaration && (
+      {player.declaration === 'BUST' && (
+        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Bust</Badge>
+      )}
+      {player.declaration === 'STAY' && (
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-amber-600 text-white border-none shadow-sm z-30">Stay</Badge>
+      )}
+      {player.declaration && player.declaration !== 'STAY' && player.declaration !== 'BUST' && (
         <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-blue-600 text-white border-none shadow-sm z-30">
           {player.declaration}
         </Badge>

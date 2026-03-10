@@ -34,6 +34,17 @@ const modes = [
     hoverBorder: "hover:border-red-400",
     icon: "7",
   },
+  {
+    id: "fifteen35",
+    name: "15 / 35",
+    subtitle: "Hit & Split",
+    description: "2-card deal, hit for more. Low qualifies at 13-15, high at 33-35. J/Q/K = ½, Ace = 1 or 11. Bust over 35 and you're out.",
+    path: "/fifteen35",
+    color: "from-amber-600 to-orange-700",
+    border: "border-amber-500/40",
+    hoverBorder: "hover:border-amber-400",
+    icon: "⅟",
+  },
 ];
 
 export default function Home() {

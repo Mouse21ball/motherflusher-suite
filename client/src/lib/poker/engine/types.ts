@@ -32,4 +32,6 @@ export interface GameMode {
     pot: number;
     messages: string[];
   };
+
+  getNextPhase?: (currentPhase: GamePhase, state: GameState) => GamePhase | null;
 }

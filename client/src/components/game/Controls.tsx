@@ -58,6 +58,40 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  const isHitPhase = phase.startsWith('HIT_');
+  if (isHitPhase) {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
+        <div className="text-sm font-mono text-white/70 mb-4">HIT, STAY, OR FOLD</div>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            variant="destructive"
+            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 border-0"
+            onClick={() => onAction('fold')}
+            data-testid="button-fold"
+          >
+            Fold
+          </Button>
+          <Button
+            variant="secondary"
+            className="bg-slate-800 text-white hover:bg-slate-700 border-0"
+            onClick={() => onAction('stay')}
+            data-testid="button-stay"
+          >
+            Stay
+          </Button>
+          <Button
+            className="font-bold"
+            onClick={() => onAction('hit')}
+            data-testid="button-hit"
+          >
+            Hit
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const isDrawPhase = phase === 'DRAW' || phase === 'DRAW_1' || phase === 'DRAW_2' || phase === 'DRAW_3';
   if (isDrawPhase) {
     let maxDiscards = 2;

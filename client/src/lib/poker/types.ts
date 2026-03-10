@@ -8,7 +8,7 @@ export interface CardType {
 }
 
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
-export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | null;
+export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | null;
 
 export interface HandEvaluation {
   description: string;
@@ -58,7 +58,20 @@ export type GamePhase =
   | 'DRAW_2'
   | 'DRAW_3'
   | 'DECLARE'
-  | 'BET_3';
+  | 'BET_3'
+  | 'HIT_1'
+  | 'HIT_2'
+  | 'HIT_3'
+  | 'HIT_4'
+  | 'HIT_5'
+  | 'HIT_6'
+  | 'HIT_7'
+  | 'HIT_8'
+  | 'BET_4'
+  | 'BET_5'
+  | 'BET_6'
+  | 'BET_7'
+  | 'BET_8';
 
 export interface ChatMessage {
   id: string;

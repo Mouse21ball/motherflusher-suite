@@ -36,17 +36,19 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   const advancePhase = useCallback(() => {
     setState(s => {
+      const overridePhase = mode.getNextPhase?.(s.phase, s);
       const currentPhaseIndex = mode.phases.indexOf(s.phase);
       const nextPhaseIndex = (currentPhaseIndex + 1) % mode.phases.length;
-      const nextPhase = mode.phases[nextPhaseIndex];
+      const nextPhase = overridePhase ?? mode.phases[nextPhaseIndex];
       
       // Calculate first to act: left of dealer
       const dealerIdx = getDealerIndex(s.players);
       const firstToActIdx = getNextActivePlayerIndex(s.players, dealerIdx);
       
       // Reset bets on new betting round
-      const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET' || nextPhase === 'BET_3';
+      const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
       const isDrawRound = nextPhase.startsWith('DRAW');
+      const isHitRound = nextPhase.startsWith('HIT_');
       return { 
         ...s, 
         phase: nextPhase, 
@@ -55,7 +57,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         players: s.players.map(p => ({
           ...p,
           hasActed: false,
-          bet: (isBetRound || isDrawRound) ? 0 : p.bet
+          bet: (isBetRound || isDrawRound || isHitRound) ? 0 : p.bet
         })),
         messages: [...s.messages, { id: Math.random().toString(), text: `Phase changed to ${nextPhase.replace(/_/g, ' ')}`, time: Date.now() }].slice(-5)
       };
@@ -68,7 +70,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (!state.activePlayerId) return;
     
     // Check if the current phase requires bot action
-    if (!['ANTE', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3', 'DECLARE', 'DECLARE_AND_BET'].includes(state.phase)) return;
+    if (!['ANTE', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8'].includes(state.phase)) return;
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
@@ -101,7 +103,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Continuous Hand Evaluation for Local Player
   useEffect(() => {
-    if (['REVEAL_TOP_ROW', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'BET_3', 'REVEAL_FACTOR_CARD', 'DECLARE', 'DECLARE_AND_BET'].includes(state.phase)) {
+    if (['REVEAL_TOP_ROW', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'REVEAL_FACTOR_CARD', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8'].includes(state.phase)) {
       setState(s => {
         const myPlayerIndex = s.players.findIndex(p => p.id === myId);
         if (myPlayerIndex === -1 || s.players[myPlayerIndex].status === 'folded') return s;
@@ -348,6 +350,45 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            messages: [...s.messages, { id: Math.random().toString(), text: "You stood pat", time: Date.now() }].slice(-5)
         }));
       }
+      processActionEnd();
+    }
+
+    if (action === 'hit') {
+      setState(s => {
+        const newDeck = [...s.deck];
+        const newPlayers = s.players.map(p => {
+          if (p.id !== myId) return p;
+          const hitCard = newDeck.shift();
+          if (!hitCard) return { ...p, hasActed: true };
+          const newCards = [...p.cards, { ...hitCard, isHidden: false }];
+          const eval_ = mode.evaluateHand({ ...p, cards: newCards }, s.communityCards);
+          const isBust = eval_?.description?.startsWith('BUST');
+          return {
+            ...p,
+            cards: newCards,
+            hasActed: true,
+            score: eval_,
+            ...(isBust ? { declaration: 'BUST' as Declaration, status: 'folded' as const } : {})
+          };
+        });
+        const me = newPlayers.find(p => p.id === myId);
+        const bustMsg = me?.declaration === 'BUST' ? "You busted!" : "You hit";
+        return {
+          ...s,
+          deck: newDeck,
+          players: newPlayers,
+          messages: [...s.messages, { id: Math.random().toString(), text: bustMsg, time: Date.now() }].slice(-5)
+        };
+      });
+      processActionEnd();
+    }
+
+    if (action === 'stay') {
+      setState(s => ({
+        ...s,
+        players: s.players.map(p => p.id === myId ? { ...p, declaration: 'STAY' as Declaration, hasActed: true } : p),
+        messages: [...s.messages, { id: Math.random().toString(), text: "You stayed", time: Date.now() }].slice(-5)
+      }));
       processActionEnd();
     }
 
