@@ -158,10 +158,8 @@ export const SwingPokerMode: GameMode = {
   resolveShowdown: (players: Player[], pot: number, myId: string) => {
     const finalPlayers = players.map(p => {
       if (p.id === myId || p.status === 'folded') return p;
-      // Reveal all remaining bot cards
       const newCards = p.cards.map(c => ({...c, isHidden: false}));
-      
-      // Generate mock hand evaluations
+
       const score = {
         high: ['Two Pair', 'Three of a Kind', 'Flush', 'Full House'][Math.floor(Math.random() * 4)],
         low: ['8-Low', '7-Low', 'Perfect 6', 'No Low'][Math.floor(Math.random() * 4)],
@@ -176,11 +174,10 @@ export const SwingPokerMode: GameMode = {
           usedCommunityCardIndices: [0, 1, 2]
         }
       };
-      
+
       return { ...p, cards: newCards, score };
     });
-    
-    // Generate my score too if I'm active
+
     const myIndex = finalPlayers.findIndex(p => p.id === myId);
     if (myIndex !== -1 && finalPlayers[myIndex].status !== 'folded') {
       finalPlayers[myIndex] = {
@@ -201,81 +198,76 @@ export const SwingPokerMode: GameMode = {
         }
       };
     }
-    
-    // MOCK EVALUATOR LOGIC
-    const highPlayers = finalPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
-    const lowPlayers = finalPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING');
-    
+
+    const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
+    let messages: string[] = [];
+
+    if (activePlayers.length === 1) {
+      const sole = finalPlayers.find(p => p.id === activePlayers[0].id)!;
+      sole.chips += pot;
+      sole.isWinner = true;
+      messages.push(`${sole.name} wins $${pot} (last player standing)`);
+      return { players: finalPlayers, pot: 0, messages };
+    }
+
+    const highPlayers = activePlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
+    const lowPlayers = activePlayers.filter(p => (p.declaration === 'LOW' || p.declaration === 'SWING') && p.score?.low !== 'No Low');
+
     let highWinner: Player | null = null;
-    let lowWinners: Player[] = [];
-    
+    let lowWinner: Player | null = null;
+
     if (highPlayers.length > 0) {
-      highWinner = highPlayers.reduce((prev, current) => 
+      highWinner = highPlayers.reduce((prev, current) =>
          (prev.score?.highEval?.description || "") > (current.score?.highEval?.description || "") ? prev : current
       );
     }
-    
+
     if (lowPlayers.length > 0) {
-      const sortedLows = [...lowPlayers].filter(p => p.score?.lowEval?.description !== "No Low").sort((a, b) => {
-        // This is a simple mock, we just want it to pick something consistent
+      const sortedLows = [...lowPlayers].sort((a, b) => {
         const aVal = a.score?.lowEval?.description || "";
         const bVal = b.score?.lowEval?.description || "";
         return aVal.localeCompare(bVal);
       });
-      if (sortedLows.length > 0) {
-        lowWinners = [sortedLows[0]]; // For mock, just take first
-      }
-    }
-    
-    let payoutMessage = "Showdown!";
-    let messages = [];
-    
-    if (!highWinner && lowWinners.length === 0) {
-      payoutMessage = `No qualifiers. $${pot} rolls over!`;
-      messages.push(payoutMessage);
-    } else {
-      const halfPot = Math.floor(pot / 2);
-      let highPot = halfPot;
-      let lowPot = halfPot;
-      // Handle odd chip
-      if (pot % 2 !== 0) {
-          highPot += 1; // High usually gets odd chip
-      }
-      
-      if (!highWinner) { lowPot += highPot; highPot = 0; }
-      if (lowWinners.length === 0) { highPot += lowPot; lowPot = 0; }
-      
-      if (highWinner) {
-        const p = finalPlayers.find(p => p.id === highWinner!.id);
-        if (p) {
-           p.chips += highPot;
-           p.isWinner = true;
-        }
-      }
-      
-      if (lowWinners.length > 0) {
-        const split = Math.floor(lowPot / lowWinners.length);
-        const remainder = lowPot % lowWinners.length;
-        lowWinners.forEach((winner, idx) => {
-          const p = finalPlayers.find(p => p.id === winner.id);
-          // Give odd chip to first winner for simplicity
-          if (p) {
-             p.chips += split + (idx === 0 ? remainder : 0);
-             p.isWinner = true;
-          }
-        });
-      }
-      
-      // Mark losers for visual fade
-      finalPlayers.forEach(p => {
-         if (p.status !== 'folded' && !p.isWinner) {
-            p.isLoser = true;
-         }
-      });
-      
-      messages.push("Pot distributed to winners.");
+      lowWinner = sortedLows[0];
     }
 
-    return { players: finalPlayers, pot: (!highWinner && lowWinners.length === 0) ? pot : 0, messages };
+    if (!highWinner && !lowWinner) {
+      messages.push(`No qualifiers. $${pot} rolls over!`);
+      return { players: finalPlayers, pot, messages };
+    }
+
+    const halfPot = Math.floor(pot / 2);
+    let highPot = halfPot;
+    let lowPot = halfPot;
+    if (pot % 2 !== 0) highPot += 1;
+
+    if (!highWinner) { lowPot += highPot; highPot = 0; }
+    if (!lowWinner) { highPot += lowPot; lowPot = 0; }
+
+    if (highWinner) {
+      const p = finalPlayers.find(p => p.id === highWinner!.id);
+      if (p) {
+        p.chips += highPot;
+        p.isWinner = true;
+        messages.push(`${p.name} wins HIGH $${highPot} (${p.score?.high || 'Best High'})`);
+      }
+    }
+
+    if (lowWinner) {
+      const p = finalPlayers.find(p => p.id === lowWinner!.id);
+      if (p) {
+        p.chips += lowPot;
+        p.isWinner = true;
+        messages.push(`${p.name} wins LOW $${lowPot} (${p.score?.low || 'Best Low'})`);
+      }
+    }
+
+    finalPlayers.forEach(p => {
+      if (p.status !== 'folded' && !p.isWinner) {
+        p.isLoser = true;
+      }
+    });
+
+    return { players: finalPlayers, pot: 0, messages };
   }
 };
