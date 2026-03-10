@@ -22,10 +22,10 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   const getSeatPosition = (index: number) => {
     const positions = [
       "bottom-0 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
-      "-left-6 sm:-left-4 top-[68%] -translate-y-1/2 scale-[0.6] sm:scale-[0.7] origin-left",
+      "-left-6 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-left",
       "-top-6 sm:-top-4 left-[5%] sm:left-[12%] scale-[0.6] sm:scale-[0.7] origin-top-left",
       "-top-6 sm:-top-4 right-[5%] sm:right-[12%] scale-[0.6] sm:scale-[0.7] origin-top-right",
-      "-right-6 sm:-right-4 top-[68%] -translate-y-1/2 scale-[0.6] sm:scale-[0.7] origin-right",
+      "-right-6 sm:-right-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-right",
     ];
     return positions[index] || "hidden";
   };
