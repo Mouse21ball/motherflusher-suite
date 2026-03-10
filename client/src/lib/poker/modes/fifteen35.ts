@@ -62,9 +62,9 @@ const qualifiesHigh = (total: number) => total >= 33 && total <= 35;
 const isBust = (total: number) => total > 35;
 
 const allDoneHitting = (players: Player[]): boolean => {
-  return players.filter(p => p.status === 'active').every(
-    p => p.declaration === 'STAY' || p.declaration === 'BUST'
-  );
+  const active = players.filter(p => p.status === 'active');
+  if (active.length <= 1) return true;
+  return active.every(p => p.declaration === 'STAY' || p.declaration === 'BUST');
 };
 
 export const Fifteen35Mode: GameMode = {
@@ -97,7 +97,7 @@ export const Fifteen35Mode: GameMode = {
       return null;
     }
 
-    if (isBetPhase && currentPhase !== 'BET_1') {
+    if (isBetPhase) {
       if (allDoneHitting(state.players)) {
         return 'SHOWDOWN';
       }
