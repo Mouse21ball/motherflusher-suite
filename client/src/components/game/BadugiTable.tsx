@@ -9,9 +9,10 @@ interface BadugiTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   selectableCards: boolean;
+  showVisibleCount?: boolean;
 }
 
-export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards }: BadugiTableProps) {
+export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards, showVisibleCount }: BadugiTableProps) {
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
   if (myIndex !== -1) {
@@ -70,6 +71,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
               isActive={player.id === gameState.activePlayerId}
               isSelf={false}
               showdownState={isShowdown}
+              showVisibleCount={showVisibleCount}
             />
           </div>
         ))}
@@ -131,6 +133,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
             onCardClick={onCardClick}
             selectableCards={selectableCards}
             showdownState={isShowdown}
+            showVisibleCount={showVisibleCount}
             className="bg-black/80 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/10 backdrop-blur-md pb-4 sm:pb-6"
           />
         )}

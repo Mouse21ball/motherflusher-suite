@@ -16,9 +16,16 @@ interface PlayerSeatProps {
   selectableCards?: boolean;
   showdownState?: boolean;
   communityCards?: CardType[];
+  showVisibleCount?: boolean;
 }
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState }: PlayerSeatProps) {
+const visibleCardValue = (rank: string): number => {
+  if (rank === 'J' || rank === 'Q' || rank === 'K') return 0.5;
+  if (rank === 'A') return 11;
+  return parseInt(rank, 10);
+};
+
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount }: PlayerSeatProps) {
   if (!player) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-white/10 bg-black/20 text-white/30 w-24 h-24", className)}>
@@ -115,7 +122,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <div className="text-primary font-mono text-xs flex items-center gap-1">
           <span className="opacity-70">$</span>{player.chips}
         </div>
-
+        {showVisibleCount && player.cards.length > 0 && (() => {
+          const faceUpCards = player.cards.filter(c => !c.isHidden);
+          if (faceUpCards.length === 0) return null;
+          const total = faceUpCards.reduce((sum, c) => sum + visibleCardValue(c.rank), 0);
+          const display = total % 1 === 0 ? total.toString() : total.toFixed(1);
+          return (
+            <div className="text-amber-400/90 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
+              <span className="text-amber-400/50">showing</span>{display}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Status/Declaration Badge */}

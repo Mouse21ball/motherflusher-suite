@@ -60,6 +60,7 @@ export default function Fifteen35Game() {
           selectedCardIndices={[]}
           onCardClick={() => {}}
           selectableCards={false}
+          showVisibleCount={true}
         />
       </main>
 
