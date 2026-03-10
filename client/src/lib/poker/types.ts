@@ -8,7 +8,7 @@ export interface CardType {
 }
 
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
-export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | null;
+export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | 'POKER' | 'SUITS' | null;
 
 export interface HandEvaluation {
   description: string;
@@ -39,6 +39,9 @@ export interface Player {
     description?: string;
     isValidBadugi?: boolean;
     badugiRankValues?: number[];
+    pokerValue?: number;
+    suitsScore?: number;
+    suitsValid?: boolean;
   };
 }
 
@@ -71,7 +74,8 @@ export type GamePhase =
   | 'BET_5'
   | 'BET_6'
   | 'BET_7'
-  | 'BET_8';
+  | 'BET_8'
+  | 'REVEAL_LOWER_CENTER';
 
 export interface ChatMessage {
   id: string;

@@ -4,6 +4,12 @@ import { GamePhase, Declaration } from "@/lib/poker/types";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
+interface DeclarationOption {
+  label: string;
+  value: Declaration;
+  className: string;
+}
+
 interface ActionControlsProps {
   phase: GamePhase;
   currentBet: number;
@@ -13,9 +19,16 @@ interface ActionControlsProps {
   onAction: (action: string, payload?: any) => void;
   isMyTurn: boolean;
   selectedCardsCount: number;
+  declarationOptions?: DeclarationOption[];
 }
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount }: ActionControlsProps) {
+const defaultDeclarationOptions: DeclarationOption[] = [
+  { label: 'HIGH', value: 'HIGH', className: 'border-red-500/50 hover:bg-red-500/20 text-red-100' },
+  { label: 'SWING', value: 'SWING', className: 'border-purple-500/50 hover:bg-purple-500/20 text-purple-100' },
+  { label: 'LOW', value: 'LOW', className: 'border-blue-500/50 hover:bg-blue-500/20 text-blue-100' },
+];
+
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   
@@ -109,7 +122,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
-  if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD') {
+  if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD' || phase === 'REVEAL_LOWER_CENTER') {
     // This is an automatic phase where the engine reveals community cards. 
     // The player doesn't need to tap anything, just wait for the animation/transition.
     // It could also just quickly pass through in the mock engine.
@@ -131,13 +144,14 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   if (phase === 'DECLARE_AND_BET' && !pendingDeclaration) {
+    const declOpts = declarationOptions || defaultDeclarationOptions;
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
         <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">STEP 1: DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => setPendingDeclaration('HIGH')}>HIGH</Button>
-          <Button variant="outline" className="border-purple-500/50 hover:bg-purple-500/20 text-purple-100" onClick={() => setPendingDeclaration('SWING')}>SWING</Button>
-          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => setPendingDeclaration('LOW')}>LOW</Button>
+          {declOpts.map(opt => (
+            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => setPendingDeclaration(opt.value)}>{opt.label}</Button>
+          ))}
         </div>
       </div>
     );

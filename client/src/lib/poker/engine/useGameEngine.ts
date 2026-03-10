@@ -70,7 +70,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (!state.activePlayerId) return;
     
     // Check if the current phase requires bot action
-    if (!['ANTE', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8'].includes(state.phase)) return;
+    if (!['ANTE', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8', 'REVEAL_LOWER_CENTER'].includes(state.phase)) return;
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
@@ -103,7 +103,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Continuous Hand Evaluation for Local Player
   useEffect(() => {
-    if (['REVEAL_TOP_ROW', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'REVEAL_FACTOR_CARD', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8'].includes(state.phase)) {
+    if (['REVEAL_TOP_ROW', 'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'REVEAL_SECOND_ROW', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8', 'REVEAL_FACTOR_CARD', 'REVEAL_LOWER_CENTER', 'DECLARE', 'DECLARE_AND_BET', 'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8'].includes(state.phase)) {
       setState(s => {
         const myPlayerIndex = s.players.findIndex(p => p.id === myId);
         if (myPlayerIndex === -1 || s.players[myPlayerIndex].status === 'folded') return s;
@@ -460,7 +460,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (state.phase === 'SHOWDOWN') {
       const timer = setTimeout(() => {
         setState(s => {
-          const result = mode.resolveShowdown(s.players, s.pot, myId);
+          const result = mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
           
           return { 
             ...s, 

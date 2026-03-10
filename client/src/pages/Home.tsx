@@ -45,6 +45,17 @@ const modes = [
     hoverBorder: "hover:border-amber-400",
     icon: "⅟",
   },
+  {
+    id: "suitspoker",
+    name: "Suits & Poker",
+    subtitle: "Community Split",
+    description: "5 hole cards, 12-card board with Side A, Center, and Side B paths. Declare Poker, Suits, or Swing. Best flush scores vs best 5-card hand.",
+    path: "/suitspoker",
+    color: "from-cyan-600 to-teal-800",
+    border: "border-cyan-500/40",
+    hoverBorder: "hover:border-cyan-400",
+    icon: "♣",
+  },
 ];
 
 export default function Home() {

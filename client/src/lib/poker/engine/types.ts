@@ -27,7 +27,7 @@ export interface GameMode {
   evaluateHand: (player: Player, communityCards: CardType[]) => any;
 
   // Resolves the showdown at the end of the hand
-  resolveShowdown: (players: Player[], pot: number, myId: string) => {
+  resolveShowdown: (players: Player[], pot: number, myId: string, communityCards?: CardType[]) => {
     players: Player[];
     pot: number;
     messages: string[];
