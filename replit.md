@@ -7,10 +7,12 @@ A client-side poker game platform supporting multiple poker variants, built with
 - `/` — Home / mode-select lobby
 - `/swing` — Mother Flusher (Swing Poker)
 - `/badugi` — Badugi
+- `/dead7` — Dead 7
 
 ## Game Modes
 - **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card community board (5 pairs + 5 singles with factor card), draw, declare+bet (HIGH/LOW/SWING), showdown
 - **Badugi**: 4 hole cards, no community cards, 3 draw rounds, declare (HIGH/LOW/FOLD), final bet round, hi-lo showdown
+- **Dead 7**: 4 hole cards, 3 draw rounds (3/2/1 max discards), declare (HIGH/LOW/FOLD), bet, showdown. Any 7 kills hand. HIGH needs all cards ≥8 (ace is low only). LOW needs all cards ≤6. Flush scoops pot; badugi scoops if no flush; otherwise normal hi-lo split. Best high: K-Q-J-10, best low: A-2-3-4.
 
 ## Architecture
 - **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter for routing
@@ -31,8 +33,10 @@ A client-side poker game platform supporting multiple poker variants, built with
 - `client/src/pages/Home.tsx` — Mode-select lobby
 - `client/src/pages/Game.tsx` — Swing Poker game page
 - `client/src/pages/BadugiGame.tsx` — Badugi game page
+- `client/src/pages/Dead7Game.tsx` — Dead 7 game page
 - `client/src/lib/poker/modes/badugi.ts` — Badugi game mode + evaluateBadugi
 - `client/src/lib/poker/modes/swing.ts` — Swing Poker game mode
+- `client/src/lib/poker/modes/dead7.ts` — Dead 7 game mode + evaluateDead7
 - `client/src/lib/poker/engine/useGameEngine.ts` — Core game engine hook
 - `client/src/lib/poker/engine/core.ts` — Deck, dealer, round helpers
 - `client/src/lib/poker/types.ts` — Shared types

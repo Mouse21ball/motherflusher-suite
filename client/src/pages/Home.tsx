@@ -23,6 +23,17 @@ const modes = [
     hoverBorder: "hover:border-emerald-400",
     icon: "♦",
   },
+  {
+    id: "dead7",
+    name: "Dead 7",
+    subtitle: "High-Low Draw",
+    description: "4-card draw with 3 rounds. Any 7 kills your hand. Flushes and badugis scoop. High ball is K-Q-J-10, low ball is A-2-3-4.",
+    path: "/dead7",
+    color: "from-red-600 to-rose-800",
+    border: "border-red-500/40",
+    hoverBorder: "hover:border-red-400",
+    icon: "7",
+  },
 ];
 
 export default function Home() {
