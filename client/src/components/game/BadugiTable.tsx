@@ -51,8 +51,16 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
 
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
-      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-hidden min-h-[380px] sm:min-h-[460px]">
-        <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none"></div>
+      <div className="w-full text-center mb-1 relative z-40">
+        {gameState.messages.slice(-1).map(msg => (
+          <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
+            {msg.text}
+          </p>
+        ))}
+      </div>
+
+      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]">
+        <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]"></div>
 
         {opponents.map((player, i) => (
           <div key={player.id} className={`absolute ${getOpponentPosition(i, opponents.length)} z-20 scale-[0.7] sm:scale-[0.8] origin-center`}>
@@ -66,15 +74,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
           </div>
         ))}
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] px-4 sm:px-8 py-6">
-          <div className="w-full text-center mb-1 mt-auto">
-            {gameState.messages.slice(-1).map(msg => (
-              <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-md bg-black/40 inline-block px-3 py-1 rounded-full" data-testid="text-game-message">
-                {msg.text}
-              </p>
-            ))}
-          </div>
-
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6">
           <div className="flex flex-col items-center gap-2 my-auto">
             <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase" data-testid="text-phase">
               {gameState.phase.replace(/_/g, ' ')}
