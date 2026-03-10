@@ -204,7 +204,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (action === 'restart') {
       setState(s => {
         const isRollover = s.pot > 0;
-        const nextPlayers = moveDealer(s.players).map(p => ({
+        const basePlayers = isRollover ? s.players : moveDealer(s.players);
+        const nextPlayers = basePlayers.map(p => ({
             ...p,
             cards: [],
             bet: 0,
@@ -431,7 +432,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         setTimeout(() => {
             setState(s => {
                 const isRollover = s.pot > 0;
-                const nextPlayers = moveDealer(s.players).map(p => ({
+                const basePlayers = isRollover ? s.players : moveDealer(s.players);
+                const nextPlayers = basePlayers.map(p => ({
                     ...p, 
                     cards: [], 
                     bet: 0, 
@@ -450,7 +452,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                     if (activePlayers.length === 1) {
                         const winner = nextPlayers.find(p => p.id === activePlayers[0].id)!;
                         winner.chips += s.pot;
-                        const allBack = nextPlayers.map(p => ({
+                        const allBack = moveDealer(nextPlayers).map(p => ({
                             ...p,
                             status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
                         }));
