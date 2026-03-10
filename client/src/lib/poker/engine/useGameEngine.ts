@@ -319,7 +319,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
               if (p.id !== myId) return p;
               const newCards = [...p.cards];
               indicesToDiscard.forEach(idx => {
-                newCards[idx] = { ...newDeck.shift()!, isHidden: true };
+                newCards[idx] = { ...newDeck.shift()!, isHidden: false };
               });
               newCards.sort((a, b) => {
                 const val = (r: string) => r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : parseInt(r, 10);
