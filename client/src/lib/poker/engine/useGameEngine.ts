@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { GameState, Player, CardType, Declaration, GamePhase } from '../types';
+import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, isRoundOver } from './core';
 import { GameMode } from './types';
 
@@ -203,13 +203,18 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     
     if (action === 'restart') {
       setState(s => {
+        const isRollover = s.pot > 0;
         const nextPlayers = moveDealer(s.players).map(p => ({
             ...p,
             cards: [],
             bet: 0,
-            status: (p.chips > 0 ? 'active' : 'folded') as 'active' | 'folded' | 'sitting_out',
+            status: isRollover
+                ? (p.status === 'active' && p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                : (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
             declaration: null,
             hasActed: false,
+            isWinner: undefined,
+            isLoser: undefined,
             score: undefined
         }));
         
@@ -217,8 +222,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         return {
           ...init,
           players: nextPlayers,
-          pot: s.pot, // Preserve pot for rollover
-          messages: [{ id: Math.random().toString(), text: 'New hand started.', time: Date.now() }]
+          pot: s.pot,
+          messages: [{ id: Math.random().toString(), text: isRollover ? `Rollover hand — $${s.pot} carries over.` : 'New hand started.', time: Date.now() }]
         };
       });
       return;
@@ -423,30 +428,62 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           };
         });
         
-        // Return to ANTE after a delay
         setTimeout(() => {
             setState(s => {
+                const isRollover = s.pot > 0;
                 const nextPlayers = moveDealer(s.players).map(p => ({
                     ...p, 
                     cards: [], 
                     bet: 0, 
                     hasActed: false, 
                     declaration: null, 
-                    status: (p.chips > 0 ? 'active' : p.status) as 'active' | 'folded' | 'sitting_out',
+                    isWinner: undefined,
+                    isLoser: undefined,
+                    status: isRollover
+                        ? (p.status === 'active' && p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                        : (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
                     score: undefined
                 }));
+
+                const activePlayers = nextPlayers.filter(p => p.status === 'active');
+                if (isRollover && activePlayers.length <= 1) {
+                    if (activePlayers.length === 1) {
+                        const winner = nextPlayers.find(p => p.id === activePlayers[0].id)!;
+                        winner.chips += s.pot;
+                        const allBack = nextPlayers.map(p => ({
+                            ...p,
+                            status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                        }));
+                        return {
+                            ...s,
+                            phase: 'ANTE' as GamePhase,
+                            currentBet: 0,
+                            pot: 0,
+                            activePlayerId: allBack[getNextActivePlayerIndex(allBack, getDealerIndex(allBack))].id,
+                            players: allBack,
+                            communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
+                            deck: [],
+                            messages: [{ id: Math.random().toString(), text: `${winner.name} wins rollover pot $${s.pot}. All players rejoin.`, time: Date.now() }]
+                        };
+                    }
+                }
+
                 const dealerIdx = getDealerIndex(nextPlayers);
                 const firstToActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
+
+                const rolloverMsg = isRollover
+                    ? `Rollover hand — $${s.pot} carries over. ${nextPlayers.filter(p => p.status === 'sitting_out').map(p => p.name).join(', ')} sitting out.`
+                    : "Starting new hand...";
                 
                 return {
                     ...s,
-                    phase: 'ANTE',
+                    phase: 'ANTE' as GamePhase,
                     currentBet: 0,
                     activePlayerId: nextPlayers[firstToActIdx].id,
                     players: nextPlayers,
                     communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
                     deck: [],
-                    messages: [...s.messages, { id: Math.random().toString(), text: "Starting new hand...", time: Date.now() }].slice(-5)
+                    messages: [{ id: Math.random().toString(), text: rolloverMsg, time: Date.now() }]
                 };
             });
         }, 8000);

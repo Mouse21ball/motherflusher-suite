@@ -142,6 +142,7 @@ export const Dead7Mode: GameMode = {
   deal: (deck: CardType[], players: Player[], myId: string) => {
     const freshDeck = [...deck];
     const newPlayers = players.map(p => {
+      if (p.status !== 'active') return { ...p, cards: [] };
       const cards = freshDeck.splice(0, 4).map(c => ({ ...c, isHidden: p.id !== myId }));
       if (p.id === myId) {
         cards.sort((a, b) => rankValue(b.rank) - rankValue(a.rank));

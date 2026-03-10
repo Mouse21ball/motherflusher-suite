@@ -31,6 +31,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
       player.status === 'folded' && "opacity-50 grayscale",
+      player.status === 'sitting_out' && "opacity-30 grayscale",
       className
     )}>
       {/* Dealer Button */}
@@ -125,6 +126,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
       {player.status === 'folded' && !player.declaration && (
         <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Folded</Badge>
+      )}
+      {player.status === 'sitting_out' && (
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-slate-600 text-white/70 border-none z-30">Sitting Out</Badge>
       )}
 
       {/* Current Bet */}

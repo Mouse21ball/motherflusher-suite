@@ -23,7 +23,7 @@ export const SwingPokerMode: GameMode = {
   deal: (deck: CardType[], players: Player[], myId: string) => {
     const freshDeck = [...deck];
     const newPlayers = players.map(p => {
-      // All cards start hidden to the table, but we show them on the client if it's our id
+      if (p.status !== 'active') return { ...p, cards: [] };
       const cards = freshDeck.splice(0, 5).map(c => ({...c, isHidden: p.id !== myId}));
       if (p.id === myId) {
         cards.sort((a, b) => {
