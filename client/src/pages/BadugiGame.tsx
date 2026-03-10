@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
 import { GameTable } from "@/components/game/GameTable";
@@ -57,6 +58,9 @@ export default function BadugiGame() {
           <span className="font-bold tracking-widest text-sm text-foreground/80 uppercase hidden sm:inline">Badugi</span>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/" data-testid="link-swing">
+            <span className="text-xs font-mono uppercase tracking-wider px-3 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors cursor-pointer">Swing</span>
+          </Link>
           <div className="text-right">
             <div className="text-xs text-muted-foreground uppercase font-mono tracking-wider">My Stack</div>
             <div className="font-mono text-primary font-bold text-lg">${me?.chips || 0}</div>
