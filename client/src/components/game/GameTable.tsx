@@ -1,6 +1,7 @@
 import { GameState, Player } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
+import { DiscardPile } from "./DiscardPile";
 
 interface GameTableProps {
   gameState: GameState;
@@ -11,7 +12,6 @@ interface GameTableProps {
 }
 
 export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards }: GameTableProps) {
-  // Logic to arrange players around the table, putting "me" at the bottom
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
   if (myIndex !== -1) {
@@ -19,30 +19,25 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     orderedPlayers.unshift(...p1);
   }
 
-  // Map 0-5 index to CSS classes for positioning around an oval table
-  // Adjust spacing so cards/seats don't overlap, particularly on the sides.
-  const getSeatPosition = (index: number, total: number) => {
+  const getSeatPosition = (index: number) => {
     const positions = [
-      "bottom-2 left-1/2 -translate-x-1/2 scale-110 origin-bottom", // Me (bottom center)
-      "bottom-32 sm:bottom-40 -left-6 sm:left-4 scale-75 origin-left", // Bottom left
-      "top-16 sm:top-24 -left-6 sm:left-4 scale-75 origin-left",   // Top left
-      "top-4 left-1/2 -translate-x-1/2 scale-75 origin-top",    // Top center
-      "top-16 sm:top-24 -right-6 sm:right-4 scale-75 origin-right",  // Top right
-      "bottom-32 sm:bottom-40 -right-6 sm:right-4 scale-75 origin-right", // Bottom right
+      "bottom-2 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
+      "left-2 sm:left-6 top-1/2 -translate-y-1/2 scale-75 origin-left",
+      "top-4 sm:top-6 left-[20%] -translate-x-1/2 scale-75 origin-top",
+      "top-4 sm:top-6 right-[20%] translate-x-1/2 scale-75 origin-top",
+      "right-2 sm:right-6 top-1/2 -translate-y-1/2 scale-75 origin-right",
     ];
     return positions[index] || "hidden";
   };
 
+  const isDrawPhase = gameState.phase === 'DRAW';
+
   return (
     <div className="relative w-full max-w-5xl h-[75vh] min-h-[600px] mx-auto mt-4 sm:mt-8 mb-32 px-2 sm:px-8">
-      {/* The Felt */}
       <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl border-4 border-[#1a3822]">
         <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
         
-        {/* Table Center Info & Community Cards */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-          
-          {/* Game Logs / Messages */}
           <div className="absolute top-12 w-full text-center px-12 z-20">
             {gameState.messages.slice(-1).map(msg => (
               <p key={msg.id} className="text-white/90 text-sm sm:text-base font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-md bg-black/40 inline-block px-4 py-1 rounded-full">
@@ -52,12 +47,10 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           </div>
 
           <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] mb-4 sm:mb-8 uppercase text-center mt-8">
-            {gameState.phase.replace('_', ' ')}
+            {gameState.phase.replace(/_/g, ' ')}
           </div>
           
-          {/* 15-Card Community Board */}
           <div className="flex flex-col items-center gap-3 sm:gap-6 mb-4 sm:mb-10 origin-center pointer-events-auto mt-4 sm:mt-8">
-            {/* Top Row: 5 Pairs */}
             <div className="flex gap-2 sm:gap-4">
               {Array.from({ length: 5 }).map((_, colIndex) => (
                 <div key={`pair-${colIndex}`} className="flex flex-col gap-1.5 sm:gap-2.5 bg-black/30 p-2 sm:p-3 rounded-xl border border-white/10 shadow-inner">
@@ -79,7 +72,6 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               ))}
             </div>
             
-            {/* Bottom Row: 5 Singles */}
             <div className="flex gap-2 sm:gap-4 mt-2">
               {Array.from({ length: 5 }).map((_, colIndex) => (
                 <div key={`single-${colIndex}`} className="flex justify-center w-[66px] sm:w-[92px]">
@@ -94,25 +86,27 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               ))}
             </div>
           </div>
-          
-          <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20">
-            <span className="text-[10px] text-green-400 uppercase font-bold tracking-widest mb-1">Total Pot</span>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+
+          <div className="flex items-center gap-4 z-20">
+            <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
+            <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+              <span className="text-[10px] text-green-400 uppercase font-bold tracking-widest mb-1">Total Pot</span>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+                </div>
+                <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
               </div>
-              <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
             </div>
           </div>
           
         </div>
       </div>
 
-      {/* Seats */}
-      {Array.from({ length: 6 }).map((_, i) => {
+      {Array.from({ length: 5 }).map((_, i) => {
         const player = orderedPlayers[i];
         return (
-          <div key={i} className={`absolute ${getSeatPosition(i, 6)} z-30`}>
+          <div key={i} className={`absolute ${getSeatPosition(i)} z-30`}>
              <PlayerSeat 
                player={player || null} 
                seatNumber={i}

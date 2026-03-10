@@ -1,5 +1,6 @@
 import { GameState } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
+import { DiscardPile } from "./DiscardPile";
 import { cn } from "@/lib/utils";
 
 interface BadugiTableProps {
@@ -22,34 +23,55 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
   const me = orderedPlayers[0];
 
   const drawNumber = gameState.phase === 'DRAW_1' ? 1 : gameState.phase === 'DRAW_2' ? 2 : gameState.phase === 'DRAW_3' ? 3 : 0;
+  const isDrawPhase = drawNumber > 0;
   const isShowdown = gameState.phase === 'SHOWDOWN';
 
+  const getOpponentPosition = (index: number, total: number) => {
+    if (total === 1) return "top-6 sm:top-8 left-1/2 -translate-x-1/2";
+    if (total === 2) {
+      return [
+        "top-[15%] left-[22%] -translate-x-1/2",
+        "top-[15%] right-[22%] translate-x-1/2",
+      ][index];
+    }
+    if (total === 3) {
+      return [
+        "top-[20%] left-[12%] sm:left-[15%]",
+        "top-4 sm:top-6 left-1/2 -translate-x-1/2",
+        "top-[20%] right-[12%] sm:right-[15%]",
+      ][index];
+    }
+    return [
+      "left-4 sm:left-8 top-[35%] -translate-y-1/2",
+      "top-4 sm:top-6 left-[30%] -translate-x-1/2",
+      "top-4 sm:top-6 right-[30%] translate-x-1/2",
+      "right-4 sm:right-8 top-[35%] -translate-y-1/2",
+    ][index] || "hidden";
+  };
+
   return (
-    <div className="relative w-full max-w-3xl mx-auto flex flex-col items-center gap-2 sm:gap-4 px-2 sm:px-6 pt-2 pb-4">
-      <div className="relative w-full rounded-[60px] sm:rounded-[100px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-hidden min-h-[420px] sm:min-h-[500px] flex flex-col">
+    <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
+      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-hidden min-h-[380px] sm:min-h-[460px]">
         <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col items-center flex-1 px-4 sm:px-8 pt-6 pb-4">
-          <div className="w-full text-center mb-2">
+        {opponents.map((player, i) => (
+          <div key={player.id} className={`absolute ${getOpponentPosition(i, opponents.length)} z-20 scale-[0.7] sm:scale-[0.8] origin-center`}>
+            <PlayerSeat
+              player={player}
+              seatNumber={i + 1}
+              isActive={player.id === gameState.activePlayerId}
+              isSelf={false}
+              showdownState={isShowdown}
+            />
+          </div>
+        ))}
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] px-4 sm:px-8 py-6">
+          <div className="w-full text-center mb-1 mt-auto">
             {gameState.messages.slice(-1).map(msg => (
               <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-md bg-black/40 inline-block px-3 py-1 rounded-full" data-testid="text-game-message">
                 {msg.text}
               </p>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mt-2 mb-4 sm:mb-6">
-            {opponents.map((player, i) => (
-              <div key={player.id} className="flex-shrink-0">
-                <PlayerSeat
-                  player={player}
-                  seatNumber={i + 1}
-                  isActive={player.id === gameState.activePlayerId}
-                  isSelf={false}
-                  showdownState={isShowdown}
-                  className="scale-[0.8] sm:scale-90 origin-top"
-                />
-              </div>
             ))}
           </div>
 
@@ -77,6 +99,8 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
               </div>
             )}
 
+            <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
+
             <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-5 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
               <span className="text-[9px] sm:text-[10px] text-green-400 uppercase font-bold tracking-widest mb-0.5">Total Pot</span>
               <div className="flex items-center gap-2">
@@ -96,7 +120,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
         </div>
       </div>
 
-      <div className="w-full flex justify-center -mt-8 sm:-mt-10 relative z-20">
+      <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30">
         {me && (
           <PlayerSeat
             player={me}
