@@ -87,15 +87,15 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         })}
       </div>
 
-      {/* Hand Evaluation Display */}
-      {player.score && (isSelf || showdownState) && (
+      {/* Hand Evaluation Display — opponents only (absolute above) */}
+      {player.score && !isSelf && showdownState && (
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
-          {((isSelf && !showdownState) || (showdownState && ['HIGH', 'SWING', 'POKER'].includes(player.declaration || ''))) && player.score.high && (
+          {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
              <Badge className="w-full justify-center bg-blue-600/90 text-[10px] py-1 border-blue-400">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
              </Badge>
           )}
-          {((isSelf && !showdownState) || (showdownState && ['LOW', 'SWING', 'SUITS'].includes(player.declaration || ''))) && player.score.low && (
+          {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
              <Badge className="w-full justify-center bg-purple-600/90 text-[10px] py-1 border-purple-400">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
              </Badge>
@@ -133,6 +133,46 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
           );
         })()}
+        {/* Hero eval badges — inside info container, below chips */}
+        {player.score && isSelf && !showdownState && (
+          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
+            {player.score.high && (
+              <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400">
+                {player.score.suitsValid !== undefined ? 'Poker' : 'High'}: {player.score.high}
+              </Badge>
+            )}
+            {player.score.low && (
+              <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400">
+                {player.score.suitsValid !== undefined ? 'Suits' : 'Low'}: {player.score.low}
+              </Badge>
+            )}
+            {player.score.description && (
+              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+                {player.score.description}
+              </Badge>
+            )}
+          </div>
+        )}
+        {/* Hero eval badges — showdown */}
+        {player.score && isSelf && showdownState && (
+          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
+            {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
+              <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400">
+                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
+              </Badge>
+            )}
+            {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
+              <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400">
+                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
+              </Badge>
+            )}
+            {player.score.description && (
+              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+                {player.score.description}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Status/Declaration Badge */}

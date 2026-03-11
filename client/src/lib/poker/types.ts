@@ -42,6 +42,8 @@ export interface Player {
     pokerValue?: number;
     suitsScore?: number;
     suitsValid?: boolean;
+    swingPokerValue?: number;
+    swingSuitsScore?: number;
   };
 }
 

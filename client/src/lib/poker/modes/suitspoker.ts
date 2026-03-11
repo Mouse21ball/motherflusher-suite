@@ -170,7 +170,29 @@ function spEvaluateHand(player: Player, communityCards: CardType[]) {
   const suitSymbols: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
   const suitSymbol = suitSymbols[bestSuits.suit] || '';
 
-  const isSwingCandidate = bestPoker !== null && suitsValid;
+  const swingOnA = pokerA !== null && suitsA.valid;
+  const swingOnB = pokerB !== null && suitsB.valid;
+  const isSwingCandidate = swingOnA || swingOnB;
+
+  let swingPokerValue = 0;
+  let swingSuitsScore = 0;
+  if (swingOnA && swingOnB) {
+    const scoreA = (pokerA?.value || 0) + suitsA.score;
+    const scoreB = (pokerB?.value || 0) + suitsB.score;
+    if (scoreA >= scoreB) {
+      swingPokerValue = pokerA?.value || 0;
+      swingSuitsScore = suitsA.score;
+    } else {
+      swingPokerValue = pokerB?.value || 0;
+      swingSuitsScore = suitsB.score;
+    }
+  } else if (swingOnA) {
+    swingPokerValue = pokerA?.value || 0;
+    swingSuitsScore = suitsA.score;
+  } else if (swingOnB) {
+    swingPokerValue = pokerB?.value || 0;
+    swingSuitsScore = suitsB.score;
+  }
 
   let descParts: string[] = [];
   if (pokerPath === suitsPath || !suitsValid) {
@@ -178,7 +200,10 @@ function spEvaluateHand(player: Player, communityCards: CardType[]) {
   } else {
     descParts.push(`P:${pokerPath} S:${suitsPath}`);
   }
-  if (isSwingCandidate) descParts.push('Swing ✓');
+  if (isSwingCandidate) {
+    const swingPaths = [swingOnA && 'A', swingOnB && 'B'].filter(Boolean).join('/');
+    descParts.push(`Swing ✓ (${swingPaths})`);
+  }
 
   return {
     high: bestPoker?.name || 'No Hand',
@@ -197,7 +222,9 @@ function spEvaluateHand(player: Player, communityCards: CardType[]) {
     isValidBadugi: suitsValid,
     pokerValue: bestPoker?.value || 0,
     suitsScore: bestSuits.score,
-    suitsValid
+    suitsValid,
+    swingPokerValue,
+    swingSuitsScore
   };
 }
 
@@ -455,7 +482,9 @@ export const SuitsPokerMode: GameMode = {
       let bestVal = -1;
       let winners: Player[] = [];
       for (const p of contenders) {
-        const val = p.score?.pokerValue || 0;
+        const val = p.declaration === 'SWING'
+          ? (p.score?.swingPokerValue || 0)
+          : (p.score?.pokerValue || 0);
         if (val > bestVal) { bestVal = val; winners = [p]; }
         else if (val === bestVal && val > 0) winners.push(p);
       }
@@ -466,8 +495,12 @@ export const SuitsPokerMode: GameMode = {
       let bestVal = 0;
       let winners: Player[] = [];
       for (const p of contenders) {
-        const val = p.score?.suitsScore || 0;
-        const valid = p.score?.suitsValid || false;
+        const val = p.declaration === 'SWING'
+          ? (p.score?.swingSuitsScore || 0)
+          : (p.score?.suitsScore || 0);
+        const valid = p.declaration === 'SWING'
+          ? ((p.score?.swingSuitsScore || 0) > 0)
+          : (p.score?.suitsValid || false);
         if (!valid) continue;
         if (val > bestVal) { bestVal = val; winners = [p]; }
         else if (val === bestVal && val > 0) winners.push(p);
