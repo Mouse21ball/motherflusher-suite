@@ -80,19 +80,17 @@ export default function SuitsPokerGame() {
 
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
-          {me?.status === 'active' && (
-            <ActionControls
-              phase={state.phase}
-              currentBet={state.currentBet}
-              myBet={me?.bet || 0}
-              pot={state.pot}
-              chips={me?.chips || 0}
-              onAction={handleControlAction}
-              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
-              selectedCardsCount={selectedCardIndices.length}
-              declarationOptions={spDeclarationOptions}
-            />
-          )}
+          <ActionControls
+            phase={state.phase}
+            currentBet={state.currentBet}
+            myBet={me?.bet || 0}
+            pot={state.pot}
+            chips={me?.chips || 0}
+            onAction={handleControlAction}
+            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
+            selectedCardsCount={selectedCardIndices.length}
+            declarationOptions={spDeclarationOptions}
+          />
         </div>
       </div>
 

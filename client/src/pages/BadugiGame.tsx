@@ -63,7 +63,7 @@ export default function BadugiGame() {
           </Link>
           <div className="text-right">
             <div className="text-xs text-muted-foreground uppercase font-mono tracking-wider">My Stack</div>
-            <div className="font-mono text-primary font-bold text-lg">${me?.chips || 0}</div>
+            <div className="font-mono text-primary font-bold text-lg" data-testid="text-my-chips">${me?.chips || 0}</div>
           </div>
         </div>
       </header>
@@ -82,18 +82,16 @@ export default function BadugiGame() {
       {/* Bottom Controls Area */}
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
-          {me?.status === 'active' && (
-            <ActionControls 
-              phase={state.phase}
-              currentBet={state.currentBet}
-              myBet={me?.bet || 0}
-              pot={state.pot}
-              chips={me?.chips || 0}
-              onAction={handleControlAction}
-              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
-              selectedCardsCount={selectedCardIndices.length}
-            />
-          )}
+          <ActionControls 
+            phase={state.phase}
+            currentBet={state.currentBet}
+            myBet={me?.bet || 0}
+            pot={state.pot}
+            chips={me?.chips || 0}
+            onAction={handleControlAction}
+            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
+            selectedCardsCount={selectedCardIndices.length}
+          />
         </div>
       </div>
 

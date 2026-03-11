@@ -196,15 +196,9 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         return;
     }
 
-    if (state.activePlayerId !== myId) return;
-
-    if (action === 'start') {
-      advancePhase();
-      return;
-    }
-    
     if (action === 'restart') {
       setState(s => {
+        if (s.phase !== 'SHOWDOWN') return s;
         const isRollover = s.pot > 0;
         const basePlayers = isRollover ? s.players : moveDealer(s.players);
         const nextPlayers = basePlayers.map(p => ({
@@ -220,15 +214,31 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             isLoser: undefined,
             score: undefined
         }));
-        
-        const init = createInitialState();
+
+        const dealerIdx = getDealerIndex(nextPlayers);
+        const firstToActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
+        const rolloverMsg = isRollover
+            ? `Rollover hand — $${s.pot} carries over.`
+            : 'New hand started.';
+
         return {
-          ...init,
+          ...s,
+          phase: 'ANTE' as GamePhase,
+          currentBet: 0,
+          activePlayerId: nextPlayers[firstToActIdx].id,
           players: nextPlayers,
-          pot: s.pot,
-          messages: [{ id: Math.random().toString(), text: isRollover ? `Rollover hand — $${s.pot} carries over.` : 'New hand started.', time: Date.now() }]
+          communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
+          deck: [],
+          messages: [{ id: Math.random().toString(), text: rolloverMsg, time: Date.now() }]
         };
       });
+      return;
+    }
+
+    if (state.activePlayerId !== myId) return;
+
+    if (action === 'start') {
+      advancePhase();
       return;
     }
 
@@ -472,6 +482,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         
         setTimeout(() => {
             setState(s => {
+                if (s.phase !== 'SHOWDOWN') return s;
+
                 const isRollover = s.pot > 0;
                 const basePlayers = isRollover ? s.players : moveDealer(s.players);
                 const nextPlayers = basePlayers.map(p => ({

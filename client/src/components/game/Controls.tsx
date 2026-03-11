@@ -43,6 +43,24 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
   }, [phase, callAmount]);
 
+  if (phase === 'SHOWDOWN') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex justify-center">
+        <Button size="lg" onClick={() => onAction('restart')} className="w-full sm:w-auto font-bold uppercase" data-testid="button-next-hand">
+          Next Hand
+        </Button>
+      </div>
+    );
+  }
+
+  if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD' || phase === 'REVEAL_LOWER_CENTER') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
+        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">REVEALING CARDS...</div>
+      </div>
+    );
+  }
+
   if (!isMyTurn) {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex items-center justify-center min-h-[100px]">
@@ -122,26 +140,6 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
-  if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD' || phase === 'REVEAL_LOWER_CENTER') {
-    // This is an automatic phase where the engine reveals community cards. 
-    // The player doesn't need to tap anything, just wait for the animation/transition.
-    // It could also just quickly pass through in the mock engine.
-    return (
-      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
-        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">REVEALING CARDS...</div>
-      </div>
-    );
-  }
-
-  if (phase === 'SHOWDOWN') {
-    return (
-      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex justify-center">
-        <Button size="lg" onClick={() => onAction('restart')} className="w-full sm:w-auto font-bold uppercase">
-          Next Hand
-        </Button>
-      </div>
-    );
-  }
 
   if (phase === 'DECLARE_AND_BET' && !pendingDeclaration) {
     const declOpts = declarationOptions || defaultDeclarationOptions;
@@ -199,6 +197,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           variant="destructive" 
           className="bg-red-500/20 text-red-400 hover:bg-red-500/40 border-0"
           onClick={() => handleBetAction('fold')}
+          data-testid="button-fold"
         >
           Fold
         </Button>
@@ -207,6 +206,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           variant="secondary"
           className="bg-slate-800 text-white hover:bg-slate-700 border-0"
           onClick={() => handleBetAction(canCheck ? 'check' : 'call')}
+          data-testid={canCheck ? "button-check" : "button-call"}
         >
           {canCheck ? 'Check' : `Call $${callAmount}`}
         </Button>
@@ -216,6 +216,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
             className="flex-1 font-bold"
             onClick={() => handleBetAction('raise', betAmount)}
             disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < betAmount}
+            data-testid="button-raise"
           >
             {callAmount > 0 ? 'Raise' : 'Bet'} ${betAmount}
           </Button>
