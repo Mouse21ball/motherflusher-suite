@@ -52,7 +52,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed top-20 right-4 z-40 p-3 rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${isOpen ? 'hidden' : 'block'}`}
+        className={`fixed top-20 right-4 z-40 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-white shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
       >
         <MessageSquare className="w-5 h-5 text-gray-300" />
         {unreadCount > 0 && (
@@ -73,7 +73,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
           </h2>
           <button 
             onClick={() => setIsOpen(false)}
-            className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10"
+            className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-gray-400 hover:text-white active:text-white transition-colors rounded-lg hover:bg-white/10 touch-manipulation"
           >
             <X className="w-5 h-5" />
           </button>

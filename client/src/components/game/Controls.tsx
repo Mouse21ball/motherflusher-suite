@@ -110,7 +110,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   const hintEl = phaseHint ? (
-    <div className="text-[11px] text-amber-400/70 text-center mb-2 leading-snug" data-testid="text-phase-hint">{phaseHint}</div>
+    <div className="text-xs text-amber-400/70 text-center mb-2 leading-snug" data-testid="text-phase-hint">{phaseHint}</div>
   ) : null;
 
   const isHitPhase = phase.startsWith('HIT_');

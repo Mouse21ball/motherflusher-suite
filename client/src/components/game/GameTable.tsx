@@ -2,6 +2,7 @@ import { GameState, Player } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { DiscardPile } from "./DiscardPile";
+import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface GameTableProps {
   gameState: GameState;
@@ -39,8 +40,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-            <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] mb-3 sm:mb-6 uppercase text-center mt-8" data-testid="text-phase">
-              {gameState.phase.replace(/_/g, ' ')}
+            <div className="text-white/40 text-sm sm:text-base font-mono tracking-[0.15em] mb-3 sm:mb-6 uppercase text-center mt-8 font-semibold" data-testid="text-phase">
+              {getPhaseLabel(gameState.phase)}
             </div>
 
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto mt-2 sm:mt-4">
@@ -95,7 +96,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               </div>
               <div className="text-center pointer-events-auto">
                 {gameState.messages.slice(-1).map(msg => (
-                  <p key={msg.id} className="text-white/80 text-[11px] sm:text-xs font-mono animate-in fade-in drop-shadow-md bg-black/50 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/[0.06]" data-testid="text-game-message">
+                  <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
                     {msg.text}
                   </p>
                 ))}

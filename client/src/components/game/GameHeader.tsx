@@ -260,7 +260,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
             <SheetTrigger asChild>
               <button
-                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all"
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
                 data-testid="button-rules"
               >
                 <BookOpen className="w-3.5 h-3.5" />
@@ -309,7 +309,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
 
           <button
             onClick={handleLobbyClick}
-            className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer"
+            className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer touch-manipulation"
             data-testid="link-lobby"
           >
             Lobby

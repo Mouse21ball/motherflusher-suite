@@ -118,19 +118,19 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       </div>
 
       {player.score && !isSelf && showdownState && (
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
+        <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex flex-col gap-0.5 w-[140px] z-50 pointer-events-none">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
-             <Badge className="w-full justify-center bg-blue-600/90 text-[10px] py-1 border-blue-400">
+             <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400 shadow-md">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
              </Badge>
           )}
           {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
-             <Badge className="w-full justify-center bg-purple-600/90 text-[10px] py-1 border-purple-400">
+             <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400 shadow-md">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
              </Badge>
           )}
           {player.score.description && (
-             <Badge className={cn("w-full justify-center text-[10px] py-1", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+             <Badge className={cn("w-full justify-center text-[9px] py-0.5 shadow-md", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
                {player.score.description}
              </Badge>
           )}
@@ -230,7 +230,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
 
       {player.bet > 0 && (
-        <div className="absolute -bottom-10 flex items-center justify-center gap-1 bg-black/50 px-2 py-1 rounded-full text-xs font-mono text-white border border-white/10 anim-chip-toss">
+        <div className="absolute -bottom-12 flex items-center justify-center gap-1 bg-black/60 px-2.5 py-1 rounded-full text-xs font-mono text-white border border-white/10 anim-chip-toss z-20">
           <div className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-300 shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"></div>
           {player.bet}
         </div>

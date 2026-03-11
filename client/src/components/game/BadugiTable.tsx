@@ -2,6 +2,7 @@ import { GameState } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { DiscardPile } from "./DiscardPile";
 import { cn } from "@/lib/utils";
+import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -78,8 +79,8 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6">
           <div className="flex flex-col items-center gap-2 my-auto">
-            <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase" data-testid="text-phase">
-              {gameState.phase.replace(/_/g, ' ')}
+            <div className="text-white/40 text-xs sm:text-sm font-mono tracking-[0.15em] uppercase font-semibold" data-testid="text-phase">
+              {getPhaseLabel(gameState.phase)}
             </div>
 
             {drawNumber > 0 && (

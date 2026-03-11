@@ -51,7 +51,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
         <div className={`px-5 pt-5 pb-3 bg-gradient-to-r ${accentColor}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white" data-testid="text-intro-title">{title}</h2>
-            <button onClick={dismiss} className="text-white/50 hover:text-white transition-colors" data-testid="button-intro-dismiss">
+            <button onClick={dismiss} className="p-2 -mr-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-white/50 hover:text-white active:text-white transition-colors rounded-lg touch-manipulation" data-testid="button-intro-dismiss">
               <X className="w-5 h-5" />
             </button>
           </div>

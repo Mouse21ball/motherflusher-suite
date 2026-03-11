@@ -2,6 +2,7 @@ import { GameState, CardType } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { cn } from "@/lib/utils";
+import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface SuitsPokerTableProps {
   gameState: GameState;
@@ -89,8 +90,8 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
 
         <div className="relative z-10 flex flex-col items-center justify-end min-h-[380px] sm:min-h-[480px] px-2 sm:px-8 pt-[120px] sm:pt-[140px] pb-6">
           <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-            <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase" data-testid="text-phase">
-              {gameState.phase.replace(/_/g, ' ')}
+            <div className="text-white/40 text-xs sm:text-sm font-mono tracking-[0.15em] uppercase font-semibold" data-testid="text-phase">
+              {getPhaseLabel(gameState.phase)}
             </div>
 
             <div className="scale-[0.6] sm:scale-[0.8] origin-center">
