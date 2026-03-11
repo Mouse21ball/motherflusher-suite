@@ -1,10 +1,21 @@
-import { Link } from "wouter";
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useLocation } from "wouter";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { BookOpen } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { HandHistory } from "./HandHistory";
 import { StatsView } from "./StatsView";
+import type { GamePhase } from "@/lib/poker/types";
 
 export interface ModeInfo {
   abbrev: string;
@@ -23,7 +34,19 @@ interface GameHeaderProps {
   mode: ModeInfo;
   modeId: string;
   chips: number;
+  phase?: GamePhase;
+  pot?: number;
+  onForfeit?: () => void;
 }
+
+const MID_HAND_PHASES = new Set<GamePhase>([
+  'ANTE', 'DEAL',
+  'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3',
+  'BET_1', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8',
+  'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8',
+  'DECLARE', 'DECLARE_AND_BET',
+  'REVEAL_TOP_ROW', 'REVEAL_SECOND_ROW', 'REVEAL_LOWER_CENTER', 'REVEAL_FACTOR_CARD',
+]);
 
 export const MODE_INFO: Record<string, ModeInfo> = {
   swing: {
@@ -198,81 +221,131 @@ export const MODE_INFO: Record<string, ModeInfo> = {
   },
 };
 
-export function GameHeader({ mode, modeId, chips }: GameHeaderProps) {
+export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameHeaderProps) {
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  const [, navigate] = useLocation();
+
+  const isMidHand = phase ? MID_HAND_PHASES.has(phase) : false;
+  const currentPot = pot ?? 0;
+
+  const handleLobbyClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isMidHand) {
+      setExitDialogOpen(true);
+    } else {
+      navigate("/");
+    }
+  };
+
+  const handleConfirmExit = () => {
+    if (onForfeit) onForfeit();
+    setExitDialogOpen(false);
+    navigate("/");
+  };
 
   return (
-    <header className="w-full px-3 py-2.5 sm:px-4 sm:py-3 flex justify-between items-center bg-card/95 backdrop-blur-sm border-b border-white/5 z-50">
-      <div className="flex items-center gap-2">
-        <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs ${mode.borderClass} border shadow-sm`}>
-          {mode.abbrev}
-        </div>
-        <span className={`font-semibold tracking-wide text-sm text-foreground/80 hidden sm:inline`}>
-          {mode.name}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
-          <SheetTrigger asChild>
-            <button
-              className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all"
-              data-testid="button-rules"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Rules</span>
-            </button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0">
-            <ScrollArea className="h-full">
-              <div className="p-5 sm:p-6">
-                <div className="flex items-center gap-2 mb-5">
-                  <div className={`w-7 h-7 rounded-md bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs border ${mode.borderClass}`}>
-                    {mode.abbrev}
-                  </div>
-                  <h2 className="text-lg font-bold text-white">{mode.name}</h2>
-                </div>
-                <div className="space-y-5">
-                  {mode.rules.map((section, i) => (
-                    <div key={i}>
-                      <h3 className={`text-xs font-mono uppercase tracking-widest ${mode.accentClass} mb-2 font-bold`}>
-                        {section.heading}
-                      </h3>
-                      <ul className="space-y-1.5">
-                        {section.items.map((item, j) => (
-                          <li key={j} className="text-sm text-white/70 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/25">
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-4 border-t border-white/10">
-                  <p className="text-[11px] text-white/30 font-mono leading-relaxed">
-                    5 players max per table. $1 ante each hand. Rollover carries the pot forward when no one qualifies. Odd chips go to HIGH / POKER side.
-                  </p>
-                </div>
-              </div>
-            </ScrollArea>
-          </SheetContent>
-        </Sheet>
-
-        <HandHistory modeId={modeId} />
-
-        <StatsView modeId={modeId} />
-
-        <Link href="/" data-testid="link-lobby">
-          <span className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer">
-            Lobby
+    <>
+      <header className="w-full px-3 py-2.5 sm:px-4 sm:py-3 flex justify-between items-center bg-card/95 backdrop-blur-sm border-b border-white/5 z-50">
+        <div className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs ${mode.borderClass} border shadow-sm`}>
+            {mode.abbrev}
+          </div>
+          <span className={`font-semibold tracking-wide text-sm text-foreground/80 hidden sm:inline`}>
+            {mode.name}
           </span>
-        </Link>
-
-        <div className="text-right pl-1">
-          <div className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider leading-none">Stack</div>
-          <div className="font-mono text-primary font-bold text-base leading-tight" data-testid="text-my-chips">${chips}</div>
         </div>
-      </div>
-    </header>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all"
+                data-testid="button-rules"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Rules</span>
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0" aria-describedby={undefined}>
+              <SheetTitle className="sr-only">Rules</SheetTitle>
+              <ScrollArea className="h-full">
+                <div className="p-5 sm:p-6 pt-10">
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className={`w-7 h-7 rounded-md bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs border ${mode.borderClass}`}>
+                      {mode.abbrev}
+                    </div>
+                    <h2 className="text-lg font-bold text-white">{mode.name}</h2>
+                  </div>
+                  <div className="space-y-5">
+                    {mode.rules.map((section, i) => (
+                      <div key={i}>
+                        <h3 className={`text-xs font-mono uppercase tracking-widest ${mode.accentClass} mb-2 font-bold`}>
+                          {section.heading}
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {section.items.map((item, j) => (
+                            <li key={j} className="text-sm text-white/70 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/25">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-white/10">
+                    <p className="text-[11px] text-white/30 font-mono leading-relaxed">
+                      5 players max per table. $1 ante each hand. Rollover carries the pot forward when no one qualifies. Odd chips go to HIGH / POKER side.
+                    </p>
+                  </div>
+                </div>
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
+
+          <HandHistory modeId={modeId} />
+
+          <StatsView modeId={modeId} />
+
+          <button
+            onClick={handleLobbyClick}
+            className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer"
+            data-testid="link-lobby"
+          >
+            Lobby
+          </button>
+
+          <div className="text-right pl-1">
+            <div className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider leading-none">Stack</div>
+            <div className="font-mono text-primary font-bold text-base leading-tight" data-testid="text-my-chips">${chips}</div>
+          </div>
+        </div>
+      </header>
+
+      <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <AlertDialogContent className="max-w-[340px] sm:max-w-md bg-slate-950 border-slate-800 rounded-xl mx-4">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white text-base">Leave this hand?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60 text-sm leading-relaxed">
+              You're in the middle of a hand. Leaving now will forfeit your current hand
+              {currentPot > 0 && <> and your claim to the <span className="font-mono font-bold text-amber-400">${currentPot}</span> pot</>}.
+              Your chips will be saved but you'll lose anything you've put in this round.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white mt-0">
+              Stay
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmExit}
+              className="bg-red-600 hover:bg-red-700 text-white border-0"
+              data-testid="button-confirm-leave"
+            >
+              Leave & Forfeit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

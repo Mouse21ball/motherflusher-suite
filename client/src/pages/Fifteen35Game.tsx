@@ -9,6 +9,7 @@ import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
+import { saveChips } from "@/lib/persistence";
 
 export default function Fifteen35Game() {
   const myId = 'p1';
@@ -42,7 +43,7 @@ export default function Fifteen35Game() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="fifteen35" {...MODE_INTROS.fifteen35} />
-      <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} />
+      <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('fifteen35', me.chips); }} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <BadugiTable

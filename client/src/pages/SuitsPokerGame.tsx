@@ -9,6 +9,7 @@ import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
+import { saveChips } from "@/lib/persistence";
 import { Declaration } from "@/lib/poker/types";
 
 const spDeclarationOptions: { label: string; value: Declaration; className: string }[] = [
@@ -57,7 +58,7 @@ export default function SuitsPokerGame() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="suitspoker" {...MODE_INTROS.suitspoker} />
-      <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} />
+      <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('suitspoker', me.chips); }} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <SuitsPokerTable

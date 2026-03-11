@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Clock } from "lucide-react";
 import { getHandHistory, type HandRecord } from "@/lib/persistence";
@@ -54,9 +54,10 @@ export function HandHistory({ modeId }: HandHistoryProps) {
           <span className="hidden sm:inline">History</span>
         </button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0">
+      <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0" aria-describedby={undefined}>
+        <SheetTitle className="sr-only">Hand History</SheetTitle>
         <ScrollArea className="h-full">
-          <div className="p-5 sm:p-6">
+          <div className="p-5 sm:p-6 pt-10">
             <h2 className="text-lg font-bold text-white mb-1">Hand History</h2>
             <p className="text-xs text-white/40 font-mono mb-4">
               {modeId ? "This table" : "All tables"} · {history.length} hands

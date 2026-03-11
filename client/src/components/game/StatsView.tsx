@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BarChart3 } from "lucide-react";
 import { getHandHistory, getAllChips, type HandRecord } from "@/lib/persistence";
@@ -88,9 +88,10 @@ export function StatsView({ modeId }: StatsViewProps) {
           <span className="hidden sm:inline">Stats</span>
         </button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0">
+      <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0" aria-describedby={undefined}>
+        <SheetTitle className="sr-only">Stats</SheetTitle>
         <ScrollArea className="h-full">
-          <div className="p-5 sm:p-6">
+          <div className="p-5 sm:p-6 pt-10">
             <h2 className="text-lg font-bold text-white mb-1" data-testid="text-stats-title">
               {modeId ? MODE_NAMES[modeId] || "Stats" : "Overall Stats"}
             </h2>

@@ -100,6 +100,13 @@ A client-side poker game platform supporting five custom poker variants, built w
 - Events: win notifications, big pot alerts (>$20), rollover announcements, rebuy confirmation (detects 0→1000 chip change), hot streak alerts (+$100 session gain), hand count milestones (10/25/50).
 - Wired into all 5 game pages. Uses existing shadcn/ui Toaster with TOAST_LIMIT=3, auto-dismiss after 3-4s.
 
+## Exit Confirmation
+- GameHeader's Lobby button checks if the current phase is mid-hand (any phase except WAITING/SHOWDOWN).
+- Mid-hand exit shows an AlertDialog warning about forfeiting the current hand and pot claim.
+- On confirm, saves the hero's current chip balance (forfeiting any chips already in the pot) and navigates to lobby.
+- Safe phases (WAITING, SHOWDOWN) navigate directly without warning.
+- GameHeader accepts optional `phase`, `pot`, and `onForfeit` props from game pages.
+
 ## Constraints
 - `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
 - All game logic is client-side only
