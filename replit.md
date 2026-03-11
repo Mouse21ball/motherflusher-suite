@@ -1,7 +1,7 @@
 # Poker Table
 
 ## Overview
-A client-side poker game platform supporting multiple poker variants, built with React + Express. Game logic runs entirely in the browser with 4 mock bot players (max 5 seats).
+A client-side poker game platform supporting five custom poker variants, built with React + Express. Game logic runs entirely in the browser with 4 mock bot players (max 5 seats). Unified launch-shell with shared GameHeader, rules drawer, and polished lobby.
 
 ## Routes
 - `/` — Home / mode-select lobby
@@ -36,12 +36,13 @@ A client-side poker game platform supporting multiple poker variants, built with
 - Rollover only when no qualifying hand exists anywhere
 
 ## Key Files
-- `client/src/pages/Home.tsx` — Mode-select lobby
+- `client/src/pages/Home.tsx` — Mode-select lobby with quick-facts tags and descriptions
 - `client/src/pages/Game.tsx` — Swing Poker game page
 - `client/src/pages/BadugiGame.tsx` — Badugi game page
 - `client/src/pages/Dead7Game.tsx` — Dead 7 game page
 - `client/src/pages/Fifteen35Game.tsx` — 15/35 game page
 - `client/src/pages/SuitsPokerGame.tsx` — Suits & Poker game page
+- `client/src/components/game/GameHeader.tsx` — Shared header across all game pages (mode badge, rules drawer, lobby link, chip stack). Contains MODE_INFO with full rules text for each mode.
 - `client/src/lib/poker/modes/badugi.ts` — Badugi game mode + evaluateBadugi
 - `client/src/lib/poker/modes/swing.ts` — Swing Poker game mode (DO NOT EDIT)
 - `client/src/lib/poker/modes/dead7.ts` — Dead 7 game mode + evaluateDead7

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { SuitsPokerMode } from "@/lib/poker/modes/suitspoker";
 import { SuitsPokerTable } from "@/components/game/SuitsPokerTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
+import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { Declaration } from "@/lib/poker/types";
 
 const spDeclarationOptions: { label: string; value: Declaration; className: string }[] = [
@@ -50,23 +50,7 @@ export default function SuitsPokerGame() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
-      <header className="w-full p-4 flex justify-between items-center bg-card border-b border-white/5 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-cyan-600/20 flex items-center justify-center text-cyan-400 font-bold font-mono shadow-[0_0_10px_rgba(6,182,212,0.2)] border border-cyan-500/30">
-            SP
-          </div>
-          <span className="font-bold tracking-widest text-sm text-foreground/80 uppercase hidden sm:inline">Suits & Poker</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/" data-testid="link-lobby">
-            <span className="text-xs font-mono uppercase tracking-wider px-3 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors cursor-pointer">Lobby</span>
-          </Link>
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground uppercase font-mono tracking-wider">My Stack</div>
-            <div className="font-mono text-primary font-bold text-lg" data-testid="text-my-chips">${me?.chips || 0}</div>
-          </div>
-        </div>
-      </header>
+      <GameHeader mode={MODE_INFO.suitspoker} chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <SuitsPokerTable

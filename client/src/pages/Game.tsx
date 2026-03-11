@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { SwingPokerMode } from "@/lib/poker/modes/swing";
 import { GameTable } from "@/components/game/GameTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
+import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 
 export default function Game() {
   const myId = 'p1';
@@ -13,7 +13,6 @@ export default function Game() {
 
   const me = state.players.find(p => p.id === myId);
 
-  // Clear selections when phase changes
   useEffect(() => {
     setSelectedCardIndices([]);
   }, [state.phase]);
@@ -23,7 +22,7 @@ export default function Game() {
       setSelectedCardIndices(prev => {
         if (prev.includes(index)) return prev.filter(i => i !== index);
         if (prev.length < 2) return [...prev, index];
-        return prev; // Max 2
+        return prev;
       });
     }
   };
@@ -44,26 +43,8 @@ export default function Game() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
-      {/* Top Header */}
-      <header className="w-full p-4 flex justify-between items-center bg-card border-b border-white/5 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-primary font-bold font-mono shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-primary/30">
-            S
-          </div>
-          <span className="font-bold tracking-widest text-sm text-foreground/80 uppercase hidden sm:inline">Swing Poker</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/" data-testid="link-lobby">
-            <span className="text-xs font-mono uppercase tracking-wider px-3 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors cursor-pointer">Lobby</span>
-          </Link>
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground uppercase font-mono tracking-wider">My Stack</div>
-            <div className="font-mono text-primary font-bold text-lg" data-testid="text-my-chips">${me?.chips || 0}</div>
-          </div>
-        </div>
-      </header>
+      <GameHeader mode={MODE_INFO.swing} chips={me?.chips || 0} />
 
-      {/* Main Game Area */}
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <GameTable 
           gameState={state} 
@@ -74,7 +55,6 @@ export default function Game() {
         />
       </main>
 
-      {/* Bottom Controls Area */}
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
           <ActionControls 
@@ -90,7 +70,6 @@ export default function Game() {
         </div>
       </div>
 
-      {/* Chat Component */}
       <ChatBox 
         messages={state.chatMessages} 
         myId={myId} 
