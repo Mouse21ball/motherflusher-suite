@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer } from './core';
 import { GameMode } from './types';
-import { getChips, saveChips, addHandRecord, HandRecord } from '../../persistence';
+import { getChips, saveChips, addHandRecord, HandRecord, getPlayerName } from '../../persistence';
 
 export const createMockPlayers = (heroChips: number): Player[] => [
-  { id: 'p1', name: 'You', chips: heroChips, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+  { id: 'p1', name: getPlayerName() || 'You', chips: heroChips, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   { id: 'p2', name: 'Alice', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: true, declaration: null, hasActed: false },
   { id: 'p3', name: 'Bob', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   { id: 'p4', name: 'Charlie', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },

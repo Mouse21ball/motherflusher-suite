@@ -1,5 +1,6 @@
 const CHIPS_KEY = 'poker_table_chips';
 const HISTORY_KEY = 'poker_table_history';
+const NAME_KEY = 'poker_table_player_name';
 const MAX_HISTORY = 50;
 const DEFAULT_CHIPS = 1000;
 
@@ -76,6 +77,21 @@ export function resetAllData(): void {
   try {
     localStorage.removeItem(CHIPS_KEY);
     localStorage.removeItem(HISTORY_KEY);
+  } catch {
+  }
+}
+
+export function getPlayerName(): string | null {
+  try {
+    return localStorage.getItem(NAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setPlayerName(name: string): void {
+  try {
+    localStorage.setItem(NAME_KEY, name);
   } catch {
   }
 }

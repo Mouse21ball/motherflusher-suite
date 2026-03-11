@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { getAllChips, getHandHistory } from "@/lib/persistence";
+import { getAllChips, getHandHistory, getPlayerName } from "@/lib/persistence";
 import { HandHistory } from "@/components/game/HandHistory";
 import { StatsView } from "@/components/game/StatsView";
 
@@ -78,6 +78,7 @@ const modes = [
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const playerName = getPlayerName();
   const chipMap = getAllChips();
   const history = getHandHistory();
   const totalHands = history.length;
@@ -96,6 +97,11 @@ export default function Home() {
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight" data-testid="text-app-title">
               Poker Table
             </h1>
+            {playerName && (
+              <p className="text-primary/80 text-xs font-mono mt-1 tracking-wide" data-testid="text-player-greeting">
+                {playerName}
+              </p>
+            )}
             <p className="text-white/50 text-sm mt-1.5 font-mono tracking-wide" data-testid="text-app-subtitle">
               {totalHands === 0 ? "Five hi-lo variants \u00B7 pick a game to start" : "Five hi-lo variants"}
             </p>

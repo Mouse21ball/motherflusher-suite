@@ -23,6 +23,14 @@ A client-side poker game platform supporting five custom poker variants, built w
 - **Backend**: Express server serves the Vite dev frontend; no database needed (game is client-side only)
 - **Engine**: Shared game engine (`client/src/lib/poker/engine/`) with pluggable game modes (`client/src/lib/poker/modes/`)
 
+## Local Identity (Closed Alpha)
+- **WelcomeGate** (`client/src/components/WelcomeGate.tsx`): wraps the entire Router in App.tsx. On first visit (no `poker_table_player_name` in localStorage), shows a closed-alpha welcome screen explaining the test group and asking for a display name (2–16 chars). After entry, the name is saved and the app loads normally. Returning users skip straight to the lobby.
+- Display name is stored as a plain string in `localStorage` key `poker_table_player_name`.
+- `persistence.ts` exports `getPlayerName()` and `setPlayerName()`.
+- The hero player name in `createMockPlayers` reads from `getPlayerName()` (falls back to 'You').
+- Home page shows the player name below the title.
+- No passwords, emails, cloud accounts, or multiplayer auth. Device-local only.
+
 ## Phase Flows
 - **Badugi/Dead7**: `WAITING → ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → DECLARE → BET_3 → SHOWDOWN`
 - **15/35**: `WAITING → ANTE → DEAL → BET_1 → HIT_1 → BET_2 → ... → SHOWDOWN` (up to 8 HIT/BET rounds; skips to SHOWDOWN when all stayed/busted)
