@@ -1,6 +1,7 @@
 import { GameMode } from '../engine/types';
 import { GameState, Player, CardType, GamePhase } from '../types';
 import { getNextActivePlayerIndex, getDealerIndex } from '../engine/core';
+import { decideBet, applyBetDecision } from '../engine/botUtils';
 
 const cardValue = (rank: string): number => {
   if (rank === 'J' || rank === 'Q' || rank === 'K') return 0.5;
@@ -139,38 +140,32 @@ export const Fifteen35Mode: GameMode = {
         message = `${bot.name} stays`;
       } else {
         const { total } = bestTotal(bot.cards);
+        const numCards = bot.cards.length;
 
-        // Improved hit/stay logic
-        // 1. Stay if in qualifying ranges (13-15 or 33-35)
-        // 2. Risk-based hit:
-        //    - If total < 12, always hit (minimum low qualifying is 13)
-        //    - If total is 12, hit if we haven't reached many cards yet or feeling lucky
-        //    - If total is between 15 and 32, we MUST hit to try for 33-35
-        //    - If total is 32, hit because 33-35 is very close (any face card is 0.5, but we can't get exactly 0.5 with ranks)
-        //      Actually, J, Q, K are 0.5. So 32 + 1 (A as 1) = 33. 32 + 0.5 = 32.5.
-        
         let shouldStay = false;
         if (qualifiesLow(total) || qualifiesHigh(total)) {
           shouldStay = true;
-        } else if (total < 12) {
-          shouldStay = false; // Always hit if far from 13
+        } else if (total <= 11) {
+          shouldStay = false;
         } else if (total === 12) {
-          // At 12, we need 1-3 more. Risk of bust is low (only A as 11 busts us, but A can be 1).
-          // Actually with A=1, we can't bust from 12 in one hit.
-          // Max card value is 11 (A). 12 + 11 = 23. Still safe.
-          // So always hit at 12.
+          shouldStay = Math.random() < 0.15;
+        } else if (total > 15 && total < 28) {
           shouldStay = false;
-        } else if (total > 15 && total < 32) {
-          // Must hit to try for 33-35
-          shouldStay = false;
-        } else if (total >= 32 && total < 33) {
-          // Very close to 33. Hit!
-          shouldStay = false;
+        } else if (total >= 28 && total < 33) {
+          const bustCards = [10, 9, 8, 7, 6, 5, 4];
+          const safeMax = 35 - total;
+          const dangerCount = bustCards.filter(v => v > safeMax).length;
+          const bustRisk = (dangerCount + 1) / 14;
+          if (total >= 32 && total < 33) {
+            shouldStay = false;
+          } else if (numCards >= 5 && bustRisk > 0.5) {
+            shouldStay = Math.random() < bustRisk * 0.4;
+          } else {
+            shouldStay = false;
+          }
         } else if (total > 35) {
-          // Should be BUST already, but safety check
           shouldStay = true;
         } else {
-          // Default to hit if not qualifying and not bust
           shouldStay = false;
         }
 
@@ -197,50 +192,37 @@ export const Fifteen35Mode: GameMode = {
         }
       }
     } else {
-      const callAmount = state.currentBet - bot.bet;
       const { total } = bestTotal(bot.cards);
-      const isQualifying = qualifiesLow(total) || qualifiesHigh(total);
-      
-      // If we are qualifying, we should probably stay and potentially raise
+      const isQualLow = qualifiesLow(total);
+      const isQualHigh = qualifiesHigh(total);
+      const isQualifying = isQualLow || isQualHigh;
+
+      let strength = 0.08;
       if (isQualifying) {
-        if (callAmount === 0 && Math.random() < 0.3) {
-          // Raise if we have a strong hand (on the edges of qualifying ranges)
-          const isStrongLow = total === 15;
-          const isStrongHigh = total === 35;
-          if (isStrongLow || isStrongHigh || Math.random() < 0.1) {
-            const raiseAmount = 5;
-            newCurrentBet += raiseAmount;
-            newPlayers[bIdx] = { ...bot, chips: bot.chips - raiseAmount, bet: newCurrentBet, hasActed: true };
-            newPot += raiseAmount;
-            message = `${bot.name} raises to $${newCurrentBet}`;
-          } else {
-            newPlayers[bIdx] = { ...bot, hasActed: true };
-            message = `${bot.name} checks`;
-          }
+        if (total === 15 || total === 35) {
+          strength = 0.9;
+        } else if (total === 14 || total === 34) {
+          strength = 0.7;
         } else {
-          // Call if someone else raised
-          newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-          newPot += callAmount;
-          message = `${bot.name} calls $${callAmount}`;
+          strength = 0.5;
         }
+      } else if (bot.declaration === 'STAY') {
+        strength = 0.05;
       } else {
-        // Not qualifying yet. 
-        // If the bet is too high, we might fold if we are far from qualifying
-        const distLow = Math.abs(total - 14); // 14 is middle of low range
-        const distHigh = Math.abs(total - 34); // 34 is middle of high range
+        const distLow = Math.abs(total - 14);
+        const distHigh = Math.abs(total - 34);
         const minDist = Math.min(distLow, distHigh);
-        
-        const shouldFold = callAmount > 10 && minDist > 5 && Math.random() < 0.5;
-        
-        if (shouldFold) {
-          newPlayers[bIdx] = { ...bot, status: 'folded', hasActed: true };
-          message = `${bot.name} folded`;
-        } else {
-          newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-          newPot += callAmount;
-          message = `${bot.name} ${callAmount === 0 ? 'checks' : 'calls $' + callAmount}`;
-        }
+        if (minDist <= 2) strength = 0.25;
+        else if (minDist <= 5) strength = 0.15;
+        else strength = 0.08;
       }
+
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
+      newPot = result.pot;
+      newCurrentBet = result.currentBet;
+      message = result.message;
     }
 
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);

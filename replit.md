@@ -43,10 +43,11 @@ A client-side poker game platform supporting five custom poker variants, built w
 - `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData).
 
 ## Bot AI
-- **Badugi**: Bots discard duplicate suits/ranks first, keep valid badugi components. Declare HIGH (K-high+), LOW (8-low or better), or FOLD (no valid badugi). Raise with strong hands, fold facing large bets with weak hands.
-- **Dead 7**: Always discard 7s, then target suit coherence (flush) or rank coherence (high/low ball). Declare based on hand qualification. Raise with flush/badugi, fold when dead or no qualifier.
-- **15/35**: Risk-aware hit/stay curve: always stay at qualifying ranges (13-15, 33-35), always hit below 12, weigh bust risk near edges. Raise with qualifying hands, fold far-from-target hands vs large bets.
-- **Suits & Poker**: Keep cards contributing to flush or poker hand in draws. Declare POKER/SUITS/SWING based on hand strength evaluation. Raise with strong hands, fold weak hands vs large bets.
+- **Shared utility** (`client/src/lib/poker/engine/botUtils.ts`): `decideBet()` — pot-odds-aware betting with strength-based fold/check/call/raise thresholds, occasional bluffs (~8%), and proper raise sizing relative to pot. `applyBetDecision()` — translates a decision into state updates. Used by all 4 editable modes.
+- **Badugi**: Stand pat with valid badugi; otherwise discard conflicting cards (low-first greedy, capped by draw round limits). Strength: valid badugi ≤5 = 0.92, ≤7 = 0.75, ≤9 = 0.55, ≤11 = 0.4, ≤13 = 0.3; 3-card partial = 0.18; junk = 0.06. Declare HIGH ≥9, LOW ≤8, FOLD if invalid.
+- **Dead 7**: Always discard 7s first, then duplicate ranks, then wrong-side cards. Strength: flush = 0.95, badugi = 0.85, valid high/low ball = 0.35-0.65 (scaled by kicker quality), 3-of-target partial = 0.15, dead = 0.02. Declare based on hand qualification.
+- **15/35**: Hit/stay considers bust probability — always stay at qualifying ranges (13-15, 33-35), always hit ≤11; at 28-32 calculates danger-card count vs remaining deck and uses bust-risk weighting with card-count awareness. Strength: perfect 15/35 = 0.9, near-perfect = 0.7, qualifying = 0.5, close-to-qualifying = 0.15-0.25, far away = 0.08.
+- **Suits & Poker**: Draw keeps poker-contributing cards (pair+), suits-contributing cards (score > 25), and same-suit groups of 3+. Declaration: SWING only with two-pair+ AND suits ≥ 45 (or decent poker + strong suits at 30% chance). SWING strength uses min(poker, suits) instead of average, making SWING appropriately risky. Betting via shared utility.
 - **Swing**: Random draw/declare (swing.ts is read-only).
 
 ## Onboarding & Phase Hints

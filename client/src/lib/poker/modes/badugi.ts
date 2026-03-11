@@ -1,5 +1,6 @@
 import { GameMode } from '../engine/types';
 import { GameState, Player, CardType, GamePhase, Declaration } from '../types';
+import { decideBet, applyBetDecision } from '../engine/botUtils';
 
 const rankValue = (rank: string): number => {
   if (rank === 'A') return 1;
@@ -89,37 +90,47 @@ export const BadugiMode: GameMode = {
     }
     else if (state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3') {
       const cards = bot.cards;
-      const toKeep: number[] = [];
-      const usedRanks = new Set<string>();
-      const usedSuits = new Set<string>();
+      const evaluation = evaluateBadugi(cards);
 
-      // Keep cards that don't conflict, starting from lowest rank (best for Badugi)
-      const sortedIndices = cards
-        .map((_, i) => i)
-        .sort((a, b) => rankValue(cards[a].rank) - rankValue(cards[b].rank));
-
-      for (const i of sortedIndices) {
-        const card = cards[i];
-        if (!usedRanks.has(card.rank) && !usedSuits.has(card.suit)) {
-          toKeep.push(i);
-          usedRanks.add(card.rank);
-          usedSuits.add(card.suit);
-        }
-      }
-
-      const toDiscard = cards.map((_, i) => i).filter(i => !toKeep.includes(i));
-      const numDraws = toDiscard.length;
-
-      if (numDraws > 0 && newDeck.length >= numDraws) {
-        const newCards = [...bot.cards];
-        toDiscard.forEach(idx => {
-          newCards[idx] = { ...newDeck.shift()!, isHidden: true };
-        });
-        newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
-        message = `${bot.name} discarded ${numDraws} cards`;
-      } else {
+      if (evaluation?.isValidBadugi) {
         newPlayers[bIdx] = { ...bot, hasActed: true };
         message = `${bot.name} stood pat`;
+      } else {
+        let maxDraws = 3;
+        if (state.phase === 'DRAW_2') maxDraws = 2;
+        if (state.phase === 'DRAW_3') maxDraws = 1;
+
+        const toKeep: number[] = [];
+        const usedRanks = new Set<string>();
+        const usedSuits = new Set<string>();
+
+        const sortedIndices = cards
+          .map((_, i) => i)
+          .sort((a, b) => rankValue(cards[a].rank) - rankValue(cards[b].rank));
+
+        for (const i of sortedIndices) {
+          const card = cards[i];
+          if (!usedRanks.has(card.rank) && !usedSuits.has(card.suit)) {
+            toKeep.push(i);
+            usedRanks.add(card.rank);
+            usedSuits.add(card.suit);
+          }
+        }
+
+        let toDiscard = cards.map((_, i) => i).filter(i => !toKeep.includes(i));
+        toDiscard = toDiscard.slice(0, maxDraws);
+
+        if (toDiscard.length > 0 && newDeck.length >= toDiscard.length) {
+          const newCards = [...bot.cards];
+          toDiscard.forEach(idx => {
+            newCards[idx] = { ...newDeck.shift()!, isHidden: true };
+          });
+          newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
+          message = `${bot.name} discarded ${toDiscard.length} card${toDiscard.length > 1 ? 's' : ''}`;
+        } else {
+          newPlayers[bIdx] = { ...bot, hasActed: true };
+          message = `${bot.name} stood pat`;
+        }
       }
     } 
     else if (state.phase === 'DECLARE') {
@@ -133,13 +144,6 @@ export const BadugiMode: GameMode = {
         } else {
           declaration = 'HIGH';
         }
-      } else {
-        // Even if not a valid Badugi, maybe they have a good 3-card hand?
-        // But the rules say HIGH/LOW only if valid Badugi usually.
-        // Looking at resolveShowdown:
-        // const highPlayers = activePlayers.filter(p => p.declaration === 'HIGH' && p.score?.isValidBadugi);
-        // So we must have a valid Badugi to declare.
-        declaration = 'FOLD';
       }
        
       if (declaration === 'FOLD') {
@@ -151,31 +155,37 @@ export const BadugiMode: GameMode = {
       }
     }
     else {
-      const callAmount = state.currentBet - bot.bet;
       const evaluation = evaluateBadugi(bot.cards);
-      const isStrong = evaluation?.isValidBadugi && evaluation.badugiRankValues![0] <= 10;
-      const isVeryStrong = evaluation?.isValidBadugi && evaluation.badugiRankValues![0] <= 6;
-      
-      // Random element to keep it interesting
-      const rand = Math.random();
-
-      if (isVeryStrong && rand < 0.4) {
-        // Raise
-        const raiseAmount = 5;
-        newCurrentBet += raiseAmount;
-        newPlayers[bIdx] = { ...bot, chips: bot.chips - (callAmount + raiseAmount), bet: newCurrentBet, hasActed: true };
-        newPot += (callAmount + raiseAmount);
-        message = `${bot.name} raised to $${newCurrentBet}`;
-      } else if (callAmount > bot.chips * 0.5 && !evaluation?.isValidBadugi && rand < 0.8) {
-        // Fold if big bet and weak hand
-        newPlayers[bIdx] = { ...bot, status: 'folded', hasActed: true };
-        message = `${bot.name} folded`;
+      let strength = 0.08;
+      if (evaluation?.isValidBadugi) {
+        const h = evaluation.badugiRankValues![0];
+        if (h <= 5) strength = 0.92;
+        else if (h <= 7) strength = 0.75;
+        else if (h <= 9) strength = 0.55;
+        else if (h <= 11) strength = 0.4;
+        else strength = 0.3;
       } else {
-        // Call/Check
-        newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-        newPot += callAmount;
-        message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
+        const cards = bot.cards;
+        const usedR = new Set<string>();
+        const usedS = new Set<string>();
+        let goodCount = 0;
+        const sorted = cards.map((_, i) => i).sort((a, b) => rankValue(cards[a].rank) - rankValue(cards[b].rank));
+        for (const i of sorted) {
+          if (!usedR.has(cards[i].rank) && !usedS.has(cards[i].suit)) {
+            goodCount++;
+            usedR.add(cards[i].rank);
+            usedS.add(cards[i].suit);
+          }
+        }
+        strength = goodCount >= 3 ? 0.18 : 0.06;
       }
+
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
+      newPot = result.pot;
+      newCurrentBet = result.currentBet;
+      message = result.message;
     }
 
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);

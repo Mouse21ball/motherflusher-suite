@@ -1,6 +1,7 @@
 import { GameMode } from '../engine/types';
 import { GameState, Player, CardType, GamePhase, Declaration } from '../types';
 import { getNextActivePlayerIndex } from '../engine/core';
+import { decideBet, applyBetDecision } from '../engine/botUtils';
 
 function suitsCardValue(rank: string): number {
   if (rank === 'A') return 11;
@@ -293,34 +294,37 @@ export const SuitsPokerMode: GameMode = {
       const suitsScore = evaluation?.suitsScore || 0;
       const suitsValid = evaluation?.suitsValid || false;
 
-      // Logic: Keep cards that contribute to a strong poker hand or a strong suits total.
-      // If we already have a strong hand, discard less.
-      // If we have nothing, discard more to hunt for something.
-
       const cardsToKeep = new Set<number>();
 
-      // 1. Keep cards used in the best poker hand if it's better than a Pair
       if (pokerValue > 1000000) {
         evaluation?.highEval.usedHoleCardIndices.forEach(idx => cardsToKeep.add(idx));
       }
 
-      // 2. Keep cards used in the best suits hand if it's valid and decent score
-      if (suitsValid && suitsScore > 30) {
+      if (suitsValid && suitsScore > 25) {
         evaluation?.lowEval.usedHoleCardIndices.forEach(idx => cardsToKeep.add(idx));
       }
 
-      // 3. If we're keeping very few cards, keep high cards or same-suit cards
-      if (cardsToKeep.size < 2) {
-        // Keep highest cards
+      const suitCounts: Record<string, number[]> = {};
+      bot.cards.forEach((c, i) => {
+        if (!suitCounts[c.suit]) suitCounts[c.suit] = [];
+        suitCounts[c.suit].push(i);
+      });
+      const bestSuitGroup = Object.values(suitCounts).sort((a, b) => b.length - a.length)[0];
+      if (bestSuitGroup && bestSuitGroup.length >= 3) {
+        bestSuitGroup.forEach(i => cardsToKeep.add(i));
+      }
+
+      if (cardsToKeep.size < 3) {
         const sortedHole = bot.cards.map((c, i) => ({ c, i }))
           .sort((a, b) => pokerRankValues[b.c.rank] - pokerRankValues[a.c.rank]);
-        cardsToKeep.add(sortedHole[0].i);
-        cardsToKeep.add(sortedHole[1].i);
+        for (const entry of sortedHole) {
+          if (cardsToKeep.size >= 3) break;
+          cardsToKeep.add(entry.i);
+        }
       }
 
       const indicesToDiscard = bot.cards.map((_, i) => i).filter(i => !cardsToKeep.has(i));
-      // Limit discard to 3 cards as per existing random logic (just in case)
-      const finalDiscard = indicesToDiscard.slice(0, 3);
+      const finalDiscard = indicesToDiscard.slice(0, 2);
 
       const numDiscard = finalDiscard.length;
       const newDeck = [...state.deck];
@@ -351,76 +355,44 @@ export const SuitsPokerMode: GameMode = {
 
       let declaration: Declaration = bot.declaration;
       if (phase === 'DECLARE_AND_BET') {
-        // Evaluate for declaration
-        const isStrongPoker = pokerValue >= 1000000; // Pair or better
-        const isStrongSuits = suitsValid && suitsScore >= 40;
+        const isStrongPoker = pokerValue >= 2000000;
+        const isDecentPoker = pokerValue >= 1000000;
+        const isStrongSuits = suitsValid && suitsScore >= 45;
+        const isDecentSuits = suitsValid && suitsScore >= 35;
 
         if (isStrongPoker && isStrongSuits) {
           declaration = 'SWING';
-        } else if (isStrongSuits) {
+        } else if (isDecentPoker && isStrongSuits && Math.random() < 0.3) {
+          declaration = 'SWING';
+        } else if (isDecentSuits && !isDecentPoker) {
           declaration = 'SUITS';
-        } else if (isStrongPoker) {
+        } else if (isDecentPoker && !isDecentSuits) {
           declaration = 'POKER';
+        } else if (suitsValid && suitsScore > pokerValue / 100000) {
+          declaration = 'SUITS';
         } else {
-          // Default to whichever is relatively better
-          declaration = (suitsScore > 20 && suitsValid) ? 'SUITS' : 'POKER';
+          declaration = 'POKER';
         }
       }
 
-      let action: string;
-      let amount = 0;
-
-      // Strength assessment (0 to 1)
-      const pokerStrength = Math.min(pokerValue / 5000000, 1); // Flush or better is very strong
+      const pokerStrength = Math.min(pokerValue / 5000000, 1);
       const suitsStrength = suitsValid ? Math.min(suitsScore / 55, 1) : 0;
-      
+
       let handStrength = 0;
-      if (declaration === 'SWING') handStrength = (pokerStrength + suitsStrength) / 2;
+      if (declaration === 'SWING') handStrength = Math.min(pokerStrength, suitsStrength);
       else if (declaration === 'SUITS') handStrength = suitsStrength;
       else handStrength = pokerStrength;
 
-      const potOdds = currentBet > 0 ? currentBet / (pot + currentBet) : 0;
-
-      if (currentBet > 0 && handStrength < 0.2 && potOdds > 0.3) {
-        action = 'fold';
-      } else if (handStrength > 0.7 && bot.chips > currentBet * 2) {
-        action = 'raise';
-        amount = Math.min(currentBet + Math.floor(pot * 0.5) + 5, bot.chips);
-        if (amount < currentBet * 2) amount = Math.min(currentBet * 2, bot.chips);
-      } else if (handStrength > 0.4 || currentBet === 0 || potOdds < 0.2) {
-        action = currentBet > 0 ? 'call' : 'check';
-      } else {
-        action = 'fold';
-      }
-
-      const callAmount = currentBet - bot.bet;
-      let newPot = pot;
-      let newCurrentBet = currentBet;
+      const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips);
+      const result = applyBetDecision(decision, bot, currentBet, pot);
 
       const newPlayers = players.map(p => {
         if (p.id !== botId) return p;
-        let pChips = p.chips;
-        let pBet = p.bet;
-        let pStatus = p.status;
-
-        if (action === 'fold') {
-          pStatus = 'folded';
-        } else if (action === 'call' || action === 'check') {
-          pChips -= callAmount;
-          pBet = currentBet;
-          newPot += callAmount;
-        } else if (action === 'raise') {
-          pChips -= amount;
-          pBet = amount;
-          newPot += amount;
-          newCurrentBet = amount;
-        }
-
         return {
           ...p,
-          status: pStatus as any,
-          chips: pChips,
-          bet: pBet,
+          status: result.status as any,
+          chips: result.chips,
+          bet: result.bet,
           hasActed: true,
           declaration: declaration || p.declaration
         };
@@ -428,18 +400,18 @@ export const SuitsPokerMode: GameMode = {
 
       const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
       const allActed = activePlayers.every(p => p.hasActed);
-      const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
+      const allBetsMatch = activePlayers.every(p => p.bet === result.currentBet);
       const roundOver = allActed && allBetsMatch;
 
       let msg = `${bot.name}`;
-      if (declaration) msg += ` declares ${declaration} and`;
-      if (action === 'fold') msg += ' folds';
-      else if (action === 'check') msg += ' checks';
-      else if (action === 'call') msg += ` calls $${callAmount}`;
-      else msg += ` raises to $${amount}`;
+      if (phase === 'DECLARE_AND_BET' && declaration) msg += ` declares ${declaration} and`;
+      if (decision.action === 'fold') msg += ' folds';
+      else if (decision.action === 'check') msg += ' checks';
+      else if (decision.action === 'call') msg += ` calls $${currentBet - bot.bet}`;
+      else msg += ` raises to $${result.bet}`;
 
       return {
-        stateUpdates: { pot: newPot, currentBet: newCurrentBet, players: newPlayers },
+        stateUpdates: { pot: result.pot, currentBet: result.currentBet, players: newPlayers },
         message: msg,
         roundOver,
         nextPlayerId: roundOver ? undefined : players[nextIdx].id

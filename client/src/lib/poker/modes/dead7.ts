@@ -1,5 +1,6 @@
 import { GameMode } from '../engine/types';
 import { GameState, Player, CardType, GamePhase, Declaration } from '../types';
+import { decideBet, applyBetDecision } from '../engine/botUtils';
 
 const rankValue = (rank: string): number => {
   if (rank === 'A') return 1;
@@ -257,39 +258,40 @@ export const Dead7Mode: GameMode = {
       }
     }
     else {
-      const callAmount = state.currentBet - bot.bet;
       const eval7 = evaluateDead7(bot.cards.map(c => ({ ...c, isHidden: false })));
-      
-      let action: 'FOLD' | 'CALL' | 'RAISE' = 'CALL';
-      
+
+      let strength = 0.08;
       if (eval7) {
-        if (eval7.isDead || eval7.handType === 'INVALID' || eval7.handType === 'NONE') {
-          // If facing a bet with a bad hand, fold
-          if (callAmount > 0) action = 'FOLD';
-          else action = 'CALL'; // Check
-        } else if (eval7.isFlush || eval7.isBadugi) {
-          // Strong hand, potentially raise
-          if (Math.random() < 0.3) action = 'RAISE';
-          else action = 'CALL';
+        if (eval7.isDead) {
+          strength = 0.02;
+        } else if (eval7.handType === 'INVALID') {
+          strength = 0.05;
+        } else if (eval7.handType === 'NONE') {
+          const vals = eval7.badugiRankValues;
+          const highCount = vals.filter(v => v >= 8).length;
+          const lowCount = vals.filter(v => v <= 6).length;
+          strength = Math.max(highCount, lowCount) >= 3 ? 0.15 : 0.08;
+        } else if (eval7.isFlush) {
+          strength = 0.95;
+        } else if (eval7.isBadugi) {
+          strength = 0.85;
+        } else if (eval7.isValidHigh || eval7.isValidLow) {
+          const best = Math.max(...eval7.badugiRankValues);
+          const worst = Math.min(...eval7.badugiRankValues);
+          if (eval7.isValidHigh) {
+            strength = 0.35 + (best - 8) * 0.06;
+          } else {
+            strength = 0.35 + (6 - worst) * 0.08;
+          }
         }
       }
 
-      if (action === 'FOLD') {
-        newPlayers[bIdx] = { ...bot, status: 'folded', hasActed: true };
-        message = `${bot.name} folded`;
-      } else if (action === 'RAISE') {
-        const raiseAmount = 2; // Fixed raise for simplicity
-        const totalBet = state.currentBet + raiseAmount;
-        const toPay = totalBet - bot.bet;
-        newPlayers[bIdx] = { ...bot, chips: bot.chips - toPay, bet: totalBet, hasActed: true };
-        newPot += toPay;
-        newCurrentBet = totalBet;
-        message = `${bot.name} raised to $${totalBet}`;
-      } else {
-        newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-        newPot += callAmount;
-        message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
-      }
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
+      newPot = result.pot;
+      newCurrentBet = result.currentBet;
+      message = result.message;
     }
 
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
