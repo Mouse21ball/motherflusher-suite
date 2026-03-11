@@ -26,6 +26,13 @@ function readChipsMap(): Record<string, number> {
   }
 }
 
+function safePersist(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+
 export function getChips(modeId: string): number {
   const map = readChipsMap();
   return map[modeId] ?? DEFAULT_CHIPS;
@@ -34,7 +41,7 @@ export function getChips(modeId: string): number {
 export function saveChips(modeId: string, chips: number): void {
   const map = readChipsMap();
   map[modeId] = chips;
-  localStorage.setItem(CHIPS_KEY, JSON.stringify(map));
+  safePersist(CHIPS_KEY, map);
 }
 
 export function getAllChips(): Record<string, number> {
@@ -56,16 +63,19 @@ export function addHandRecord(record: HandRecord): void {
   const all = getHandHistory();
   all.unshift(record);
   if (all.length > MAX_HISTORY) all.length = MAX_HISTORY;
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
+  safePersist(HISTORY_KEY, all);
 }
 
 export function resetChips(modeId: string): void {
   const map = readChipsMap();
   map[modeId] = DEFAULT_CHIPS;
-  localStorage.setItem(CHIPS_KEY, JSON.stringify(map));
+  safePersist(CHIPS_KEY, map);
 }
 
 export function resetAllData(): void {
-  localStorage.removeItem(CHIPS_KEY);
-  localStorage.removeItem(HISTORY_KEY);
+  try {
+    localStorage.removeItem(CHIPS_KEY);
+    localStorage.removeItem(HISTORY_KEY);
+  } catch {
+  }
 }

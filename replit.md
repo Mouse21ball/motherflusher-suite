@@ -40,7 +40,7 @@ A client-side poker game platform supporting five custom poker variants, built w
 - **Hand history** stored in localStorage (`poker_table_history`), last 50 hands. Each record includes: mode, timestamp, pot size, chip change, result type (win/loss/push/rollover/folded), and summary text.
 - **Rebuy**: When hero reaches $0, a "Rebuy $1000" button appears at SHOWDOWN and WAITING phases. Rebuy resets that mode's saved balance to $1000.
 - **Lobby displays**: Per-mode chip balance shown on each mode card; global hand count and net result shown above mode list with access to full history drawer.
-- `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData).
+- `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData). All setItem calls wrapped in try/catch via `safePersist()` to prevent QuotaExceededError crashes.
 
 ## Bot AI
 - **Shared utility** (`client/src/lib/poker/engine/botUtils.ts`): `decideBet()` — pot-odds-aware betting with strength-based fold/check/call/raise thresholds, occasional bluffs (~8%), and proper raise sizing relative to pot. `applyBetDecision()` — translates a decision into state updates. Used by all 4 editable modes.
@@ -89,6 +89,7 @@ A client-side poker game platform supporting five custom poker variants, built w
 - Controls renders SHOWDOWN/REVEAL/DEAL phases before the `!isMyTurn` guard so all players see correct status regardless of turn.
 - The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
 - 15/35 bot messages do NOT include hidden card totals (information integrity).
+- All nested `setTimeout` calls in `useGameEngine` use `safeTimeout()` which auto-cancels on unmount via `mountedRef` + `pendingTimers` ref set, preventing stale state updates when navigating away mid-hand.
 
 ## Stats View
 - `StatsView` component (`client/src/components/game/StatsView.tsx`): Sheet drawer showing computed stats from hand history.

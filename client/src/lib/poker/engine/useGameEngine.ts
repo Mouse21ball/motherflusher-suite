@@ -29,6 +29,26 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   const savedChips = getChips(mode.id);
   const [state, setState] = useState<GameState>(() => createInitialState(savedChips));
   const chipsBeforeHandRef = useRef<number>(savedChips);
+  const mountedRef = useRef(true);
+  const pendingTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      pendingTimers.current.forEach(t => clearTimeout(t));
+      pendingTimers.current.clear();
+    };
+  }, []);
+
+  const safeTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      pendingTimers.current.delete(id);
+      if (mountedRef.current) fn();
+    }, ms);
+    pendingTimers.current.add(id);
+    return id;
+  }, []);
 
   const addMessage = useCallback((text: string) => {
     setState(s => ({
@@ -92,7 +112,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         }
 
         if (roundOver) {
-            setTimeout(advancePhase, 500);
+            safeTimeout(advancePhase, 500);
         } else if (nextPlayerId) {
             newS.activePlayerId = nextPlayerId;
         }
@@ -139,7 +159,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
              newS.messages = [...newS.messages, { id: Math.random().toString(), text: result.message, time: Date.now() }].slice(-5);
           }
           if (result.advancePhase) {
-             setTimeout(advancePhase, 2000);
+             safeTimeout(advancePhase, 2000);
           }
           return newS;
         });
@@ -156,7 +176,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         const dealResult = mode.deal(freshDeck, s.players, myId);
         return { ...s, ...dealResult };
       });
-      setTimeout(advancePhase, 1500);
+      safeTimeout(advancePhase, 1500);
     }
   }, [state.phase, myId, mode, advancePhase]);
 
@@ -178,7 +198,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         });
         
         if (Math.random() > 0.6) {
-             setTimeout(() => {
+             safeTimeout(() => {
                  setState(s => {
                      const otherPlayers = s.players.filter(p => p.id !== myId);
                      const randomBot = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
@@ -263,7 +283,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
        setState(s => {
            const activePlayers = s.players.filter(p => p.status === 'active' && p.chips > 0);
            if (activePlayers.length <= 1) {
-               setTimeout(advancePhase, 500);
+               safeTimeout(advancePhase, 500);
                return s;
            }
 
@@ -273,7 +293,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            const roundDone = isBetPhase ? (allActed && allBetsMatch) : allActed;
 
            if (roundDone) {
-               setTimeout(advancePhase, 500);
+               safeTimeout(advancePhase, 500);
                return s;
            }
 
@@ -301,7 +321,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       setState(s => {
         const allAnted = s.players.filter(p => p.status === 'active').every(p => p.hasActed);
         if (allAnted) {
-          setTimeout(advancePhase, 500);
+          safeTimeout(advancePhase, 500);
           return s;
         } else {
            const myIndex = s.players.findIndex(p => p.id === myId);
@@ -498,7 +518,6 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     }
   }, [state.phase, myId]);
 
-  // Showdown effect
   useEffect(() => {
     if (state.phase === 'SHOWDOWN') {
       const timer = setTimeout(() => {
@@ -546,7 +565,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           };
         });
         
-        setTimeout(() => {
+        safeTimeout(() => {
             setState(s => {
                 if (s.phase !== 'SHOWDOWN') return s;
 
