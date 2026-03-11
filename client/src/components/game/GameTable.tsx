@@ -22,7 +22,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
   const getSeatPosition = (index: number) => {
     const positions = [
-      "bottom-0 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
+      "-bottom-6 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
       "-left-6 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-left",
       "-top-6 sm:-top-4 left-[5%] sm:left-[12%] scale-[0.6] sm:scale-[0.7] origin-top-left",
       "-top-6 sm:-top-4 right-[5%] sm:right-[12%] scale-[0.6] sm:scale-[0.7] origin-top-right",
@@ -39,7 +39,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
         <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl border-4 border-[#1a3822]">
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-28 sm:pb-20">
             <div className="text-white/40 text-sm sm:text-base font-mono tracking-[0.15em] mb-3 sm:mb-6 uppercase text-center mt-8 font-semibold" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </div>
@@ -81,7 +81,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2 z-20">
+            <div className="flex flex-col items-center gap-2 z-40">
               <div className="flex items-center gap-4">
                 <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
                 <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">

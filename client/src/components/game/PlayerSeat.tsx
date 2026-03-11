@@ -71,7 +71,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       className
     )}>
       {player.isDealer && (
-        <div className="absolute -right-2 -top-2 w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[10px] font-bold shadow-lg z-20 border-2 border-slate-200">
+        <div className="absolute -right-1 -top-1 w-7 h-7 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[11px] font-extrabold shadow-[0_0_8px_rgba(234,179,8,0.5)] z-50 border-2 border-yellow-200 ring-2 ring-yellow-500/30">
           D
         </div>
       )}
