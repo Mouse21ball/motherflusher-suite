@@ -11,24 +11,11 @@ interface SuitsPokerTableProps {
   selectableCards: boolean;
 }
 
-function CommunityCard({ card, label }: { card?: CardType; label?: string }) {
+function CommunityCard({ card }: { card?: CardType }) {
   if (!card) return null;
   return (
     <div className="relative">
       <PlayingCard card={card} />
-    </div>
-  );
-}
-
-function BoardSection({ cards, label, className }: { cards: CardType[]; label: string; className?: string }) {
-  return (
-    <div className={cn("flex flex-col items-center gap-0.5", className)}>
-      <span className="text-[7px] sm:text-[9px] text-white/40 font-mono uppercase tracking-wider font-bold">{label}</span>
-      <div className="flex gap-0.5 sm:gap-1">
-        {cards.map((card, i) => (
-          <CommunityCard key={i} card={card} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -85,7 +72,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
         ))}
       </div>
 
-      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-visible min-h-[380px] sm:min-h-[460px]">
+      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-visible min-h-[380px] sm:min-h-[480px]">
         <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]"></div>
 
         {opponents.map((player, i) => (
@@ -100,36 +87,57 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
           </div>
         ))}
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] px-2 sm:px-8 py-6">
-          <div className="flex flex-col items-center gap-2 my-auto">
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[480px] px-2 sm:px-8 py-6">
+          <div className="flex flex-col items-center gap-1.5 sm:gap-2 my-auto">
             <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase" data-testid="text-phase">
               {gameState.phase.replace(/_/g, ' ')}
             </div>
 
-            <div className="scale-[0.65] sm:scale-[0.85] origin-center">
-              <div className="flex items-start gap-2 sm:gap-4">
-                <BoardSection cards={sideA} label="Side A" />
-                <div className="flex flex-col items-center gap-0.5 pt-0">
-                  <BoardSection cards={center} label="Center" />
-                  {(lower.length > 0) && (
-                    <div className="flex gap-0.5 sm:gap-1 mt-1">
+            <div className="scale-[0.6] sm:scale-[0.8] origin-center">
+              <div className="flex items-start justify-center">
+                <div className="flex flex-col items-center pt-2 sm:pt-3">
+                  <span className="text-[8px] sm:text-[10px] text-amber-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side A</span>
+                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                    {sideA.map((card, i) => <CommunityCard key={i} card={card} />)}
+                  </div>
+                  <span className="text-[7px] sm:text-[8px] text-white/20 font-mono mt-1">← path</span>
+                </div>
+
+                <div className="mx-4 sm:mx-8 flex flex-col items-center">
+                  <span className="text-[8px] sm:text-[10px] text-green-400/60 font-mono uppercase tracking-wider font-bold mb-1">Center</span>
+                  <div className="flex flex-col items-center gap-1 sm:gap-1.5">
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                      {center.map((card, i) => <CommunityCard key={i} card={card} />)}
+                    </div>
+                    <div className="w-px h-1 sm:h-1.5 bg-white/10"></div>
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
                       {lower.map((card, i) => <CommunityCard key={i} card={card} />)}
                     </div>
-                  )}
-                  {(final.length > 0) && (
-                    <div className="flex gap-0.5 sm:gap-1 mt-0.5">
+                    <div className="w-px h-1 sm:h-1.5 bg-white/10"></div>
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
                       {final.map((card, i) => <CommunityCard key={i} card={card} />)}
                     </div>
-                  )}
+                  </div>
                 </div>
-                <BoardSection cards={sideB} label="Side B" />
+
+                <div className="flex flex-col items-center pt-2 sm:pt-3">
+                  <span className="text-[8px] sm:text-[10px] text-cyan-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side B</span>
+                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                    {sideB.map((card, i) => <CommunityCard key={i} card={card} />)}
+                  </div>
+                  <span className="text-[7px] sm:text-[8px] text-white/20 font-mono mt-1">path →</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 text-[8px] sm:text-[10px] font-mono text-white/25 mt-0.5">
-              <span>A+Center</span>
-              <span className="text-white/15">or</span>
-              <span>B+Center</span>
+            <div className="flex items-center gap-2 text-[8px] sm:text-[10px] font-mono text-white/30">
+              <span className="text-amber-400/40">A</span>
+              <span className="text-white/15">+</span>
+              <span className="text-green-400/40">Center</span>
+              <span className="text-white/20 mx-0.5">or</span>
+              <span className="text-cyan-400/40">B</span>
+              <span className="text-white/15">+</span>
+              <span className="text-green-400/40">Center</span>
             </div>
 
             <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-5 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
