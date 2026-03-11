@@ -53,6 +53,12 @@ A client-side poker game platform supporting multiple poker variants, built with
 - `client/src/lib/poker/engine/types.ts` — GameMode interface
 - `client/src/components/game/` — GameTable (DO NOT EDIT), BadugiTable, SuitsPokerTable, PlayerSeat, Card, Controls, ChatBox, DiscardPile
 
+## Engine Details
+- `processActionEnd` uses proper `isRoundOver` logic: betting phases require `allActed && allBetsMatch`; draw/declare/hit phases require only `allActed`. This correctly handles re-raises.
+- Controls renders SHOWDOWN/REVEAL/DEAL phases before the `!isMyTurn` guard so all players see correct status regardless of turn.
+- The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
+- 15/35 bot messages do NOT include hidden card totals (information integrity).
+
 ## Constraints
 - `swing.ts` and `GameTable.tsx` must never be modified
 - All game logic is client-side only

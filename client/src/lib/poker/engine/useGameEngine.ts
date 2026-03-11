@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
-import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, isRoundOver } from './core';
+import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer } from './core';
 import { GameMode } from './types';
 
 export const mockPlayers: Player[] = [
@@ -244,16 +244,25 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
     const processActionEnd = () => {
        setState(s => {
-           const myIndex = s.players.findIndex(p => p.id === myId);
-           const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
-           const firstToActIdx = getNextActivePlayerIndex(s.players, getDealerIndex(s.players));
-           
-           if (nextIdx === firstToActIdx) {
+           const activePlayers = s.players.filter(p => p.status === 'active' && p.chips > 0);
+           if (activePlayers.length <= 1) {
                setTimeout(advancePhase, 500);
                return s;
-           } else {
-               return { ...s, activePlayerId: s.players[nextIdx].id };
            }
+
+           const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
+           const allActed = activePlayers.every(p => p.hasActed);
+           const allBetsMatch = activePlayers.every(p => p.bet === s.currentBet);
+           const roundDone = isBetPhase ? (allActed && allBetsMatch) : allActed;
+
+           if (roundDone) {
+               setTimeout(advancePhase, 500);
+               return s;
+           }
+
+           const myIndex = s.players.findIndex(p => p.id === myId);
+           const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
+           return { ...s, activePlayerId: s.players[nextIdx].id };
        });
     };
 

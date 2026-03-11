@@ -206,7 +206,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
       {/* Current Bet */}
       {player.bet > 0 && (
-        <div className="absolute -bottom-8 flex items-center justify-center gap-1 bg-black/50 px-2 py-1 rounded-full text-xs font-mono text-white border border-white/10">
+        <div className="absolute -bottom-10 flex items-center justify-center gap-1 bg-black/50 px-2 py-1 rounded-full text-xs font-mono text-white border border-white/10">
           <div className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-300 shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"></div>
           {player.bet}
         </div>

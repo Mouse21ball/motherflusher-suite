@@ -61,6 +61,14 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  if (phase === 'DEAL') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
+        <div className="text-sm font-mono text-yellow-400 mb-4 animate-pulse font-bold">DEALING CARDS...</div>
+      </div>
+    );
+  }
+
   if (!isMyTurn) {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex items-center justify-center min-h-[100px]">

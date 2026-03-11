@@ -144,7 +144,7 @@ export const Fifteen35Mode: GameMode = {
 
         if (shouldStay) {
           newPlayers[bIdx] = { ...bot, declaration: 'STAY', hasActed: true };
-          message = `${bot.name} stays (${total})`;
+          message = `${bot.name} stays`;
         } else {
           const hitCard = newDeck.shift();
           if (hitCard) {
@@ -153,14 +153,14 @@ export const Fifteen35Mode: GameMode = {
 
             if (isBust(newTotal)) {
               newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
-              message = `${bot.name} hits and BUSTS (${newTotal})`;
+              message = `${bot.name} hits and BUSTS!`;
             } else {
               newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
-              message = `${bot.name} hits (${newTotal})`;
+              message = `${bot.name} hits`;
             }
           } else {
             newPlayers[bIdx] = { ...bot, declaration: 'STAY', hasActed: true };
-            message = `${bot.name} stays (no cards)`;
+            message = `${bot.name} stays`;
           }
         }
       }
