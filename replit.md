@@ -35,20 +35,29 @@ A client-side poker game platform supporting five custom poker variants, built w
 - If only one side qualifies, that side gets the full pot
 - Rollover only when no qualifying hand exists anywhere
 
+## Persistence
+- **Chip balances** persist per mode in localStorage (`poker_table_chips`). Hero starts at $1000 per mode; saved after every showdown and rollover-winner event.
+- **Hand history** stored in localStorage (`poker_table_history`), last 50 hands. Each record includes: mode, timestamp, pot size, chip change, result type (win/loss/push/rollover/folded), and summary text.
+- **Rebuy**: When hero reaches $0, a "Rebuy $1000" button appears at SHOWDOWN and WAITING phases. Rebuy resets that mode's saved balance to $1000.
+- **Lobby displays**: Per-mode chip balance shown on each mode card; global hand count and net result shown above mode list with access to full history drawer.
+- `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData).
+
 ## Key Files
-- `client/src/pages/Home.tsx` — Mode-select lobby with quick-facts tags and descriptions
+- `client/src/pages/Home.tsx` — Mode-select lobby with per-mode chip balances and global history access
 - `client/src/pages/Game.tsx` — Swing Poker game page
 - `client/src/pages/BadugiGame.tsx` — Badugi game page
 - `client/src/pages/Dead7Game.tsx` — Dead 7 game page
 - `client/src/pages/Fifteen35Game.tsx` — 15/35 game page
 - `client/src/pages/SuitsPokerGame.tsx` — Suits & Poker game page
-- `client/src/components/game/GameHeader.tsx` — Shared header across all game pages (mode badge, rules drawer, lobby link, chip stack). Contains MODE_INFO with full rules text for each mode.
+- `client/src/components/game/GameHeader.tsx` — Shared header across all game pages (mode badge, rules drawer, history drawer, lobby link, chip stack). Contains MODE_INFO with full rules text for each mode.
+- `client/src/components/game/HandHistory.tsx` — Hand history Sheet drawer with per-mode filtering, net result summary, and per-hand detail rows.
+- `client/src/lib/persistence.ts` — localStorage persistence for chips and hand history.
 - `client/src/lib/poker/modes/badugi.ts` — Badugi game mode + evaluateBadugi
 - `client/src/lib/poker/modes/swing.ts` — Swing Poker game mode (DO NOT EDIT)
 - `client/src/lib/poker/modes/dead7.ts` — Dead 7 game mode + evaluateDead7
 - `client/src/lib/poker/modes/fifteen35.ts` — 15/35 game mode
 - `client/src/lib/poker/modes/suitspoker.ts` — Suits & Poker game mode
-- `client/src/lib/poker/engine/useGameEngine.ts` — Core game engine hook
+- `client/src/lib/poker/engine/useGameEngine.ts` — Core game engine hook (initializes from saved chips, records history at showdown)
 - `client/src/lib/poker/engine/core.ts` — Deck, dealer, round helpers
 - `client/src/lib/poker/types.ts` — Shared types
 - `client/src/lib/poker/engine/types.ts` — GameMode interface

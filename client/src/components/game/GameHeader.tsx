@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { BookOpen } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { HandHistory } from "./HandHistory";
 
 export interface ModeInfo {
   abbrev: string;
@@ -19,6 +20,7 @@ interface RulesSection {
 
 interface GameHeaderProps {
   mode: ModeInfo;
+  modeId: string;
   chips: number;
 }
 
@@ -195,7 +197,7 @@ export const MODE_INFO: Record<string, ModeInfo> = {
   },
 };
 
-export function GameHeader({ mode, chips }: GameHeaderProps) {
+export function GameHeader({ mode, modeId, chips }: GameHeaderProps) {
   const [rulesOpen, setRulesOpen] = useState(false);
 
   return (
@@ -254,6 +256,8 @@ export function GameHeader({ mode, chips }: GameHeaderProps) {
             </ScrollArea>
           </SheetContent>
         </Sheet>
+
+        <HandHistory modeId={modeId} />
 
         <Link href="/" data-testid="link-lobby">
           <span className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer">

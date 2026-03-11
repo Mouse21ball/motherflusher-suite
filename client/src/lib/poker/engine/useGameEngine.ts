@@ -1,23 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer } from './core';
 import { GameMode } from './types';
+import { getChips, saveChips, addHandRecord, HandRecord } from '../../persistence';
 
-export const mockPlayers: Player[] = [
-  { id: 'p1', name: 'You', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+export const createMockPlayers = (heroChips: number): Player[] => [
+  { id: 'p1', name: 'You', chips: heroChips, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   { id: 'p2', name: 'Alice', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: true, declaration: null, hasActed: false },
   { id: 'p3', name: 'Bob', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   { id: 'p4', name: 'Charlie', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
 ];
 
-export const createInitialState = (): GameState => ({
+export const createInitialState = (heroChips: number = 1000): GameState => ({
   tableId: 't1',
   phase: 'WAITING',
   pot: 0,
   currentBet: 0,
   minBet: 2,
   activePlayerId: 'p1',
-  players: mockPlayers,
+  players: createMockPlayers(heroChips),
   communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true })),
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }],
   chatMessages: [],
@@ -25,7 +26,9 @@ export const createInitialState = (): GameState => ({
 });
 
 export function useGameEngine(mode: GameMode, myId: string = 'p1') {
-  const [state, setState] = useState<GameState>(createInitialState());
+  const savedChips = getChips(mode.id);
+  const [state, setState] = useState<GameState>(() => createInitialState(savedChips));
+  const chipsBeforeHandRef = useRef<number>(savedChips);
 
   const addMessage = useCallback((text: string) => {
     setState(s => ({
@@ -194,6 +197,20 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
              }, 1500 + Math.random() * 2000);
         }
         return;
+    }
+
+    if (action === 'rebuy') {
+      setState(s => {
+        const me = s.players.find(p => p.id === myId);
+        if (!me || me.chips > 0) return s;
+        saveChips(mode.id, 1000);
+        return {
+          ...s,
+          players: s.players.map(p => p.id === myId ? { ...p, chips: 1000, status: 'active' as PlayerStatus } : p),
+          messages: [...s.messages, { id: Math.random().toString(), text: 'You rebought for $1000', time: Date.now() }].slice(-5)
+        };
+      });
+      return;
     }
 
     if (action === 'restart') {
@@ -474,12 +491,52 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   }, [state.activePlayerId, state.currentBet, state.pot, myId, advancePhase]);
 
+  useEffect(() => {
+    if (state.phase === 'ANTE') {
+      const me = state.players.find(p => p.id === myId);
+      if (me) chipsBeforeHandRef.current = me.chips;
+    }
+  }, [state.phase, myId]);
+
   // Showdown effect
   useEffect(() => {
     if (state.phase === 'SHOWDOWN') {
       const timer = setTimeout(() => {
         setState(s => {
           const result = mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
+
+          const me = result.players.find(p => p.id === myId);
+          if (me) {
+            saveChips(mode.id, me.chips);
+
+            const chipsBefore = chipsBeforeHandRef.current;
+            const chipChange = me.chips - chipsBefore;
+            const isRollover = result.pot > 0;
+            const heroFolded = me.status === 'folded';
+
+            let resultType: HandRecord['result'];
+            if (isRollover) resultType = 'rollover';
+            else if (heroFolded) resultType = 'folded';
+            else if (chipChange > 0) resultType = 'win';
+            else if (chipChange < 0) resultType = 'loss';
+            else resultType = 'push';
+
+            const summary = result.messages.join(' · ') || (isRollover ? `$${result.pot} rolls over` : 'Hand complete');
+
+            addHandRecord({
+              id: Math.random().toString(36).slice(2),
+              mode: mode.id,
+              modeName: mode.name,
+              timestamp: Date.now(),
+              potSize: s.pot,
+              chipsBefore,
+              chipsAfter: me.chips,
+              chipChange,
+              result: resultType,
+              summary,
+              isRollover,
+            });
+          }
           
           return { 
             ...s, 
@@ -514,6 +571,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                     if (activePlayers.length === 1) {
                         const winner = nextPlayers.find(p => p.id === activePlayers[0].id)!;
                         winner.chips += s.pot;
+                        if (winner.id === myId) saveChips(mode.id, winner.chips);
                         const allBack = moveDealer(nextPlayers).map(p => ({
                             ...p,
                             status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus

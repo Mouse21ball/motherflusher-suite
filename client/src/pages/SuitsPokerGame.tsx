@@ -50,7 +50,7 @@ export default function SuitsPokerGame() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
-      <GameHeader mode={MODE_INFO.suitspoker} chips={me?.chips || 0} />
+      <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <SuitsPokerTable
