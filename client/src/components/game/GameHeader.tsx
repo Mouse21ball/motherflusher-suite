@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { BookOpen } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HandHistory } from "./HandHistory";
+import { StatsView } from "./StatsView";
 
 export interface ModeInfo {
   abbrev: string;
@@ -258,6 +259,8 @@ export function GameHeader({ mode, modeId, chips }: GameHeaderProps) {
         </Sheet>
 
         <HandHistory modeId={modeId} />
+
+        <StatsView modeId={modeId} />
 
         <Link href="/" data-testid="link-lobby">
           <span className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer">

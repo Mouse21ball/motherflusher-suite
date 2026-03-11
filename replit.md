@@ -89,6 +89,17 @@ A client-side poker game platform supporting five custom poker variants, built w
 - The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
 - 15/35 bot messages do NOT include hidden card totals (information integrity).
 
+## Stats View
+- `StatsView` component (`client/src/components/game/StatsView.tsx`): Sheet drawer showing computed stats from hand history.
+- Available from GameHeader (per-mode stats) and Home lobby (overall stats).
+- Stats computed: hands played, wins, losses, folds, rollovers, pushes, win rate, net result, biggest win/loss/pot, current stack.
+- Overall view includes per-mode breakdown with bar charts showing hands played and net result per mode.
+
+## Toast Notifications
+- `useGameToasts` hook (`client/src/lib/useGameToasts.ts`): Fires unobtrusive toasts on key game events.
+- Events: win notifications, big pot alerts (>$20), rollover announcements, rebuy confirmation (detects 0→1000 chip change), hot streak alerts (+$100 session gain), hand count milestones (10/25/50).
+- Wired into all 5 game pages. Uses existing shadcn/ui Toaster with TOAST_LIMIT=3, auto-dismiss after 3-4s.
+
 ## Constraints
 - `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
 - All game logic is client-side only

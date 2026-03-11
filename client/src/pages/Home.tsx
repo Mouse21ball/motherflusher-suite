@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { getAllChips, getHandHistory } from "@/lib/persistence";
 import { HandHistory } from "@/components/game/HandHistory";
+import { StatsView } from "@/components/game/StatsView";
 
 const modes = [
   {
@@ -110,7 +111,10 @@ export default function Home() {
                   {totalNet > 0 ? "+" : ""}{totalNet === 0 ? "Even" : `$${totalNet}`}
                 </span>
               </div>
-              <HandHistory />
+              <div className="flex items-center gap-1.5">
+                <StatsView />
+                <HandHistory />
+              </div>
             </div>
           )}
 

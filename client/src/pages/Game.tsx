@@ -8,6 +8,7 @@ import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
+import { useGameToasts } from "@/lib/useGameToasts";
 
 export default function Game() {
   const myId = 'p1';
@@ -16,6 +17,7 @@ export default function Game() {
 
   const me = state.players.find(p => p.id === myId);
   usePhaseSounds(state.phase);
+  useGameToasts(state, myId, "Mother Flusher");
 
   useEffect(() => {
     setSelectedCardIndices([]);

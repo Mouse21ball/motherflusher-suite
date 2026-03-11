@@ -8,6 +8,7 @@ import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
+import { useGameToasts } from "@/lib/useGameToasts";
 import { Declaration } from "@/lib/poker/types";
 
 const spDeclarationOptions: { label: string; value: Declaration; className: string }[] = [
@@ -23,6 +24,7 @@ export default function SuitsPokerGame() {
 
   const me = state.players.find(p => p.id === myId);
   usePhaseSounds(state.phase);
+  useGameToasts(state, myId, "Suits & Poker");
 
   useEffect(() => {
     setSelectedCardIndices([]);
