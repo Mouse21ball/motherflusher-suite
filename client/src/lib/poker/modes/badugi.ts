@@ -301,12 +301,16 @@ export const BadugiMode: GameMode = {
     if (!highWinner) { lowPot += highPot; highPot = 0; }
     if (!lowWinner) { highPot += lowPot; lowPot = 0; }
 
+    if (highWinner && lowWinner && highWinner.id !== lowWinner.id) {
+      messages.push(`Split Pot — HIGH/LOW split $${pot}`);
+    }
+
     if (highWinner) {
       const p = finalPlayers.find(p => p.id === highWinner!.id);
       if (p) {
         p.chips += highPot;
         p.isWinner = true;
-        messages.push(`${p.name} wins HIGH $${highPot} (${p.score?.description || 'Badugi'})`);
+        messages.push(`${p.name} wins HIGH — $${highPot} (${p.score?.description || 'Badugi'})`);
       }
     }
 
@@ -315,7 +319,7 @@ export const BadugiMode: GameMode = {
       if (p) {
         p.chips += lowPot;
         p.isWinner = true;
-        messages.push(`${p.name} wins LOW $${lowPot} (${p.score?.description || 'Badugi'})`);
+        messages.push(`${p.name} wins LOW — $${lowPot} (${p.score?.description || 'Badugi'})`);
       }
     }
 

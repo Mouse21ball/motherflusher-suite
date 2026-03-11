@@ -353,6 +353,8 @@ export const Fifteen35Mode: GameMode = {
 
     const winners = new Set<string>();
 
+    const hasBothSides = highCandidates.length > 0 && lowCandidates.length > 0;
+
     if (highCandidates.length > 0) {
       highCandidates.sort((a, b) => bestTotal(b.cards).total - bestTotal(a.cards).total);
       const bestHighTotal = bestTotal(highCandidates[0].cards).total;
@@ -362,13 +364,18 @@ export const Fifteen35Mode: GameMode = {
 
       for (const w of highWinners) {
         const fp = finalPlayers.find(p => p.id === w.id)!;
-        fp.chips += share + (remainder > 0 ? 1 : 0);
+        const award = share + (remainder > 0 ? 1 : 0);
+        fp.chips += award;
         if (remainder > 0) remainder--;
         fp.isWinner = true;
         winners.add(w.id);
+        if (highWinners.length > 1) {
+          messages.push(`${w.name} wins HIGH — $${award} of $${highPot} (${bestHighTotal})`);
+        }
       }
-      const names = highWinners.map(w => w.name).join(', ');
-      messages.push(`${names} win${highWinners.length === 1 ? 's' : ''} HIGH $${highPot} (${bestHighTotal})`);
+      if (highWinners.length === 1) {
+        messages.push(`${highWinners[0].name} wins HIGH — $${highPot} (${bestHighTotal})`);
+      }
     }
 
     if (lowCandidates.length > 0) {
@@ -384,13 +391,22 @@ export const Fifteen35Mode: GameMode = {
 
       for (const w of lowWinners) {
         const fp = finalPlayers.find(p => p.id === w.id)!;
-        fp.chips += share + (remainder > 0 ? 1 : 0);
+        const award = share + (remainder > 0 ? 1 : 0);
+        fp.chips += award;
         if (remainder > 0) remainder--;
         fp.isWinner = true;
         winners.add(w.id);
+        if (lowWinners.length > 1) {
+          messages.push(`${w.name} wins LOW — $${award} of $${lowPot} (${bestLowTotal})`);
+        }
       }
-      const names = lowWinners.map(w => w.name).join(', ');
-      messages.push(`${names} win${lowWinners.length === 1 ? 's' : ''} LOW $${lowPot} (${bestLowTotal})`);
+      if (lowWinners.length === 1) {
+        messages.push(`${lowWinners[0].name} wins LOW — $${lowPot} (${bestLowTotal})`);
+      }
+    }
+
+    if (hasBothSides) {
+      messages.unshift(`Split Pot — HIGH/LOW split $${pot}`);
     }
 
     finalPlayers.forEach(p => {

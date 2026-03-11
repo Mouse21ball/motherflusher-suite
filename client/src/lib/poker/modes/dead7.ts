@@ -388,12 +388,14 @@ export const Dead7Mode: GameMode = {
     if (allFlushes.length > 1) {
       const flushShare = Math.floor(pot / allFlushes.length);
       const flushRemainder = pot % allFlushes.length;
+      messages.push(`Split Pot — ${allFlushes.length} flushes split $${pot}`);
       allFlushes.forEach((q, idx) => {
         const p = finalPlayers.find(p => p.id === q.id)!;
-        p.chips += flushShare + (idx === 0 ? flushRemainder : 0);
+        const award = flushShare + (idx === 0 ? flushRemainder : 0);
+        p.chips += award;
         p.isWinner = true;
+        messages.push(`${p.name} receives $${award} (${q.eval7.description})`);
       });
-      messages.push(`Multiple flushes split $${pot}!`);
       finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
       return { players: finalPlayers, pot: 0, messages };
     }
@@ -414,12 +416,14 @@ export const Dead7Mode: GameMode = {
     if (allBadugis.length > 1) {
       const badugiShare = Math.floor(pot / allBadugis.length);
       const badugiRemainder = pot % allBadugis.length;
+      messages.push(`Split Pot — ${allBadugis.length} badugis split $${pot}`);
       allBadugis.forEach((q, idx) => {
         const p = finalPlayers.find(p => p.id === q.id)!;
-        p.chips += badugiShare + (idx === 0 ? badugiRemainder : 0);
+        const award = badugiShare + (idx === 0 ? badugiRemainder : 0);
+        p.chips += award;
         p.isWinner = true;
+        messages.push(`${p.name} receives $${award} (${q.eval7.description})`);
       });
-      messages.push(`Multiple badugis split $${pot}!`);
       finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
       return { players: finalPlayers, pot: 0, messages };
     }
@@ -453,18 +457,22 @@ export const Dead7Mode: GameMode = {
     if (!highWinner) { lowPot += highPot; highPot = 0; }
     if (!lowWinner) { highPot += lowPot; lowPot = 0; }
 
+    if (highWinner && lowWinner && highWinner.id !== lowWinner.id) {
+      messages.push(`Split Pot — HIGH/LOW split $${pot}`);
+    }
+
     if (highWinner) {
       const p = finalPlayers.find(p => p.id === highWinner!.id)!;
       p.chips += highPot;
       p.isWinner = true;
-      messages.push(`${p.name} wins HIGH $${highPot} (${highWinner.eval7.description})`);
+      messages.push(`${p.name} wins HIGH — $${highPot} (${highWinner.eval7.description})`);
     }
 
     if (lowWinner) {
       const p = finalPlayers.find(p => p.id === lowWinner!.id)!;
       p.chips += lowPot;
       p.isWinner = true;
-      messages.push(`${p.name} wins LOW $${lowPot} (${lowWinner.eval7.description})`);
+      messages.push(`${p.name} wins LOW — $${lowPot} (${lowWinner.eval7.description})`);
     }
 
     finalPlayers.forEach(p => {

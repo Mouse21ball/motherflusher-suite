@@ -505,7 +505,7 @@ export const SuitsPokerMode: GameMode = {
     if (activePlayers.length === 1) {
       activePlayers[0].chips += pot;
       activePlayers[0].isWinner = true;
-      messages.push(`${activePlayers[0].name} wins $${pot}`);
+      messages.push(`${activePlayers[0].name} wins $${pot} (last player standing)`);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -554,11 +554,14 @@ export const SuitsPokerMode: GameMode = {
 
     if (successfulSwings.length > 0) {
       const share = Math.floor(pot / successfulSwings.length);
+      if (successfulSwings.length > 1) {
+        messages.push(`Split Pot — ${successfulSwings.length} SWING scoops split $${pot}`);
+      }
       for (const sid of successfulSwings) {
         const p = finalPlayers.find(pp => pp.id === sid)!;
         p.chips += share;
         p.isWinner = true;
-        messages.push(`${p.name} SCOOPS with SWING! (${p.score?.high} + ${p.score?.low})`);
+        messages.push(`${p.name} SCOOPS $${share} with SWING! (${p.score?.high} + ${p.score?.low})`);
       }
       finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
       return { players: finalPlayers, pot: 0, messages };
@@ -584,6 +587,7 @@ export const SuitsPokerMode: GameMode = {
     if (pokerWinners.length > 0 && suitsWinners.length > 0) {
       pokerPot = Math.floor(pot / 2);
       suitsPot = pot - pokerPot;
+      messages.push(`Split Pot — POKER/SUITS split $${pot}`);
     } else if (pokerWinners.length > 0) {
       pokerPot = pot;
     } else {
@@ -596,7 +600,11 @@ export const SuitsPokerMode: GameMode = {
         const p = finalPlayers.find(pp => pp.id === w.id)!;
         p.chips += share;
         p.isWinner = true;
-        messages.push(`${p.name} wins POKER $${share} (${p.score?.high})`);
+        if (pokerWinners.length > 1) {
+          messages.push(`${p.name} wins POKER — $${share} of $${pokerPot} (${p.score?.high})`);
+        } else {
+          messages.push(`${p.name} wins POKER — $${pokerPot} (${p.score?.high})`);
+        }
       }
     }
 
@@ -606,7 +614,11 @@ export const SuitsPokerMode: GameMode = {
         const p = finalPlayers.find(pp => pp.id === w.id)!;
         p.chips += share;
         p.isWinner = true;
-        messages.push(`${p.name} wins SUITS $${share} (${p.score?.low})`);
+        if (suitsWinners.length > 1) {
+          messages.push(`${p.name} wins SUITS — $${share} of $${suitsPot} (${p.score?.low})`);
+        } else {
+          messages.push(`${p.name} wins SUITS — $${suitsPot} (${p.score?.low})`);
+        }
       }
     }
 
