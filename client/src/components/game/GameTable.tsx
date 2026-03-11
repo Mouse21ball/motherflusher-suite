@@ -2,6 +2,7 @@ import { GameState, Player } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { DiscardPile } from "./DiscardPile";
+import { ResolutionOverlay } from "./ResolutionOverlay";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface GameTableProps {
@@ -95,7 +96,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 </div>
               </div>
               <div className="text-center pointer-events-auto">
-                {gameState.messages.slice(-1).map(msg => (
+                {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
                   <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
                     {msg.text}
                   </p>
@@ -123,6 +124,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             </div>
           );
         })}
+
+        <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} />
       </div>
     </div>
   );

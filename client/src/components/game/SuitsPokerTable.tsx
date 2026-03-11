@@ -1,6 +1,7 @@
 import { GameState, CardType } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
+import { ResolutionOverlay } from "./ResolutionOverlay";
 import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 
@@ -66,7 +67,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
       <div className="w-full text-center mb-1 relative z-40">
-        {gameState.messages.slice(-1).map(msg => (
+        {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
           <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
             {msg.text}
           </p>
@@ -169,6 +170,8 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
           />
         )}
       </div>
+
+      <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} />
     </div>
   );
 }

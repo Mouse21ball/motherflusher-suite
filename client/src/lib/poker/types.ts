@@ -96,7 +96,7 @@ export interface GameState {
   activePlayerId: string | null;
   players: Player[];
   communityCards: CardType[];
-  messages: { id: string; text: string; time: number }[];
+  messages: { id: string; text: string; time: number; isResolution?: boolean }[];
   chatMessages: ChatMessage[];
   deck: CardType[];
 }
