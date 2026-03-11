@@ -5,7 +5,9 @@ import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
+import { getPhaseHint } from "@/lib/phaseHints";
 
 export default function Dead7Game() {
   const myId = 'p1';
@@ -50,6 +52,7 @@ export default function Dead7Game() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+      <ModeIntro modeId="dead7" {...MODE_INTROS.dead7} />
       <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
@@ -73,6 +76,7 @@ export default function Dead7Game() {
             onAction={handleControlAction}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
             selectedCardsCount={selectedCardIndices.length}
+            phaseHint={getPhaseHint('dead7', state.phase)}
           />
         </div>
       </div>

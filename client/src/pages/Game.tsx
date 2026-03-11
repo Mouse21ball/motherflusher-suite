@@ -5,7 +5,9 @@ import { GameTable } from "@/components/game/GameTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
+import { getPhaseHint } from "@/lib/phaseHints";
 
 export default function Game() {
   const myId = 'p1';
@@ -45,6 +47,7 @@ export default function Game() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+      <ModeIntro modeId="swing" {...MODE_INTROS.swing} />
       <GameHeader mode={MODE_INFO.swing} modeId="swing" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
@@ -68,6 +71,7 @@ export default function Game() {
             onAction={handleControlAction}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
             selectedCardsCount={selectedCardIndices.length}
+            phaseHint={getPhaseHint('swing', state.phase)}
           />
         </div>
       </div>

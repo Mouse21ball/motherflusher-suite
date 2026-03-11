@@ -176,34 +176,54 @@ export const Dead7Mode: GameMode = {
       const botCards = [...bot.cards];
       const indicesToDiscard: number[] = [];
 
+      // 1. Always discard 7s
       for (let i = 0; i < botCards.length && indicesToDiscard.length < maxDraws; i++) {
         if (rankValue(botCards[i].rank) === 7) {
           indicesToDiscard.push(i);
         }
       }
 
+      // 2. Discard duplicate ranks (Dead 7 requires 4 unique ranks)
+      if (indicesToDiscard.length < maxDraws) {
+        const ranksSeen = new Set<string>();
+        botCards.forEach((c, i) => {
+          if (!indicesToDiscard.includes(i)) {
+            if (ranksSeen.has(c.rank)) {
+              if (indicesToDiscard.length < maxDraws) indicesToDiscard.push(i);
+            } else {
+              ranksSeen.add(c.rank);
+            }
+          }
+        });
+      }
+
+      // 3. Determine if we should chase High or Low
       if (indicesToDiscard.length < maxDraws) {
         const remaining = botCards
-          .map((c, i) => ({ i, v: rankValue(c.rank) }))
+          .map((c, i) => ({ i, v: rankValue(c.rank), s: c.suit }))
           .filter(x => !indicesToDiscard.includes(x.i));
 
-        const hasHighCards = remaining.every(x => x.v >= 8);
-        const hasLowCards = remaining.every(x => x.v <= 6);
+        const highCount = remaining.filter(x => x.v >= 8).length;
+        const lowCount = remaining.filter(x => x.v <= 6).length;
+        
+        // Target high or low based on what we have more of
+        const isHighTarget = highCount >= lowCount;
 
-        if (!hasHighCards && !hasLowCards) {
-          const midCards = remaining
-            .filter(x => x.v === 7 || (x.v > 6 && x.v < 8))
-            .map(x => x.i);
-          for (const idx of midCards) {
-            if (indicesToDiscard.length < maxDraws) indicesToDiscard.push(idx);
+        // Discard cards that don't fit the target
+        remaining.forEach(x => {
+          if (indicesToDiscard.length < maxDraws) {
+            if (isHighTarget && x.v <= 6) {
+              indicesToDiscard.push(x.i);
+            } else if (!isHighTarget && x.v >= 8) {
+              indicesToDiscard.push(x.i);
+            }
           }
-        }
-
-        if (indicesToDiscard.length === 0 && Math.random() < 0.3) {
-          const randomIdx = Math.floor(Math.random() * botCards.length);
-          indicesToDiscard.push(randomIdx);
-        }
+        });
       }
+
+      // 4. Flush coherence: if we have multiple cards of the same suit, try to keep them if they fit the target
+      // Or if we have a mix of suits but want to move towards Flush or Badugi.
+      // For now, let's just ensure we discard cards that are "wrong" for our high/low target first.
 
       if (indicesToDiscard.length > 0 && newDeck.length >= indicesToDiscard.length) {
         const newCards = [...botCards];
@@ -224,7 +244,8 @@ export const Dead7Mode: GameMode = {
       if (eval7 && !eval7.isDead) {
         if (eval7.isValidHigh) dec = 'HIGH';
         else if (eval7.isValidLow) dec = 'LOW';
-        else dec = Math.random() < 0.5 ? 'HIGH' : 'LOW';
+        // If not qualifying, fold (smarter than random high/low)
+        else dec = 'FOLD';
       }
 
       if (dec === 'FOLD') {
@@ -237,9 +258,38 @@ export const Dead7Mode: GameMode = {
     }
     else {
       const callAmount = state.currentBet - bot.bet;
-      newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-      newPot += callAmount;
-      message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
+      const eval7 = evaluateDead7(bot.cards.map(c => ({ ...c, isHidden: false })));
+      
+      let action: 'FOLD' | 'CALL' | 'RAISE' = 'CALL';
+      
+      if (eval7) {
+        if (eval7.isDead || eval7.handType === 'INVALID' || eval7.handType === 'NONE') {
+          // If facing a bet with a bad hand, fold
+          if (callAmount > 0) action = 'FOLD';
+          else action = 'CALL'; // Check
+        } else if (eval7.isFlush || eval7.isBadugi) {
+          // Strong hand, potentially raise
+          if (Math.random() < 0.3) action = 'RAISE';
+          else action = 'CALL';
+        }
+      }
+
+      if (action === 'FOLD') {
+        newPlayers[bIdx] = { ...bot, status: 'folded', hasActed: true };
+        message = `${bot.name} folded`;
+      } else if (action === 'RAISE') {
+        const raiseAmount = 2; // Fixed raise for simplicity
+        const totalBet = state.currentBet + raiseAmount;
+        const toPay = totalBet - bot.bet;
+        newPlayers[bIdx] = { ...bot, chips: bot.chips - toPay, bet: totalBet, hasActed: true };
+        newPot += toPay;
+        newCurrentBet = totalBet;
+        message = `${bot.name} raised to $${totalBet}`;
+      } else {
+        newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
+        newPot += callAmount;
+        message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
+      }
     }
 
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);

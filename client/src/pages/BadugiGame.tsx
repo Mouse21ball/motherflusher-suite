@@ -5,7 +5,9 @@ import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
+import { getPhaseHint } from "@/lib/phaseHints";
 
 export default function BadugiGame() {
   const myId = 'p1';
@@ -50,6 +52,7 @@ export default function BadugiGame() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+      <ModeIntro modeId="badugi" {...MODE_INTROS.badugi} />
       <GameHeader mode={MODE_INFO.badugi} modeId="badugi" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
@@ -73,6 +76,7 @@ export default function BadugiGame() {
             onAction={handleControlAction}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
             selectedCardsCount={selectedCardIndices.length}
+            phaseHint={getPhaseHint('badugi', state.phase)}
           />
         </div>
       </div>

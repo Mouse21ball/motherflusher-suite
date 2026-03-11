@@ -21,6 +21,7 @@ interface ActionControlsProps {
   isMyTurn: boolean;
   selectedCardsCount: number;
   declarationOptions?: DeclarationOption[];
+  phaseHint?: string;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -29,7 +30,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
   { label: 'LOW', value: 'LOW', className: 'border-blue-500/50 hover:bg-blue-500/20 text-blue-100' },
 ];
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   
@@ -108,10 +109,15 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  const hintEl = phaseHint ? (
+    <div className="text-[11px] text-amber-400/70 text-center mb-2 leading-snug" data-testid="text-phase-hint">{phaseHint}</div>
+  ) : null;
+
   const isHitPhase = phase.startsWith('HIT_');
   if (isHitPhase) {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
+        {hintEl}
         <div className="text-sm font-mono text-white/70 mb-4">HIT, STAY, OR FOLD</div>
         <div className="grid grid-cols-3 gap-2">
           <Button
@@ -151,6 +157,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
+        {hintEl}
         <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO {maxDiscards} CARDS TO DISCARD ({selectedCardsCount}/{maxDiscards})</div>
         <Button onClick={() => { if (selectedCardsCount > 0) sfx.cardFlip(); else sfx.check(); onAction('draw'); }} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
           {selectedCardsCount > 0 ? `Discard ${selectedCardsCount} Cards` : 'Stand Pat (Keep All)'}
@@ -164,6 +171,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     const declOpts = declarationOptions || defaultDeclarationOptions;
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
+        {hintEl}
         <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">STEP 1: DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (

@@ -5,7 +5,9 @@ import { SuitsPokerTable } from "@/components/game/SuitsPokerTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
+import { getPhaseHint } from "@/lib/phaseHints";
 import { Declaration } from "@/lib/poker/types";
 
 const spDeclarationOptions: { label: string; value: Declaration; className: string }[] = [
@@ -52,6 +54,7 @@ export default function SuitsPokerGame() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+      <ModeIntro modeId="suitspoker" {...MODE_INTROS.suitspoker} />
       <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
@@ -76,6 +79,7 @@ export default function SuitsPokerGame() {
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
             selectedCardsCount={selectedCardIndices.length}
             declarationOptions={spDeclarationOptions}
+            phaseHint={getPhaseHint('suitspoker', state.phase)}
           />
         </div>
       </div>

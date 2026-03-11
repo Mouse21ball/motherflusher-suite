@@ -5,7 +5,9 @@ import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
+import { getPhaseHint } from "@/lib/phaseHints";
 
 export default function Fifteen35Game() {
   const myId = 'p1';
@@ -37,6 +39,7 @@ export default function Fifteen35Game() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+      <ModeIntro modeId="fifteen35" {...MODE_INTROS.fifteen35} />
       <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
@@ -61,6 +64,7 @@ export default function Fifteen35Game() {
             onAction={handleControlAction}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
             selectedCardsCount={0}
+            phaseHint={getPhaseHint('fifteen35', state.phase)}
           />
         </div>
       </div>

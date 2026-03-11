@@ -42,6 +42,22 @@ A client-side poker game platform supporting five custom poker variants, built w
 - **Lobby displays**: Per-mode chip balance shown on each mode card; global hand count and net result shown above mode list with access to full history drawer.
 - `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData).
 
+## Bot AI
+- **Badugi**: Bots discard duplicate suits/ranks first, keep valid badugi components. Declare HIGH (K-high+), LOW (8-low or better), or FOLD (no valid badugi). Raise with strong hands, fold facing large bets with weak hands.
+- **Dead 7**: Always discard 7s, then target suit coherence (flush) or rank coherence (high/low ball). Declare based on hand qualification. Raise with flush/badugi, fold when dead or no qualifier.
+- **15/35**: Risk-aware hit/stay curve: always stay at qualifying ranges (13-15, 33-35), always hit below 12, weigh bust risk near edges. Raise with qualifying hands, fold far-from-target hands vs large bets.
+- **Suits & Poker**: Keep cards contributing to flush or poker hand in draws. Declare POKER/SUITS/SWING based on hand strength evaluation. Raise with strong hands, fold weak hands vs large bets.
+- **Swing**: Random draw/declare (swing.ts is read-only).
+
+## Onboarding & Phase Hints
+- **ModeIntro overlay**: First-visit overlay per mode showing objective + 4-step flow. Stored in localStorage (`poker_table_intro_seen`). Dismissable, only shows once per mode.
+- **Phase hints**: Contextual 1-line tips shown in the Controls area during draw, declare, hit, and betting phases. Mode-specific. Defined in `client/src/lib/phaseHints.ts`.
+
+## Sound & Animation System
+- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API synthesized — cardDeal, cardFlip, chipClink, fold, win, lose, check, declare, reveal.
+- **Phase sounds** (`client/src/lib/usePhaseSounds.ts`): Hook that plays sounds on phase transitions (deal, reveal, showdown, ante).
+- **CSS animations** (`client/src/index.css`): card-deal-in, card-flip, chip-toss, winner-glow, loser-fade, pot-collect, reveal-flash with `.anim-*` utility classes.
+
 ## Key Files
 - `client/src/pages/Home.tsx` — Mode-select lobby with per-mode chip balances and global history access
 - `client/src/pages/Game.tsx` — Swing Poker game page
@@ -50,8 +66,12 @@ A client-side poker game platform supporting five custom poker variants, built w
 - `client/src/pages/Fifteen35Game.tsx` — 15/35 game page
 - `client/src/pages/SuitsPokerGame.tsx` — Suits & Poker game page
 - `client/src/components/game/GameHeader.tsx` — Shared header across all game pages (mode badge, rules drawer, history drawer, lobby link, chip stack). Contains MODE_INFO with full rules text for each mode.
+- `client/src/components/game/ModeIntro.tsx` — First-visit intro overlay with MODE_INTROS data for each mode.
 - `client/src/components/game/HandHistory.tsx` — Hand history Sheet drawer with per-mode filtering, net result summary, and per-hand detail rows.
 - `client/src/lib/persistence.ts` — localStorage persistence for chips and hand history.
+- `client/src/lib/phaseHints.ts` — Contextual phase hints per mode, shown during gameplay.
+- `client/src/lib/sounds.ts` — Web Audio API sound effects.
+- `client/src/lib/usePhaseSounds.ts` — Phase transition sound hook.
 - `client/src/lib/poker/modes/badugi.ts` — Badugi game mode + evaluateBadugi
 - `client/src/lib/poker/modes/swing.ts` — Swing Poker game mode (DO NOT EDIT)
 - `client/src/lib/poker/modes/dead7.ts` — Dead 7 game mode + evaluateDead7

@@ -88,16 +88,33 @@ export const BadugiMode: GameMode = {
         message = `${bot.name} paid $1 Ante`;
     }
     else if (state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3') {
-      let maxDraws = 1;
-      if (state.phase === 'DRAW_1') maxDraws = 3;
-      if (state.phase === 'DRAW_2') maxDraws = 2;
-      
-      const numDraws = Math.floor(Math.random() * (maxDraws + 1));
+      const cards = bot.cards;
+      const toKeep: number[] = [];
+      const usedRanks = new Set<string>();
+      const usedSuits = new Set<string>();
+
+      // Keep cards that don't conflict, starting from lowest rank (best for Badugi)
+      const sortedIndices = cards
+        .map((_, i) => i)
+        .sort((a, b) => rankValue(cards[a].rank) - rankValue(cards[b].rank));
+
+      for (const i of sortedIndices) {
+        const card = cards[i];
+        if (!usedRanks.has(card.rank) && !usedSuits.has(card.suit)) {
+          toKeep.push(i);
+          usedRanks.add(card.rank);
+          usedSuits.add(card.suit);
+        }
+      }
+
+      const toDiscard = cards.map((_, i) => i).filter(i => !toKeep.includes(i));
+      const numDraws = toDiscard.length;
+
       if (numDraws > 0 && newDeck.length >= numDraws) {
         const newCards = [...bot.cards];
-        for (let i=0; i<numDraws; i++) {
-          newCards[i] = { ...newDeck.shift()!, isHidden: true };
-        }
+        toDiscard.forEach(idx => {
+          newCards[idx] = { ...newDeck.shift()!, isHidden: true };
+        });
         newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
         message = `${bot.name} discarded ${numDraws} cards`;
       } else {
@@ -106,21 +123,59 @@ export const BadugiMode: GameMode = {
       }
     } 
     else if (state.phase === 'DECLARE') {
-       const randDec = ['HIGH', 'LOW', 'FOLD'][Math.floor(Math.random() * 3)] as Declaration;
+      const evaluation = evaluateBadugi(bot.cards);
+      let declaration: Declaration = 'FOLD';
+
+      if (evaluation?.isValidBadugi) {
+        const highest = evaluation.badugiRankValues![0];
+        if (highest <= 8) {
+          declaration = 'LOW';
+        } else {
+          declaration = 'HIGH';
+        }
+      } else {
+        // Even if not a valid Badugi, maybe they have a good 3-card hand?
+        // But the rules say HIGH/LOW only if valid Badugi usually.
+        // Looking at resolveShowdown:
+        // const highPlayers = activePlayers.filter(p => p.declaration === 'HIGH' && p.score?.isValidBadugi);
+        // So we must have a valid Badugi to declare.
+        declaration = 'FOLD';
+      }
        
-       if (randDec === 'FOLD') {
-           newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true };
-           message = `${bot.name} declared FOLD`;
-       } else {
-           newPlayers[bIdx] = { ...bot, declaration: randDec, hasActed: true };
-           message = `${bot.name} declared ${randDec}`;
-       }
+      if (declaration === 'FOLD') {
+        newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true };
+        message = `${bot.name} declared FOLD`;
+      } else {
+        newPlayers[bIdx] = { ...bot, declaration, hasActed: true };
+        message = `${bot.name} declared ${declaration}`;
+      }
     }
     else {
       const callAmount = state.currentBet - bot.bet;
-      newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
-      newPot += callAmount;
-      message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
+      const evaluation = evaluateBadugi(bot.cards);
+      const isStrong = evaluation?.isValidBadugi && evaluation.badugiRankValues![0] <= 10;
+      const isVeryStrong = evaluation?.isValidBadugi && evaluation.badugiRankValues![0] <= 6;
+      
+      // Random element to keep it interesting
+      const rand = Math.random();
+
+      if (isVeryStrong && rand < 0.4) {
+        // Raise
+        const raiseAmount = 5;
+        newCurrentBet += raiseAmount;
+        newPlayers[bIdx] = { ...bot, chips: bot.chips - (callAmount + raiseAmount), bet: newCurrentBet, hasActed: true };
+        newPot += (callAmount + raiseAmount);
+        message = `${bot.name} raised to $${newCurrentBet}`;
+      } else if (callAmount > bot.chips * 0.5 && !evaluation?.isValidBadugi && rand < 0.8) {
+        // Fold if big bet and weak hand
+        newPlayers[bIdx] = { ...bot, status: 'folded', hasActed: true };
+        message = `${bot.name} folded`;
+      } else {
+        // Call/Check
+        newPlayers[bIdx] = { ...bot, chips: bot.chips - callAmount, bet: state.currentBet, hasActed: true };
+        newPot += callAmount;
+        message = `${bot.name} ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`;
+      }
     }
 
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
