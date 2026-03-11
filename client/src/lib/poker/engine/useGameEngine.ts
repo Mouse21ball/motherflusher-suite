@@ -59,6 +59,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   const advancePhase = useCallback(() => {
     setState(s => {
+      if (s.phase === 'SHOWDOWN') return s;
       const overridePhase = mode.getNextPhase?.(s.phase, s);
       const currentPhaseIndex = mode.phases.indexOf(s.phase);
       const nextPhaseIndex = (currentPhaseIndex + 1) % mode.phases.length;
@@ -146,6 +147,16 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       });
     }
   }, [state.phase, state.communityCards, state.players.find(p => p.id === myId)?.cards, myId, mode]);
+
+  useEffect(() => {
+    if (state.phase.startsWith('HIT_') || state.phase.startsWith('BET_')) {
+      const overridePhase = mode.getNextPhase?.(state.phase, state);
+      if (overridePhase) {
+        const timer = safeTimeout(() => advancePhase(), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [state.phase, mode, advancePhase, safeTimeout]);
 
   // Automatic phase transitions
   useEffect(() => {
@@ -285,6 +296,14 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            if (activePlayers.length <= 1) {
                safeTimeout(advancePhase, 500);
                return s;
+           }
+
+           if (s.phase.startsWith('HIT_')) {
+               const overridePhase = mode.getNextPhase?.(s.phase, s);
+               if (overridePhase) {
+                   safeTimeout(advancePhase, 500);
+                   return s;
+               }
            }
 
            const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';

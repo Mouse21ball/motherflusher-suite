@@ -228,7 +228,8 @@ export const Fifteen35Mode: GameMode = {
     const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
     const allActed = activePlayers.every(p => p.hasActed);
     const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
-    const roundOver = isHitPhase ? allActed : (allActed && allBetsMatch);
+    const doneHitting = isHitPhase && allDoneHitting(newPlayers);
+    const roundOver = isHitPhase ? (allActed || doneHitting) : (allActed && allBetsMatch);
 
     let nextPlayerId = undefined;
     if (!roundOver) {
