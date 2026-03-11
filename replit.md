@@ -70,7 +70,7 @@ A client-side poker game platform supporting five custom poker variants, built w
 - 15/35 bot messages do NOT include hidden card totals (information integrity).
 
 ## Constraints
-- `swing.ts` and `GameTable.tsx` must never be modified
+- `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
 - All game logic is client-side only
 - 4 bot players (Alice, Bob, Charlie) + 1 hero (You)
 - Mobile-first design with 5-player ring seating

@@ -34,35 +34,27 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
   return (
     <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-32 px-2 sm:px-8">
-      <div className="w-full text-center mb-2 relative z-40">
-        {gameState.messages.slice(-1).map(msg => (
-          <p key={msg.id} className="text-white/90 text-sm sm:text-base font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-4 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
-            {msg.text}
-          </p>
-        ))}
-      </div>
-
       <div className="relative h-[70vh] min-h-[560px]">
         <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl border-4 border-[#1a3822]">
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-            <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] mb-4 sm:mb-8 uppercase text-center mt-8" data-testid="text-phase">
+            <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] mb-3 sm:mb-6 uppercase text-center mt-8" data-testid="text-phase">
               {gameState.phase.replace(/_/g, ' ')}
             </div>
 
-            <div className="flex flex-col items-center gap-3 sm:gap-6 mb-4 sm:mb-10 origin-center pointer-events-auto mt-4 sm:mt-8">
-              <div className="flex gap-2 sm:gap-4">
+            <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto mt-2 sm:mt-4">
+              <div className="flex gap-1 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1.5 sm:gap-2.5 bg-black/30 p-2 sm:p-3 rounded-xl border border-white/10 shadow-inner">
-                    <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
+                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1 sm:gap-2 bg-black/30 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-white/10 shadow-inner">
+                    <div className="w-[40px] h-[58px] sm:w-[56px] sm:h-[78px] flex-shrink-0">
                       <PlayingCard
                         card={gameState.communityCards[colIndex * 2]}
                         selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2))}
                         className="w-full h-full"
                       />
                     </div>
-                    <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
+                    <div className="w-[40px] h-[58px] sm:w-[56px] sm:h-[78px] flex-shrink-0">
                       <PlayingCard
                         card={gameState.communityCards[colIndex * 2 + 1]}
                         selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1))}
@@ -73,10 +65,10 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 ))}
               </div>
 
-              <div className="flex gap-2 sm:gap-4 mt-2">
+              <div className="flex gap-1 sm:gap-3 mt-1">
                 {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`single-${colIndex}`} className="flex justify-center w-[66px] sm:w-[92px]">
-                    <div className="w-[50px] h-[72px] sm:w-[68px] sm:h-[96px] flex-shrink-0">
+                  <div key={`single-${colIndex}`} className="flex justify-center w-[55px] sm:w-[77px]">
+                    <div className="w-[40px] h-[58px] sm:w-[56px] sm:h-[78px] flex-shrink-0">
                       <PlayingCard
                         card={gameState.communityCards[10 + colIndex]}
                         selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(10 + colIndex) || p.score?.lowEval?.usedCommunityCardIndices.includes(10 + colIndex))}
@@ -88,16 +80,25 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               </div>
             </div>
 
-            <div className="flex items-center gap-4 z-20">
-              <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
-              <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
-                <span className="text-[10px] text-green-400 uppercase font-bold tracking-widest mb-1">Total Pot</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+            <div className="flex flex-col items-center gap-2 z-20">
+              <div className="flex items-center gap-4">
+                <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
+                <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
+                  <span className="text-[10px] text-green-400 uppercase font-bold tracking-widest mb-1">Total Pot</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
+                      <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+                    </div>
+                    <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
                   </div>
-                  <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
                 </div>
+              </div>
+              <div className="text-center pointer-events-auto">
+                {gameState.messages.slice(-1).map(msg => (
+                  <p key={msg.id} className="text-white/80 text-[11px] sm:text-xs font-mono animate-in fade-in drop-shadow-md bg-black/50 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/[0.06]" data-testid="text-game-message">
+                    {msg.text}
+                  </p>
+                ))}
               </div>
             </div>
           </div>
