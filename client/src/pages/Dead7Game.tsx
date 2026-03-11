@@ -5,6 +5,7 @@ import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { usePhaseSounds } from "@/lib/usePhaseSounds";
 
 export default function Dead7Game() {
   const myId = 'p1';
@@ -12,6 +13,7 @@ export default function Dead7Game() {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
 
   const me = state.players.find(p => p.id === myId);
+  usePhaseSounds(state.phase);
 
   useEffect(() => {
     setSelectedCardIndices([]);

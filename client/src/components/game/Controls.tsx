@@ -3,6 +3,7 @@ import { Slider } from "@/components/ui/slider";
 import { GamePhase, Declaration } from "@/lib/poker/types";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { sfx } from "@/lib/sounds";
 
 interface DeclarationOption {
   label: string;
@@ -34,7 +35,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   
   const callAmount = currentBet - myBet;
   const canCheck = callAmount === 0;
-  const maxBet = Math.min(chips, pot + callAmount * 2); // Pot limit simplified
+  const maxBet = Math.min(chips, pot + callAmount * 2);
 
   useEffect(() => {
     if (phase !== 'DECLARE_AND_BET' && phase !== 'DECLARE') {
@@ -100,7 +101,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase === 'ANTE') {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex justify-center">
-        <Button size="lg" onClick={() => onAction('ante')} className="w-full sm:w-auto font-bold uppercase">
+        <Button size="lg" onClick={() => { sfx.chipClink(); onAction('ante'); }} className="w-full sm:w-auto font-bold uppercase">
           Pay Ante ($1)
         </Button>
       </div>
@@ -116,7 +117,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <Button
             variant="destructive"
             className="bg-red-500/20 text-red-400 hover:bg-red-500/40 border-0"
-            onClick={() => onAction('fold')}
+            onClick={() => { sfx.fold(); onAction('fold'); }}
             data-testid="button-fold"
           >
             Fold
@@ -124,14 +125,14 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <Button
             variant="secondary"
             className="bg-slate-800 text-white hover:bg-slate-700 border-0"
-            onClick={() => onAction('stay')}
+            onClick={() => { sfx.check(); onAction('stay'); }}
             data-testid="button-stay"
           >
             Stay
           </Button>
           <Button
             className="font-bold"
-            onClick={() => onAction('hit')}
+            onClick={() => { sfx.cardDeal(); onAction('hit'); }}
             data-testid="button-hit"
           >
             Hit
@@ -151,7 +152,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 text-center">
         <div className="text-sm font-mono text-white/70 mb-4">SELECT UP TO {maxDiscards} CARDS TO DISCARD ({selectedCardsCount}/{maxDiscards})</div>
-        <Button onClick={() => onAction('draw')} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
+        <Button onClick={() => { if (selectedCardsCount > 0) sfx.cardFlip(); else sfx.check(); onAction('draw'); }} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
           {selectedCardsCount > 0 ? `Discard ${selectedCardsCount} Cards` : 'Stand Pat (Keep All)'}
         </Button>
       </div>
@@ -166,7 +167,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">STEP 1: DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (
-            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => setPendingDeclaration(opt.value)}>{opt.label}</Button>
+            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => { sfx.declare(); setPendingDeclaration(opt.value); }}>{opt.label}</Button>
           ))}
         </div>
       </div>
@@ -178,15 +179,20 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
         <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => onAction('declare', { declaration: 'HIGH' })}>HIGH</Button>
-          <Button variant="outline" className="border-slate-500/50 hover:bg-slate-500/20 text-slate-100" onClick={() => onAction('declare', { declaration: 'FOLD' })}>FOLD</Button>
-          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => onAction('declare', { declaration: 'LOW' })}>LOW</Button>
+          <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
+          <Button variant="outline" className="border-slate-500/50 hover:bg-slate-500/20 text-slate-100" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
+          <Button variant="outline" className="border-blue-500/50 hover:bg-blue-500/20 text-blue-100" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
         </div>
       </div>
     );
   }
 
   const handleBetAction = (actionName: string, amount?: number) => {
+    if (actionName === 'fold') sfx.fold();
+    else if (actionName === 'check') sfx.check();
+    else if (actionName === 'call') sfx.chipClink();
+    else if (actionName === 'raise') sfx.chipClink();
+
     if (phase === 'DECLARE_AND_BET') {
       onAction('declare_and_bet', { declaration: pendingDeclaration, action: actionName, amount });
     } else {

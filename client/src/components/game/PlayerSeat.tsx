@@ -2,8 +2,9 @@ import { Player, CardType, HandEvaluation } from '@/lib/poker/types';
 import { PlayingCard } from './Card';
 import { cn } from '@/lib/utils';
 import { User, Coins } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
+import { sfx } from '@/lib/sounds';
 
 interface PlayerSeatProps {
   player: Player | null;
@@ -26,6 +27,33 @@ const visibleCardValue = (rank: string): number => {
 };
 
 export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount }: PlayerSeatProps) {
+  const prevCardCountRef = useRef(0);
+  const [dealAnimKey, setDealAnimKey] = useState(0);
+  const [showWinEffect, setShowWinEffect] = useState(false);
+
+  const cardCount = player?.cards.length || 0;
+  useEffect(() => {
+    if (cardCount > 0 && cardCount !== prevCardCountRef.current) {
+      setDealAnimKey(k => k + 1);
+      if (isSelf && cardCount > prevCardCountRef.current) {
+        sfx.cardDeal();
+      }
+    }
+    prevCardCountRef.current = cardCount;
+  }, [cardCount, isSelf]);
+
+  useEffect(() => {
+    if (showdownState && player?.isWinner && isSelf) {
+      sfx.win();
+      setShowWinEffect(true);
+    } else if (showdownState && player?.isLoser && isSelf) {
+      sfx.lose();
+      setShowWinEffect(false);
+    } else {
+      setShowWinEffect(false);
+    }
+  }, [showdownState, player?.isWinner, player?.isLoser, isSelf]);
+
   if (!player) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-white/10 bg-black/20 text-white/30 w-24 h-24", className)}>
@@ -37,18 +65,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
-      player.status === 'folded' && "opacity-50 grayscale",
+      player.status === 'folded' && !showdownState && "opacity-50 grayscale",
       player.status === 'sitting_out' && "opacity-30 grayscale",
+      showdownState && player.isLoser && "anim-loser",
       className
     )}>
-      {/* Dealer Button */}
       {player.isDealer && (
         <div className="absolute -right-2 -top-2 w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[10px] font-bold shadow-lg z-20 border-2 border-slate-200">
           D
         </div>
       )}
 
-      {/* Cards */}
       <div className={cn(
         "relative flex justify-center -space-x-4 sm:-space-x-2 mb-[-20px] transition-all duration-300 origin-bottom",
         isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none -space-x-8"
@@ -60,10 +87,13 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           return (
             <div 
               key={idx}
-              className="relative transition-all duration-300 origin-bottom"
+              className={cn(
+                "relative transition-all duration-300 origin-bottom anim-card-deal",
+              )}
               style={{ 
                 transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px) scale(1.1)' : ''}`,
-                zIndex: isSelected ? 40 : 10 + idx
+                zIndex: isSelected ? 40 : 10 + idx,
+                animationDelay: `${idx * 0.06}s`,
               }}
               onClick={(e) => {
                 e.preventDefault();
@@ -87,7 +117,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         })}
       </div>
 
-      {/* Hand Evaluation Display — opponents only (absolute above) */}
       {player.score && !isSelf && showdownState && (
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col gap-1 w-[150px] z-50">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
@@ -108,13 +137,12 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         </div>
       )}
 
-      {/* Avatar & Info Container */}
       <div className={cn(
-        "relative w-full min-w-[100px] bg-slate-900 rounded-lg p-2 border-2 shadow-xl z-20 flex flex-col items-center",
+        "relative w-full min-w-[100px] bg-slate-900 rounded-lg p-2 border-2 shadow-xl z-20 flex flex-col items-center transition-all duration-300",
         isActive ? "border-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-slate-700",
         isSelf && !isActive ? "border-blue-500/50" : "",
-        showdownState && player.isWinner && "border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)] animate-pulse",
-        showdownState && player.isLoser && "opacity-40 grayscale"
+        showdownState && player.isWinner && "anim-winner",
+        showdownState && player.isLoser && "border-slate-800"
       )}>
         <div className="font-semibold text-sm truncate max-w-full text-white">
           {player.name}
@@ -133,7 +161,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
           );
         })()}
-        {/* Hero eval badges — inside info container, below chips */}
         {player.score && isSelf && !showdownState && (
           <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
             {player.score.high && (
@@ -153,7 +180,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             )}
           </div>
         )}
-        {/* Hero eval badges — showdown */}
         {player.score && isSelf && showdownState && (
           <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
             {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
@@ -175,7 +201,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         )}
       </div>
 
-      {/* Status/Declaration Badge */}
       {player.declaration === 'BUST' && (
         <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Bust</Badge>
       )}
@@ -204,9 +229,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-slate-600 text-white/70 border-none z-30">Sitting Out</Badge>
       )}
 
-      {/* Current Bet */}
       {player.bet > 0 && (
-        <div className="absolute -bottom-10 flex items-center justify-center gap-1 bg-black/50 px-2 py-1 rounded-full text-xs font-mono text-white border border-white/10">
+        <div className="absolute -bottom-10 flex items-center justify-center gap-1 bg-black/50 px-2 py-1 rounded-full text-xs font-mono text-white border border-white/10 anim-chip-toss">
           <div className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-300 shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"></div>
           {player.bet}
         </div>

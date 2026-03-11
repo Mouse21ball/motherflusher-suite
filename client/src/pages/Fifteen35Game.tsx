@@ -5,12 +5,14 @@ import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { usePhaseSounds } from "@/lib/usePhaseSounds";
 
 export default function Fifteen35Game() {
   const myId = 'p1';
   const { state, handleAction } = useGameEngine(Fifteen35Mode, myId);
 
   const me = state.players.find(p => p.id === myId);
+  usePhaseSounds(state.phase);
 
   const isHitPhase = state.phase.startsWith('HIT_');
   const alreadyStayed = me?.declaration === 'STAY';
