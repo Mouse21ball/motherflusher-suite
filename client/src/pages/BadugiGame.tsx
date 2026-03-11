@@ -65,6 +65,7 @@ export default function BadugiGame() {
           selectedCardIndices={selectedCardIndices}
           onCardClick={handleCardClick}
           selectableCards={isDrawPhase}
+          heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
         />
       </main>
 

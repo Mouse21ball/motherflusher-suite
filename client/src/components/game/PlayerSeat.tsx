@@ -18,6 +18,7 @@ interface PlayerSeatProps {
   showdownState?: boolean;
   communityCards?: CardType[];
   showVisibleCount?: boolean;
+  heroCardClassName?: string;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -26,7 +27,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
@@ -108,6 +109,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 selectable={canSelect}
                 selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
                 isSelfHidden={isSelf && card.isHidden}
+                className={isSelf && heroCardClassName ? heroCardClassName : undefined}
               />
               {canSelect && !isSelected && (
                 <div className="absolute inset-0 z-50 rounded-md ring-2 ring-yellow-400/50 animate-pulse bg-yellow-400/10 pointer-events-none" />

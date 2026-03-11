@@ -95,7 +95,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
               {getPhaseLabel(gameState.phase)}
             </div>
 
-            <div className="scale-[0.6] sm:scale-[0.8] origin-center">
+            <div className="scale-75 sm:scale-100 origin-center">
               <div className="flex items-start justify-center">
                 <div className="flex flex-col items-center pt-2 sm:pt-3">
                   <span className="text-[8px] sm:text-[10px] text-amber-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side A</span>
