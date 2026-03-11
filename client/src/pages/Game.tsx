@@ -72,7 +72,7 @@ export default function Game() {
             pot={state.pot}
             chips={me?.chips || 0}
             onAction={handleControlAction}
-            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
+            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
             selectedCardsCount={selectedCardIndices.length}
             phaseHint={getPhaseHint('swing', state.phase)}
           />

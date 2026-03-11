@@ -86,7 +86,7 @@ A client-side poker game platform supporting five custom poker variants, built w
 
 ## Engine Details
 - `processActionEnd` uses proper `isRoundOver` logic: betting phases require `allActed && allBetsMatch`; draw/declare/hit phases require only `allActed`. This correctly handles re-raises.
-- Controls renders SHOWDOWN/REVEAL/DEAL phases before the `!isMyTurn` guard so all players see correct status regardless of turn.
+- Controls renders SHOWDOWN/REVEAL/DEAL phases before the `!isMyTurn` guard so all players see correct status regardless of turn. ANTE phase is NOT forced as isMyTurn; the hero sees "Waiting..." until it's actually their turn to ante.
 - The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
 - 15/35 bot messages do NOT include hidden card totals (information integrity).
 - All nested `setTimeout` calls in `useGameEngine` use `safeTimeout()` which auto-cancels on unmount via `mountedRef` + `pendingTimers` ref set, preventing stale state updates when navigating away mid-hand.

@@ -65,7 +65,7 @@ export default function Fifteen35Game() {
             pot={state.pot}
             chips={me?.chips || 0}
             onAction={handleControlAction}
-            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || state.phase === 'ANTE'}
+            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
             selectedCardsCount={0}
             phaseHint={getPhaseHint('fifteen35', state.phase)}
           />
