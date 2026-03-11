@@ -251,7 +251,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
           <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs ${mode.borderClass} border shadow-sm`}>
             {mode.abbrev}
           </div>
-          <span className={`font-semibold tracking-wide text-sm text-foreground/80 hidden sm:inline`}>
+          <span className={`font-semibold tracking-wide text-sm text-foreground/80`}>
             {mode.name}
           </span>
         </div>

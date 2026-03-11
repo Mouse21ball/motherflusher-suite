@@ -86,15 +86,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'WAITING') {
     return (
-      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex flex-col items-center gap-2">
+      <div className="w-full max-w-md mx-auto p-4 bg-black/40 backdrop-blur-md rounded-t-2xl border-t border-white/10 flex flex-col items-center gap-3">
         {chips <= 0 && (
           <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-xs font-mono uppercase tracking-wider" data-testid="button-rebuy-waiting">
             Rebuy $1000
           </Button>
         )}
         <Button size="lg" onClick={() => onAction('start')} className="w-full sm:w-auto font-bold tracking-widest uppercase" disabled={chips <= 0}>
-          Start Game
+          Deal Me In
         </Button>
+        <p className="text-[10px] text-white/45 font-mono">$1 ante · 4 opponents</p>
       </div>
     );
   }

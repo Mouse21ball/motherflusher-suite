@@ -8,7 +8,7 @@ const modes = [
     id: "swing",
     name: "Mother Flusher",
     tagline: "Swing Poker",
-    description: "5 hole cards with a 15-card community board revealed in stages. Draw, bet, and declare High, Low, or Swing. Swing scoops — or loses it all.",
+    description: "Draw and bet through a 15-card board. Declare High for the best poker hand, Low for best suit total, or risk it all on Swing.",
     quickFacts: ["5 hole cards", "15-card board", "High / Low / Swing"],
     path: "/swing",
     accent: "from-blue-600/90 to-indigo-800/90",
@@ -21,8 +21,8 @@ const modes = [
   {
     id: "badugi",
     name: "Badugi",
-    tagline: "Draw Lowball",
-    description: "4 cards, 3 draw rounds. Build a valid Badugi — four cards with all different ranks and all different suits. Declare High or Low.",
+    tagline: "4-Card Draw",
+    description: "Three draw rounds to build four cards with unique suits and ranks. The purest Badugi wins — declare High or Low.",
     quickFacts: ["4 cards", "3 draws", "Unique ranks + suits"],
     path: "/badugi",
     accent: "from-emerald-600/90 to-teal-800/90",
@@ -36,7 +36,7 @@ const modes = [
     id: "dead7",
     name: "Dead 7",
     tagline: "High-Low Killer",
-    description: "4-card draw where any 7 kills your hand. High needs all cards 8+, Low needs all 6 or under. Flushes and Badugis scoop the pot.",
+    description: "Four cards, three draws, one deadly rule: any 7 kills your hand. Go all-high or all-low — or chase a flush to scoop the pot.",
     quickFacts: ["4 cards", "7s are dead", "Flush scoops"],
     path: "/dead7",
     accent: "from-red-600/90 to-rose-900/90",
@@ -50,7 +50,7 @@ const modes = [
     id: "fifteen35",
     name: "15 / 35",
     tagline: "Hit & Split",
-    description: "2-card deal, then hit or stay. Low qualifies at 13-15, High at 33-35. Face cards are half, Aces flex. Over 35 and you bust.",
+    description: "Blackjack-style hits toward two targets. Land 13\u201315 for Low or 33\u201335 for High. Face cards count half, Aces flex. Bust over 35.",
     quickFacts: ["J/Q/K = \u00BD", "Ace = 1 or 11", "Bust over 35"],
     path: "/fifteen35",
     accent: "from-amber-600/90 to-orange-800/90",
@@ -63,8 +63,8 @@ const modes = [
   {
     id: "suitspoker",
     name: "Suits & Poker",
-    tagline: "Path Split",
-    description: "5 hole cards with a 12-card board split into Side A, Center, and Side B. Declare Poker (best hand), Suits (highest flush total), or Swing.",
+    tagline: "Dual Board",
+    description: "Pick a path through a split board. Declare Poker for the best hand, Suits for the highest flush total, or Swing for both.",
     quickFacts: ["5 hole cards", "12-card board", "Poker / Suits / Swing"],
     path: "/suitspoker",
     accent: "from-cyan-600/90 to-teal-900/90",
@@ -97,7 +97,7 @@ export default function Home() {
               Poker Table
             </h1>
             <p className="text-white/50 text-sm mt-1.5 font-mono tracking-wide" data-testid="text-app-subtitle">
-              Five custom poker variants
+              {totalHands === 0 ? "Five hi-lo variants \u00B7 pick a game to start" : "Five hi-lo variants"}
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export default function Home() {
             <div className="w-full flex items-center justify-between mb-4 px-1">
               <div className="flex items-center gap-3">
                 <span className="text-[10px] text-white/45 font-mono uppercase tracking-wider">
-                  {totalHands} hands played
+                  {totalHands} {totalHands === 1 ? "hand" : "hands"} played
                 </span>
                 <span className={`text-xs font-mono font-bold ${totalNet > 0 ? "text-emerald-400" : totalNet < 0 ? "text-red-400" : "text-white/40"}`}>
                   {totalNet > 0 ? "+" : ""}{totalNet === 0 ? "Even" : `$${totalNet}`}
@@ -168,12 +168,9 @@ export default function Home() {
             })}
           </div>
 
-          <div className="text-center mt-8 space-y-1.5">
+          <div className="text-center mt-8 space-y-1">
             <p className="text-white/40 text-[11px] font-mono">
-              4 bot opponents at each table · chips persist between sessions
-            </p>
-            <p className="text-white/35 text-[10px] font-mono">
-              Tap any game to see full rules inside
+              $1 ante · 4 bot opponents · chips save between sessions
             </p>
           </div>
         </div>
