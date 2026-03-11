@@ -101,7 +101,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
                   <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
                     {sideA.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
-                  <span className="text-[7px] sm:text-[8px] text-white/20 font-mono mt-1">← path</span>
+                  <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">← path</span>
                 </div>
 
                 <div className="mx-4 sm:mx-8 flex flex-col items-center">
@@ -126,19 +126,19 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
                   <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
                     {sideB.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
-                  <span className="text-[7px] sm:text-[8px] text-white/20 font-mono mt-1">path →</span>
+                  <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">path →</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-[8px] sm:text-[10px] font-mono text-white/30">
-              <span className="text-amber-400/40">A</span>
-              <span className="text-white/15">+</span>
-              <span className="text-green-400/40">Center</span>
-              <span className="text-white/20 mx-0.5">or</span>
-              <span className="text-cyan-400/40">B</span>
-              <span className="text-white/15">+</span>
-              <span className="text-green-400/40">Center</span>
+            <div className="flex items-center gap-2 text-[8px] sm:text-[10px] font-mono text-white/45">
+              <span className="text-amber-400/60">A</span>
+              <span className="text-white/35">+</span>
+              <span className="text-green-400/60">Center</span>
+              <span className="text-white/40 mx-0.5">or</span>
+              <span className="text-cyan-400/60">B</span>
+              <span className="text-white/35">+</span>
+              <span className="text-green-400/60">Center</span>
             </div>
 
             <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-5 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">

@@ -47,6 +47,7 @@ export function HandHistory({ modeId }: HandHistoryProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
+          aria-label="Hand history"
           className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
           data-testid="button-history"
         >
@@ -59,20 +60,20 @@ export function HandHistory({ modeId }: HandHistoryProps) {
         <ScrollArea className="h-full">
           <div className="p-5 sm:p-6 pt-10">
             <h2 className="text-lg font-bold text-white mb-1">Hand History</h2>
-            <p className="text-xs text-white/40 font-mono mb-4">
+            <p className="text-xs text-white/50 font-mono mb-4">
               {modeId ? "This table" : "All tables"} · {history.length} hands
             </p>
 
             {history.length > 0 && (
               <div className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                 <div className="flex-1">
-                  <div className="text-[10px] text-white/40 font-mono uppercase tracking-wider">Net Result</div>
+                  <div className="text-[10px] text-white/50 font-mono uppercase tracking-wider">Net Result</div>
                   <div className={`text-lg font-bold font-mono ${netChips > 0 ? "text-emerald-400" : netChips < 0 ? "text-red-400" : "text-white/50"}`}>
                     {netChips > 0 ? "+" : ""}{netChips === 0 ? "Even" : `$${netChips}`}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] text-white/40 font-mono uppercase tracking-wider">W / L</div>
+                  <div className="text-[10px] text-white/50 font-mono uppercase tracking-wider">W / L</div>
                   <div className="text-sm font-mono text-white/70">
                     <span className="text-emerald-400">{history.filter(h => h.result === "win").length}</span>
                     {" / "}
@@ -84,8 +85,8 @@ export function HandHistory({ modeId }: HandHistoryProps) {
 
             {history.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-white/30 text-sm">No hands played yet</p>
-                <p className="text-white/20 text-xs mt-1">Results will appear here after each hand</p>
+                <p className="text-white/50 text-sm">No hands played yet</p>
+                <p className="text-white/40 text-xs mt-1">Results will appear here after each hand</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -118,19 +119,19 @@ function HandRow({ hand, showMode }: { hand: HandRecord; showMode: boolean }) {
             </span>
           )}
         </div>
-        <span className="text-[10px] text-white/30 font-mono">
+        <span className="text-[10px] text-white/45 font-mono">
           {formatTime(hand.timestamp)}
         </span>
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-xs text-white/50 leading-relaxed flex-1 mr-2 line-clamp-2">
+        <p className="text-xs text-white/60 leading-relaxed flex-1 mr-2 line-clamp-2">
           {hand.summary}
         </p>
         <div className="text-right shrink-0">
           <div className={`text-sm font-mono font-bold ${hand.chipChange > 0 ? "text-emerald-400" : hand.chipChange < 0 ? "text-red-400" : "text-white/40"}`}>
             {hand.chipChange > 0 ? "+" : ""}{hand.chipChange === 0 ? "—" : `$${hand.chipChange}`}
           </div>
-          <div className="text-[10px] text-white/25 font-mono">
+          <div className="text-[10px] text-white/40 font-mono">
             pot ${hand.potSize}
           </div>
         </div>

@@ -52,6 +52,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(true)}
+        aria-label="Open chat"
         className={`fixed top-20 right-4 z-40 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-white shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
       >
         <MessageSquare className="w-5 h-5 text-gray-300" />
@@ -64,6 +65,8 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
 
       {/* Chat Panel */}
       <div 
+        role="dialog"
+        aria-label="Table chat"
         className={`fixed inset-y-0 right-0 z-50 w-80 sm:w-96 bg-black/95 border-l border-white/10 backdrop-blur-xl shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
@@ -73,7 +76,8 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
           </h2>
           <button 
             onClick={() => setIsOpen(false)}
-            className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-gray-400 hover:text-white active:text-white transition-colors rounded-lg hover:bg-white/10 touch-manipulation"
+            aria-label="Close chat"
+            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white active:text-white transition-colors rounded-lg hover:bg-white/10 touch-manipulation"
           >
             <X className="w-5 h-5" />
           </button>
@@ -119,7 +123,8 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
             <button 
               type="submit"
               disabled={!inputText.trim()}
-              className="absolute right-1 p-1.5 text-green-400 hover:text-green-300 disabled:text-gray-600 transition-colors rounded-full hover:bg-white/10 disabled:hover:bg-transparent"
+              aria-label="Send message"
+              className="absolute right-1 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-green-400 hover:text-green-300 disabled:text-gray-600 transition-colors rounded-full hover:bg-white/10 disabled:hover:bg-transparent touch-manipulation"
             >
               <Send className="w-4 h-4" />
             </button>

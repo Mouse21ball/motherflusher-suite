@@ -96,7 +96,7 @@ export default function Home() {
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight" data-testid="text-app-title">
               Poker Table
             </h1>
-            <p className="text-white/40 text-sm mt-1.5 font-mono tracking-wide" data-testid="text-app-subtitle">
+            <p className="text-white/50 text-sm mt-1.5 font-mono tracking-wide" data-testid="text-app-subtitle">
               Five custom poker variants
             </p>
           </div>
@@ -104,7 +104,7 @@ export default function Home() {
           {totalHands > 0 && (
             <div className="w-full flex items-center justify-between mb-4 px-1">
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-white/30 font-mono uppercase tracking-wider">
+                <span className="text-[10px] text-white/45 font-mono uppercase tracking-wider">
                   {totalHands} hands played
                 </span>
                 <span className={`text-xs font-mono font-bold ${totalNet > 0 ? "text-emerald-400" : totalNet < 0 ? "text-red-400" : "text-white/40"}`}>
@@ -139,26 +139,26 @@ export default function Home() {
                         <span className="text-base sm:text-lg font-bold text-white leading-tight" data-testid={`text-mode-name-${mode.id}`}>
                           {mode.name}
                         </span>
-                        <span className="text-white/35 text-[10px] font-mono uppercase tracking-wider shrink-0">
+                        <span className="text-white/50 text-[10px] font-mono uppercase tracking-wider shrink-0">
                           {mode.tagline}
                         </span>
                       </div>
-                      <p className="text-white/55 text-xs sm:text-sm mt-1 leading-relaxed line-clamp-2">
+                      <p className="text-white/70 text-xs sm:text-sm mt-1 leading-relaxed line-clamp-2">
                         {mode.description}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {mode.quickFacts.map((fact, i) => (
-                          <span key={i} className="text-[10px] font-mono text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                          <span key={i} className="text-[10px] font-mono text-white/55 bg-white/[0.06] px-1.5 py-0.5 rounded border border-white/[0.08]">
                             {fact}
                           </span>
                         ))}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0 self-center">
-                      <div className={`font-mono font-bold text-sm ${isDefault ? "text-white/30" : mode.chipColor}`} data-testid={`text-chips-${mode.id}`}>
+                      <div className={`font-mono font-bold text-sm ${isDefault ? "text-white/45" : mode.chipColor}`} data-testid={`text-chips-${mode.id}`}>
                         ${chips}
                       </div>
-                      <div className="text-white/25 group-hover:text-white/60 transition-colors text-lg">
+                      <div className="text-white/40 group-hover:text-white/70 transition-colors text-lg">
                         ›
                       </div>
                     </div>
@@ -169,10 +169,10 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-8 space-y-1.5">
-            <p className="text-white/20 text-[11px] font-mono">
+            <p className="text-white/40 text-[11px] font-mono">
               4 bot opponents at each table · chips persist between sessions
             </p>
-            <p className="text-white/15 text-[10px] font-mono">
+            <p className="text-white/35 text-[10px] font-mono">
               Tap any game to see full rules inside
             </p>
           </div>

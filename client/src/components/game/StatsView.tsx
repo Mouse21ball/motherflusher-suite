@@ -61,7 +61,7 @@ function computeStats(history: HandRecord[]) {
 function StatBox({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="flex flex-col items-center p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-      <div className="text-[10px] text-white/40 font-mono uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-[10px] text-white/50 font-mono uppercase tracking-wider mb-0.5">{label}</div>
       <div className={`text-base font-bold font-mono ${color || "text-white/80"}`}>{value}</div>
     </div>
   );
@@ -81,6 +81,7 @@ export function StatsView({ modeId }: StatsViewProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
+          aria-label="Stats"
           className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
           data-testid="button-stats"
         >
@@ -95,14 +96,14 @@ export function StatsView({ modeId }: StatsViewProps) {
             <h2 className="text-lg font-bold text-white mb-1" data-testid="text-stats-title">
               {modeId ? MODE_NAMES[modeId] || "Stats" : "Overall Stats"}
             </h2>
-            <p className="text-xs text-white/40 font-mono mb-5">
+            <p className="text-xs text-white/50 font-mono mb-5">
               {stats.total} hands tracked
             </p>
 
             {stats.total === 0 ? (
               <div className="text-center py-12">
-                <p className="text-white/30 text-sm">No stats yet</p>
-                <p className="text-white/20 text-xs mt-1">Play a few hands to see your stats here</p>
+                <p className="text-white/50 text-sm">No stats yet</p>
+                <p className="text-white/40 text-xs mt-1">Play a few hands to see your stats here</p>
               </div>
             ) : (
               <>
@@ -134,7 +135,7 @@ export function StatsView({ modeId }: StatsViewProps) {
                 )}
 
                 <div className="space-y-2 mb-5">
-                  <h3 className="text-xs font-mono text-white/40 uppercase tracking-wider font-bold">Highlights</h3>
+                  <h3 className="text-xs font-mono text-white/50 uppercase tracking-wider font-bold">Highlights</h3>
                   <div className="space-y-1.5">
                     {stats.biggestWin > 0 && (
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
@@ -163,7 +164,7 @@ export function StatsView({ modeId }: StatsViewProps) {
 
                 {!modeId && Object.keys(stats.byMode).length > 1 && (
                   <div className="space-y-2">
-                    <h3 className="text-xs font-mono text-white/40 uppercase tracking-wider font-bold">By Mode</h3>
+                    <h3 className="text-xs font-mono text-white/50 uppercase tracking-wider font-bold">By Mode</h3>
                     <div className="space-y-1.5">
                       {Object.entries(stats.byMode)
                         .sort((a, b) => b[1].hands - a[1].hands)
@@ -187,7 +188,7 @@ export function StatsView({ modeId }: StatsViewProps) {
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-white/30 font-mono shrink-0">
+                                <span className="text-[10px] text-white/45 font-mono shrink-0">
                                   {data.hands}h · {data.wins}w
                                 </span>
                               </div>

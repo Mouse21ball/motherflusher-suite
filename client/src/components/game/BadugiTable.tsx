@@ -92,13 +92,13 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
                       "w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border",
                       d < drawNumber ? "bg-green-600/60 border-green-400 text-white" :
                       d === drawNumber ? "bg-yellow-500/80 border-yellow-300 text-black animate-pulse" :
-                      "bg-white/10 border-white/20 text-white/30"
+                      "bg-white/10 border-white/20 text-white/45"
                     )}
                   >
                     {d}
                   </div>
                 ))}
-                <span className="text-white/40 text-[9px] sm:text-[10px] font-mono ml-1">DRAW</span>
+                <span className="text-white/50 text-[9px] sm:text-[10px] font-mono ml-1">DRAW</span>
               </div>
             )}
 

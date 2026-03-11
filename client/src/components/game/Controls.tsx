@@ -110,7 +110,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   const hintEl = phaseHint ? (
-    <div className="text-xs text-amber-400/70 text-center mb-2 leading-snug" data-testid="text-phase-hint">{phaseHint}</div>
+    <div className="text-xs text-amber-400/90 text-center mb-2 leading-snug" data-testid="text-phase-hint">{phaseHint}</div>
   ) : null;
 
   const isHitPhase = phase.startsWith('HIT_');
@@ -172,7 +172,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
         {hintEl}
-        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">STEP 1: DECLARE YOUR INTENT</div>
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-pulse">STEP 1: DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (
             <Button key={opt.value} variant="outline" className={opt.className} onClick={() => { sfx.declare(); setPendingDeclaration(opt.value); }}>{opt.label}</Button>
@@ -185,7 +185,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (phase === 'DECLARE' && !pendingDeclaration) {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
-        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-bounce">DECLARE YOUR INTENT</div>
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-pulse">DECLARE YOUR INTENT</div>
         <div className="grid grid-cols-3 gap-2">
           <Button variant="outline" className="border-red-500/50 hover:bg-red-500/20 text-red-100" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
           <Button variant="outline" className="border-slate-500/50 hover:bg-slate-500/20 text-slate-100" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
@@ -257,7 +257,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
       {chips > 0 && maxBet > 0 && (
         <div className="flex items-center gap-4 px-2">
-          <span className="text-xs font-mono text-slate-400 min-w-[30px]">${callAmount > 0 ? callAmount * 2 : 2}</span>
+          <span className="text-xs font-mono text-slate-300 min-w-[30px]">${callAmount > 0 ? callAmount * 2 : 2}</span>
           <Slider 
             value={[betAmount]} 
             min={callAmount > 0 ? callAmount * 2 : 2} 
@@ -266,12 +266,12 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
             onValueChange={(val) => setBetAmount(val[0])}
             className="flex-1"
           />
-          <span className="text-xs font-mono text-slate-400 min-w-[40px]">${maxBet}</span>
+          <span className="text-xs font-mono text-slate-300 min-w-[40px]">${maxBet}</span>
           
           <Button 
             variant="outline" 
             size="sm" 
-            className="text-[10px] h-6 px-2 border-orange-500/50 text-orange-400 hover:bg-orange-500/20"
+            className="text-xs h-9 px-3 min-w-[60px] border-orange-500/50 text-orange-400 hover:bg-orange-500/20 font-bold touch-manipulation"
             onClick={() => handleBetAction('raise', chips)}
           >
             ALL IN

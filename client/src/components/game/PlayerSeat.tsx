@@ -156,8 +156,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const total = faceUpCards.reduce((sum, c) => sum + visibleCardValue(c.rank), 0);
           const display = total % 1 === 0 ? total.toString() : total.toFixed(1);
           return (
-            <div className="text-amber-400/90 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
-              <span className="text-amber-400/50">showing</span>{display}
+            <div className="text-amber-400 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
+              <span className="text-amber-400/80">showing</span>{display}
             </div>
           );
         })()}

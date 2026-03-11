@@ -56,8 +56,8 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
         ))}
         {totalDiscards === 0 && isDrawPhase && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-10 h-14 sm:w-12 sm:h-16 rounded-sm border-2 border-dashed border-white/15 flex items-center justify-center">
-              <span className="text-white/20 text-[8px] font-mono">MUCK</span>
+            <div className="w-10 h-14 sm:w-12 sm:h-16 rounded-sm border-2 border-dashed border-white/20 flex items-center justify-center">
+              <span className="text-white/35 text-[8px] font-mono">MUCK</span>
             </div>
           </div>
         )}

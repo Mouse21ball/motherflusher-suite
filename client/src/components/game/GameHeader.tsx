@@ -260,6 +260,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
             <SheetTrigger asChild>
               <button
+                aria-label="Rules"
                 className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
                 data-testid="button-rules"
               >
@@ -294,7 +295,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
                     ))}
                   </div>
                   <div className="mt-6 pt-4 border-t border-white/10">
-                    <p className="text-[11px] text-white/30 font-mono leading-relaxed">
+                    <p className="text-[11px] text-white/45 font-mono leading-relaxed">
                       5 players max per table. $1 ante each hand. Rollover carries the pot forward when no one qualifies. Odd chips go to HIGH / POKER side.
                     </p>
                   </div>

@@ -46,27 +46,27 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" data-testid="overlay-mode-intro">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" role="dialog" aria-labelledby="mode-intro-title" data-testid="overlay-mode-intro">
       <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         <div className={`px-5 pt-5 pb-3 bg-gradient-to-r ${accentColor}`}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white" data-testid="text-intro-title">{title}</h2>
-            <button onClick={dismiss} className="p-2 -mr-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-white/50 hover:text-white active:text-white transition-colors rounded-lg touch-manipulation" data-testid="button-intro-dismiss">
+            <h2 id="mode-intro-title" className="text-lg font-bold text-white" data-testid="text-intro-title">{title}</h2>
+            <button onClick={dismiss} aria-label="Close" className="p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/70 hover:text-white active:text-white transition-colors rounded-lg touch-manipulation" data-testid="button-intro-dismiss">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-white/80 text-sm mt-1.5 leading-relaxed">{objective}</p>
+          <p className="text-white/90 text-sm mt-1.5 leading-relaxed">{objective}</p>
         </div>
 
         <div className="px-5 py-4">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-3">How it works</p>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-3">How it works</p>
           <ol className="space-y-2.5">
             {steps.map((step, i) => (
               <li key={i} className="flex gap-3 items-start">
-                <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/60 shrink-0 mt-0.5">
+                <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/80 shrink-0 mt-0.5">
                   {i + 1}
                 </span>
-                <span className="text-sm text-white/70 leading-relaxed">{step}</span>
+                <span className="text-sm text-white/80 leading-relaxed">{step}</span>
               </li>
             ))}
           </ol>
@@ -76,7 +76,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
           <Button onClick={dismiss} className="w-full font-bold" size="lg" data-testid="button-intro-start">
             Got it, let's play
           </Button>
-          <p className="text-center text-[10px] text-white/25 mt-2 font-mono">
+          <p className="text-center text-[10px] text-white/40 mt-2 font-mono">
             Tap Rules in the header anytime for full details
           </p>
         </div>
