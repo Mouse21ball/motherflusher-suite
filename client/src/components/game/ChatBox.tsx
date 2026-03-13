@@ -53,7 +53,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Open chat"
-        className={`fixed top-20 right-4 z-40 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-white shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
+        className={`fixed bottom-[180px] sm:bottom-[160px] right-3 sm:right-4 z-40 p-2.5 sm:p-3 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-white shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
       >
         <MessageSquare className="w-5 h-5 text-gray-300" />
         {unreadCount > 0 && (

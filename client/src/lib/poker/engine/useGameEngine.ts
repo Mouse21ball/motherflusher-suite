@@ -158,6 +158,47 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     }
   }, [state.phase, mode, advancePhase, safeTimeout]);
 
+  useEffect(() => {
+    if (!state.phase.startsWith('HIT_')) return;
+    if (state.activePlayerId !== myId) return;
+    const me = state.players.find(p => p.id === myId);
+    if (!me || me.hasActed) return;
+    if (me.declaration === 'STAY' || me.declaration === 'BUST') {
+      const timer = safeTimeout(() => {
+        setState(s => {
+          const p = s.players.find(p => p.id === myId);
+          if (!p || p.hasActed) return s;
+          return {
+            ...s,
+            players: s.players.map(p => p.id === myId ? { ...p, hasActed: true } : p),
+            messages: [...s.messages, { id: Math.random().toString(), text: me.declaration === 'STAY' ? "You stayed" : "You busted", time: Date.now() }].slice(-5)
+          };
+        });
+        setState(s => {
+          const activePlayers = s.players.filter(p => p.status === 'active' && p.chips > 0);
+          if (activePlayers.length <= 1) {
+            safeTimeout(advancePhase, 500);
+            return s;
+          }
+          const overridePhase = mode.getNextPhase?.(s.phase, s);
+          if (overridePhase) {
+            safeTimeout(advancePhase, 500);
+            return s;
+          }
+          const allActed = activePlayers.every(p => p.hasActed);
+          if (allActed) {
+            safeTimeout(advancePhase, 500);
+            return s;
+          }
+          const myIndex = s.players.findIndex(p => p.id === myId);
+          const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
+          return { ...s, activePlayerId: s.players[nextIdx].id };
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [state.phase, state.activePlayerId, myId, mode, advancePhase, safeTimeout]);
+
   // Automatic phase transitions
   useEffect(() => {
     const transition = mode.getAutoTransition(state.phase);
