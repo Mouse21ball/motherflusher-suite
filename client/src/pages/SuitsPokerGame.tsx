@@ -10,6 +10,7 @@ import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
+import { trackModePlay } from "@/lib/analytics";
 import { Declaration } from "@/lib/poker/types";
 
 const spDeclarationOptions: { label: string; value: Declaration; className: string }[] = [
@@ -19,6 +20,7 @@ const spDeclarationOptions: { label: string; value: Declaration; className: stri
 ];
 
 export default function SuitsPokerGame() {
+  useEffect(() => { trackModePlay("suitspoker"); }, []);
   const myId = 'p1';
   const { state, handleAction } = useGameEngine(SuitsPokerMode, myId);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);

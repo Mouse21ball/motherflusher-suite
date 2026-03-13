@@ -10,8 +10,10 @@ import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
+import { trackModePlay } from "@/lib/analytics";
 
 export default function BadugiGame() {
+  useEffect(() => { trackModePlay("badugi"); }, []);
   const myId = 'p1';
   const { state, handleAction } = useGameEngine(BadugiMode, myId);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);

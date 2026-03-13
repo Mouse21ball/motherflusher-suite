@@ -117,6 +117,17 @@ A client-side poker game platform supporting five custom poker variants, built w
 - Safe phases (WAITING, SHOWDOWN) navigate directly without warning.
 - GameHeader accepts optional `phase`, `pot`, and `onForfeit` props from game pages.
 
+## Analytics
+- **Database**: PostgreSQL via Drizzle ORM. Single `analytics_events` table with columns: `id` (serial PK), `event_type` (text), `player_id` (text), `mode` (text, nullable), `duration_ms` (int, nullable), `event_date` (text YYYY-MM-DD), `created_at` (timestamp).
+- **Schema**: `shared/schema.ts` defines `analyticsEvents` table + insert schema.
+- **DB connection**: `server/db.ts` — Drizzle + pg pool using `DATABASE_URL`.
+- **Storage**: `server/storage.ts` — `insertAnalyticsEvent()` and `getDailyStats(days)` methods on `MemStorage` (which now also writes to DB for analytics).
+- **API routes** (`server/routes.ts`):
+  - `POST /api/analytics/track` — accepts `{eventType, playerId, mode?, durationMs?}`, writes to DB, returns 204.
+  - `GET /api/analytics/stats` — returns last 30 days of aggregated daily stats (DAU, sessions, avg duration, mode breakdown, returning players).
+- **Client tracker** (`client/src/lib/analytics.ts`): Invisible module initialized once in `App.tsx`. Generates a persistent anonymous `analytics_id` in localStorage. Fires `session_start` on load, `session_end` on unload/visibility-hidden (with duration). Uses `navigator.sendBeacon` for reliable unload tracking. Each game page fires `trackModePlay(modeId)` on mount.
+- **Admin view**: `/admin` — plain-numbers dashboard showing today's DAU, session count, avg session length, mode breakdown, and 30-day daily table with retention column. Auto-refreshes every 30s. Link back to lobby.
+
 ## Constraints
 - `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
 - All game logic is client-side only

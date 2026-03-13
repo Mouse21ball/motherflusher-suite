@@ -10,8 +10,10 @@ import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
+import { trackModePlay } from "@/lib/analytics";
 
 export default function Fifteen35Game() {
+  useEffect(() => { trackModePlay("fifteen35"); }, []);
   const myId = 'p1';
   const { state, handleAction } = useGameEngine(Fifteen35Mode, myId);
 
