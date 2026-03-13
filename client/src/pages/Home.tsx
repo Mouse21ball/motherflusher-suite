@@ -5,25 +5,29 @@ import { StatsView } from "@/components/game/StatsView";
 
 const modes = [
   {
-    id: "swing",
-    name: "Mother Flusher",
-    tagline: "Swing Poker",
-    description: "Draw and bet through a 15-card board. Declare High for the best poker hand, Low for best suit total, or risk it all on Swing.",
-    quickFacts: ["5 hole cards", "15-card board", "High / Low / Swing"],
-    path: "/swing",
-    accent: "from-blue-600/90 to-indigo-800/90",
-    border: "border-blue-500/30",
-    hoverBorder: "hover:border-blue-400/60",
-    iconBg: "bg-blue-500/20 text-blue-300 border-blue-400/30",
-    icon: "MF",
-    chipColor: "text-blue-300",
+    id: "fifteen35",
+    name: "15 / 35",
+    tagline: "Hit & Split",
+    difficulty: "Easy to Learn",
+    difficultyColor: "bg-green-500/20 text-green-300 border-green-400/30",
+    description: "Like Blackjack with two targets. Hit toward 15 for Low or 35 for High. Simple card math, big decisions.",
+    quickFacts: ["Hit or Stay", "J/Q/K = \u00BD", "Bust over 35"],
+    path: "/fifteen35",
+    accent: "from-amber-600/90 to-orange-800/90",
+    border: "border-amber-500/30",
+    hoverBorder: "hover:border-amber-400/60",
+    iconBg: "bg-amber-500/20 text-amber-300 border-amber-400/30",
+    icon: "15",
+    chipColor: "text-amber-300",
   },
   {
     id: "badugi",
     name: "Badugi",
     tagline: "4-Card Draw",
-    description: "Three draw rounds to build four cards with unique suits and ranks. The purest Badugi wins — declare High or Low.",
-    quickFacts: ["4 cards", "3 draws", "Unique ranks + suits"],
+    difficulty: "Classic Draw Strategy",
+    difficultyColor: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
+    description: "Draw and discard to build four cards with all different suits and ranks. The purest Badugi wins.",
+    quickFacts: ["4 cards", "3 draw rounds", "All unique wins"],
     path: "/badugi",
     accent: "from-emerald-600/90 to-teal-800/90",
     border: "border-emerald-500/30",
@@ -36,7 +40,9 @@ const modes = [
     id: "dead7",
     name: "Dead 7",
     tagline: "High-Low Killer",
-    description: "Four cards, three draws, one deadly rule: any 7 kills your hand. Go all-high or all-low — or chase a flush to scoop the pot.",
+    difficulty: "Intermediate",
+    difficultyColor: "bg-yellow-500/20 text-yellow-300 border-yellow-400/30",
+    description: "Build a 4-card hand going all-high or all-low, but any 7 kills your hand instantly. Chase a flush to scoop the whole pot.",
     quickFacts: ["4 cards", "7s are dead", "Flush scoops"],
     path: "/dead7",
     accent: "from-red-600/90 to-rose-900/90",
@@ -47,25 +53,29 @@ const modes = [
     chipColor: "text-red-300",
   },
   {
-    id: "fifteen35",
-    name: "15 / 35",
-    tagline: "Hit & Split",
-    description: "Blackjack-style hits toward two targets. Land 13\u201315 for Low or 33\u201335 for High. Face cards count half, Aces flex. Bust over 35.",
-    quickFacts: ["J/Q/K = \u00BD", "Ace = 1 or 11", "Bust over 35"],
-    path: "/fifteen35",
-    accent: "from-amber-600/90 to-orange-800/90",
-    border: "border-amber-500/30",
-    hoverBorder: "hover:border-amber-400/60",
-    iconBg: "bg-amber-500/20 text-amber-300 border-amber-400/30",
-    icon: "15",
-    chipColor: "text-amber-300",
+    id: "swing",
+    name: "Mother Flusher",
+    tagline: "Swing Poker",
+    difficulty: "Signature Mode",
+    difficultyColor: "bg-blue-500/20 text-blue-300 border-blue-400/30",
+    description: "5 hole cards meet a 15-card community board. Declare High for poker rank, Low for suit total, or Swing for both.",
+    quickFacts: ["5 hole cards", "15-card board", "High / Low / Swing"],
+    path: "/swing",
+    accent: "from-blue-600/90 to-indigo-800/90",
+    border: "border-blue-500/30",
+    hoverBorder: "hover:border-blue-400/60",
+    iconBg: "bg-blue-500/20 text-blue-300 border-blue-400/30",
+    icon: "MF",
+    chipColor: "text-blue-300",
   },
   {
     id: "suitspoker",
     name: "Suits & Poker",
     tagline: "Dual Board",
-    description: "Pick a path through a split board. Declare Poker for the best hand, Suits for the highest flush total, or Swing for both.",
-    quickFacts: ["5 hole cards", "12-card board", "Poker / Suits / Swing"],
+    difficulty: "Advanced",
+    difficultyColor: "bg-purple-500/20 text-purple-300 border-purple-400/30",
+    description: "Pick a path through a forking board. Declare Poker for the best 5-card hand, Suits for highest flush total, or Swing for both.",
+    quickFacts: ["5 hole cards", "Split board", "Poker / Suits / Swing"],
     path: "/suitspoker",
     accent: "from-cyan-600/90 to-teal-900/90",
     border: "border-cyan-500/30",
@@ -103,7 +113,7 @@ export default function Home() {
               </p>
             )}
             <p className="text-white/50 text-sm mt-1.5 font-mono tracking-wide" data-testid="text-app-subtitle">
-              {totalHands === 0 ? "Five hi-lo variants \u00B7 pick a game to start" : "Five hi-lo variants"}
+              {totalHands === 0 ? "Five unique poker modes \u00B7 start with an easy one" : "Five unique poker modes"}
             </p>
           </div>
 
@@ -141,12 +151,12 @@ export default function Home() {
                       {mode.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base sm:text-lg font-bold text-white leading-tight" data-testid={`text-mode-name-${mode.id}`}>
                           {mode.name}
                         </span>
-                        <span className="text-white/50 text-[10px] font-mono uppercase tracking-wider shrink-0">
-                          {mode.tagline}
+                        <span className={`text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${mode.difficultyColor} shrink-0`} data-testid={`badge-difficulty-${mode.id}`}>
+                          {mode.difficulty}
                         </span>
                       </div>
                       <p className="text-white/70 text-xs sm:text-sm mt-1 leading-relaxed line-clamp-2">
