@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WelcomeGate } from "@/components/WelcomeGate";
 import { initAnalytics } from "@/lib/analytics";
+import { BetaFooter } from "@/components/BetaFooter";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Game from "@/pages/Game";
@@ -14,6 +15,7 @@ import Dead7Game from "@/pages/Dead7Game";
 import Fifteen35Game from "@/pages/Fifteen35Game";
 import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import Admin from "@/pages/Admin";
+import Terms from "@/pages/Terms";
 
 function Router() {
   return (
@@ -25,6 +27,7 @@ function Router() {
       <Route path="/fifteen35" component={Fifteen35Game}/>
       <Route path="/suitspoker" component={SuitsPokerGame}/>
       <Route path="/admin" component={Admin}/>
+      <Route path="/terms" component={Terms}/>
       <Route component={NotFound} />
     </Switch>
   );
@@ -41,6 +44,7 @@ function App() {
         <Toaster />
         <WelcomeGate>
           <Router />
+          <BetaFooter />
         </WelcomeGate>
       </TooltipProvider>
     </QueryClientProvider>

@@ -184,10 +184,13 @@ export default function Home() {
             })}
           </div>
 
-          <div className="text-center mt-8 space-y-1">
+          <div className="text-center mt-8 space-y-2">
             <p className="text-white/40 text-[11px] font-mono">
               $1 ante · 4 bot opponents · chips save between sessions
             </p>
+            <a href="/terms" className="text-white/30 hover:text-white/50 text-[11px] font-mono transition-colors" data-testid="link-terms">
+              Beta Info & Terms
+            </a>
           </div>
         </div>
       </div>
