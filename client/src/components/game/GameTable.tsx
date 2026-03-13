@@ -38,11 +38,19 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-6 sm:pt-8">
-            <div className="text-white/40 text-sm sm:text-base font-mono tracking-[0.15em] mb-2 sm:mb-4 uppercase text-center font-semibold" data-testid="text-phase">
+            <div className="text-white/40 text-sm sm:text-base font-mono tracking-[0.15em] mb-1 uppercase text-center font-semibold" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </div>
 
-            <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto mt-2 sm:mt-4">
+            <div className="text-center pointer-events-auto mb-1 sm:mb-2 min-h-[24px]">
+              {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
+                <p key={msg.id} className="text-white/90 text-[10px] sm:text-xs font-mono animate-in fade-in drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/10" data-testid="text-game-message">
+                  {msg.text}
+                </p>
+              ))}
+            </div>
+
+            <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
               <div className="flex gap-1 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => (
                   <div key={`pair-${colIndex}`} className="flex flex-col gap-1 sm:gap-2 bg-black/30 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-white/10 shadow-inner">
@@ -90,13 +98,6 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                     <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
                   </div>
                 </div>
-              </div>
-              <div className="text-center pointer-events-auto">
-                {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-                  <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
-                    {msg.text}
-                  </p>
-                ))}
               </div>
             </div>
           </div>

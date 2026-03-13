@@ -22,11 +22,15 @@ export const createDeck = (): CardType[] => {
 };
 
 // Helper: Get player index immediately left of the given index, wrapping around
-export const getNextActivePlayerIndex = (players: Player[], currentIndex: number): number => {
+// skipAllIn: true during betting (all-in can't bet), false during declare/draw (all-in must still act)
+export const getNextActivePlayerIndex = (players: Player[], currentIndex: number, skipAllIn: boolean = true): number => {
   let nextIdx = (currentIndex + 1) % players.length;
   let count = 0;
-  // Skip players who folded or have 0 chips (all-in)
-  while ((players[nextIdx].status !== 'active' || players[nextIdx].chips === 0) && count < players.length) {
+  while (count < players.length) {
+    const p = players[nextIdx];
+    if (p.status === 'active') {
+      if (!skipAllIn || p.chips > 0) break;
+    }
     nextIdx = (nextIdx + 1) % players.length;
     count++;
   }

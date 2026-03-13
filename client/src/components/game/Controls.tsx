@@ -170,13 +170,23 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'DECLARE_AND_BET' && !pendingDeclaration) {
     const declOpts = declarationOptions || defaultDeclarationOptions;
+    const isAllIn = chips <= 0;
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl">
         {hintEl}
-        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-pulse">STEP 1: DECLARE YOUR INTENT</div>
+        <div className="text-center text-sm font-mono text-white/70 mb-4 animate-pulse">
+          {isAllIn ? "ALL-IN — DECLARE YOUR INTENT" : "STEP 1: DECLARE YOUR INTENT"}
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (
-            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => { sfx.declare(); setPendingDeclaration(opt.value); }}>{opt.label}</Button>
+            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => {
+              sfx.declare();
+              if (isAllIn) {
+                onAction('declare_and_bet', { declaration: opt.value, action: 'check', amount: 0 });
+              } else {
+                setPendingDeclaration(opt.value);
+              }
+            }}>{opt.label}</Button>
           ))}
         </div>
       </div>
@@ -208,6 +218,19 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       onAction(actionName, amount);
     }
   };
+
+  if (chips <= 0 && phase !== 'DECLARE_AND_BET') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl flex flex-col items-center gap-3">
+        <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 border-orange-500/30 font-mono">
+          ALL IN
+        </Badge>
+        <Button variant="secondary" className="w-full sm:w-auto" onClick={() => handleBetAction('check')} data-testid="button-check-allin">
+          Check (All-In)
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl flex flex-col gap-4">

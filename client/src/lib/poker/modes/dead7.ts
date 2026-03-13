@@ -294,11 +294,14 @@ export const Dead7Mode: GameMode = {
       message = result.message;
     }
 
-    const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
-    const allActed = activePlayers.every(p => p.hasActed);
-    const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
     const isDrawRound = ['DRAW_1', 'DRAW_2', 'DRAW_3'].includes(state.phase);
-    const roundOver = (state.phase === 'DECLARE' || isDrawRound) ? allActed : (allActed && allBetsMatch);
+    const isDeclareOrDraw = state.phase === 'DECLARE' || isDrawRound;
+    const activePlayers = isDeclareOrDraw
+      ? newPlayers.filter(p => p.status === 'active')
+      : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
+    const allActed = activePlayers.every(p => p.hasActed);
+    const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet || p.chips === 0);
+    const roundOver = isDeclareOrDraw ? allActed : (allActed && allBetsMatch);
 
     let nextPlayerId = undefined;
     if (!roundOver) {
@@ -306,7 +309,7 @@ export const Dead7Mode: GameMode = {
       let count = 0;
       while (count < newPlayers.length) {
         const p = newPlayers[nextIdx];
-        if (p.status === 'active' && p.chips > 0 && (!p.hasActed || (state.phase !== 'DECLARE' && !isDrawRound && p.bet < newCurrentBet))) {
+        if (p.status === 'active' && (isDeclareOrDraw || p.chips > 0) && (!p.hasActed || (!isDeclareOrDraw && p.bet < newCurrentBet))) {
           break;
         }
         nextIdx = (nextIdx + 1) % newPlayers.length;

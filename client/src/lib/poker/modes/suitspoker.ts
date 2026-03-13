@@ -273,7 +273,10 @@ export const SuitsPokerMode: GameMode = {
 
     const { phase, players, pot, currentBet } = state;
     const botIdx = players.findIndex(p => p.id === botId);
-    const nextIdx = getNextActivePlayerIndex(players, botIdx);
+    const isDeclarePhase = phase === 'DECLARE_AND_BET';
+    const isDrawPhase = phase === 'DRAW';
+    const skipAllIn = !isDeclarePhase && !isDrawPhase;
+    const nextIdx = getNextActivePlayerIndex(players, botIdx, skipAllIn);
 
     if (phase === 'ANTE') {
       const newPlayers = players.map(p =>
@@ -398,9 +401,11 @@ export const SuitsPokerMode: GameMode = {
         };
       });
 
-      const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
-      const allActed = activePlayers.every(p => p.hasActed);
-      const allBetsMatch = activePlayers.every(p => p.bet === result.currentBet);
+      const activePlayersForRound = isDeclarePhase
+        ? newPlayers.filter(p => p.status === 'active')
+        : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
+      const allActed = activePlayersForRound.every(p => p.hasActed);
+      const allBetsMatch = activePlayersForRound.every(p => p.bet === result.currentBet || p.chips === 0);
       const roundOver = allActed && allBetsMatch;
 
       let msg = `${bot.name}`;

@@ -65,14 +65,15 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       const nextPhaseIndex = (currentPhaseIndex + 1) % mode.phases.length;
       const nextPhase = overridePhase ?? mode.phases[nextPhaseIndex];
       
-      // Calculate first to act: left of dealer
-      const dealerIdx = getDealerIndex(s.players);
-      const firstToActIdx = getNextActivePlayerIndex(s.players, dealerIdx);
-      
-      // Reset bets on new betting round
       const isBetRound = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
       const isDrawRound = nextPhase.startsWith('DRAW');
       const isHitRound = nextPhase.startsWith('HIT_');
+      const isDeclareRound = nextPhase === 'DECLARE' || nextPhase === 'DECLARE_AND_BET';
+      const skipAllIn = !isDeclareRound && !isDrawRound;
+      
+      const dealerIdx = getDealerIndex(s.players);
+      const firstToActIdx = getNextActivePlayerIndex(s.players, dealerIdx, skipAllIn);
+      
       return { 
         ...s, 
         phase: nextPhase, 
@@ -333,7 +334,15 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
     const processActionEnd = () => {
        setState(s => {
-           const activePlayers = s.players.filter(p => p.status === 'active' && p.chips > 0);
+           const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
+           const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
+           const isDrawPhase = s.phase.startsWith('DRAW');
+           const skipAllIn = !isDeclarePhase && !isDrawPhase;
+           
+           const activePlayers = skipAllIn
+             ? s.players.filter(p => p.status === 'active' && p.chips > 0)
+             : s.players.filter(p => p.status === 'active');
+           
            if (activePlayers.length <= 1) {
                safeTimeout(advancePhase, 500);
                return s;
@@ -347,9 +356,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                }
            }
 
-           const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
            const allActed = activePlayers.every(p => p.hasActed);
-           const allBetsMatch = activePlayers.every(p => p.bet === s.currentBet);
+           const allBetsMatch = activePlayers.every(p => p.bet === s.currentBet || p.chips === 0);
            const roundDone = isBetPhase ? (allActed && allBetsMatch) : allActed;
 
            if (roundDone) {
@@ -358,7 +366,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            }
 
            const myIndex = s.players.findIndex(p => p.id === myId);
-           const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
+           const nextIdx = getNextActivePlayerIndex(s.players, myIndex, skipAllIn);
            return { ...s, activePlayerId: s.players[nextIdx].id };
        });
     };
