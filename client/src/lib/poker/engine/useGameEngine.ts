@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
-import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer } from './core';
+import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, buildSidePots } from './core';
 import { GameMode } from './types';
 import { getChips, saveChips, addHandRecord, HandRecord, getPlayerName } from '../../persistence';
 
 export const createMockPlayers = (heroChips: number): Player[] => [
-  { id: 'p1', name: getPlayerName() || 'You', chips: heroChips, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-  { id: 'p2', name: 'Alice', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: true, declaration: null, hasActed: false },
-  { id: 'p3', name: 'Bob', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-  { id: 'p4', name: 'Charlie', chips: 1000, bet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+  { id: 'p1', name: getPlayerName() || 'You', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+  { id: 'p2', name: 'Alice', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true, declaration: null, hasActed: false },
+  { id: 'p3', name: 'Bob', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+  { id: 'p4', name: 'Charlie', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
 ];
 
 export const createInitialState = (heroChips: number = 1000): GameState => ({
@@ -24,6 +24,73 @@ export const createInitialState = (heroChips: number = 1000): GameState => ({
   chatMessages: [],
   deck: []
 });
+
+function resolveWithSidePots(
+  mode: GameMode,
+  players: Player[],
+  totalPot: number,
+  myId: string,
+  communityCards?: CardType[]
+): { players: Player[]; pot: number; messages: string[] } {
+  const sidePots = buildSidePots(players);
+
+  if (sidePots.length <= 1) {
+    return mode.resolveShowdown(players, totalPot, myId, communityCards);
+  }
+
+  const totalContributed = players.reduce((sum, p) => sum + (p.totalBet || 0), 0);
+  const extra = Math.max(0, totalPot - totalContributed);
+  if (extra > 0 && sidePots.length > 0) {
+    sidePots[0].amount += extra;
+  }
+
+  let currentPlayers = players.map(p => ({ ...p }));
+  let allMessages: string[] = [];
+  let totalRemainingPot = 0;
+
+  for (let i = 0; i < sidePots.length; i++) {
+    const sp = sidePots[i];
+    const potLabel = i === 0 ? 'Main pot' : `Side pot`;
+
+    if (sp.eligiblePlayerIds.length === 1) {
+      const winnerId = sp.eligiblePlayerIds[0];
+      const winner = currentPlayers.find(p => p.id === winnerId);
+      if (winner) {
+        winner.chips += sp.amount;
+        allMessages.push(`${winner.name} gets back $${sp.amount} (uncontested)`);
+      }
+      continue;
+    }
+
+    const modifiedPlayers = currentPlayers.map(p => {
+      if (sp.eligiblePlayerIds.includes(p.id) || p.status === 'folded') {
+        return { ...p };
+      }
+      return { ...p, status: 'folded' as PlayerStatus };
+    });
+
+    const result = mode.resolveShowdown(modifiedPlayers, sp.amount, myId, communityCards);
+
+    for (const rp of result.players) {
+      const cp = currentPlayers.find(p => p.id === rp.id);
+      if (cp) {
+        cp.chips = rp.chips;
+        cp.cards = rp.cards;
+        cp.score = rp.score || cp.score;
+        cp.isWinner = cp.isWinner || rp.isWinner;
+        cp.isLoser = rp.isLoser && !cp.isWinner;
+      }
+    }
+
+    totalRemainingPot += result.pot;
+
+    for (const m of result.messages) {
+      allMessages.push(sidePots.length > 1 ? `[${potLabel}] ${m}` : m);
+    }
+  }
+
+  return { players: currentPlayers, pot: totalRemainingPot, messages: allMessages };
+}
 
 export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   const savedChips = getChips(mode.id);
@@ -131,6 +198,17 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         const { stateUpdates, message, roundOver, nextPlayerId } = actionResult;
         
         let newS = { ...s, ...stateUpdates };
+
+        if (stateUpdates.players) {
+          newS.players = newS.players.map(p => {
+            const oldP = s.players.find(op => op.id === p.id);
+            if (!oldP) return p;
+            const prevTotalBet = oldP.totalBet || 0;
+            const chipLoss = Math.max(0, oldP.chips - p.chips);
+            return { ...p, totalBet: prevTotalBet + chipLoss };
+          });
+        }
+
         if (message) {
             newS.messages = [...newS.messages, { id: Math.random().toString(), text: message, time: Date.now() }].slice(-5);
         }
@@ -320,6 +398,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                 ...p,
                 cards: [],
                 bet: 0,
+                totalBet: 0,
                 chips: newChips,
                 status: isRollover
                     ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus
@@ -402,7 +481,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (action === 'ante') {
       setState(s => {
         const newPlayers = s.players.map(p => {
-          if (p.id === myId) return { ...p, chips: p.chips - 1, hasActed: true };
+          if (p.id === myId) return { ...p, chips: p.chips - 1, hasActed: true, totalBet: (p.totalBet || 0) + 1 };
           return p;
         });
         
@@ -438,34 +517,45 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     }
 
     if (action === 'call' || action === 'check') {
-      const callAmount = state.currentBet - (state.players.find(p => p.id === myId)?.bet || 0);
-      setState(s => ({
-        ...s,
-        pot: s.pot + callAmount,
-        players: s.players.map(p => p.id === myId ? { 
-          ...p, 
-          chips: p.chips - callAmount,
-          bet: s.currentBet,
-          hasActed: true
-        } : p),
-        messages: [...s.messages, { id: Math.random().toString(), text: `You ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`, time: Date.now() }].slice(-5)
-      }));
+      setState(s => {
+        const me = s.players.find(p => p.id === myId);
+        const rawCall = s.currentBet - (me?.bet || 0);
+        const callAmount = Math.min(rawCall, me?.chips || 0);
+        return {
+          ...s,
+          pot: s.pot + callAmount,
+          players: s.players.map(p => p.id === myId ? { 
+            ...p, 
+            chips: p.chips - callAmount,
+            bet: (me?.bet || 0) + callAmount,
+            hasActed: true,
+            totalBet: (p.totalBet || 0) + callAmount
+          } : p),
+          messages: [...s.messages, { id: Math.random().toString(), text: `You ${callAmount === 0 ? 'checked' : 'called $' + callAmount}`, time: Date.now() }].slice(-5)
+        };
+      });
       processActionEnd();
     }
 
     if (action === 'raise' && typeof payload === 'number') {
-      setState(s => ({
-        ...s,
-        currentBet: payload,
-        pot: s.pot + payload,
-        players: s.players.map(p => p.id === myId ? { 
-          ...p, 
-          chips: p.chips - payload,
-          bet: payload,
-          hasActed: true
-        } : p),
-        messages: [...s.messages, { id: Math.random().toString(), text: `You raised to $${payload}`, time: Date.now() }].slice(-5)
-      }));
+      setState(s => {
+        const me = s.players.find(p => p.id === myId);
+        const prevBet = me?.bet || 0;
+        const increment = Math.min(payload - prevBet, me?.chips || 0);
+        return {
+          ...s,
+          currentBet: payload,
+          pot: s.pot + increment,
+          players: s.players.map(p => p.id === myId ? { 
+            ...p, 
+            chips: p.chips - increment,
+            bet: prevBet + increment,
+            hasActed: true,
+            totalBet: (p.totalBet || 0) + increment
+          } : p),
+          messages: [...s.messages, { id: Math.random().toString(), text: `You raised to $${prevBet + increment}`, time: Date.now() }].slice(-5)
+        };
+      });
       processActionEnd();
     }
 
@@ -585,22 +675,26 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           let pChips = p.chips;
           let pBet = p.bet;
           let pStatus = p.status;
+          let chipDelta = 0;
           
           if (betAction === 'fold') {
             pStatus = 'folded';
           } else if (betAction === 'call' || betAction === 'check') {
-            const callAmount = s.currentBet - p.bet;
+            const callAmount = Math.min(s.currentBet - p.bet, p.chips);
+            chipDelta = callAmount;
             pChips -= callAmount;
-            pBet = s.currentBet;
+            pBet = p.bet + callAmount;
             newPot += callAmount;
           } else if (betAction === 'raise' && amount) {
-            pChips -= amount;
-            pBet = amount;
-            newPot += amount;
-            newCurrentBet = amount;
+            const increment = Math.min(amount - p.bet, p.chips);
+            chipDelta = increment;
+            pChips -= increment;
+            pBet = p.bet + increment;
+            newPot += increment;
+            newCurrentBet = pBet;
           }
           
-          return { ...p, status: pStatus, chips: pChips, bet: pBet, declaration, hasActed: true };
+          return { ...p, status: pStatus, chips: pChips, bet: pBet, declaration, hasActed: true, totalBet: (p.totalBet || 0) + chipDelta };
         });
         
         return { 
@@ -628,7 +722,14 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (state.phase === 'SHOWDOWN') {
       const timer = setTimeout(() => {
         setState(s => {
-          const result = mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
+          const activePlayers = s.players.filter(p => p.status !== 'folded' && p.status !== 'sitting_out');
+          const contribs = activePlayers.map(p => p.totalBet || 0);
+          const uniqueContribs = new Set(contribs);
+          const needsSidePots = activePlayers.length > 1 && uniqueContribs.size > 1;
+
+          const result = needsSidePots
+            ? resolveWithSidePots(mode, s.players, s.pot, myId, s.communityCards)
+            : mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
 
           const potAwarded = result.pot === 0;
           const resolvedMessages = potAwarded
@@ -692,6 +793,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                         ...p, 
                         cards: [], 
                         bet: 0, 
+                        totalBet: 0,
                         chips: newChips,
                         hasActed: false, 
                         declaration: null, 
@@ -716,6 +818,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                             return {
                                 ...p,
                                 chips: newChips,
+                                totalBet: 0,
                                 status: (newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus
                             };
                         });

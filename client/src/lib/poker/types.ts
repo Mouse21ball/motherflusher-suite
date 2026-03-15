@@ -24,6 +24,7 @@ export interface Player {
   avatarUrl?: string;
   chips: number;
   bet: number;
+  totalBet?: number;
   cards: CardType[];
   status: PlayerStatus;
   isDealer: boolean;

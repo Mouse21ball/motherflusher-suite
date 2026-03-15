@@ -61,3 +61,55 @@ export const isRoundOver = (players: Player[], currentBet: number): boolean => {
   const allBetsMatch = activePlayers.every(p => p.bet === currentBet);
   return allActed && allBetsMatch;
 };
+
+export interface SidePot {
+  amount: number;
+  eligiblePlayerIds: string[];
+}
+
+export function buildSidePots(players: Player[]): SidePot[] {
+  const activePlayers = players.filter(p => p.status !== 'folded' && p.status !== 'sitting_out');
+
+  if (activePlayers.length <= 1) {
+    const totalPot = players.reduce((sum, p) => sum + (p.totalBet || 0), 0);
+    if (totalPot > 0 && activePlayers.length === 1) {
+      return [{ amount: totalPot, eligiblePlayerIds: [activePlayers[0].id] }];
+    }
+    return [];
+  }
+
+  const activeContribs = activePlayers.map(p => p.totalBet || 0).filter(c => c > 0);
+  const uniqueLevels = Array.from(new Set(activeContribs)).sort((a, b) => a - b);
+
+  if (uniqueLevels.length === 0) return [];
+
+  if (uniqueLevels.length === 1) {
+    const totalPot = players.reduce((sum, p) => sum + (p.totalBet || 0), 0);
+    return [{ amount: totalPot, eligiblePlayerIds: activePlayers.map(p => p.id) }];
+  }
+
+  const pots: SidePot[] = [];
+  let previousLevel = 0;
+
+  for (const level of uniqueLevels) {
+    const layerSize = level - previousLevel;
+    if (layerSize <= 0) continue;
+
+    let potAmount = 0;
+    for (const p of players) {
+      const contrib = p.totalBet || 0;
+      potAmount += Math.min(Math.max(contrib - previousLevel, 0), layerSize);
+    }
+
+    const eligible = activePlayers.filter(p => (p.totalBet || 0) >= level);
+
+    pots.push({
+      amount: potAmount,
+      eligiblePlayerIds: eligible.map(p => p.id),
+    });
+
+    previousLevel = level;
+  }
+
+  return pots;
+}
