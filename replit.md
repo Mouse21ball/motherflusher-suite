@@ -98,6 +98,10 @@ A client-side poker game platform supporting five custom poker variants, built w
 - The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
 - 15/35 bot messages do NOT include hidden card totals (information integrity).
 - All nested `setTimeout` calls in `useGameEngine` use `safeTimeout()` which auto-cancels on unmount via `mountedRef` + `pendingTimers` ref set, preventing stale state updates when navigating away mid-hand.
+- **All-in during HIT phases**: Players with 0 chips are NOT skipped during HIT phases (they can still hit/stay). `skipAllIn` is false for HIT, DRAW, and DECLARE phases. Controls shows Hit/Stay/Fold buttons during HIT phases regardless of chip count (all-in auto-check only applies to BET phases).
+- **Bot failsafe**: If `activePlayerId` points to a non-active (folded/busted) player, the engine automatically advances to the next valid player or triggers phase advance instead of freezing.
+- **Two-player auto-stay (15/35)**: When exactly 2 active players remain and one has STAY with a qualifying hand on one side (LOW or HIGH), the other player auto-stays when they hit into a qualifying hand on the opposite side. Implemented via `checkAutoStay` method on GameMode interface.
+- **LOW winner sort (15/35)**: Among LOW qualifiers (13-15), highest total wins (15 is best). Sort is descending by total.
 
 ## Stats View
 - `StatsView` component (`client/src/components/game/StatsView.tsx`): Sheet drawer showing computed stats from hand history.

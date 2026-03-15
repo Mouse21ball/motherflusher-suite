@@ -69,7 +69,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       const isDrawRound = nextPhase.startsWith('DRAW');
       const isHitRound = nextPhase.startsWith('HIT_');
       const isDeclareRound = nextPhase === 'DECLARE' || nextPhase === 'DECLARE_AND_BET';
-      const skipAllIn = !isDeclareRound && !isDrawRound;
+      const skipAllIn = !isDeclareRound && !isDrawRound && !isHitRound;
       
       const dealerIdx = getDealerIndex(s.players);
       const firstToActIdx = getNextActivePlayerIndex(s.players, dealerIdx, skipAllIn);
@@ -99,7 +99,29 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
-    if (!bot || bot.status !== 'active') return;
+    if (!bot || bot.status !== 'active') {
+      if (bot && bot.status !== 'active') {
+        const timer = setTimeout(() => {
+          setState(s => {
+            const curIdx = s.players.findIndex(p => p.id === botId);
+            if (curIdx === -1) return s;
+            const isHitPhase = s.phase.startsWith('HIT_');
+            const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
+            const isDrawPhase = s.phase.startsWith('DRAW');
+            const skipAllIn = !isDeclarePhase && !isDrawPhase && !isHitPhase;
+            const nextIdx = getNextActivePlayerIndex(s.players, curIdx, skipAllIn);
+            const nextPlayer = s.players[nextIdx];
+            if (!nextPlayer || nextPlayer.status !== 'active' || nextPlayer.id === botId) {
+              safeTimeout(advancePhase, 500);
+              return s;
+            }
+            return { ...s, activePlayerId: nextPlayer.id };
+          });
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
 
     const timer = setTimeout(() => {
       setState(s => {
@@ -176,7 +198,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           };
         });
         setState(s => {
-          const activePlayers = s.players.filter(p => p.status === 'active' && p.chips > 0);
+          const activePlayers = s.players.filter(p => p.status === 'active');
           if (activePlayers.length <= 1) {
             safeTimeout(advancePhase, 500);
             return s;
@@ -192,7 +214,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             return s;
           }
           const myIndex = s.players.findIndex(p => p.id === myId);
-          const nextIdx = getNextActivePlayerIndex(s.players, myIndex);
+          const nextIdx = getNextActivePlayerIndex(s.players, myIndex, false);
           return { ...s, activePlayerId: s.players[nextIdx].id };
         });
       }, 300);
@@ -337,7 +359,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
            const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
            const isDrawPhase = s.phase.startsWith('DRAW');
-           const skipAllIn = !isDeclarePhase && !isDrawPhase;
+           const isHitPhase = s.phase.startsWith('HIT_');
+           const skipAllIn = !isDeclarePhase && !isDrawPhase && !isHitPhase;
            
            const activePlayers = skipAllIn
              ? s.players.filter(p => p.status === 'active' && p.chips > 0)
@@ -496,7 +519,17 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           };
         });
         const me = newPlayers.find(p => p.id === myId);
-        const bustMsg = me?.declaration === 'BUST' ? "You busted!" : "You hit";
+        let bustMsg = me?.declaration === 'BUST' ? "You busted!" : "You hit";
+
+        if (me && me.status === 'active' && !me.declaration) {
+          const tempState = { ...s, players: newPlayers, deck: newDeck };
+          if (mode.checkAutoStay?.(tempState, myId)) {
+            const meIdx = newPlayers.findIndex(p => p.id === myId);
+            newPlayers[meIdx] = { ...newPlayers[meIdx], declaration: 'STAY' as Declaration };
+            bustMsg = "You hit and auto-stayed!";
+          }
+        }
+
         return {
           ...s,
           deck: newDeck,

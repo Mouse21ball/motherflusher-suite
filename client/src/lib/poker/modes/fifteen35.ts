@@ -164,7 +164,7 @@ export const Fifteen35Mode: GameMode = {
             shouldStay = false;
           }
         } else if (total > 35) {
-          shouldStay = true;
+          shouldStay = true; // already bust, stay to avoid additional cards
         } else {
           shouldStay = false;
         }
@@ -182,8 +182,28 @@ export const Fifteen35Mode: GameMode = {
               newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
               message = `${bot.name} hits and BUSTS!`;
             } else {
-              newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
-              message = `${bot.name} hits`;
+              let autoStay = false;
+              const active = newPlayers.filter(p => p.status === 'active');
+              if (active.length === 2) {
+                const other = active.find(p => p.id !== botId);
+                if (other && other.declaration === 'STAY') {
+                  const otherTotal = bestTotal(other.cards).total;
+                  const otherIsLow = qualifiesLow(otherTotal);
+                  const otherIsHigh = qualifiesHigh(otherTotal);
+                  const meIsLow = qualifiesLow(newTotal);
+                  const meIsHigh = qualifiesHigh(newTotal);
+                  if ((otherIsLow && meIsHigh) || (otherIsHigh && meIsLow)) {
+                    autoStay = true;
+                  }
+                }
+              }
+              if (autoStay) {
+                newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'STAY', hasActed: true };
+                message = `${bot.name} hits and auto-stays!`;
+              } else {
+                newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
+                message = `${bot.name} hits`;
+              }
             }
           } else {
             newPlayers[bIdx] = { ...bot, declaration: 'STAY', hasActed: true };
@@ -225,7 +245,9 @@ export const Fifteen35Mode: GameMode = {
       message = result.message;
     }
 
-    const activePlayers = newPlayers.filter(p => p.status === 'active' && p.chips > 0);
+    const activePlayers = isHitPhase
+      ? newPlayers.filter(p => p.status === 'active')
+      : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
     const allActed = activePlayers.every(p => p.hasActed);
     const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
     const doneHitting = isHitPhase && allDoneHitting(newPlayers);
@@ -237,8 +259,10 @@ export const Fifteen35Mode: GameMode = {
       let count = 0;
       while (count < newPlayers.length) {
         const p = newPlayers[nextIdx];
-        if (p.status === 'active' && p.chips > 0 && (!p.hasActed || (!isHitPhase && p.bet < newCurrentBet))) {
-          break;
+        if (isHitPhase) {
+          if (p.status === 'active' && !p.hasActed) break;
+        } else {
+          if (p.status === 'active' && p.chips > 0 && (!p.hasActed || p.bet < newCurrentBet)) break;
         }
         nextIdx = (nextIdx + 1) % newPlayers.length;
         count++;
@@ -382,7 +406,7 @@ export const Fifteen35Mode: GameMode = {
       lowCandidates.sort((a, b) => {
         const aT = bestTotal(a.cards).total;
         const bT = bestTotal(b.cards).total;
-        return Math.abs(bT - 15) - Math.abs(aT - 15) || bT - aT;
+        return bT - aT;
       });
       const bestLowTotal = bestTotal(lowCandidates[0].cards).total;
       const lowWinners = lowCandidates.filter(p => bestTotal(p.cards).total === bestLowTotal);
@@ -416,5 +440,22 @@ export const Fifteen35Mode: GameMode = {
     });
 
     return { players: finalPlayers, pot: 0, messages };
+  },
+
+  checkAutoStay: (state: GameState, playerId: string): boolean => {
+    const active = state.players.filter(p => p.status === 'active');
+    if (active.length !== 2) return false;
+    const me = active.find(p => p.id === playerId);
+    const other = active.find(p => p.id !== playerId);
+    if (!me || !other) return false;
+    if (me.declaration) return false;
+    if (other.declaration !== 'STAY') return false;
+    const myTotal = bestTotal(me.cards).total;
+    const otherTotal = bestTotal(other.cards).total;
+    const myIsLow = qualifiesLow(myTotal);
+    const myIsHigh = qualifiesHigh(myTotal);
+    const otherIsLow = qualifiesLow(otherTotal);
+    const otherIsHigh = qualifiesHigh(otherTotal);
+    return (myIsLow && otherIsHigh) || (myIsHigh && otherIsLow);
   }
 };

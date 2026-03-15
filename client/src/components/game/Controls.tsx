@@ -219,7 +219,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     }
   };
 
-  if (chips <= 0 && phase !== 'DECLARE_AND_BET') {
+  const isBetPhaseForAllIn = (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') && !phase.startsWith('HIT_');
+  if (chips <= 0 && isBetPhaseForAllIn) {
     return (
       <div className="w-full max-w-md mx-auto p-4 bg-slate-900/90 backdrop-blur-md rounded-t-3xl border-t border-slate-700/50 shadow-2xl flex flex-col items-center gap-3">
         <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 border-orange-500/30 font-mono">

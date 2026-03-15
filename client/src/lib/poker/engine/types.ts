@@ -34,4 +34,6 @@ export interface GameMode {
   };
 
   getNextPhase?: (currentPhase: GamePhase, state: GameState) => GamePhase | null;
+
+  checkAutoStay?: (state: GameState, playerId: string) => boolean;
 }
