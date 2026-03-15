@@ -164,7 +164,7 @@ export const Fifteen35Mode: GameMode = {
             shouldStay = false;
           }
         } else if (total > 35) {
-          shouldStay = true; // already bust, stay to avoid additional cards
+          shouldStay = true;
         } else {
           shouldStay = false;
         }
@@ -406,7 +406,7 @@ export const Fifteen35Mode: GameMode = {
       lowCandidates.sort((a, b) => {
         const aT = bestTotal(a.cards).total;
         const bT = bestTotal(b.cards).total;
-        return bT - aT;
+        return Math.abs(bT - 15) - Math.abs(aT - 15) || bT - aT;
       });
       const bestLowTotal = bestTotal(lowCandidates[0].cards).total;
       const lowWinners = lowCandidates.filter(p => bestTotal(p.cards).total === bestLowTotal);
