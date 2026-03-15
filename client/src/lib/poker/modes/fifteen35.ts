@@ -145,21 +145,19 @@ export const Fifteen35Mode: GameMode = {
         let shouldStay = false;
         if (qualifiesLow(total) || qualifiesHigh(total)) {
           shouldStay = true;
-        } else if (total <= 11) {
+        } else if (total <= 12) {
           shouldStay = false;
-        } else if (total === 12) {
-          shouldStay = Math.random() < 0.15;
-        } else if (total > 15 && total < 28) {
+        } else if (total >= 16 && total <= 27) {
           shouldStay = false;
-        } else if (total >= 28 && total < 33) {
-          const bustCards = [10, 9, 8, 7, 6, 5, 4];
+        } else if (total >= 28 && total <= 32) {
           const safeMax = 35 - total;
-          const dangerCount = bustCards.filter(v => v > safeMax).length;
-          const bustRisk = (dangerCount + 1) / 14;
-          if (total >= 32 && total < 33) {
-            shouldStay = false;
-          } else if (numCards >= 5 && bustRisk > 0.5) {
-            shouldStay = Math.random() < bustRisk * 0.4;
+          let bustRanks = 0;
+          for (let v = 2; v <= 10; v++) { if (v > safeMax) bustRanks++; }
+          const bustRisk = bustRanks / 13;
+          if (numCards >= 6) {
+            shouldStay = bustRisk > 0.5;
+          } else if (numCards >= 5 && bustRisk > 0.55) {
+            shouldStay = Math.random() < bustRisk * 0.5;
           } else {
             shouldStay = false;
           }
@@ -229,12 +227,28 @@ export const Fifteen35Mode: GameMode = {
       } else if (bot.declaration === 'STAY') {
         strength = 0.05;
       } else {
-        const distLow = Math.abs(total - 14);
-        const distHigh = Math.abs(total - 34);
-        const minDist = Math.min(distLow, distHigh);
-        if (minDist <= 2) strength = 0.25;
-        else if (minDist <= 5) strength = 0.15;
-        else strength = 0.08;
+        const numCards = bot.cards.length;
+        const distToLow = total < 13 ? 13 - total : (total > 15 ? 999 : 0);
+        const distToHigh = total > 35 ? 999 : (total < 33 ? 33 - total : 0);
+        const bestDist = Math.min(distToLow, distToHigh);
+        const pursuingHigh = distToHigh < distToLow;
+        if (bestDist <= 2) {
+          strength = 0.32 - numCards * 0.02;
+        } else if (bestDist <= 5) {
+          strength = 0.24 - numCards * 0.02;
+        } else if (bestDist <= 10) {
+          strength = 0.16 - numCards * 0.01;
+        } else {
+          strength = 0.08;
+        }
+        if (pursuingHigh && total >= 28) {
+          const safeMax = 35 - total;
+          let bustRanks = 0;
+          for (let v = 2; v <= 10; v++) { if (v > safeMax) bustRanks++; }
+          const bustRisk = bustRanks / 13;
+          strength *= (1 - bustRisk * 0.3);
+        }
+        strength = Math.max(strength, 0.05);
       }
 
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);

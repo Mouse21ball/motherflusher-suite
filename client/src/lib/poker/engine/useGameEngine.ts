@@ -313,19 +313,24 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         if (s.phase !== 'SHOWDOWN') return s;
         const isRollover = s.pot > 0;
         const basePlayers = isRollover ? s.players : moveDealer(s.players);
-        const nextPlayers = basePlayers.map(p => ({
-            ...p,
-            cards: [],
-            bet: 0,
-            status: isRollover
-                ? (p.status === 'active' && p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
-                : (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
-            declaration: null,
-            hasActed: false,
-            isWinner: undefined,
-            isLoser: undefined,
-            score: undefined
-        }));
+        const nextPlayers = basePlayers.map(p => {
+            const isBotBusted = p.id !== myId && p.chips === 0;
+            const newChips = isBotBusted ? 1000 : p.chips;
+            return {
+                ...p,
+                cards: [],
+                bet: 0,
+                chips: newChips,
+                status: isRollover
+                    ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                    : (newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+                declaration: null,
+                hasActed: false,
+                isWinner: undefined,
+                isLoser: undefined,
+                score: undefined
+            };
+        });
 
         const dealerIdx = getDealerIndex(nextPlayers);
         const firstToActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
@@ -625,6 +630,14 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         setState(s => {
           const result = mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
 
+          const potAwarded = result.pot === 0;
+          const resolvedMessages = potAwarded
+            ? result.messages.filter(m => !/rolls?\s*over/i.test(m))
+            : result.messages;
+          if (!potAwarded && resolvedMessages.length === 0) {
+            resolvedMessages.push(`No qualifying hands. $${result.pot} rolls over!`);
+          }
+
           const me = result.players.find(p => p.id === myId);
           if (me) {
             saveChips(mode.id, me.chips);
@@ -641,7 +654,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             else if (chipChange < 0) resultType = 'loss';
             else resultType = 'push';
 
-            const summary = result.messages.join(' · ') || (isRollover ? `$${result.pot} rolls over` : 'Hand complete');
+            const summary = resolvedMessages.join(' · ') || (isRollover ? `$${result.pot} rolls over` : 'Hand complete');
 
             addHandRecord({
               id: Math.random().toString(36).slice(2),
@@ -662,7 +675,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             ...s, 
             players: result.players, 
             pot: result.pot,
-            messages: [...s.messages, ...result.messages.map(m => ({ id: Math.random().toString(), text: m, time: Date.now(), isResolution: true }))].slice(-10)
+            messages: [...s.messages, ...resolvedMessages.map(m => ({ id: Math.random().toString(), text: m, time: Date.now(), isResolution: true }))].slice(-10)
           };
         });
         
@@ -672,19 +685,24 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
                 const isRollover = s.pot > 0;
                 const basePlayers = isRollover ? s.players : moveDealer(s.players);
-                const nextPlayers = basePlayers.map(p => ({
-                    ...p, 
-                    cards: [], 
-                    bet: 0, 
-                    hasActed: false, 
-                    declaration: null, 
-                    isWinner: undefined,
-                    isLoser: undefined,
-                    status: isRollover
-                        ? (p.status === 'active' && p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
-                        : (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
-                    score: undefined
-                }));
+                const nextPlayers = basePlayers.map(p => {
+                    const isBotBusted = p.id !== myId && p.chips === 0;
+                    const newChips = isBotBusted ? 1000 : p.chips;
+                    return {
+                        ...p, 
+                        cards: [], 
+                        bet: 0, 
+                        chips: newChips,
+                        hasActed: false, 
+                        declaration: null, 
+                        isWinner: undefined,
+                        isLoser: undefined,
+                        status: isRollover
+                            ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                            : (newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+                        score: undefined
+                    };
+                });
 
                 const activePlayers = nextPlayers.filter(p => p.status === 'active');
                 if (isRollover && activePlayers.length <= 1) {
@@ -692,10 +710,15 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                         const winner = nextPlayers.find(p => p.id === activePlayers[0].id)!;
                         winner.chips += s.pot;
                         if (winner.id === myId) saveChips(mode.id, winner.chips);
-                        const allBack = moveDealer(nextPlayers).map(p => ({
-                            ...p,
-                            status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus
-                        }));
+                        const allBack = moveDealer(nextPlayers).map(p => {
+                            const isBotBusted = p.id !== myId && p.chips === 0;
+                            const newChips = isBotBusted ? 1000 : p.chips;
+                            return {
+                                ...p,
+                                chips: newChips,
+                                status: (newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus
+                            };
+                        });
                         return {
                             ...s,
                             phase: 'ANTE' as GamePhase,

@@ -265,12 +265,23 @@ export const Dead7Mode: GameMode = {
         if (eval7.isDead) {
           strength = 0.02;
         } else if (eval7.handType === 'INVALID') {
-          strength = 0.05;
+          const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
+          strength = hasDrawsLeft ? 0.12 : 0.05;
         } else if (eval7.handType === 'NONE') {
           const vals = eval7.badugiRankValues;
           const highCount = vals.filter(v => v >= 8).length;
           const lowCount = vals.filter(v => v <= 6).length;
-          strength = Math.max(highCount, lowCount) >= 3 ? 0.15 : 0.08;
+          const bestSideCount = Math.max(highCount, lowCount);
+          const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
+          if (bestSideCount >= 3 && hasDrawsLeft) {
+            strength = 0.24;
+          } else if (bestSideCount >= 3) {
+            strength = 0.15;
+          } else if (hasDrawsLeft) {
+            strength = 0.10;
+          } else {
+            strength = 0.08;
+          }
         } else if (eval7.isFlush) {
           strength = 0.95;
         } else if (eval7.isBadugi) {

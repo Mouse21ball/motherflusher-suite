@@ -384,7 +384,10 @@ export const SuitsPokerMode: GameMode = {
       let handStrength = 0;
       if (declaration === 'SWING') handStrength = Math.min(pokerStrength, suitsStrength);
       else if (declaration === 'SUITS') handStrength = suitsStrength;
-      else handStrength = pokerStrength;
+      else if (declaration === 'POKER') handStrength = pokerStrength;
+      else handStrength = Math.max(pokerStrength, suitsStrength);
+      if (phase === 'BET_1') handStrength = Math.max(handStrength, 0.15);
+      else if (phase === 'BET_2') handStrength = Math.max(handStrength, 0.12);
 
       const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips);
       const result = applyBetDecision(decision, bot, currentBet, pot);
