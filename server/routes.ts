@@ -16,7 +16,28 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.post("/api/analytics/track", async (req, res) => {
     try {
-      const parsed = trackEventSchema.parse(req.body);
+      let body = req.body;
+      if (typeof body === "string") {
+        try {
+          body = JSON.parse(body);
+        } catch {}
+      }
+      if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
+        const raw =
+          typeof (req as any).rawBody === "object"
+            ? Buffer.isBuffer((req as any).rawBody)
+              ? (req as any).rawBody.toString("utf-8")
+              : String((req as any).rawBody)
+            : typeof (req as any).rawBody === "string"
+              ? (req as any).rawBody
+              : null;
+        if (raw) {
+          try {
+            body = JSON.parse(raw);
+          } catch {}
+        }
+      }
+      const parsed = trackEventSchema.parse(body);
       const eventDate = new Date().toISOString().split("T")[0];
       await storage.insertAnalyticsEvent({
         eventType: parsed.eventType,
@@ -26,8 +47,14 @@ export async function registerRoutes(
         eventDate,
       });
       res.status(204).end();
-    } catch (err) {
-      res.status(400).json({ error: "Invalid event data" });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        console.error("Analytics validation error:", JSON.stringify(err.issues));
+        res.status(400).json({ error: "Invalid event data" });
+      } else {
+        console.error("Analytics insert error:", err?.message ?? err);
+        res.status(500).json({ error: "Failed to record event" });
+      }
     }
   });
 

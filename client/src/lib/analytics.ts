@@ -13,16 +13,12 @@ function getPlayerId(): string {
 function fire(body: Record<string, unknown>): void {
   try {
     const payload = JSON.stringify({ ...body, playerId: getPlayerId() });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon("/api/analytics/track", new Blob([payload], { type: "application/json" }));
-    } else {
-      fetch("/api/analytics/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-        keepalive: true,
-      }).catch(() => {});
-    }
+    fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
   } catch {}
 }
 
