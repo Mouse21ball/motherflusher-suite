@@ -282,35 +282,71 @@ export const Fifteen35Mode: GameMode = {
 
   evaluateHand: (player: Player) => {
     if (player.cards.length === 0) return undefined;
-    const { total, aceAs1Count, aceCount } = bestTotal(player.cards);
+    const { total: gameTotal, aceAs1Count, aceCount } = bestTotal(player.cards);
 
-    let description = `Total: ${total}`;
-    if (aceCount > 0) {
+    if (isBust(gameTotal)) {
+      return { description: `BUST (${gameTotal})`, isValidBadugi: false, badugiRankValues: [gameTotal] };
+    }
+
+    if (aceCount === 0) {
+      let description = `Total: ${gameTotal}`;
+      let valid = false;
+      if (qualifiesLow(gameTotal)) { description += ' — LOW'; valid = true; }
+      if (qualifiesHigh(gameTotal)) { description += ' — HIGH'; valid = true; }
+      if (!valid) description += ' — No Qualifier';
+      return { description, isValidBadugi: valid, badugiRankValues: [gameTotal] };
+    }
+
+    const nonAceSum = player.cards.reduce((sum, c) => c.rank === 'A' ? sum : sum + cardValue(c.rank), 0);
+    const lowTotal = nonAceSum + aceCount;
+    let highTotal = nonAceSum + aceCount * 11;
+    let highAceAs11 = aceCount;
+    while (highTotal > 35 && highAceAs11 > 0) {
+      highTotal -= 10;
+      highAceAs11--;
+    }
+
+    if (player.declaration === 'STAY') {
+      let description = `Total: ${gameTotal}`;
       const aceLabel = aceAs1Count === aceCount
         ? `Ace${aceCount > 1 ? 's' : ''} = 1`
         : aceAs1Count === 0
           ? `Ace${aceCount > 1 ? 's' : ''} = 11`
           : `${aceCount - aceAs1Count}×11, ${aceAs1Count}×1`;
       description += ` (${aceLabel})`;
+      let valid = false;
+      if (qualifiesLow(gameTotal)) { description += ' — LOW'; valid = true; }
+      if (qualifiesHigh(gameTotal)) { description += ' — HIGH'; valid = true; }
+      if (!valid) description += ' — No Qualifier';
+      return { description, isValidBadugi: valid, badugiRankValues: [gameTotal] };
     }
 
-    let isValidBadugi = false;
-    if (qualifiesLow(total)) {
-      description += ' — LOW';
-      isValidBadugi = true;
-    }
-    if (qualifiesHigh(total)) {
-      description += ' — HIGH';
-      isValidBadugi = true;
-    }
-    if (isBust(total)) {
-      description = `BUST (${total})`;
-    }
-    if (!isValidBadugi && !isBust(total)) {
-      description += ' — No Qualifier';
+    if (lowTotal === highTotal) {
+      let description = `Total: ${lowTotal} (Ace${aceCount > 1 ? 's' : ''} = 1)`;
+      let valid = false;
+      if (qualifiesLow(lowTotal)) { description += ' — LOW'; valid = true; }
+      if (qualifiesHigh(lowTotal)) { description += ' — HIGH'; valid = true; }
+      if (!valid) description += ' — No Qualifier';
+      return { description, isValidBadugi: valid, badugiRankValues: [gameTotal] };
     }
 
-    return { description, isValidBadugi, badugiRankValues: [total] };
+    const aceS = aceCount > 1 ? 's' : '';
+    let lowLine = `Low: ${lowTotal} (Ace${aceS} = 1)`;
+    let highLine = `High: ${highTotal}`;
+    if (highAceAs11 === aceCount) {
+      highLine += ` (Ace${aceS} = 11)`;
+    } else {
+      highLine += ` (${highAceAs11}×11, ${aceCount - highAceAs11}×1)`;
+    }
+
+    let valid = false;
+    if (qualifiesLow(lowTotal)) { lowLine += ' — LOW'; valid = true; }
+    if (qualifiesHigh(lowTotal)) { lowLine += ' — HIGH'; valid = true; }
+    if (qualifiesLow(highTotal)) { highLine += ' — LOW'; valid = true; }
+    if (qualifiesHigh(highTotal)) { highLine += ' — HIGH'; valid = true; }
+
+    const description = `${lowLine} · ${highLine}`;
+    return { description, isValidBadugi: valid, badugiRankValues: [gameTotal] };
   },
 
   resolveShowdown: (players: Player[], pot: number, myId: string) => {
