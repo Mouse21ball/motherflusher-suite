@@ -52,7 +52,7 @@ export async function registerRoutes(
         console.error("Analytics validation error:", JSON.stringify(err.issues));
         res.status(400).json({ error: "Invalid event data" });
       } else {
-        console.error("Analytics insert error:", err?.message ?? err);
+        console.error("Analytics insert error:", err.message, err.stack);
         res.status(500).json({ error: "Failed to record event" });
       }
     }
