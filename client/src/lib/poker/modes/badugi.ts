@@ -79,6 +79,7 @@ export const BadugiMode: GameMode = {
     let newPot = state.pot;
     let newCurrentBet = state.currentBet;
     let message = '';
+    let discardPile = state.discardPile || [];
     
     const bIdx = newPlayers.findIndex(p => p.id === botId);
     const bot = newPlayers[bIdx];
@@ -120,12 +121,24 @@ export const BadugiMode: GameMode = {
         let toDiscard = cards.map((_, i) => i).filter(i => !toKeep.includes(i));
         toDiscard = toDiscard.slice(0, maxDraws);
 
-        if (toDiscard.length > 0 && newDeck.length >= toDiscard.length) {
+        if (toDiscard.length > 0) {
+          const newDiscard = [...(state.discardPile || [])];
           const newCards = [...bot.cards];
           toDiscard.forEach(idx => {
+            newDiscard.push(newCards[idx]);
+            if (newDeck.length === 0 && newDiscard.length > 0) {
+              const reshuffled = [...newDiscard];
+              newDiscard.length = 0;
+              for (let ri = reshuffled.length - 1; ri > 0; ri--) {
+                const rj = Math.floor(Math.random() * (ri + 1));
+                [reshuffled[ri], reshuffled[rj]] = [reshuffled[rj], reshuffled[ri]];
+              }
+              newDeck.push(...reshuffled);
+            }
             newCards[idx] = { ...newDeck.shift()!, isHidden: true };
           });
           newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
+          discardPile = newDiscard;
           message = `${bot.name} discarded ${toDiscard.length} card${toDiscard.length > 1 ? 's' : ''}`;
         } else {
           newPlayers[bIdx] = { ...bot, hasActed: true };
@@ -222,7 +235,7 @@ export const BadugiMode: GameMode = {
     }
 
     return {
-      stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet },
+      stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet, discardPile },
       message,
       roundOver,
       nextPlayerId

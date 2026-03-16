@@ -100,4 +100,5 @@ export interface GameState {
   messages: { id: string; text: string; time: number; isResolution?: boolean }[];
   chatMessages: ChatMessage[];
   deck: CardType[];
+  discardPile: CardType[];
 }

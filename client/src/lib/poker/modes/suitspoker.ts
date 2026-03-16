@@ -331,11 +331,22 @@ export const SuitsPokerMode: GameMode = {
 
       const numDiscard = finalDiscard.length;
       const newDeck = [...state.deck];
+      const newDiscard = [...(state.discardPile || [])];
       const newPlayers = players.map(p => {
         if (p.id !== botId) return p;
         const newCards = [...p.cards];
         if (numDiscard > 0) {
           finalDiscard.forEach(idx => {
+            newDiscard.push(newCards[idx]);
+            if (newDeck.length === 0 && newDiscard.length > 0) {
+              const reshuffled = [...newDiscard];
+              newDiscard.length = 0;
+              for (let ri = reshuffled.length - 1; ri > 0; ri--) {
+                const rj = Math.floor(Math.random() * (ri + 1));
+                [reshuffled[ri], reshuffled[rj]] = [reshuffled[rj], reshuffled[ri]];
+              }
+              newDeck.push(...reshuffled);
+            }
             newCards[idx] = { ...newDeck.shift()!, isHidden: true };
           });
         }
@@ -343,7 +354,7 @@ export const SuitsPokerMode: GameMode = {
       });
       const roundOver = newPlayers.filter(p => p.status === 'active').every(p => p.hasActed);
       return {
-        stateUpdates: { deck: newDeck, players: newPlayers },
+        stateUpdates: { deck: newDeck, players: newPlayers, discardPile: newDiscard },
         message: numDiscard > 0 ? `${bot.name} draws ${numDiscard}` : `${bot.name} stands pat`,
         roundOver,
         nextPlayerId: roundOver ? undefined : players[nextIdx].id

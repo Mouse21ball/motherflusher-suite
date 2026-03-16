@@ -22,7 +22,8 @@ export const createInitialState = (heroChips: number = 1000): GameState => ({
   communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true })),
   messages: [{ id: 'm1', text: 'Game ready. Waiting for start...', time: Date.now() }],
   chatMessages: [],
-  deck: []
+  deck: [],
+  discardPile: []
 });
 
 function resolveWithSidePots(
@@ -57,7 +58,7 @@ function resolveWithSidePots(
       const winner = currentPlayers.find(p => p.id === winnerId);
       if (winner) {
         winner.chips += sp.amount;
-        allMessages.push(`${winner.name} gets back $${sp.amount} (uncontested)`);
+        allMessages.push(`${winner.name} receives $${sp.amount} (excess returned)`);
       }
       continue;
     }
@@ -327,7 +328,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       setState(s => {
         const freshDeck = createDeck();
         const dealResult = mode.deal(freshDeck, s.players, myId);
-        return { ...s, ...dealResult };
+        return { ...s, ...dealResult, discardPile: [] };
       });
       safeTimeout(advancePhase, 1500);
     }
@@ -425,6 +426,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           players: nextPlayers,
           communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
           deck: [],
+          discardPile: [],
           messages: [{ id: Math.random().toString(), text: rolloverMsg, time: Date.now() }]
         };
       });
@@ -564,11 +566,22 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       
       if (indicesToDiscard.length > 0) {
         setState(s => {
-          const newDeck = [...s.deck];
+          let newDeck = [...s.deck];
+          const newDiscard = [...(s.discardPile || [])];
           const newPlayers = s.players.map(p => {
               if (p.id !== myId) return p;
               const newCards = [...p.cards];
               indicesToDiscard.forEach(idx => {
+                newDiscard.push(newCards[idx]);
+                if (newDeck.length === 0 && newDiscard.length > 0) {
+                  const reshuffled = [...newDiscard];
+                  newDiscard.length = 0;
+                  for (let i = reshuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [reshuffled[i], reshuffled[j]] = [reshuffled[j], reshuffled[i]];
+                  }
+                  newDeck = reshuffled;
+                }
                 newCards[idx] = { ...newDeck.shift()!, isHidden: false };
               });
               newCards.sort((a, b) => {
@@ -581,6 +594,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           return {
               ...s,
               deck: newDeck,
+              discardPile: newDiscard,
               players: newPlayers,
               messages: [...s.messages, { id: Math.random().toString(), text: `You discarded ${indicesToDiscard.length} cards`, time: Date.now() }].slice(-5)
           }
@@ -831,6 +845,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                             players: allBack,
                             communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
                             deck: [],
+                            discardPile: [],
                             messages: [{ id: Math.random().toString(), text: `${winner.name} wins rollover pot $${s.pot}. All players rejoin.`, time: Date.now() }]
                         };
                     }
@@ -851,6 +866,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                     players: nextPlayers,
                     communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
                     deck: [],
+                    discardPile: [],
                     messages: [{ id: Math.random().toString(), text: rolloverMsg, time: Date.now() }]
                 };
             });

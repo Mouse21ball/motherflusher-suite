@@ -30,7 +30,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
         className={cn(
           "w-12 h-16 sm:w-16 sm:h-24 playing-card-back rounded-md shrink-0 transition-transform",
           selectable && "cursor-pointer hover:-translate-y-2",
-          selected && "-translate-y-4 ring-2 ring-primary",
+          selected && "ring-2 ring-[#C9A227] shadow-[0_0_8px_rgba(201,162,39,0.3)]",
           className
         )}
         onClick={onClick}
@@ -44,7 +44,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
         "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 transition-transform flex flex-col justify-between",
         suitColors[card.suit],
         selectable && "cursor-pointer hover:-translate-y-2",
-        selected && "-translate-y-4 ring-2 ring-primary ring-offset-2 ring-offset-slate-900",
+        selected && "ring-2 ring-[#C9A227] shadow-[0_0_8px_rgba(201,162,39,0.3)]",
         isSelfHidden && "opacity-60 saturate-50 shadow-inner",
         className
       )}

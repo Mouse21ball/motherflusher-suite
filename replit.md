@@ -131,6 +131,13 @@ A client-side poker game platform supporting five custom poker variants, built w
 - **Client tracker** (`client/src/lib/analytics.ts`): Invisible module initialized once in `App.tsx`. Generates a persistent anonymous `analytics_id` in localStorage. Fires `session_start` on load, `session_end` on unload/visibility-hidden (with duration). Uses `navigator.sendBeacon` for reliable unload tracking. Each game page fires `trackModePlay(modeId)` on mount.
 - **Admin view**: `/admin` — plain-numbers dashboard showing today's DAU, session count, avg session length, mode breakdown, and 30-day daily table with retention column. Auto-refreshes every 30s. Link back to lobby.
 
+## Deck Integrity
+- `discardPile: CardType[]` tracks all discarded cards per hand (initialized empty at DEAL and restart).
+- When drawing, old cards are pushed to discardPile before replacement.
+- If deck runs empty mid-draw, discardPile is reshuffled and becomes the new draw source (casino standard).
+- Hero draw (useGameEngine.ts) and bot draws (badugi.ts, dead7.ts, suitspoker.ts) all maintain discardPile.
+- Discarded cards cannot re-enter a player's hand from the same deal.
+
 ## Constraints
 - `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
 - All game logic is client-side only

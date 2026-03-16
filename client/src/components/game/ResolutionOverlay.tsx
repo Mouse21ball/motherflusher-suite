@@ -23,8 +23,8 @@ function classifyResult(messages: ResolutionMessage[]): {
 
   const isRollover = texts.some(t => /rolls?\s*over|carries?\s*forward|No qualif/i.test(t));
   const isSplit = texts.some(t => /Split Pot/i.test(t));
-  const isUncontested = texts.some(t => /uncontested|last player standing|gets back/i.test(t));
   const isWin = texts.some(t => /wins|SCOOPS|receives/i.test(t));
+  const isUncontested = texts.some(t => /last player standing/i.test(t)) && !isWin;
 
   const amountMatch = joinedText.match(/\$[\d,]+/g);
   const amounts = amountMatch ? amountMatch.map(a => a.replace(/,/g, '')) : [];

@@ -92,9 +92,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 "relative transition-all duration-200 origin-bottom anim-card-deal",
               )}
               style={{ 
-                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px) scale(1.1)' : ''}`,
+                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${isSelected ? Math.abs(idx - (player.cards.length - 1)/2) * 5 - 20 : Math.abs(idx - (player.cards.length - 1)/2) * 5}px)${isSelected ? ' scale(1.08)' : ''}`,
                 zIndex: isSelected ? 40 : 10 + idx,
                 animationDelay: `${idx * 0.06}s`,
+                transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
               }}
               onClick={(e) => {
                 e.preventDefault();

@@ -87,18 +87,17 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2 z-40">
-              <div className="flex items-center gap-4">
-                <div className="bg-[#0B0B0D]/70 backdrop-blur-sm border border-white/[0.06] px-6 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
-                  <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-1 font-sans">Pot</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
-                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-[#C9A227]/40"></div>
-                    </div>
-                    <span className="text-xl sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
-                  </div>
-                </div>
+          </div>
+        </div>
+
+        <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
+          <div className="bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center" data-testid="text-pot">
+            <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-[#C9A227]/40"></div>
               </div>
+              <span className="text-base sm:text-lg font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
             </div>
           </div>
         </div>
