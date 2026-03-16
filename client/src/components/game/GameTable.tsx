@@ -34,17 +34,17 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   return (
     <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-32 px-2 sm:px-8">
       <div className="relative h-[70vh] min-h-[560px]">
-        <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl border-4 border-[#1a3822]">
+        <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl">
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-6 sm:pt-8">
-            <div className="text-white/40 text-sm sm:text-base font-mono tracking-[0.15em] mb-1 uppercase text-center font-semibold" data-testid="text-phase">
+            <div className="text-white/30 text-sm sm:text-base font-mono tracking-[0.2em] mb-1.5 uppercase text-center font-medium" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </div>
 
-            <div className="text-center pointer-events-auto mb-1 sm:mb-2 min-h-[24px]">
+            <div className="text-center pointer-events-auto mb-1.5 sm:mb-2.5 min-h-[24px]">
               {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-                <p key={msg.id} className="text-white/90 text-[10px] sm:text-xs font-mono animate-in fade-in drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/10" data-testid="text-game-message">
+                <p key={msg.id} className="text-white/70 text-[10px] sm:text-xs font-mono animate-in fade-in drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.06]" data-testid="text-game-message">
                   {msg.text}
                 </p>
               ))}
@@ -53,7 +53,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
               <div className="flex gap-1 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1 sm:gap-2 bg-black/30 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-white/10 shadow-inner">
+                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1 sm:gap-2 bg-black/25 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-white/[0.04]">
                     <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
                       <PlayingCard
                         card={gameState.communityCards[colIndex * 2]}
@@ -89,13 +89,13 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
             <div className="flex flex-col items-center gap-2 z-40">
               <div className="flex items-center gap-4">
-                <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-6 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
-                  <span className="text-[10px] text-green-400 uppercase font-bold tracking-widest mb-1">Total Pot</span>
+                <div className="bg-[#0B0B0D]/70 backdrop-blur-sm border border-white/[0.06] px-6 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
+                  <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-1 font-sans">Pot</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
-                      <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+                    <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-[#C9A227]/40"></div>
                     </div>
-                    <span className="text-xl sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
+                    <span className="text-xl sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
                   </div>
                 </div>
               </div>
@@ -116,7 +116,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 onCardClick={onCardClick}
                 selectableCards={selectableCards}
                 showdownState={gameState.phase === 'SHOWDOWN'}
-                className={player?.id === myId ? "bg-black/80 p-4 rounded-xl shadow-2xl border border-white/10 backdrop-blur-md pb-6" : ""}
+                className={player?.id === myId ? "bg-[#0B0B0D]/85 p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-6" : ""}
               />
             </div>
           );

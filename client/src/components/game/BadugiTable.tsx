@@ -57,13 +57,13 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
       <div className="w-full text-center mb-1 relative z-40">
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-          <p key={msg.id} className="text-white/90 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-black/70 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/10" data-testid="text-game-message">
+          <p key={msg.id} className="text-white/70 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.06]" data-testid="text-game-message">
             {msg.text}
           </p>
         ))}
       </div>
 
-      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt border-4 border-[#1a3822] shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]">
+      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]">
         <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]"></div>
 
         {opponents.map((player, i) => (
@@ -81,7 +81,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6">
           <div className="flex flex-col items-center gap-2 my-auto">
-            <div className="text-white/40 text-xs sm:text-sm font-mono tracking-[0.15em] uppercase font-semibold" data-testid="text-phase">
+            <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] uppercase font-medium" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </div>
 
@@ -106,18 +106,18 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
 
             <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
 
-            <div className="bg-black/60 backdrop-blur-sm border border-white/10 px-5 sm:px-8 py-2 sm:py-3 rounded-full flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.5)]" data-testid="text-pot">
-              <span className="text-[9px] sm:text-[10px] text-green-400 uppercase font-bold tracking-widest mb-0.5">Total Pot</span>
+            <div className="bg-[#0B0B0D]/70 backdrop-blur-sm border border-white/[0.06] px-5 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
+              <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-500 border-2 border-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.3)] flex items-center justify-center">
-                  <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full border border-yellow-600"></div>
+                <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
+                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-[#C9A227]/40"></div>
                 </div>
-                <span className="text-lg sm:text-2xl font-mono text-white font-bold">${gameState.pot}</span>
+                <span className="text-lg sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
               </div>
             </div>
 
             {gameState.phase === 'DECLARE' && (
-              <div className="text-yellow-400/80 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse mt-1" data-testid="text-declare-prompt">
+              <div className="text-[#C9A227]/60 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse mt-1" data-testid="text-declare-prompt">
                 Declaration Round
               </div>
             )}
@@ -138,7 +138,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
             showdownState={isShowdown}
             showVisibleCount={showVisibleCount}
             heroCardClassName={heroCardClassName}
-            className="bg-black/80 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/10 backdrop-blur-md pb-4 sm:pb-6"
+            className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
           />
         )}
       </div>

@@ -246,12 +246,12 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
 
   return (
     <>
-      <header className="w-full px-3 py-2.5 sm:px-4 sm:py-3 flex justify-between items-center bg-card/95 backdrop-blur-sm border-b border-white/5 z-50">
-        <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs ${mode.borderClass} border shadow-sm`}>
+      <header className="w-full px-3 py-3 sm:px-4 sm:py-3.5 flex justify-between items-center bg-[#141417]/95 backdrop-blur-lg border-b border-white/[0.04] z-50">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center ${mode.accentClass} font-semibold font-mono text-xs ${mode.borderClass} border`}>
             {mode.abbrev}
           </div>
-          <span className={`font-semibold tracking-wide text-sm text-foreground/80`}>
+          <span className="font-medium tracking-wide text-sm text-white/70 font-sans">
             {mode.name}
           </span>
         </div>
@@ -261,32 +261,32 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
             <SheetTrigger asChild>
               <button
                 aria-label="Rules"
-                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.06] text-white/35 hover:text-white/60 active:text-white/60 hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-140 touch-manipulation"
                 data-testid="button-rules"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Rules</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-slate-950 border-slate-800 p-0" aria-describedby={undefined}>
+            <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-[#0B0B0D] border-white/[0.06] p-0" aria-describedby={undefined}>
               <SheetTitle className="sr-only">Rules</SheetTitle>
               <ScrollArea className="h-full">
-                <div className="p-5 sm:p-6 pt-10">
-                  <div className="flex items-center gap-2 mb-5">
-                    <div className={`w-7 h-7 rounded-md bg-white/5 flex items-center justify-center ${mode.accentClass} font-bold font-mono text-xs border ${mode.borderClass}`}>
+                <div className="p-6 sm:p-7 pt-10">
+                  <div className="flex items-center gap-2.5 mb-6">
+                    <div className={`w-7 h-7 rounded-md bg-white/[0.04] flex items-center justify-center ${mode.accentClass} font-semibold font-mono text-xs border ${mode.borderClass}`}>
                       {mode.abbrev}
                     </div>
-                    <h2 className="text-lg font-bold text-white">{mode.name}</h2>
+                    <h2 className="text-lg font-semibold text-white/90 font-sans">{mode.name}</h2>
                   </div>
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     {mode.rules.map((section, i) => (
                       <div key={i}>
-                        <h3 className={`text-xs font-mono uppercase tracking-widest ${mode.accentClass} mb-2 font-bold`}>
+                        <h3 className={`text-xs font-mono uppercase tracking-[0.15em] ${mode.accentClass} mb-2.5 font-semibold`}>
                           {section.heading}
                         </h3>
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-2">
                           {section.items.map((item, j) => (
-                            <li key={j} className="text-sm text-white/70 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/25">
+                            <li key={j} className="text-sm text-white/55 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/15">
                               {item}
                             </li>
                           ))}
@@ -294,8 +294,8 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 pt-4 border-t border-white/10">
-                    <p className="text-[11px] text-white/45 font-mono leading-relaxed">
+                  <div className="mt-8 pt-4 border-t border-white/[0.06]">
+                    <p className="text-[11px] text-white/30 font-mono leading-relaxed">
                       5 players max per table. $1 ante each hand. Rollover carries the pot forward when no one qualifies. Odd chips go to HIGH / POKER side.
                     </p>
                   </div>
@@ -310,39 +310,39 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
 
           <button
             onClick={handleLobbyClick}
-            className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all cursor-pointer touch-manipulation"
+            className="text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.06] text-white/35 hover:text-white/60 active:text-white/60 hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-140 cursor-pointer touch-manipulation"
             data-testid="link-lobby"
           >
             Lobby
           </button>
 
-          <div className="text-right pl-1">
-            <div className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider leading-none">Stack</div>
-            <div className="font-mono text-primary font-bold text-base leading-tight" data-testid="text-my-chips">${chips}</div>
+          <div className="text-right pl-1.5">
+            <div className="text-[10px] text-white/25 uppercase font-mono tracking-wider leading-none font-medium">Stack</div>
+            <div className="font-mono text-[#C9A227] font-bold text-base leading-tight" data-testid="text-my-chips">${chips}</div>
           </div>
         </div>
       </header>
 
       <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
-        <AlertDialogContent className="max-w-[340px] sm:max-w-md bg-slate-950 border-slate-800 rounded-xl mx-4">
+        <AlertDialogContent className="max-w-[340px] sm:max-w-md bg-[#141417] border-white/[0.06] rounded-xl mx-4">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white text-base">Leave this hand?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/60 text-sm leading-relaxed">
-              You're in the middle of a hand. Leaving now will forfeit your current hand
-              {currentPot > 0 && <> and your claim to the <span className="font-mono font-bold text-amber-400">${currentPot}</span> pot</>}.
-              Your chips will be saved but you'll lose anything you've put in this round.
+            <AlertDialogTitle className="text-white/90 text-base font-sans font-semibold">Leave this hand?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/45 text-sm leading-relaxed">
+              You are in the middle of a hand. Leaving now forfeits your current hand
+              {currentPot > 0 && <> and your claim to the <span className="font-mono font-semibold text-[#C9A227]">${currentPot}</span> pot</>}.
+              Your chips will be saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-2">
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white mt-0">
+            <AlertDialogCancel className="bg-white/[0.04] border-white/[0.06] text-white/60 hover:bg-white/[0.08] hover:text-white/80 mt-0">
               Stay
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmExit}
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
+              className="bg-red-700/80 hover:bg-red-700 text-white border-0"
               data-testid="button-confirm-leave"
             >
-              Leave & Forfeit
+              Leave
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

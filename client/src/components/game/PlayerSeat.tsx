@@ -57,7 +57,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   if (!player) {
     return (
-      <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-white/10 bg-black/20 text-white/30 w-24 h-24", className)}>
+      <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border border-white/[0.04] bg-[#141417]/40 text-white/20 w-24 h-24", className)}>
         <span className="text-xs font-mono uppercase tracking-widest">Empty</span>
       </div>
     );
@@ -65,20 +65,20 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   return (
     <div className={cn(
-      "relative flex flex-col items-center gap-2 transition-all duration-300",
+      "relative flex flex-col items-center gap-2 transition-all duration-200",
       player.status === 'folded' && !showdownState && "opacity-50 grayscale",
       player.status === 'sitting_out' && "opacity-30 grayscale",
       showdownState && player.isLoser && "anim-loser",
       className
     )}>
       {player.isDealer && (
-        <div className="absolute -right-1 -top-1 w-7 h-7 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[11px] font-extrabold shadow-[0_0_8px_rgba(234,179,8,0.5)] z-50 border-2 border-yellow-200 ring-2 ring-yellow-500/30">
+        <div className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[10px] font-bold shadow-sm z-50 border border-[#C9A227]/60">
           D
         </div>
       )}
 
       <div className={cn(
-        "relative flex justify-center -space-x-4 sm:-space-x-2 mb-[-20px] transition-all duration-300 origin-bottom",
+        "relative flex justify-center -space-x-4 sm:-space-x-2 mb-[-20px] transition-all duration-200 origin-bottom",
         isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none -space-x-8"
       )}>
         {player.cards.map((card, idx) => {
@@ -89,7 +89,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             <div 
               key={idx}
               className={cn(
-                "relative transition-all duration-300 origin-bottom anim-card-deal",
+                "relative transition-all duration-200 origin-bottom anim-card-deal",
               )}
               style={{ 
                 transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${Math.abs(idx - (player.cards.length - 1)/2) * 5}px) ${isSelected ? 'translateY(-20px) scale(1.1)' : ''}`,
@@ -112,7 +112,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 className={isSelf && heroCardClassName ? heroCardClassName : undefined}
               />
               {canSelect && !isSelected && (
-                <div className="absolute inset-0 z-50 rounded-md ring-2 ring-yellow-400/50 animate-pulse bg-yellow-400/10 pointer-events-none" />
+                <div className="absolute inset-0 z-50 rounded-md ring-1 ring-[#C9A227]/40 bg-[#C9A227]/5 pointer-events-none" />
               )}
             </div>
           );
@@ -122,17 +122,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       {player.score && !isSelf && showdownState && (
         <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex flex-col gap-0.5 w-[140px] z-50 pointer-events-none">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
-             <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400 shadow-md">
+             <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30 shadow-sm">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
              </Badge>
           )}
           {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
-             <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400 shadow-md">
+             <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30 shadow-sm">
                {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
              </Badge>
           )}
           {player.score.description && (
-             <Badge className={cn("w-full justify-center text-[9px] py-0.5 shadow-md", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+             <Badge className={cn("w-full justify-center text-[9px] py-0.5 shadow-sm", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
                {player.score.description}
              </Badge>
           )}
@@ -140,17 +140,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
 
       <div className={cn(
-        "relative w-full min-w-[100px] bg-slate-900 rounded-lg p-2 border-2 shadow-xl z-20 flex flex-col items-center transition-all duration-300",
-        isActive ? "border-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-slate-700",
-        isSelf && !isActive ? "border-blue-500/50" : "",
+        "relative w-full min-w-[100px] bg-[#141417] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
+        isActive ? "border-[#C9A227]/50 shadow-[0_0_12px_rgba(201,162,39,0.15)]" : "border-white/[0.06]",
+        isSelf && !isActive ? "border-white/[0.08]" : "",
         showdownState && player.isWinner && "anim-winner",
-        showdownState && player.isLoser && "border-slate-800"
+        showdownState && player.isLoser && "border-white/[0.03]"
       )}>
-        <div className="font-semibold text-sm truncate max-w-full text-white">
+        <div className="font-medium text-sm truncate max-w-full text-white/90 font-sans">
           {player.name}
         </div>
-        <div className="text-primary font-mono text-xs flex items-center gap-1">
-          <span className="opacity-70">$</span>{player.chips}
+        <div className="text-[#C9A227] font-mono text-xs flex items-center gap-0.5 tracking-tight">
+          <span className="opacity-60">$</span>{player.chips}
         </div>
         {showVisibleCount && player.cards.length > 0 && (() => {
           const faceUpCards = player.cards.filter(c => !c.isHidden);
@@ -158,44 +158,44 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const total = faceUpCards.reduce((sum, c) => sum + visibleCardValue(c.rank), 0);
           const display = total % 1 === 0 ? total.toString() : total.toFixed(1);
           return (
-            <div className="text-amber-400 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
-              <span className="text-amber-400/80">showing</span>{display}
+            <div className="text-amber-400/70 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
+              <span className="text-amber-400/50">showing</span>{display}
             </div>
           );
         })()}
         {player.score && isSelf && !showdownState && (
-          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
+          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
             {player.score.high && (
-              <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400">
+              <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30">
                 {player.score.suitsValid !== undefined ? 'Poker' : 'High'}: {player.score.high}
               </Badge>
             )}
             {player.score.low && (
-              <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400">
+              <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30">
                 {player.score.suitsValid !== undefined ? 'Suits' : 'Low'}: {player.score.low}
               </Badge>
             )}
             {player.score.description && (
-              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
                 {player.score.description}
               </Badge>
             )}
           </div>
         )}
         {player.score && isSelf && showdownState && (
-          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/10">
+          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
             {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
-              <Badge className="w-full justify-center bg-blue-600/90 text-[9px] py-0.5 border-blue-400">
+              <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30">
                 {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
               </Badge>
             )}
             {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
-              <Badge className="w-full justify-center bg-purple-600/90 text-[9px] py-0.5 border-purple-400">
+              <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30">
                 {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
               </Badge>
             )}
             {player.score.description && (
-              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-600/90 border-green-400 text-white" : "bg-red-600/90 border-red-400 text-white")}>
+              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
                 {player.score.description}
               </Badge>
             )}
@@ -204,36 +204,36 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       </div>
 
       {player.declaration === 'BUST' && (
-        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Bust</Badge>
+        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Bust</Badge>
       )}
       {player.declaration === 'STAY' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-amber-600 text-white border-none shadow-sm z-30">Stay</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-amber-700/80 text-white border-none z-30">Stay</Badge>
       )}
       {player.declaration === 'HIGH' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-red-600 text-white border-none shadow-sm z-30">High</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-red-700/80 text-white border-none z-30">High</Badge>
       )}
       {player.declaration === 'LOW' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-blue-600 text-white border-none shadow-sm z-30">Low</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-blue-700/80 text-white border-none z-30">Low</Badge>
       )}
       {player.declaration === 'SWING' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-purple-600 text-white border-none shadow-sm z-30">Swing</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-purple-700/80 text-white border-none z-30">Swing</Badge>
       )}
       {player.declaration === 'POKER' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-red-600 text-white border-none shadow-sm z-30">Poker</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-red-700/80 text-white border-none z-30">Poker</Badge>
       )}
       {player.declaration === 'SUITS' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-cyan-600 text-white border-none shadow-sm z-30">Suits</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-cyan-700/80 text-white border-none z-30">Suits</Badge>
       )}
       {player.status === 'folded' && !player.declaration && (
-        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-bold z-30">Folded</Badge>
+        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Folded</Badge>
       )}
       {player.status === 'sitting_out' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-bold bg-slate-600 text-white/70 border-none z-30">Sitting Out</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-[#1C1C20] text-white/50 border-none z-30">Sitting Out</Badge>
       )}
 
       {player.bet > 0 && (
-        <div className="absolute -bottom-12 flex items-center justify-center gap-1 bg-black/60 px-2.5 py-1 rounded-full text-xs font-mono text-white border border-white/10 anim-chip-toss z-20">
-          <div className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-300 shadow-[inset_0_-1px_3px_rgba(0,0,0,0.5)]"></div>
+        <div className="absolute -bottom-12 flex items-center justify-center gap-1.5 bg-[#0B0B0D]/70 px-2.5 py-1 rounded-full text-xs font-mono text-white/90 border border-white/[0.06] anim-chip-toss z-20">
+          <div className="w-3 h-3 rounded-full bg-[#C9A227] border border-[#C9A227]/50"></div>
           {player.bet}
         </div>
       )}
