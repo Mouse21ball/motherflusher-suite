@@ -736,63 +736,73 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (state.phase === 'SHOWDOWN') {
       const timer = setTimeout(() => {
         setState(s => {
-          const activePlayers = s.players.filter(p => p.status !== 'folded' && p.status !== 'sitting_out');
-          const contribs = activePlayers.map(p => p.totalBet || 0);
-          const uniqueContribs = new Set(contribs);
-          const needsSidePots = activePlayers.length > 1 && uniqueContribs.size > 1;
+          try {
+            const activePlayers = s.players.filter(p => p.status !== 'folded' && p.status !== 'sitting_out');
+            const contribs = activePlayers.map(p => p.totalBet || 0);
+            const uniqueContribs = new Set(contribs);
+            const needsSidePots = activePlayers.length > 1 && uniqueContribs.size > 1;
 
-          const result = needsSidePots
-            ? resolveWithSidePots(mode, s.players, s.pot, myId, s.communityCards)
-            : mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
+            const result = needsSidePots
+              ? resolveWithSidePots(mode, s.players, s.pot, myId, s.communityCards)
+              : mode.resolveShowdown(s.players, s.pot, myId, s.communityCards);
 
-          const potAwarded = result.pot === 0;
-          const resolvedMessages = potAwarded
-            ? result.messages.filter(m => !/rolls?\s*over/i.test(m))
-            : result.messages;
-          if (!potAwarded && resolvedMessages.length === 0) {
-            resolvedMessages.push(`No qualifying hands. $${result.pot} rolls over!`);
-          }
+            const potAwarded = result.pot === 0;
+            const resolvedMessages = potAwarded
+              ? result.messages.filter(m => !/rolls?\s*over/i.test(m))
+              : result.messages;
+            if (!potAwarded && resolvedMessages.length === 0) {
+              resolvedMessages.push(`No qualifying hands. $${result.pot} rolls over!`);
+            }
 
-          const me = result.players.find(p => p.id === myId);
-          if (me) {
-            saveChips(mode.id, me.chips);
-
+            const me = result.players.find(p => p.id === myId);
             const chipsBefore = chipsBeforeHandRef.current;
-            const chipChange = me.chips - chipsBefore;
-            const isRollover = result.pot > 0;
-            const heroFolded = me.status === 'folded';
+            const chipChange = me ? me.chips - chipsBefore : 0;
 
-            let resultType: HandRecord['result'];
-            if (isRollover) resultType = 'rollover';
-            else if (heroFolded) resultType = 'folded';
-            else if (chipChange > 0) resultType = 'win';
-            else if (chipChange < 0) resultType = 'loss';
-            else resultType = 'push';
+            if (me) {
+              saveChips(mode.id, me.chips);
 
-            const summary = resolvedMessages.join(' · ') || (isRollover ? `$${result.pot} rolls over` : 'Hand complete');
+              const isRollover = result.pot > 0;
+              const heroFolded = me.status === 'folded';
 
-            addHandRecord({
-              id: Math.random().toString(36).slice(2),
-              mode: mode.id,
-              modeName: mode.name,
-              timestamp: Date.now(),
-              potSize: s.pot,
-              chipsBefore,
-              chipsAfter: me.chips,
-              chipChange,
-              result: resultType,
-              summary,
-              isRollover,
-            });
+              let resultType: HandRecord['result'];
+              if (isRollover) resultType = 'rollover';
+              else if (heroFolded) resultType = 'folded';
+              else if (chipChange > 0) resultType = 'win';
+              else if (chipChange < 0) resultType = 'loss';
+              else resultType = 'push';
+
+              const summary = resolvedMessages.join(' · ') || (isRollover ? `$${result.pot} rolls over` : 'Hand complete');
+
+              addHandRecord({
+                id: Math.random().toString(36).slice(2),
+                mode: mode.id,
+                modeName: mode.name,
+                timestamp: Date.now(),
+                potSize: s.pot,
+                chipsBefore,
+                chipsAfter: me.chips,
+                chipChange,
+                result: resultType,
+                summary,
+                isRollover,
+              });
+            }
+            
+            return { 
+              ...s, 
+              players: result.players, 
+              pot: result.pot,
+              heroChipChange: chipChange,
+              messages: [...s.messages, ...resolvedMessages.map(m => ({ id: Math.random().toString(), text: m, time: Date.now(), isResolution: true }))].slice(-10)
+            };
+          } catch (err) {
+            console.error('[SHOWDOWN] Resolution error:', err);
+            return {
+              ...s,
+              heroChipChange: 0,
+              messages: [...s.messages, { id: Math.random().toString(), text: 'Hand complete.', time: Date.now(), isResolution: true }].slice(-10)
+            };
           }
-          
-          return { 
-            ...s, 
-            players: result.players, 
-            pot: result.pot,
-            heroChipChange: chipChange,
-            messages: [...s.messages, ...resolvedMessages.map(m => ({ id: Math.random().toString(), text: m, time: Date.now(), isResolution: true }))].slice(-10)
-          };
         });
         
         safeTimeout(() => {
