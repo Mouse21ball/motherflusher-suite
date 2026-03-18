@@ -11,7 +11,6 @@ import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
-import { ReactionBar } from "@/components/game/ReactionBar";
 
 export default function Game() {
   useEffect(() => { trackModePlay("swing"); }, []);
@@ -66,8 +65,7 @@ export default function Game() {
         />
       </main>
 
-      <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end gap-1">
-        <ReactionBar />
+      <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
           <ActionControls 
             phase={state.phase}

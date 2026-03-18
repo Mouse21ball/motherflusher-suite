@@ -35,14 +35,33 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     prevPotRef.current = gameState.pot;
   }, [gameState.pot]);
 
-  // Win celebration — triggers only on meaningful wins (>$50 net gain)
+  // Win celebration — context-aware triggers, not raw chip thresholds
   const [showCelebration, setShowCelebration] = useState(false);
   const celebFiredRef = useRef(false);
   useEffect(() => {
     if (gameState.phase === 'SHOWDOWN' && !celebFiredRef.current) {
       const hero = gameState.players.find(p => p.id === myId);
-      const gain = gameState.heroChipChange ?? 0;
-      if (hero?.isWinner && gain > 50) {
+      if (!hero?.isWinner) return;
+
+      // Scoop: hero declared SWING and holds both a high and low score at resolution.
+      // This is the rarest meaningful outcome in Mother Flusher.
+      const isSwingScoop =
+        hero.declaration === 'SWING' &&
+        !!(hero.score?.high && hero.score?.low);
+
+      // Contested win: at least one other player was still active at showdown
+      // (i.e., did not fold before resolution — they chose to stay and lost).
+      const activeAtShowdown = gameState.players.filter(p => p.status !== 'folded').length;
+      const isContestedWin = activeAtShowdown >= 2;
+
+      // Pot significance: the pot grew meaningfully beyond the opening antes.
+      // minBet * 8 means at least 4 players posted + one raise round, or
+      // a smaller table where several raises happened. Eliminates uncontested pots.
+      const potIsSignificant = gameState.pot >= gameState.minBet * 8;
+
+      const shouldCelebrate = isSwingScoop || (isContestedWin && potIsSignificant);
+
+      if (shouldCelebrate) {
         celebFiredRef.current = true;
         setShowCelebration(true);
       }
@@ -50,9 +69,14 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     if (gameState.phase !== 'SHOWDOWN') {
       celebFiredRef.current = false;
     }
-  }, [gameState.phase, gameState.players, gameState.heroChipChange, myId]);
+  }, [gameState.phase, gameState.players, gameState.pot, gameState.minBet, myId]);
 
-  const isScoop = (gameState.heroChipChange ?? 0) > 200;
+  // Scoop detection for the particle burst intensity (more particles + ring effect)
+  const heroAtShowdown = gameState.players.find(p => p.id === myId);
+  const isScoop =
+    !!heroAtShowdown?.isWinner &&
+    heroAtShowdown.declaration === 'SWING' &&
+    !!(heroAtShowdown.score?.high && heroAtShowdown.score?.low);
 
   const getSeatPosition = (index: number) => {
     const positions = [
