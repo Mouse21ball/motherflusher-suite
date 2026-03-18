@@ -1,4 +1,4 @@
 // ─── Re-export shim ───────────────────────────────────────────────────────────
-// Bot utilities now live in shared/engine/botUtils so the server engine
-// can also import them. All existing client imports continue to work.
-export * from '@shared/engine/botUtils';
+// Feature flags live in shared/featureFlags so both client and server read
+// the same constants from one file.
+export * from '@shared/featureFlags';

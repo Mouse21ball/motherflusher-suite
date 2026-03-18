@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
+import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
+import { FEATURES } from "@/lib/featureFlags";
 import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -12,10 +14,21 @@ import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 
+// ─── Hook selector ────────────────────────────────────────────────────────────
+// When SERVER_AUTHORITATIVE_BADUGI is false (default), the existing client-side
+// engine runs untouched. Flip the flag in shared/featureFlags.ts to route to
+// the server-authoritative path. All UI code below is identical in both cases.
+
+function useBadugi(myId: string) {
+  const client = useGameEngine(BadugiMode, myId);
+  const server = useServerBadugi(myId);
+  return FEATURES.SERVER_AUTHORITATIVE_BADUGI ? server : client;
+}
+
 export default function BadugiGame() {
   useEffect(() => { trackModePlay("badugi"); }, []);
   const myId = 'p1';
-  const { state, handleAction } = useGameEngine(BadugiMode, myId);
+  const { state, handleAction } = useBadugi(myId);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
 
   const me = state.players.find(p => p.id === myId);

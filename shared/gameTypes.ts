@@ -136,3 +136,47 @@ export interface GameState {
   discardPile: CardType[];
   heroChipChange?: number;
 }
+
+// ─── GameMode interface ───────────────────────────────────────────────────────
+// Defines the contract every game mode must implement.
+// Lives here so both the client engine and the server authoritative engine
+// can import it from a single source — no circular dependencies.
+
+export interface GameMode {
+  id: string;
+  name: string;
+  phases: GamePhase[];
+
+  deal: (
+    deck: CardType[],
+    players: Player[],
+    myId: string
+  ) => { players: Player[]; communityCards: CardType[]; deck: CardType[] };
+
+  botAction: (
+    state: GameState,
+    botId: string
+  ) => {
+    stateUpdates: Partial<GameState>;
+    message?: string;
+    roundOver: boolean;
+    nextPlayerId?: string;
+  } | null;
+
+  getAutoTransition: (phase: GamePhase) => {
+    delay: number;
+    action: (state: GameState) => { stateUpdates: Partial<GameState>; message?: string; advancePhase: boolean };
+  } | null;
+
+  evaluateHand: (player: Player, communityCards: CardType[]) => any;
+
+  resolveShowdown: (
+    players: Player[],
+    pot: number,
+    myId: string,
+    communityCards?: CardType[]
+  ) => { players: Player[]; pot: number; messages: string[] };
+
+  getNextPhase?: (currentPhase: GamePhase, state: GameState) => GamePhase | null;
+  checkAutoStay?: (state: GameState, playerId: string) => boolean;
+}
