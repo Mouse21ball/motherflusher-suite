@@ -25,10 +25,12 @@ interface ActionControlsProps {
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
-  { label: 'HIGH', value: 'HIGH', className: 'border-red-600/40 hover:bg-red-600/15 text-red-200' },
-  { label: 'SWING', value: 'SWING', className: 'border-purple-600/40 hover:bg-purple-600/15 text-purple-200' },
-  { label: 'LOW', value: 'LOW', className: 'border-blue-600/40 hover:bg-blue-600/15 text-blue-200' },
+  { label: 'HIGH', value: 'HIGH', className: 'border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200' },
+  { label: 'SWING', value: 'SWING', className: 'border-purple-500/25 hover:bg-purple-500/10 text-purple-300/80 hover:text-purple-200' },
+  { label: 'LOW', value: 'LOW', className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
+
+const panelClass = "w-full max-w-md mx-auto p-5 glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
@@ -47,12 +49,17 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'SHOWDOWN') {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex flex-col items-center gap-2.5">
-        <Button size="lg" onClick={() => onAction('restart')} className="w-full sm:w-auto font-semibold uppercase tracking-wide" data-testid="button-next-hand">
+      <div className={`${panelClass} flex flex-col items-center gap-3`}>
+        <Button
+          size="lg"
+          onClick={() => onAction('restart')}
+          className="w-full sm:w-auto font-bold uppercase tracking-widest bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          data-testid="button-next-hand"
+        >
           Next Hand
         </Button>
         {chips <= 0 && (
-          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-xs font-mono uppercase tracking-wider border-white/[0.08] text-white/50 hover:text-white/70" data-testid="button-rebuy">
+          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
             Rebuy $1000
           </Button>
         )}
@@ -62,48 +69,57 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'REVEAL_TOP_ROW' || phase === 'REVEAL_SECOND_ROW' || phase === 'REVEAL_FACTOR_CARD' || phase === 'REVEAL_LOWER_CENTER') {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] text-center">
-        <div className="text-sm font-mono text-[#C9A227]/70 mb-4 animate-pulse font-medium tracking-wide">REVEALING CARDS</div>
+      <div className={`${panelClass} text-center`}>
+        <div className="text-xs font-mono text-[#C9A227]/60 anim-pulse-gold font-medium tracking-widest uppercase">Revealing Cards</div>
       </div>
     );
   }
 
   if (phase === 'DEAL') {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] text-center">
-        <div className="text-sm font-mono text-[#C9A227]/70 mb-4 animate-pulse font-medium tracking-wide">DEALING</div>
+      <div className={`${panelClass} text-center`}>
+        <div className="text-xs font-mono text-[#C9A227]/60 anim-pulse-gold font-medium tracking-widest uppercase">Dealing</div>
       </div>
     );
   }
 
   if (!isMyTurn) {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex items-center justify-center min-h-[100px]">
-        <span className="text-white/30 text-sm font-mono animate-pulse">Waiting for other players</span>
+      <div className={`${panelClass} flex items-center justify-center min-h-[88px]`}>
+        <span className="text-white/20 text-xs font-mono tracking-wider uppercase anim-pulse-gold">Waiting for opponents</span>
       </div>
     );
   }
 
   if (phase === 'WAITING') {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex flex-col items-center gap-3">
+      <div className={`${panelClass} flex flex-col items-center gap-3`}>
         {chips <= 0 && (
-          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-xs font-mono uppercase tracking-wider border-white/[0.08] text-white/50" data-testid="button-rebuy-waiting">
+          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
             Rebuy $1000
           </Button>
         )}
-        <Button size="lg" onClick={() => onAction('start')} className="w-full sm:w-auto font-semibold tracking-widest uppercase" disabled={chips <= 0}>
+        <Button
+          size="lg"
+          onClick={() => onAction('start')}
+          className="w-full sm:w-auto font-bold tracking-[0.15em] uppercase bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          disabled={chips <= 0}
+        >
           Deal Me In
         </Button>
-        <p className="text-[10px] text-white/30 font-mono">$1 ante</p>
+        <p className="text-[9px] text-white/20 font-mono tracking-widest">$1 ANTE</p>
       </div>
     );
   }
 
   if (phase === 'ANTE') {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex justify-center">
-        <Button size="lg" onClick={() => { sfx.chipClink(); onAction('ante'); }} className="w-full sm:w-auto font-semibold uppercase">
+      <div className={`${panelClass} flex justify-center`}>
+        <Button
+          size="lg"
+          onClick={() => { sfx.chipClink(); onAction('ante'); }}
+          className="w-full sm:w-auto font-bold uppercase tracking-wider bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+        >
           Pay Ante ($1)
         </Button>
       </div>
@@ -111,34 +127,34 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   const hintEl = phaseHint ? (
-    <div className="text-xs text-[#C9A227]/70 text-center mb-2 leading-snug font-mono" data-testid="text-phase-hint">{phaseHint}</div>
+    <div className="text-[11px] text-[#C9A227]/50 text-center mb-3 leading-snug font-mono tracking-wide" data-testid="text-phase-hint">{phaseHint}</div>
   ) : null;
 
   const isHitPhase = phase.startsWith('HIT_');
   if (isHitPhase) {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] text-center">
+      <div className={`${panelClass} text-center`}>
         {hintEl}
-        <div className="text-sm font-mono text-white/40 mb-4 tracking-wide">HIT, STAY, OR FOLD</div>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Hit, Stay, or Fold</div>
+        <div className="grid grid-cols-3 gap-2">
           <Button
-            variant="destructive"
-            className="bg-red-600/15 text-red-400/80 hover:bg-red-600/25 border-0"
+            variant="outline"
+            className="bg-transparent border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
             onClick={() => { sfx.fold(); onAction('fold'); }}
             data-testid="button-fold"
           >
             Fold
           </Button>
           <Button
-            variant="secondary"
-            className="bg-[#1C1C20] text-white/80 hover:bg-[#242428] border-0"
+            variant="outline"
+            className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white/80 hover:border-white/[0.15] transition-all duration-200"
             onClick={() => { sfx.check(); onAction('stay'); }}
             data-testid="button-stay"
           >
             Stay
           </Button>
           <Button
-            className="font-semibold"
+            className="font-semibold bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]"
             onClick={() => { sfx.cardDeal(); onAction('hit'); }}
             data-testid="button-hit"
           >
@@ -157,10 +173,21 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     if (phase === 'DRAW_3') maxDiscards = 1;
 
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] text-center">
+      <div className={`${panelClass} text-center`}>
         {hintEl}
-        <div className="text-sm font-mono text-white/40 mb-4 tracking-wide">SELECT UP TO {maxDiscards} TO DISCARD ({selectedCardsCount}/{maxDiscards})</div>
-        <Button onClick={() => { if (selectedCardsCount > 0) sfx.cardFlip(); else sfx.check(); onAction('draw'); }} size="lg" className="w-full sm:w-auto" variant={selectedCardsCount > 0 ? "default" : "secondary"}>
+        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.15em] uppercase">
+          Select up to {maxDiscards} to discard
+          <span className="ml-2 text-[#C9A227]/50 font-bold">{selectedCardsCount}/{maxDiscards}</span>
+        </div>
+        <Button
+          onClick={() => { if (selectedCardsCount > 0) sfx.cardFlip(); else sfx.check(); onAction('draw'); }}
+          size="lg"
+          className={`w-full sm:w-auto font-semibold ${
+            selectedCardsCount > 0
+              ? 'bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]'
+              : 'bg-[#1C1C20] text-white/60 hover:bg-[#242428] hover:text-white/80'
+          }`}
+        >
           {selectedCardsCount > 0 ? `Discard ${selectedCardsCount}` : 'Stand Pat'}
         </Button>
       </div>
@@ -172,14 +199,14 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     const declOpts = declarationOptions || defaultDeclarationOptions;
     const isAllIn = chips <= 0;
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06]">
+      <div className={panelClass}>
         {hintEl}
-        <div className="text-center text-sm font-mono text-white/40 mb-4 tracking-wide">
-          {isAllIn ? "ALL-IN \u2014 DECLARE" : "STEP 1: DECLARE"}
+        <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">
+          {isAllIn ? "All-In — Declare" : "Step 1: Declare"}
         </div>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (
-            <Button key={opt.value} variant="outline" className={opt.className} onClick={() => {
+            <Button key={opt.value} variant="outline" className={`${opt.className} transition-all duration-200`} onClick={() => {
               sfx.declare();
               if (isAllIn) {
                 onAction('declare_and_bet', { declaration: opt.value, action: 'check', amount: 0 });
@@ -195,12 +222,12 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'DECLARE' && !pendingDeclaration) {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06]">
-        <div className="text-center text-sm font-mono text-white/40 mb-4 tracking-wide">DECLARE</div>
-        <div className="grid grid-cols-3 gap-2.5">
-          <Button variant="outline" className="border-red-600/40 hover:bg-red-600/15 text-red-200" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
-          <Button variant="outline" className="border-white/10 hover:bg-white/5 text-white/50" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
-          <Button variant="outline" className="border-blue-600/40 hover:bg-blue-600/15 text-blue-200" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
+      <div className={panelClass}>
+        <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Declare</div>
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" className="border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
+          <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/40 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
+          <Button variant="outline" className="border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
         </div>
       </div>
     );
@@ -222,11 +249,11 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   const isBetPhaseForAllIn = (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') && !phase.startsWith('HIT_');
   if (chips <= 0 && isBetPhaseForAllIn) {
     return (
-      <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex flex-col items-center gap-3">
-        <Badge variant="secondary" className="bg-[#C9A227]/15 text-[#C9A227]/80 border-[#C9A227]/20 font-mono text-xs">
+      <div className={`${panelClass} flex flex-col items-center gap-3`}>
+        <Badge variant="secondary" className="bg-[#C9A227]/10 text-[#C9A227]/70 border-[#C9A227]/15 font-mono text-[10px] tracking-widest">
           ALL IN
         </Badge>
-        <Button variant="secondary" className="w-full sm:w-auto" onClick={() => handleBetAction('check')} data-testid="button-check-allin">
+        <Button variant="secondary" className="w-full sm:w-auto bg-[#1C1C20] text-white/60 hover:bg-[#242428]" onClick={() => handleBetAction('check')} data-testid="button-check-allin">
           Check (All-In)
         </Button>
       </div>
@@ -234,25 +261,25 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   return (
-    <div className="w-full max-w-md mx-auto p-5 bg-[#141417]/95 backdrop-blur-lg rounded-t-2xl border-t border-white/[0.06] flex flex-col gap-4">
+    <div className={`${panelClass} flex flex-col gap-4`}>
       {phase === 'DECLARE_AND_BET' && (
-        <div className="flex justify-between items-center px-2">
-          <span className="text-xs font-mono text-white/30 tracking-wide">STEP 2: BET</span>
-          <Badge variant="secondary" className="bg-blue-600/15 text-blue-300/80 border-blue-500/20">
+        <div className="flex justify-between items-center px-1">
+          <span className="text-[10px] font-mono text-white/20 tracking-[0.15em] uppercase">Step 2: Bet</span>
+          <Badge variant="secondary" className="bg-blue-500/10 text-blue-300/60 border-blue-500/15 text-[10px] font-mono">
             {pendingDeclaration}
           </Badge>
         </div>
       )}
       
-      <div className="flex justify-between items-center px-2">
-        <Badge variant="outline" className="bg-[#0B0B0D]/60 font-mono border-white/[0.06] text-white/60">Pot: ${pot}</Badge>
-        {callAmount > 0 && <Badge variant="outline" className="bg-[#0B0B0D]/60 font-mono border-white/[0.06] text-white/60">To Call: ${callAmount}</Badge>}
+      <div className="flex justify-between items-center px-1">
+        <Badge variant="outline" className="bg-[#0B0B0D]/50 font-mono border-white/[0.05] text-white/45 text-[10px]">Pot ${pot}</Badge>
+        {callAmount > 0 && <Badge variant="outline" className="bg-[#0B0B0D]/50 font-mono border-white/[0.05] text-white/45 text-[10px]">Call ${callAmount}</Badge>}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button 
-          variant="destructive" 
-          className="bg-red-600/15 text-red-400/80 hover:bg-red-600/25 border-0"
+          variant="outline" 
+          className="bg-transparent border-red-500/20 text-red-400/60 hover:bg-red-500/8 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
           onClick={() => handleBetAction('fold')}
           data-testid="button-fold"
         >
@@ -260,17 +287,17 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         </Button>
         
         <Button 
-          variant="secondary"
-          className="bg-[#1C1C20] text-white/80 hover:bg-[#242428] border-0"
+          variant="outline"
+          className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white/80 hover:border-white/[0.12] transition-all duration-200"
           onClick={() => handleBetAction(canCheck ? 'check' : 'call')}
           data-testid={canCheck ? "button-check" : "button-call"}
         >
           {canCheck ? 'Check' : `Call $${callAmount}`}
         </Button>
 
-        <div className="col-span-2 flex gap-2.5">
+        <div className="col-span-2 flex gap-2">
           <Button 
-            className="flex-1 font-semibold"
+            className="flex-1 font-semibold bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.12)]"
             onClick={() => handleBetAction('raise', betAmount)}
             disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < betAmount}
             data-testid="button-raise"
@@ -281,8 +308,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       </div>
 
       {chips > 0 && maxBet > 0 && (
-        <div className="flex items-center gap-4 px-2">
-          <span className="text-xs font-mono text-white/30 min-w-[30px]">${callAmount > 0 ? callAmount * 2 : 2}</span>
+        <div className="flex items-center gap-3 px-1">
+          <span className="text-[10px] font-mono text-white/20 min-w-[30px] tabular-nums">${callAmount > 0 ? callAmount * 2 : 2}</span>
           <Slider 
             value={[betAmount]} 
             min={callAmount > 0 ? callAmount * 2 : 2} 
@@ -291,12 +318,12 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
             onValueChange={(val) => setBetAmount(val[0])}
             className="flex-1"
           />
-          <span className="text-xs font-mono text-white/30 min-w-[40px]">${maxBet}</span>
+          <span className="text-[10px] font-mono text-white/20 min-w-[40px] text-right tabular-nums">${maxBet}</span>
           
           <Button 
             variant="outline" 
             size="sm" 
-            className="text-xs h-9 px-3 min-w-[60px] border-[#C9A227]/30 text-[#C9A227]/80 hover:bg-[#C9A227]/10 font-semibold touch-manipulation"
+            className="text-[10px] h-8 px-3 min-w-[56px] border-[#C9A227]/20 text-[#C9A227]/60 hover:bg-[#C9A227]/8 hover:text-[#C9A227]/90 hover:border-[#C9A227]/30 font-bold tracking-widest touch-manipulation transition-all duration-200"
             onClick={() => handleBetAction('raise', chips)}
           >
             ALL IN

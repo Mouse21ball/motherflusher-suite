@@ -63,9 +63,19 @@ A client-side poker game platform supporting five custom poker variants, built w
 - **Phase hints**: Contextual 1-line tips shown in the Controls area during draw, declare, hit, and betting phases. Mode-specific. Defined in `client/src/lib/phaseHints.ts`.
 
 ## Sound & Animation System
-- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API synthesized — cardDeal, cardFlip, chipClink, fold, win, lose, check, declare, reveal.
+- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API synthesized — cardDeal, cardFlip, chipClink, fold, win (5-note arpeggio), lose (descending dual-tone), check, declare (ascending triangle), reveal. All layered with noise for depth.
 - **Phase sounds** (`client/src/lib/usePhaseSounds.ts`): Hook that plays sounds on phase transitions (deal, reveal, showdown, ante).
-- **CSS animations** (`client/src/index.css`): card-deal-in, card-flip, chip-toss, winner-glow, loser-fade, pot-collect, reveal-flash with `.anim-*` utility classes.
+- **CSS animations** (`client/src/index.css`): card-deal-in, card-flip, chip-toss, winner-glow, loser-fade, pot-collect, reveal-flash, slide-up-fade, count-up, pulse-gold with `.anim-*` utility classes.
+
+## Visual Design System
+- **Color tokens**: `--color-surface: #0B0B0D`, `--color-panel: #141417`, `--color-elevated: #1C1C20`, `--color-gold: #C9A227`, `--color-gold-light: #D4B44A`
+- **Fonts**: Inter (sans), JetBrains Mono (mono), loaded from Google Fonts with weights 300-700
+- **Cards**: Parchment gradient front (`#FEFEFE → #F5F3EE → #EDE9E0`), layered shadows, gold-tinted crosshatch card backs. Selected state: gold outline with multi-layer glow.
+- **Table felt**: Rich green radial gradient with inset shadows and double-ring border, SVG noise texture overlay.
+- **Glass panels**: `.glass-panel` utility — 92% opacity `#141417` with blur(20px) + saturate(1.2).
+- **Chat**: Gold-themed message bubbles, on-brand with gold icon/input accent. No green.
+- **Controls**: Gold primary buttons (`#C9A227 → #D4B44A`) with shadow, outline secondary buttons with subtle hover states.
+- **Resolution overlay**: Win state shows gold gradient glow with count-up animation; loss is muted. Auto-plays win/lose sfx.
 
 ## Key Files
 - `client/src/pages/Home.tsx` — Mode-select lobby with per-mode chip balances and global history access

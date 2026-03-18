@@ -46,38 +46,38 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0B0B0D]/90 backdrop-blur-sm p-4" role="dialog" aria-labelledby="mode-intro-title" data-testid="overlay-mode-intro">
-      <div className="w-full max-w-sm bg-[#141417] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0B0B0D]/92 backdrop-blur-md p-4" role="dialog" aria-labelledby="mode-intro-title" data-testid="overlay-mode-intro">
+      <div className="w-full max-w-sm bg-[#141417] border border-white/[0.04] rounded-2xl shadow-2xl overflow-hidden anim-slide-up">
         <div className={`px-5 pt-5 pb-3 bg-gradient-to-r ${accentColor}`}>
           <div className="flex items-center justify-between">
-            <h2 id="mode-intro-title" className="text-lg font-semibold text-white/90 font-sans" data-testid="text-intro-title">{title}</h2>
-            <button onClick={dismiss} aria-label="Close" className="p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/50 hover:text-white/80 active:text-white/80 transition-colors duration-140 rounded-lg touch-manipulation" data-testid="button-intro-dismiss">
+            <h2 id="mode-intro-title" className="text-lg font-semibold text-white/85 font-sans" data-testid="text-intro-title">{title}</h2>
+            <button onClick={dismiss} aria-label="Close" className="p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/40 hover:text-white/70 active:text-white/70 transition-colors duration-200 rounded-lg touch-manipulation" data-testid="button-intro-dismiss">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-white/70 text-sm mt-1.5 leading-relaxed">{objective}</p>
+          <p className="text-white/55 text-sm mt-1.5 leading-relaxed">{objective}</p>
         </div>
 
         <div className="px-5 py-5">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-3">How it works</p>
+          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/20 mb-3 font-medium">How it works</p>
           <ol className="space-y-3">
             {steps.map((step, i) => (
               <li key={i} className="flex gap-3 items-start">
-                <span className="w-5 h-5 rounded-full bg-white/[0.05] flex items-center justify-center text-[10px] font-semibold text-white/50 shrink-0 mt-0.5 font-mono">
+                <span className="w-5 h-5 rounded-full bg-white/[0.03] flex items-center justify-center text-[9px] font-bold text-white/35 shrink-0 mt-0.5 font-mono border border-white/[0.04]">
                   {i + 1}
                 </span>
-                <span className="text-sm text-white/55 leading-relaxed">{step}</span>
+                <span className="text-sm text-white/45 leading-relaxed">{step}</span>
               </li>
             ))}
           </ol>
         </div>
 
         <div className="px-5 pb-5">
-          <Button onClick={dismiss} className="w-full font-semibold" size="lg" data-testid="button-intro-start">
+          <Button onClick={dismiss} className="w-full font-bold uppercase tracking-wider bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.15)]" size="lg" data-testid="button-intro-start">
             Got it
           </Button>
-          <p className="text-center text-[10px] text-white/20 mt-2 font-mono">
-            Tap Rules in the header anytime for details
+          <p className="text-center text-[9px] text-white/15 mt-2.5 font-mono tracking-wider">
+            Tap Rules in the header anytime
           </p>
         </div>
       </div>

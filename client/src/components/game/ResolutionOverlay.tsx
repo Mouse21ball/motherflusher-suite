@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Player } from "@/lib/poker/types";
+import { sfx } from "@/lib/sounds";
 
 interface ResolutionMessage {
   id: string;
@@ -29,8 +30,8 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   if (isRollover) {
     return {
       type: 'rollover',
-      primary: 'No qualifying hands.',
-      secondary: 'Pot carries forward.',
+      primary: 'No qualifying hands',
+      secondary: 'Pot carries forward',
       details: texts.filter(t => !/No qualif|rolls?\s*over/i.test(t)),
     };
   }
@@ -43,7 +44,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
     const isUncontested = texts.some(t => /last player standing/i.test(t));
     return {
       type: isUncontested ? 'uncontested' : 'win',
-      primary: isUncontested ? 'Uncontested.' : 'Pot awarded.',
+      primary: isUncontested ? 'Uncontested' : 'You win',
       secondary: amountStr ? `+${amountStr}` : '',
       details: isUncontested ? [] : texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
     };
@@ -52,7 +53,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   if (isSplit) {
     return {
       type: net > 0 ? 'win' : net < 0 ? 'loss' : 'split',
-      primary: 'Pot split.',
+      primary: 'Pot split',
       secondary: net > 0 ? `+${amountStr}` : net < 0 ? `-${amountStr}` : '',
       details: texts.filter(t => !/^Split Pot/i.test(t)),
     };
@@ -61,7 +62,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   if (heroPlayer?.isLoser || net < 0) {
     return {
       type: 'loss',
-      primary: 'Hand lost.',
+      primary: 'Hand lost',
       secondary: amountStr ? `-${amountStr}` : '',
       details: texts,
     };
@@ -70,7 +71,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   if (net === 0 && heroPlayer?.status === 'folded') {
     return {
       type: 'loss',
-      primary: 'Folded.',
+      primary: 'Folded',
       secondary: '',
       details: texts,
     };
@@ -79,7 +80,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   if (net > 0) {
     return {
       type: 'win',
-      primary: 'Pot awarded.',
+      primary: 'You win',
       secondary: `+${amountStr}`,
       details: texts,
     };
@@ -87,7 +88,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
 
   return {
     type: 'loss',
-    primary: 'Hand complete.',
+    primary: 'Hand complete',
     secondary: '',
     details: texts,
   };
@@ -95,14 +96,25 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
 
 export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange }: ResolutionOverlayProps) {
   const [visible, setVisible] = useState(false);
+  const soundPlayed = useRef(false);
 
   const resolutionMessages = messages.filter(m => m.isResolution);
 
   useEffect(() => {
     if (phase === 'SHOWDOWN' && resolutionMessages.length > 0) {
       setVisible(true);
+      if (!soundPlayed.current) {
+        soundPlayed.current = true;
+        const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
+        if (result.type === 'win' || result.type === 'uncontested') {
+          sfx.win();
+        } else if (result.type === 'loss') {
+          sfx.lose();
+        }
+      }
     } else if (phase !== 'SHOWDOWN') {
       setVisible(false);
+      soundPlayed.current = false;
     }
   }, [phase, resolutionMessages.length]);
 
@@ -110,32 +122,34 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
   const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
 
-  const accentMap = {
-    win: { border: 'border-[#C9A227]/40', line: 'bg-[#C9A227]', secondaryColor: 'text-[#C9A227]' },
-    loss: { border: 'border-white/10', line: 'bg-white/20', secondaryColor: 'text-white/40' },
-    split: { border: 'border-[#C9A227]/30', line: 'bg-[#C9A227]/60', secondaryColor: 'text-[#C9A227]/80' },
-    uncontested: { border: 'border-white/15', line: 'bg-white/20', secondaryColor: 'text-white/50' },
-    rollover: { border: 'border-amber-500/20', line: 'bg-amber-500/40', secondaryColor: 'text-amber-400/70' },
-  };
-
-  const accent = accentMap[result.type];
+  const isWin = result.type === 'win' || result.type === 'uncontested';
+  const isLoss = result.type === 'loss';
 
   return (
     <div
-      className="absolute inset-x-4 sm:inset-x-8 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex justify-center animate-in fade-in duration-200"
+      className="absolute inset-x-4 sm:inset-x-8 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex justify-center"
       data-testid="resolution-overlay"
     >
       <div
         className={`
-          bg-[#0B0B0D]/92 backdrop-blur-lg
-          ${accent.border} border rounded-xl
-          px-6 py-5 sm:px-10 sm:py-6
+          relative overflow-hidden
+          bg-[#0B0B0D]/94 backdrop-blur-xl
+          border rounded-2xl
+          px-8 py-6 sm:px-12 sm:py-8
           max-w-sm w-full
-          flex flex-col items-center gap-1
+          flex flex-col items-center gap-1.5
+          anim-slide-up
+          ${isWin ? 'border-[#C9A227]/30' : isLoss ? 'border-white/[0.06]' : 'border-[#C9A227]/15'}
         `}
       >
+        {isWin && (
+          <div className="absolute inset-0 bg-gradient-to-b from-[#C9A227]/[0.06] to-transparent pointer-events-none" />
+        )}
+
         <p
-          className="font-sans text-white/90 text-base sm:text-lg font-semibold tracking-wide text-center leading-tight animate-in fade-in duration-200"
+          className={`relative font-sans text-base sm:text-lg font-semibold tracking-wide text-center leading-tight ${
+            isWin ? 'text-[#C9A227]' : isLoss ? 'text-white/50' : 'text-white/70'
+          }`}
           data-testid="text-resolution-primary"
         >
           {result.primary}
@@ -143,8 +157,9 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
         {result.secondary && (
           <p
-            className={`font-mono text-xl sm:text-2xl font-bold tracking-tight text-center ${accent.secondaryColor} animate-in fade-in duration-200`}
-            style={{ animationDelay: '80ms', animationFillMode: 'both' }}
+            className={`relative font-mono text-2xl sm:text-3xl font-bold tracking-tight text-center anim-count-up ${
+              isWin ? 'text-[#C9A227]' : isLoss ? 'text-red-400/70' : 'text-white/50'
+            }`}
             data-testid="text-resolution-secondary"
           >
             {result.secondary}
@@ -153,12 +168,12 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
         {result.details.length > 0 && (
           <>
-            <div className={`w-12 h-px ${accent.line} my-2`} />
+            <div className={`w-8 h-px my-2 ${isWin ? 'bg-[#C9A227]/30' : 'bg-white/[0.08]'}`} />
             {result.details.map((detail, i) => (
               <p
                 key={i}
-                className="font-mono text-white/45 text-[11px] sm:text-xs text-center leading-relaxed animate-in fade-in"
-                style={{ animationDelay: `${140 + i * 60}ms`, animationFillMode: 'both' }}
+                className="relative font-mono text-white/35 text-[10px] sm:text-[11px] text-center leading-relaxed anim-slide-up"
+                style={{ animationDelay: `${100 + i * 60}ms`, animationFillMode: 'both' }}
                 data-testid={`text-resolution-${i}`}
               >
                 {detail}
