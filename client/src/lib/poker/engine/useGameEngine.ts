@@ -195,6 +195,11 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       return;
     }
 
+    // Betting phases get more "think" time — builds pressure at the table
+    const thinkMs = (state.phase.startsWith('BET') || state.phase === 'DECLARE_AND_BET')
+      ? 1200 + Math.random() * 600   // 1200–1800ms during betting
+      : 700 + Math.random() * 400;   // 700–1100ms during ante/draw/declare
+
     const timer = setTimeout(() => {
       setState(s => {
         const actionResult = mode.botAction(s, botId);
@@ -219,14 +224,16 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         }
 
         if (roundOver) {
-            safeTimeout(advancePhase, 500);
+            // Raises get a longer hold before the phase advances — the bet needs to land
+            const wasRaise = (stateUpdates.currentBet ?? s.currentBet) > (s.currentBet ?? 0);
+            safeTimeout(advancePhase, wasRaise ? 750 : 500);
         } else if (nextPlayerId) {
             newS.activePlayerId = nextPlayerId;
         }
 
         return newS as GameState;
       });
-    }, 1500);
+    }, Math.round(thinkMs));
 
     return () => clearTimeout(timer);
   }, [state.activePlayerId, state.phase, myId, mode, advancePhase]);
@@ -445,7 +452,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       return;
     }
 
-    const processActionEnd = () => {
+    const processActionEnd = (advanceDelay = 500) => {
        setState(s => {
            const isBetPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
            const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
@@ -475,7 +482,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
            const roundDone = isBetPhase ? (allActed && allBetsMatch) : allActed;
 
            if (roundDone) {
-               safeTimeout(advancePhase, 500);
+               safeTimeout(advancePhase, advanceDelay);
                return s;
            }
 
@@ -563,7 +570,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           messages: [...s.messages, { id: Math.random().toString(), text: `You raised to $${prevBet + increment}`, time: Date.now() }].slice(-5)
         };
       });
-      processActionEnd();
+      // Raise gets more weight before the phase moves on
+      processActionEnd(700);
     }
 
     if (action === 'draw') {
@@ -731,7 +739,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         };
       });
       
-      processActionEnd();
+      // Raises in declare_and_bet also hold slightly longer
+      processActionEnd(payload.action === 'raise' ? 700 : 500);
     }
 
   }, [state.activePlayerId, state.currentBet, state.pot, myId, advancePhase]);
@@ -746,6 +755,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   useEffect(() => {
     if (state.phase === 'SHOWDOWN') {
+      // Longer pre-resolution pause — give the table a beat before cards flip
       const timer = setTimeout(() => {
         setState(s => {
           try {
@@ -896,9 +906,10 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                     messages: [{ id: Math.random().toString(), text: rolloverMsg, time: Date.now() }]
                 };
             });
-        }, 8000);
+        }, 5000);
         
-      }, 500);
+      // 900ms pre-resolution: table breathes before cards flip
+      }, 900);
       return () => clearTimeout(timer);
     }
   }, [state.phase, myId, mode]);
