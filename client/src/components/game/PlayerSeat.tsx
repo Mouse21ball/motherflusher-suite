@@ -77,29 +77,25 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         </div>
       )}
 
-      <div className={cn(
-        "relative flex justify-center mb-[-20px] transition-all duration-200 origin-bottom",
-        isSelf ? "z-50 mb-4" : "z-10 scale-75 pointer-events-none"
-      )}
-        style={isSelf ? {} : { gap: '-2rem' }}
+      <div
+        className={cn(
+          "relative flex justify-center",
+          isSelf ? "z-50 mb-4" : "z-10 scale-75 pointer-events-none mb-[-20px]"
+        )}
+        style={isSelf ? { width: '100%', maxWidth: '420px', margin: '0 auto 16px' } : undefined}
       >
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
           const canSelect = isSelf && selectableCards;
-          const hasAnySelected = selectedCardIndices.length > 0;
           const n = player.cards.length;
           const center = (n - 1) / 2;
           const offset = idx - center;
 
-          const heroGap = hasAnySelected ? 6 : 0;
-          const baseMargin = isSelf
-            ? (n <= 4 ? -8 : n <= 6 ? -12 : -16) + heroGap
-            : -32;
-          const marginLeft = idx === 0 ? 0 : baseMargin;
-
-          const rotDeg = isSelf ? offset * (hasAnySelected ? 4 : 6) : offset * 10;
-          const arcY = Math.abs(offset) * (isSelf ? 3 : 5);
+          const marginLeft = idx === 0 ? 0 : (isSelf ? -22 : -32);
+          const rotDeg = isSelf ? 0 : offset * 10;
+          const arcY = isSelf ? 0 : Math.abs(offset) * 5;
           const liftY = isSelected ? -14 : 0;
+          const scaleVal = isSelected ? 1.03 : 1;
 
           return (
             <div 
@@ -107,10 +103,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               className="relative anim-card-deal"
               style={{ 
                 marginLeft: `${marginLeft}px`,
-                transform: `rotate(${rotDeg}deg) translateY(${arcY + liftY}px)`,
+                transform: `rotate(${rotDeg}deg) translateY(${arcY + liftY}px) scale(${scaleVal})`,
                 zIndex: isSelected ? 40 : 10 + idx,
                 animationDelay: `${idx * 0.06}s`,
-                transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), margin 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transition: 'transform 120ms ease, box-shadow 120ms ease',
                 transformOrigin: 'bottom center',
               }}
               onClick={(e) => {

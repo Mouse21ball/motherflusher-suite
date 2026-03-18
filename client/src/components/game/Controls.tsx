@@ -30,7 +30,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
   { label: 'LOW', value: 'LOW', className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-const panelClass = "w-full max-w-md mx-auto p-5 glass-panel rounded-t-2xl border-t border-white/[0.04]";
+const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-4 glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
