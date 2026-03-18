@@ -243,6 +243,10 @@
   100% { opacity: 1; transform: scale(1); }
 }
 
+.anim-message-auto {
+  animation: message-fade 3.0s ease-out forwards;
+}
+
 .anim-card-deal {
   animation: card-deal-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }

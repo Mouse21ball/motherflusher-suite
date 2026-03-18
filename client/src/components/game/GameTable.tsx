@@ -1,4 +1,5 @@
-import { GameState, Player } from "@/lib/poker/types";
+import { useState, useEffect, useRef } from "react";
+import { GameState } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { ResolutionOverlay } from "./ResolutionOverlay";
@@ -20,6 +21,19 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     orderedPlayers.unshift(...p1);
   }
 
+  // #5 — Pot pulse: fires briefly whenever the pot value increases
+  const [potPulse, setPotPulse] = useState(false);
+  const prevPotRef = useRef(gameState.pot);
+  useEffect(() => {
+    if (gameState.pot !== prevPotRef.current && gameState.pot > 0) {
+      setPotPulse(true);
+      const t = setTimeout(() => setPotPulse(false), 280);
+      prevPotRef.current = gameState.pot;
+      return () => clearTimeout(t);
+    }
+    prevPotRef.current = gameState.pot;
+  }, [gameState.pot]);
+
   const getSeatPosition = (index: number) => {
     const positions = [
       "-bottom-6 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
@@ -31,6 +45,11 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     return positions[index] || "hidden";
   };
 
+  // #4 — determine whether to show a live message or fall back to the phase label
+  const lastMsg = gameState.messages[gameState.messages.length - 1];
+  const isIdleMessage = !lastMsg || lastMsg.text === 'Game ready. Waiting for start...';
+  const showMessage = gameState.phase !== 'SHOWDOWN' && !isIdleMessage;
+
   return (
     <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-32 px-2 sm:px-8">
       <div className="relative h-[70vh] min-h-[560px]">
@@ -38,16 +57,25 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-6 sm:pt-8">
-            <div className="text-white/30 text-sm sm:text-base font-mono tracking-[0.2em] mb-1.5 uppercase text-center font-medium" data-testid="text-phase">
-              {getPhaseLabel(gameState.phase)}
-            </div>
 
-            <div className="text-center pointer-events-auto mb-1.5 sm:mb-2.5 min-h-[24px]">
-              {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-                <p key={msg.id} className="text-white/70 text-[10px] sm:text-xs font-mono animate-in fade-in drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.06]" data-testid="text-game-message">
-                  {msg.text}
+            {/* #1 + #4 — Single focal point: message auto-fades, phase label is fallback */}
+            <div className="text-center pointer-events-auto mb-1.5 sm:mb-2.5 min-h-[28px] flex items-center justify-center">
+              {showMessage ? (
+                <p
+                  key={lastMsg.id}
+                  className="text-white/60 text-[10px] sm:text-xs font-mono anim-message-auto bg-[#0B0B0D]/75 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
+                  data-testid="text-game-message"
+                >
+                  {lastMsg.text}
                 </p>
-              ))}
+              ) : (
+                <span
+                  className="text-white/20 text-[10px] font-mono tracking-[0.2em] uppercase"
+                  data-testid="text-phase"
+                >
+                  {getPhaseLabel(gameState.phase)}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
@@ -90,6 +118,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           </div>
         </div>
 
+        {/* #5 — Pot: number pulses gold briefly when pot value changes */}
         <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
           <div className="bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center" data-testid="text-pot">
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
@@ -97,7 +126,11 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-[#C9A227]/40"></div>
               </div>
-              <span className="text-base sm:text-lg font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
+              <span
+                className={`text-base sm:text-lg font-mono font-bold tracking-tight tabular-nums transition-all duration-150 ${potPulse ? 'text-[#C9A227] scale-110' : 'text-white'}`}
+              >
+                ${gameState.pot}
+              </span>
             </div>
           </div>
         </div>
@@ -115,7 +148,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 onCardClick={onCardClick}
                 selectableCards={selectableCards}
                 showdownState={gameState.phase === 'SHOWDOWN'}
-                className={player?.id === myId ? "bg-[#0B0B0D]/85 p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-6" : ""}
+                className={player?.id === myId ? "bg-[#0B0B0D]/85 p-4 pt-3 rounded-xl shadow-xl border border-white/[0.05] backdrop-blur-sm" : ""}
               />
             </div>
           );
