@@ -78,24 +78,40 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
 
       <div className={cn(
-        "relative flex justify-center -space-x-4 sm:-space-x-2 mb-[-20px] transition-all duration-200 origin-bottom",
-        isSelf ? "z-50 scale-100 hover:scale-110 mb-4 cursor-pointer" : "z-10 scale-75 pointer-events-none -space-x-8"
-      )}>
+        "relative flex justify-center mb-[-20px] transition-all duration-200 origin-bottom",
+        isSelf ? "z-50 mb-4" : "z-10 scale-75 pointer-events-none"
+      )}
+        style={isSelf ? {} : { gap: '-2rem' }}
+      >
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
           const canSelect = isSelf && selectableCards;
-          
+          const hasAnySelected = selectedCardIndices.length > 0;
+          const n = player.cards.length;
+          const center = (n - 1) / 2;
+          const offset = idx - center;
+
+          const heroGap = hasAnySelected ? 6 : 0;
+          const baseMargin = isSelf
+            ? (n <= 4 ? -8 : n <= 6 ? -12 : -16) + heroGap
+            : -32;
+          const marginLeft = idx === 0 ? 0 : baseMargin;
+
+          const rotDeg = isSelf ? offset * (hasAnySelected ? 4 : 6) : offset * 10;
+          const arcY = Math.abs(offset) * (isSelf ? 3 : 5);
+          const liftY = isSelected ? -14 : 0;
+
           return (
             <div 
               key={idx}
-              className={cn(
-                "relative transition-all duration-200 origin-bottom anim-card-deal",
-              )}
+              className="relative anim-card-deal"
               style={{ 
-                transform: `rotate(${(idx - (player.cards.length - 1)/2) * 10}deg) translateY(${isSelected ? Math.abs(idx - (player.cards.length - 1)/2) * 5 - 20 : Math.abs(idx - (player.cards.length - 1)/2) * 5}px)${isSelected ? ' scale(1.08)' : ''}`,
+                marginLeft: `${marginLeft}px`,
+                transform: `rotate(${rotDeg}deg) translateY(${arcY + liftY}px)`,
                 zIndex: isSelected ? 40 : 10 + idx,
                 animationDelay: `${idx * 0.06}s`,
-                transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), margin 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transformOrigin: 'bottom center',
               }}
               onClick={(e) => {
                 e.preventDefault();
@@ -112,9 +128,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 isSelfHidden={isSelf && card.isHidden}
                 className={isSelf && heroCardClassName ? heroCardClassName : undefined}
               />
-              {canSelect && !isSelected && (
-                <div className="absolute inset-0 z-50 rounded-md ring-1 ring-[#C9A227]/40 bg-[#C9A227]/5 pointer-events-none" />
-              )}
             </div>
           );
         })}
