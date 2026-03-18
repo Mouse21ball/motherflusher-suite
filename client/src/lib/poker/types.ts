@@ -10,6 +10,10 @@ export interface CardType {
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
 export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | 'POKER' | 'SUITS' | null;
 
+// Distinguishes a real human seat from a bot seat.
+// Used by future seat management to know which seats can be claimed.
+export type PlayerPresence = 'human' | 'bot';
+
 export interface HandEvaluation {
   description: string;
   usedHoleCardIndices: number[];
@@ -22,6 +26,7 @@ export interface Player {
   id: string;
   name: string;
   avatarUrl?: string;
+  presence?: PlayerPresence;
   chips: number;
   bet: number;
   totalBet?: number;
@@ -46,6 +51,21 @@ export interface Player {
     swingPokerValue?: number;
     swingSuitsScore?: number;
   };
+}
+
+// Aggregated stats computed from HandRecord history.
+export interface PlayerStats {
+  handsPlayed: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  winRate: number;
+  biggestWin: number;
+  biggestLoss: number;
+  currentStreak: number;
+  streakType: 'win' | 'loss' | 'none';
+  totalChipChange: number;
+  byMode: Record<string, { played: number; wins: number; chipChange: number }>;
 }
 
 export type GamePhase = 

@@ -1,13 +1,12 @@
-const PLAYER_ID_KEY = "poker_table_analytics_id";
+import { ensurePlayerIdentity } from './persistence';
+
 const SESSION_START_KEY = "poker_table_session_start";
 
+// Returns the stable canonical player ID from the unified identity.
+// Replaces the old standalone `poker_table_analytics_id` key.
+// The identity is created on first call and persisted in localStorage.
 function getPlayerId(): string {
-  let id = localStorage.getItem(PLAYER_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(PLAYER_ID_KEY, id);
-  }
-  return id;
+  return ensurePlayerIdentity().id;
 }
 
 function fire(body: Record<string, unknown>): void {

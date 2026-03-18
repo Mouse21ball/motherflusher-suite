@@ -3,6 +3,34 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 
+// ─── In-memory table registry ─────────────────────────────────────────────────
+// Ephemeral — lives for the server process lifetime.
+// Tables are keyed by their 6-char code. When server restarts, tables clear.
+// This is intentional for the alpha: sessions are short-lived.
+// Future: migrate to DB-backed storage when persistent lobbies are needed.
+
+interface TableRecord {
+  tableId: string;
+  modeId: string;
+  createdBy: string;
+  createdAt: number;
+  playerCount: number;
+}
+
+const tables = new Map<string, TableRecord>();
+
+// Auto-expire tables after 4 hours to prevent memory growth
+const TABLE_TTL_MS = 4 * 60 * 60 * 1000;
+
+function pruneExpiredTables(): void {
+  const cutoff = Date.now() - TABLE_TTL_MS;
+  for (const [code, table] of tables.entries()) {
+    if (table.createdAt < cutoff) tables.delete(code);
+  }
+}
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+
 const trackEventSchema = z.object({
   eventType: z.enum(["session_start", "session_end", "mode_play"]),
   playerId: z.string().min(1),
@@ -10,17 +38,25 @@ const trackEventSchema = z.object({
   durationMs: z.number().int().optional(),
 });
 
+const createTableSchema = z.object({
+  tableId: z.string().length(6).regex(/^[A-Z0-9]+$/),
+  modeId: z.string().min(1),
+  createdBy: z.string().min(1),
+});
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Analytics — unchanged
   app.post("/api/analytics/track", async (req, res) => {
     try {
       let body = req.body;
       if (typeof body === "string") {
-        try {
-          body = JSON.parse(body);
-        } catch {}
+        try { body = JSON.parse(body); } catch {}
       }
       if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
         const raw =
@@ -32,9 +68,7 @@ export async function registerRoutes(
               ? (req as any).rawBody
               : null;
         if (raw) {
-          try {
-            body = JSON.parse(raw);
-          } catch {}
+          try { body = JSON.parse(raw); } catch {}
         }
       }
       const parsed = trackEventSchema.parse(body);
@@ -66,6 +100,54 @@ export async function registerRoutes(
       console.error("Analytics stats error:", err);
       res.status(500).json({ error: "Failed to load stats" });
     }
+  });
+
+  // ── Table management ──────────────────────────────────────────────────────
+
+  // POST /api/tables — register a new table
+  // Called by the client when a player starts a session.
+  // Returns 201 on success, 409 if the code is already taken.
+  app.post("/api/tables", (req, res) => {
+    pruneExpiredTables();
+    try {
+      const parsed = createTableSchema.parse(req.body);
+      const code = parsed.tableId.toUpperCase();
+
+      if (tables.has(code)) {
+        res.status(409).json({ error: "Table code already in use" });
+        return;
+      }
+
+      const record: TableRecord = {
+        tableId: code,
+        modeId: parsed.modeId,
+        createdBy: parsed.createdBy,
+        createdAt: Date.now(),
+        playerCount: 1,
+      };
+      tables.set(code, record);
+      res.status(201).json({ tableId: code, modeId: record.modeId, createdAt: record.createdAt });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid table data" });
+      } else {
+        console.error("Create table error:", err);
+        res.status(500).json({ error: "Failed to create table" });
+      }
+    }
+  });
+
+  // GET /api/tables/:code — look up a table by its 6-char code
+  // Returns the table record or 404 if not found / expired.
+  app.get("/api/tables/:code", (req, res) => {
+    pruneExpiredTables();
+    const code = (req.params.code || "").toUpperCase();
+    const table = tables.get(code);
+    if (!table) {
+      res.status(404).json({ error: "Table not found" });
+      return;
+    }
+    res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt });
   });
 
   return httpServer;

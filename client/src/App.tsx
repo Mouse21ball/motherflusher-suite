@@ -17,6 +17,7 @@ import Fifteen35Game from "@/pages/Fifteen35Game";
 import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
+import JoinTable from "@/pages/JoinTable";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
         <Route path="/dead7" component={Dead7Game}/>
         <Route path="/fifteen35" component={Fifteen35Game}/>
         <Route path="/suitspoker" component={SuitsPokerGame}/>
+        <Route path="/join/:code" component={JoinTable}/>
         <Route path="/admin" component={Admin}/>
         <Route path="/terms" component={Terms}/>
         <Route component={NotFound} />

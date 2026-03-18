@@ -2,17 +2,21 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } from '../types';
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, buildSidePots } from './core';
 import { GameMode } from './types';
-import { getChips, saveChips, addHandRecord, HandRecord, getPlayerName } from '../../persistence';
+import { getChips, saveChips, addHandRecord, HandRecord, ensurePlayerIdentity } from '../../persistence';
+import { generateTableCode } from '../../tableSession';
 
-export const createMockPlayers = (heroChips: number): Player[] => [
-  { id: 'p1', name: getPlayerName() || 'You', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-  { id: 'p2', name: 'Alice', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true, declaration: null, hasActed: false },
-  { id: 'p3', name: 'Bob', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-  { id: 'p4', name: 'Charlie', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-];
+export const createMockPlayers = (heroChips: number): Player[] => {
+  const identity = ensurePlayerIdentity();
+  return [
+    { id: 'p1', name: identity.name || 'You', presence: 'human', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Alice',   presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p3', name: 'Bob',     presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Charlie', presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+  ];
+};
 
 export const createInitialState = (heroChips: number = 1000): GameState => ({
-  tableId: 't1',
+  tableId: generateTableCode(),
   phase: 'WAITING',
   pot: 0,
   currentBet: 0,
