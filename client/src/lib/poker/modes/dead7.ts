@@ -357,8 +357,8 @@ export const Dead7Mode: GameMode = {
   },
 
   resolveShowdown: (players: Player[], pot: number, myId: string) => {
-    const finalPlayers = players.map(p => {
-      if (p.id === myId || p.status === 'folded') return p;
+    let finalPlayers = players.map(p => {
+      if (p.id === myId || p.status === 'folded') return { ...p };
       const newCards = p.cards.map((c): CardType => ({ ...c, isHidden: false }));
       return { ...p, cards: newCards, score: evaluateDead7(newCards) };
     });
@@ -375,10 +375,9 @@ export const Dead7Mode: GameMode = {
     let messages: string[] = [];
 
     if (activePlayers.length === 1) {
-      const sole = finalPlayers.find(p => p.id === activePlayers[0].id)!;
-      sole.chips += pot;
-      sole.isWinner = true;
-      messages.push(`${sole.name} wins $${pot} (last player standing)`);
+      const soleIdx = finalPlayers.findIndex(p => p.id === activePlayers[0].id);
+      finalPlayers[soleIdx] = { ...finalPlayers[soleIdx], chips: finalPlayers[soleIdx].chips + pot, isWinner: true };
+      messages.push(`${finalPlayers[soleIdx].name} wins $${pot} (last player standing)`);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -395,7 +394,7 @@ export const Dead7Mode: GameMode = {
 
     if (qualified.length === 0) {
       messages.push(`No qualifying hands. $${pot} rolls over!`);
-      finalPlayers.forEach(p => { if (p.status !== 'folded') p.isLoser = true; });
+      finalPlayers = finalPlayers.map(p => p.status !== 'folded' ? { ...p, isLoser: true } : p);
       return { players: finalPlayers, pot, messages };
     }
 
@@ -404,11 +403,10 @@ export const Dead7Mode: GameMode = {
     const allFlushes = [...highFlushes, ...lowFlushes];
 
     if (allFlushes.length === 1) {
-      const winner = finalPlayers.find(p => p.id === allFlushes[0].id)!;
-      winner.chips += pot;
-      winner.isWinner = true;
-      messages.push(`${winner.name} scoops $${pot} with ${allFlushes[0].eval7.description}!`);
-      finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+      const winIdx = finalPlayers.findIndex(p => p.id === allFlushes[0].id);
+      finalPlayers[winIdx] = { ...finalPlayers[winIdx], chips: finalPlayers[winIdx].chips + pot, isWinner: true };
+      messages.push(`${finalPlayers[winIdx].name} scoops $${pot} with ${allFlushes[0].eval7.description}!`);
+      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -417,13 +415,12 @@ export const Dead7Mode: GameMode = {
       const flushRemainder = pot % allFlushes.length;
       messages.push(`Split Pot — ${allFlushes.length} flushes split $${pot}`);
       allFlushes.forEach((q, idx) => {
-        const p = finalPlayers.find(p => p.id === q.id)!;
+        const pIdx = finalPlayers.findIndex(p => p.id === q.id);
         const award = flushShare + (idx === 0 ? flushRemainder : 0);
-        p.chips += award;
-        p.isWinner = true;
-        messages.push(`${p.name} receives $${award} (${q.eval7.description})`);
+        finalPlayers[pIdx] = { ...finalPlayers[pIdx], chips: finalPlayers[pIdx].chips + award, isWinner: true };
+        messages.push(`${finalPlayers[pIdx].name} receives $${award} (${q.eval7.description})`);
       });
-      finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -432,11 +429,10 @@ export const Dead7Mode: GameMode = {
     const allBadugis = [...highBadugis, ...lowBadugis];
 
     if (allBadugis.length === 1) {
-      const winner = finalPlayers.find(p => p.id === allBadugis[0].id)!;
-      winner.chips += pot;
-      winner.isWinner = true;
-      messages.push(`${winner.name} scoops $${pot} with ${allBadugis[0].eval7.description}!`);
-      finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+      const winIdx = finalPlayers.findIndex(p => p.id === allBadugis[0].id);
+      finalPlayers[winIdx] = { ...finalPlayers[winIdx], chips: finalPlayers[winIdx].chips + pot, isWinner: true };
+      messages.push(`${finalPlayers[winIdx].name} scoops $${pot} with ${allBadugis[0].eval7.description}!`);
+      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -445,13 +441,12 @@ export const Dead7Mode: GameMode = {
       const badugiRemainder = pot % allBadugis.length;
       messages.push(`Split Pot — ${allBadugis.length} badugis split $${pot}`);
       allBadugis.forEach((q, idx) => {
-        const p = finalPlayers.find(p => p.id === q.id)!;
+        const pIdx = finalPlayers.findIndex(p => p.id === q.id);
         const award = badugiShare + (idx === 0 ? badugiRemainder : 0);
-        p.chips += award;
-        p.isWinner = true;
-        messages.push(`${p.name} receives $${award} (${q.eval7.description})`);
+        finalPlayers[pIdx] = { ...finalPlayers[pIdx], chips: finalPlayers[pIdx].chips + award, isWinner: true };
+        messages.push(`${finalPlayers[pIdx].name} receives $${award} (${q.eval7.description})`);
       });
-      finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -489,22 +484,24 @@ export const Dead7Mode: GameMode = {
     }
 
     if (highWinner) {
-      const p = finalPlayers.find(p => p.id === highWinner!.id)!;
-      p.chips += highPot;
-      p.isWinner = true;
-      messages.push(`${p.name} wins HIGH — $${highPot} (${highWinner.eval7.description})`);
+      const idx = finalPlayers.findIndex(p => p.id === highWinner!.id);
+      if (idx !== -1) {
+        finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + highPot, isWinner: true };
+        messages.push(`${finalPlayers[idx].name} wins HIGH — $${highPot} (${highWinner.eval7.description})`);
+      }
     }
 
     if (lowWinner) {
-      const p = finalPlayers.find(p => p.id === lowWinner!.id)!;
-      p.chips += lowPot;
-      p.isWinner = true;
-      messages.push(`${p.name} wins LOW — $${lowPot} (${lowWinner.eval7.description})`);
+      const idx = finalPlayers.findIndex(p => p.id === lowWinner!.id);
+      if (idx !== -1) {
+        finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + lowPot, isWinner: true };
+        messages.push(`${finalPlayers[idx].name} wins LOW — $${lowPot} (${lowWinner.eval7.description})`);
+      }
     }
 
-    finalPlayers.forEach(p => {
-      if (p.status !== 'folded' && !p.isWinner) p.isLoser = true;
-    });
+    finalPlayers = finalPlayers.map(p =>
+      p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p
+    );
 
     return { players: finalPlayers, pot: 0, messages };
   }

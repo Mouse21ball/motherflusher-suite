@@ -21,19 +21,6 @@ export default function Fifteen35Game() {
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, "15 / 35");
 
-  const isHitPhase = state.phase.startsWith('HIT_');
-  const alreadyStayed = me?.declaration === 'STAY';
-  const alreadyBust = me?.declaration === 'BUST';
-
-  useEffect(() => {
-    if (isHitPhase && (alreadyStayed || alreadyBust) && state.activePlayerId === myId) {
-      const timer = setTimeout(() => {
-        handleAction('stay');
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isHitPhase, alreadyStayed, alreadyBust, state.activePlayerId, myId, handleAction]);
-
   const handleControlAction = (action: string, amount?: number | any) => {
     handleAction(action, amount);
   };

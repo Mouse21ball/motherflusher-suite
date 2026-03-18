@@ -249,8 +249,8 @@ export const BadugiMode: GameMode = {
   },
 
   resolveShowdown: (players: Player[], pot: number, myId: string) => {
-    const finalPlayers = players.map(p => {
-      if (p.id === myId || p.status === 'folded') return p;
+    let finalPlayers = players.map(p => {
+      if (p.id === myId || p.status === 'folded') return { ...p };
       const newCards = p.cards.map((c): CardType => ({...c, isHidden: false}));
       return { ...p, cards: newCards, score: evaluateBadugi(newCards) };
     });
@@ -267,10 +267,9 @@ export const BadugiMode: GameMode = {
     let messages: string[] = [];
 
     if (activePlayers.length === 1) {
-      const sole = finalPlayers.find(p => p.id === activePlayers[0].id)!;
-      sole.chips += pot;
-      sole.isWinner = true;
-      messages.push(`${sole.name} wins $${pot} (last player standing)`);
+      const soleIdx = finalPlayers.findIndex(p => p.id === activePlayers[0].id);
+      finalPlayers[soleIdx] = { ...finalPlayers[soleIdx], chips: finalPlayers[soleIdx].chips + pot, isWinner: true };
+      messages.push(`${finalPlayers[soleIdx].name} wins $${pot} (last player standing)`);
       return { players: finalPlayers, pot: 0, messages };
     }
 
@@ -307,11 +306,10 @@ export const BadugiMode: GameMode = {
     if (!highWinner && !lowWinner) {
       const activeWithValidBadugi = activePlayers.filter(p => p.score?.isValidBadugi);
       if (activeWithValidBadugi.length === 1) {
-        const sole = finalPlayers.find(p => p.id === activeWithValidBadugi[0].id)!;
-        sole.chips += pot;
-        sole.isWinner = true;
-        messages.push(`${sole.name} wins $${pot} (only valid badugi)`);
-        finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+        const soleIdx = finalPlayers.findIndex(p => p.id === activeWithValidBadugi[0].id);
+        finalPlayers[soleIdx] = { ...finalPlayers[soleIdx], chips: finalPlayers[soleIdx].chips + pot, isWinner: true };
+        messages.push(`${finalPlayers[soleIdx].name} wins $${pot} (only valid badugi)`);
+        finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
         return { players: finalPlayers, pot: 0, messages };
       }
       messages.push(`No qualifying hands. $${pot} rolls over!`);
@@ -331,28 +329,24 @@ export const BadugiMode: GameMode = {
     }
 
     if (highWinner) {
-      const p = finalPlayers.find(p => p.id === highWinner!.id);
-      if (p) {
-        p.chips += highPot;
-        p.isWinner = true;
-        messages.push(`${p.name} wins HIGH — $${highPot} (${p.score?.description || 'Badugi'})`);
+      const idx = finalPlayers.findIndex(p => p.id === highWinner!.id);
+      if (idx !== -1) {
+        finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + highPot, isWinner: true };
+        messages.push(`${finalPlayers[idx].name} wins HIGH — $${highPot} (${finalPlayers[idx].score?.description || 'Badugi'})`);
       }
     }
 
     if (lowWinner) {
-      const p = finalPlayers.find(p => p.id === lowWinner!.id);
-      if (p) {
-        p.chips += lowPot;
-        p.isWinner = true;
-        messages.push(`${p.name} wins LOW — $${lowPot} (${p.score?.description || 'Badugi'})`);
+      const idx = finalPlayers.findIndex(p => p.id === lowWinner!.id);
+      if (idx !== -1) {
+        finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + lowPot, isWinner: true };
+        messages.push(`${finalPlayers[idx].name} wins LOW — $${lowPot} (${finalPlayers[idx].score?.description || 'Badugi'})`);
       }
     }
 
-    finalPlayers.forEach(p => {
-      if (p.status !== 'folded' && !p.isWinner) {
-        p.isLoser = true;
-      }
-    });
+    finalPlayers = finalPlayers.map(p =>
+      p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p
+    );
 
     return { players: finalPlayers, pot: 0, messages };
   }

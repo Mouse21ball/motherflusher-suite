@@ -99,6 +99,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   const chipsBeforeHandRef = useRef<number>(savedChips);
   const mountedRef = useRef(true);
   const pendingTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const advancingFromPhaseRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -128,6 +129,9 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   const advancePhase = useCallback(() => {
     setState(s => {
       if (s.phase === 'SHOWDOWN') return s;
+      if (advancingFromPhaseRef.current === s.phase) return s;
+      advancingFromPhaseRef.current = s.phase;
+
       const overridePhase = mode.getNextPhase?.(s.phase, s);
       const currentPhaseIndex = mode.phases.indexOf(s.phase);
       const nextPhaseIndex = (currentPhaseIndex + 1) % mode.phases.length;
@@ -422,6 +426,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
           ...s,
           phase: 'ANTE' as GamePhase,
           currentBet: 0,
+          heroChipChange: undefined,
           activePlayerId: nextPlayers[firstToActIdx].id,
           players: nextPlayers,
           communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
@@ -612,6 +617,11 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (action === 'hit') {
       setState(s => {
         const newDeck = [...s.deck];
+        const newDiscard = [...(s.discardPile || [])];
+        if (newDeck.length === 0 && newDiscard.length > 0) {
+          newDeck.push(...newDiscard.sort(() => Math.random() - 0.5));
+          newDiscard.length = 0;
+        }
         const newPlayers = s.players.map(p => {
           if (p.id !== myId) return p;
           const hitCard = newDeck.shift();
@@ -642,6 +652,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
         return {
           ...s,
           deck: newDeck,
+          discardPile: newDiscard,
           players: newPlayers,
           messages: [...s.messages, { id: Math.random().toString(), text: bustMsg, time: Date.now() }].slice(-5)
         };
@@ -726,6 +737,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   }, [state.activePlayerId, state.currentBet, state.pot, myId, advancePhase]);
 
   useEffect(() => {
+    advancingFromPhaseRef.current = null;
     if (state.phase === 'ANTE') {
       const me = state.players.find(p => p.id === myId);
       if (me) chipsBeforeHandRef.current = me.chips;
@@ -834,9 +846,10 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                 const activePlayers = nextPlayers.filter(p => p.status === 'active');
                 if (isRollover && activePlayers.length <= 1) {
                     if (activePlayers.length === 1) {
-                        const winner = nextPlayers.find(p => p.id === activePlayers[0].id)!;
-                        winner.chips += s.pot;
-                        if (winner.id === myId) saveChips(mode.id, winner.chips);
+                        const winIdx = nextPlayers.findIndex(p => p.id === activePlayers[0].id);
+                        const winnerChips = nextPlayers[winIdx].chips + s.pot;
+                        nextPlayers[winIdx] = { ...nextPlayers[winIdx], chips: winnerChips };
+                        if (nextPlayers[winIdx].id === myId) saveChips(mode.id, winnerChips);
                         const allBack = moveDealer(nextPlayers).map(p => {
                             const isBotBusted = p.id !== myId && p.chips === 0;
                             const newChips = isBotBusted ? 1000 : p.chips;
@@ -852,12 +865,13 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                             phase: 'ANTE' as GamePhase,
                             currentBet: 0,
                             pot: 0,
+                            heroChipChange: undefined,
                             activePlayerId: allBack[getNextActivePlayerIndex(allBack, getDealerIndex(allBack))].id,
                             players: allBack,
                             communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
                             deck: [],
                             discardPile: [],
-                            messages: [{ id: Math.random().toString(), text: `${winner.name} wins rollover pot $${s.pot}. All players rejoin.`, time: Date.now() }]
+                            messages: [{ id: Math.random().toString(), text: `${nextPlayers[winIdx].name} wins rollover pot $${s.pot}. All players rejoin.`, time: Date.now() }]
                         };
                     }
                 }
@@ -873,6 +887,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                     ...s,
                     phase: 'ANTE' as GamePhase,
                     currentBet: 0,
+                    heroChipChange: undefined,
                     activePlayerId: nextPlayers[firstToActIdx].id,
                     players: nextPlayers,
                     communityCards: Array.from({ length: 15 }, () => ({ suit: 'hearts', rank: '2', isHidden: true } as CardType)),
