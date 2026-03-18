@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Player } from "@/lib/poker/types";
 
 interface ResolutionMessage {
   id: string;
@@ -10,28 +11,22 @@ interface ResolutionMessage {
 interface ResolutionOverlayProps {
   messages: ResolutionMessage[];
   phase: string;
+  heroPlayer?: Player | null;
+  heroChipChange?: number;
 }
 
-function classifyResult(messages: ResolutionMessage[]): {
+function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | null, heroChipChange?: number): {
   type: 'win' | 'loss' | 'split' | 'uncontested' | 'rollover';
   primary: string;
   secondary: string;
   details: string[];
 } {
   const texts = messages.map(m => m.text);
-  const joinedText = texts.join(' ');
 
   const isRollover = texts.some(t => /rolls?\s*over|carries?\s*forward|No qualif/i.test(t));
   const isSplit = texts.some(t => /Split Pot/i.test(t));
-  const isWin = texts.some(t => /wins|SCOOPS|receives/i.test(t));
-  const isUncontested = texts.some(t => /last player standing/i.test(t)) && !isWin;
-
-  const amountMatch = joinedText.match(/\$[\d,]+/g);
-  const amounts = amountMatch ? amountMatch.map(a => a.replace(/,/g, '')) : [];
-  const primaryAmount = amounts[0] || '';
 
   if (isRollover) {
-    const potMatch = joinedText.match(/\$([\d,]+)/);
     return {
       type: 'rollover',
       primary: 'No qualifying hands.',
@@ -40,38 +35,52 @@ function classifyResult(messages: ResolutionMessage[]): {
     };
   }
 
+  const net = heroChipChange ?? 0;
+  const absNet = Math.abs(net);
+  const amountStr = absNet > 0 ? `$${absNet}` : '';
+
+  if (heroPlayer?.isWinner) {
+    const isUncontested = texts.some(t => /last player standing/i.test(t));
+    return {
+      type: isUncontested ? 'uncontested' : 'win',
+      primary: isUncontested ? 'Uncontested.' : 'Pot awarded.',
+      secondary: amountStr ? `+${amountStr}` : '',
+      details: isUncontested ? [] : texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
+    };
+  }
+
   if (isSplit) {
     return {
-      type: 'split',
+      type: net > 0 ? 'win' : net < 0 ? 'loss' : 'split',
       primary: 'Pot split.',
-      secondary: primaryAmount ? `+${primaryAmount}` : '',
+      secondary: net > 0 ? `+${amountStr}` : net < 0 ? `-${amountStr}` : '',
       details: texts.filter(t => !/^Split Pot/i.test(t)),
     };
   }
 
-  if (isUncontested) {
-    return {
-      type: 'uncontested',
-      primary: 'Uncontested.',
-      secondary: primaryAmount ? `+${primaryAmount}` : '',
-      details: [],
-    };
-  }
-
-  if (isWin) {
-    const youWon = texts.some(t => /^You\s+win|^You\s+scoop|^You\s+receive/i.test(t));
-    if (youWon) {
-      return {
-        type: 'win',
-        primary: 'Pot awarded.',
-        secondary: primaryAmount ? `+${primaryAmount}` : '',
-        details: texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
-      };
-    }
+  if (heroPlayer?.isLoser || net < 0) {
     return {
       type: 'loss',
       primary: 'Hand lost.',
-      secondary: primaryAmount ? `-${primaryAmount}` : '',
+      secondary: amountStr ? `-${amountStr}` : '',
+      details: texts,
+    };
+  }
+
+  if (net === 0 && heroPlayer?.status === 'folded') {
+    return {
+      type: 'loss',
+      primary: 'Folded.',
+      secondary: '',
+      details: texts,
+    };
+  }
+
+  if (net > 0) {
+    return {
+      type: 'win',
+      primary: 'Pot awarded.',
+      secondary: `+${amountStr}`,
       details: texts,
     };
   }
@@ -84,7 +93,7 @@ function classifyResult(messages: ResolutionMessage[]): {
   };
 }
 
-export function ResolutionOverlay({ messages, phase }: ResolutionOverlayProps) {
+export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange }: ResolutionOverlayProps) {
   const [visible, setVisible] = useState(false);
 
   const resolutionMessages = messages.filter(m => m.isResolution);
@@ -99,7 +108,7 @@ export function ResolutionOverlay({ messages, phase }: ResolutionOverlayProps) {
 
   if (!visible || resolutionMessages.length === 0) return null;
 
-  const result = classifyResult(resolutionMessages);
+  const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
 
   const accentMap = {
     win: { border: 'border-[#C9A227]/40', line: 'bg-[#C9A227]', secondaryColor: 'text-[#C9A227]' },

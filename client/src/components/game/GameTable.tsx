@@ -121,7 +121,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           );
         })}
 
-        <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} />
+        <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} heroPlayer={gameState.players.find(p => p.id === myId)} heroChipChange={gameState.heroChipChange} />
       </div>
     </div>
   );

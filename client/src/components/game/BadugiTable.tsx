@@ -143,7 +143,7 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
         )}
       </div>
 
-      <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} />
+      <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} heroPlayer={gameState.players.find(p => p.id === myId)} heroChipChange={gameState.heroChipChange} />
     </div>
   );
 }

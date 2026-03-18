@@ -790,6 +790,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             ...s, 
             players: result.players, 
             pot: result.pot,
+            heroChipChange: chipChange,
             messages: [...s.messages, ...resolvedMessages.map(m => ({ id: Math.random().toString(), text: m, time: Date.now(), isResolution: true }))].slice(-10)
           };
         });

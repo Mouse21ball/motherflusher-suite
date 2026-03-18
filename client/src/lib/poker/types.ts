@@ -101,4 +101,5 @@ export interface GameState {
   chatMessages: ChatMessage[];
   deck: CardType[];
   discardPile: CardType[];
+  heroChipChange?: number;
 }

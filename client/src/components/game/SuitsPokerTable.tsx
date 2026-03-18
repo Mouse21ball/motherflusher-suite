@@ -171,7 +171,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
         )}
       </div>
 
-      <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} />
+      <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} heroPlayer={gameState.players.find(p => p.id === myId)} heroChipChange={gameState.heroChipChange} />
     </div>
   );
 }
