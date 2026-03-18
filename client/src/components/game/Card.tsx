@@ -28,9 +28,9 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
     return (
       <div 
         className={cn(
-          "w-12 h-16 sm:w-16 sm:h-24 playing-card-back rounded-md shrink-0 transition-transform",
+          "w-12 h-16 sm:w-16 sm:h-24 playing-card-back rounded-md shrink-0 transition-all duration-200",
           selectable && "cursor-pointer hover:-translate-y-2",
-          selected && "ring-2 ring-[#C9A227] shadow-[0_0_8px_rgba(201,162,39,0.3)]",
+          selected && "ring-[3px] ring-[#C9A227] shadow-[0_0_14px_4px_rgba(201,162,39,0.45),0_0_30px_8px_rgba(201,162,39,0.15)]",
           className
         )}
         onClick={onClick}
@@ -41,10 +41,10 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
   return (
     <div 
       className={cn(
-        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 transition-transform flex flex-col justify-between",
+        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 transition-all duration-200 flex flex-col justify-between",
         suitColors[card.suit],
         selectable && "cursor-pointer hover:-translate-y-2",
-        selected && "ring-2 ring-[#C9A227] shadow-[0_0_8px_rgba(201,162,39,0.3)]",
+        selected && "ring-[3px] ring-[#C9A227] shadow-[0_0_14px_4px_rgba(201,162,39,0.45),0_0_30px_8px_rgba(201,162,39,0.15)]",
         isSelfHidden && "opacity-60 saturate-50 shadow-inner",
         className
       )}
