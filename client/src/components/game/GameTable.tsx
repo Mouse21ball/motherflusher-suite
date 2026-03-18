@@ -3,6 +3,7 @@ import { GameState } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { ResolutionOverlay } from "./ResolutionOverlay";
+import { WinCelebration } from "./WinCelebration";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface GameTableProps {
@@ -21,7 +22,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     orderedPlayers.unshift(...p1);
   }
 
-  // #5 — Pot pulse: fires briefly whenever the pot value increases
+  // Pot pulse when value increases
   const [potPulse, setPotPulse] = useState(false);
   const prevPotRef = useRef(gameState.pot);
   useEffect(() => {
@@ -34,6 +35,25 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     prevPotRef.current = gameState.pot;
   }, [gameState.pot]);
 
+  // Win celebration — triggers only on meaningful wins (>$50 net gain)
+  const [showCelebration, setShowCelebration] = useState(false);
+  const celebFiredRef = useRef(false);
+  useEffect(() => {
+    if (gameState.phase === 'SHOWDOWN' && !celebFiredRef.current) {
+      const hero = gameState.players.find(p => p.id === myId);
+      const gain = gameState.heroChipChange ?? 0;
+      if (hero?.isWinner && gain > 50) {
+        celebFiredRef.current = true;
+        setShowCelebration(true);
+      }
+    }
+    if (gameState.phase !== 'SHOWDOWN') {
+      celebFiredRef.current = false;
+    }
+  }, [gameState.phase, gameState.players, gameState.heroChipChange, myId]);
+
+  const isScoop = (gameState.heroChipChange ?? 0) > 200;
+
   const getSeatPosition = (index: number) => {
     const positions = [
       "-bottom-6 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
@@ -45,7 +65,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     return positions[index] || "hidden";
   };
 
-  // #4 — determine whether to show a live message or fall back to the phase label
+  // Show live message or fall back to phase label — never both
   const lastMsg = gameState.messages[gameState.messages.length - 1];
   const isIdleMessage = !lastMsg || lastMsg.text === 'Game ready. Waiting for start...';
   const showMessage = gameState.phase !== 'SHOWDOWN' && !isIdleMessage;
@@ -58,7 +78,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
           <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-6 sm:pt-8">
 
-            {/* #1 + #4 — Single focal point: message auto-fades, phase label is fallback */}
+            {/* Single focal point: live message fades out, then phase label */}
             <div className="text-center pointer-events-auto mb-1.5 sm:mb-2.5 min-h-[28px] flex items-center justify-center">
               {showMessage ? (
                 <p
@@ -78,47 +98,91 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               )}
             </div>
 
+            {/* ── Mother Flusher community card layout ── */}
+            {/*
+              5 columns of solitaire-style stacked pairs, then 5 single factor cards.
+              Each pair: top card peeks (26px mobile / 34px desktop), full bottom card below.
+              Negative margin overlap creates the cascade without absolute positioning.
+            */}
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
-              <div className="flex gap-1 sm:gap-3">
-                {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1.5 sm:gap-2">
-                    <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
-                      <PlayingCard
-                        card={gameState.communityCards[colIndex * 2]}
-                        selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2))}
-                        className="w-full h-full"
-                      />
+
+              {/* Pair columns — stacked solitaire cascade */}
+              <div className="flex gap-2 sm:gap-3">
+                {Array.from({ length: 5 }).map((_, colIndex) => {
+                  const topIdx = colIndex * 2;
+                  const btmIdx = colIndex * 2 + 1;
+                  const isUsed = (idx: number) =>
+                    gameState.phase === 'SHOWDOWN' &&
+                    gameState.players.some(p =>
+                      p.score?.highEval?.usedCommunityCardIndices.includes(idx) ||
+                      p.score?.lowEval?.usedCommunityCardIndices.includes(idx)
+                    );
+
+                  return (
+                    <div key={`stack-${colIndex}`} className="flex flex-col items-center">
+                      {/* Top card — only peek portion visible above bottom card */}
+                      <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0 relative" style={{ zIndex: 1 }}>
+                        <PlayingCard
+                          card={gameState.communityCards[topIdx]}
+                          selected={isUsed(topIdx)}
+                          className="w-full h-full"
+                        />
+                      </div>
+                      {/* Bottom card — slides over top card, creating cascade effect */}
+                      {/* -mt-[46px] = 72 - 26 → 26px of top card peeks on mobile */}
+                      {/* sm:-mt-[64px] = 98 - 34 → 34px of top card peeks on desktop */}
+                      <div
+                        className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0 relative -mt-[46px] sm:-mt-[64px]"
+                        style={{ zIndex: 2 }}
+                      >
+                        <PlayingCard
+                          card={gameState.communityCards[btmIdx]}
+                          selected={isUsed(btmIdx)}
+                          className="w-full h-full"
+                        />
+                      </div>
                     </div>
-                    <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
-                      <PlayingCard
-                        card={gameState.communityCards[colIndex * 2 + 1]}
-                        selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1) || p.score?.lowEval?.usedCommunityCardIndices.includes(colIndex * 2 + 1))}
-                        className="w-full h-full"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
+              {/* Factor row — 5 single cards */}
               <div className="flex gap-1 sm:gap-3 mt-1">
-                {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`single-${colIndex}`} className="flex justify-center w-[65px] sm:w-[91px]">
-                    <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
-                      <PlayingCard
-                        card={gameState.communityCards[10 + colIndex]}
-                        selected={gameState.phase === 'SHOWDOWN' && gameState.players.some(p => p.score?.highEval?.usedCommunityCardIndices.includes(10 + colIndex) || p.score?.lowEval?.usedCommunityCardIndices.includes(10 + colIndex))}
-                        className="w-full h-full"
-                      />
+                {Array.from({ length: 5 }).map((_, colIndex) => {
+                  const idx = 10 + colIndex;
+                  const isUsed =
+                    gameState.phase === 'SHOWDOWN' &&
+                    gameState.players.some(p =>
+                      p.score?.highEval?.usedCommunityCardIndices.includes(idx) ||
+                      p.score?.lowEval?.usedCommunityCardIndices.includes(idx)
+                    );
+                  return (
+                    <div key={`single-${colIndex}`} className="flex justify-center w-[50px] sm:w-[70px]">
+                      <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
+                        <PlayingCard
+                          card={gameState.communityCards[idx]}
+                          selected={isUsed}
+                          className="w-full h-full"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
           </div>
         </div>
 
-        {/* #5 — Pot: number pulses gold briefly when pot value changes */}
+        {/* Win celebration — gold particle burst, only on meaningful wins */}
+        {showCelebration && (
+          <WinCelebration
+            isScoop={isScoop}
+            onDone={() => setShowCelebration(false)}
+          />
+        )}
+
+        {/* Pot counter */}
         <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
           <div className="bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center" data-testid="text-pot">
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>

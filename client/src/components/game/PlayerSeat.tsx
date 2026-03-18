@@ -129,6 +129,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         })}
       </div>
 
+      {/* Bot score badges at showdown only */}
       {player.score && !isSelf && showdownState && (
         <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex flex-col gap-0.5 w-[140px] z-50 pointer-events-none">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
@@ -149,6 +150,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         </div>
       )}
 
+      {/* Name plate */}
       <div className={cn(
         "relative w-full min-w-[100px] bg-[#141417] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
         isActive ? "border-[#C9A227]/50 shadow-[0_0_12px_rgba(201,162,39,0.15)]" : "border-white/[0.06]",
@@ -173,25 +175,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
           );
         })()}
-        {player.score && isSelf && !showdownState && (
-          <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
-            {player.score.high && (
-              <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30">
-                {player.score.suitsValid !== undefined ? 'Poker' : 'High'}: {player.score.high}
-              </Badge>
-            )}
-            {player.score.low && (
-              <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30">
-                {player.score.suitsValid !== undefined ? 'Suits' : 'Low'}: {player.score.low}
-              </Badge>
-            )}
-            {player.score.description && (
-              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
-                {player.score.description}
-              </Badge>
-            )}
-          </div>
-        )}
+
+        {/* Hero score badges — showdown only, clutter-free during live play */}
         {player.score && isSelf && showdownState && (
           <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
             {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
@@ -213,6 +198,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         )}
       </div>
 
+      {/* Declaration badges */}
       {player.declaration === 'BUST' && (
         <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Bust</Badge>
       )}
