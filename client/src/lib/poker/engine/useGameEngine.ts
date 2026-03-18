@@ -3,7 +3,8 @@ import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } fro
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, buildSidePots } from './core';
 import { GameMode } from './types';
 import { getChips, saveChips, addHandRecord, HandRecord, ensurePlayerIdentity } from '../../persistence';
-import { generateTableCode } from '../../tableSession';
+import { generateTableCode, registerTable } from '../../tableSession';
+import { useTableRoom } from '../../useTableRoom';
 
 export const createMockPlayers = (heroChips: number): Player[] => {
   const identity = ensurePlayerIdentity();
@@ -112,6 +113,26 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
       pendingTimers.current.forEach(t => clearTimeout(t));
       pendingTimers.current.clear();
     };
+  }, []);
+
+  // ─── Room presence ────────────────────────────────────────────────────────
+  // Announces this player's seat to the WebSocket room. Fires on mount,
+  // cleans up on unmount (releases seat, bot fills back on server side).
+  // Fails silently if ws is unavailable — game still works fully offline.
+  useTableRoom({ tableId: state.tableId, modeId: mode.id, seatId: myId });
+
+  // ─── Table registration ───────────────────────────────────────────────────
+  // Registers this table with the server so /join/:code resolves correctly.
+  // Runs once on mount. 409 on collision is safe (server deduplicates).
+  useEffect(() => {
+    const identity = ensurePlayerIdentity();
+    registerTable({
+      tableId: state.tableId,
+      modeId: mode.id,
+      createdAt: Date.now(),
+      createdBy: identity.id,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const safeTimeout = useCallback((fn: () => void, ms: number) => {

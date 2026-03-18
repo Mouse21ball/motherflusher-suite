@@ -206,6 +206,45 @@ export function getPlayerStats(modeId?: string): PlayerStats {
   };
 }
 
+// ─── Avatar Utilities ─────────────────────────────────────────────────────────
+// Pure functions — no state, no side effects. Used wherever avatar initials
+// or a deterministic avatar color is needed.
+
+// Returns up to 2 uppercase initials from a display name.
+// "Alice" → "AL", "Bob Chen" → "BC", "" → "??"
+export function getAvatarInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '??';
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return trimmed.slice(0, 2).toUpperCase();
+}
+
+// Returns a deterministic hex color from an avatar seed string.
+// The same seed always produces the same color.
+const AVATAR_PALETTE = [
+  '#C9A227', // gold
+  '#7B61FF', // violet
+  '#3B82F6', // blue
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#8B5CF6', // purple
+  '#06B6D4', // cyan
+  '#EC4899', // pink
+  '#84CC16', // lime
+];
+
+export function getAvatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) & 0x7fffffff;
+  }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
+
 // ─── Full Reset ───────────────────────────────────────────────────────────────
 
 export function resetAllData(): void {
