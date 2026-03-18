@@ -12,9 +12,7 @@ export function usePhaseSounds(phase: GamePhase, isWinner?: boolean, isLoser?: b
     if (prev === phase) return;
 
     if (phase === 'DEAL') {
-      sfx.cardDeal();
-      setTimeout(() => sfx.cardDeal(), 100);
-      setTimeout(() => sfx.cardDeal(), 200);
+      [0, 80, 160, 240, 320].forEach(d => setTimeout(() => sfx.cardDeal(), d));
     }
 
     if (phase.startsWith('REVEAL') || phase === 'REVEAL_LOWER_CENTER') {
@@ -22,7 +20,7 @@ export function usePhaseSounds(phase: GamePhase, isWinner?: boolean, isLoser?: b
     }
 
     if (phase === 'SHOWDOWN') {
-      setTimeout(() => sfx.cardFlip(), 200);
+      [200, 320, 460].forEach(d => setTimeout(() => sfx.cardFlip(), d));
     }
 
     if (phase === 'ANTE') {

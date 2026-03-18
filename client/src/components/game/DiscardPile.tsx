@@ -35,8 +35,8 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
 
   return (
     <div className={cn(
-      "flex flex-col items-center gap-1 transition-all duration-500",
-      flash && "scale-110"
+      "flex flex-col items-center gap-1",
+      flash && "anim-pot-collect"
     )} data-testid="discard-pile">
       <div className="relative w-14 h-10 sm:w-16 sm:h-12">
         {Array.from({ length: Math.min(totalDiscards, 6) }).map((_, i) => (

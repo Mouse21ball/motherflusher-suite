@@ -81,7 +81,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
               <div className="flex gap-1 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => (
-                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1 sm:gap-2 bg-black/25 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-white/[0.04]">
+                  <div key={`pair-${colIndex}`} className="flex flex-col gap-1.5 sm:gap-2">
                     <div className="w-[50px] h-[72px] sm:w-[70px] sm:h-[98px] flex-shrink-0">
                       <PlayingCard
                         card={gameState.communityCards[colIndex * 2]}
