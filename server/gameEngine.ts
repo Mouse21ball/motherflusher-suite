@@ -4,11 +4,14 @@
 // full state snapshots masked per recipient.
 //
 // Feature-flagged: tables only become authoritative when
-// FEATURES.SERVER_AUTHORITATIVE_BADUGI is true in shared/featureFlags.ts.
+// FEATURES.SERVER_AUTHORITATIVE_BADUGI is true OR
+// BADUGI_ALPHA_ENABLED=true is set in the environment.
 
 import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration } from '../shared/gameTypes';
 import { BadugiMode } from '../shared/modes/badugi';
+import { engineLog } from './engineLog';
+import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -63,6 +66,7 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
 }
 
 // ─── Initial table roster ─────────────────────────────────────────────────────
+// p4 is initial dealer → p1 (human) is always first-to-act in hand 1.
 
 function makeInitialPlayers(heroChips: number): Player[] {
   return [
@@ -117,8 +121,7 @@ interface AuthTable {
   handId: number;
   // Prevents re-entrant mutations. Since all mutations are synchronous in Node,
   // this mainly guards against a bot timer firing during another action's
-  // post-processing setTimeout callbacks. Drop the incoming action; the bot
-  // turn will be re-scheduled if still needed after the current action resolves.
+  // post-processing setTimeout callbacks.
   actionLock: boolean;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
   connections: Map<string, WebSocket>;
@@ -126,7 +129,7 @@ interface AuthTable {
 
 const tables = new Map<string, AuthTable>();
 
-// ─── Broadcast ────────────────────────────────────────────────────────────────
+// ─── Broadcast + persist ──────────────────────────────────────────────────────
 
 function broadcastState(table: AuthTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
@@ -135,9 +138,11 @@ function broadcastState(table: AuthTable): void {
       ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(table.state, playerId) }));
     } catch { /* ignore closed socket race */ }
   }
+  // Debounced persistence: write state ~2 s after last mutation
+  scheduleSave(table.tableId, table.state, table.handId);
 }
 
-// ─── Round-over check ────────────────────────────────────────────────────────
+// ─── Round-over check ─────────────────────────────────────────────────────────
 
 function isRoundOver(state: GameState): boolean {
   const { phase } = state;
@@ -182,6 +187,7 @@ function advanceToNextPhase(table: AuthTable): void {
     bet: (isBetRound || isDrawRound) ? 0 : p.bet,
   }));
 
+  const prevPhase = state.phase;
   table.state = addMsg({
     ...state,
     phase: nextPhase,
@@ -189,6 +195,13 @@ function advanceToNextPhase(table: AuthTable): void {
     activePlayerId: nextPlayers[firstActIdx].id,
     players: nextPlayers,
   }, nextPhase.replace(/_/g, ' '));
+
+  engineLog('PHASE', table.tableId, {
+    from: prevPhase,
+    to: nextPhase,
+    pot: table.state.pot,
+    active: table.state.activePlayerId,
+  });
 
   // ── DEAL is automatic: deal cards, then advance to DRAW_1 after 400ms ──────
   if (nextPhase === 'DEAL') {
@@ -242,10 +255,15 @@ function resolveShowdown(table: AuthTable): void {
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
 
     const s = table.state;
-    // '__server__' as myId: resolveShowdown will reveal all opponents' cards
-    // (since no player matches '__server__', all cards get isHidden:false).
-    // Canonical state already has all cards visible, so this is a no-op.
     const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
+
+    const winner = result.players.find(p => p.isWinner)?.id ?? 'unknown';
+    engineLog('PHASE', table.tableId, {
+      from: 'SHOWDOWN',
+      to: 'RESOLVE',
+      pot: s.pot,
+      winner,
+    });
 
     table.state = {
       ...s,
@@ -259,7 +277,7 @@ function resolveShowdown(table: AuthTable): void {
 
     broadcastState(table);
 
-    // Auto-advance to next hand after 5 seconds (matches client engine timing)
+    // Auto-advance to next hand after 5 seconds
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
@@ -320,12 +338,12 @@ function resetToAnte(table: AuthTable): void {
     }],
   };
 
+  engineLog('PHASE', table.tableId, { from: 'SHOWDOWN', to: 'ANTE', pot: table.state.pot, active: table.state.activePlayerId });
+
   scheduleNextBot(table);
 }
 
 // ─── Bot scheduling ───────────────────────────────────────────────────────────
-// After any state change that might put a bot in the active seat, call this.
-// The generation guard (handId + phase) ensures stale timers are no-ops.
 
 function scheduleNextBot(table: AuthTable): void {
   const { state, handId } = table;
@@ -334,9 +352,9 @@ function scheduleNextBot(table: AuthTable): void {
   const active = state.players.find(p => p.id === state.activePlayerId);
   if (!active || active.presence !== 'bot' || active.status !== 'active') return;
 
-  const botId           = active.id;
-  const capturedHandId  = handId;
-  const capturedPhase   = state.phase;
+  const botId          = active.id;
+  const capturedHandId = handId;
+  const capturedPhase  = state.phase;
 
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
@@ -345,7 +363,6 @@ function scheduleNextBot(table: AuthTable): void {
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
-    // Stale guard: drop if hand or phase has moved on
     if (table.handId !== capturedHandId || table.state.phase !== capturedPhase) return;
     executeBotAction(table, botId);
   }, thinkMs);
@@ -357,7 +374,6 @@ function scheduleNextBot(table: AuthTable): void {
 
 function executeBotAction(table: AuthTable, botId: string): void {
   if (table.actionLock) {
-    // Another action is in its post-processing window; re-schedule to retry once
     const capturedHandId = table.handId;
     const capturedPhase  = table.state.phase;
     setTimeout(() => {
@@ -378,7 +394,7 @@ function executeBotAction(table: AuthTable, botId: string): void {
 
     let newState: GameState = { ...table.state, ...stateUpdates };
 
-    // Maintain totalBet accumulator that the client engine tracks
+    // Maintain totalBet accumulator
     if (stateUpdates.players) {
       newState.players = newState.players.map(p => {
         const old = table.state.players.find(op => op.id === p.id);
@@ -392,12 +408,18 @@ function executeBotAction(table: AuthTable, botId: string): void {
 
     const wasRaise = (newState.currentBet ?? 0) > oldCurrentBet;
 
-    // After a raise, opponents that already acted must re-act
     if (wasRaise) {
       newState.players = newState.players.map(p =>
         p.id !== botId && p.status === 'active' ? { ...p, hasActed: false } : p
       );
     }
+
+    engineLog('BOT', table.tableId, {
+      bot: botId,
+      action: message ?? '?',
+      phase: table.state.phase,
+      roundOver: roundOver ? true : undefined,
+    });
 
     table.state = newState;
     table.actionLock = false;
@@ -418,13 +440,13 @@ function executeBotAction(table: AuthTable, botId: string): void {
       scheduleNextBot(table);
     }
   } catch (err) {
-    console.error('[gameEngine] bot action error:', err);
+    engineLog('ERROR', table.tableId, { msg: 'bot-action-threw', bot: botId, phase: table.state.phase });
+    console.error('[badugi:ERROR] bot action error:', err);
     table.actionLock = false;
   }
 }
 
-// ─── After-human-action plumbing ─────────────────────────────────────────────
-// Called after every human action to advance the phase or hand turn to next player.
+// ─── After-human-action plumbing ──────────────────────────────────────────────
 
 function afterHumanAction(table: AuthTable, wasRaise = false): void {
   broadcastState(table);
@@ -453,6 +475,25 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+// Called once at server startup to restore persisted table states.
+export function initEngine(): void {
+  const restored = loadPersistedTables();
+  for (const { tableId, state, handId } of restored) {
+    tables.set(tableId, {
+      tableId,
+      state,
+      handId,
+      actionLock: false,
+      botTimers: new Map(),
+      connections: new Map(),
+    });
+    engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
+  }
+  if (restored.length > 0) {
+    console.log(`[badugi] Restored ${restored.length} table(s) from disk.`);
+  }
+}
+
 export function getOrCreateBadugiTable(tableId: string): AuthTable {
   if (!tables.has(tableId)) {
     tables.set(tableId, {
@@ -463,13 +504,23 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       botTimers: new Map(),
       connections: new Map(),
     });
+    engineLog('TABLE_CREATE', tableId, { source: 'new' });
   }
   return tables.get(tableId)!;
 }
 
 export function addBadugiConnection(tableId: string, playerId: string, ws: WebSocket): void {
   const table = getOrCreateBadugiTable(tableId);
+  const isReconnect = table.state.phase !== 'WAITING' && table.connections.has(playerId) === false;
+
   table.connections.set(playerId, ws);
+
+  engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
+    player: playerId,
+    phase: table.state.phase,
+    connections: table.connections.size,
+  });
+
   // Immediately deliver current state so reconnecting players are in sync
   try {
     ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(table.state, playerId) }));
@@ -480,20 +531,31 @@ export function removeBadugiConnection(tableId: string, playerId: string): void 
   const table = tables.get(tableId);
   if (!table) return;
   table.connections.delete(playerId);
+  engineLog('PLAYER_LEAVE', tableId, {
+    player: playerId,
+    phase: table.state.phase,
+    remaining: table.connections.size,
+  });
 }
 
 export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): void {
   const table = tables.get(tableId);
-  if (!table) return;
+  if (!table) {
+    engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'no-table' });
+    return;
+  }
 
-  if (table.actionLock) return; // concurrent action; drop it safely
+  if (table.actionLock) {
+    engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'locked' });
+    return;
+  }
 
   table.actionLock = true;
 
   try {
     const s = table.state;
 
-    // ── start: WAITING → ANTE ──────────────────────────────────────────────
+    // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
       table.handId += 1;
       const dealerIdx   = getDealerIndex(s.players);
@@ -503,17 +565,19 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
         phase: 'ANTE',
         activePlayerId: s.players[firstActIdx].id,
       }, 'Ante up!');
+      engineLog('ACTION', tableId, { player: playerId, action: 'start', accepted: true, phase: 'ANTE' });
       table.actionLock = false;
       broadcastState(table);
       scheduleNextBot(table);
       return;
     }
 
-    // ── restart: SHOWDOWN → ANTE (manual, overrides the 5s auto-reset) ────
+    // ── restart: SHOWDOWN → ANTE (manual, overrides 5 s auto-reset) ──────────
     if (action === 'restart' && s.phase === 'SHOWDOWN') {
       for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
       table.botTimers.clear();
       table.actionLock = false;
+      engineLog('ACTION', tableId, { player: playerId, action: 'restart', accepted: true });
       resetToAnte(table);
       broadcastState(table);
       return;
@@ -521,13 +585,13 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // All remaining actions require it to be this player's turn
     if (s.activePlayerId !== playerId) {
+      engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'not-turn', active: s.activePlayerId });
       table.actionLock = false;
       return;
     }
 
-    // ── ante ───────────────────────────────────────────────────────────────
+    // ── ante ─────────────────────────────────────────────────────────────────
     if (action === 'ante' && s.phase === 'ANTE') {
-      const me = s.players.find(p => p.id === playerId)!;
       table.state = addMsg({
         ...s,
         pot: s.pot + 1,
@@ -537,24 +601,25 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
             : p
         ),
       }, 'You paid $1 Ante');
-      void me; // used only for pre-read safety; state updated above
+      engineLog('ACTION', tableId, { player: playerId, action: 'ante', accepted: true, pot: table.state.pot });
       table.actionLock = false;
       afterHumanAction(table);
       return;
     }
 
-    // ── fold ───────────────────────────────────────────────────────────────
+    // ── fold ─────────────────────────────────────────────────────────────────
     if (action === 'fold' && s.phase.startsWith('BET')) {
       table.state = addMsg({
         ...s,
         players: s.players.map(p => p.id === playerId ? { ...p, status: 'folded', hasActed: true } : p),
       }, 'You folded');
+      engineLog('ACTION', tableId, { player: playerId, action: 'fold', accepted: true, phase: s.phase });
       table.actionLock = false;
       afterHumanAction(table);
       return;
     }
 
-    // ── check / call ───────────────────────────────────────────────────────
+    // ── check / call ─────────────────────────────────────────────────────────
     if ((action === 'call' || action === 'check') && s.phase.startsWith('BET')) {
       const me = s.players.find(p => p.id === playerId)!;
       const callAmt = Math.min(s.currentBet - me.bet, me.chips);
@@ -568,12 +633,13 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
             : p
         ),
       }, msg);
+      engineLog('ACTION', tableId, { player: playerId, action, accepted: true, callAmt, phase: s.phase });
       table.actionLock = false;
       afterHumanAction(table);
       return;
     }
 
-    // ── raise ──────────────────────────────────────────────────────────────
+    // ── raise ─────────────────────────────────────────────────────────────────
     if (action === 'raise' && s.phase.startsWith('BET') && typeof payload === 'number') {
       const me = s.players.find(p => p.id === playerId)!;
       const prevBet   = me.bet;
@@ -596,16 +662,17 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
           p.id !== playerId && p.status === 'active' ? { ...p, hasActed: false } : p
         ),
       };
+      engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: true, to: newBet, phase: s.phase });
       table.state = newState;
       table.actionLock = false;
       afterHumanAction(table, true);
       return;
     }
 
-    // ── draw ───────────────────────────────────────────────────────────────
+    // ── draw ──────────────────────────────────────────────────────────────────
     if (action === 'draw' && s.phase.startsWith('DRAW')) {
       const indices: number[] = Array.isArray(payload) ? (payload as number[]) : [];
-      let newDeck     = [...s.deck];
+      let newDeck      = [...s.deck];
       const newDiscard = [...(s.discardPile || [])];
 
       const newPlayers = s.players.map(p => {
@@ -614,7 +681,6 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
         const newCards = [...p.cards];
         indices.forEach(idx => {
           newDiscard.push(newCards[idx]);
-          // Reshuffle discard into deck if deck is exhausted
           if (newDeck.length === 0 && newDiscard.length > 0) {
             const reshuffled = [...newDiscard];
             newDiscard.length = 0;
@@ -624,20 +690,20 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
             }
             newDeck = reshuffled;
           }
-          // New card is visible in canonical server state
           newCards[idx] = { ...newDeck.shift()!, isHidden: false };
         });
         return { ...p, cards: newCards, hasActed: true };
       });
 
       const msg = indices.length === 0 ? 'You stood pat' : `You discarded ${indices.length} card${indices.length > 1 ? 's' : ''}`;
+      engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: indices.length, phase: s.phase });
       table.state = addMsg({ ...s, players: newPlayers, deck: newDeck, discardPile: newDiscard }, msg);
       table.actionLock = false;
       afterHumanAction(table);
       return;
     }
 
-    // ── declare ────────────────────────────────────────────────────────────
+    // ── declare ───────────────────────────────────────────────────────────────
     if (action === 'declare' && s.phase === 'DECLARE') {
       const { declaration } = payload as { declaration: Declaration };
       if (declaration === 'FOLD') {
@@ -655,14 +721,18 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
           ),
         }, `You declared ${declaration}`);
       }
+      engineLog('ACTION', tableId, { player: playerId, action: 'declare', accepted: true, declaration: String(declaration) });
       table.actionLock = false;
       afterHumanAction(table);
       return;
     }
 
+    // Unknown or mismatched action — log and drop
+    engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'invalid', phase: s.phase });
     table.actionLock = false;
   } catch (err) {
-    console.error('[gameEngine] action error:', err);
+    engineLog('ERROR', tableId, { msg: 'action-threw', player: playerId, action, phase: tables.get(tableId)?.state.phase ?? '?' });
+    console.error('[badugi:ERROR] action error:', err);
     table.actionLock = false;
   }
 }
@@ -671,5 +741,7 @@ export function destroyBadugiTable(tableId: string): void {
   const table = tables.get(tableId);
   if (!table) return;
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+  deletePersistedTable(tableId);
   tables.delete(tableId);
+  engineLog('TABLE_CREATE', tableId, { source: 'destroy' });
 }

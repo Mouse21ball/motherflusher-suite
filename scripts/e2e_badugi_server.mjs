@@ -1,10 +1,11 @@
 // E2E verification of the server-authoritative Badugi path.
-// node scripts/e2e_badugi_server.mjs
-// Requires dev server on port 5000.
+// node scripts/e2e_badugi_server.mjs [port]
+// Requires dev server with BADUGI_ALPHA_ENABLED=true on the target port (default 5000).
 
 import { WebSocket } from 'ws';
 
-const BASE     = 'ws://localhost:5000/ws';
+const PORT     = process.argv[2] ? parseInt(process.argv[2], 10) : 5000;
+const BASE     = `ws://localhost:${PORT}/ws`;
 const TABLE    = 'test_e2e_' + Math.random().toString(36).slice(2, 8);
 const MAX_WAIT = 12000; // ms to wait for any single state transition
 
