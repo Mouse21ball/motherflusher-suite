@@ -13,22 +13,18 @@ import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
+import type { GameState } from "@/lib/poker/types";
 
-// ─── Hook selector ────────────────────────────────────────────────────────────
-// When SERVER_AUTHORITATIVE_BADUGI is false (default), the existing client-side
-// engine runs untouched. Flip the flag in shared/featureFlags.ts to route to
-// the server-authoritative path. All UI code below is identical in both cases.
+// ─── Shared UI layer ──────────────────────────────────────────────────────────
+// Accepts state + handleAction from either engine. All rendering lives here.
 
-function useBadugi(myId: string) {
-  const client = useGameEngine(BadugiMode, myId);
-  const server = useServerBadugi(myId);
-  return FEATURES.SERVER_AUTHORITATIVE_BADUGI ? server : client;
+interface BadugiUIProps {
+  state: GameState;
+  handleAction: (action: string, payload?: unknown) => void;
+  myId: string;
 }
 
-export default function BadugiGame() {
-  useEffect(() => { trackModePlay("badugi"); }, []);
-  const myId = 'p1';
-  const { state, handleAction } = useBadugi(myId);
+function BadugiUI({ state, handleAction, myId }: BadugiUIProps) {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
 
   const me = state.players.find(p => p.id === myId);
@@ -42,21 +38,18 @@ export default function BadugiGame() {
   const isDrawPhase = state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
 
   const handleCardClick = (index: number) => {
-    if (isDrawPhase) {
-      setSelectedCardIndices(prev => {
-        if (prev.includes(index)) return prev.filter(i => i !== index);
-        
-        let maxCards = 1;
-        if (state.phase === 'DRAW_1') maxCards = 3;
-        if (state.phase === 'DRAW_2') maxCards = 2;
-
-        if (prev.length < maxCards) return [...prev, index];
-        return prev;
-      });
-    }
+    if (!isDrawPhase) return;
+    setSelectedCardIndices(prev => {
+      if (prev.includes(index)) return prev.filter(i => i !== index);
+      let maxCards = 1;
+      if (state.phase === 'DRAW_1') maxCards = 3;
+      if (state.phase === 'DRAW_2') maxCards = 2;
+      if (prev.length < maxCards) return [...prev, index];
+      return prev;
+    });
   };
 
-  const handleControlAction = (action: string, amount?: number | any) => {
+  const handleControlAction = (action: string, amount?: number | unknown) => {
     if (action === 'draw') {
       handleAction(action, selectedCardIndices);
     } else {
@@ -71,12 +64,19 @@ export default function BadugiGame() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="badugi" {...MODE_INTROS.badugi} />
-      <GameHeader mode={MODE_INFO.badugi} modeId="badugi" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('badugi', me.chips); }} />
+      <GameHeader
+        mode={MODE_INFO.badugi}
+        modeId="badugi"
+        chips={me?.chips || 0}
+        phase={state.phase}
+        pot={state.pot}
+        onForfeit={() => { if (me) saveChips('badugi', me.chips); }}
+      />
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <BadugiTable 
-          gameState={state} 
-          myId={myId} 
+        <BadugiTable
+          gameState={state}
+          myId={myId}
           selectedCardIndices={selectedCardIndices}
           onCardClick={handleCardClick}
           selectableCards={isDrawPhase}
@@ -86,7 +86,7 @@ export default function BadugiGame() {
 
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
-          <ActionControls 
+          <ActionControls
             phase={state.phase}
             currentBet={state.currentBet}
             myBet={me?.bet || 0}
@@ -100,11 +100,39 @@ export default function BadugiGame() {
         </div>
       </div>
 
-      <ChatBox 
-        messages={state.chatMessages} 
-        myId={myId} 
-        onSendMessage={handleSendMessage} 
+      <ChatBox
+        messages={state.chatMessages}
+        myId={myId}
+        onSendMessage={handleSendMessage}
       />
     </div>
   );
+}
+
+// ─── Engine-specific wrappers ─────────────────────────────────────────────────
+// Each calls exactly one hook so neither path carries unused hook state or
+// opens spurious WebSocket connections when the other path is active.
+
+const MY_ID = 'p1';
+
+function BadugiClientGame() {
+  useEffect(() => { trackModePlay("badugi"); }, []);
+  const { state, handleAction } = useGameEngine(BadugiMode, MY_ID);
+  return <BadugiUI state={state} handleAction={handleAction} myId={MY_ID} />;
+}
+
+function BadugiServerGame() {
+  useEffect(() => { trackModePlay("badugi"); }, []);
+  const { state, handleAction } = useServerBadugi(MY_ID);
+  return <BadugiUI state={state} handleAction={handleAction} myId={MY_ID} />;
+}
+
+// ─── Dispatch ─────────────────────────────────────────────────────────────────
+// FEATURES is a compile-time constant — this branch is stable across renders.
+// Flip SERVER_AUTHORITATIVE_BADUGI in shared/featureFlags.ts to switch paths.
+
+export default function BadugiGame() {
+  return FEATURES.SERVER_AUTHORITATIVE_BADUGI
+    ? <BadugiServerGame />
+    : <BadugiClientGame />;
 }

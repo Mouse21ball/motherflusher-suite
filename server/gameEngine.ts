@@ -67,9 +67,9 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
 function makeInitialPlayers(heroChips: number): Player[] {
   return [
     { id: 'p1', name: 'You',     presence: 'human', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Alice',   presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p2', name: 'Alice',   presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
     { id: 'p3', name: 'Bob',     presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Charlie', presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Charlie', presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
   ];
 }
 
