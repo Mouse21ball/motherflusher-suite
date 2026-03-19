@@ -15,23 +15,31 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 
-export function useServerBadugi(myId: string = 'p1') {
-  // Placeholder state used both as initial value and as the full return value
-  // when the flag is off — no WebSocket is opened and no resources are consumed.
-  const [state, setState] = useState<GameState>(() => createInitialState());
+// tableId is the 6-char code determined by the caller (from URL ?t= param or
+// freshly generated). Passing it in keeps the hook stateless about code generation
+// and ensures all players sharing the same link land on the same server table.
+export function useServerBadugi(myId: string = 'p1', tableId: string) {
+  // Placeholder state — same shape as the authoritative snapshot, but uses the
+  // caller-provided tableId so the first render is consistent with the WS join.
+  const [state, setState] = useState<GameState>(() => ({
+    ...createInitialState(),
+    tableId,
+  }));
 
   const wsRef        = useRef<WebSocket | null>(null);
   const mountedRef   = useRef(true);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tableIdRef   = useRef<string>(state.tableId);
+  const tableIdRef   = useRef<string>(tableId);
   const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI;
 
-  // Register the table server-side so /join/:code resolves correctly.
-  // Only runs when the authoritative flag is on.
+  // Register the table code server-side so /join/:code can resolve it.
+  // Both the creator and any joiner call this; the server returns 409 for
+  // the joiner (code already taken) which is silently ignored — they still
+  // connect via WebSocket to the same engine table regardless.
   useEffect(() => {
     if (!activeFlag) return;
     const identity = ensurePlayerIdentity();
-    registerTable({ tableId: tableIdRef.current, modeId: 'badugi', createdAt: Date.now(), createdBy: identity.id });
+    registerTable({ tableId, modeId: 'badugi', createdAt: Date.now(), createdBy: identity.id });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

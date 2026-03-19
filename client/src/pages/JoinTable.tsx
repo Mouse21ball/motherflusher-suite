@@ -28,8 +28,11 @@ export default function JoinTable() {
         return;
       }
       setStatus("found");
-      const route = MODE_ROUTES[table.modeId] ?? "/";
-      // Brief pause so the "found" state is visible before navigating
+      // For Badugi, carry the table code into the URL so the game page joins
+      // the correct server-authoritative table rather than generating a new one.
+      const route = table.modeId === 'badugi'
+        ? `/badugi?t=${code}`
+        : (MODE_ROUTES[table.modeId] ?? "/");
       setTimeout(() => navigate(route), 600);
     });
   }, [navigate]);

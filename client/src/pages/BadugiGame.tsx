@@ -3,6 +3,7 @@ import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
 import { FEATURES } from "@/lib/featureFlags";
+import { generateTableCode } from "@/lib/tableSession";
 import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -122,8 +123,21 @@ function BadugiClientGame() {
 }
 
 function BadugiServerGame() {
+  // Resolve tableId once on mount:
+  //   - If URL has ?t=XXXXXX, use it (player arrived via share link or /join/:code redirect).
+  //   - Otherwise generate a fresh 6-char code and write it into the address bar so
+  //     the creator can share the URL directly — no extra UI needed.
+  const [tableId] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('t')?.toUpperCase() ?? '';
+    if (/^[A-Z0-9]{6}$/.test(fromUrl)) return fromUrl;
+    const newCode = generateTableCode();
+    window.history.replaceState(null, '', `/badugi?t=${newCode}`);
+    return newCode;
+  });
+
   useEffect(() => { trackModePlay("badugi"); }, []);
-  const { state, handleAction } = useServerBadugi(MY_ID);
+  const { state, handleAction } = useServerBadugi(MY_ID, tableId);
   return <BadugiUI state={state} handleAction={handleAction} myId={MY_ID} />;
 }
 
