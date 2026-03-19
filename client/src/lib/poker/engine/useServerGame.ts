@@ -56,7 +56,12 @@ export function useServerBadugi(myId: string = 'p1') {
         if (!mountedRef.current) { ws.close(); return; }
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
-          playerId: identity.id, name: identity.name, seatId: myId,
+          // Use seatId ('p1') as playerId so the connections map is keyed on the same
+          // ID the game roster uses. The badugi:action message also sends myId, so
+          // both messages are consistent. identity.id (UUID) is intentionally not used
+          // here — it would create a UUID key in connections that never matches a
+          // roster player, breaking maskStateForPlayer for the human's own cards.
+          playerId: myId, name: identity.name, seatId: myId,
         }));
       };
 
@@ -83,7 +88,7 @@ export function useServerBadugi(myId: string = 'p1') {
       const ws = wsRef.current;
       if (ws) {
         if (ws.readyState === WebSocket.OPEN) {
-          try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: ensurePlayerIdentity().id })); } catch { /* ignore */ }
+          try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: myId })); } catch { /* ignore */ }
         }
         ws.close();
         wsRef.current = null;
