@@ -30,7 +30,7 @@ export function useServerBadugi(myId: string = 'p1', tableId: string) {
   const mountedRef   = useRef(true);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tableIdRef   = useRef<string>(tableId);
-  const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI;
+  const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
   // Register the table code server-side so /join/:code can resolve it.
   // Both the creator and any joiner call this; the server returns 409 for

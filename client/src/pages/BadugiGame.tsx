@@ -142,11 +142,18 @@ function BadugiServerGame() {
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
-// FEATURES is a compile-time constant — this branch is stable across renders.
-// Flip SERVER_AUTHORITATIVE_BADUGI in shared/featureFlags.ts to switch paths.
+// Two ways to activate the server-authoritative path:
+//   1. Compile-time: FEATURES.SERVER_AUTHORITATIVE_BADUGI = true  (broad rollout)
+//   2. Runtime env:  VITE_BADUGI_ALPHA=true  (zero-code alpha enable via .env.local)
+//
+// ROLLBACK: remove VITE_BADUGI_ALPHA from .env.local and restart — instant.
+
+const isServerAuthoritative =
+  FEATURES.SERVER_AUTHORITATIVE_BADUGI ||
+  import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
 export default function BadugiGame() {
-  return FEATURES.SERVER_AUTHORITATIVE_BADUGI
+  return isServerAuthoritative
     ? <BadugiServerGame />
     : <BadugiClientGame />;
 }
