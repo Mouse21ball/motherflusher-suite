@@ -5,11 +5,15 @@ A client-side poker game platform supporting five custom poker variants, built w
 
 ## Routes
 - `/` — Home / mode-select lobby
+- `/profile` — Player profile (XP, rank, achievements, per-mode stats)
+- `/leaderboard` — Daily leaderboard (XP rank + hands played tab, simulated)
+- `/shop` — Premium shop (subscription tiers, chip bundles, avatar frames)
 - `/swing` — Mother Flusher (Swing Poker)
-- `/badugi` — Badugi
+- `/badugi` — Badugi (server-authoritative multiplayer via `?t=XXXXXX`)
 - `/dead7` — Dead 7
 - `/fifteen35` — 15 / 35
 - `/suitspoker` — Suits & Poker
+- `/join/:code` — Redirect to `/badugi?t=CODE`
 
 ## Game Modes
 - **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card community board (5 pairs + 5 singles with factor card), draw, declare+bet (HIGH/LOW/SWING), showdown
@@ -148,8 +152,26 @@ A client-side poker game platform supporting five custom poker variants, built w
 - Hero draw (useGameEngine.ts) and bot draws (badugi.ts, dead7.ts, suitspoker.ts) all maintain discardPile.
 - Discarded cards cannot re-enter a player's hand from the same deal.
 
+## Progression & Engagement Systems
+- **Progression** (`client/src/lib/progression.ts`): XP/level system. Levels 1-50, rank tiers Bronze→Master. 12 achievements. `awardHandXP(result)` awards 10-150 XP based on pot size, win/loss, scoops, streak bonus. `getLevelInfo(xp)` returns level+progress. `getRankForLevel(level)` returns color tokens.
+- **Daily Rewards** (`client/src/lib/dailyReward.ts`): 7-day streak cycle. Daily bonus chips (250-1000 based on streak day). `claimDailyReward()`, `getDailyRewardStatus()`, `getSimulatedPlayerCount()` (FOMO: 800-1200 players, varies by hour/day).
+- **DailyRewardModal** (`client/src/components/DailyRewardModal.tsx`): Shown on Home load when daily reward is available. Shows streak, day counter, bonus amount, and "Claim" CTA.
+- **XP wired into engine** (`useGameEngine.ts`): Calls `awardHandXP()` + `advanceXPHandCount()` after every hand resolution (showdown + rollover). One central integration covers all 5 modes.
+- **XP Toasts**: `useXPWatcher` hook polls localStorage for XP delta every 800ms. `XPToast` component shows "+XP" + level-up announcement + achievement name after every hand in all game pages.
+- **GameHeader level badge**: Shows `Lv N` rank badge (color-coded by tier) + XP progress bar mini-strip next to chip count in every game header.
+- **Leaderboard** (`client/src/pages/Leaderboard.tsx`): Daily simulated rankings (deterministic per day). Player's actual XP injected. Shows position, top%, trophy badges for top 3. Two tabs: By XP / By Hands.
+- **Premium Shop** (`client/src/pages/Shop.tsx`): Three subscription tiers (Free / Gold Pro $4.99/mo / Diamond Elite $9.99/mo). Chip bundles. Avatar frames (some locked to paid tiers). "Coming soon" purchase flow.
+
+## Multiplayer (Badugi)
+- Server-authoritative Badugi enabled via `BADUGI_ALPHA_ENABLED=true` + `VITE_BADUGI_ALPHA=true`.
+- Table code generated on first load, written to URL (`?t=XXXXXX`). Share URL to invite friends.
+- In-game **InviteBanner** shows table code + copy-link button at the top of the game page.
+- **ReactionBar**: In-game emoji reactions (🔥👀😈😂💀) with floating animation and cooldown. Fixed to right edge during Badugi multiplayer.
+- Server table list endpoint: `GET /api/tables/badugi` returns active table metadata.
+
 ## Constraints
 - `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
-- All game logic is client-side only
+- All game logic is client-side only (except Badugi multiplayer)
 - 4 bot players (Alice, Bob, Charlie) + 1 hero (You)
 - Mobile-first design with 5-player ring seating
+- Server import paths: `../shared/` NOT `@shared/` aliases

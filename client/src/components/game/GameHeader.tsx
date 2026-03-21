@@ -16,6 +16,7 @@ import {
 import { HandHistory } from "./HandHistory";
 import { StatsView } from "./StatsView";
 import type { GamePhase } from "@/lib/poker/types";
+import { getProgression, getLevelInfo, getRankForLevel } from "@/lib/progression";
 
 export interface ModeInfo {
   abbrev: string;
@@ -226,6 +227,11 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [, navigate] = useLocation();
 
+  // Player level for in-game progression display
+  const progression = getProgression();
+  const levelInfo = getLevelInfo(progression.xp);
+  const rank = getRankForLevel(levelInfo.level);
+
   const isMidHand = phase ? MID_HAND_PHASES.has(phase) : false;
   const currentPot = pot ?? 0;
 
@@ -318,9 +324,25 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
             Lobby
           </button>
 
-          <div className="text-right pl-2">
-            <div className="text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
+          <div className="text-right pl-2 flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <div
+                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md"
+                style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
+                data-testid="badge-level-header"
+              >
+                Lv {levelInfo.level}
+              </div>
+              <div className="text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
+            </div>
             <div className="font-mono text-[#C9A227] font-bold text-base leading-tight tabular-nums" data-testid="text-my-chips">${chips}</div>
+            {/* XP progress bar */}
+            <div className="w-14 h-0.5 rounded-full bg-white/[0.05] overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.round(levelInfo.progress * 100)}%`, backgroundColor: rank.color }}
+              />
+            </div>
           </div>
         </div>
       </header>

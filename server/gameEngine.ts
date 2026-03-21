@@ -527,6 +527,23 @@ export function initEngine(): void {
   }
 }
 
+// Returns summary info for all tables that currently have at least one
+// active WebSocket connection. Used by the lobby API to show live tables.
+export function getActiveBadugiTables(): { tableId: string; humanCount: number; phase: string; handId: number }[] {
+  const result: { tableId: string; humanCount: number; phase: string; handId: number }[] = [];
+  for (const [tableId, table] of Array.from(tables.entries())) {
+    if (table.connections.size > 0) {
+      result.push({
+        tableId,
+        humanCount: table.humanSeats.size,
+        phase: table.state.phase,
+        handId: table.handId,
+      });
+    }
+  }
+  return result;
+}
+
 export function getOrCreateBadugiTable(tableId: string): AuthTable {
   if (!tables.has(tableId)) {
     tables.set(tableId, {

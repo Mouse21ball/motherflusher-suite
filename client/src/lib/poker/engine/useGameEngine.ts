@@ -3,6 +3,7 @@ import { GameState, Player, CardType, Declaration, GamePhase, PlayerStatus } fro
 import { createDeck, getNextActivePlayerIndex, getDealerIndex, moveDealer, buildSidePots } from './core';
 import { GameMode } from './types';
 import { getChips, saveChips, addHandRecord, HandRecord, ensurePlayerIdentity } from '../../persistence';
+import { awardHandXP, advanceXPHandCount } from '../../progression';
 import { generateTableCode, registerTable } from '../../tableSession';
 import { useTableRoom } from '../../useTableRoom';
 
@@ -833,6 +834,16 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
                 summary,
                 isRollover,
               });
+
+              // Award XP for this hand and mark it as processed so the home
+              // page baseline doesn't double-count it.
+              awardHandXP({
+                won: resultType === 'win',
+                potSize: s.pot,
+                modeId: mode.id,
+                isBadugi: mode.id === 'badugi',
+              });
+              advanceXPHandCount(1);
             }
             
             return { 

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import { getActiveBadugiTables } from "./gameEngine";
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -135,6 +136,12 @@ export async function registerRoutes(
         res.status(500).json({ error: "Failed to create table" });
       }
     }
+  });
+
+  // GET /api/tables/badugi — list currently active authoritative Badugi tables
+  // Used by the lobby to show live tables with human players.
+  app.get("/api/tables/badugi", (_req, res) => {
+    res.json(getActiveBadugiTables());
   });
 
   // GET /api/tables/:code — look up a table by its 6-char code

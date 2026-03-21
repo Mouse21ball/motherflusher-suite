@@ -18,12 +18,18 @@ import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
 import JoinTable from "@/pages/JoinTable";
+import Profile from "@/pages/Profile";
+import Leaderboard from "@/pages/Leaderboard";
+import Shop from "@/pages/Shop";
 
 function Router() {
   return (
     <ErrorBoundary>
       <Switch>
         <Route path="/" component={Home}/>
+        <Route path="/profile" component={Profile}/>
+        <Route path="/leaderboard" component={Leaderboard}/>
+        <Route path="/shop" component={Shop}/>
         <Route path="/swing" component={Game}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/dead7" component={Dead7Game}/>

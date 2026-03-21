@@ -11,11 +11,14 @@ import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
+import { XPToast } from "@/components/XPToast";
+import { useXPWatcher } from "@/lib/useXPWatcher";
 
 export default function Fifteen35Game() {
   useEffect(() => { trackModePlay("fifteen35"); }, []);
   const myId = 'p1';
   const { state, handleAction } = useGameEngine(Fifteen35Mode, myId);
+  const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
   const me = state.players.find(p => p.id === myId);
   usePhaseSounds(state.phase);
@@ -44,6 +47,17 @@ export default function Fifteen35Game() {
           showVisibleCount={true}
         />
       </main>
+
+      {xpToast && xpToast.xpGained > 0 && (
+        <XPToast
+          key={xpToast.id}
+          xpGained={xpToast.xpGained}
+          leveledUp={xpToast.leveledUp}
+          newLevel={xpToast.newLevel}
+          newAchievementName={xpToast.achievementName}
+          onDone={dismissXP}
+        />
+      )}
 
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">

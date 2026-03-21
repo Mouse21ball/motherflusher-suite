@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
@@ -9,6 +9,9 @@ import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
+import { ReactionBar } from "@/components/game/ReactionBar";
+import { XPToast } from "@/components/XPToast";
+import { useXPWatcher } from "@/lib/useXPWatcher";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
@@ -16,17 +19,57 @@ import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import type { GameState } from "@/lib/poker/types";
 
+// ─── Invite banner ────────────────────────────────────────────────────────────
+// Shows the table code and a copy-link button. Encourages real multiplayer.
+
+function InviteBanner({ tableId }: { tableId: string }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/badugi?t=${tableId}`;
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [url]);
+
+  return (
+    <div className="w-full px-2 pt-2">
+      <div className="max-w-md mx-auto rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)] animate-pulse shrink-0" />
+          <span className="text-[10px] text-white/35 font-mono truncate">
+            Table <span className="text-emerald-400/70 font-bold">{tableId}</span> · invite a friend to play
+          </span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className={`shrink-0 text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border transition-all duration-200 ${
+            copied
+              ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+              : 'text-white/30 border-white/[0.06] hover:text-white/55 hover:border-white/[0.12]'
+          }`}
+          data-testid="button-copy-invite"
+        >
+          {copied ? '✓ Copied!' : 'Copy Link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Shared UI layer ──────────────────────────────────────────────────────────
-// Accepts state + handleAction from either engine. All rendering lives here.
 
 interface BadugiUIProps {
   state: GameState;
   handleAction: (action: string, payload?: unknown) => void;
   myId: string;
+  tableId?: string;
 }
 
-function BadugiUI({ state, handleAction, myId }: BadugiUIProps) {
+function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
+  const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
   const me = state.players.find(p => p.id === myId);
   usePhaseSounds(state.phase);
@@ -74,6 +117,9 @@ function BadugiUI({ state, handleAction, myId }: BadugiUIProps) {
         onForfeit={() => { if (me) saveChips('badugi', me.chips); }}
       />
 
+      {/* Multiplayer invite banner — shown in server-authoritative mode */}
+      {tableId && <InviteBanner tableId={tableId} />}
+
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <BadugiTable
           gameState={state}
@@ -84,6 +130,23 @@ function BadugiUI({ state, handleAction, myId }: BadugiUIProps) {
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
         />
       </main>
+
+      {/* XP toast after hand resolution */}
+      {xpToast && xpToast.xpGained > 0 && (
+        <XPToast
+          key={xpToast.id}
+          xpGained={xpToast.xpGained}
+          leveledUp={xpToast.leveledUp}
+          newLevel={xpToast.newLevel}
+          newAchievementName={xpToast.achievementName}
+          onDone={dismissXP}
+        />
+      )}
+
+      {/* Reaction bar — right edge of screen */}
+      <div className="fixed right-2 bottom-36 z-40">
+        <ReactionBar />
+      </div>
 
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
@@ -111,8 +174,6 @@ function BadugiUI({ state, handleAction, myId }: BadugiUIProps) {
 }
 
 // ─── Engine-specific wrappers ─────────────────────────────────────────────────
-// Each calls exactly one hook so neither path carries unused hook state or
-// opens spurious WebSocket connections when the other path is active.
 
 const MY_ID = 'p1';
 
@@ -123,10 +184,6 @@ function BadugiClientGame() {
 }
 
 function BadugiServerGame() {
-  // Resolve tableId once on mount:
-  //   - If URL has ?t=XXXXXX, use it (player arrived via share link or /join/:code redirect).
-  //   - Otherwise generate a fresh 6-char code and write it into the address bar so
-  //     the creator can share the URL directly — no extra UI needed.
   const [tableId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get('t')?.toUpperCase() ?? '';
@@ -137,17 +194,11 @@ function BadugiServerGame() {
   });
 
   useEffect(() => { trackModePlay("badugi"); }, []);
-  // myId is assigned by the server in the badugi:init message — no hardcoding.
   const { state, handleAction, myId } = useServerBadugi(tableId);
-  return <BadugiUI state={state} handleAction={handleAction} myId={myId} />;
+  return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} />;
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
-// Two ways to activate the server-authoritative path:
-//   1. Compile-time: FEATURES.SERVER_AUTHORITATIVE_BADUGI = true  (broad rollout)
-//   2. Runtime env:  VITE_BADUGI_ALPHA=true  (zero-code alpha enable via .env.local)
-//
-// ROLLBACK: remove VITE_BADUGI_ALPHA from .env.local and restart — instant.
 
 const isServerAuthoritative =
   FEATURES.SERVER_AUTHORITATIVE_BADUGI ||
