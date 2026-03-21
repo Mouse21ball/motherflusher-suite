@@ -25,22 +25,31 @@ function assert(label, condition, detail = '') {
   }
 }
 
-// Opens a WS, sends join, waits for the first snapshot, resolves with helpers.
-function connect(playerId) {
+// Opens a WS, sends join, waits for the first snapshot (badugi:init or badugi:snapshot),
+// resolves with helpers. Tracks the server-assigned seat so actions use the correct playerId.
+function connect(sessionId) {
   return new Promise((resolve, reject) => {
     const ws        = new WebSocket(BASE);
     const snapshots = [];
     let resolver    = null;
+    let assignedSeat = sessionId; // updated when badugi:init arrives
 
-    const timer = setTimeout(() => reject(new Error(`connect(${playerId}) timeout`)), 5000);
+    const timer = setTimeout(() => reject(new Error(`connect(${sessionId}) timeout`)), 5000);
 
     ws.on('error', reject);
     ws.on('open', () => {
       clearTimeout(timer);
-      ws.send(JSON.stringify({ type: 'join', tableId: TABLE, modeId: 'badugi', playerId, name: playerId, seatId: playerId }));
+      ws.send(JSON.stringify({ type: 'join', tableId: TABLE, modeId: 'badugi', playerId: sessionId, name: sessionId, seatId: sessionId }));
     });
     ws.on('message', raw => {
       const msg = JSON.parse(raw.toString());
+      // badugi:init: atomic seat assignment + first snapshot
+      if (msg.type === 'badugi:init') {
+        assignedSeat = msg.playerId;
+        snapshots.push(msg.state);
+        if (resolver) { const fn = resolver; resolver = null; fn(msg.state); }
+        return;
+      }
       if (msg.type !== 'badugi:snapshot') return;
       snapshots.push(msg.state);
       if (resolver) { const fn = resolver; resolver = null; fn(msg.state); }
@@ -48,13 +57,14 @@ function connect(playerId) {
 
     // send waits for the open event implicitly via the join
     function action(act, payload) {
-      ws.send(JSON.stringify({ type: 'badugi:action', tableId: TABLE, playerId, action: act, payload: payload ?? null }));
+      // Use assigned seat (not session UUID) for action routing
+      ws.send(JSON.stringify({ type: 'badugi:action', tableId: TABLE, playerId: assignedSeat, action: act, payload: payload ?? null }));
     }
 
     // Wait for the next snapshot to arrive
     function next(ms = MAX_WAIT) {
       return new Promise((res, rej) => {
-        const t = setTimeout(() => rej(new Error(`next() timeout for ${playerId}`)), ms);
+        const t = setTimeout(() => rej(new Error(`next() timeout for ${sessionId}`)), ms);
         resolver = s => { clearTimeout(t); res(s); };
       });
     }
@@ -72,8 +82,8 @@ function connect(playerId) {
     function latest() { return snapshots[snapshots.length - 1]; }
 
     // Resolve when first snapshot arrives
-    const t2 = setTimeout(() => reject(new Error(`join snapshot timeout for ${playerId}`)), 5000);
-    resolver = s => { clearTimeout(t2); resolve({ ws, action, next, until, latest, snapshots }); };
+    const t2 = setTimeout(() => reject(new Error(`join snapshot timeout for ${sessionId}`)), 5000);
+    resolver = s => { clearTimeout(t2); resolve({ ws, action, next, until, latest, snapshots, assignedSeat: () => assignedSeat }); };
   });
 }
 
@@ -99,7 +109,7 @@ async function run() {
   assert('tableId is correct',          i1.tableId === TABLE,          `got ${i1.tableId}`);
   assert('Deck not exposed to client',  i1.deck.length === 0);
 
-  // ── Start hand ─────────────────────────────────────────────────────────────
+  // ── Start hand — both p1 and p2 are live human seats ─────────────────────────
   console.log('\nCHECK 2: Card masking');
   p1.action('start');
   const ante0 = await p1.until(s => s.phase === 'ANTE');
@@ -110,52 +120,68 @@ async function run() {
   assert('P2 sees ANTE too',            ante0p2?.phase === 'ANTE',     `P2 got ${ante0p2?.phase}`);
   assert('P1 and P2 same pot in ANTE',  ante0.pot === ante0p2?.pot);
 
-  // ── P1's turn to ante — p4 is dealer so p1 acts first ─────────────────────
+  // ── p1 antes (p4 is dealer → p1 acts first) ────────────────────────────────
   const anteTurn = await p1.until(s => s.activePlayerId === 'p1' && s.phase === 'ANTE');
   assert('P1 is first to ante',         anteTurn.activePlayerId === 'p1');
-
   p1.action('ante');
 
-  // Wait for DRAW_1 (bots auto-ante sequentially, then DEAL auto-resolves)
+  // ── p2 antes (p2 holds its seat — bots skip it) ────────────────────────────
+  const anteTurnP2 = await p2.until(s => s.activePlayerId === 'p2' && s.phase === 'ANTE');
+  assert('P2 gets ANTE turn',           anteTurnP2.activePlayerId === 'p2');
+  p2.action('ante');
+
+  // Bots (p3, p4) auto-ante → DEAL auto-resolves → DRAW_1
   const draw1 = await p1.until(s => s.phase === 'DRAW_1');
   assert('Reached DRAW_1',              draw1.phase === 'DRAW_1',      `got ${draw1.phase}`);
   assert('Pot has all 4 antes',         draw1.pot === 4,               `pot=${draw1.pot}`);
 
-  // Card masking: P1 sees own hand, opponents masked
+  // ── Card masking: P1 sees own hand, opponents masked ───────────────────────
   const myCards    = draw1.players.find(p => p.id === 'p1')?.cards ?? [];
-  const botCards   = draw1.players.filter(p => p.id !== 'p1').flatMap(p => p.cards);
+  const otherCards = draw1.players.filter(p => p.id !== 'p1').flatMap(p => p.cards);
   assert('P1 has 4 cards',              myCards.length === 4,          `got ${myCards.length}`);
   assert('P1 own cards visible',        myCards.every(c => !c.isHidden));
-  assert('Bot cards masked (from P1)',  botCards.length > 0 && botCards.every(c => c.isHidden));
+  assert('Opponent cards masked (from P1)', otherCards.length > 0 && otherCards.every(c => c.isHidden));
   assert('Deck not in snapshot',        draw1.deck.length === 0);
 
-  // P2 connection perspective: P1's cards should be hidden
+  // ── Card masking from P2's perspective (P2 is still connected) ─────────────
   await sleep(100);
   const draw1p2 = p2.latest();
   const p1cardsFromP2 = draw1p2?.players?.find(p => p.id === 'p1')?.cards ?? [];
   const p2cardsFromP2 = draw1p2?.players?.find(p => p.id === 'p2')?.cards ?? [];
-  assert('P1 cards hidden from P2 view',  p1cardsFromP2.length > 0 && p1cardsFromP2.every(c => c.isHidden),
+  assert('P1 cards hidden from P2 view',   p1cardsFromP2.length > 0 && p1cardsFromP2.every(c => c.isHidden),
     `cards=${JSON.stringify(p1cardsFromP2.map(c => c.isHidden))}`);
-  assert('P2(bot) cards visible to P2 connection', p2cardsFromP2.length > 0 && p2cardsFromP2.every(c => !c.isHidden));
+  assert('P2 own cards visible to P2',     p2cardsFromP2.length > 0 && p2cardsFromP2.every(c => !c.isHidden));
 
   // ── CHECK 3: Action sync ────────────────────────────────────────────────────
   console.log('\nCHECK 3: Action sync');
 
-  // Wait for p1's draw turn (p4 is dealer, first to draw is p1)
+  // p1 draws (stand pat); p4 is dealer so p1 acts first
   const drawTurn = await p1.until(s => s.activePlayerId === 'p1' && s.phase === 'DRAW_1');
   assert('P1 gets DRAW_1 turn',          drawTurn.activePlayerId === 'p1');
-
-  p1.action('draw', []); // stand pat
+  p1.action('draw', []);
 
   const afterDraw = await p1.until(s => s.players.find(p => p.id === 'p1')?.hasActed ?? false);
   assert('P1 hasActed after draw',       afterDraw.players.find(p => p.id === 'p1')?.hasActed);
   assert('No cards replaced (stood pat)', afterDraw.players.find(p => p.id === 'p1')?.cards.length === 4);
 
-  // Bots complete their draws — wait for BET_1
+  // p2 draws (stand pat); p2 still holds its seat
+  const drawTurnP2 = await p2.until(s => s.activePlayerId === 'p2' && s.phase === 'DRAW_1');
+  assert('P2 gets DRAW_1 turn',          drawTurnP2.activePlayerId === 'p2');
+  p2.action('draw', []);
+
+  // Bots (p3, p4) complete draws → BET_1.
+  // Close p2 now so bots can handle p2's BET_1 action automatically.
   const bet1 = await p1.until(s => s.phase === 'BET_1');
   assert('Phase → BET_1 after draws',    bet1.phase === 'BET_1',       `got ${bet1.phase}`);
   assert('hasActed reset for BET_1',     bet1.players.filter(p => p.status === 'active').every(p => !p.hasActed));
-  assert('Same phase seen by P2',        (await p2.until(s => s.phase === 'BET_1', 3000).catch(() => p2.latest())).phase === 'BET_1');
+
+  // Verify P2 also received BET_1 before releasing its seat.
+  const bet1p2 = await p2.until(s => s.phase === 'BET_1', 3000).catch(() => p2.latest());
+  assert('Same phase seen by P2',        bet1p2?.phase === 'BET_1',    `P2 got ${bet1p2?.phase}`);
+
+  // Release p2 seat → bots resume for p2 in BET_1+
+  p2.ws.close();
+  await sleep(300);
 
   // P1 calls in BET_1
   const bet1Turn = await p1.until(s => s.activePlayerId === 'p1' && s.phase === 'BET_1');

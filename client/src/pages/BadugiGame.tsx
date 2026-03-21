@@ -137,8 +137,9 @@ function BadugiServerGame() {
   });
 
   useEffect(() => { trackModePlay("badugi"); }, []);
-  const { state, handleAction } = useServerBadugi(MY_ID, tableId);
-  return <BadugiUI state={state} handleAction={handleAction} myId={MY_ID} />;
+  // myId is assigned by the server in the badugi:init message — no hardcoding.
+  const { state, handleAction, myId } = useServerBadugi(tableId);
+  return <BadugiUI state={state} handleAction={handleAction} myId={myId} />;
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────

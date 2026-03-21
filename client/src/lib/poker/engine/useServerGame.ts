@@ -3,10 +3,11 @@
 // Mirrors the interface of useGameEngine so BadugiGame.tsx can switch between
 // them with a single feature-flag branch — no changes to the UI layer.
 //
-// State flow:
-//   mount → WebSocket connect → send 'join' (handled by existing rooms.ts)
-//   server → 'badugi:snapshot' → update local state
-//   handleAction → send 'badugi:action' → server processes → new snapshot
+// Seat assignment protocol:
+//   mount  → WebSocket connect → send 'join' with opaque session UUID
+//   server → 'badugi:init' { playerId, state } → hook stores assigned seat
+//   server → 'badugi:snapshot' { state } → subsequent updates after actions
+//   handleAction → send 'badugi:action' with assigned seat id → server processes
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameState } from '@shared/gameTypes';
@@ -15,27 +16,46 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 
+// ─── Session UUID ─────────────────────────────────────────────────────────────
+// Persisted in sessionStorage so a page refresh on the same tab gets the same
+// server seat back (server keeps sessionToSeat across disconnects).
+// Different tabs or devices get different UUIDs → different seats.
+
+const SESSION_STORAGE_KEY = 'badugi_session_id';
+
+function getOrCreateSessionId(): string {
+  try {
+    const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const id = Math.random().toString(36).slice(2, 18) + Math.random().toString(36).slice(2, 18);
+    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
+    return id;
+  } catch {
+    return Math.random().toString(36).slice(2, 18);
+  }
+}
+
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
-// freshly generated). Passing it in keeps the hook stateless about code generation
-// and ensures all players sharing the same link land on the same server table.
-export function useServerBadugi(myId: string = 'p1', tableId: string) {
-  // Placeholder state — same shape as the authoritative snapshot, but uses the
-  // caller-provided tableId so the first render is consistent with the WS join.
+// freshly generated). No myId parameter — the server assigns the seat.
+export function useServerBadugi(tableId: string) {
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
   }));
 
+  // Start with 'p1' as a safe default for the pre-init render.
+  // Will be replaced by the server-assigned seat when badugi:init arrives.
+  const [myId, setMyId] = useState<string>('p1');
+  const myIdRef = useRef<string>('p1');
+
   const wsRef        = useRef<WebSocket | null>(null);
   const mountedRef   = useRef(true);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tableIdRef   = useRef<string>(tableId);
+  const sessionId    = useRef<string>(getOrCreateSessionId());
   const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
   // Register the table code server-side so /join/:code can resolve it.
-  // Both the creator and any joiner call this; the server returns 409 for
-  // the joiner (code already taken) which is silently ignored — they still
-  // connect via WebSocket to the same engine table regardless.
   useEffect(() => {
     if (!activeFlag) return;
     const identity = ensurePlayerIdentity();
@@ -44,9 +64,6 @@ export function useServerBadugi(myId: string = 'p1', tableId: string) {
   }, []);
 
   // WebSocket lifecycle — only active when the flag is on.
-  // Both this effect and the registration effect above are ALWAYS called
-  // (React rules of hooks), but early-return when the flag is off so no
-  // connections, timers, or side effects are created.
   useEffect(() => {
     if (!activeFlag) return;
     mountedRef.current = true;
@@ -62,21 +79,34 @@ export function useServerBadugi(myId: string = 'p1', tableId: string) {
 
       ws.onopen = () => {
         if (!mountedRef.current) { ws.close(); return; }
+        // Send the opaque session UUID as playerId.
+        // The server maps it to a game seat (p1/p2/p3/p4) and responds with badugi:init.
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
-          // Use seatId ('p1') as playerId so the connections map is keyed on the same
-          // ID the game roster uses. The badugi:action message also sends myId, so
-          // both messages are consistent. identity.id (UUID) is intentionally not used
-          // here — it would create a UUID key in connections that never matches a
-          // roster player, breaking maskStateForPlayer for the human's own cards.
-          playerId: myId, name: identity.name, seatId: myId,
+          playerId: sessionId.current,
+          name: identity.name,
+          seatId: sessionId.current,
         }));
       };
 
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
-          if (msg.type === 'badugi:snapshot') setState(msg.state as GameState);
+
+          // badugi:init: first message after join — carries both seat and initial state.
+          // Must be processed before any snapshot so masking uses the correct seat.
+          if (msg.type === 'badugi:init') {
+            myIdRef.current = msg.playerId as string;
+            setMyId(msg.playerId as string);
+            setState(msg.state as GameState);
+            return;
+          }
+
+          // badugi:snapshot: subsequent broadcasts after each action.
+          if (msg.type === 'badugi:snapshot') {
+            setState(msg.state as GameState);
+            return;
+          }
         } catch { /* malformed — ignore */ }
       };
 
@@ -96,7 +126,7 @@ export function useServerBadugi(myId: string = 'p1', tableId: string) {
       const ws = wsRef.current;
       if (ws) {
         if (ws.readyState === WebSocket.OPEN) {
-          try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: myId })); } catch { /* ignore */ }
+          try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: sessionId.current })); } catch { /* ignore */ }
         }
         ws.close();
         wsRef.current = null;
@@ -105,12 +135,20 @@ export function useServerBadugi(myId: string = 'p1', tableId: string) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // handleAction uses a ref so it always sends the currently-assigned seat,
+  // even if React hasn't re-rendered yet after receiving badugi:init.
   const handleAction = useCallback((action: string, payload?: unknown) => {
     if (!activeFlag) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: 'badugi:action', tableId: tableIdRef.current, playerId: myId, action, payload: payload ?? null }));
-  }, [myId, activeFlag]);
+    ws.send(JSON.stringify({
+      type: 'badugi:action',
+      tableId: tableIdRef.current,
+      playerId: myIdRef.current,
+      action,
+      payload: payload ?? null,
+    }));
+  }, [activeFlag]);
 
-  return { state, handleAction };
+  return { state, handleAction, myId };
 }

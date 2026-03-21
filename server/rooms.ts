@@ -177,7 +177,8 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
 
         // If authoritative Badugi, register with game engine.
-        // Engine will immediately send a badugi:snapshot to this player.
+        // Engine assigns a seat (p1-p4) and sends a badugi:init message that
+        // bundles the seat assignment and the masked snapshot atomically.
         if (room.isAuthoritative) {
           addBadugiConnection(tableId, pid, ws);
         }

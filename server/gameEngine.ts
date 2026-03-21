@@ -111,6 +111,13 @@ function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
   };
 }
 
+// ─── Seat order ───────────────────────────────────────────────────────────────
+// All four slots can be claimed by live humans. Bots fill unclaimed slots.
+// This is the order in which seats are assigned to connecting browsers.
+
+const SEAT_ORDER = ['p1', 'p2', 'p3', 'p4'] as const;
+type SeatId = typeof SEAT_ORDER[number];
+
 // ─── Table record ─────────────────────────────────────────────────────────────
 
 interface AuthTable {
@@ -119,15 +126,34 @@ interface AuthTable {
   // Increments on each new hand. Bot timers capture this value at creation;
   // if it has changed when the timer fires, the action is silently dropped.
   handId: number;
-  // Prevents re-entrant mutations. Since all mutations are synchronous in Node,
-  // this mainly guards against a bot timer firing during another action's
-  // post-processing setTimeout callbacks.
+  // Prevents re-entrant mutations.
   actionLock: boolean;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
+  // connections keyed by game seat id (p1/p2/p3/p4)
   connections: Map<string, WebSocket>;
+  // Which game seats are held by live human WebSocket connections.
+  // Bot scheduling skips any seat in this set.
+  humanSeats: Set<string>;
+  // Maps a client's opaque session id → assigned game seat.
+  // Kept across disconnects so a page-refresh gets the same seat back.
+  sessionToSeat: Map<string, string>;
 }
 
 const tables = new Map<string, AuthTable>();
+
+// ─── Seat assignment ──────────────────────────────────────────────────────────
+
+function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
+  // Reconnect: session already has a seat — reuse it.
+  const existing = table.sessionToSeat.get(sessionId);
+  if (existing && SEAT_ORDER.includes(existing as SeatId)) return existing as SeatId;
+
+  // New session: first seat with no live connection.
+  for (const seat of SEAT_ORDER) {
+    if (!table.connections.has(seat)) return seat;
+  }
+  return null; // table full (>4 humans)
+}
 
 // ─── Broadcast + persist ──────────────────────────────────────────────────────
 
@@ -351,6 +377,8 @@ function scheduleNextBot(table: AuthTable): void {
 
   const active = state.players.find(p => p.id === state.activePlayerId);
   if (!active || active.presence !== 'bot' || active.status !== 'active') return;
+  // A human has claimed this seat — wait for their action instead of auto-playing.
+  if (table.humanSeats.has(active.id)) return;
 
   const botId          = active.id;
   const capturedHandId = handId;
@@ -373,6 +401,9 @@ function scheduleNextBot(table: AuthTable): void {
 // ─── Bot action execution ─────────────────────────────────────────────────────
 
 function executeBotAction(table: AuthTable, botId: string): void {
+  // If a human claimed this seat since the timer was scheduled, drop silently.
+  if (table.humanSeats.has(botId)) return;
+
   if (table.actionLock) {
     const capturedHandId = table.handId;
     const capturedPhase  = table.state.phase;
@@ -486,6 +517,8 @@ export function initEngine(): void {
       actionLock: false,
       botTimers: new Map(),
       connections: new Map(),
+      humanSeats: new Set(),
+      sessionToSeat: new Map(),
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -503,36 +536,67 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       actionLock: false,
       botTimers: new Map(),
       connections: new Map(),
+      humanSeats: new Set(),
+      sessionToSeat: new Map(),
     });
     engineLog('TABLE_CREATE', tableId, { source: 'new' });
   }
   return tables.get(tableId)!;
 }
 
-export function addBadugiConnection(tableId: string, playerId: string, ws: WebSocket): void {
+// Assigns a seat to the connecting browser session and sends an atomic
+// badugi:init message (seat + current state in one frame so the client
+// never processes a snapshot before it knows its own seat).
+// Returns the assigned seat id, or null if the table is full.
+export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket): string | null {
   const table = getOrCreateBadugiTable(tableId);
-  const isReconnect = table.state.phase !== 'WAITING' && table.connections.has(playerId) === false;
 
-  table.connections.set(playerId, ws);
+  const seat = assignSeat(table, sessionId);
+  if (!seat) {
+    engineLog('ERROR', tableId, { msg: 'table-full', session: sessionId.slice(-8) });
+    try { ws.send(JSON.stringify({ type: 'badugi:error', reason: 'table-full' })); } catch {}
+    return null;
+  }
+
+  const isReconnect = table.sessionToSeat.has(sessionId);
+  table.sessionToSeat.set(sessionId, seat);
+  table.connections.set(seat, ws);
+  table.humanSeats.add(seat);
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
-    player: playerId,
+    player: seat,
+    session: sessionId.slice(-8),
     phase: table.state.phase,
     connections: table.connections.size,
   });
 
-  // Immediately deliver current state so reconnecting players are in sync
+  // Atomic init: seat assignment + masked snapshot in one message.
+  // Client must process seat before it can correctly display cards.
   try {
-    ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(table.state, playerId) }));
+    ws.send(JSON.stringify({
+      type: 'badugi:init',
+      playerId: seat,
+      state: maskStateForPlayer(table.state, seat),
+    }));
   } catch { /* ws may have already closed */ }
+
+  return seat;
 }
 
-export function removeBadugiConnection(tableId: string, playerId: string): void {
+export function removeBadugiConnection(tableId: string, sessionId: string): void {
   const table = tables.get(tableId);
   if (!table) return;
-  table.connections.delete(playerId);
+
+  const seat = table.sessionToSeat.get(sessionId);
+  if (!seat) return;
+
+  table.connections.delete(seat);
+  table.humanSeats.delete(seat);
+  // sessionToSeat is kept so a page-refresh reconnect gets the same seat.
+
   engineLog('PLAYER_LEAVE', tableId, {
-    player: playerId,
+    player: seat,
+    session: sessionId.slice(-8),
     phase: table.state.phase,
     remaining: table.connections.size,
   });

@@ -51,3 +51,9 @@ waitForPort = 5000
 [agent]
 stack = "MOCKUP_JS"
 mockupState = "FULLSTACK"
+
+[userenv]
+
+[userenv.development]
+BADUGI_ALPHA_ENABLED = "true"
+VITE_BADUGI_ALPHA = "true"
