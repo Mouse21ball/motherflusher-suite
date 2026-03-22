@@ -565,7 +565,7 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
 // badugi:init message (seat + current state in one frame so the client
 // never processes a snapshot before it knows its own seat).
 // Returns the assigned seat id, or null if the table is full.
-export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket): string | null {
+export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string): string | null {
   const table = getOrCreateBadugiTable(tableId);
 
   const seat = assignSeat(table, sessionId);
@@ -579,6 +579,16 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
   table.sessionToSeat.set(sessionId, seat);
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
+
+  // Update the player's name and mark them as human in the canonical state
+  if (playerName) {
+    table.state = {
+      ...table.state,
+      players: table.state.players.map(p =>
+        p.id === seat ? { ...p, name: playerName, presence: 'human' as const } : p
+      ),
+    };
+  }
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
     player: seat,

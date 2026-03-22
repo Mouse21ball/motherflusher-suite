@@ -1,0 +1,245 @@
+import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
+import { getNextActivePlayerIndex, getDealerIndex } from '../engine/core';
+import { decideBet, applyBetDecision } from '../engine/botUtils';
+
+const cardValue = (rank: string): number => {
+  if (rank === 'J' || rank === 'Q' || rank === 'K') return 0.5;
+  if (rank === 'A') return 11;
+  return parseInt(rank, 10);
+};
+
+const bestTotal = (cards: CardType[]): { total: number; aceAs1Count: number; aceCount: number } => {
+  const aceCount = cards.filter(c => c.rank === 'A').length;
+  if (aceCount === 0) { const t = cards.reduce((sum, c) => sum + cardValue(c.rank), 0); return { total: t, aceAs1Count: 0, aceCount: 0 }; }
+  let best = { total: 0, aceAs1Count: 0, aceCount }, bestDist = Infinity;
+  for (let a1 = 0; a1 <= aceCount; a1++) {
+    const t = cards.reduce((sum, c) => { if (c.rank === 'A') return sum; return sum + cardValue(c.rank); }, 0) + (aceCount - a1) * 11 + a1 * 1;
+    const dist = Math.min(Math.abs(t - 15), Math.abs(t - 35));
+    if (t <= 35 && (dist < bestDist || (dist === bestDist && t > best.total))) { bestDist = dist; best = { total: t, aceAs1Count: a1, aceCount }; }
+  }
+  if (best.total === 0) {
+    let total = 0, aceAs1Count = 0;
+    for (const c of cards) { total += cardValue(c.rank); if (c.rank === 'A') aceCount; }
+    let t2 = 0;
+    for (const c of cards) t2 += cardValue(c.rank);
+    let a1 = 0;
+    while (t2 > 35 && a1 < aceCount) { t2 -= 10; a1++; }
+    return { total: t2, aceAs1Count: a1, aceCount };
+  }
+  return best;
+};
+
+const qualifiesLow = (total: number) => total >= 13 && total <= 15;
+const qualifiesHigh = (total: number) => total >= 33 && total <= 35;
+const isBust = (total: number) => total > 35;
+
+const allDoneHitting = (players: Player[]): boolean => {
+  const active = players.filter(p => p.status === 'active');
+  if (active.length <= 1) return true;
+  return active.every(p => p.declaration === 'STAY' || p.declaration === 'BUST');
+};
+
+export const Fifteen35Mode: GameMode = {
+  id: 'fifteen35',
+  name: '15 / 35',
+  phases: ['WAITING','ANTE','DEAL','BET_1','HIT_1','BET_2','HIT_2','BET_3','HIT_3','BET_4','HIT_4','BET_5','HIT_5','BET_6','HIT_6','BET_7','HIT_7','BET_8','HIT_8','SHOWDOWN'],
+
+  getNextPhase: (currentPhase: GamePhase, state: GameState): GamePhase | null => {
+    if (currentPhase.startsWith('HIT_')) { if (allDoneHitting(state.players)) return 'SHOWDOWN'; return null; }
+    if (currentPhase.startsWith('BET_')) { if (allDoneHitting(state.players)) return 'SHOWDOWN'; }
+    return null;
+  },
+
+  deal: (deck: CardType[], players: Player[], myId: string) => {
+    const freshDeck = [...deck];
+    const newPlayers = players.map(p => {
+      if (p.status !== 'active') return { ...p, cards: [] };
+      const card1 = { ...freshDeck.shift()!, isHidden: false };
+      const card2 = { ...freshDeck.shift()!, isHidden: p.id !== myId };
+      return { ...p, cards: [card1, card2] };
+    });
+    return { players: newPlayers, communityCards: [], deck: freshDeck };
+  },
+
+  botAction: (state: GameState, botId: string) => {
+    let newPlayers = [...state.players];
+    let newDeck = [...state.deck];
+    let newPot = state.pot;
+    let newCurrentBet = state.currentBet;
+    let message = '';
+    const bIdx = newPlayers.findIndex(p => p.id === botId);
+    const bot = newPlayers[bIdx];
+    const isHitPhase = state.phase.startsWith('HIT_');
+
+    if (state.phase === 'ANTE') {
+      newPlayers[bIdx] = { ...bot, chips: bot.chips - 1, hasActed: true };
+      newPot += 1;
+      message = `${bot.name} paid $1 Ante`;
+    } else if (isHitPhase) {
+      if (bot.declaration === 'STAY' || bot.declaration === 'BUST') {
+        newPlayers[bIdx] = { ...bot, hasActed: true };
+        message = `${bot.name} stays`;
+      } else {
+        const { total } = bestTotal(bot.cards);
+        const numCards = bot.cards.length;
+        let shouldStay = false;
+        if (qualifiesLow(total) || qualifiesHigh(total)) shouldStay = true;
+        else if (total <= 12) shouldStay = false;
+        else if (total >= 16 && total <= 27) shouldStay = false;
+        else if (total >= 28 && total <= 32) {
+          const safeMax = 35 - total;
+          let bustRanks = 0;
+          for (let v = 2; v <= 10; v++) { if (v > safeMax) bustRanks++; }
+          const bustRisk = bustRanks / 13;
+          if (numCards >= 6) shouldStay = bustRisk > 0.5;
+          else if (numCards >= 5 && bustRisk > 0.55) shouldStay = Math.random() < bustRisk * 0.5;
+          else shouldStay = false;
+        } else if (total > 35) shouldStay = true;
+
+        if (shouldStay) {
+          newPlayers[bIdx] = { ...bot, declaration: 'STAY', hasActed: true };
+          message = `${bot.name} stays`;
+        } else {
+          const hitCard = newDeck.shift();
+          if (hitCard) {
+            const newCards = [...bot.cards, { ...hitCard, isHidden: false }];
+            const { total: newTotal } = bestTotal(newCards);
+            if (isBust(newTotal)) {
+              newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
+              message = `${bot.name} hits and BUSTS!`;
+            } else {
+              let autoStay = false;
+              const active = newPlayers.filter(p => p.status === 'active');
+              if (active.length === 2) {
+                const other = active.find(p => p.id !== botId);
+                if (other && other.declaration === 'STAY') {
+                  const otherTotal = bestTotal(other.cards).total;
+                  if ((qualifiesLow(otherTotal) && qualifiesHigh(newTotal)) || (qualifiesHigh(otherTotal) && qualifiesLow(newTotal))) autoStay = true;
+                }
+              }
+              if (autoStay) { newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'STAY', hasActed: true }; message = `${bot.name} hits and auto-stays!`; }
+              else { newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true }; message = `${bot.name} hits`; }
+            }
+          } else { newPlayers[bIdx] = { ...bot, declaration: 'STAY', hasActed: true }; message = `${bot.name} stays`; }
+        }
+      }
+    } else {
+      const { total } = bestTotal(bot.cards);
+      let strength = 0.08;
+      if (qualifiesLow(total) || qualifiesHigh(total)) {
+        if (total === 15 || total === 35) strength = 0.9;
+        else if (total === 14 || total === 34) strength = 0.7;
+        else strength = 0.5;
+      } else if (bot.declaration === 'STAY') strength = 0.05;
+      else {
+        const distToLow = total < 13 ? 13 - total : (total > 15 ? 999 : 0);
+        const distToHigh = total > 35 ? 999 : (total < 33 ? 33 - total : 0);
+        const bestDist = Math.min(distToLow, distToHigh);
+        if (bestDist <= 2) strength = 0.32 - bot.cards.length * 0.02;
+        else if (bestDist <= 5) strength = 0.24 - bot.cards.length * 0.02;
+        else if (bestDist <= 10) strength = 0.16 - bot.cards.length * 0.01;
+        else strength = 0.08;
+        strength = Math.max(strength, 0.05);
+      }
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
+      newPot = result.pot; newCurrentBet = result.currentBet; message = result.message;
+    }
+
+    const activePlayers = isHitPhase ? newPlayers.filter(p => p.status === 'active') : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
+    const allActed = activePlayers.every(p => p.hasActed);
+    const allBetsMatch = activePlayers.every(p => p.bet === newCurrentBet);
+    const doneHitting = isHitPhase && allDoneHitting(newPlayers);
+    const roundOver = isHitPhase ? (allActed || doneHitting) : (allActed && allBetsMatch);
+    let nextPlayerId = undefined;
+    if (!roundOver) {
+      let nextIdx = (bIdx + 1) % newPlayers.length, count = 0;
+      while (count < newPlayers.length) {
+        const p = newPlayers[nextIdx];
+        if (isHitPhase) { if (p.status === 'active' && !p.hasActed) break; }
+        else { if (p.status === 'active' && p.chips > 0 && (!p.hasActed || p.bet < newCurrentBet)) break; }
+        nextIdx = (nextIdx + 1) % newPlayers.length; count++;
+      }
+      nextPlayerId = newPlayers[nextIdx].id;
+    }
+    return { stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet }, message, roundOver, nextPlayerId };
+  },
+
+  getAutoTransition: () => null,
+
+  evaluateHand: (player: Player) => {
+    if (player.cards.length === 0) return undefined;
+    const { total } = bestTotal(player.cards);
+    if (isBust(total)) return { description: `BUST (${total})`, isValidBadugi: false, badugiRankValues: [total] };
+    let description = `Total: ${total}`, valid = false;
+    if (qualifiesLow(total)) { description += ' — LOW'; valid = true; }
+    if (qualifiesHigh(total)) { description += ' — HIGH'; valid = true; }
+    if (!valid) description += ' — No Qualifier';
+    return { description, isValidBadugi: valid, badugiRankValues: [total] };
+  },
+
+  resolveShowdown: (players: Player[], pot: number) => {
+    const finalPlayers = players.map(p => {
+      const newCards = p.cards.map((c): CardType => ({ ...c, isHidden: false }));
+      const { total } = bestTotal(newCards);
+      if (p.status === 'folded' && p.declaration === 'BUST') return { ...p, cards: newCards, score: { description: `BUST (${total})`, isValidBadugi: false, badugiRankValues: [total] } };
+      if (p.status === 'folded') return { ...p, cards: newCards };
+      let description = `Total: ${total}`, isValidBadugi = false;
+      if (qualifiesLow(total)) { description += ' — LOW'; isValidBadugi = true; }
+      if (qualifiesHigh(total)) { description += ' — HIGH'; isValidBadugi = true; }
+      if (isBust(total)) description = `BUST (${total})`;
+      return { ...p, cards: newCards, score: { description, isValidBadugi, badugiRankValues: [total] } };
+    });
+    const messages: string[] = [];
+    const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
+    if (activePlayers.length === 1) {
+      const sole = finalPlayers.find(p => p.id === activePlayers[0].id)!;
+      sole.chips += pot; sole.isWinner = true;
+      messages.push(`${sole.name} wins $${pot} (last player standing)`);
+      return { players: finalPlayers, pot: 0, messages };
+    }
+    if (activePlayers.length === 0) { messages.push(`No active players. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
+    const lowCandidates = activePlayers.filter(p => qualifiesLow(bestTotal(p.cards).total));
+    const highCandidates = activePlayers.filter(p => qualifiesHigh(bestTotal(p.cards).total));
+    if (lowCandidates.length === 0 && highCandidates.length === 0) { messages.push(`No qualifying hands. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
+    let lowPot = Math.floor(pot / 2), highPot = Math.floor(pot / 2);
+    if (pot % 2 !== 0) highPot += 1;
+    if (lowCandidates.length === 0) { highPot += lowPot; lowPot = 0; }
+    if (highCandidates.length === 0) { lowPot += highPot; highPot = 0; }
+    const winners = new Set<string>();
+    const hasBothSides = highCandidates.length > 0 && lowCandidates.length > 0;
+    if (highCandidates.length > 0) {
+      highCandidates.sort((a, b) => bestTotal(b.cards).total - bestTotal(a.cards).total);
+      const bestHighT = bestTotal(highCandidates[0].cards).total;
+      const highWinners = highCandidates.filter(p => bestTotal(p.cards).total === bestHighT);
+      const share = Math.floor(highPot / highWinners.length); let rem = highPot - share * highWinners.length;
+      for (const w of highWinners) { const fp = finalPlayers.find(p => p.id === w.id)!; const award = share + (rem > 0 ? 1 : 0); fp.chips += award; if (rem > 0) rem--; fp.isWinner = true; winners.add(w.id); }
+      if (highWinners.length === 1) messages.push(`${highWinners[0].name} wins HIGH — $${highPot} (${bestHighT})`);
+      else highWinners.forEach(w => messages.push(`${w.name} wins HIGH — split`));
+    }
+    if (lowCandidates.length > 0) {
+      lowCandidates.sort((a, b) => Math.abs(bestTotal(b.cards).total - 15) - Math.abs(bestTotal(a.cards).total - 15) || bestTotal(b.cards).total - bestTotal(a.cards).total);
+      const bestLowT = bestTotal(lowCandidates[0].cards).total;
+      const lowWinners = lowCandidates.filter(p => bestTotal(p.cards).total === bestLowT);
+      const share = Math.floor(lowPot / lowWinners.length); let rem = lowPot - share * lowWinners.length;
+      for (const w of lowWinners) { const fp = finalPlayers.find(p => p.id === w.id)!; const award = share + (rem > 0 ? 1 : 0); fp.chips += award; if (rem > 0) rem--; fp.isWinner = true; winners.add(w.id); }
+      if (lowWinners.length === 1) messages.push(`${lowWinners[0].name} wins LOW — $${lowPot} (${bestLowT})`);
+      else lowWinners.forEach(w => messages.push(`${w.name} wins LOW — split`));
+    }
+    if (hasBothSides) messages.unshift(`Split Pot — HIGH/LOW split $${pot}`);
+    finalPlayers.forEach(p => { if (p.status !== 'folded' && !winners.has(p.id)) p.isLoser = true; });
+    return { players: finalPlayers, pot: 0, messages };
+  },
+
+  checkAutoStay: (state: GameState, playerId: string): boolean => {
+    const active = state.players.filter(p => p.status === 'active');
+    if (active.length !== 2) return false;
+    const me = active.find(p => p.id === playerId);
+    const other = active.find(p => p.id !== playerId);
+    if (!me || !other || me.declaration || other.declaration !== 'STAY') return false;
+    const myTotal = bestTotal(me.cards).total;
+    const otherTotal = bestTotal(other.cards).total;
+    return (qualifiesLow(myTotal) && qualifiesHigh(otherTotal)) || (qualifiesHigh(myTotal) && qualifiesLow(otherTotal));
+  }
+};

@@ -18,6 +18,11 @@ import {
   removeBadugiConnection,
   handleBadugiAction,
 } from './gameEngine';
+import {
+  addGenericConnection,
+  removeGenericConnection,
+  handleGenericAction,
+} from './genericEngine';
 
 // ─── Rollout gate ─────────────────────────────────────────────────────────────
 // Evaluated once per process start. Changing BADUGI_ALPHA_ENABLED requires restart.
@@ -26,11 +31,17 @@ const SERVER_BADUGI_ON: boolean =
   FEATURES.SERVER_AUTHORITATIVE_BADUGI ||
   process.env.BADUGI_ALPHA_ENABLED === 'true';
 
+const SERVER_MODES_ON: boolean =
+  process.env.MODES_ALPHA_ENABLED === 'true' || SERVER_BADUGI_ON;
+
 if (SERVER_BADUGI_ON) {
   const src = FEATURES.SERVER_AUTHORITATIVE_BADUGI ? 'featureFlag' : 'env:BADUGI_ALPHA_ENABLED';
   console.log(`[badugi] Server-authoritative mode ENABLED (source: ${src})`);
 } else {
   console.log('[badugi] Server-authoritative mode OFF — client engine active.');
+}
+if (SERVER_MODES_ON) {
+  console.log('[modes] Generic server-authoritative mode ENABLED for all game modes.');
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -57,7 +68,8 @@ type ClientMessage =
   | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean }
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
-  | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown };
+  | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
+  | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown };
 
 // ─── Server broadcast payload ─────────────────────────────────────────────────
 
@@ -110,6 +122,8 @@ function releasePlayer(playerId: string, tableId: string): void {
 
   if (room.isAuthoritative) {
     removeBadugiConnection(tableId, playerId);
+  } else if (SERVER_MODES_ON && room.modeId !== 'badugi') {
+    removeGenericConnection(tableId, playerId);
   }
 
   for (const [seatId, claim] of room.seats.entries()) {
@@ -180,7 +194,9 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // Engine assigns a seat (p1-p4) and sends a badugi:init message that
         // bundles the seat assignment and the masked snapshot atomically.
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws);
+          addBadugiConnection(tableId, pid, ws, name || undefined);
+        } else if (SERVER_MODES_ON && modeId !== 'badugi') {
+          addGenericConnection(tableId, modeId, pid, ws, name || undefined);
         }
 
         broadcastRoomState(room);
@@ -208,6 +224,15 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const { tableId, playerId: pid, action, payload } = msg;
         if (!tableId || !pid || !action) return;
         handleBadugiAction(tableId, pid, action, payload);
+        return;
+      }
+
+      // ── mode:action (generic authoritative modes) ───────────────────────────
+      if (msg.type === 'mode:action') {
+        if (!SERVER_MODES_ON) return;
+        const { tableId, playerId: pid, action, payload } = msg;
+        if (!tableId || !pid || !action) return;
+        handleGenericAction(tableId, pid, action, payload);
         return;
       }
     });
