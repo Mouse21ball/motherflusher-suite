@@ -377,3 +377,77 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+/* ── Premium home page animations ───────────────────────────────────────── */
+
+@keyframes shimmer-sweep {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.anim-shimmer {
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%);
+  background-size: 200% 100%;
+  animation: shimmer-sweep 2.4s ease-in-out infinite;
+}
+
+@keyframes jackpot-pulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(240,184,41,0.35), 0 0 40px rgba(240,184,41,0.15); }
+  50%       { text-shadow: 0 0 30px rgba(240,184,41,0.65), 0 0 60px rgba(240,184,41,0.30); }
+}
+
+.anim-jackpot {
+  animation: jackpot-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes border-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(240,184,41,0.15), 0 0 20px rgba(240,184,41,0.06); }
+  50%       { box-shadow: 0 0 0 1px rgba(240,184,41,0.35), 0 0 30px rgba(240,184,41,0.12); }
+}
+
+.anim-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.anim-ticker {
+  animation: ticker 28s linear infinite;
+}
+
+.anim-ticker:hover {
+  animation-play-state: paused;
+}
+
+@keyframes float-coin {
+  0%   { transform: translateY(0px) rotate(-8deg); }
+  50%  { transform: translateY(-8px) rotate(4deg); }
+  100% { transform: translateY(0px) rotate(-8deg); }
+}
+
+.anim-float-coin {
+  animation: float-coin 3.5s ease-in-out infinite;
+}
+
+@keyframes slide-down-fade {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-slide-down {
+  animation: slide-down-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.anim-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}

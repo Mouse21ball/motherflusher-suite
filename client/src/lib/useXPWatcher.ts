@@ -21,7 +21,7 @@ export function useXPWatcher() {
     function poll() {
       const prog = getProgression();
       const currentXP = prog.xp;
-      const currentAchievements = prog.achievements;
+      const currentAchievements = prog.unlockedAchievements ?? [];
 
       if (prevXPRef.current === null) {
         // First poll — just initialize

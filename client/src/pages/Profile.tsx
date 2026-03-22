@@ -41,18 +41,26 @@ export default function Profile() {
   const progressPct = Math.round(levelInfo.progress * 100);
 
   return (
-    <div className="min-h-[100dvh] bg-[#0B0B0D] flex flex-col">
+    <div className="min-h-[100dvh] bg-[#070709] flex flex-col">
+      {/* Ambient glow */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[500px] rounded-full"
+          style={{ background: `radial-gradient(ellipse, ${rank.color}18 0%, transparent 70%)` }} />
+      </div>
       {/* Header */}
-      <header className="w-full px-4 py-3.5 flex items-center gap-3 border-b border-white/[0.04]">
+      <header
+        className="sticky top-0 z-40 w-full px-4 py-3 flex items-center gap-3 border-b"
+        style={{ backgroundColor: 'rgba(7,7,9,0.92)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.06)' }}
+      >
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-[10px] font-mono text-white/30 hover:text-white/55 uppercase tracking-widest transition-colors"
+          className="text-[10px] font-mono text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
           data-testid="link-back-home"
         >
           ‹ Lobby
         </button>
         <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest">Profile</span>
+        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">👤 Profile</span>
       </header>
 
       <div className="flex-1 flex flex-col items-center px-4 py-6 gap-4 max-w-lg mx-auto w-full">
