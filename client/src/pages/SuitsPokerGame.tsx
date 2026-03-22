@@ -7,6 +7,7 @@ import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
+import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getPhaseHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
@@ -50,7 +51,8 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 }
 
 function SuitsPokerGameServer({ tableId }: { tableId: string }) {
-  const { state, handleAction, myId } = useServerMode(tableId, 'suits_poker');
+  const { state, handleAction, myId, role } = useServerMode(tableId, 'suits_poker');
+  const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
@@ -58,13 +60,12 @@ function SuitsPokerGameServer({ tableId }: { tableId: string }) {
   useGameToasts(state, myId, "Suits & Poker");
   useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
   const handleCardClick = (index: number) => {
-    if (state.phase === 'DRAW') {
-      setSelectedCardIndices(prev => {
-        if (prev.includes(index)) return prev.filter(i => i !== index);
-        if (prev.length < 2) return [...prev, index];
-        return prev;
-      });
-    }
+    if (isSpectator || state.phase !== 'DRAW') return;
+    setSelectedCardIndices(prev => {
+      if (prev.includes(index)) return prev.filter(i => i !== index);
+      if (prev.length < 2) return [...prev, index];
+      return prev;
+    });
   };
   const handleControlAction = (action: string, amount?: number) => {
     if (action === 'draw') handleAction(action, selectedCardIndices);
@@ -75,16 +76,26 @@ function SuitsPokerGameServer({ tableId }: { tableId: string }) {
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="suitspoker" {...MODE_INTROS.suitspoker} />
       <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('suitspoker', me.chips); }} />
-      <InviteBanner tableId={tableId} mode="suitspoker" />
+      {isSpectator
+        ? <SpectatorBanner spectatorCount={state.spectatorCount} />
+        : <InviteBanner tableId={tableId} mode="suitspoker" />
+      }
+      {!isSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
+        <div className="flex justify-center pt-1">
+          <SpectatorWatchingBadge count={state.spectatorCount} />
+        </div>
+      )}
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <SuitsPokerTable gameState={state} myId={myId} selectedCardIndices={selectedCardIndices} onCardClick={handleCardClick} selectableCards={isSelectablePhase} />
+        <SuitsPokerTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={isSpectator ? [] : selectedCardIndices} onCardClick={handleCardClick} selectableCards={!isSpectator && isSelectablePhase} />
       </main>
       {xpToast && xpToast.xpGained > 0 && <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />}
-      <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
-        <div className="pointer-events-auto w-full max-w-md px-2">
-          <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} declarationOptions={spDeclarationOptions} phaseHint={getPhaseHint('suitspoker', state.phase)} />
+      {!isSpectator && (
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
+          <div className="pointer-events-auto w-full max-w-md px-2">
+            <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} declarationOptions={spDeclarationOptions} phaseHint={getPhaseHint('suitspoker', state.phase)} />
+          </div>
         </div>
-      </div>
+      )}
       <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={(text) => handleAction('chat', text)} />
     </div>
   );

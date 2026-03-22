@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CardType } from "@/lib/poker/types";
+import { getDeckThemeClass, getDeckTheme } from "@/lib/deckTheme";
 
 interface CardProps {
   card?: CardType;
@@ -25,10 +26,12 @@ const suitSymbols: Record<string, string> = {
 
 export function PlayingCard({ card, className, onClick, selectable, selected, isSelfHidden }: CardProps & { isSelfHidden?: boolean }) {
   if (!card || (card.isHidden && !isSelfHidden)) {
+    const themeClass = getDeckThemeClass(getDeckTheme());
     return (
-      <div 
+      <div
         className={cn(
-          "w-12 h-16 sm:w-16 sm:h-24 playing-card-back rounded-lg shrink-0 transition-shadow duration-200",
+          themeClass,
+          "w-12 h-16 sm:w-16 sm:h-24 playing-card-back rounded-lg shrink-0 transition-all duration-300",
           selectable && "cursor-pointer active:scale-[0.97]",
           selected && "card-selected",
           className
@@ -41,7 +44,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
 
   return (
-    <div 
+    <div
       className={cn(
         "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 flex flex-col justify-between relative transition-shadow duration-200",
         suitColors[card.suit],

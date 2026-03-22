@@ -35,6 +35,7 @@ export function useServerMode(tableId: string, modeId: string) {
   }));
 
   const [myId, setMyId] = useState<string>('p1');
+  const [role, setRole] = useState<'player' | 'spectator'>('player');
   const myIdRef    = useRef<string>('p1');
   const wsRef      = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
@@ -77,8 +78,14 @@ export function useServerMode(tableId: string, modeId: string) {
         try {
           const msg = JSON.parse(event.data as string);
           if (msg.type === 'mode:init') {
-            myIdRef.current = msg.playerId as string;
-            setMyId(msg.playerId as string);
+            const pid = msg.playerId as string;
+            myIdRef.current = pid;
+            setMyId(pid);
+            if (msg.role === 'spectator' || pid === '__spectator__') {
+              setRole('spectator');
+            } else {
+              setRole('player');
+            }
             setState(msg.state as GameState);
             return;
           }
@@ -127,5 +134,5 @@ export function useServerMode(tableId: string, modeId: string) {
     }));
   }, []);
 
-  return { state, handleAction, myId };
+  return { state, handleAction, myId, role };
 }

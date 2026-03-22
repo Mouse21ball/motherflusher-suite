@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Flame } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { HandHistory } from "./HandHistory";
 import { StatsView } from "./StatsView";
+import { DeckSelector } from "./DeckSelector";
 import type { GamePhase } from "@/lib/poker/types";
 import { getProgression, getLevelInfo, getRankForLevel } from "@/lib/progression";
+import { getPlayerStats } from "@/lib/persistence";
 
 export interface ModeInfo {
   abbrev: string;
@@ -232,6 +234,10 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
   const levelInfo = getLevelInfo(progression.xp);
   const rank = getRankForLevel(levelInfo.level);
 
+  // Win streak from history
+  const stats = getPlayerStats();
+  const winStreak = stats.streakType === 'win' ? stats.currentStreak : 0;
+
   const isMidHand = phase ? MID_HAND_PHASES.has(phase) : false;
   const currentPot = pot ?? 0;
 
@@ -265,6 +271,16 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {winStreak >= 2 && (
+            <div
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/[0.08] text-orange-400 text-[10px] font-mono font-bold tracking-wide animate-pulse"
+              data-testid="badge-win-streak"
+              title={`${winStreak}-win streak!`}
+            >
+              <Flame className="w-3 h-3" />
+              <span>{winStreak}🔥</span>
+            </div>
+          )}
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
             <SheetTrigger asChild>
               <button
@@ -315,6 +331,8 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
           <HandHistory modeId={modeId} />
 
           <StatsView modeId={modeId} />
+
+          <DeckSelector />
 
           <button
             onClick={handleLobbyClick}

@@ -144,6 +144,7 @@ export interface GameState {
   deck: CardType[];
   discardPile: CardType[];
   heroChipChange?: number;
+  spectatorCount?: number;
 }
 
 // ─── GameMode interface ───────────────────────────────────────────────────────

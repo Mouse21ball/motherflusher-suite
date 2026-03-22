@@ -47,6 +47,7 @@ export function useServerBadugi(tableId: string) {
   // Will be replaced by the server-assigned seat when badugi:init arrives.
   const [myId, setMyId] = useState<string>('p1');
   const myIdRef = useRef<string>('p1');
+  const [role, setRole] = useState<'player' | 'spectator'>('player');
 
   const wsRef        = useRef<WebSocket | null>(null);
   const mountedRef   = useRef(true);
@@ -99,6 +100,9 @@ export function useServerBadugi(tableId: string) {
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
             setState(msg.state as GameState);
+            if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
+              setRole('spectator');
+            }
             return;
           }
 
@@ -150,5 +154,5 @@ export function useServerBadugi(tableId: string) {
     }));
   }, [activeFlag]);
 
-  return { state, handleAction, myId };
+  return { state, handleAction, myId, role };
 }

@@ -130,7 +130,7 @@ interface AuthTable {
   // Prevents re-entrant mutations.
   actionLock: boolean;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
-  // connections keyed by game seat id (p1/p2/p3/p4)
+  // connections keyed by game seat id (p1/p2/p3/p4/p5)
   connections: Map<string, WebSocket>;
   // Which game seats are held by live human WebSocket connections.
   // Bot scheduling skips any seat in this set.
@@ -138,6 +138,8 @@ interface AuthTable {
   // Maps a client's opaque session id → assigned game seat.
   // Kept across disconnects so a page-refresh gets the same seat back.
   sessionToSeat: Map<string, string>;
+  // Spectators: sessions watching but not seated (table full).
+  spectators: Map<string, { ws: WebSocket; name: string }>;
 }
 
 const tables = new Map<string, AuthTable>();
@@ -159,11 +161,24 @@ function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
 // ─── Broadcast + persist ──────────────────────────────────────────────────────
 
 function broadcastState(table: AuthTable): void {
+  const spectatorCount = table.spectators.size;
+  const stateWithMeta = spectatorCount > 0
+    ? { ...table.state, spectatorCount }
+    : table.state;
+
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1 /* OPEN */) continue;
     try {
-      ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(table.state, playerId) }));
+      ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(stateWithMeta, playerId) }));
     } catch { /* ignore closed socket race */ }
+  }
+  // Also send to spectators (all cards hidden)
+  for (const [, spec] of Array.from(table.spectators.entries())) {
+    if (spec.ws.readyState !== 1) continue;
+    try {
+      const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+    } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
   scheduleSave(table.tableId, table.state, table.handId);
@@ -520,6 +535,7 @@ export function initEngine(): void {
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      spectators: new Map(),
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -556,6 +572,7 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      spectators: new Map(),
     });
     engineLog('TABLE_CREATE', tableId, { source: 'new' });
   }
@@ -571,9 +588,19 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
 
   const seat = assignSeat(table, sessionId);
   if (!seat) {
-    engineLog('ERROR', tableId, { msg: 'table-full', session: sessionId.slice(-8) });
-    try { ws.send(JSON.stringify({ type: 'badugi:error', reason: 'table-full' })); } catch {}
-    return null;
+    // Table full — register as spectator
+    table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
+    engineLog('SPECTATOR_JOIN', tableId, { session: sessionId.slice(-8), count: table.spectators.size });
+    try {
+      ws.send(JSON.stringify({
+        type: 'badugi:init',
+        playerId: '__spectator__',
+        role: 'spectator',
+        state: maskStateForPlayer(table.state, '__spectator__'),
+      }));
+    } catch {}
+    broadcastState(table);
+    return '__spectator__';
   }
 
   const isReconnect = table.sessionToSeat.has(sessionId);
@@ -614,6 +641,14 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
 export function removeBadugiConnection(tableId: string, sessionId: string): void {
   const table = tables.get(tableId);
   if (!table) return;
+
+  // Handle spectator disconnect
+  if (table.spectators.has(sessionId)) {
+    table.spectators.delete(sessionId);
+    engineLog('SPECTATOR_LEAVE', tableId, { session: sessionId.slice(-8), remaining: table.spectators.size });
+    broadcastState(table);
+    return;
+  }
 
   const seat = table.sessionToSeat.get(sessionId);
   if (!seat) return;

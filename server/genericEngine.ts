@@ -159,6 +159,7 @@ interface GenericTable {
   connections: Map<string, WebSocket>;
   humanSeats: Set<string>;
   sessionToSeat: Map<string, string>;
+  spectators: Map<string, { ws: WebSocket; name: string }>;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -182,10 +183,23 @@ function assignSeat(table: GenericTable, sessionId: string): SeatId | null {
 // ─── Broadcast ────────────────────────────────────────────────────────────────
 
 function broadcastState(table: GenericTable): void {
+  const spectatorCount = table.spectators.size;
+  const stateWithMeta = spectatorCount > 0
+    ? { ...table.state, spectatorCount }
+    : table.state;
+
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1) continue;
     try {
-      ws.send(JSON.stringify({ type: 'mode:snapshot', state: maskStateForPlayer(table.state, playerId) }));
+      ws.send(JSON.stringify({ type: 'mode:snapshot', state: maskStateForPlayer(stateWithMeta, playerId) }));
+    } catch {}
+  }
+  // Also send to spectators (all cards hidden)
+  for (const [, spec] of Array.from(table.spectators.entries())) {
+    if (spec.ws.readyState !== 1) continue;
+    try {
+      const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
     } catch {}
   }
 }
@@ -293,6 +307,63 @@ function dealCards(table: GenericTable): void {
   };
 }
 
+// ─── Bot banter ───────────────────────────────────────────────────────────────
+// Psychology-driven chat after showdown. Reinforces loss aversion, competitive
+// identity, and table atmosphere. Keeps sessions alive and drives re-entry.
+
+const BOT_BANTER_WIN = [
+  "That's what I'm talking about.",
+  "Easy money.",
+  "Next.",
+  "You see that? Classic.",
+  "Don't blink.",
+  "Read 'em and weep.",
+  "Prison rules pay off.",
+];
+const BOT_BANTER_LOSE = [
+  "Shake it off.",
+  "Variance is a beast.",
+  "I'll get it back.",
+  "Patience.",
+  "That hurt. Moving on.",
+  "One hand at a time.",
+];
+const BOT_BANTER_NEUTRAL = [
+  "Eyes on the pot.",
+  "Stay focused.",
+  "It's a long game.",
+  "No mercy out here.",
+  "Ante up.",
+  "Who's scared?",
+  "Stack up or pack up.",
+  "Prison rules. No mercy.",
+];
+
+function scheduleBotBanter(table: GenericTable, winnerIds: string[]): void {
+  if (Math.random() > 0.55) return; // ~55% chance of banter each showdown
+
+  const bots = table.state.players.filter(p => p.presence === 'bot' && p.status !== 'folded');
+  if (bots.length === 0) return;
+
+  const bot = bots[Math.floor(Math.random() * bots.length)];
+  const isWinner = winnerIds.includes(bot.id);
+
+  let pool: string[];
+  if (isWinner) pool = BOT_BANTER_WIN;
+  else if (Math.random() > 0.45) pool = BOT_BANTER_LOSE;
+  else pool = BOT_BANTER_NEUTRAL;
+
+  const text = pool[Math.floor(Math.random() * pool.length)];
+  const delay = 1200 + Math.random() * 1600;
+
+  setTimeout(() => {
+    if (table.state.phase !== 'SHOWDOWN') return;
+    const msg = { id: makeId(), senderId: bot.id, senderName: bot.name, text, time: Date.now() };
+    table.state = { ...table.state, chatMessages: [...table.state.chatMessages.slice(-49), msg] };
+    broadcastState(table);
+  }, delay);
+}
+
 // ─── Showdown resolution ──────────────────────────────────────────────────────
 
 function resolveShowdown(table: GenericTable): void {
@@ -313,6 +384,10 @@ function resolveShowdown(table: GenericTable): void {
     };
 
     broadcastState(table);
+
+    // Schedule bot banter after showdown
+    const winnerIds = result.players.filter(p => p.isWinner).map(p => p.id);
+    scheduleBotBanter(table, winnerIds);
 
     const fenced2 = table.handId;
     setTimeout(() => {
@@ -522,6 +597,7 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      spectators: new Map(),
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId });
   }
@@ -539,8 +615,20 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
 
   const seat = assignSeat(table, sessionId);
   if (!seat) {
-    try { ws.send(JSON.stringify({ type: 'mode:error', reason: 'table-full' })); } catch {}
-    return null;
+    // Table full — register as spectator
+    table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
+    engineLog('SPECTATOR_JOIN', `${modeId}:${tableId}`, { session: sessionId.slice(-8), count: table.spectators.size });
+    try {
+      ws.send(JSON.stringify({
+        type: 'mode:init',
+        playerId: '__spectator__',
+        modeId,
+        role: 'spectator',
+        state: maskStateForPlayer(table.state, '__spectator__'),
+      }));
+    } catch {}
+    broadcastState(table);
+    return '__spectator__';
   }
 
   const isReconnect = table.sessionToSeat.has(sessionId);
@@ -581,6 +669,14 @@ export function removeGenericConnection(tableId: string, sessionId: string): voi
     const key = tableKey(modeId, tableId);
     const table = tables.get(key);
     if (!table) continue;
+
+    // Handle spectator disconnect
+    if (table.spectators.has(sessionId)) {
+      table.spectators.delete(sessionId);
+      engineLog('SPECTATOR_LEAVE', `${modeId}:${tableId}`, { session: sessionId.slice(-8), remaining: table.spectators.size });
+      broadcastState(table);
+      return;
+    }
 
     const seat = table.sessionToSeat.get(sessionId);
     if (!seat) continue;

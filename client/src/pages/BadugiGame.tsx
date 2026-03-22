@@ -10,6 +10,7 @@ import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { ReactionBar } from "@/components/game/ReactionBar";
+import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
 import { XPToast } from "@/components/XPToast";
 import { useXPWatcher } from "@/lib/useXPWatcher";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
@@ -65,9 +66,11 @@ interface BadugiUIProps {
   handleAction: (action: string, payload?: unknown) => void;
   myId: string;
   tableId?: string;
+  role?: 'player' | 'spectator';
 }
 
-function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
+function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: BadugiUIProps) {
+  const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
@@ -82,7 +85,7 @@ function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
   const isDrawPhase = state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
 
   const handleCardClick = (index: number) => {
-    if (!isDrawPhase) return;
+    if (isSpectator || !isDrawPhase) return;
     setSelectedCardIndices(prev => {
       if (prev.includes(index)) return prev.filter(i => i !== index);
       let maxCards = 1;
@@ -117,16 +120,23 @@ function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
         onForfeit={() => { if (me) saveChips('badugi', me.chips); }}
       />
 
-      {/* Multiplayer invite banner — shown in server-authoritative mode */}
-      {tableId && <InviteBanner tableId={tableId} />}
+      {isSpectator
+        ? <SpectatorBanner spectatorCount={state.spectatorCount} />
+        : tableId ? <InviteBanner tableId={tableId} /> : null
+      }
+      {!isSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
+        <div className="flex justify-center pt-1">
+          <SpectatorWatchingBadge count={state.spectatorCount} />
+        </div>
+      )}
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
         <BadugiTable
           gameState={state}
-          myId={myId}
-          selectedCardIndices={selectedCardIndices}
+          myId={isSpectator ? 'p1' : myId}
+          selectedCardIndices={isSpectator ? [] : selectedCardIndices}
           onCardClick={handleCardClick}
-          selectableCards={isDrawPhase}
+          selectableCards={!isSpectator && isDrawPhase}
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
         />
       </main>
@@ -151,21 +161,23 @@ function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
         />
       </div>
 
-      <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
-        <div className="pointer-events-auto w-full max-w-md px-2">
-          <ActionControls
-            phase={state.phase}
-            currentBet={state.currentBet}
-            myBet={me?.bet || 0}
-            pot={state.pot}
-            chips={me?.chips || 0}
-            onAction={handleControlAction}
-            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
-            selectedCardsCount={selectedCardIndices.length}
-            phaseHint={getPhaseHint('badugi', state.phase)}
-          />
+      {!isSpectator && (
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
+          <div className="pointer-events-auto w-full max-w-md px-2">
+            <ActionControls
+              phase={state.phase}
+              currentBet={state.currentBet}
+              myBet={me?.bet || 0}
+              pot={state.pot}
+              chips={me?.chips || 0}
+              onAction={handleControlAction}
+              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
+              selectedCardsCount={selectedCardIndices.length}
+              phaseHint={getPhaseHint('badugi', state.phase)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <ChatBox
         messages={state.chatMessages}
@@ -197,8 +209,8 @@ function BadugiServerGame() {
   });
 
   useEffect(() => { trackModePlay("badugi"); }, []);
-  const { state, handleAction, myId } = useServerBadugi(tableId);
-  return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} />;
+  const { state, handleAction, myId, role } = useServerBadugi(tableId);
+  return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} role={role} />;
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
