@@ -38,7 +38,7 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
       "flex flex-col items-center gap-1",
       flash && "anim-pot-collect"
     )} data-testid="discard-pile">
-      <div className="relative w-14 h-10 sm:w-16 sm:h-12">
+      <div className="relative w-16 h-14 sm:w-20 sm:h-16">
         {Array.from({ length: Math.min(totalDiscards, 6) }).map((_, i) => (
           <div
             key={i}
@@ -47,9 +47,9 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
               flash && i === Math.min(totalDiscards, 6) - 1 && "animate-in zoom-in-50 duration-300"
             )}
             style={{
-              left: `${4 + i * 2}px`,
-              top: `${-2 + i * 1}px`,
-              transform: `rotate(${(i - 2) * 8}deg)`,
+              left: `${6 + i * 2}px`,
+              top: `${2 + i * 1}px`,
+              transform: `rotate(${(i - 2.5) * 7}deg)`,
               zIndex: i
             }}
           />
