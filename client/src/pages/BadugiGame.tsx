@@ -143,9 +143,12 @@ function BadugiUI({ state, handleAction, myId, tableId }: BadugiUIProps) {
         />
       )}
 
-      {/* Reaction bar — right edge of screen */}
+      {/* Reaction bar — right edge of screen, wired to server for all players */}
       <div className="fixed right-2 bottom-36 z-40">
-        <ReactionBar />
+        <ReactionBar
+          onReact={(emoji) => handleAction('reaction', emoji)}
+          incomingReactions={state.liveReactions}
+        />
       </div>
 
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">

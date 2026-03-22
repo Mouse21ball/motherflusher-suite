@@ -121,6 +121,14 @@ export interface GameMessage {
   isResolution?: boolean;
 }
 
+export interface ReactionEvent {
+  id: string;
+  playerId: string;
+  playerName: string;
+  emoji: string;
+  time: number;
+}
+
 export interface GameState {
   tableId: string;
   phase: GamePhase;
@@ -132,6 +140,7 @@ export interface GameState {
   communityCards: CardType[];
   messages: GameMessage[];
   chatMessages: ChatMessage[];
+  liveReactions?: ReactionEvent[];
   deck: CardType[];
   discardPile: CardType[];
   heroChipChange?: number;

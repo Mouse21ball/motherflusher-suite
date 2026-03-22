@@ -122,7 +122,7 @@ export default function Shop() {
           ‹ Lobby
         </button>
         <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">💎 Premium Shop</span>
+        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Shop & Merch</span>
       </header>
 
       {/* Coming soon toast */}
@@ -279,6 +279,71 @@ export default function Shop() {
                 )}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* ── Chain Gang Merch ──────────────────────────────────────────── */}
+        <div className="w-full">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
+            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
+          </div>
+          <div
+            className="w-full rounded-2xl p-4 mb-3 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,107,0,0.09) 0%, rgba(240,184,41,0.05) 100%)',
+              border: '1px solid rgba(255,107,0,0.22)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-3xl leading-none anim-float-coin">🧥</div>
+              <div>
+                <div className="font-bold text-white/80 font-sans">Official CGP Merch</div>
+                <div className="text-xs text-white/35 mt-0.5 leading-snug">
+                  Rep the gang. Exclusive Chain Gang Poker clothing — hoodies, tees, snapbacks. Limited drops.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: '🧥', name: 'Chain Gang Hoodie', sub: 'Heavyweight pullover · OG logo', price: '$55', hot: true  },
+              { icon: '👕', name: 'CGP OG Tee',         sub: '"Prison rules." — Unisex fit',   price: '$32', hot: false },
+              { icon: '🧢', name: 'Snapback Cap',        sub: 'Chain Gang logo · adjustable',  price: '$28', hot: false },
+              { icon: '🏀', name: 'Chain Gang Shorts',   sub: 'Court-ready. Mesh pockets.',    price: '$38', hot: true  },
+              { icon: '🧦', name: 'Stripe Crew Socks',   sub: 'Triple pack. Chain graphic.',   price: '$18', hot: false },
+              { icon: '🦺', name: 'Prison Greens Set',   sub: 'Jogger + hoodie · Limited',     price: '$85', hot: true  },
+            ].map(item => (
+              <button
+                key={item.name}
+                onClick={() => handlePurchase(item.name)}
+                className="rounded-2xl p-3.5 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.97] group"
+                style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.28)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
+                data-testid={`button-merch-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+              >
+                {item.hot && (
+                  <div className="absolute top-2 right-2 text-[8px] font-mono font-bold bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                    HOT
+                  </div>
+                )}
+                <div className="text-2xl leading-none mb-2">{item.icon}</div>
+                <div className="text-sm font-bold text-white/75 font-sans leading-tight">{item.name}</div>
+                <div className="text-[10px] text-white/25 font-mono mt-0.5 leading-tight">{item.sub}</div>
+                <div className="flex items-center justify-between mt-2">
+                  <div className="text-sm font-bold font-mono" style={{ color: '#FF6B00' }}>{item.price}</div>
+                  <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Soon ›</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 rounded-xl p-3 flex items-center gap-3"
+            style={{ backgroundColor: 'rgba(255,107,0,0.05)', border: '1px solid rgba(255,107,0,0.12)' }}>
+            <span className="text-base shrink-0">📦</span>
+            <p className="text-[11px] font-mono text-white/25 leading-snug">
+              Merch store launching soon. Drop your email to get first access + 20% off your first order.
+            </p>
           </div>
         </div>
 

@@ -1768,5 +1768,88 @@
     },
     "handId": 2,
     "savedAt": 1774109603002
+  },
+  "PAF3MG": {
+    "state": {
+      "tableId": "PAF3MG",
+      "phase": "ANTE",
+      "pot": 1,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "You",
+          "presence": "human",
+          "chips": 1018,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 992,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1008,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 981,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "0niyri20",
+          "text": "New hand.",
+          "time": 1774146467762
+        },
+        {
+          "id": "xtp0ry5h",
+          "text": "Charlie paid $1 Ante",
+          "time": 1774146468977,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 9,
+    "savedAt": 1774146470978
   }
 }

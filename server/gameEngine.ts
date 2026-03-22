@@ -8,7 +8,7 @@
 // BADUGI_ALPHA_ENABLED=true is set in the environment.
 
 import type { WebSocket } from 'ws';
-import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration } from '../shared/gameTypes';
+import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent } from '../shared/gameTypes';
 import { BadugiMode } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
@@ -660,6 +660,42 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       table.actionLock = false;
       engineLog('ACTION', tableId, { player: playerId, action: 'restart', accepted: true });
       resetToAnte(table);
+      broadcastState(table);
+      return;
+    }
+
+    // ── chat — no turn required, any seated player can message ─────────────
+    if (action === 'chat') {
+      const text = typeof payload === 'string' ? payload.trim().slice(0, 150) : '';
+      if (!text) { table.actionLock = false; return; }
+      const sender = s.players.find(p => p.id === playerId);
+      if (!sender) { table.actionLock = false; return; }
+      const msg: ChatMessage = {
+        id: makeId(),
+        senderId: playerId,
+        senderName: sender.name,
+        text,
+        time: Date.now(),
+      };
+      table.state = { ...s, chatMessages: [...s.chatMessages.slice(-49), msg] };
+      engineLog('ACTION', tableId, { player: playerId, action: 'chat', accepted: true });
+      table.actionLock = false;
+      broadcastState(table);
+      return;
+    }
+
+    // ── reaction — no turn required, broadcast emoji to all at table ─────────
+    if (action === 'reaction') {
+      const emoji = typeof payload === 'string' ? payload : '';
+      if (!emoji) { table.actionLock = false; return; }
+      const sender = s.players.find(p => p.id === playerId);
+      if (!sender) { table.actionLock = false; return; }
+      const now = Date.now();
+      const event: ReactionEvent = { id: makeId(), playerId, playerName: sender.name, emoji, time: now };
+      const liveReactions = [...(s.liveReactions ?? []).filter(r => now - r.time < 6000).slice(-14), event];
+      table.state = { ...s, liveReactions };
+      engineLog('ACTION', tableId, { player: playerId, action: 'reaction', emoji });
+      table.actionLock = false;
       broadcastState(table);
       return;
     }

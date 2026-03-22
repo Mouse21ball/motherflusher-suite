@@ -99,7 +99,7 @@ export default function Leaderboard() {
           ‹ Lobby
         </button>
         <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">🏆 Leaderboard</span>
+        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Leaderboard</span>
         <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-xl"
           style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.15)' }}>
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#00C896' }} />

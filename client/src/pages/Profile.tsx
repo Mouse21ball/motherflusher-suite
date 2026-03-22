@@ -60,7 +60,7 @@ export default function Profile() {
           ‹ Lobby
         </button>
         <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">👤 Profile</span>
+        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Profile</span>
       </header>
 
       <div className="flex-1 flex flex-col items-center px-4 py-6 gap-4 max-w-lg mx-auto w-full">
