@@ -10,13 +10,6 @@ interface CardProps {
   selected?: boolean;
 }
 
-const suitColors: Record<string, string> = {
-  hearts: "text-red-600",
-  diamonds: "text-red-500",
-  clubs: "text-[#1a1a24]",
-  spades: "text-[#1a1a24]"
-};
-
 const suitSymbols: Record<string, string> = {
   hearts: "♥",
   diamonds: "♦",
@@ -42,12 +35,13 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
   }
 
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
+  const colorClass = isRed ? "text-red-600" : "text-[#1a1a24]";
+  const suitClass  = isRed ? "text-red-500" : "text-[#2a2a34]";
 
   return (
     <div
       className={cn(
-        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 flex flex-col justify-between relative transition-shadow duration-200",
-        suitColors[card.suit],
+        "w-12 h-16 sm:w-16 sm:h-24 playing-card-front shrink-0 relative overflow-hidden transition-shadow duration-200",
         selectable && "cursor-pointer active:scale-[0.97]",
         selected && "card-selected",
         isSelfHidden && "opacity-55 saturate-[0.4]",
@@ -55,25 +49,30 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
       )}
       onClick={onClick}
     >
-      <div className="flex flex-col items-start leading-none gap-px">
-        <span className={cn("text-[11px] sm:text-sm font-extrabold", isRed ? "text-red-600" : "text-[#1a1a24]")}>
+      {/* Top-left index */}
+      <div className="absolute top-[3px] left-[3px] sm:top-[4px] sm:left-[4px] flex flex-col items-center leading-none">
+        <span className={cn("text-[10px] sm:text-[13px] font-extrabold leading-none", colorClass)}>
           {card.rank}
         </span>
-        <span className={cn("text-[10px] sm:text-xs", isRed ? "text-red-500" : "text-[#2a2a34]")}>
+        <span className={cn("text-[9px] sm:text-[11px] leading-none", suitClass)}>
           {suitSymbols[card.suit]}
         </span>
       </div>
+
+      {/* Center pip */}
       <div className={cn(
-        "text-2xl sm:text-[2rem] text-center leading-none flex-1 flex items-center justify-center",
+        "absolute inset-0 flex items-center justify-center text-2xl sm:text-[2rem] leading-none select-none",
         isRed ? "drop-shadow-[0_0_1px_rgba(220,38,38,0.15)]" : ""
       )}>
         {suitSymbols[card.suit]}
       </div>
-      <div className="flex flex-col items-end leading-none gap-px rotate-180">
-        <span className={cn("text-[11px] sm:text-sm font-extrabold", isRed ? "text-red-600" : "text-[#1a1a24]")}>
+
+      {/* Bottom-right index — rotated 180° so it reads upside-down like a real card */}
+      <div className="absolute bottom-[3px] right-[3px] sm:bottom-[4px] sm:right-[4px] flex flex-col items-center leading-none rotate-180">
+        <span className={cn("text-[10px] sm:text-[13px] font-extrabold leading-none", colorClass)}>
           {card.rank}
         </span>
-        <span className={cn("text-[10px] sm:text-xs", isRed ? "text-red-500" : "text-[#2a2a34]")}>
+        <span className={cn("text-[9px] sm:text-[11px] leading-none", suitClass)}>
           {suitSymbols[card.suit]}
         </span>
       </div>
