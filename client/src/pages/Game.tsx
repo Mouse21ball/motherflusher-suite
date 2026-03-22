@@ -76,7 +76,15 @@ function SwingGameServer({ tableId }: { tableId: string }) {
         </div>
       )}
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <GameTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={isSpectator ? [] : selectedCardIndices} onCardClick={handleCardClick} selectableCards={!isSpectator && isSelectablePhase} />
+        <GameTable
+          gameState={state}
+          myId={isSpectator ? 'p1' : myId}
+          selectedCardIndices={isSpectator ? [] : selectedCardIndices}
+          onCardClick={handleCardClick}
+          selectableCards={!isSpectator && isSelectablePhase}
+          onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
+          incomingReactions={state.liveReactions}
+        />
       </main>
       {!isSpectator && (
         <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">

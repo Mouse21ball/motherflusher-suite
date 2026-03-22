@@ -1,0 +1,64 @@
+Clarification: do NOT remove social reactions or expressive table energy.
+
+I want reactions/emotes, and eventually I want premium interactive reactions similar in spirit to top social poker products — including targeted reactions that can visually hit or affect another player’s avatar area.
+
+The issue is not that reactions exist.
+The issue is that the current implementation feels cheap, cluttered, and not integrated.
+
+Fix the reaction/emote system so it feels premium.
+
+Requirements:
+
+1. KEEP REACTIONS
+- do not remove emojis/reactions
+- do not remove expressive social energy
+- this game should feel alive, social, and emotionally active
+
+2. MAKE REACTIONS FEEL PREMIUM
+Current issue:
+- reactions look pasted on
+- they add clutter
+- they do not feel integrated with the table
+
+Fix:
+- reactions must feel intentional and polished
+- better positioning
+- better spacing
+- better timing
+- better animation quality
+- reactions should never obscure critical gameplay information
+
+3. TARGETED SOCIAL FEEL
+I want the system designed so reactions can later be directed at opponents/avatars.
+Do not build a huge system right now, but structure the current implementation so it can evolve into:
+- throwing reactions
+- reaction hits near another player seat
+- premium social table interactions
+
+4. TABLE HIERARCHY STILL MATTERS
+Even with reactions, the table must remain readable:
+- gameplay state first
+- reactions second
+- no clutter pile-up
+- no oversized or distracting reaction row
+
+5. MOTHER FLUSHER IDENTITY STILL NEEDS HELP
+The Mother Flusher board should read more clearly as its own stacked/solitaire-style mode and less like a generic grid.
+Do not remove the social layer to solve this. Solve both correctly.
+
+6. ACTION FEEL
+Reactions are not the only missing energy.
+Discards, bets, and phase transitions still need to feel sharper, more decisive, and more premium.
+
+Constraints:
+- no gameplay rule changes
+- do not remove the reaction system
+- do not turn the table goofy or childish
+- keep the tone darker, tougher, premium, and socially aggressive
+
+Return only:
+- root cause findings
+- files changed
+- exact patch
+- confirmation reactions remain but are now more integrated/premium
+- confirmation table readability improved

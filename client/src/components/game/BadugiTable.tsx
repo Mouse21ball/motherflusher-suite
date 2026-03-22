@@ -1,7 +1,8 @@
-import { GameState } from "@/lib/poker/types";
+import { GameState, ReactionEvent } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { DiscardPile } from "./DiscardPile";
 import { ResolutionOverlay } from "./ResolutionOverlay";
+import { ReactionBar } from "./ReactionBar";
 import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 
@@ -13,9 +14,11 @@ interface BadugiTableProps {
   selectableCards: boolean;
   showVisibleCount?: boolean;
   heroCardClassName?: string;
+  onReact?: (emoji: string) => void;
+  incomingReactions?: ReactionEvent[];
 }
 
-export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards, showVisibleCount, heroCardClassName }: BadugiTableProps) {
+export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards, showVisibleCount, heroCardClassName, onReact, incomingReactions }: BadugiTableProps) {
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
   if (myIndex !== -1) {
@@ -151,6 +154,16 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
           />
         )}
       </div>
+
+      {/* Reaction tray — centered between table and hero seat, floats travel upward into felt */}
+      {onReact && (
+        <div className="w-full flex justify-center mt-2 relative z-30">
+          <ReactionBar
+            onReact={onReact}
+            incomingReactions={incomingReactions}
+          />
+        </div>
+      )}
 
       <ResolutionOverlay messages={gameState.messages} phase={gameState.phase} heroPlayer={gameState.players.find(p => p.id === myId)} heroChipChange={gameState.heroChipChange} />
     </div>

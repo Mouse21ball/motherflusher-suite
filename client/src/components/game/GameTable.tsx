@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { GameState } from "@/lib/poker/types";
+import { GameState, ReactionEvent } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
+import { ReactionBar } from "./ReactionBar";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 
 interface GameTableProps {
@@ -12,9 +13,11 @@ interface GameTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   selectableCards: boolean;
+  onReact?: (emoji: string) => void;
+  incomingReactions?: ReactionEvent[];
 }
 
-export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards }: GameTableProps) {
+export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards, onReact, incomingReactions }: GameTableProps) {
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
   if (myIndex !== -1) {
@@ -131,6 +134,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
 
               {/* Pair columns — stacked solitaire cascade */}
+              <div className="flex flex-col items-center gap-1.5">
+                <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/40 select-none">Pair Stacks</span>
               <div className="flex gap-2 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   const topIdx = colIndex * 2;
@@ -169,9 +174,16 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                   );
                 })}
               </div>
+              </div>{/* end pair-stacks wrapper */}
 
               {/* Factor row — 5 single cards */}
-              <div className="flex gap-1 sm:gap-3 mt-1">
+              <div className="flex flex-col items-center gap-1.5 mt-0">
+                <div className="w-full flex items-center gap-2 justify-center">
+                  <div className="h-px flex-1 max-w-[60px] bg-white/[0.06]" />
+                  <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/30 select-none">Factors</span>
+                  <div className="h-px flex-1 max-w-[60px] bg-white/[0.06]" />
+                </div>
+                <div className="flex gap-1 sm:gap-3">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   const idx = 10 + colIndex;
                   const isUsed =
@@ -192,6 +204,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
 
@@ -204,6 +217,16 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
             isScoop={isScoop}
             onDone={() => setShowCelebration(false)}
           />
+        )}
+
+        {/* Reaction tray — anchored to the table felt bottom center, floats travel into table space */}
+        {onReact && (
+          <div className="absolute bottom-[7%] left-1/2 -translate-x-1/2 z-30">
+            <ReactionBar
+              onReact={onReact}
+              incomingReactions={incomingReactions}
+            />
+          </div>
         )}
 
         {/* Pot counter */}

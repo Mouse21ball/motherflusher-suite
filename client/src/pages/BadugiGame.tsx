@@ -9,7 +9,6 @@ import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
-import { ReactionBar } from "@/components/game/ReactionBar";
 import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
 import { XPToast } from "@/components/XPToast";
 import { useXPWatcher } from "@/lib/useXPWatcher";
@@ -138,6 +137,8 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
           onCardClick={handleCardClick}
           selectableCards={!isSpectator && isDrawPhase}
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
+          onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
+          incomingReactions={state.liveReactions}
         />
       </main>
 
@@ -152,14 +153,6 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
           onDone={dismissXP}
         />
       )}
-
-      {/* Reaction bar — right edge of screen, wired to server for all players */}
-      <div className="fixed right-2 bottom-36 z-40">
-        <ReactionBar
-          onReact={(emoji) => handleAction('reaction', emoji)}
-          incomingReactions={state.liveReactions}
-        />
-      </div>
 
       {!isSpectator && (
         <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
