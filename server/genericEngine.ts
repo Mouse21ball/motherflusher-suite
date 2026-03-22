@@ -107,6 +107,7 @@ function makeInitialPlayers(): Player[] {
     { id: 'p2', name: 'Alice',   presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
     { id: 'p3', name: 'Bob',     presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
     { id: 'p4', name: 'Charlie', presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p5', name: 'Daisy',   presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   ];
 }
 
@@ -144,7 +145,7 @@ function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
 
 // ─── Table record ─────────────────────────────────────────────────────────────
 
-const SEAT_ORDER = ['p1', 'p2', 'p3', 'p4'] as const;
+const SEAT_ORDER = ['p1', 'p2', 'p3', 'p4', 'p5'] as const;
 type SeatId = typeof SEAT_ORDER[number];
 
 interface GenericTable {

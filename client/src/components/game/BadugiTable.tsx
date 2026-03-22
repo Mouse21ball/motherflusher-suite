@@ -45,6 +45,15 @@ export function BadugiTable({ gameState, myId, selectedCardIndices, onCardClick,
         "top-[18%] -right-2 sm:right-2",
       ][index];
     }
+    if (total === 4) {
+      // 5-player: 4 opponents arranged around the oval
+      return [
+        "top-[22%] -left-4 sm:-left-2 -translate-y-1/2",
+        "-top-2 sm:top-2 left-[26%] sm:left-[28%] -translate-x-1/2",
+        "-top-2 sm:top-2 right-[26%] sm:right-[28%] translate-x-1/2",
+        "top-[22%] -right-4 sm:-right-2 -translate-y-1/2",
+      ][index] || "hidden";
+    }
     return [
       "top-[30%] -left-4 sm:-left-1 -translate-y-1/2",
       "-top-2 sm:top-2 left-[28%] sm:left-[30%] -translate-x-1/2",

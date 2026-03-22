@@ -1,177 +1,88 @@
-# Poker Table
+# Chain Gang Poker
 
 ## Overview
-A client-side poker game platform supporting five custom poker variants, built with React + Express. Game logic runs entirely in the browser with 4 mock bot players (max 5 seats). Unified launch-shell with shared GameHeader, rules drawer, and polished lobby.
+Chain Gang Poker (CGP) is a premium poker platform built with React + Express. Brand: "Prison rules. No mercy." Five exclusive game modes, all with real multiplayer support for up to 5 players. Bots fill empty seats automatically so games start instantly.
+
+Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald · `#9B5DE5` purple · `#A0A0B8` silver
 
 ## Routes
-- `/` — Home / mode-select lobby
+- `/` — Home lobby (all 5 modes, XP/rank, daily reward, live feed)
+- `/badugi` — Badugi (server-authoritative, up to 5 players)
+- `/dead7` — Dead 7 (server-authoritative, up to 5 players)
+- `/fifteen35` — 15 / 35 (server-authoritative, up to 5 players)
+- `/swing` — Mother Flusher / Swing Poker (server-authoritative, up to 5 players)
+- `/suitspoker` — Suits & Poker (server-authoritative, up to 5 players)
+- `/join/:code` — Universal table join redirect → `/{mode}?t=CODE`
 - `/profile` — Player profile (XP, rank, achievements, per-mode stats)
-- `/leaderboard` — Daily leaderboard (XP rank + hands played tab, simulated)
-- `/shop` — Premium shop (subscription tiers, chip bundles, avatar frames)
-- `/swing` — Mother Flusher (Swing Poker)
-- `/badugi` — Badugi (server-authoritative multiplayer via `?t=XXXXXX`)
-- `/dead7` — Dead 7
-- `/fifteen35` — 15 / 35
-- `/suitspoker` — Suits & Poker
-- `/join/:code` — Redirect to `/badugi?t=CODE`
+- `/leaderboard` — Daily leaderboard
+- `/shop` — Merch shop (clothing, accessories — no payment integration)
+- `/terms` — Terms of service
+- `/admin` — Admin panel
 
 ## Game Modes
-- **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card community board (5 pairs + 5 singles with factor card), draw, declare+bet (HIGH/LOW/SWING), showdown
-- **Badugi**: 4 hole cards, no community cards, 3 draw rounds, declare (HIGH/LOW/FOLD), final bet round, hi-lo showdown
-- **Dead 7**: 4 hole cards, 3 draw rounds (3/2/1 max discards), declare (HIGH/LOW/FOLD), bet, showdown. Any 7 kills hand. HIGH needs all cards ≥8 (ace is low only). LOW needs all cards ≤6. Flush scoops pot; badugi scoops if no flush; otherwise normal hi-lo split.
-- **15 / 35**: 2-card deal (1 up, 1 down), blackjack-style hit/stay/fold rounds with betting between. A=1 or 11, J/Q/K=0.5, 2-10=face. LOW qualifies 13-15 (15 best), HIGH qualifies 33-35 (35 best), >35 = bust. No declaration; auto-read at showdown. Split pot if both sides qualify; sole side wins all; no qualifiers = rollover.
-- **Suits & Poker**: 5 hole cards, 12-card community board (Side A 3 + Side B 3 + Center 3-2-1 path). Draw 0-2 cards. Reveal in stages. Declare+bet (POKER/SUITS/SWING). Legal paths: (A+Center) or (B+Center), never A+B mixed. Swing must win both poker and suits on the SAME path.
+- **Badugi**: 4 hole cards, 3 draw rounds, declare (HIGH/LOW/FOLD), bet, showdown. Build perfect 4-suit hand.
+- **Dead 7**: 4 hole cards, 3 draw rounds. Any 7 kills hand immediately. Flush scoops; otherwise hi-lo split.
+- **15 / 35**: 2-card deal (1 up, 1 down), blackjack-style hit/stay. A=1 or 11, J/Q/K=0.5. LOW: 13-15; HIGH: 33-35.
+- **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card board (5 stacked pairs + 5 single factor cards). Declare HIGH/LOW/SWING all.
+- **Suits & Poker**: 5 hole cards, 12-card community board. Declare POKER/SUITS/SWING. Legal paths: A+Center or B+Center.
 
 ## Architecture
-- **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter for routing
-- **Backend**: Express server serves the Vite dev frontend; no database needed (game is client-side only)
-- **Engine**: Shared game engine (`client/src/lib/poker/engine/`) with pluggable game modes (`client/src/lib/poker/modes/`)
+- **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter routing
+- **Backend**: Express + WebSocket server (ws) on port 5000
+- **Two engine modes**: Server-authoritative (real multiplayer) or client-only fallback
+- Feature flag: `BADUGI_ALPHA_ENABLED=true` enables all server-authoritative modes
 
-## Local Identity (Closed Alpha)
-- **WelcomeGate** (`client/src/components/WelcomeGate.tsx`): wraps the entire Router in App.tsx. On first visit (no `poker_table_player_name` in localStorage), shows a closed-alpha welcome screen explaining the test group and asking for a display name (2–16 chars). After entry, the name is saved and the app loads normally. Returning users skip straight to the lobby.
-- Display name is stored as a plain string in `localStorage` key `poker_table_player_name`.
-- `persistence.ts` exports `getPlayerName()` and `setPlayerName()`.
-- The hero player name in `createMockPlayers` reads from `getPlayerName()` (falls back to 'You').
-- Home page shows the player name below the title.
-- No passwords, emails, cloud accounts, or multiplayer auth. Device-local only.
+## Multiplayer Infrastructure
+- **Server engines**: `server/gameEngine.ts` (Badugi) and `server/genericEngine.ts` (Dead7/Fifteen35/Swing/SuitsPoker)
+- **Seats**: p1-p5 (up to 5 humans per table; bots auto-fill empty seats)
+- **Default bot roster**: You (p1/human), Alice (p2), Bob (p3), Charlie (p4/dealer), Daisy (p5)
+- **WebSocket protocol**:
+  - Badugi: `badugi:init` / `badugi:snapshot` / `badugi:action`
+  - All other modes: `mode:init` / `mode:snapshot` / `mode:action`
+- **Invite links**: Each game page generates a `?t=TABLEID` URL; InviteBanner on every game page
+- **Client hook**: `client/src/lib/poker/engine/useServerMode.ts` — generic WS hook for all non-Badugi modes
+- **Join flow**: `/join/:code` → looks up modeId → redirects to `/{mode}?t=CODE`
+- **Table persistence**: Badugi tables persist to disk via `server/tablePersistence.ts` (survives restarts)
 
 ## Phase Flows
 - **Badugi/Dead7**: `WAITING → ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → DECLARE → BET_3 → SHOWDOWN`
-- **15/35**: `WAITING → ANTE → DEAL → BET_1 → HIT_1 → BET_2 → ... → SHOWDOWN` (up to 8 HIT/BET rounds; skips to SHOWDOWN when all stayed/busted)
+- **15/35**: `WAITING → ANTE → DEAL → BET_1 → HIT_1 → BET_2 → HIT_2 → ... → SHOWDOWN`
 - **Suits & Poker**: `WAITING → ANTE → DEAL → REVEAL_TOP_ROW → DRAW → BET_1 → REVEAL_SECOND_ROW → BET_2 → REVEAL_LOWER_CENTER → BET_3 → REVEAL_FACTOR_CARD → DECLARE_AND_BET → SHOWDOWN`
 
-## Payout Rules
-- Folded players excluded from winner pools
-- Sole active player wins full pot regardless of hand quality
-- If both HIGH and LOW (or POKER and SUITS) qualify, pot splits (odd chip to HIGH/POKER)
-- If only one side qualifies, that side gets the full pot
-- Rollover only when no qualifying hand exists anywhere
+## Key Shared Files
+- `shared/gameTypes.ts` — All TypeScript types (GameState, Player, GameMode, etc.)
+- `shared/modes/` — Server-side mode definitions (dead7, fifteen35, swing, suitspoker, badugi)
+- `shared/engine/core.ts` — Shared engine utilities (createDeck, getNextActivePlayerIndex, etc.)
+- `shared/featureFlags.ts` — Code-level feature flags
 
-## Persistence
-- **Chip balances** persist per mode in localStorage (`poker_table_chips`). Hero starts at $1000 per mode; saved after every showdown and rollover-winner event.
-- **Hand history** stored in localStorage (`poker_table_history`), last 50 hands. Each record includes: mode, timestamp, pot size, chip change, result type (win/loss/push/rollover/folded), and summary text.
-- **Rebuy**: When hero reaches $0, a "Rebuy $1000" button appears at SHOWDOWN and WAITING phases. Rebuy resets that mode's saved balance to $1000.
-- **Lobby displays**: Per-mode chip balance shown on each mode card; global hand count and net result shown above mode list with access to full history drawer.
-- `client/src/lib/persistence.ts` — localStorage read/write for chips and hand history (getChips, saveChips, getAllChips, getHandHistory, addHandRecord, resetChips, resetAllData). All setItem calls wrapped in try/catch via `safePersist()` to prevent QuotaExceededError crashes.
+## UI Components
+- `BadugiTable.tsx` — Used by Badugi, Dead7, Fifteen35 — supports 1-5 players dynamically
+- `GameTable.tsx` — Used by Mother Flusher (Swing) — 5 fixed seat positions, oval layout
+- `SuitsPokerTable.tsx` — Used by Suits & Poker — supports 1-5 players
+- `PlayerSeat.tsx` — Generic player seat component
+- `Controls.tsx` — Phase-aware action controls
+- `ChatBox.tsx` — Real-time chat (server-synced)
+- `ReactionBar.tsx` — Emoji reactions (synced to all players)
+
+## Persistence (Client-Side)
+- Chip balances per mode in localStorage (`poker_table_chips`)
+- Hand history last 50 hands (`poker_table_history`)
+- XP and achievements (`poker_table_progression`)
+- Player identity (`poker_table_player_id`, `poker_table_player_name`)
+- All localStorage writes wrapped in try/catch (QuotaExceededError safe)
 
 ## Bot AI
-- **Shared utility** (`client/src/lib/poker/engine/botUtils.ts`): `decideBet()` — pot-odds-aware betting with strength-based fold/check/call/raise thresholds, occasional bluffs (~8%), and proper raise sizing relative to pot. `applyBetDecision()` — translates a decision into state updates. Used by all 4 editable modes.
-- **Badugi**: Stand pat with valid badugi; otherwise discard conflicting cards (low-first greedy, capped by draw round limits). Strength: valid badugi ≤5 = 0.92, ≤7 = 0.75, ≤9 = 0.55, ≤11 = 0.4, ≤13 = 0.3; 3-card partial = 0.18; junk = 0.06. Declare HIGH ≥9, LOW ≤8, FOLD if invalid.
-- **Dead 7**: Always discard 7s first, then duplicate ranks, then wrong-side cards. Strength: flush = 0.95, badugi = 0.85, valid high/low ball = 0.35-0.65 (scaled by kicker quality), 3-of-target partial = 0.15, dead = 0.02. Declare based on hand qualification.
-- **15/35**: Hit/stay considers bust probability — always stay at qualifying ranges (13-15, 33-35), always hit ≤11; at 28-32 calculates danger-card count vs remaining deck and uses bust-risk weighting with card-count awareness. Strength: perfect 15/35 = 0.9, near-perfect = 0.7, qualifying = 0.5, close-to-qualifying = 0.15-0.25, far away = 0.08.
-- **Suits & Poker**: Draw keeps poker-contributing cards (pair+), suits-contributing cards (score > 25), and same-suit groups of 3+. Declaration: SWING only with two-pair+ AND suits ≥ 45 (or decent poker + strong suits at 30% chance). SWING strength uses min(poker, suits) instead of average, making SWING appropriately risky. Betting via shared utility.
-- **Swing**: Random draw/declare (swing.ts is read-only).
+- `shared/engine/botUtils.ts` — `decideBet()` with pot-odds-aware fold/check/call/raise + ~8% bluffs
+- Each mode implements `botAction()` with mode-specific draw/declare logic
+- Bot think time: 700-1800ms (varies by phase to feel human)
+- Bots rebuy to $1000 automatically when busted
 
-## Onboarding & Phase Hints
-- **ModeIntro overlay**: First-visit overlay per mode showing objective + 4-step flow. Stored in localStorage (`poker_table_intro_seen`). Dismissable, only shows once per mode.
-- **Phase hints**: Contextual 1-line tips shown in the Controls area during draw, declare, hit, and betting phases. Mode-specific. Defined in `client/src/lib/phaseHints.ts`.
+## Monetization (Non-Casino)
+- **Merch shop** at `/shop` — clothing, accessories (no payment processing integrated)
+- **No gambling/casino mechanics** — chips are play-money only, no real-money wagering
+- **No Stripe or payment integration** — merch is display-only, ready for future integration
 
-## Sound & Animation System
-- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API synthesized — cardDeal, cardFlip, chipClink, fold, win (5-note arpeggio), lose (descending dual-tone), check, declare (ascending triangle), reveal. All layered with noise for depth.
-- **Phase sounds** (`client/src/lib/usePhaseSounds.ts`): Hook that plays sounds on phase transitions (deal, reveal, showdown, ante).
-- **CSS animations** (`client/src/index.css`): card-deal-in, card-flip, chip-toss, winner-glow, loser-fade, pot-collect, reveal-flash, slide-up-fade, count-up, pulse-gold with `.anim-*` utility classes.
-
-## Visual Design System
-- **Color tokens**: `--color-surface: #0B0B0D`, `--color-panel: #141417`, `--color-elevated: #1C1C20`, `--color-gold: #C9A227`, `--color-gold-light: #D4B44A`
-- **Fonts**: Inter (sans), JetBrains Mono (mono), loaded from Google Fonts with weights 300-700
-- **Cards**: Parchment gradient front (`#FEFEFE → #F5F3EE → #EDE9E0`), layered shadows, gold-tinted crosshatch card backs. Selected state: gold outline with multi-layer glow.
-- **Table felt**: Rich green radial gradient with inset shadows and double-ring border, SVG noise texture overlay.
-- **Glass panels**: `.glass-panel` utility — 92% opacity `#141417` with blur(20px) + saturate(1.2).
-- **Chat**: Gold-themed message bubbles, on-brand with gold icon/input accent. No green.
-- **Controls**: Gold primary buttons (`#C9A227 → #D4B44A`) with shadow, outline secondary buttons with subtle hover states.
-- **Resolution overlay**: Win state shows gold gradient glow with count-up animation; loss is muted. Auto-plays win/lose sfx.
-
-## Key Files
-- `client/src/pages/Home.tsx` — Mode-select lobby with per-mode chip balances and global history access
-- `client/src/pages/Game.tsx` — Swing Poker game page
-- `client/src/pages/BadugiGame.tsx` — Badugi game page
-- `client/src/pages/Dead7Game.tsx` — Dead 7 game page
-- `client/src/pages/Fifteen35Game.tsx` — 15/35 game page
-- `client/src/pages/SuitsPokerGame.tsx` — Suits & Poker game page
-- `client/src/components/game/GameHeader.tsx` — Shared header across all game pages (mode badge, rules drawer, history drawer, lobby link, chip stack). Contains MODE_INFO with full rules text for each mode.
-- `client/src/components/game/ModeIntro.tsx` — First-visit intro overlay with MODE_INTROS data for each mode.
-- `client/src/components/game/HandHistory.tsx` — Hand history Sheet drawer with per-mode filtering, net result summary, and per-hand detail rows.
-- `client/src/lib/persistence.ts` — localStorage persistence for chips and hand history.
-- `client/src/lib/phaseHints.ts` — Contextual phase hints per mode, shown during gameplay.
-- `client/src/lib/sounds.ts` — Web Audio API sound effects.
-- `client/src/lib/usePhaseSounds.ts` — Phase transition sound hook.
-- `client/src/lib/poker/modes/badugi.ts` — Badugi game mode + evaluateBadugi
-- `client/src/lib/poker/modes/swing.ts` — Swing Poker game mode (DO NOT EDIT)
-- `client/src/lib/poker/modes/dead7.ts` — Dead 7 game mode + evaluateDead7
-- `client/src/lib/poker/modes/fifteen35.ts` — 15/35 game mode
-- `client/src/lib/poker/modes/suitspoker.ts` — Suits & Poker game mode
-- `client/src/lib/poker/engine/useGameEngine.ts` — Core game engine hook (initializes from saved chips, records history at showdown)
-- `client/src/lib/poker/engine/core.ts` — Deck, dealer, round helpers
-- `client/src/lib/poker/types.ts` — Shared types
-- `client/src/lib/poker/engine/types.ts` — GameMode interface
-- `client/src/components/game/` — GameTable (DO NOT EDIT), BadugiTable, SuitsPokerTable, PlayerSeat, Card, Controls, ChatBox, DiscardPile
-
-## Engine Details
-- `processActionEnd` uses proper `isRoundOver` logic: betting phases require `allActed && allBetsMatch`; draw/declare/hit phases require only `allActed`. This correctly handles re-raises.
-- Controls renders SHOWDOWN/REVEAL/DEAL phases before the `!isMyTurn` guard so all players see correct status regardless of turn. ANTE phase is NOT forced as isMyTurn; the hero sees "Waiting..." until it's actually their turn to ante.
-- The 8s auto-reset timer guards with `phase !== 'SHOWDOWN'` to prevent double-reset when hero clicks "Next Hand" first.
-- 15/35 bot messages do NOT include hidden card totals (information integrity).
-- All nested `setTimeout` calls in `useGameEngine` use `safeTimeout()` which auto-cancels on unmount via `mountedRef` + `pendingTimers` ref set, preventing stale state updates when navigating away mid-hand.
-- **All-in during HIT phases**: Players with 0 chips are NOT skipped during HIT phases (they can still hit/stay). `skipAllIn` is false for HIT, DRAW, and DECLARE phases. Controls shows Hit/Stay/Fold buttons during HIT phases regardless of chip count (all-in auto-check only applies to BET phases).
-- **Bot failsafe**: If `activePlayerId` points to a non-active (folded/busted) player, the engine automatically advances to the next valid player or triggers phase advance instead of freezing.
-- **Two-player auto-stay (15/35)**: When exactly 2 active players remain and one has STAY with a qualifying hand on one side (LOW or HIGH), the other player auto-stays when they hit into a qualifying hand on the opposite side. Implemented via `checkAutoStay` method on GameMode interface.
-
-## Stats View
-- `StatsView` component (`client/src/components/game/StatsView.tsx`): Sheet drawer showing computed stats from hand history.
-- Available from GameHeader (per-mode stats) and Home lobby (overall stats).
-- Stats computed: hands played, wins, losses, folds, rollovers, pushes, win rate, net result, biggest win/loss/pot, current stack.
-- Overall view includes per-mode breakdown with bar charts showing hands played and net result per mode.
-
-## Toast Notifications
-- `useGameToasts` hook (`client/src/lib/useGameToasts.ts`): Fires unobtrusive toasts on key game events.
-- Events: win notifications, big pot alerts (>$20), rollover announcements, rebuy confirmation (detects 0→1000 chip change), hot streak alerts (+$100 session gain), hand count milestones (10/25/50).
-- Wired into all 5 game pages. Uses existing shadcn/ui Toaster with TOAST_LIMIT=3, auto-dismiss after 3-4s.
-
-## Exit Confirmation
-- GameHeader's Lobby button checks if the current phase is mid-hand (any phase except WAITING/SHOWDOWN).
-- Mid-hand exit shows an AlertDialog warning about forfeiting the current hand and pot claim.
-- On confirm, saves the hero's current chip balance (forfeiting any chips already in the pot) and navigates to lobby.
-- Safe phases (WAITING, SHOWDOWN) navigate directly without warning.
-- GameHeader accepts optional `phase`, `pot`, and `onForfeit` props from game pages.
-
-## Analytics
-- **Database**: PostgreSQL via Drizzle ORM. Single `analytics_events` table with columns: `id` (serial PK), `event_type` (text), `player_id` (text), `mode` (text, nullable), `duration_ms` (int, nullable), `event_date` (text YYYY-MM-DD), `created_at` (timestamp).
-- **Schema**: `shared/schema.ts` defines `analyticsEvents` table + insert schema.
-- **DB connection**: `server/db.ts` — Drizzle + pg pool using `DATABASE_URL`.
-- **Storage**: `server/storage.ts` — `insertAnalyticsEvent()` and `getDailyStats(days)` methods on `MemStorage` (which now also writes to DB for analytics).
-- **API routes** (`server/routes.ts`):
-  - `POST /api/analytics/track` — accepts `{eventType, playerId, mode?, durationMs?}`, writes to DB, returns 204.
-  - `GET /api/analytics/stats` — returns last 30 days of aggregated daily stats (DAU, sessions, avg duration, mode breakdown, returning players).
-- **Client tracker** (`client/src/lib/analytics.ts`): Invisible module initialized once in `App.tsx`. Generates a persistent anonymous `analytics_id` in localStorage. Fires `session_start` on load, `session_end` on unload/visibility-hidden (with duration). Uses `navigator.sendBeacon` for reliable unload tracking. Each game page fires `trackModePlay(modeId)` on mount.
-- **Admin view**: `/admin` — plain-numbers dashboard showing today's DAU, session count, avg session length, mode breakdown, and 30-day daily table with retention column. Auto-refreshes every 30s. Link back to lobby.
-
-## Deck Integrity
-- `discardPile: CardType[]` tracks all discarded cards per hand (initialized empty at DEAL and restart).
-- When drawing, old cards are pushed to discardPile before replacement.
-- If deck runs empty mid-draw, discardPile is reshuffled and becomes the new draw source (casino standard).
-- Hero draw (useGameEngine.ts) and bot draws (badugi.ts, dead7.ts, suitspoker.ts) all maintain discardPile.
-- Discarded cards cannot re-enter a player's hand from the same deal.
-
-## Progression & Engagement Systems
-- **Progression** (`client/src/lib/progression.ts`): XP/level system. Levels 1-50, rank tiers Bronze→Master. 12 achievements. `awardHandXP(result)` awards 10-150 XP based on pot size, win/loss, scoops, streak bonus. `getLevelInfo(xp)` returns level+progress. `getRankForLevel(level)` returns color tokens.
-- **Daily Rewards** (`client/src/lib/dailyReward.ts`): 7-day streak cycle. Daily bonus chips (250-1000 based on streak day). `claimDailyReward()`, `getDailyRewardStatus()`, `getSimulatedPlayerCount()` (FOMO: 800-1200 players, varies by hour/day).
-- **DailyRewardModal** (`client/src/components/DailyRewardModal.tsx`): Shown on Home load when daily reward is available. Shows streak, day counter, bonus amount, and "Claim" CTA.
-- **XP wired into engine** (`useGameEngine.ts`): Calls `awardHandXP()` + `advanceXPHandCount()` after every hand resolution (showdown + rollover). One central integration covers all 5 modes.
-- **XP Toasts**: `useXPWatcher` hook polls localStorage for XP delta every 800ms. `XPToast` component shows "+XP" + level-up announcement + achievement name after every hand in all game pages.
-- **GameHeader level badge**: Shows `Lv N` rank badge (color-coded by tier) + XP progress bar mini-strip next to chip count in every game header.
-- **Leaderboard** (`client/src/pages/Leaderboard.tsx`): Daily simulated rankings (deterministic per day). Player's actual XP injected. Shows position, top%, trophy badges for top 3. Two tabs: By XP / By Hands.
-- **Premium Shop** (`client/src/pages/Shop.tsx`): Three subscription tiers (Free / Gold Pro $4.99/mo / Diamond Elite $9.99/mo). Chip bundles. Avatar frames (some locked to paid tiers). "Coming soon" purchase flow.
-
-## Multiplayer (Badugi)
-- Server-authoritative Badugi enabled via `BADUGI_ALPHA_ENABLED=true` + `VITE_BADUGI_ALPHA=true`.
-- Table code generated on first load, written to URL (`?t=XXXXXX`). Share URL to invite friends.
-- In-game **InviteBanner** shows table code + copy-link button at the top of the game page.
-- **ReactionBar**: In-game emoji reactions (🔥👀😈😂💀) with floating animation and cooldown. Fixed to right edge during Badugi multiplayer.
-- Server table list endpoint: `GET /api/tables/badugi` returns active table metadata.
-
-## Constraints
-- `swing.ts` must never be modified; `GameTable.tsx` visual-only edits permitted (no game logic changes)
-- All game logic is client-side only (except Badugi multiplayer)
-- 4 bot players (Alice, Bob, Charlie) + 1 hero (You)
-- Mobile-first design with 5-player ring seating
-- Server import paths: `../shared/` NOT `@shared/` aliases
+## Environment Variables
+- `BADUGI_ALPHA_ENABLED=true` — enables server-authoritative mode for ALL 5 games
+- `MODES_ALPHA_ENABLED=true` — alternative flag for generic modes only
+- `FEATURES.SERVER_AUTHORITATIVE_BADUGI` — code-level flag in `shared/featureFlags.ts`

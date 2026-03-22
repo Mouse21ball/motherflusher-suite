@@ -46,7 +46,7 @@ const MODES = [
     id: 'badugi',
     name: 'Badugi',
     tagline: 'The OG draw game',
-    description: 'The classic. Build the perfect 4-suit hand across three draws. Real multiplayer — invite your crew.',
+    description: 'The classic. Build the perfect 4-suit hand across three draws. Up to 5 players — invite your crew.',
     path: '/badugi',
     icon: '♦',
     color: '#00C896',
@@ -56,7 +56,7 @@ const MODES = [
     borderHover: 'rgba(0,200,150,0.55)',
     isMultiplayer: true,
     isHero: true,
-    badge: '⛓️ Live Multiplayer',
+    badge: '⛓️ Live · Up to 5',
     badgeColor: 'rgba(0,200,150,',
     difficulty: 'Classic Draw',
   },
@@ -64,7 +64,7 @@ const MODES = [
     id: 'dead7',
     name: 'Dead 7',
     tagline: 'Snitches get stitches',
-    description: '7s are dead — snitches at this table get bust. Flush scoops. No second chances.',
+    description: '7s are dead — the snitch card busts you on the spot. Flush scoops. No mercy.',
     path: '/dead7',
     icon: '💀',
     color: '#DC2626',
@@ -72,17 +72,17 @@ const MODES = [
     bg: 'linear-gradient(135deg, rgba(220,38,38,0.12) 0%, rgba(220,38,38,0.03) 100%)',
     border: 'rgba(220,38,38,0.22)',
     borderHover: 'rgba(220,38,38,0.55)',
-    isMultiplayer: false,
+    isMultiplayer: true,
     isHero: false,
-    badge: null,
-    badgeColor: null,
+    badge: '⛓️ Up to 5',
+    badgeColor: 'rgba(220,38,38,',
     difficulty: 'Cutthroat',
   },
   {
     id: 'fifteen35',
     name: '15 / 35',
     tagline: 'Hit or go home',
-    description: 'Chase 15 or 35. Go over and you bust — just like crossing the wrong line.',
+    description: 'Chase 15 or 35 exactly. Go over and you bust — just like crossing the wrong line.',
     path: '/fifteen35',
     icon: '15',
     color: '#F0B829',
@@ -90,10 +90,10 @@ const MODES = [
     bg: 'linear-gradient(135deg, rgba(240,184,41,0.12) 0%, rgba(240,184,41,0.03) 100%)',
     border: 'rgba(240,184,41,0.22)',
     borderHover: 'rgba(240,184,41,0.55)',
-    isMultiplayer: false,
+    isMultiplayer: true,
     isHero: false,
-    badge: null,
-    badgeColor: null,
+    badge: '⛓️ Up to 5',
+    badgeColor: 'rgba(240,184,41,',
     difficulty: 'Easy Hustle',
   },
   {
@@ -108,9 +108,9 @@ const MODES = [
     bg: 'linear-gradient(135deg, rgba(155,93,229,0.12) 0%, rgba(155,93,229,0.03) 100%)',
     border: 'rgba(155,93,229,0.22)',
     borderHover: 'rgba(155,93,229,0.55)',
-    isMultiplayer: false,
+    isMultiplayer: true,
     isHero: false,
-    badge: '⚡ Signature Mode',
+    badge: '⚡ Signature · Up to 5',
     badgeColor: 'rgba(155,93,229,',
     difficulty: 'Signature',
   },
@@ -126,10 +126,10 @@ const MODES = [
     bg: 'linear-gradient(135deg, rgba(6,182,212,0.12) 0%, rgba(6,182,212,0.03) 100%)',
     border: 'rgba(6,182,212,0.22)',
     borderHover: 'rgba(6,182,212,0.55)',
-    isMultiplayer: false,
+    isMultiplayer: true,
     isHero: false,
-    badge: null,
-    badgeColor: null,
+    badge: '⛓️ Up to 5',
+    badgeColor: 'rgba(6,182,212,',
     difficulty: 'Advanced',
   },
 ] as const;
@@ -540,7 +540,7 @@ export default function Home() {
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
                 <div className="text-base font-bold text-white/85 font-sans">Run it with Your Crew</div>
                 <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                  Create a private Badugi table. Share one link. Your whole crew joins in seconds — no account, no download.
+                  All 5 games support real multiplayer — up to 5 players per table. Pick a game, share your link. No account, no download.
                 </p>
               </div>
               <div className="text-3xl shrink-0 anim-float-coin">⛓️</div>
@@ -555,12 +555,12 @@ export default function Home() {
                 Create Table
               </button>
               <button
-                onClick={() => navigate('/badugi')}
+                onClick={() => navigate('/swing')}
                 className="flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200"
-                style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.22)', color: C.emerald }}
+                style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
                 data-testid="button-browse-tables"
               >
-                Join a Game
+                Mother Flusher
               </button>
             </div>
           </div>
