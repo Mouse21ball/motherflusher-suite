@@ -53,6 +53,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        {/* Screen-edge vignette — always on top, no pointer events */}
+        <div className="cgp-vignette" aria-hidden="true" />
         <WelcomeGate>
           <Router />
           <BetaFooter />

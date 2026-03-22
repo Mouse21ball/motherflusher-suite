@@ -65,7 +65,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   return (
     <div className={cn(
-      "relative flex flex-col items-center gap-2 transition-all duration-200",
+      "relative flex flex-col items-center gap-2 transition-all duration-300",
+      /* Idle opponents step back — active player snaps to full brightness */
+      !isSelf && !isActive && !showdownState && "opacity-60",
+      !isSelf && isActive && "opacity-100",
       player.status === 'folded' && !showdownState && "opacity-50 grayscale",
       player.status === 'sitting_out' && "opacity-30 grayscale",
       showdownState && player.isLoser && "anim-loser",
@@ -229,7 +232,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
       {player.bet > 0 && (
         <div className="absolute -bottom-12 flex items-center justify-center gap-1.5 bg-[#0B0B0D]/70 px-2.5 py-1 rounded-full text-xs font-mono text-white/90 border border-white/[0.06] anim-chip-toss z-20">
-          <div className="w-3 h-3 rounded-full bg-[#C9A227] border border-[#C9A227]/50"></div>
+          <div className="gold-chip anim-chip-pop" />
           {player.bet}
         </div>
       )}

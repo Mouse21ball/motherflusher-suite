@@ -117,7 +117,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 </p>
               ) : (
                 <span
-                  className="text-white/20 text-[10px] font-mono tracking-[0.2em] uppercase"
+                  key={gameState.phase}
+                  className="text-white/22 text-[10px] font-mono tracking-[0.2em] uppercase anim-phase-snap"
                   data-testid="text-phase"
                 >
                   {getPhaseLabel(gameState.phase)}
@@ -231,15 +232,14 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
         {/* Pot counter */}
         <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
-          <div className="bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center" data-testid="text-pot">
+          <div
+            className={`bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center ${potPulse ? 'anim-chip-pop' : ''}`}
+            data-testid="text-pot"
+          >
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-[#C9A227]/40"></div>
-              </div>
-              <span
-                className={`text-base sm:text-lg font-mono font-bold tracking-tight tabular-nums transition-all duration-150 ${potPulse ? 'text-[#C9A227] scale-110' : 'text-white'}`}
-              >
+              <div className="gold-chip" />
+              <span className={`text-base sm:text-lg font-mono font-bold tracking-tight tabular-nums transition-colors duration-150 ${potPulse ? 'text-[#C9A227]' : 'text-white'}`}>
                 ${gameState.pot}
               </span>
             </div>

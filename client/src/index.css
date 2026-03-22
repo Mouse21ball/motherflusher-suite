@@ -100,10 +100,11 @@
   background: linear-gradient(165deg, #FEFEFE 0%, #F5F3EE 40%, #EDE9E0 100%);
   border-radius: 0.5rem;
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.15),
-    0 4px 8px rgba(0,0,0,0.12),
-    0 0 0 1px rgba(0,0,0,0.06),
-    inset 0 1px 0 rgba(255,255,255,0.9);
+    0 2px 4px rgba(0,0,0,0.28),
+    0 6px 16px rgba(0,0,0,0.22),
+    0 14px 28px rgba(0,0,0,0.12),
+    0 0 0 1px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.95);
   font-family: var(--font-mono);
   font-weight: 700;
   position: relative;
@@ -228,13 +229,20 @@
 
 .game-table-felt {
   background:
-    radial-gradient(ellipse at 50% 30%, #1f4a2e 0%, #163822 40%, #0d2414 70%, #071509 100%);
+    /* center spotlight — brighter green pool of light */
+    radial-gradient(ellipse 55% 45% at 50% 38%, rgba(52,130,80,0.60) 0%, transparent 100%),
+    /* base table gradient — dark to near-black at edges */
+    radial-gradient(ellipse at 50% 30%, #1f4a2e 0%, #163822 38%, #0d2414 65%, #040d07 100%);
   box-shadow:
-    inset 0 0 80px rgba(0,0,0,0.6),
-    inset 0 2px 4px rgba(255,255,255,0.02),
+    /* edge vignette inside the felt */
+    inset 0   0   90px rgba(0,0,0,0.70),
+    inset 80px 0  80px rgba(0,0,0,0.30),
+    inset -80px 0 80px rgba(0,0,0,0.30),
+    inset 0  60px 80px rgba(0,0,0,0.25),
+    /* outer rail rim */
     0 0 0 3px #1a1408,
     0 0 0 6px #0d0a04,
-    0 4px 24px rgba(0,0,0,0.5);
+    0 8px 32px rgba(0,0,0,0.65);
   border: none;
 }
 
@@ -255,14 +263,15 @@
 }
 
 @keyframes card-discard {
-  0% { opacity: 1; transform: scale(1) translateY(0); }
-  100% { opacity: 0; transform: scale(0.7) translateY(-12px); }
+  0%   { opacity: 1; transform: scale(1)    translateY(0)    rotate(0deg); }
+  100% { opacity: 0; transform: scale(0.62) translateY(-22px) rotate(-9deg); }
 }
 
 @keyframes chip-toss {
-  0% { opacity: 0; transform: scale(0.7) translateY(6px); }
-  60% { transform: scale(1.04) translateY(-1px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0%   { opacity: 0; transform: scale(0.45) translateY(12px); }
+  45%  { opacity: 1; transform: scale(1.20) translateY(-4px); }
+  70%  { transform: scale(0.94) translateY(1px); }
+  100% { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
 @keyframes winner-glow {
@@ -285,9 +294,23 @@
 }
 
 @keyframes pot-collect {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.1); }
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.28); }
+  55%  { transform: scale(0.92); }
   100% { transform: scale(1); }
+}
+
+@keyframes chip-pop {
+  0%   { transform: scale(1); }
+  28%  { transform: scale(1.32); }
+  58%  { transform: scale(0.91); }
+  100% { transform: scale(1); }
+}
+
+@keyframes phase-snap {
+  0%   { opacity: 0; transform: scale(0.90) translateY(-5px); }
+  55%  { transform: scale(1.03) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes reveal-flash {
@@ -333,7 +356,29 @@
 }
 
 .anim-chip-toss {
-  animation: chip-toss 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: chip-toss 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-chip-pop {
+  animation: chip-pop 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.anim-phase-snap {
+  animation: phase-snap 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Screen-edge vignette — darkens periphery, focuses eye on the center */
+.cgp-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(
+    ellipse 110% 100% at 50% 50%,
+    transparent 42%,
+    rgba(0,0,0,0.45) 80%,
+    rgba(0,0,0,0.72) 100%
+  );
 }
 
 .anim-winner {
@@ -389,7 +434,11 @@
   height: 1rem;
   border-radius: 50%;
   background: linear-gradient(135deg, #D4B44A 0%, #C9A227 50%, #A8871E 100%);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.2);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.3),
+    0 0 8px  rgba(201,162,39,0.65),
+    0 0 18px rgba(201,162,39,0.25),
+    inset 0 1px 1px rgba(255,255,255,0.2);
   display: flex;
   align-items: center;
   justify-content: center;

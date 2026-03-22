@@ -109,9 +109,7 @@ export function BadugiTable({
           >
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-[#C9A227]/40" />
-              </div>
+              <div className="gold-chip" />
               <span className="text-base sm:text-lg font-mono text-white font-bold tracking-tight tabular-nums">
                 ${gameState.pot}
               </span>
