@@ -130,15 +130,34 @@ function makeInitialState(tableId: string): GameState {
 
 // ─── State masking ────────────────────────────────────────────────────────────
 
-function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
+// publicCardIndicesPerPlayer: maps playerId → card indices that are face-up for ALL players.
+// Used by 15/35 where the first dealt card and all hit cards are public (blackjack-style).
+// Swing/SuitsPoker have no public player cards (empty map → all opponent cards hidden).
+
+function maskStateForPlayer(
+  state: GameState,
+  forPlayerId: string,
+  publicCardIndicesPerPlayer: Record<string, number[]> = {},
+): GameState {
   const isShowdown = state.phase === 'SHOWDOWN';
   return {
     ...state,
     deck: [],
     players: state.players.map(p => {
-      if (p.id === forPlayerId) return p;
+      if (p.id === forPlayerId) {
+        // Hero always sees their own cards regardless of server-stored isHidden
+        return { ...p, cards: p.cards.map(c => ({ ...c, isHidden: false })) };
+      }
       if (isShowdown) return p;
-      return { ...p, cards: p.cards.map(c => ({ ...c, isHidden: true })) };
+      // Opponents: only show cards at public indices; hide everything else
+      const publicIndices = publicCardIndicesPerPlayer[p.id] ?? [];
+      return {
+        ...p,
+        cards: p.cards.map((c, i) => ({
+          ...c,
+          isHidden: !publicIndices.includes(i),
+        })),
+      };
     }),
   };
 }
@@ -160,6 +179,9 @@ interface GenericTable {
   humanSeats: Set<string>;
   sessionToSeat: Map<string, string>;
   spectators: Map<string, { ws: WebSocket; name: string }>;
+  // Card indices (per player) that are face-up for ALL players (e.g. 15/35 public cards).
+  // Empty object means all opponent cards are hidden (default for Swing/SP/Dead7).
+  publicCardIndicesPerPlayer: Record<string, number[]>;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -187,18 +209,19 @@ function broadcastState(table: GenericTable): void {
   const stateWithMeta = spectatorCount > 0
     ? { ...table.state, spectatorCount }
     : table.state;
+  const pub = table.publicCardIndicesPerPlayer;
 
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1) continue;
     try {
-      ws.send(JSON.stringify({ type: 'mode:snapshot', state: maskStateForPlayer(stateWithMeta, playerId) }));
+      ws.send(JSON.stringify({ type: 'mode:snapshot', state: maskStateForPlayer(stateWithMeta, playerId, pub) }));
     } catch {}
   }
-  // Also send to spectators (all cards hidden)
+  // Spectators see only public face-up cards; all private hole cards hidden
   for (const [, spec] of Array.from(table.spectators.entries())) {
     if (spec.ws.readyState !== 1) continue;
     try {
-      const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
+      const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
       spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
     } catch {}
   }
@@ -294,14 +317,33 @@ function advanceToNextPhase(table: GenericTable): void {
 function dealCards(table: GenericTable): void {
   table.handId += 1;
   const deck = createDeck();
+  // Deal with '__server__' as myId: mode marks opponent private cards isHidden:true,
+  // and any face-up-for-all cards (e.g. 15/35 card1) as isHidden:false.
   const dealt = table.mode.deal(deck, table.state.players, '__server__');
+
+  // Capture which card indices are public (face-up for ALL players) based on
+  // what the mode's deal() reported as isHidden:false with myId='__server__'.
+  // These survive maskStateForPlayer so all observers can see them.
+  const publicCardIndicesPerPlayer: Record<string, number[]> = {};
+  for (const p of dealt.players) {
+    const pub: number[] = [];
+    p.cards.forEach((c, i) => { if (!c.isHidden) pub.push(i); });
+    publicCardIndicesPerPlayer[p.id] = pub;
+  }
+  table.publicCardIndicesPerPlayer = publicCardIndicesPerPlayer;
+
   table.state = {
     ...table.state,
     players: dealt.players.map(p => ({
       ...p,
+      // Server stores real card values (isHidden:false); masking is done per-player
+      // at broadcast time via maskStateForPlayer + publicCardIndicesPerPlayer.
       cards: p.cards.map(c => ({ ...c, isHidden: false })),
     })),
-    communityCards: (dealt.communityCards || []).map(c => ({ ...c, isHidden: false })),
+    // Community cards: PRESERVE the mode's isHidden flags.
+    // REVEAL_* phases later flip individual cards to isHidden:false.
+    // Forcing false here was the bug that exposed MF/SP boards immediately.
+    communityCards: dealt.communityCards || [],
     deck: dealt.deck.map(c => ({ ...c, isHidden: false })),
     discardPile: [],
   };
@@ -431,6 +473,7 @@ function resetToAnte(table: GenericTable): void {
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   table.botTimers.clear();
   table.handId += 1;
+  table.publicCardIndicesPerPlayer = {};
 
   table.state = {
     ...s,
@@ -526,6 +569,20 @@ function executeBotAction(table: GenericTable, botId: string): void {
 
     engineLog('BOT', `${table.modeId}:${table.tableId}`, { bot: botId, action: message ?? '?', phase: table.state.phase });
 
+    // Track public hit cards in 15/35 (all hit cards are face-up for everyone)
+    if (table.state.phase.startsWith('HIT_') && stateUpdates.players) {
+      const pub = { ...table.publicCardIndicesPerPlayer };
+      for (const newP of (stateUpdates.players as Player[])) {
+        const oldP = table.state.players.find(p => p.id === newP.id);
+        if (!oldP || newP.cards.length <= oldP.cards.length) continue;
+        const prevPub = pub[newP.id] ?? [];
+        const newIndices: number[] = [];
+        for (let i = oldP.cards.length; i < newP.cards.length; i++) newIndices.push(i);
+        pub[newP.id] = [...prevPub, ...newIndices];
+      }
+      table.publicCardIndicesPerPlayer = pub;
+    }
+
     table.state = newState;
     table.actionLock = false;
     broadcastState(table);
@@ -598,6 +655,7 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       spectators: new Map(),
+      publicCardIndicesPerPlayer: {},
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId });
   }
@@ -624,7 +682,7 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
         playerId: '__spectator__',
         modeId,
         role: 'spectator',
-        state: maskStateForPlayer(table.state, '__spectator__'),
+        state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
       }));
     } catch {}
     broadcastState(table);
@@ -656,7 +714,7 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
       type: 'mode:init',
       playerId: seat,
       modeId,
-      state: maskStateForPlayer(table.state, seat),
+      state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
     }));
   } catch {}
 
@@ -874,8 +932,15 @@ export function handleGenericAction(tableId: string, sessionId: string, action: 
       const newDeck = [...s.deck];
       const hitCard = newDeck.shift();
       if (hitCard) {
+        const newCardIndex = player.cards.length;
         const newCards = [...player.cards, { ...hitCard, isHidden: false }];
         newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
+        // Hit cards in 15/35 are face-up for all — add to public indices
+        const prevPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
+        table.publicCardIndicesPerPlayer = {
+          ...table.publicCardIndicesPerPlayer,
+          [playerId]: [...prevPub, newCardIndex],
+        };
         table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} hits`);
       } else {
         newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };

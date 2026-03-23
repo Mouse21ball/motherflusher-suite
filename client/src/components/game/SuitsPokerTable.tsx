@@ -41,35 +41,28 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
   const lower = cc.slice(9, 11);
   const final = cc.slice(11, 12);
 
-  const getOpponentPosition = (index: number, total: number) => {
-    if (total === 1) return "-top-2 sm:top-2 left-1/2 -translate-x-1/2";
+  const getOpponentPosition = (index: number, total: number): string => {
+    if (total === 1) return "-top-2 sm:top-1 left-1/2 -translate-x-1/2";
     if (total === 2) {
       return [
-        "-top-2 sm:top-2 left-[20%] sm:left-[25%] -translate-x-1/2",
-        "-top-2 sm:top-2 right-[20%] sm:right-[25%] translate-x-1/2",
-      ][index];
+        "-top-2 sm:top-1 left-[26%] -translate-x-1/2",
+        "-top-2 sm:top-1 right-[26%] translate-x-1/2",
+      ][index] ?? "hidden";
     }
     if (total === 3) {
       return [
-        "top-[18%] -left-2 sm:left-2",
-        "-top-2 sm:top-2 left-1/2 -translate-x-1/2",
-        "top-[18%] -right-2 sm:right-2",
-      ][index];
+        "top-[30%] -left-5 sm:left-0 -translate-y-1/2",
+        "-top-2 sm:top-1 left-1/2 -translate-x-1/2",
+        "top-[30%] -right-5 sm:right-0 -translate-y-1/2",
+      ][index] ?? "hidden";
     }
-    if (total === 4) {
-      return [
-        "top-[22%] -left-4 sm:-left-2 -translate-y-1/2",
-        "-top-2 sm:top-2 left-[26%] sm:left-[28%] -translate-x-1/2",
-        "-top-2 sm:top-2 right-[26%] sm:right-[28%] translate-x-1/2",
-        "top-[22%] -right-4 sm:-right-2 -translate-y-1/2",
-      ][index] || "hidden";
-    }
+    // 4 opponents (5-player): even arc — left | upper-left | upper-right | right
     return [
-      "top-[30%] -left-4 sm:-left-1 -translate-y-1/2",
-      "-top-2 sm:top-2 left-[28%] sm:left-[30%] -translate-x-1/2",
-      "-top-2 sm:top-2 right-[28%] sm:right-[30%] translate-x-1/2",
-      "top-[30%] -right-4 sm:-right-1 -translate-y-1/2",
-    ][index] || "hidden";
+      "top-[36%] -left-5 sm:left-0 -translate-y-1/2",
+      "-top-2 sm:top-1 left-[22%] sm:left-[24%] -translate-x-1/2",
+      "-top-2 sm:top-1 right-[22%] sm:right-[24%] translate-x-1/2",
+      "top-[36%] -right-5 sm:right-0 -translate-y-1/2",
+    ][index] ?? "hidden";
   };
 
   return (
@@ -153,9 +146,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
             <div className="bg-[#0B0B0D]/70 backdrop-blur-sm border border-white/[0.06] px-5 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
               <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
               <div className="flex items-center gap-2">
-                <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#C9A227] border border-[#C9A227]/60 flex items-center justify-center">
-                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-[#C9A227]/40"></div>
-                </div>
+                <div className="gold-chip w-4 h-4 sm:w-5 sm:h-5 anim-chip-pop" />
                 <span className="text-lg sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
               </div>
             </div>
