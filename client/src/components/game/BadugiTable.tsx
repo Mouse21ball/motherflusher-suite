@@ -72,7 +72,7 @@ export function BadugiTable({
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
           <p
             key={msg.id}
-            className="text-white/70 text-xs font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.06]"
+            className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
             data-testid="text-game-message"
           >
             {msg.text}
@@ -104,7 +104,7 @@ export function BadugiTable({
         {/* Pot counter — absolute bottom-right, never overlaps discard pile */}
         <div className="absolute bottom-5 right-5 sm:bottom-7 sm:right-8 z-30">
           <div
-            className="bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center"
+            className="pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center"
             data-testid="text-pot"
           >
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>

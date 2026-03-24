@@ -155,16 +155,23 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
       {/* Name plate */}
       <div className={cn(
-        "relative w-full min-w-[100px] bg-[#141417] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
-        isActive ? "border-[#C9A227]/50 shadow-[0_0_12px_rgba(201,162,39,0.15)]" : "border-white/[0.06]",
-        isSelf && !isActive ? "border-white/[0.08]" : "",
+        "relative w-full min-w-[100px] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
+        isSelf ? "bg-[#101013]" : "bg-[#0a0a0d]",
+        isActive ? "border-[#C9A227]/50 shadow-[0_0_12px_rgba(201,162,39,0.15)]" : "border-white/[0.05]",
+        isSelf && !isActive ? "border-white/[0.07]" : "",
         showdownState && player.isWinner && "anim-winner",
         showdownState && player.isLoser && "border-white/[0.03]"
       )}>
-        <div className="font-medium text-sm truncate max-w-full text-white/90 font-sans">
+        <div className={cn(
+          "font-medium text-sm truncate max-w-full font-sans",
+          isSelf ? "text-white/90" : "text-white/60"
+        )}>
           {player.name}
         </div>
-        <div className="text-[#C9A227] font-mono text-xs flex items-center gap-0.5 tracking-tight">
+        <div className={cn(
+          "font-mono text-xs flex items-center gap-0.5 tracking-tight",
+          isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"
+        )}>
           <span className="opacity-60">$</span>{player.chips}
         </div>
         {showVisibleCount && player.cards.length > 0 && (() => {

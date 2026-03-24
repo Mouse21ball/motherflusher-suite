@@ -67,9 +67,9 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
 
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
-      <div className="w-full text-center mb-1 relative z-40">
+      <div className="w-full text-center mb-1 relative z-40 min-h-[28px] flex items-center justify-center">
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-          <p key={msg.id} className="text-white/70 text-xs sm:text-sm font-mono animate-in fade-in slide-in-from-top-2 drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.06]" data-testid="text-game-message">
+          <p key={msg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
             {msg.text}
           </p>
         ))}
@@ -96,11 +96,11 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
               {getPhaseLabel(gameState.phase)}
             </div>
 
-            <div className="scale-75 sm:scale-100 origin-center">
+            <div className="scale-75 sm:scale-100 origin-center card-depth-shadow">
               <div className="flex items-start justify-center">
                 <div className="flex flex-col items-center pt-2 sm:pt-3">
                   <span className="text-[8px] sm:text-[10px] text-amber-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side A</span>
-                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                     {sideA.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
                   <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">← path</span>
@@ -109,15 +109,15 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
                 <div className="mx-4 sm:mx-8 flex flex-col items-center">
                   <span className="text-[8px] sm:text-[10px] text-green-400/60 font-mono uppercase tracking-wider font-bold mb-1">Center</span>
                   <div className="flex flex-col items-center gap-1 sm:gap-1.5">
-                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                       {center.map((card, i) => <CommunityCard key={i} card={card} />)}
                     </div>
                     <div className="w-px h-1 sm:h-1.5 bg-white/10"></div>
-                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                       {lower.map((card, i) => <CommunityCard key={i} card={card} />)}
                     </div>
                     <div className="w-px h-1 sm:h-1.5 bg-white/10"></div>
-                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                    <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                       {final.map((card, i) => <CommunityCard key={i} card={card} />)}
                     </div>
                   </div>
@@ -125,7 +125,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
 
                 <div className="flex flex-col items-center pt-2 sm:pt-3">
                   <span className="text-[8px] sm:text-[10px] text-cyan-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side B</span>
-                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.06]">
+                  <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                     {sideB.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
                   <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">path →</span>
@@ -143,10 +143,10 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
               <span className="text-green-400/60">Center</span>
             </div>
 
-            <div className="bg-[#0B0B0D]/70 backdrop-blur-sm border border-white/[0.06] px-5 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
+            <div className="pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-5 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
               <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
               <div className="flex items-center gap-2">
-                <div className="gold-chip w-4 h-4 sm:w-5 sm:h-5 anim-chip-pop" />
+                <div className="gold-chip w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="text-lg sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>
               </div>
             </div>

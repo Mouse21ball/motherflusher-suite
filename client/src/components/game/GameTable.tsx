@@ -137,7 +137,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               {/* Pair columns — stacked solitaire cascade */}
               <div className="flex flex-col items-center gap-1.5">
                 <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/40 select-none">Pair Stacks</span>
-              <div className="flex gap-2 sm:gap-3">
+              <div className="flex gap-2 sm:gap-3 card-depth-shadow">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   const topIdx = colIndex * 2;
                   const btmIdx = colIndex * 2 + 1;
@@ -184,7 +184,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                   <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/30 select-none">Factors</span>
                   <div className="h-px flex-1 max-w-[60px] bg-white/[0.06]" />
                 </div>
-                <div className="flex gap-1 sm:gap-3">
+                <div className="flex gap-1 sm:gap-3 card-depth-shadow">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   const idx = 10 + colIndex;
                   const isUsed =
@@ -233,7 +233,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
         {/* Pot counter */}
         <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
           <div
-            className={`bg-[#0B0B0D]/80 backdrop-blur-sm border border-white/[0.06] px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center ${potPulse ? 'anim-chip-pop' : ''}`}
+            className={`pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center ${potPulse ? 'anim-chip-pop' : ''}`}
             data-testid="text-pot"
           >
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
