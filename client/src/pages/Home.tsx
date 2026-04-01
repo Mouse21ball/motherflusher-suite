@@ -154,7 +154,7 @@ const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: stri
 };
 
 function phaseLabel(phase: string): string {
-  if (phase === 'WAITING') return 'Waiting';
+  if (phase === 'WAITING') return 'Open · Join Now';
   if (phase === 'ANTE' || phase === 'DEAL') return 'Starting';
   if (phase.startsWith('DRAW')) return 'Draw';
   if (phase.startsWith('BET')) return 'Betting';
@@ -182,103 +182,133 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
     return () => clearInterval(id);
   }, [fetchTables]);
 
-  // Don't render until first fetch completes — avoids a flash of "no tables"
   if (!ready) return null;
 
+  const hasActive = tables.length > 0;
   const visible = tables.slice(0, 6);
   const overflow = tables.length - visible.length;
 
   return (
     <div
       className="w-full rounded-2xl overflow-hidden"
-      style={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(255,255,255,0.05)' }}
+      style={{
+        backgroundColor: '#0A0A0F',
+        border: hasActive ? '1px solid rgba(0,200,150,0.18)' : '1px solid rgba(255,255,255,0.06)',
+        boxShadow: hasActive ? '0 0 0 1px rgba(0,200,150,0.06) inset' : 'none',
+      }}
       data-testid="section-live-tables"
     >
       {/* Section header */}
-      <div className="px-3.5 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+      <div
+        className="px-4 py-3 flex items-center gap-2.5 border-b"
+        style={{ borderColor: hasActive ? 'rgba(0,200,150,0.10)' : 'rgba(255,255,255,0.05)' }}
+      >
         <div
-          className="w-1.5 h-1.5 rounded-full shrink-0"
+          className="w-2 h-2 rounded-full shrink-0"
           style={{
-            backgroundColor: tables.length > 0 ? '#00C896' : '#444',
-            boxShadow: tables.length > 0 ? '0 0 5px #00C896' : 'none',
-            animation: tables.length > 0 ? 'pulse 2s infinite' : 'none',
+            backgroundColor: hasActive ? '#00C896' : '#333',
+            boxShadow: hasActive ? '0 0 6px #00C896' : 'none',
+            animation: hasActive ? 'pulse 2s infinite' : 'none',
           }}
         />
-        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30 flex-1">Live Tables</span>
-        {tables.length > 0 && (
-          <span className="text-[9px] font-mono text-white/20 tabular-nums">{tables.length} open</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-bold text-white/75 font-sans">Live Tables</span>
+          <span className="ml-2 text-[10px] font-mono text-white/30">
+            {hasActive ? 'Real players — join any game in progress' : 'Join or start a game to appear here'}
+          </span>
+        </div>
+        {hasActive && (
+          <span
+            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full tabular-nums"
+            style={{ backgroundColor: 'rgba(0,200,150,0.12)', color: '#00C896', border: '1px solid rgba(0,200,150,0.25)' }}
+          >
+            {tables.length} open
+          </span>
         )}
       </div>
 
-      {/* Empty state — clearly communicates intent, invites action */}
-      {tables.length === 0 && (
-        <div className="px-3.5 py-5 flex flex-col items-center gap-2 text-center">
-          <span className="text-[11px] font-mono text-white/25">No tables open right now.</span>
-          <span className="text-[10px] font-mono text-white/15">Start a game above — you'll appear here instantly.</span>
+      {/* Empty state */}
+      {!hasActive && (
+        <div className="px-4 py-6 flex flex-col items-center gap-1.5 text-center">
+          <span className="text-sm font-mono text-white/30">No active tables right now</span>
+          <span className="text-[11px] font-mono text-white/20">Start any game above — your table shows up here instantly.</span>
         </div>
       )}
 
       {/* Table rows */}
-      {tables.length > 0 && (
-        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.03)' }}>
+      {hasActive && (
+        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
           {visible.map(table => {
             const info = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/' };
-            const isBadugi = table.modeId === 'badugi';
+            const isWaiting = table.phase === 'WAITING';
             return (
               <div
                 key={`${table.modeId}-${table.tableId}`}
-                className="px-3.5 py-2.5 flex items-center gap-2.5"
-                style={isBadugi ? { backgroundColor: 'rgba(0,200,150,0.035)' } : undefined}
+                className="px-4 py-3 flex items-center gap-3"
+                style={isWaiting ? { backgroundColor: 'rgba(0,200,150,0.03)' } : undefined}
               >
-                {/* Mode badge */}
+                {/* Mode color badge */}
                 <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-mono font-bold shrink-0"
-                  style={{ backgroundColor: info.color + '1a', border: `1px solid ${info.color}30`, color: info.color }}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold shrink-0"
+                  style={{ backgroundColor: info.color + '18', border: `1px solid ${info.color}35`, color: info.color }}
                 >
                   {info.abbrev}
                 </div>
 
-                {/* Mode name + table code */}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-white/35 truncate hidden sm:inline">{info.name}</span>
-                  <span
-                    className="font-mono font-bold text-xs tracking-widest shrink-0"
-                    style={{ color: info.color + 'cc' }}
-                    data-testid={`text-live-table-code-${table.tableId}`}
-                  >
-                    {table.tableId}
-                  </span>
-                </div>
-
-                {/* Phase + human count */}
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <span className="text-[9px] font-mono text-white/22 hidden sm:inline">{phaseLabel(table.phase)}</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: info.color + '80' }} />
-                    <span className="text-[9px] font-mono text-white/40 tabular-nums">{table.humanCount} player{table.humanCount !== 1 ? 's' : ''}</span>
+                {/* Mode name + table code — visible on all screen sizes */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-white/60 font-sans">{info.name}</span>
+                    {isWaiting && (
+                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,200,150,0.12)', color: '#00C896' }}>
+                        Open
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] font-mono text-white/25">Code:</span>
+                    <span
+                      className="font-mono font-bold text-[11px] tracking-widest"
+                      style={{ color: info.color + 'bb' }}
+                      data-testid={`text-live-table-code-${table.tableId}`}
+                    >
+                      {table.tableId}
+                    </span>
                   </div>
                 </div>
 
-                {/* Join button */}
+                {/* Player count + phase */}
+                <div className="flex flex-col items-end gap-0.5 shrink-0">
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: info.color + '90' }} />
+                    <span className="text-xs font-mono font-bold tabular-nums" style={{ color: info.color + 'bb' }}>
+                      {table.humanCount} / 5
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-mono text-white/30">{phaseLabel(table.phase)}</span>
+                </div>
+
+                {/* Join button — deliberate sizing for easy tap */}
                 <button
                   onClick={() => onJoin(table.modeId, table.tableId)}
-                  className="shrink-0 text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border transition-all duration-150 active:scale-[0.97]"
+                  className="shrink-0 text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-2 rounded-xl border transition-all duration-150 active:scale-[0.97]"
                   style={{
-                    backgroundColor: info.color + '14',
-                    borderColor: info.color + '50',
+                    backgroundColor: info.color + '18',
+                    borderColor: info.color + '55',
                     color: info.color,
+                    minWidth: '72px',
                   }}
                   data-testid={`button-join-table-${table.tableId}`}
                 >
-                  Join →
+                  Join Table
                 </button>
               </div>
             );
           })}
 
           {overflow > 0 && (
-            <div className="px-3.5 py-2 text-center">
-              <span className="text-[9px] font-mono text-white/20">{overflow} more table{overflow !== 1 ? 's' : ''} active</span>
+            <div className="px-4 py-2 text-center">
+              <span className="text-[9px] font-mono text-white/25">+{overflow} more table{overflow !== 1 ? 's' : ''}</span>
             </div>
           )}
         </div>
