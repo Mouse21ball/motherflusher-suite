@@ -99,16 +99,34 @@ function isPhaseRoundOver(state: GameState): boolean {
   return false;
 }
 
+// ─── Join window ──────────────────────────────────────────────────────────────
+const JOIN_WINDOW_MS = 30_000;
+const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
+
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 function makeInitialPlayers(): Player[] {
   return [
-    { id: 'p1', name: 'You',     presence: 'human', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Alice',   presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p3', name: 'Bob',     presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Charlie', presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p5', name: 'Daisy',   presence: 'bot',   chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p1', name: 'You',  presence: 'human',    chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Open', presence: 'reserved', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p3', name: 'Open', presence: 'reserved', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Open', presence: 'reserved', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p5', name: 'Open', presence: 'reserved', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
   ];
+}
+
+function convertReservedToBots(table: GenericTable): void {
+  const hasReserved = table.state.players.some(p => p.presence === 'reserved');
+  if (!hasReserved) return;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p =>
+      p.presence === 'reserved'
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        : p
+    ),
+  };
+  table.joinWindowEndsAt = 0;
 }
 
 function makeInitialState(tableId: string): GameState {
@@ -182,6 +200,8 @@ interface GenericTable {
   // Card indices (per player) that are face-up for ALL players (e.g. 15/35 public cards).
   // Empty object means all opponent cards are hidden (default for Swing/SP/Dead7).
   publicCardIndicesPerPlayer: Record<string, number[]>;
+  // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
+  joinWindowEndsAt: number;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -643,6 +663,7 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
+    const joinWindowEndsAt = Date.now() + JOIN_WINDOW_MS;
     tables.set(key, {
       tableId,
       modeId,
@@ -656,8 +677,16 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
       sessionToSeat: new Map(),
       spectators: new Map(),
       publicCardIndicesPerPlayer: {},
+      joinWindowEndsAt,
     });
-    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId });
+    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS });
+
+    setTimeout(() => {
+      const t = tables.get(key);
+      if (!t || t.joinWindowEndsAt !== joinWindowEndsAt) return;
+      convertReservedToBots(t);
+      broadcastState(t);
+    }, JOIN_WINDOW_MS);
   }
   return tables.get(key)!;
 }
@@ -694,19 +723,25 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
 
-  if (playerName) {
-    table.state = {
-      ...table.state,
-      players: table.state.players.map(p =>
-        p.id === seat ? { ...p, name: playerName, presence: 'human' as const } : p
-      ),
-    };
-  }
+  const wasReserved = table.state.players.find(p => p.id === seat)?.presence === 'reserved';
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.id !== seat) return p;
+      return {
+        ...p,
+        ...(playerName ? { name: playerName } : {}),
+        presence: 'human' as const,
+        ...(wasReserved ? { status: 'active' as const } : {}),
+      };
+    }),
+  };
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', `${modeId}:${tableId}`, {
     player: seat,
     session: sessionId.slice(-8),
     phase: table.state.phase,
+    wasReserved,
   });
 
   try {
@@ -781,10 +816,13 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      // Close join window — fill any still-open seats with bots before the hand starts.
+      convertReservedToBots(table);
+      const freshPlayers = table.state.players;
       table.handId += 1;
-      const dealerIdx   = getDealerIndex(s.players);
-      const firstActIdx = getNextActivePlayerIndex(s.players, dealerIdx);
-      table.state = addMsg({ ...s, phase: 'ANTE', activePlayerId: s.players[firstActIdx].id }, 'Ante up!');
+      const dealerIdx   = getDealerIndex(freshPlayers);
+      const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
+      table.state = addMsg({ ...table.state, phase: 'ANTE', activePlayerId: freshPlayers[firstActIdx].id }, 'Ante up!');
       table.actionLock = false;
       broadcastState(table);
       scheduleNextBot(table);

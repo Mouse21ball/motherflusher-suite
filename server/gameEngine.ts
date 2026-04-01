@@ -65,17 +65,42 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
   };
 }
 
+// ─── Join window ──────────────────────────────────────────────────────────────
+// How long (ms) seats p2-p5 are held open for real players before bots fill them.
+const JOIN_WINDOW_MS = 30_000;
+
+// Bot names restored when reserved seats convert to bots.
+const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
+
 // ─── Initial table roster ─────────────────────────────────────────────────────
 // p4 is initial dealer → p1 (human) is always first-to-act in hand 1.
+// p2-p5 start as 'reserved'/sitting_out: open seats for real players to claim.
 
 function makeInitialPlayers(heroChips: number): Player[] {
   return [
-    { id: 'p1', name: 'You',     presence: 'human', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Alice',   presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p3', name: 'Bob',     presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Charlie', presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p5', name: 'Daisy',   presence: 'bot',   chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p1', name: 'You',  presence: 'human',    chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p3', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p5', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
   ];
+}
+
+// Convert any remaining reserved seats to active bots.
+// Called when the hand starts (so bots fill unclaimed seats) and also by the
+// join-window expiry timer (so bots appear in the lobby before the hand starts).
+function convertReservedToBots(table: AuthTable): void {
+  const hasReserved = table.state.players.some(p => p.presence === 'reserved');
+  if (!hasReserved) return;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p =>
+      p.presence === 'reserved'
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        : p
+    ),
+  };
+  table.joinWindowEndsAt = 0;
 }
 
 function makeInitialState(tableId: string): GameState {
@@ -140,6 +165,8 @@ interface AuthTable {
   sessionToSeat: Map<string, string>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
+  // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
+  joinWindowEndsAt: number;
 }
 
 const tables = new Map<string, AuthTable>();
@@ -536,6 +563,7 @@ export function initEngine(): void {
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       spectators: new Map(),
+      joinWindowEndsAt: 0, // window already closed for restored tables
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -563,6 +591,7 @@ export function getActiveBadugiTables(): { tableId: string; humanCount: number; 
 
 export function getOrCreateBadugiTable(tableId: string): AuthTable {
   if (!tables.has(tableId)) {
+    const joinWindowEndsAt = Date.now() + JOIN_WINDOW_MS;
     tables.set(tableId, {
       tableId,
       state: makeInitialState(tableId),
@@ -573,8 +602,18 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       spectators: new Map(),
+      joinWindowEndsAt,
     });
-    engineLog('TABLE_CREATE', tableId, { source: 'new' });
+    engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS });
+
+    // After the join window expires, fill unclaimed seats with bots and broadcast.
+    // If the hand already started (creator pressed Start early), this is a no-op.
+    setTimeout(() => {
+      const t = tables.get(tableId);
+      if (!t || t.joinWindowEndsAt !== joinWindowEndsAt) return;
+      convertReservedToBots(t);
+      broadcastState(t);
+    }, JOIN_WINDOW_MS);
   }
   return tables.get(tableId)!;
 }
@@ -608,21 +647,27 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
 
-  // Update the player's name and mark them as human in the canonical state
-  if (playerName) {
-    table.state = {
-      ...table.state,
-      players: table.state.players.map(p =>
-        p.id === seat ? { ...p, name: playerName, presence: 'human' as const } : p
-      ),
-    };
-  }
+  // Update name, presence, and—if taking a reserved seat—activate it.
+  const wasReserved = table.state.players.find(p => p.id === seat)?.presence === 'reserved';
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.id !== seat) return p;
+      return {
+        ...p,
+        ...(playerName ? { name: playerName } : {}),
+        presence: 'human' as const,
+        ...(wasReserved ? { status: 'active' as const } : {}),
+      };
+    }),
+  };
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
     player: seat,
     session: sessionId.slice(-8),
     phase: table.state.phase,
     connections: table.connections.size,
+    wasReserved,
   });
 
   // Atomic init: seat assignment + masked snapshot in one message.
@@ -684,13 +729,16 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      // Close join window — fill any still-open seats with bots before the hand starts.
+      convertReservedToBots(table);
+      const freshPlayers = table.state.players;
       table.handId += 1;
-      const dealerIdx   = getDealerIndex(s.players);
-      const firstActIdx = getNextActivePlayerIndex(s.players, dealerIdx);
+      const dealerIdx   = getDealerIndex(freshPlayers);
+      const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
       table.state = addMsg({
-        ...s,
+        ...table.state,
         phase: 'ANTE',
-        activePlayerId: s.players[firstActIdx].id,
+        activePlayerId: freshPlayers[firstActIdx].id,
       }, 'Ante up!');
       engineLog('ACTION', tableId, { player: playerId, action: 'start', accepted: true, phase: 'ANTE' });
       table.actionLock = false;

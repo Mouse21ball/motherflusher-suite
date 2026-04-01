@@ -17,8 +17,9 @@ export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
 export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | 'POKER' | 'SUITS' | null;
 
 // Distinguishes a real human seat from a bot seat.
-// Used by server seat management to know which seats can be claimed.
-export type PlayerPresence = 'human' | 'bot';
+// 'reserved' = open seat held for a human during the join window; excluded
+//              from all game logic until the window expires or the hand starts.
+export type PlayerPresence = 'human' | 'bot' | 'reserved';
 
 export interface HandEvaluation {
   description: string;

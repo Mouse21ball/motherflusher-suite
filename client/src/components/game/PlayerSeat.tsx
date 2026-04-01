@@ -63,6 +63,18 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     );
   }
 
+  // Reserved seat — open for a real player to join during the join window.
+  if (player.presence === 'reserved') {
+    return (
+      <div className={cn("relative flex flex-col items-center gap-2", className)}>
+        <div className="rounded-lg border border-dashed border-emerald-500/20 bg-[#0a0a0d]/60 px-4 py-2.5 min-w-[100px] flex flex-col items-center gap-0.5">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">Open Seat</span>
+          <span className="text-[9px] font-mono text-emerald-500/35">Available</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
