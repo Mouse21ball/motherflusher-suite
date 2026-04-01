@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { getActiveBadugiTables } from "./gameEngine";
+import { getActiveGenericTables } from "./genericEngine";
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -136,6 +137,23 @@ export async function registerRoutes(
         res.status(500).json({ error: "Failed to create table" });
       }
     }
+  });
+
+  // GET /api/tables — list ALL active tables across every mode, human players only.
+  // Merges the Badugi engine and the generic engine into one sorted list.
+  // Badugi tables come first (hero mode); others sorted by humanCount desc.
+  app.get("/api/tables", (_req, res) => {
+    pruneExpiredTables();
+    const badugi = getActiveBadugiTables()
+      .filter(t => t.humanCount > 0)
+      .map(t => ({ tableId: t.tableId, modeId: "badugi", humanCount: t.humanCount, phase: t.phase }));
+    const generic = getActiveGenericTables()
+      .filter(t => t.humanCount > 0);
+    const all = [
+      ...badugi,
+      ...generic.sort((a, b) => b.humanCount - a.humanCount),
+    ];
+    res.json(all);
   });
 
   // GET /api/tables/badugi — list currently active authoritative Badugi tables

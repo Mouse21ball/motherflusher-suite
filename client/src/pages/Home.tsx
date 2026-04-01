@@ -134,6 +134,136 @@ const MODES = [
   },
 ] as const;
 
+// ─── Live table browser ────────────────────────────────────────────────────────
+// Polls /api/tables every 8s. Only renders when at least one human-occupied table
+// exists across any mode. Badugi tables appear first (hero priority).
+
+interface LiveTableEntry {
+  tableId: string;
+  modeId: string;
+  humanCount: number;
+  phase: string;
+}
+
+const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string }> = {
+  badugi:      { name: 'Badugi',         abbrev: 'B',  color: '#00C896', path: '/badugi'    },
+  dead7:       { name: 'Dead 7',         abbrev: 'D7', color: '#DC2626', path: '/dead7'     },
+  fifteen35:   { name: '15/35',          abbrev: '15', color: '#F0B829', path: '/fifteen35' },
+  swing_poker: { name: 'Mother Flusher', abbrev: 'MF', color: '#9B5DE5', path: '/swing'     },
+  suits_poker: { name: 'Suits & Poker',  abbrev: 'SP', color: '#06B6D4', path: '/suitspoker'},
+};
+
+function phaseLabel(phase: string): string {
+  if (phase === 'WAITING') return 'Waiting';
+  if (phase === 'ANTE' || phase === 'DEAL') return 'Starting';
+  if (phase.startsWith('DRAW')) return 'Draw';
+  if (phase.startsWith('BET')) return 'Betting';
+  if (phase.startsWith('HIT')) return 'In Play';
+  if (phase === 'DECLARE' || phase === 'DECLARE_AND_BET') return 'Declare';
+  if (phase === 'SHOWDOWN') return 'Showdown';
+  return 'In Play';
+}
+
+function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: string) => void }) {
+  const [tables, setTables] = useState<LiveTableEntry[]>([]);
+  const [ready, setReady] = useState(false);
+
+  const fetchTables = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tables');
+      if (res.ok) setTables(await res.json());
+    } catch {}
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    fetchTables();
+    const id = setInterval(fetchTables, 8000);
+    return () => clearInterval(id);
+  }, [fetchTables]);
+
+  if (!ready || tables.length === 0) return null;
+
+  const visible = tables.slice(0, 6);
+  const overflow = tables.length - visible.length;
+
+  return (
+    <div
+      className="w-full rounded-2xl overflow-hidden"
+      style={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(255,255,255,0.05)' }}
+      data-testid="section-live-tables"
+    >
+      {/* Header */}
+      <div className="px-3.5 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 5px #00C896' }} />
+        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30 flex-1">Live Tables</span>
+        <span className="text-[9px] font-mono text-white/20 tabular-nums">{tables.length} open</span>
+      </div>
+
+      {/* Table rows */}
+      <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.03)' }}>
+        {visible.map(table => {
+          const info = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/' };
+          const isBadugi = table.modeId === 'badugi';
+          return (
+            <div
+              key={`${table.modeId}-${table.tableId}`}
+              className="px-3.5 py-2.5 flex items-center gap-2.5"
+              style={isBadugi ? { backgroundColor: 'rgba(0,200,150,0.035)' } : undefined}
+            >
+              {/* Mode badge */}
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-mono font-bold shrink-0"
+                style={{ backgroundColor: info.color + '1a', border: `1px solid ${info.color}30`, color: info.color }}
+              >
+                {info.abbrev}
+              </div>
+
+              {/* Mode name + table code */}
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <span className="text-[10px] font-mono text-white/35 truncate hidden sm:inline">{info.name}</span>
+                <span
+                  className="font-mono font-bold text-[10px] tracking-widest shrink-0"
+                  style={{ color: info.color + 'cc' }}
+                  data-testid={`text-live-table-code-${table.tableId}`}
+                >
+                  {table.tableId}
+                </span>
+              </div>
+
+              {/* Phase + human count */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[9px] font-mono text-white/20">{phaseLabel(table.phase)}</span>
+                <span className="text-[9px] font-mono text-white/35 tabular-nums">{table.humanCount}P</span>
+              </div>
+
+              {/* Join button */}
+              <button
+                onClick={() => onJoin(table.modeId, table.tableId)}
+                className="shrink-0 text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg border transition-all duration-150 active:scale-[0.97]"
+                style={{
+                  backgroundColor: info.color + '14',
+                  borderColor: info.color + '45',
+                  color: info.color,
+                }}
+                data-testid={`button-join-table-${table.tableId}`}
+              >
+                Join →
+              </button>
+            </div>
+          );
+        })}
+
+        {overflow > 0 && (
+          <div className="px-3.5 py-2 text-center">
+            <span className="text-[9px] font-mono text-white/18">{overflow} more table{overflow !== 1 ? 's' : ''} active</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Live feed ────────────────────────────────────────────────────────────────
 
 const FEED_TEMPLATES = [
@@ -208,6 +338,12 @@ export default function Home() {
     setRewardReady(false);
     setProgression(getProgression());
   }, []);
+
+  const handleJoinTable = useCallback((modeId: string, tableId: string) => {
+    const info = LIVE_MODE_INFO[modeId];
+    if (!info) return;
+    navigate(`${info.path}?t=${tableId}`);
+  }, [navigate]);
 
   const dismissAchievement = useCallback((id: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== id));
@@ -484,6 +620,9 @@ export default function Home() {
               </button>
             );
           })()}
+
+          {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
+          <LiveTablesSection onJoin={handleJoinTable} />
 
           {/* ── 2-COLUMN GRID ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
