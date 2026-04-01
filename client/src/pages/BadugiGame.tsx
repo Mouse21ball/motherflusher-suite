@@ -29,29 +29,37 @@ function InviteBanner({ tableId }: { tableId: string }) {
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 2500);
     });
   }, [url]);
 
   return (
-    <div className="w-full px-2 pt-2">
-      <div className="max-w-md mx-auto rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)] animate-pulse shrink-0" />
-          <span className="text-[10px] text-white/35 font-mono truncate">
-            Table <span className="text-emerald-400/70 font-bold">{tableId}</span> · invite a friend to play
-          </span>
+    <div className="w-full px-3 pt-2">
+      <div
+        className="max-w-md mx-auto rounded-xl border px-3.5 py-2.5 flex items-center gap-3"
+        style={{
+          background: 'linear-gradient(135deg, rgba(0,200,150,0.07) 0%, rgba(0,200,150,0.03) 100%)',
+          borderColor: 'rgba(0,200,150,0.22)',
+        }}
+      >
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)] animate-pulse shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-white/25 mb-0.5">Play with friends</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono font-bold text-white/85 text-sm tracking-widest" data-testid="text-table-code">{tableId}</span>
+            <span className="text-[10px] font-mono text-emerald-400/55 truncate hidden sm:inline">· share this link to join your table</span>
+          </div>
         </div>
         <button
           onClick={handleCopy}
-          className={`shrink-0 text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border transition-all duration-200 ${
+          className={`shrink-0 text-[9px] font-mono uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all duration-200 font-bold ${
             copied
-              ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-              : 'text-white/30 border-white/[0.06] hover:text-white/55 hover:border-white/[0.12]'
+              ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/12'
+              : 'text-white/50 border-white/[0.10] hover:text-emerald-400 hover:border-emerald-500/35 hover:bg-emerald-500/[0.06]'
           }`}
           data-testid="button-copy-invite"
         >
-          {copied ? '✓ Copied!' : 'Copy Link'}
+          {copied ? '✓ Copied' : 'Copy Link'}
         </button>
       </div>
     </div>

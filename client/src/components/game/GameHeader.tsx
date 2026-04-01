@@ -257,6 +257,8 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
   };
 
   const headerBtnClass = "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.04] text-white/30 hover:text-white/55 active:text-white/55 hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-200 touch-manipulation";
+  // "How to Play" stands out from utility buttons — emerald accent makes it discoverable at a glance
+  const howToPlayBtnClass = "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-emerald-500/30 text-emerald-400/80 bg-emerald-500/[0.05] hover:bg-emerald-500/[0.10] hover:border-emerald-500/50 hover:text-emerald-300 active:scale-[0.97] transition-all duration-200 touch-manipulation font-bold";
 
   return (
     <>
@@ -285,7 +287,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
             <SheetTrigger asChild>
               <button
                 aria-label="How to Play"
-                className={headerBtnClass}
+                className={howToPlayBtnClass}
                 data-testid="button-rules"
               >
                 <BookOpen className="w-3.5 h-3.5" />

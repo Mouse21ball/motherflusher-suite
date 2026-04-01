@@ -231,27 +231,29 @@
   border-radius: 0.5rem;
 }
 
-/* ── Table felt — deeper, more dramatic spotlight ───────────────────────── */
+/* ── Table felt — deep spotlight, dramatic depth ─────────────────────────── */
 .game-table-felt {
   background:
     /* tight bright center pool — the action zone */
-    radial-gradient(ellipse 42% 36% at 50% 38%, rgba(68,168,100,0.70) 0%, transparent 100%),
+    radial-gradient(ellipse 44% 38% at 50% 38%, rgba(74,182,110,0.82) 0%, transparent 100%),
     /* wide ambient spread */
-    radial-gradient(ellipse 75% 65% at 50% 38%, rgba(40,110,65,0.45) 0%, transparent 100%),
+    radial-gradient(ellipse 76% 66% at 50% 38%, rgba(44,120,70,0.52) 0%, transparent 100%),
     /* base table — near-black at edges */
     radial-gradient(ellipse at 50% 30%, #1e4a2d 0%, #122e1b 35%, #09200f 60%, #030a05 100%);
   box-shadow:
+    /* subtle gold inner rail — premium table edge */
+    inset 0 0 0 1px rgba(201,162,39,0.09),
     /* heavy inner vignette — pulls eye to center */
-    inset 0    0   120px rgba(0,0,0,0.85),
-    inset 100px 0  100px rgba(0,0,0,0.45),
-    inset -100px 0 100px rgba(0,0,0,0.45),
-    inset 0  80px  100px rgba(0,0,0,0.40),
-    inset 0 -40px   60px rgba(0,0,0,0.30),
+    inset 0    0   120px rgba(0,0,0,0.88),
+    inset 100px 0  100px rgba(0,0,0,0.48),
+    inset -100px 0 100px rgba(0,0,0,0.48),
+    inset 0  80px  100px rgba(0,0,0,0.42),
+    inset 0 -40px   60px rgba(0,0,0,0.32),
     /* outer rail */
     0 0 0 3px #161209,
     0 0 0 6px #0a0804,
-    0 10px 40px rgba(0,0,0,0.75),
-    0 20px 60px rgba(0,0,0,0.45);
+    0 10px 40px rgba(0,0,0,0.80),
+    0 24px 64px rgba(0,0,0,0.50);
   border: none;
 }
 
@@ -294,6 +296,13 @@
   0%   { opacity: 1; transform: scale(1)    translateY(0)     rotate(0deg); }
   40%  { opacity: 1; transform: scale(0.88) translateY(-8px)  rotate(-5deg); }
   100% { opacity: 0; transform: scale(0.55) translateY(-28px) rotate(-14deg); }
+}
+
+/* Discard pile exit — card stack flies up and vanishes */
+@keyframes discard-exit {
+  0%   { opacity: 1; transform: translateY(0)     scale(1); }
+  60%  { opacity: 0.4; transform: translateY(-12px) scale(0.80); }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.62); }
 }
 
 /* Chip toss — punchy spring into pot */
@@ -399,6 +408,12 @@
 
 .anim-card-discard {
   animation: card-discard 110ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  pointer-events: none;
+}
+
+/* Discard pile exit — sharp fly-up, not floaty */
+.anim-discard-exit {
+  animation: discard-exit 130ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
   pointer-events: none;
 }
 

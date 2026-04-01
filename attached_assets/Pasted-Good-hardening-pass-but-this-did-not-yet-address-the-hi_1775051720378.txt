@@ -1,0 +1,58 @@
+Good hardening pass, but this did not yet address the highest visible MVP issues.
+
+Stay in MVP usability mode.
+Do NOT do more backend cleanup, naming cleanup, logging cleanup, or low-visibility refactors right now.
+
+Now implement only these 4 user-facing fixes, in this exact order:
+
+1. DISCARD VISUAL CLEANUP (highest priority)
+Current issue:
+discarded cards remain on the table too long and block the visual play area.
+
+Required behavior:
+- once a discard resolves, discarded cards should animate out quickly and then clear from view
+- they must not continue sitting on the table blocking gameplay
+- feedback should remain visible just long enough to understand what happened, then disappear
+- sharp/premium motion only, not floaty
+
+2. HOW TO PLAY DISCOVERABILITY
+Current issue:
+new players do not clearly know where help/how-to-play is because the top bar relies too much on icons.
+
+Required behavior:
+- add clearly labeled “How to Play” text in an obvious place
+- keep the existing icon if needed, but do not rely on icon-only discovery
+- make it immediately obvious to a first-time player where to tap
+- no giant tutorial system
+
+3. BADUGI MVP JOIN/PLAY FLOW
+Current issue:
+multiplayer works, but joining still feels too primitive and not intentional enough.
+
+Required behavior:
+- shared table entry for Badugi must feel obvious and usable
+- if there is any remaining friction in joining the same table from a shared link, fix it now
+- keep scope minimal
+- no full lobby redesign
+
+4. FAST PREMIUM FEEL IMPROVEMENTS
+Apply only immediate high-value polish:
+- stronger table depth/lighting
+- sharper discard/bet feedback
+- better center focus
+- reduced clutter where it interferes with play
+
+Do NOT do:
+- new features
+- economy/rewards
+- merch/store work
+- new modes
+- major redesign
+- generic engine refactors unless required for one of the 4 items above
+
+Return only:
+1. which of the 4 items were implemented
+2. files changed
+3. exact patch
+4. anything blocked and exact reason
+5. no extra questions
