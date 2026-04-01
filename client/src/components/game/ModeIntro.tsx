@@ -77,7 +77,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
             Got it
           </Button>
           <p className="text-center text-[9px] text-white/15 mt-2.5 font-mono tracking-wider">
-            Tap Rules in the header anytime
+            Tap "How to Play" in the header anytime
           </p>
         </div>
       </div>

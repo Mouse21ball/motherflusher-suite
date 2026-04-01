@@ -284,12 +284,12 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
             <SheetTrigger asChild>
               <button
-                aria-label="Rules"
+                aria-label="How to Play"
                 className={headerBtnClass}
                 data-testid="button-rules"
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Rules</span>
+                <span>How to Play</span>
               </button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-[#0B0B0D] border-white/[0.04] p-0" aria-describedby={undefined}>
