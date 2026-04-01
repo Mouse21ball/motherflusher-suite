@@ -57,8 +57,12 @@ export function useServerBadugi(tableId: string) {
   const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
   // Register the table code server-side so /join/:code can resolve it.
+  // Skip if the player is joining someone else's table via ?t= invite URL —
+  // the creator already registered it, and a second POST would 409.
   useEffect(() => {
     if (!activeFlag) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('t')) return;
     const identity = ensurePlayerIdentity();
     registerTable({ tableId, modeId: 'badugi', createdAt: Date.now(), createdBy: identity.id });
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,12 +1,15 @@
-// ─── Authoritative Badugi engine logger ───────────────────────────────────────
-// All log lines are prefixed with [badugi:EVENT] so they can be grepped
+// ─── Engine logger ────────────────────────────────────────────────────────────
+// All log lines are prefixed with [engine:EVENT] so they can be grepped
 // independently from general Express/WS traffic.
+// Used by both the Badugi engine and the generic multi-mode engine.
 // Never log card contents — only structural state (phase, pot, player IDs).
 
 type Event =
   | 'TABLE_CREATE'
   | 'PLAYER_JOIN'
   | 'PLAYER_LEAVE'
+  | 'SPECTATOR_JOIN'
+  | 'SPECTATOR_LEAVE'
   | 'PHASE'
   | 'ACTION'
   | 'BOT'
@@ -32,7 +35,7 @@ export function engineLog(event: Event, tableId: string, detail: Detail = {}): v
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}=${v}`)
     .join(' ');
-  const line = `${timestamp()} [badugi:${event}] t=${tid(tableId)}${kvs ? ' ' + kvs : ''}`;
+  const line = `${timestamp()} [engine:${event}] t=${tid(tableId)}${kvs ? ' ' + kvs : ''}`;
   if (event === 'ERROR') {
     console.error(line);
   } else {

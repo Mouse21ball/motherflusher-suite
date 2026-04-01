@@ -45,6 +45,12 @@ export function useServerMode(tableId: string, modeId: string) {
   const sessionId  = useRef<string>(getOrCreateSessionId(modeId));
 
   useEffect(() => {
+    // Only register when this player created the table (no ?t= in URL).
+    // Joiners arriving via an invite link must not re-register — the creator's
+    // registration is already in place, and a duplicate POST causes a 409 that
+    // could overwrite the creator record if the server restarted.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('t')) return;
     const identity = ensurePlayerIdentity();
     registerTable({ tableId, modeId, createdAt: Date.now(), createdBy: identity.id });
   // eslint-disable-next-line react-hooks/exhaustive-deps

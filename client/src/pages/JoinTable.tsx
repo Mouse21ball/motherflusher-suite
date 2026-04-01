@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { lookupTable } from "@/lib/tableSession";
 
 const MODE_ROUTES: Record<string, string> = {
@@ -14,10 +14,11 @@ const MODE_ROUTES: Record<string, string> = {
 
 export default function JoinTable() {
   const [, navigate] = useLocation();
+  const params = useParams<{ code: string }>();
   const [status, setStatus] = useState<"looking" | "found" | "notfound">("looking");
 
   useEffect(() => {
-    const code = window.location.pathname.split("/join/")[1]?.toUpperCase();
+    const code = params.code?.toUpperCase();
     if (!code) {
       setStatus("notfound");
       return;

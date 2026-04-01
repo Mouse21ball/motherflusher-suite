@@ -751,14 +751,18 @@ export function removeGenericConnection(tableId: string, sessionId: string): voi
   }
 }
 
-export function handleGenericAction(tableId: string, sessionId: string, action: string, payload: unknown): void {
-  // Find which mode table this session belongs to
+export function handleGenericAction(tableId: string, playerOrSessionId: string, action: string, payload: unknown): void {
+  // Find which mode table this player belongs to.
+  // `playerOrSessionId` is either:
+  //   - A session UUID (used for join/leave via sessionToSeat map), OR
+  //   - A seat ID (p1-p5) sent by the client in mode:action messages.
+  // Both cases are handled below so the lookup succeeds either way.
   let table: GenericTable | undefined;
   for (const modeId of Object.keys(MODE_REGISTRY)) {
     const key = tableKey(modeId, tableId);
     const t = tables.get(key);
     if (!t) continue;
-    if (t.sessionToSeat.has(sessionId) || t.connections.has(sessionId)) {
+    if (t.sessionToSeat.has(playerOrSessionId) || t.connections.has(playerOrSessionId)) {
       table = t;
       break;
     }
@@ -771,8 +775,9 @@ export function handleGenericAction(tableId: string, sessionId: string, action: 
 
   try {
     const s = table.state;
-    // Determine the player's seat
-    const playerId = table.sessionToSeat.get(sessionId) || sessionId;
+    // Resolve seat: if playerOrSessionId is a UUID, map via sessionToSeat;
+    // if it's already a seatId (p1-p5), fall back to it directly.
+    const playerId = table.sessionToSeat.get(playerOrSessionId) || playerOrSessionId;
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
