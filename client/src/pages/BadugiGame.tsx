@@ -82,6 +82,7 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
   const me = state.players.find(p => p.id === myId);
+  const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, "Badugi");
 
@@ -175,6 +176,7 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
               selectedCardsCount={selectedCardIndices.length}
               phaseHint={getPhaseHint('badugi', state.phase)}
+              openSeatsCount={openSeatsCount}
             />
           </div>
         </div>

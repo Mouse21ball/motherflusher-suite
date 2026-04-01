@@ -22,6 +22,7 @@ interface ActionControlsProps {
   selectedCardsCount: number;
   declarationOptions?: DeclarationOption[];
   phaseHint?: string;
+  openSeatsCount?: number;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -32,7 +33,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
 
 const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-4 glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   
@@ -92,8 +93,21 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   if (phase === 'WAITING') {
+    const hasOpenSeats = openSeatsCount != null && openSeatsCount > 0;
     return (
       <div className={`${panelClass} flex flex-col items-center gap-3`}>
+        {/* Join window context — only shown when reserved seats are present */}
+        {hasOpenSeats && (
+          <div
+            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5"
+            style={{ backgroundColor: 'rgba(0,200,150,0.06)', border: '1px solid rgba(0,200,150,0.14)' }}
+          >
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.7)' }} />
+            <span className="text-[10px] font-mono leading-snug" style={{ color: 'rgba(0,200,150,0.60)' }}>
+              {openSeatsCount} seat{openSeatsCount !== 1 ? 's' : ''} open — share the invite link · bots fill the rest
+            </span>
+          </div>
+        )}
         {chips <= 0 && (
           <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
             Rebuy $1000
@@ -104,10 +118,13 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           onClick={() => onAction('start')}
           className="w-full sm:w-auto font-bold tracking-[0.15em] uppercase bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
           disabled={chips <= 0}
+          data-testid="button-deal-me-in"
         >
           Deal Me In
         </Button>
-        <p className="text-[9px] text-white/20 font-mono tracking-widest">$1 ANTE</p>
+        <p className="text-[9px] text-white/20 font-mono tracking-widest">
+          {hasOpenSeats ? 'Start early — open seats fill with bots' : '$1 ANTE · starts the hand'}
+        </p>
       </div>
     );
   }

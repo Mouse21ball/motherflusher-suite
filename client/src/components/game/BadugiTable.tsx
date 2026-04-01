@@ -120,12 +120,33 @@ export function BadugiTable({
         {/* Center content — phase info + discard pile, no longer stacked with pot */}
         <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6">
           <div className="flex flex-col items-center gap-3 my-auto">
-            <div
-              className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
-              data-testid="text-phase"
-            >
-              {getPhaseLabel(gameState.phase)}
-            </div>
+
+            {/* ── WAITING state — live table context ───────────────────────── */}
+            {gameState.phase === 'WAITING' ? (() => {
+              const reservedCount = gameState.players.filter(p => p.presence === 'reserved').length;
+              const humanCount    = gameState.players.filter(p => p.presence === 'human').length;
+              return (
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
+                    <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>Live Table</span>
+                  </div>
+                  <div className="text-white/50 text-sm font-mono">Waiting for players</div>
+                  {reservedCount > 0 && (
+                    <div className="text-[10px] font-mono text-white/30 mt-0.5">
+                      {humanCount} here · {reservedCount} seat{reservedCount !== 1 ? 's' : ''} open for humans
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
+              <div
+                className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
+                data-testid="text-phase"
+              >
+                {getPhaseLabel(gameState.phase)}
+              </div>
+            )}
 
             {drawNumber > 0 && (
               <div className="flex items-center gap-1.5" data-testid="text-draw-round">

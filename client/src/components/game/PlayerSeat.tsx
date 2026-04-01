@@ -67,9 +67,16 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   if (player.presence === 'reserved') {
     return (
       <div className={cn("relative flex flex-col items-center gap-2", className)}>
-        <div className="rounded-lg border border-dashed border-emerald-500/20 bg-[#0a0a0d]/60 px-4 py-2.5 min-w-[100px] flex flex-col items-center gap-0.5">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">Open Seat</span>
-          <span className="text-[9px] font-mono text-emerald-500/35">Available</span>
+        <div
+          className="rounded-xl border border-dashed px-4 py-3 min-w-[110px] flex flex-col items-center gap-1.5"
+          style={{ borderColor: 'rgba(0,200,150,0.35)', backgroundColor: 'rgba(0,200,150,0.04)' }}
+          data-testid="seat-reserved"
+        >
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(0,200,150,0.70)' }} />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.65)' }}>Open Seat</span>
+          </div>
+          <span className="text-[9px] font-mono text-white/25">Awaiting player</span>
         </div>
       </div>
     );
@@ -174,11 +181,16 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         showdownState && player.isWinner && "anim-winner",
         showdownState && player.isLoser && "border-white/[0.03]"
       )}>
-        <div className={cn(
-          "font-medium text-sm truncate max-w-full font-sans",
-          isSelf ? "text-white/90" : "text-white/60"
-        )}>
-          {player.name}
+        <div className="flex items-center gap-1.5 max-w-full">
+          <div className={cn(
+            "font-medium text-sm truncate font-sans",
+            isSelf ? "text-white/90" : "text-white/60"
+          )}>
+            {player.name}
+          </div>
+          {player.presence === 'bot' && !isSelf && (
+            <span className="text-[7px] font-mono uppercase tracking-widest text-white/20 border border-white/10 px-1 py-0.5 rounded shrink-0">BOT</span>
+          )}
         </div>
         <div className={cn(
           "font-mono text-xs flex items-center gap-0.5 tracking-tight",
