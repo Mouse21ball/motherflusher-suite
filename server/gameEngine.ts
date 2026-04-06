@@ -86,9 +86,9 @@ function makeInitialPlayers(heroChips: number): Player[] {
   ];
 }
 
-// Convert any remaining reserved seats to active bots.
-// Called when the hand starts (so bots fill unclaimed seats) and also by the
-// join-window expiry timer (so bots appear in the lobby before the hand starts).
+// Convert ALL remaining reserved seats to active bots at once.
+// Called on hand start (early fill) or when the creator starts.
+// Sets joinWindowEndsAt = 0 so staged-fill timers abort.
 function convertReservedToBots(table: AuthTable): void {
   const hasReserved = table.state.players.some(p => p.presence === 'reserved');
   if (!hasReserved) return;
@@ -101,6 +101,52 @@ function convertReservedToBots(table: AuthTable): void {
     ),
   };
   table.joinWindowEndsAt = 0;
+}
+
+// Convert exactly ONE reserved seat (lowest id) to a bot.
+// Used by staged fill — does NOT close the join window, leaving later
+// stages and human claims still valid.
+function convertOneReservedToBot(table: AuthTable): boolean {
+  const first = table.state.players.find(p => p.presence === 'reserved');
+  if (!first) return false;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p =>
+      p.id === first.id
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        : p
+    ),
+  };
+  return true;
+}
+
+// ─── Staged bot fill ──────────────────────────────────────────────────────────
+// +1 bot after 10 s · +1 after 40 s total · +1 after 100 s total.
+// Each stage aborts if:
+//   • the table was removed
+//   • the join window was closed (start pressed) — joinWindowEndsAt resets to 0
+//   • the hand already started (phase !== 'WAITING')
+// If a human claimed the seat before the timer fires, convertOneReservedToBot
+// skips their seat and targets the next reserved slot.
+
+function scheduleStagedBotFill(tableId: string, capturedJoinWindowEndsAt: number): void {
+  setTimeout(() => {
+    const t = tables.get(tableId);
+    if (!t || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
+    if (convertOneReservedToBot(t)) broadcastState(t);
+
+    setTimeout(() => {
+      const t2 = tables.get(tableId);
+      if (!t2 || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
+      if (convertOneReservedToBot(t2)) broadcastState(t2);
+
+      setTimeout(() => {
+        const t3 = tables.get(tableId);
+        if (!t3 || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
+        if (convertOneReservedToBot(t3)) broadcastState(t3);
+      }, 60_000);
+    }, 30_000);
+  }, 10_000);
 }
 
 function makeInitialState(tableId: string): GameState {
@@ -605,15 +651,7 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       joinWindowEndsAt,
     });
     engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS });
-
-    // After the join window expires, fill unclaimed seats with bots and broadcast.
-    // If the hand already started (creator pressed Start early), this is a no-op.
-    setTimeout(() => {
-      const t = tables.get(tableId);
-      if (!t || t.joinWindowEndsAt !== joinWindowEndsAt) return;
-      convertReservedToBots(t);
-      broadcastState(t);
-    }, JOIN_WINDOW_MS);
+    scheduleStagedBotFill(tableId, joinWindowEndsAt);
   }
   return tables.get(tableId)!;
 }

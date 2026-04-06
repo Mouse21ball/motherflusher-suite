@@ -129,6 +129,40 @@ function convertReservedToBots(table: GenericTable): void {
   table.joinWindowEndsAt = 0;
 }
 
+function convertOneReservedToBot(table: GenericTable): boolean {
+  const first = table.state.players.find(p => p.presence === 'reserved');
+  if (!first) return false;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p =>
+      p.id === first.id
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        : p
+    ),
+  };
+  return true;
+}
+
+function scheduleStagedBotFill(key: string, tableId: string, capturedJoinWindowEndsAt: number): void {
+  setTimeout(() => {
+    const t = tables.get(key);
+    if (!t || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
+    if (convertOneReservedToBot(t)) broadcastState(t);
+
+    setTimeout(() => {
+      const t2 = tables.get(key);
+      if (!t2 || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
+      if (convertOneReservedToBot(t2)) broadcastState(t2);
+
+      setTimeout(() => {
+        const t3 = tables.get(key);
+        if (!t3 || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
+        if (convertOneReservedToBot(t3)) broadcastState(t3);
+      }, 60_000);
+    }, 30_000);
+  }, 10_000);
+}
+
 function makeInitialState(tableId: string): GameState {
   return {
     tableId,
@@ -680,13 +714,7 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
       joinWindowEndsAt,
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS });
-
-    setTimeout(() => {
-      const t = tables.get(key);
-      if (!t || t.joinWindowEndsAt !== joinWindowEndsAt) return;
-      convertReservedToBots(t);
-      broadcastState(t);
-    }, JOIN_WINDOW_MS);
+    scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
   }
   return tables.get(key)!;
 }

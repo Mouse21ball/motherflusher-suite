@@ -398,6 +398,35 @@ export default function Home() {
     navigate(`${info.path}?t=${tableId}`);
   }, [navigate]);
 
+  // Maps the MODES id (client) → engine modeId (server) for table lookup.
+  const MODE_ENGINE_ID: Record<string, string> = {
+    badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
+    swing: 'swing_poker', suitspoker: 'suits_poker',
+  };
+
+  // Human-first routing: check for a joinable WAITING table before creating a new one.
+  // Falls back to direct navigation (which creates a fresh table) if none found.
+  const navigateToMode = useCallback(async (modeId: string, path: string) => {
+    try {
+      const engineModeId = MODE_ENGINE_ID[modeId] ?? modeId;
+      const res = await fetch('/api/tables');
+      if (res.ok) {
+        const liveTables: LiveTableEntry[] = await res.json();
+        const joinable = liveTables.find(t =>
+          t.modeId === engineModeId &&
+          t.phase === 'WAITING' &&
+          t.humanCount > 0 &&
+          t.humanCount < 5
+        );
+        if (joinable) {
+          navigate(`${path}?t=${joinable.tableId}`);
+          return;
+        }
+      }
+    } catch {}
+    navigate(path);
+  }, [navigate]);
+
   const dismissAchievement = useCallback((id: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== id));
     clearNewAchievements();
@@ -626,7 +655,7 @@ export default function Home() {
             const tbl   = getModeTableCount(mode.id);
             return (
               <button
-                onClick={() => navigate(mode.path)}
+                onClick={() => navigateToMode(mode.id, mode.path)}
                 className="w-full text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.99] group"
                 style={{ background: mode.bg, border: `1px solid ${mode.border}` }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
@@ -685,7 +714,7 @@ export default function Home() {
               return (
                 <button
                   key={mode.id}
-                  onClick={() => navigate(mode.path)}
+                  onClick={() => navigateToMode(mode.id, mode.path)}
                   className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group"
                   style={{ background: mode.bg, border: `1px solid ${mode.border}` }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
@@ -747,7 +776,7 @@ export default function Home() {
                 Create Table
               </button>
               <button
-                onClick={() => navigate('/swing')}
+                onClick={() => navigateToMode('swing', '/swing')}
                 className="flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200"
                 style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
                 data-testid="button-browse-tables"
