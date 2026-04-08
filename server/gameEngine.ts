@@ -106,9 +106,14 @@ function convertReservedToBots(table: AuthTable): void {
 // Convert exactly ONE reserved seat (lowest id) to a bot.
 // Used by staged fill — does NOT close the join window, leaving later
 // stages and human claims still valid.
+// When 2+ humans are already seated, the last reserved seat is kept open
+// so a third real player can still join; the creator's "Deal Me In" fills it.
 function convertOneReservedToBot(table: AuthTable): boolean {
-  const first = table.state.players.find(p => p.presence === 'reserved');
-  if (!first) return false;
+  const reserved = table.state.players.filter(p => p.presence === 'reserved');
+  if (reserved.length === 0) return false;
+  const humanCount = table.state.players.filter(p => p.presence === 'human').length;
+  if (reserved.length <= 1 && humanCount >= 2) return false;
+  const first = reserved[0];
   table.state = {
     ...table.state,
     players: table.state.players.map(p =>
@@ -586,7 +591,20 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
     const isDeclarePhase = s.phase === 'DECLARE';
     const skipAllIn      = !isDrawPhase && !isDeclarePhase;
     const myIdx   = s.players.findIndex(p => p.id === s.activePlayerId);
-    const nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
+    let nextIdx: number;
+    if (isDeclarePhase) {
+      // Advance to the next active player who has NOT yet declared.
+      // This correctly handles the case where humans declare out of strict
+      // turn order (both clicking simultaneously) — the activePlayerId cursor
+      // skips already-declared players so bots still get their scheduled turn.
+      nextIdx = myIdx;
+      for (let i = 1; i <= s.players.length; i++) {
+        const idx = (myIdx + i) % s.players.length;
+        if (s.players[idx].status === 'active' && !s.players[idx].hasActed) { nextIdx = idx; break; }
+      }
+    } else {
+      nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
+    }
     table.state = { ...s, activePlayerId: s.players[nextIdx].id };
     broadcastState(table);
     scheduleNextBot(table);
@@ -832,6 +850,39 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       return;
     }
 
+    // ── declare (simultaneous: any active not-yet-declared player may declare) ──
+    // Badugi declaration is logically simultaneous. Placing this BEFORE the
+    // activePlayerId turn guard means the server accepts a declaration from any
+    // active player regardless of whose "turn" it currently is, preventing silent
+    // drops when two humans click at the same time or out of network order.
+    if (action === 'declare' && s.phase === 'DECLARE') {
+      const me = s.players.find(p => p.id === playerId);
+      if (!me || me.hasActed || me.status !== 'active') {
+        table.actionLock = false;
+        return;
+      }
+      const { declaration } = payload as { declaration: Declaration };
+      if (declaration === 'FOLD') {
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p =>
+            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p
+          ),
+        }, 'You declared FOLD');
+      } else {
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p =>
+            p.id === playerId ? { ...p, declaration, hasActed: true } : p
+          ),
+        }, `You declared ${declaration}`);
+      }
+      engineLog('ACTION', tableId, { player: playerId, action: 'declare', accepted: true, declaration: String(declaration) });
+      table.actionLock = false;
+      afterHumanAction(table);
+      return;
+    }
+
     // All remaining actions require it to be this player's turn
     if (s.activePlayerId !== playerId) {
       engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'not-turn', active: s.activePlayerId });
@@ -947,30 +998,6 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       const msg = indices.length === 0 ? 'You stood pat' : `You discarded ${indices.length} card${indices.length > 1 ? 's' : ''}`;
       engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: indices.length, phase: s.phase });
       table.state = addMsg({ ...s, players: newPlayers, deck: newDeck, discardPile: newDiscard }, msg);
-      table.actionLock = false;
-      afterHumanAction(table);
-      return;
-    }
-
-    // ── declare ───────────────────────────────────────────────────────────────
-    if (action === 'declare' && s.phase === 'DECLARE') {
-      const { declaration } = payload as { declaration: Declaration };
-      if (declaration === 'FOLD') {
-        table.state = addMsg({
-          ...s,
-          players: s.players.map(p =>
-            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p
-          ),
-        }, 'You declared FOLD');
-      } else {
-        table.state = addMsg({
-          ...s,
-          players: s.players.map(p =>
-            p.id === playerId ? { ...p, declaration, hasActed: true } : p
-          ),
-        }, `You declared ${declaration}`);
-      }
-      engineLog('ACTION', tableId, { player: playerId, action: 'declare', accepted: true, declaration: String(declaration) });
       table.actionLock = false;
       afterHumanAction(table);
       return;

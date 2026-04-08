@@ -130,7 +130,11 @@ function convertReservedToBots(table: GenericTable): void {
 }
 
 function convertOneReservedToBot(table: GenericTable): boolean {
-  const first = table.state.players.find(p => p.presence === 'reserved');
+  const reserved = table.state.players.filter(p => p.presence === 'reserved');
+  if (reserved.length === 0) return false;
+  const humanCount = table.state.players.filter(p => p.presence === 'human').length;
+  if (reserved.length <= 1 && humanCount >= 2) return false;
+  const first = reserved[0];
   if (!first) return false;
   table.state = {
     ...table.state,
@@ -682,7 +686,17 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
     const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
     const skipAllIn      = !isDrawPhase && !isDeclarePhase;
     const myIdx   = s.players.findIndex(p => p.id === s.activePlayerId);
-    const nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
+    let nextIdx: number;
+    if (s.phase === 'DECLARE') {
+      // Advance to the next active player who has NOT yet declared.
+      nextIdx = myIdx;
+      for (let i = 1; i <= s.players.length; i++) {
+        const idx = (myIdx + i) % s.players.length;
+        if (s.players[idx].status === 'active' && !s.players[idx].hasActed) { nextIdx = idx; break; }
+      }
+    } else {
+      nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
+    }
     table.state = { ...s, activePlayerId: s.players[nextIdx].id };
     broadcastState(table);
     scheduleNextBot(table);
@@ -895,6 +909,32 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       return;
     }
 
+    // ── declare (simultaneous: any active not-yet-declared player may declare) ──
+    // DECLARE is logically simultaneous. Placing this BEFORE the activePlayerId
+    // turn guard prevents silent drops when two humans click at the same time or
+    // their messages arrive out of network order.
+    if (action === 'declare' && s.phase === 'DECLARE') {
+      const meIdx = s.players.findIndex(p => p.id === playerId);
+      if (meIdx === -1) { table.actionLock = false; return; }
+      const me = s.players[meIdx];
+      if (me.hasActed || me.status !== 'active') { table.actionLock = false; return; }
+      const dec = typeof payload === 'string' ? payload : null;
+      let newPlayers = [...s.players];
+      let declMsg = '';
+      if (dec === 'FOLD') {
+        newPlayers[meIdx] = { ...me, status: 'folded', declaration: null, hasActed: true };
+        declMsg = `${me.name} declared FOLD`;
+      } else {
+        newPlayers[meIdx] = { ...me, declaration: dec as Declaration, hasActed: true };
+        declMsg = `${me.name} declared ${dec}`;
+      }
+      engineLog('ACTION', `${table.modeId}:${table.tableId}`, { player: playerId, action: 'declare', accepted: true, declaration: String(dec) });
+      table.state = addMsg({ ...s, players: newPlayers }, declMsg);
+      table.actionLock = false;
+      afterHumanAction(table, false);
+      return;
+    }
+
     // ── validate it's the player's turn ──────────────────────────────────────
     if (s.activePlayerId !== playerId) {
       engineLog('ACTION', `${table.modeId}:${table.tableId}`, { player: playerId, action, accepted: false, reason: 'not-turn' });
@@ -1027,19 +1067,6 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       const player = newPlayers[playerIdx];
       newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
       msg = `${player.name} stays`;
-    }
-
-    // ── declare ──────────────────────────────────────────────────────────────
-    else if (action === 'declare') {
-      const player = newPlayers[playerIdx];
-      const dec = typeof payload === 'string' ? payload : null;
-      if (dec === 'FOLD') {
-        newPlayers[playerIdx] = { ...player, status: 'folded', declaration: null, hasActed: true };
-        msg = `${player.name} declared FOLD`;
-      } else {
-        newPlayers[playerIdx] = { ...player, declaration: dec as Declaration, hasActed: true };
-        msg = `${player.name} declared ${dec}`;
-      }
     }
 
     else {
