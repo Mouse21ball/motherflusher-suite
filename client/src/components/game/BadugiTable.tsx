@@ -139,14 +139,27 @@ export function BadugiTable({
                   )}
                 </div>
               );
-            })() : (
-              <div
-                className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
-                data-testid="text-phase"
-              >
-                {getPhaseLabel(gameState.phase)}
-              </div>
-            )}
+            })() : (() => {
+              const humanCount = gameState.players.filter(p => p.presence === 'human').length;
+              return (
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
+                    data-testid="text-phase"
+                  >
+                    {getPhaseLabel(gameState.phase)}
+                  </div>
+                  {humanCount > 1 && (
+                    <div className="flex items-center gap-1" style={{ opacity: 0.55 }}>
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
+                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                        {humanCount} real
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {drawNumber > 0 && (
               <div className="flex items-center gap-1.5" data-testid="text-draw-round">

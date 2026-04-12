@@ -333,7 +333,7 @@ function advanceToNextPhase(table: AuthTable): void {
       advanceToNextPhase(table);
       broadcastState(table);
       scheduleNextBot(table);
-    }, 400);
+    }, 250);
     return;
   }
 
@@ -397,14 +397,14 @@ function resolveShowdown(table: AuthTable): void {
 
     broadcastState(table);
 
-    // Auto-advance to next hand after 5 seconds
+    // Auto-advance to next hand after 4 seconds
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       resetToAnte(table);
       broadcastState(table);
-    }, 5000);
-  }, 900);
+    }, 4000);
+  }, 650);
 }
 
 // ─── Reset after showdown ─────────────────────────────────────────────────────
@@ -481,7 +481,7 @@ function scheduleNextBot(table: AuthTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  const thinkMs = (capturedPhase.startsWith('BET') ? 1200 : 700) + Math.random() * 600;
+  const thinkMs = (capturedPhase.startsWith('BET') ? 900 : 400) + Math.random() * 500;
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
@@ -558,7 +558,7 @@ function executeBotAction(table: AuthTable, botId: string): void {
         advanceToNextPhase(table);
         broadcastState(table);
         scheduleNextBot(table);
-      }, wasRaise ? 750 : 500);
+      }, wasRaise ? 500 : 350);
     } else if (nextPlayerId) {
       table.state = { ...table.state, activePlayerId: nextPlayerId };
       broadcastState(table);
@@ -584,7 +584,7 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
       advanceToNextPhase(table);
       broadcastState(table);
       scheduleNextBot(table);
-    }, wasRaise ? 750 : 500);
+    }, wasRaise ? 500 : 350);
   } else {
     const s = table.state;
     const isDrawPhase    = s.phase.startsWith('DRAW');

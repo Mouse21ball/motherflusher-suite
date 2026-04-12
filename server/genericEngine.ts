@@ -337,7 +337,7 @@ function advanceToNextPhase(table: GenericTable): void {
       advanceToNextPhase(table);
       broadcastState(table);
       scheduleNextBot(table);
-    }, 400);
+    }, 250);
     return;
   }
 
@@ -494,8 +494,8 @@ function resolveShowdown(table: GenericTable): void {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       resetToAnte(table);
       broadcastState(table);
-    }, 5000);
-  }, 900);
+    }, 4000);
+  }, 650);
 }
 
 // ─── Reset after showdown ─────────────────────────────────────────────────────
@@ -571,7 +571,7 @@ function scheduleNextBot(table: GenericTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  const thinkMs = (capturedPhase.startsWith('BET') ? 1200 : 700) + Math.random() * 600;
+  const thinkMs = (capturedPhase.startsWith('BET') ? 900 : 400) + Math.random() * 500;
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
@@ -653,7 +653,7 @@ function executeBotAction(table: GenericTable, botId: string): void {
         advanceToNextPhase(table);
         broadcastState(table);
         scheduleNextBot(table);
-      }, wasRaise ? 750 : 500);
+      }, wasRaise ? 500 : 350);
     } else if (nextPlayerId) {
       table.state = { ...table.state, activePlayerId: nextPlayerId };
       broadcastState(table);
@@ -679,7 +679,7 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
       advanceToNextPhase(table);
       broadcastState(table);
       scheduleNextBot(table);
-    }, wasRaise ? 750 : 500);
+    }, wasRaise ? 500 : 350);
   } else {
     const s = table.state;
     const isDrawPhase    = s.phase.startsWith('DRAW') || s.phase.startsWith('HIT_');

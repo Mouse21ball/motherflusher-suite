@@ -412,12 +412,11 @@ export default function Home() {
       const res = await fetch('/api/tables');
       if (res.ok) {
         const liveTables: LiveTableEntry[] = await res.json();
-        const joinable = liveTables.find(t =>
-          t.modeId === engineModeId &&
-          t.phase === 'WAITING' &&
-          t.humanCount > 0 &&
-          t.humanCount < 5
-        );
+        // Sort descending by humanCount so the first match is always the table
+        // with the most real players already seated — keeps players together.
+        const joinable = liveTables
+          .filter(t => t.modeId === engineModeId && t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < 5)
+          .sort((a, b) => b.humanCount - a.humanCount)[0];
         if (joinable) {
           navigate(`${path}?t=${joinable.tableId}`);
           return;

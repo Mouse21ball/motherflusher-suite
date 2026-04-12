@@ -184,12 +184,15 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <div className="flex items-center gap-1.5 max-w-full">
           <div className={cn(
             "font-medium text-sm truncate font-sans",
-            isSelf ? "text-white/90" : "text-white/60"
+            isSelf ? "text-white/90" : player.presence === 'human' ? "text-white/80" : "text-white/50"
           )}>
             {player.name}
           </div>
+          {!isSelf && player.presence === 'human' && (
+            <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
+          )}
           {player.presence === 'bot' && !isSelf && (
-            <span className="text-[7px] font-mono uppercase tracking-widest text-white/20 border border-white/10 px-1 py-0.5 rounded shrink-0">BOT</span>
+            <span className="text-[7px] font-mono uppercase tracking-widest text-white/18 border border-white/[0.07] px-1 py-0.5 rounded shrink-0">BOT</span>
           )}
         </div>
         <div className={cn(
