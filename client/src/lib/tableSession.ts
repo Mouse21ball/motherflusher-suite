@@ -66,6 +66,26 @@ export function parseTableCodeFromPath(path: string): string | null {
   return match ? match[1].toUpperCase() : null;
 }
 
+// ─── Recent table memory (localStorage) ──────────────────────────────────────
+// Persists the last table the player was in, so Home can offer a rejoin row.
+
+const RECENT_TABLE_KEY = 'cgp_recent_table';
+
+export function saveRecentTable(tableId: string): void {
+  try {
+    localStorage.setItem(RECENT_TABLE_KEY, JSON.stringify({ tableId, ts: Date.now() }));
+  } catch {}
+}
+
+export function getRecentTable(): { tableId: string; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(RECENT_TABLE_KEY);
+    return raw ? (JSON.parse(raw) as { tableId: string; ts: number }) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Server sync ──────────────────────────────────────────────────────────────
 
 // Registers a new table on the server. Returns the server-echoed session.

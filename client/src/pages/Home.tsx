@@ -17,6 +17,7 @@ import {
   ACHIEVEMENT_MAP,
   type Achievement,
 } from '@/lib/progression';
+import { getRecentTable } from '@/lib/tableSession';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -188,6 +189,10 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
   const visible = tables.slice(0, 6);
   const overflow = tables.length - visible.length;
 
+  /* Rejoin row — check if the player's last table is still live */
+  const recent = getRecentTable();
+  const rejoinEntry = recent ? tables.find(t => t.tableId === recent.tableId) ?? null : null;
+
   return (
     <div
       className="w-full rounded-2xl overflow-hidden"
@@ -226,6 +231,32 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
           </span>
         )}
       </div>
+
+      {/* Rejoin row — pinned at top when the player's last table is still live */}
+      {rejoinEntry && (() => {
+        const info = LIVE_MODE_INFO[rejoinEntry.modeId] ?? { name: rejoinEntry.modeId, color: '#C9A227', path: '/' };
+        return (
+          <div
+            className="px-4 py-2.5 flex items-center gap-3 border-b"
+            style={{ borderColor: 'rgba(201,162,39,0.10)', background: 'rgba(201,162,39,0.025)' }}
+            data-testid="row-rejoin-table"
+          >
+            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] font-mono text-white/35 uppercase tracking-[0.18em]">Your table</span>
+              <span className="font-mono font-bold text-[11px]" style={{ color: info.color }}>{rejoinEntry.tableId}</span>
+              <span className="text-[9px] font-mono text-white/25">{info.name}</span>
+            </div>
+            <button
+              onClick={() => onJoin(rejoinEntry.modeId, rejoinEntry.tableId)}
+              className="shrink-0 text-[10px] font-mono font-bold px-3 py-1 rounded-lg transition-all duration-200 hover:opacity-80 active:scale-95"
+              style={{ color: '#C9A227', backgroundColor: 'rgba(201,162,39,0.10)', border: '1px solid rgba(201,162,39,0.22)' }}
+              data-testid="button-rejoin-table"
+            >
+              Rejoin →
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Empty state */}
       {!hasActive && (

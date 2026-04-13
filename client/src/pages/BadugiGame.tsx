@@ -3,7 +3,7 @@ import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
 import { FEATURES } from "@/lib/featureFlags";
-import { generateTableCode } from "@/lib/tableSession";
+import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
 import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -87,6 +87,14 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, "Badugi");
 
+  /* ── Mount confirmation — brief "Joined table" when entering via tableId ── */
+  const [showJoinConfirm, setShowJoinConfirm] = useState(!!tableId && !isSpectator);
+  useEffect(() => {
+    if (!showJoinConfirm) return;
+    const t = setTimeout(() => setShowJoinConfirm(false), 900);
+    return () => clearTimeout(t);
+  }, []); // mount-only
+
   /* ── Live join flash ──────────────────────────────────────────────────── */
   const [joinFlashName, setJoinFlashName] = useState<string | null>(null);
   const joinFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,6 +163,19 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : tableId ? <InviteBanner tableId={tableId} /> : null
       }
+      {/* Mount confirmation — "Joined table" for 900ms on first load */}
+      {showJoinConfirm && (
+        <div className="w-full px-3 flex justify-center" aria-live="polite">
+          <span
+            className="text-[10px] font-mono anim-action-label"
+            style={{ color: 'rgba(0,200,150,0.65)' }}
+            data-testid="text-joined-confirm"
+          >
+            ✓ Joined table
+          </span>
+        </div>
+      )}
+
       {/* Live join notification — brief text pulse when a real player enters */}
       {joinFlashName && state.phase === 'WAITING' && (
         <div className="w-full px-3 pt-1" aria-live="polite">
@@ -251,6 +272,9 @@ function BadugiServerGame() {
   });
 
   useEffect(() => { trackModePlay("badugi"); }, []);
+  /* Persist this table so Home can offer a rejoin row */
+  useEffect(() => { saveRecentTable(tableId); }, [tableId]);
+
   const { state, handleAction, myId, role } = useServerBadugi(tableId);
   return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} role={role} />;
 }
