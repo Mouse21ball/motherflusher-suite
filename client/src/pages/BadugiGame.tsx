@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
@@ -83,8 +83,31 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
 
   const me = state.players.find(p => p.id === myId);
   const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
+  const humanCount = state.players.filter(p => p.presence === 'human').length;
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, "Badugi");
+
+  /* ── Live join flash ──────────────────────────────────────────────────── */
+  const [joinFlashName, setJoinFlashName] = useState<string | null>(null);
+  const joinFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const humanIdsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    const humans = state.players.filter(p => p.presence === 'human');
+    if (humanIdsRef.current === null) {
+      humanIdsRef.current = new Set(humans.map(p => p.id));
+      return;
+    }
+    if (state.phase === 'WAITING') {
+      const newcomers = humans.filter(p => p.id !== myId && !humanIdsRef.current!.has(p.id));
+      if (newcomers.length > 0) {
+        if (joinFlashTimer.current) clearTimeout(joinFlashTimer.current);
+        setJoinFlashName(newcomers[0].name);
+        joinFlashTimer.current = setTimeout(() => setJoinFlashName(null), 3500);
+      }
+    }
+    humanIdsRef.current = new Set(humans.map(p => p.id));
+  }, [state.players, state.phase, myId]);
 
   useEffect(() => {
     setSelectedCardIndices([]);
@@ -132,6 +155,21 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : tableId ? <InviteBanner tableId={tableId} /> : null
       }
+      {/* Live join notification — brief text pulse when a real player enters */}
+      {joinFlashName && state.phase === 'WAITING' && (
+        <div className="w-full px-3 pt-1" aria-live="polite">
+          <div className="max-w-md mx-auto flex items-center justify-center gap-1.5">
+            <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.75)' }} />
+            <span
+              className="text-[10px] font-mono"
+              style={{ color: 'rgba(0,200,150,0.60)' }}
+              data-testid="text-join-notification"
+            >
+              {joinFlashName} just joined the table
+            </span>
+          </div>
+        </div>
+      )}
       {!isSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
         <div className="flex justify-center pt-1">
           <SpectatorWatchingBadge count={state.spectatorCount} />
@@ -177,6 +215,7 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
               selectedCardsCount={selectedCardIndices.length}
               phaseHint={getPhaseHint('badugi', state.phase)}
               openSeatsCount={openSeatsCount}
+              humanCount={humanCount}
             />
           </div>
         </div>

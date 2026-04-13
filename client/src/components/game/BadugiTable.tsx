@@ -142,20 +142,41 @@ export function BadugiTable({
 
             {/* ── WAITING state — live table context ───────────────────────── */}
             {gameState.phase === 'WAITING' ? (() => {
-              const reservedCount = gameState.players.filter(p => p.presence === 'reserved').length;
-              const humanCount    = gameState.players.filter(p => p.presence === 'human').length;
+              const reservedCount  = gameState.players.filter(p => p.presence === 'reserved').length;
+              const humanPlayers   = gameState.players.filter(p => p.presence === 'human');
+              const others         = humanPlayers.filter(p => p.id !== myId);
+
+              /* Build a concise "who's here" label using actual names */
+              let nameLabel: string;
+              if (others.length === 0) {
+                nameLabel = 'Just you here';
+              } else if (others.length === 1) {
+                nameLabel = `${others[0].name} · you`;
+              } else {
+                const listed = others.slice(0, 2).map(p => p.name).join(', ');
+                nameLabel = others.length > 2
+                  ? `${listed} +${others.length - 2} · you`
+                  : `${listed} · you`;
+              }
+
               return (
                 <div className="flex flex-col items-center gap-2 text-center">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
                     <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>Live Table</span>
                   </div>
-                  <div className="text-white/50 text-sm font-mono">Waiting for players</div>
-                  {reservedCount > 0 && (
-                    <div className="text-[10px] font-mono text-white/30 mt-0.5">
-                      {humanCount} here · {reservedCount} seat{reservedCount !== 1 ? 's' : ''} open for humans
-                    </div>
-                  )}
+                  <div
+                    className="text-sm font-mono font-medium"
+                    style={{ color: 'rgba(255,255,255,0.65)' }}
+                    data-testid="text-waiting-who"
+                  >
+                    {nameLabel}
+                  </div>
+                  <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                    {reservedCount > 0
+                      ? `${reservedCount} seat${reservedCount !== 1 ? 's' : ''} open for friends`
+                      : 'full table'}
+                  </div>
                 </div>
               );
             })() : isShowdown ? null : (() => {

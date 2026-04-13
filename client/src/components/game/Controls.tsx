@@ -23,6 +23,7 @@ interface ActionControlsProps {
   declarationOptions?: DeclarationOption[];
   phaseHint?: string;
   openSeatsCount?: number;
+  humanCount?: number;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -33,7 +34,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
 
 const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-4 glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   
@@ -94,20 +95,36 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'WAITING') {
     const hasOpenSeats = openSeatsCount != null && openSeatsCount > 0;
+    const hc = humanCount ?? 1;
+
+    /* State-aware readiness copy */
+    let readinessMsg: string;
+    let startSubtext: string;
+    if (hc >= 4 || !hasOpenSeats) {
+      readinessMsg = hc > 1
+        ? `${hc} real players here — full table`
+        : 'Everyone is here — ready to start';
+      startSubtext = 'Start the hand when everyone is ready';
+    } else if (hc >= 2) {
+      readinessMsg = `${hc} real players here — start now or wait for more`;
+      startSubtext = `${openSeatsCount} seat${openSeatsCount !== 1 ? 's' : ''} still open for friends`;
+    } else {
+      readinessMsg = 'Share the link — friends can still join';
+      startSubtext = 'Starting now fills empty seats with bots';
+    }
+
     return (
       <div className={`${panelClass} flex flex-col items-center gap-3`}>
-        {/* Join window context — only shown when reserved seats are present */}
-        {hasOpenSeats && (
-          <div
-            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5"
-            style={{ backgroundColor: 'rgba(0,200,150,0.06)', border: '1px solid rgba(0,200,150,0.14)' }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.7)' }} />
-            <span className="text-[10px] font-mono leading-snug" style={{ color: 'rgba(0,200,150,0.60)' }}>
-              {openSeatsCount} seat{openSeatsCount !== 1 ? 's' : ''} open — share the invite link · bots fill the rest
-            </span>
-          </div>
-        )}
+        {/* State-aware readiness message */}
+        <div
+          className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5"
+          style={{ backgroundColor: 'rgba(0,200,150,0.06)', border: '1px solid rgba(0,200,150,0.14)' }}
+        >
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.7)' }} />
+          <span className="text-[10px] font-mono leading-snug" style={{ color: 'rgba(0,200,150,0.65)' }}>
+            {readinessMsg}
+          </span>
+        </div>
         {chips <= 0 && (
           <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
             Rebuy $1000
@@ -123,7 +140,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           Deal Me In
         </Button>
         <p className="text-[9px] text-white/20 font-mono tracking-widest">
-          {hasOpenSeats ? 'Start early — open seats fill with bots' : '$1 ANTE · starts the hand'}
+          {startSubtext}
         </p>
       </div>
     );
