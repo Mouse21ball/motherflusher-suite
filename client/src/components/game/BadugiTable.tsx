@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { GameState, ReactionEvent } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { DiscardPile } from "./DiscardPile";
@@ -64,6 +65,16 @@ export function BadugiTable({
   const drawNumber = gameState.phase === 'DRAW_1' ? 1 : gameState.phase === 'DRAW_2' ? 2 : gameState.phase === 'DRAW_3' ? 3 : 0;
   const isDrawPhase = drawNumber > 0;
   const isShowdown = gameState.phase === 'SHOWDOWN';
+
+  /* ── Hand counter: client-side continuity signal ─────────────────────────── */
+  const [handCount, setHandCount] = useState(1);
+  const prevPhaseRef = useRef(gameState.phase);
+  useEffect(() => {
+    if (prevPhaseRef.current === 'SHOWDOWN' && gameState.phase !== 'SHOWDOWN') {
+      setHandCount(n => n + 1);
+    }
+    prevPhaseRef.current = gameState.phase;
+  }, [gameState.phase]);
 
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
@@ -139,7 +150,7 @@ export function BadugiTable({
                   )}
                 </div>
               );
-            })() : (() => {
+            })() : isShowdown ? null : (() => {
               const humanCount = gameState.players.filter(p => p.presence === 'human').length;
               return (
                 <div className="flex flex-col items-center gap-1.5">
@@ -149,6 +160,11 @@ export function BadugiTable({
                   >
                     {getPhaseLabel(gameState.phase)}
                   </div>
+                  {handCount > 1 && (
+                    <div className="text-white text-[9px] font-mono tracking-widest uppercase" style={{ opacity: 0.18 }}>
+                      Hand {handCount}
+                    </div>
+                  )}
                   {humanCount > 1 && (
                     <div className="flex items-center gap-1" style={{ opacity: 0.55 }}>
                       <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />

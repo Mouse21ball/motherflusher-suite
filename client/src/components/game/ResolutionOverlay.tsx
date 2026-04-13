@@ -96,13 +96,19 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
 
 export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange }: ResolutionOverlayProps) {
   const [visible, setVisible] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  const [showContinueHint, setShowContinueHint] = useState(false);
   const soundPlayed = useRef(false);
+  const continueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resolutionMessages = messages.filter(m => m.isResolution);
 
   useEffect(() => {
     if (phase === 'SHOWDOWN' && resolutionMessages.length > 0) {
       setVisible(true);
+      setIsFadingOut(false);
+
       if (!soundPlayed.current) {
         soundPlayed.current = true;
         const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
@@ -112,10 +118,28 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
           sfx.lose();
         }
       }
+
+      if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
+      continueTimerRef.current = setTimeout(() => setShowContinueHint(true), 2400);
     } else if (phase !== 'SHOWDOWN') {
-      setVisible(false);
-      soundPlayed.current = false;
+      if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
+      setShowContinueHint(false);
+
+      if (visible) {
+        setIsFadingOut(true);
+        if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = setTimeout(() => {
+          setVisible(false);
+          setIsFadingOut(false);
+          soundPlayed.current = false;
+        }, 360);
+      } else {
+        soundPlayed.current = false;
+      }
     }
+    return () => {
+      if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
+    };
   }, [phase, resolutionMessages.length]);
 
   if (!visible || resolutionMessages.length === 0) return null;
@@ -127,7 +151,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
   return (
     <div
-      className="absolute inset-x-4 sm:inset-x-8 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex justify-center"
+      className={`absolute inset-x-4 sm:inset-x-8 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex justify-center transition-opacity duration-[360ms] ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}
       data-testid="resolution-overlay"
     >
       <div
@@ -180,6 +204,16 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
               </p>
             ))}
           </>
+        )}
+
+        {showContinueHint && (
+          <div className="flex items-center gap-1.5 mt-3 anim-slide-up" style={{ animationFillMode: 'both' }}>
+            <div className="w-1 h-px bg-white/15 flex-1" />
+            <span className="text-white/22 text-[9px] font-mono uppercase tracking-[0.22em] anim-pulse-gold">
+              Next hand…
+            </span>
+            <div className="w-1 h-px bg-white/15 flex-1" />
+          </div>
         )}
       </div>
     </div>

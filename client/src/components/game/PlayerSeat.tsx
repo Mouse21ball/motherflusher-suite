@@ -55,6 +55,19 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     }
   }, [showdownState, player?.isWinner, player?.isLoser, isSelf]);
 
+  /* ── Chip flash on hand transition ─────────────────────────────────────── */
+  const [chipFlash, setChipFlash] = useState(false);
+  const wasShowdownRef = useRef(showdownState);
+  useEffect(() => {
+    const was = wasShowdownRef.current;
+    wasShowdownRef.current = showdownState;
+    if (was && !showdownState) {
+      setChipFlash(true);
+      const t = setTimeout(() => setChipFlash(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [showdownState]);
+
   if (!player) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border border-white/[0.04] bg-[#141417]/40 text-white/20 w-24 h-24", className)}>
@@ -202,8 +215,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           )}
         </div>
         <div className={cn(
-          "font-mono text-xs flex items-center gap-0.5 tracking-tight",
-          isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"
+          "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-opacity duration-300",
+          isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65",
+          chipFlash && "anim-pulse-gold"
         )}>
           <span className="opacity-60">$</span>{player.chips}
         </div>
