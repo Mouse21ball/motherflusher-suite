@@ -20,6 +20,7 @@ interface PlayerSeatProps {
   showVisibleCount?: boolean;
   heroCardClassName?: string;
   sessionHandCount?: number;
+  isStackLeader?: boolean;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -28,7 +29,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
@@ -226,17 +227,34 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             <span className="text-[7px] font-mono uppercase tracking-widest text-white/18 border border-white/[0.07] px-1 py-0.5 rounded shrink-0">BOT</span>
           )}
         </div>
-        <div className={cn(
-          "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700",
-          /* Session P&L color: green if meaningfully up, red if meaningfully down */
-          sessionDelta > 75
-            ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
-            : sessionDelta < -75
-            ? (isSelf ? "text-red-400/80" : "text-red-400/50")
-            : (isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"),
-          chipFlash && "anim-pulse-gold"
-        )}>
-          <span className="opacity-60">$</span>{player.chips}
+        <div className="flex flex-col items-center gap-0">
+          <div className={cn(
+            "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700",
+            /* Session P&L color: green if meaningfully up, red if meaningfully down */
+            sessionDelta > 75
+              ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
+              : sessionDelta < -75
+              ? (isSelf ? "text-red-400/80" : "text-red-400/50")
+              : (isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"),
+            chipFlash && "anim-pulse-gold"
+          )}>
+            {/* Stack leader marker — quiet gold chevron, all players */}
+            {isStackLeader && !showdownState && (
+              <span className="text-[7px] leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.55)' }}>▲</span>
+            )}
+            <span className="opacity-60">$</span>{player.chips}
+          </div>
+          {/* Session status label — self only, shown outside showdown */}
+          {isSelf && !showdownState && sessionDelta > 75 && (
+            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5" style={{ color: 'rgba(52,211,153,0.45)' }}>
+              up this session
+            </div>
+          )}
+          {isSelf && !showdownState && sessionDelta < -100 && (
+            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5" style={{ color: 'rgba(248,113,113,0.38)' }}>
+              down this session
+            </div>
+          )}
         </div>
         {showVisibleCount && player.cards.length > 0 && (() => {
           const faceUpCards = player.cards.filter(c => !c.isHidden);

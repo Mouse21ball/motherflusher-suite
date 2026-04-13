@@ -66,6 +66,12 @@ export function BadugiTable({
   const isDrawPhase = drawNumber > 0;
   const isShowdown = gameState.phase === 'SHOWDOWN';
 
+  /* ── Stack leader: single player with most chips, no ties ─────────────── */
+  const activePlayers = gameState.players.filter(p => p.presence !== 'reserved');
+  const maxChips = activePlayers.length > 1 ? Math.max(...activePlayers.map(p => p.chips)) : -1;
+  const leadCandidates = activePlayers.filter(p => p.chips === maxChips);
+  const stackLeaderId = leadCandidates.length === 1 ? leadCandidates[0].id : null;
+
   /* ── Hand counter: client-side continuity signal ─────────────────────────── */
   const [handCount, setHandCount] = useState(1);
   const prevPhaseRef = useRef(gameState.phase);
@@ -109,6 +115,7 @@ export function BadugiTable({
               showdownState={isShowdown}
               showVisibleCount={showVisibleCount}
               sessionHandCount={handCount}
+              isStackLeader={stackLeaderId === player.id}
             />
           </div>
         ))}
@@ -235,6 +242,7 @@ export function BadugiTable({
             showdownState={isShowdown}
             showVisibleCount={showVisibleCount}
             heroCardClassName={heroCardClassName}
+            isStackLeader={stackLeaderId === me.id}
             className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
           />
         )}
