@@ -110,7 +110,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
       /* Idle opponents step further back — active player snaps to full brightness */
-      !isSelf && !isActive && !showdownState && "opacity-50",
+      !isSelf && !isActive && !showdownState && "opacity-40",
       !isSelf && isActive && "opacity-100",
       player.status === 'folded' && !showdownState && "opacity-40 grayscale",
       player.status === 'sitting_out' && "opacity-30 grayscale",
@@ -201,7 +201,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         "relative w-full min-w-[100px] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
         isSelf ? "bg-[#101013]" : "bg-[#0a0a0d]",
         /* Active: stronger gold border + glow */
-        isActive && !showdownState ? "border-[#C9A227]/60 shadow-[0_0_18px_rgba(201,162,39,0.22)] anim-active-turn" : "border-white/[0.05]",
+        isActive && !showdownState ? "border-[#C9A227]/75 shadow-[0_0_26px_rgba(201,162,39,0.32)] anim-active-turn" : "border-white/[0.05]",
         /* Self border when idle — slightly more visible than bots */
         isSelf && !isActive ? "border-white/[0.09]" : "",
         /* Human opponent idle border — warm gold tint after 1st hand (rivalry feel) */

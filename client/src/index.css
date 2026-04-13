@@ -359,8 +359,14 @@
 }
 
 @keyframes active-turn-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(201,162,39,0.18); }
-  50%       { box-shadow: 0 0 24px rgba(201,162,39,0.38), 0 0 44px rgba(201,162,39,0.12); }
+  0%, 100% { box-shadow: 0 0 14px rgba(201,162,39,0.24); }
+  50%       { box-shadow: 0 0 32px rgba(201,162,39,0.52), 0 0 56px rgba(201,162,39,0.16); }
+}
+
+@keyframes decision-ready {
+  0%   { box-shadow: 0 -4px 16px rgba(201,162,39,0); }
+  28%  { box-shadow: 0 -4px 16px rgba(201,162,39,0.16); }
+  100% { box-shadow: 0 -4px 16px rgba(201,162,39,0); }
 }
 
 @keyframes win-flash {
@@ -496,6 +502,10 @@
 
 .anim-active-turn {
   animation: active-turn-glow 1.6s ease-in-out infinite;
+}
+
+.anim-decision-ready {
+  animation: decision-ready 1.2s ease-out 1;
 }
 
 .anim-win-flash {

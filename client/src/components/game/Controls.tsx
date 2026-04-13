@@ -167,7 +167,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   const isHitPhase = phase.startsWith('HIT_');
   if (isHitPhase) {
     return (
-      <div className={`${panelClass} text-center`}>
+      <div key={phase} className={`${panelClass} anim-decision-ready text-center`}>
         {hintEl}
         <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Hit, Stay, or Fold</div>
         <div className="grid grid-cols-3 gap-2">
@@ -207,7 +207,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     if (phase === 'DRAW_3') maxDiscards = 1;
 
     return (
-      <div className={`${panelClass} text-center`}>
+      <div key={phase} className={`${panelClass} anim-decision-ready text-center`}>
         {hintEl}
         <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.15em] uppercase">
           Select up to {maxDiscards} to discard
@@ -295,7 +295,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   return (
-    <div className={`${panelClass} flex flex-col gap-4`}>
+    <div key={phase} className={`${panelClass} anim-decision-ready flex flex-col gap-4`}>
       {phase === 'DECLARE_AND_BET' && (
         <div className="flex justify-between items-center px-1">
           <span className="text-[10px] font-mono text-white/20 tracking-[0.15em] uppercase">Step 2: Bet</span>
