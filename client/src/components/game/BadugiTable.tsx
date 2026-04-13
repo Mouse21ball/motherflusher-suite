@@ -108,6 +108,7 @@ export function BadugiTable({
               isSelf={false}
               showdownState={isShowdown}
               showVisibleCount={showVisibleCount}
+              sessionHandCount={handCount}
             />
           </div>
         ))}
@@ -161,7 +162,16 @@ export function BadugiTable({
                     {getPhaseLabel(gameState.phase)}
                   </div>
                   {handCount > 1 && (
-                    <div className="text-white text-[9px] font-mono tracking-widest uppercase" style={{ opacity: 0.18 }}>
+                    <div
+                      className="text-[9px] font-mono tracking-widest uppercase transition-colors duration-[2000ms]"
+                      style={{
+                        color: handCount >= 7
+                          ? `rgba(201,162,39,0.30)`
+                          : handCount >= 4
+                          ? `rgba(220,190,70,0.22)`
+                          : `rgba(255,255,255,0.18)`,
+                      }}
+                    >
                       Hand {handCount}
                     </div>
                   )}

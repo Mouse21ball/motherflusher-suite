@@ -19,6 +19,7 @@ interface PlayerSeatProps {
   communityCards?: CardType[];
   showVisibleCount?: boolean;
   heroCardClassName?: string;
+  sessionHandCount?: number;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -27,10 +28,19 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
+
+  /* ── Session chip delta — track starting stack once, compare every render ── */
+  const sessionStartChipsRef = useRef<number | null>(null);
+  if (sessionStartChipsRef.current === null && player !== null) {
+    sessionStartChipsRef.current = player.chips;
+  }
+  const sessionDelta = player && sessionStartChipsRef.current !== null
+    ? player.chips - sessionStartChipsRef.current
+    : 0;
 
   const cardCount = player?.cards.length || 0;
   useEffect(() => {
@@ -193,8 +203,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         isActive && !showdownState ? "border-[#C9A227]/60 shadow-[0_0_18px_rgba(201,162,39,0.22)] anim-active-turn" : "border-white/[0.05]",
         /* Self border when idle — slightly more visible than bots */
         isSelf && !isActive ? "border-white/[0.09]" : "",
-        /* Human opponent idle border slightly lifted from bot's flat */
-        !isSelf && !isActive && player.presence === 'human' ? "border-white/[0.08]" : "",
+        /* Human opponent idle border — warm gold tint after 1st hand (rivalry feel) */
+        !isSelf && !isActive && player.presence === 'human'
+          ? ((sessionHandCount ?? 0) >= 2 ? "border-[#C9A227]/12" : "border-white/[0.08]")
+          : "",
         showdownState && player.isWinner && "anim-winner",
         showdownState && player.isWinner && isSelf && "anim-win-flash",
         showdownState && player.isLoser && "border-white/[0.03]"
@@ -215,8 +227,13 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           )}
         </div>
         <div className={cn(
-          "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-opacity duration-300",
-          isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65",
+          "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700",
+          /* Session P&L color: green if meaningfully up, red if meaningfully down */
+          sessionDelta > 75
+            ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
+            : sessionDelta < -75
+            ? (isSelf ? "text-red-400/80" : "text-red-400/50")
+            : (isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"),
           chipFlash && "anim-pulse-gold"
         )}>
           <span className="opacity-60">$</span>{player.chips}
