@@ -82,6 +82,66 @@ export function BadugiTable({
     prevPhaseRef.current = gameState.phase;
   }, [gameState.phase]);
 
+  /* ── Last-action labels: detect fold/bet/call and surface briefly ────────── */
+  const [actionLabels, setActionLabels] = useState<Record<string, string>>({});
+  const actionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const actionPhaseRef = useRef<string>('');
+  const actionBaselineRef = useRef<Record<string, { bet: number; chips: number; status: string }>>({});
+
+  useEffect(() => {
+    const phase = gameState.phase;
+    const isBetPhase = phase.startsWith('BET') || phase.startsWith('HIT_');
+
+    /* On every phase change, reset the baseline so old diffs don't retrigger */
+    if (phase !== actionPhaseRef.current) {
+      actionPhaseRef.current = phase;
+      actionBaselineRef.current = Object.fromEntries(
+        gameState.players
+          .filter(p => p.presence !== 'reserved')
+          .map(p => [p.id, { bet: p.bet, chips: p.chips, status: p.status }])
+      );
+      if (!isBetPhase) {
+        Object.values(actionTimers.current).forEach(clearTimeout);
+        actionTimers.current = {};
+        setActionLabels({});
+      }
+      return;
+    }
+
+    if (!isBetPhase) return;
+
+    const baseline = actionBaselineRef.current;
+    const updates: Record<string, string> = {};
+
+    gameState.players.forEach(p => {
+      if (p.presence === 'reserved') return;
+      const old = baseline[p.id];
+      if (!old) return;
+      let label = '';
+      if (p.status === 'folded' && old.status !== 'folded') {
+        label = 'Fold';
+      } else if (p.bet > old.bet) {
+        const diff = p.bet - old.bet;
+        label = old.bet === 0 ? `Bet $${diff}` : `Call $${diff}`;
+      }
+      if (label) {
+        updates[p.id] = label;
+        /* Advance baseline so repeated re-renders don't retrigger */
+        baseline[p.id] = { bet: p.bet, chips: p.chips, status: p.status };
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      setActionLabels(prev => ({ ...prev, ...updates }));
+      Object.keys(updates).forEach(pid => {
+        if (actionTimers.current[pid]) clearTimeout(actionTimers.current[pid]);
+        actionTimers.current[pid] = setTimeout(() => {
+          setActionLabels(prev => { const n = { ...prev }; delete n[pid]; return n; });
+        }, 750);
+      });
+    }
+  }, [gameState.players, gameState.phase]);
+
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
       {/* Live game message — above the table */}
@@ -116,6 +176,8 @@ export function BadugiTable({
               showVisibleCount={showVisibleCount}
               sessionHandCount={handCount}
               isStackLeader={stackLeaderId === player.id}
+              lastActionLabel={actionLabels[player.id]}
+              justActed={!!actionLabels[player.id]}
             />
           </div>
         ))}

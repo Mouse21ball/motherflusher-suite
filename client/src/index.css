@@ -508,6 +508,16 @@
   animation: decision-ready 1.2s ease-out 1;
 }
 
+@keyframes action-label-fade {
+  0%   { opacity: 0.65; }
+  60%  { opacity: 0.65; }
+  100% { opacity: 0; }
+}
+
+.anim-action-label {
+  animation: action-label-fade 750ms ease-out forwards;
+}
+
 .anim-win-flash {
   animation: win-flash 600ms ease-out forwards;
 }

@@ -21,6 +21,8 @@ interface PlayerSeatProps {
   heroCardClassName?: string;
   sessionHandCount?: number;
   isStackLeader?: boolean;
+  lastActionLabel?: string;
+  justActed?: boolean;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -29,7 +31,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
@@ -208,6 +210,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         !isSelf && !isActive && player.presence === 'human'
           ? ((sessionHandCount ?? 0) >= 2 ? "border-[#C9A227]/12" : "border-white/[0.08]")
           : "",
+        /* Just-acted linger — brief silver border after any bet/call/fold */
+        justActed && !isActive && !showdownState ? "border-white/[0.22]" : "",
         showdownState && player.isWinner && "anim-winner",
         showdownState && player.isWinner && isSelf && "anim-win-flash",
         showdownState && player.isLoser && "border-white/[0.03]"
@@ -215,8 +219,11 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <div className="flex items-center gap-1.5 max-w-full">
           <div className={cn(
             "text-sm truncate font-sans",
-            /* Identity hierarchy: self > human opponent > bot */
-            isSelf ? "font-semibold text-white/90" : player.presence === 'human' ? "font-semibold text-white/85" : "font-normal text-white/45"
+            /* Identity hierarchy: self > human opponent > bot; winner name turns gold at showdown */
+            isSelf ? "font-semibold text-white/90"
+              : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
+              : player.presence === 'human' ? "font-semibold text-white/85"
+              : "font-normal text-white/45"
           )}>
             {player.name}
           </div>
@@ -253,6 +260,16 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           {isSelf && !showdownState && sessionDelta < -100 && (
             <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5" style={{ color: 'rgba(248,113,113,0.38)' }}>
               down this session
+            </div>
+          )}
+          {/* Last-action label — opponents only, auto-cleared after 750ms */}
+          {!isSelf && lastActionLabel && (
+            <div
+              className="text-[8px] font-mono anim-action-label mt-0.5 tracking-wide"
+              style={{ color: 'rgba(255,255,255,0.50)' }}
+              data-testid={`text-last-action-${player.id}`}
+            >
+              {lastActionLabel}
             </div>
           )}
         </div>
