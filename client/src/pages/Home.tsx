@@ -230,8 +230,8 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
       {/* Empty state */}
       {!hasActive && (
         <div className="px-4 py-6 flex flex-col items-center gap-1.5 text-center">
-          <span className="text-sm font-mono text-white/30">No active tables right now</span>
-          <span className="text-[11px] font-mono text-white/20">Start any game above — your table shows up here instantly.</span>
+          <span className="text-sm font-mono text-white/55">Be the first to open a table</span>
+          <span className="text-[11px] font-mono text-white/35">Tables appear here instantly — others can join yours.</span>
         </div>
       )}
 
@@ -686,13 +686,13 @@ export default function Home() {
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
                         <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />
-                        <span className="text-[10px] font-mono text-white/30">{tbl} tables live</span>
+                        <span className="text-[10px] font-mono text-white/55">{tbl} tables live</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
                       <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
-                        style={{ backgroundColor: mode.color, color: '#05050A' }}>
+                        style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
                         Play →
                       </div>
                     </div>
@@ -769,7 +769,7 @@ export default function Home() {
               <button
                 onClick={() => navigate('/badugi')}
                 className="flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
-                style={{ backgroundColor: C.emerald, color: '#05050A' }}
+                style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 10px ${C.emerald}55` }}
                 data-testid="button-create-table"
               >
                 Create Table
