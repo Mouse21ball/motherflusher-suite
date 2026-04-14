@@ -23,6 +23,8 @@ interface PlayerSeatProps {
   isStackLeader?: boolean;
   lastActionLabel?: string;
   justActed?: boolean;
+  anyJustActed?: boolean;
+  hasActivePlayer?: boolean;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -31,7 +33,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
@@ -121,9 +123,14 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-300",
-      /* Idle opponents step further back — active player snaps to full brightness */
-      !isSelf && !isActive && !showdownState && "opacity-40",
+      /* Opponent opacity — contextual attention hierarchy */
       !isSelf && isActive && "opacity-100",
+      !isSelf && !isActive && !showdownState && (
+        justActed   ? "opacity-80"   /* spotlight: just acted — snap to foreground briefly */
+        : anyJustActed ? "opacity-25" /* others recede while a seat has the moment */
+        : hasActivePlayer ? "opacity-30" /* dimmer during active decisions — table tension */
+        : "opacity-40"                  /* normal idle */
+      ),
       player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
       player.status === 'sitting_out' && "opacity-30 grayscale",
       showdownState && player.isLoser && "anim-loser",

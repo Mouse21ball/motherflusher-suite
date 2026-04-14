@@ -170,6 +170,10 @@ export function BadugiTable({
     }
   }, [gameState.players, gameState.phase]);
 
+  /* ── Attention context: used to dim/spotlight seats on action ─────────── */
+  const anyJustActed = Object.keys(actionLabels).length > 0;
+  const hasActivePlayer = !!gameState.activePlayerId && !isShowdown && gameState.phase !== 'WAITING';
+
   return (
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
       {/* Live game message — above the table */}
@@ -206,6 +210,8 @@ export function BadugiTable({
               isStackLeader={stackLeaderId === player.id}
               lastActionLabel={actionLabels[player.id]}
               justActed={!!actionLabels[player.id]}
+              anyJustActed={anyJustActed}
+              hasActivePlayer={hasActivePlayer}
             />
           </div>
         ))}
@@ -306,14 +312,13 @@ export function BadugiTable({
                       Hand {handCount}
                     </div>
                   )}
-                  {humanCount > 1 && (
-                    <div className="flex items-center gap-1" style={{ opacity: 0.55 }}>
-                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
-                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
-                        {humanCount} real
-                      </span>
-                    </div>
-                  )}
+                  {/* Live presence — always visible; brighter when others are here */}
+                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.28 }}>
+                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
+                    <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                      {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
+                    </span>
+                  </div>
                 </div>
               );
             })()}
