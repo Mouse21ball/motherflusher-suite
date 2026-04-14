@@ -124,7 +124,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       /* Idle opponents step further back — active player snaps to full brightness */
       !isSelf && !isActive && !showdownState && "opacity-40",
       !isSelf && isActive && "opacity-100",
-      player.status === 'folded' && !showdownState && "opacity-40 grayscale",
+      player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
       player.status === 'sitting_out' && "opacity-30 grayscale",
       showdownState && player.isLoser && "anim-loser",
       className
@@ -259,7 +259,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               : sessionDelta < -75
               ? (isSelf ? "text-red-400/80" : "text-red-400/50")
               : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
-            chipFlash && "anim-pulse-gold"
+            chipFlash && "anim-pulse-gold",
+            showdownState && player.isWinner && "anim-win-chip-pop"
           )}>
             {/* Stack leader marker — quiet gold chevron, all players */}
             {isStackLeader && !showdownState && (
@@ -281,8 +282,12 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           {/* Last-action label — opponents only, auto-cleared after 750ms */}
           {!isSelf && lastActionLabel && (
             <div
-              className="text-[8px] font-mono anim-action-label mt-0.5 tracking-wide"
-              style={{ color: 'rgba(255,255,255,0.50)' }}
+              className="text-[9px] font-mono font-semibold anim-action-label mt-0.5 tracking-wide"
+              style={{
+                color: lastActionLabel === 'Fold'
+                  ? 'rgba(248,113,113,0.72)'
+                  : 'rgba(201,162,39,0.85)',
+              }}
               data-testid={`text-last-action-${player.id}`}
             >
               {lastActionLabel}

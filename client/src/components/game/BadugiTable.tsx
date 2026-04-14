@@ -213,7 +213,10 @@ export function BadugiTable({
         {/* Pot counter — absolute bottom-right, never overlaps discard pile */}
         <div className="absolute bottom-5 right-5 sm:bottom-7 sm:right-8 z-30">
           <div
-            className="pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center"
+            className={cn(
+              "pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center",
+              isShowdown && "anim-pot-collect"
+            )}
             data-testid="text-pot"
           >
             <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
