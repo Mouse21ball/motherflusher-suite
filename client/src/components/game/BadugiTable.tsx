@@ -82,6 +82,34 @@ export function BadugiTable({
     prevPhaseRef.current = gameState.phase;
   }, [gameState.phase]);
 
+  /* ── Last result echo — brief 1.6s memory after showdown ends ──────────── */
+  const [lastResultEcho, setLastResultEcho] = useState<{ text: string; won: boolean } | null>(null);
+  const resultEchoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasShowdownRef2 = useRef(gameState.phase === 'SHOWDOWN');
+  useEffect(() => {
+    const was = wasShowdownRef2.current;
+    wasShowdownRef2.current = gameState.phase === 'SHOWDOWN';
+    if (was && gameState.phase !== 'SHOWDOWN') {
+      const hero = gameState.players.find(p => p.id === myId);
+      const net = gameState.heroChipChange ?? 0;
+      let text = '';
+      let won = false;
+      if (hero?.isWinner) {
+        text = net > 0 ? `You won +$${net}` : 'You won';
+        won = true;
+      } else if (hero?.isLoser || net < 0) {
+        text = net < 0 ? `Lost $${Math.abs(net)}` : 'Hand lost';
+      } else if (hero?.status === 'folded') {
+        text = 'Folded';
+      }
+      if (text) {
+        setLastResultEcho({ text, won });
+        if (resultEchoTimer.current) clearTimeout(resultEchoTimer.current);
+        resultEchoTimer.current = setTimeout(() => setLastResultEcho(null), 1600);
+      }
+    }
+  }, [gameState.phase]);
+
   /* ── Last-action labels: detect fold/bet/call and surface briefly ────────── */
   const [actionLabels, setActionLabels] = useState<Record<string, string>>({});
   const actionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -245,6 +273,16 @@ export function BadugiTable({
               const humanCount = gameState.players.filter(p => p.presence === 'human').length;
               return (
                 <div className="flex flex-col items-center gap-1.5">
+                  {/* Last result echo — fades in 750ms, removed from DOM at 1600ms */}
+                  {lastResultEcho && (
+                    <div
+                      className="text-[9px] font-mono anim-action-label tabular-nums"
+                      style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.55)' : 'rgba(248,113,113,0.45)' }}
+                      data-testid="text-last-result-echo"
+                    >
+                      {lastResultEcho.text}
+                    </div>
+                  )}
                   <div
                     className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
                     data-testid="text-phase"

@@ -36,6 +36,16 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
 
+  /* ── Turn onset pulse — fires once when this seat becomes active ─────── */
+  const [turnOnsetKey, setTurnOnsetKey] = useState(0);
+  const prevIsActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevIsActiveRef.current) {
+      setTurnOnsetKey(k => k + 1);
+    }
+    prevIsActiveRef.current = isActive;
+  }, [isActive]);
+
   /* ── Session chip delta — track starting stack once, compare every render ── */
   const sessionStartChipsRef = useRef<number | null>(null);
   if (sessionStartChipsRef.current === null && player !== null) {
@@ -199,11 +209,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
 
       {/* Name plate */}
-      <div className={cn(
+      <div
+        key={isActive ? `active-${turnOnsetKey}` : 'idle'}
+        className={cn(
         "relative w-full min-w-[100px] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
         isSelf ? "bg-[#101013]" : "bg-[#0a0a0d]",
-        /* Active: stronger gold border + glow */
-        isActive && !showdownState ? "border-[#C9A227]/75 shadow-[0_0_26px_rgba(201,162,39,0.32)] anim-active-turn" : "border-white/[0.05]",
+        /* Active: stronger gold border + glow + one-shot onset pulse */
+        isActive && !showdownState
+          ? "border-[#C9A227]/75 shadow-[0_0_26px_rgba(201,162,39,0.32)] anim-active-turn anim-turn-onset"
+          : isStackLeader && !showdownState
+          ? "border-[#C9A227]/18 shadow-[0_0_10px_rgba(201,162,39,0.09)]"
+          : "border-white/[0.05]",
         /* Self border when idle — slightly more visible than bots */
         isSelf && !isActive ? "border-white/[0.09]" : "",
         /* Human opponent idle border — warm gold tint after 1st hand (rivalry feel) */
@@ -242,7 +258,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
               : sessionDelta < -75
               ? (isSelf ? "text-red-400/80" : "text-red-400/50")
-              : (isSelf ? "text-[#C9A227]" : "text-[#C9A227]/65"),
+              : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
             chipFlash && "anim-pulse-gold"
           )}>
             {/* Stack leader marker — quiet gold chevron, all players */}

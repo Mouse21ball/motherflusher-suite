@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { GamePhase, Declaration } from "@/lib/poker/types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { sfx } from "@/lib/sounds";
 
@@ -37,6 +37,16 @@ const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-4 glass-panel rounded
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
+
+  /* ── Turn onset — fires once when it becomes the hero's turn ────────── */
+  const prevIsMyTurnRef = useRef(isMyTurn);
+  const [heroTurnKey, setHeroTurnKey] = useState(0);
+  useEffect(() => {
+    if (isMyTurn && !prevIsMyTurnRef.current && phase !== 'WAITING') {
+      setHeroTurnKey(k => k + 1);
+    }
+    prevIsMyTurnRef.current = isMyTurn;
+  }, [isMyTurn, phase]);
   
   const callAmount = currentBet - myBet;
   const canCheck = callAmount === 0;
@@ -207,7 +217,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     if (phase === 'DRAW_3') maxDiscards = 1;
 
     return (
-      <div key={phase} className={`${panelClass} anim-decision-ready text-center`}>
+      <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset text-center`}>
         {hintEl}
         <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.15em] uppercase">
           Select up to {maxDiscards} to discard
@@ -295,7 +305,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   return (
-    <div key={phase} className={`${panelClass} anim-decision-ready flex flex-col gap-4`}>
+    <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset flex flex-col gap-4`}>
       {phase === 'DECLARE_AND_BET' && (
         <div className="flex justify-between items-center px-1">
           <span className="text-[10px] font-mono text-white/20 tracking-[0.15em] uppercase">Step 2: Bet</span>

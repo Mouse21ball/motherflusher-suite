@@ -518,6 +518,16 @@
   animation: action-label-fade 750ms ease-out forwards;
 }
 
+@keyframes turn-onset {
+  0%   { box-shadow: 0 0 0px rgba(201,162,39,0.0); }
+  40%  { box-shadow: 0 0 22px rgba(201,162,39,0.45); }
+  100% { box-shadow: 0 0 10px rgba(201,162,39,0.20); }
+}
+
+.anim-turn-onset {
+  animation: turn-onset 280ms ease-out forwards;
+}
+
 .anim-win-flash {
   animation: win-flash 600ms ease-out forwards;
 }
