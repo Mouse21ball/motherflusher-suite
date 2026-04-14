@@ -70,6 +70,9 @@ export function useServerMode(tableId: string, modeId: string) {
 
       ws.onopen = () => {
         if (!mountedRef.current) { ws.close(); return; }
+        const _params = new URLSearchParams(window.location.search);
+        const _quickPlay = _params.get('qp') === '1';
+        const _isPrivate = _params.get('private') === '1';
         ws.send(JSON.stringify({
           type: 'join',
           tableId: tableIdRef.current,
@@ -77,6 +80,8 @@ export function useServerMode(tableId: string, modeId: string) {
           playerId: sessionId.current,
           name: identity.name,
           seatId: sessionId.current,
+          ...(_quickPlay ? { quickPlay: true } : {}),
+          ...(_isPrivate ? { isPrivate: true } : {}),
         }));
       };
 

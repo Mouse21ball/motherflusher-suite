@@ -103,6 +103,23 @@ function convertReservedToBots(table: AuthTable): void {
   table.joinWindowEndsAt = 0;
 }
 
+// Quick-fill: immediately convert all reserved seats EXCEPT the last one to bots.
+// Used for Quick Play tables so the creator starts with 3 bot opponents right away
+// while keeping 1 open seat for a human to claim if they navigate to the table.
+function quickFillBots(table: AuthTable): void {
+  const reserved = table.state.players.filter(p => p.presence === 'reserved');
+  if (reserved.length === 0) return;
+  const keepOpen = reserved[reserved.length - 1].id;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.presence !== 'reserved' || p.id === keepOpen) return p;
+      return { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+    }),
+  };
+  table.joinWindowEndsAt = 0;
+}
+
 // Convert exactly ONE reserved seat (lowest id) to a bot.
 // Used by staged fill — does NOT close the join window, leaving later
 // stages and human claims still valid.
@@ -218,6 +235,8 @@ interface AuthTable {
   spectators: Map<string, { ws: WebSocket; name: string }>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
+  // Private tables are excluded from the live table listing and never auto-fill bots.
+  isPrivate: boolean;
 }
 
 const tables = new Map<string, AuthTable>();
@@ -628,6 +647,7 @@ export function initEngine(): void {
       sessionToSeat: new Map(),
       spectators: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
+      isPrivate: false,
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -636,12 +656,12 @@ export function initEngine(): void {
   }
 }
 
-// Returns summary info for all tables that currently have at least one
-// active WebSocket connection. Used by the lobby API to show live tables.
+// Returns summary info for all PUBLIC tables that currently have at least one
+// active WebSocket connection. Private tables are excluded from the live listing.
 export function getActiveBadugiTables(): { tableId: string; humanCount: number; phase: string; handId: number }[] {
   const result: { tableId: string; humanCount: number; phase: string; handId: number }[] = [];
   for (const [tableId, table] of Array.from(tables.entries())) {
-    if (table.connections.size > 0) {
+    if (table.connections.size > 0 && !table.isPrivate) {
       result.push({
         tableId,
         humanCount: table.humanSeats.size,
@@ -653,10 +673,10 @@ export function getActiveBadugiTables(): { tableId: string; humanCount: number; 
   return result;
 }
 
-export function getOrCreateBadugiTable(tableId: string): AuthTable {
+export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quickPlay = false): AuthTable {
   if (!tables.has(tableId)) {
-    const joinWindowEndsAt = Date.now() + JOIN_WINDOW_MS;
-    tables.set(tableId, {
+    const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
+    const table: AuthTable = {
       tableId,
       state: makeInitialState(tableId),
       handId: 0,
@@ -667,9 +687,13 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
       sessionToSeat: new Map(),
       spectators: new Map(),
       joinWindowEndsAt,
-    });
-    engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS });
-    scheduleStagedBotFill(tableId, joinWindowEndsAt);
+      isPrivate,
+    };
+    tables.set(tableId, table);
+    engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
+    if (!isPrivate && !quickPlay) {
+      scheduleStagedBotFill(tableId, joinWindowEndsAt);
+    }
   }
   return tables.get(tableId)!;
 }
@@ -678,8 +702,12 @@ export function getOrCreateBadugiTable(tableId: string): AuthTable {
 // badugi:init message (seat + current state in one frame so the client
 // never processes a snapshot before it knows its own seat).
 // Returns the assigned seat id, or null if the table is full.
-export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string): string | null {
-  const table = getOrCreateBadugiTable(tableId);
+export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false): string | null {
+  const isNew = !tables.has(tableId);
+  const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay);
+  if (isNew && quickPlay) {
+    quickFillBots(table);
+  }
 
   const seat = assignSeat(table, sessionId);
   if (!seat) {

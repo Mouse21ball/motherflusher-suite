@@ -84,6 +84,11 @@ export function useServerBadugi(tableId: string) {
 
       ws.onopen = () => {
         if (!mountedRef.current) { ws.close(); return; }
+        // Read table intent flags from URL params, set by the Home screen when
+        // creating a Quick Play table (?qp=1) or a private table (?private=1).
+        const _params = new URLSearchParams(window.location.search);
+        const _quickPlay = _params.get('qp') === '1';
+        const _isPrivate = _params.get('private') === '1';
         // Send the opaque session UUID as playerId.
         // The server maps it to a game seat (p1/p2/p3/p4) and responds with badugi:init.
         ws.send(JSON.stringify({
@@ -91,6 +96,8 @@ export function useServerBadugi(tableId: string) {
           playerId: sessionId.current,
           name: identity.name,
           seatId: sessionId.current,
+          ...(_quickPlay ? { quickPlay: true } : {}),
+          ...(_isPrivate ? { isPrivate: true } : {}),
         }));
       };
 

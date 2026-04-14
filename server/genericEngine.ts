@@ -129,6 +129,23 @@ function convertReservedToBots(table: GenericTable): void {
   table.joinWindowEndsAt = 0;
 }
 
+// Quick-fill: immediately convert all reserved seats EXCEPT the last one to bots.
+// Used for Quick Play tables so the creator starts with 3 bot opponents right away
+// while keeping 1 open seat for a human to claim if they navigate to the table.
+function quickFillBots(table: GenericTable): void {
+  const reserved = table.state.players.filter(p => p.presence === 'reserved');
+  if (reserved.length === 0) return;
+  const keepOpen = reserved[reserved.length - 1].id;
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.presence !== 'reserved' || p.id === keepOpen) return p;
+      return { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+    }),
+  };
+  table.joinWindowEndsAt = 0;
+}
+
 function convertOneReservedToBot(table: GenericTable): boolean {
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
@@ -240,6 +257,8 @@ interface GenericTable {
   publicCardIndicesPerPlayer: Record<string, number[]>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
+  // Private tables are excluded from the live table listing and never auto-fill bots.
+  isPrivate: boolean;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -705,13 +724,13 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
 
 // ─── Get or create table ─────────────────────────────────────────────────────
 
-function getOrCreateTable(modeId: string, tableId: string): GenericTable | null {
+function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, quickPlay = false): GenericTable | null {
   const mode = MODE_REGISTRY[modeId];
   if (!mode) return null;
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
-    const joinWindowEndsAt = Date.now() + JOIN_WINDOW_MS;
+    const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     tables.set(key, {
       tableId,
       modeId,
@@ -726,20 +745,28 @@ function getOrCreateTable(modeId: string, tableId: string): GenericTable | null 
       spectators: new Map(),
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
+      isPrivate,
     });
-    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS });
-    scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
+    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
+    if (!isPrivate && !quickPlay) {
+      scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
+    }
   }
   return tables.get(key)!;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function addGenericConnection(tableId: string, modeId: string, sessionId: string, ws: WebSocket, playerName?: string): string | null {
-  const table = getOrCreateTable(modeId, tableId);
+export function addGenericConnection(tableId: string, modeId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false): string | null {
+  const key = tableKey(modeId, tableId);
+  const isNew = !tables.has(key);
+  const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay);
   if (!table) {
     try { ws.send(JSON.stringify({ type: 'mode:error', reason: 'unknown-mode' })); } catch {}
     return null;
+  }
+  if (isNew && quickPlay) {
+    quickFillBots(table);
   }
 
   const seat = assignSeat(table, sessionId);
@@ -1100,7 +1127,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 export function getActiveGenericTables(): { tableId: string; modeId: string; humanCount: number; phase: string }[] {
   const result: { tableId: string; modeId: string; humanCount: number; phase: string }[] = [];
   for (const [, table] of Array.from(tables.entries())) {
-    if (table.connections.size > 0) {
+    if (table.connections.size > 0 && !table.isPrivate) {
       result.push({ tableId: table.tableId, modeId: table.modeId, humanCount: table.humanSeats.size, phase: table.state.phase });
     }
   }

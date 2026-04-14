@@ -65,7 +65,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean }
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
@@ -175,7 +175,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
       // ── join ────────────────────────────────────────────────────────────────
       if (msg.type === 'join') {
-        const { tableId, modeId, playerId: pid, name, seatId } = msg;
+        const { tableId, modeId, playerId: pid, name, seatId, isPrivate, quickPlay } = msg;
         if (!tableId || !pid) return;
 
         if (roomId && playerId) releasePlayer(playerId, roomId);
@@ -194,9 +194,9 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // Engine assigns a seat (p1-p4) and sends a badugi:init message that
         // bundles the seat assignment and the masked snapshot atomically.
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws, name || undefined);
+          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          addGenericConnection(tableId, modeId, pid, ws, name || undefined);
+          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay);
         }
 
         broadcastRoomState(room);

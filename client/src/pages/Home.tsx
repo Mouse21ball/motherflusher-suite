@@ -17,7 +17,7 @@ import {
   ACHIEVEMENT_MAP,
   type Achievement,
 } from '@/lib/progression';
-import { getRecentTable } from '@/lib/tableSession';
+import { getRecentTable, generateTableCode } from '@/lib/tableSession';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -435,8 +435,9 @@ export default function Home() {
     swing: 'swing_poker', suitspoker: 'suits_poker',
   };
 
-  // Human-first routing: check for a joinable WAITING table before creating a new one.
-  // Falls back to direct navigation (which creates a fresh table) if none found.
+  // Quick Play routing: joins an existing WAITING table with other humans if one
+  // exists, otherwise creates a new table with 3 instant bots + 1 open seat so
+  // the player starts immediately instead of waiting for the staged bot timer.
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
     try {
       const engineModeId = MODE_ENGINE_ID[modeId] ?? modeId;
@@ -454,7 +455,10 @@ export default function Home() {
         }
       }
     } catch {}
-    navigate(path);
+    // No joinable table found — create a new Quick Play table.
+    // ?qp=1 tells the server to immediately fill 3 bots, leaving 1 open seat.
+    const newCode = generateTableCode();
+    navigate(`${path}?t=${newCode}&qp=1`);
   }, [navigate]);
 
   const dismissAchievement = useCallback((id: string) => {
