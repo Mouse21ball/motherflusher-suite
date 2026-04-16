@@ -282,16 +282,6 @@ export function BadugiTable({
               const humanCount = gameState.players.filter(p => p.presence === 'human').length;
               return (
                 <div className="flex flex-col items-center gap-1.5">
-                  {/* Last result echo — fades in 750ms, removed from DOM at 1600ms */}
-                  {lastResultEcho && (
-                    <div
-                      className="text-[9px] font-mono anim-action-label tabular-nums"
-                      style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.55)' : 'rgba(248,113,113,0.45)' }}
-                      data-testid="text-last-result-echo"
-                    >
-                      {lastResultEcho.text}
-                    </div>
-                  )}
                   <div
                     className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
                     data-testid="text-phase"
@@ -303,10 +293,10 @@ export function BadugiTable({
                       className="text-[9px] font-mono tracking-widest uppercase transition-colors duration-[2000ms]"
                       style={{
                         color: handCount >= 7
-                          ? `rgba(201,162,39,0.30)`
+                          ? `rgba(201,162,39,0.42)`
                           : handCount >= 4
-                          ? `rgba(220,190,70,0.22)`
-                          : `rgba(255,255,255,0.18)`,
+                          ? `rgba(220,190,70,0.32)`
+                          : `rgba(255,255,255,0.26)`,
                       }}
                     >
                       Hand {handCount}
@@ -356,6 +346,19 @@ export function BadugiTable({
           </div>
         </div>
       </div>
+
+      {/* Last result echo — personal memory anchored near hero seat */}
+      {lastResultEcho && (
+        <div className="w-full flex justify-center relative z-30 mb-[-6px]">
+          <div
+            className="text-[9px] font-mono anim-action-label tabular-nums tracking-wide"
+            style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.70)' : 'rgba(248,113,113,0.60)' }}
+            data-testid="text-last-result-echo"
+          >
+            {lastResultEcho.text}
+          </div>
+        </div>
+      )}
 
       {/* Hero seat — rendered below the felt with overlap */}
       <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30">

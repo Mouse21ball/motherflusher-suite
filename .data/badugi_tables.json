@@ -4916,26 +4916,26 @@
         },
         {
           "id": "p3",
-          "name": "Open",
-          "presence": "reserved",
+          "name": "Bob",
+          "presence": "bot",
           "chips": 1000,
           "bet": 0,
           "totalBet": 0,
           "cards": [],
-          "status": "sitting_out",
+          "status": "active",
           "isDealer": false,
           "declaration": null,
           "hasActed": false
         },
         {
           "id": "p4",
-          "name": "Open",
-          "presence": "reserved",
+          "name": "Charlie",
+          "presence": "bot",
           "chips": 1000,
           "bet": 0,
           "totalBet": 0,
           "cards": [],
-          "status": "sitting_out",
+          "status": "active",
           "isDealer": true,
           "declaration": null,
           "hasActed": false
@@ -4967,6 +4967,6 @@
       "discardPile": []
     },
     "handId": 0,
-    "savedAt": 1776167982702
+    "savedAt": 1776168072705
   }
 }

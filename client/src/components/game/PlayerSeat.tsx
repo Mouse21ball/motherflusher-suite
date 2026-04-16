@@ -231,7 +231,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         isSelf && !isActive ? "border-white/[0.09]" : "",
         /* Human opponent idle border — warm gold tint after 1st hand (rivalry feel) */
         !isSelf && !isActive && player.presence === 'human'
-          ? ((sessionHandCount ?? 0) >= 2 ? "border-[#C9A227]/12" : "border-white/[0.08]")
+          ? ((sessionHandCount ?? 0) >= 2
+              ? "border-[#C9A227]/20 bg-[#100e09]"
+              : "border-white/[0.08]")
           : "",
         /* Just-acted linger — brief silver border after any bet/call/fold */
         justActed && !isActive && !showdownState ? "border-white/[0.22]" : "",
