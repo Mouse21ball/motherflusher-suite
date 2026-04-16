@@ -259,7 +259,7 @@ export function BadugiTable({
               }
 
               return (
-                <div className="flex flex-col items-center gap-2 text-center">
+                <div className="flex flex-col items-center gap-2 text-center anim-slide-up">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
                     <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>Live Table</span>
@@ -276,12 +276,21 @@ export function BadugiTable({
                       ? `${reservedCount} seat${reservedCount !== 1 ? 's' : ''} open for friends`
                       : 'full table'}
                   </div>
+                  {handCount > 1 && (
+                    <div
+                      className="text-[8px] font-mono tracking-[0.32em] uppercase anim-pulse-gold"
+                      style={{ color: 'rgba(255,255,255,0.22)' }}
+                      data-testid="text-next-hand-signal"
+                    >
+                      next hand
+                    </div>
+                  )}
                 </div>
               );
             })() : isShowdown ? null : (() => {
               const humanCount = gameState.players.filter(p => p.presence === 'human').length;
               return (
-                <div className="flex flex-col items-center gap-1.5">
+                <div className="flex flex-col items-center gap-1.5 anim-slide-up">
                   <div
                     className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
                     data-testid="text-phase"

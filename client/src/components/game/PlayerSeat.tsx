@@ -268,7 +268,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               : sessionDelta < -75
               ? (isSelf ? "text-red-400/80" : "text-red-400/50")
               : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
-            chipFlash && "anim-pulse-gold",
+            /* Brief warmth boost when chips just updated after showdown */
+            chipFlash && "anim-pulse-gold text-[#D4B44A]",
             showdownState && player.isWinner && "anim-win-chip-pop"
           )}>
             {/* Stack leader marker — quiet gold chevron, all players */}
