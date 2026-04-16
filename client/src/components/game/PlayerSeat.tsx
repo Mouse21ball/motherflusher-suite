@@ -122,14 +122,14 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   return (
     <div className={cn(
-      "relative flex flex-col items-center gap-2 transition-all duration-300",
-      /* Opponent opacity — contextual attention hierarchy */
-      !isSelf && isActive && "opacity-100",
+      "relative flex flex-col items-center gap-2 transition-all duration-200",
+      /* Opponent opacity + brightness — contextual attention hierarchy */
+      !isSelf && isActive && "opacity-100 brightness-[1.06]",
       !isSelf && !isActive && !showdownState && (
-        justActed   ? "opacity-80"   /* spotlight: just acted — snap to foreground briefly */
-        : anyJustActed ? "opacity-25" /* others recede while a seat has the moment */
-        : hasActivePlayer ? "opacity-30" /* dimmer during active decisions — table tension */
-        : "opacity-40"                  /* normal idle */
+        justActed   ? "opacity-90"   /* spotlight: just acted — snap to foreground briefly */
+        : anyJustActed ? "opacity-20" /* others recede while a seat has the moment */
+        : hasActivePlayer ? "opacity-25" /* softer during active decisions — table tension */
+        : "opacity-35"                   /* normal idle — slightly receded */
       ),
       player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
       player.status === 'sitting_out' && "opacity-30 grayscale",

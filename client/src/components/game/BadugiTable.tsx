@@ -203,7 +203,8 @@ export function BadugiTable({
       </div>
 
       {/* Felt oval */}
-      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]">
+      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]"
+        style={{ filter: isShowdown ? 'brightness(0.94)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}>
         <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
 
         {/* Opponent seats — arc around top half */}

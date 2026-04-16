@@ -121,7 +121,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   return (
     <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-8 sm:mb-24 px-2 sm:px-8">
       <div className="relative h-[70vh] min-h-[360px] sm:min-h-[560px]">
-        <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl">
+        <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl"
+          style={{ filter: gameState.phase === 'SHOWDOWN' ? 'brightness(0.94)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}>
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
           <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-1.5 sm:pt-7">
