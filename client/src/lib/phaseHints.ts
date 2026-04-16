@@ -33,6 +33,31 @@ const hints: Record<string, Record<string, string>> = {
   },
 };
 
+interface SimpleCard { rank: string; suit: string; isHidden?: boolean; }
+
+export function getSwingHandHint(holeCards: SimpleCard[]): string {
+  const visible = holeCards.filter(c => !c.isHidden);
+  if (visible.length === 0) return "Read the board — choose your path";
+
+  const suitGroups: Record<string, number> = {};
+  for (const c of visible) suitGroups[c.suit] = (suitGroups[c.suit] || 0) + 1;
+  const maxSuit = Math.max(...Object.values(suitGroups));
+
+  const rankVal = (r: string) =>
+    r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : parseInt(r, 10);
+  const sorted = visible.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+  const isPair = sorted.some((v, i) => sorted[i + 1] === v);
+  const highAvg = sorted.slice(0, 3).reduce((s, v) => s + v, 0) / Math.min(3, sorted.length);
+
+  if (maxSuit >= 5) return "Flush in hand → LOW path dominant";
+  if (maxSuit >= 4 && highAvg >= 11) return "Strong suit + high cards → SWING is live";
+  if (maxSuit >= 4) return "4-suit run → LOW path looks best";
+  if (isPair && highAvg >= 12) return "Pair of high cards → aim HIGH";
+  if (highAvg >= 12) return "High cards → HIGH path looks strongest";
+  if (maxSuit >= 3) return "Suit cluster forming → LOW may be best";
+  return "Mixed hand — read the table before declaring";
+}
+
 export function getPhaseHint(modeId: string, phase: GamePhase): string | undefined {
   const modeHints = hints[modeId];
   if (!modeHints) return undefined;

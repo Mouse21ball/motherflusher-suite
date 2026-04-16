@@ -9,7 +9,7 @@ import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
-import { getPhaseHint } from "@/lib/phaseHints";
+import { getPhaseHint, getSwingHandHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
@@ -75,7 +75,7 @@ function SwingGameServer({ tableId }: { tableId: string }) {
           <SpectatorWatchingBadge count={state.spectatorCount} />
         </div>
       )}
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-24 sm:pb-44">
         <GameTable
           gameState={state}
           myId={isSpectator ? 'p1' : myId}
@@ -89,7 +89,7 @@ function SwingGameServer({ tableId }: { tableId: string }) {
       {!isSpectator && (
         <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
           <div className="pointer-events-auto w-full max-w-md px-2">
-            <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} phaseHint={getPhaseHint('swing', state.phase)} />
+            <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} phaseHint={state.phase === 'DECLARE_AND_BET' && me?.cards?.length ? getSwingHandHint(me.cards) : getPhaseHint('swing', state.phase)} />
           </div>
         </div>
       )}
@@ -124,12 +124,12 @@ function SwingGameClient() {
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="swing" {...MODE_INTROS.swing} />
       <GameHeader mode={MODE_INFO.swing} modeId="swing" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('swing', me.chips); }} />
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-24 sm:pb-44">
         <GameTable gameState={state} myId={myId} selectedCardIndices={selectedCardIndices} onCardClick={handleCardClick} selectableCards={isSelectablePhase} />
       </main>
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
         <div className="pointer-events-auto w-full max-w-md px-2">
-          <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} phaseHint={getPhaseHint('swing', state.phase)} />
+          <ActionControls phase={state.phase} currentBet={state.currentBet} myBet={me?.bet || 0} pot={state.pot} chips={me?.chips || 0} onAction={handleControlAction} isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'} selectedCardsCount={selectedCardIndices.length} phaseHint={state.phase === 'DECLARE_AND_BET' && me?.cards?.length ? getSwingHandHint(me.cards) : getPhaseHint('swing', state.phase)} />
         </div>
       </div>
       <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={(text) => handleAction('chat', text)} />

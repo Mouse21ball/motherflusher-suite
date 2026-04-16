@@ -83,11 +83,11 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
   const getSeatPosition = (index: number) => {
     const positions = [
-      "-bottom-6 left-1/2 -translate-x-1/2 scale-110 origin-bottom",
-      "-left-6 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-left",
+      "-bottom-3 sm:-bottom-6 left-1/2 -translate-x-1/2 scale-[1.05] sm:scale-110 origin-bottom",
+      "-left-1 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-left",
       "top-2 sm:top-4 left-[8%] sm:left-[14%] scale-[0.6] sm:scale-[0.7] origin-top-left",
       "top-2 sm:top-4 right-[8%] sm:right-[14%] scale-[0.6] sm:scale-[0.7] origin-top-right",
-      "-right-6 sm:-right-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-right",
+      "-right-1 sm:-right-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-right",
     ];
     return positions[index] || "hidden";
   };
@@ -98,12 +98,12 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   const showMessage = gameState.phase !== 'SHOWDOWN' && !isIdleMessage;
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-32 px-2 sm:px-8">
-      <div className="relative h-[70vh] min-h-[560px]">
+    <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-8 sm:mb-24 px-2 sm:px-8">
+      <div className="relative h-[70vh] min-h-[360px] sm:min-h-[560px]">
         <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl">
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
-          <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-6 sm:pt-8">
+          <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-1.5 sm:pt-7">
 
             {/* Single focal point: live message fades out, then phase label */}
             <div className="text-center pointer-events-auto mb-1.5 sm:mb-2.5 min-h-[28px] flex items-center justify-center">
@@ -132,7 +132,18 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               Each pair: top card peeks (26px mobile / 34px desktop), full bottom card below.
               Negative margin overlap creates the cascade without absolute positioning.
             */}
-            <div className="flex flex-col items-center gap-2 sm:gap-4 mb-3 sm:mb-6 origin-center pointer-events-auto">
+            <div className="flex flex-col items-center gap-1 sm:gap-4 mb-0 sm:mb-6 origin-center pointer-events-auto">
+
+              {/* Inline pot — flow-positioned, never clips with seats */}
+              {gameState.pot > 0 && (
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#080809]/80 border border-[#C9A227]/14 ${potPulse ? 'anim-chip-pop' : ''}`} data-testid="text-pot">
+                  <div className="gold-chip" />
+                  <span className={`text-sm font-mono font-bold tabular-nums transition-colors duration-150 ${potPulse ? 'text-[#C9A227]' : 'text-white/80'}`}>
+                    ${gameState.pot}
+                  </span>
+                  <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
+                </div>
+              )}
 
               {/* Pair columns — stacked solitaire cascade */}
               <div className="flex flex-col items-center gap-1.5">
@@ -230,21 +241,6 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           </div>
         )}
 
-        {/* Pot counter */}
-        <div className="absolute left-3 sm:left-6 bottom-6 sm:bottom-8 z-40">
-          <div
-            className={`pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center ${potPulse ? 'anim-chip-pop' : ''}`}
-            data-testid="text-pot"
-          >
-            <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
-            <div className="flex items-center gap-1.5">
-              <div className="gold-chip" />
-              <span className={`text-base sm:text-lg font-mono font-bold tracking-tight tabular-nums transition-colors duration-150 ${potPulse ? 'text-[#C9A227]' : 'text-white'}`}>
-                ${gameState.pot}
-              </span>
-            </div>
-          </div>
-        </div>
 
         {Array.from({ length: 5 }).map((_, i) => {
           const player = orderedPlayers[i];
