@@ -274,7 +274,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               sessionDelta < -75 ? "text-red-400 anim-pulse-gold" :
                                    "text-[#D4B44A] anim-pulse-gold"
             ),
-            showdownState && player.isWinner && "anim-win-chip-pop"
+            showdownState && player.isWinner && "anim-win-chip-pop",
+            showdownState && player.isLoser && "anim-fold-drop"
           )}>
             {/* Stack leader marker — quiet gold chevron, all players */}
             {isStackLeader && !showdownState && (
