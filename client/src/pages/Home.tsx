@@ -68,15 +68,15 @@ const MODES = [
     description: '7s are dead — the snitch card busts you on the spot. Flush scoops. No mercy.',
     path: '/dead7',
     icon: '💀',
-    color: '#DC2626',
-    glow: 'rgba(220,38,38,',
-    bg: 'linear-gradient(135deg, rgba(220,38,38,0.12) 0%, rgba(220,38,38,0.03) 100%)',
-    border: 'rgba(220,38,38,0.22)',
-    borderHover: 'rgba(220,38,38,0.55)',
+    color: '#F03A2F',
+    glow: 'rgba(240,58,47,',
+    bg: 'linear-gradient(135deg, rgba(240,58,47,0.12) 0%, rgba(240,58,47,0.03) 100%)',
+    border: 'rgba(240,58,47,0.22)',
+    borderHover: 'rgba(240,58,47,0.55)',
     isMultiplayer: true,
     isHero: false,
     badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(220,38,38,',
+    badgeColor: 'rgba(240,58,47,',
     difficulty: 'Cutthroat',
   },
   {
@@ -86,15 +86,15 @@ const MODES = [
     description: 'Chase 15 or 35 exactly. Go over and you bust — just like crossing the wrong line.',
     path: '/fifteen35',
     icon: '15',
-    color: '#F0B829',
-    glow: 'rgba(240,184,41,',
-    bg: 'linear-gradient(135deg, rgba(240,184,41,0.12) 0%, rgba(240,184,41,0.03) 100%)',
-    border: 'rgba(240,184,41,0.22)',
-    borderHover: 'rgba(240,184,41,0.55)',
+    color: '#F59E0B',
+    glow: 'rgba(245,158,11,',
+    bg: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.03) 100%)',
+    border: 'rgba(245,158,11,0.22)',
+    borderHover: 'rgba(245,158,11,0.55)',
     isMultiplayer: true,
     isHero: false,
     badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(240,184,41,',
+    badgeColor: 'rgba(245,158,11,',
     difficulty: 'Easy Hustle',
   },
   {
@@ -104,15 +104,15 @@ const MODES = [
     description: '5 cards, 15-card board. Declare High, Low, or Swing all. The signature Chain Gang move.',
     path: '/swing',
     icon: '⚡',
-    color: '#9B5DE5',
-    glow: 'rgba(155,93,229,',
-    bg: 'linear-gradient(135deg, rgba(155,93,229,0.12) 0%, rgba(155,93,229,0.03) 100%)',
-    border: 'rgba(155,93,229,0.22)',
-    borderHover: 'rgba(155,93,229,0.55)',
+    color: '#A855F7',
+    glow: 'rgba(168,85,247,',
+    bg: 'linear-gradient(135deg, rgba(168,85,247,0.12) 0%, rgba(168,85,247,0.03) 100%)',
+    border: 'rgba(168,85,247,0.22)',
+    borderHover: 'rgba(168,85,247,0.55)',
     isMultiplayer: true,
     isHero: false,
     badge: '⚡ Signature · Up to 5',
-    badgeColor: 'rgba(155,93,229,',
+    badgeColor: 'rgba(168,85,247,',
     difficulty: 'Signature',
   },
   {
@@ -122,15 +122,15 @@ const MODES = [
     description: 'Fork the board. Pick Poker, Suits, or Swing both to scoop the whole pot.',
     path: '/suitspoker',
     icon: '♠',
-    color: '#06B6D4',
-    glow: 'rgba(6,182,212,',
-    bg: 'linear-gradient(135deg, rgba(6,182,212,0.12) 0%, rgba(6,182,212,0.03) 100%)',
-    border: 'rgba(6,182,212,0.22)',
-    borderHover: 'rgba(6,182,212,0.55)',
+    color: '#3B82F6',
+    glow: 'rgba(59,130,246,',
+    bg: 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.03) 100%)',
+    border: 'rgba(59,130,246,0.22)',
+    borderHover: 'rgba(59,130,246,0.55)',
     isMultiplayer: true,
     isHero: false,
     badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(6,182,212,',
+    badgeColor: 'rgba(59,130,246,',
     difficulty: 'Advanced',
   },
 ] as const;
@@ -148,10 +148,10 @@ interface LiveTableEntry {
 
 const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string }> = {
   badugi:      { name: 'Badugi',         abbrev: 'B',  color: '#00C896', path: '/badugi'    },
-  dead7:       { name: 'Dead 7',         abbrev: 'D7', color: '#DC2626', path: '/dead7'     },
-  fifteen35:   { name: '15/35',          abbrev: '15', color: '#F0B829', path: '/fifteen35' },
-  swing_poker: { name: 'Mother Flusher', abbrev: 'MF', color: '#9B5DE5', path: '/swing'     },
-  suits_poker: { name: 'Suits & Poker',  abbrev: 'SP', color: '#06B6D4', path: '/suitspoker'},
+  dead7:       { name: 'Dead 7',         abbrev: 'D7', color: '#F03A2F', path: '/dead7'     },
+  fifteen35:   { name: '15/35',          abbrev: '15', color: '#F59E0B', path: '/fifteen35' },
+  swing_poker: { name: 'Mother Flusher', abbrev: 'MF', color: '#A855F7', path: '/swing'     },
+  suits_poker: { name: 'Suits & Poker',  abbrev: 'SP', color: '#3B82F6', path: '/suitspoker'},
 };
 
 function phaseLabel(phase: string): string {
@@ -217,7 +217,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
           }}
         />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-bold text-white/75 font-sans">Live Tables</span>
+          <span className="text-sm font-bold text-white/88 font-sans">Live Tables</span>
           <span className="ml-2 text-[10px] font-mono text-white/30">
             {hasActive ? 'Real players — join any game in progress' : 'Join or start a game to appear here'}
           </span>
@@ -309,7 +309,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                 {/* Mode name + table code — visible on all screen sizes */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-bold text-white/60 font-sans">{info.name}</span>
+                    <span className="text-xs font-bold text-white/75 font-sans">{info.name}</span>
                     {isWaiting && (
                       <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,200,150,0.12)', color: '#00C896' }}>
                         Open
@@ -697,9 +697,9 @@ export default function Home() {
 
           {/* ── SECTION LABEL ─────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 px-1">
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(240,184,41,0.12))' }} />
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/20">⛓️ The Games</span>
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(240,184,41,0.12), transparent)' }} />
+            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(240,184,41,0.18))' }} />
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">⛓️ The Games</span>
+            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(240,184,41,0.18), transparent)' }} />
           </div>
 
           {/* ── BADUGI HERO CARD ──────────────────────────────────────────── */}
@@ -717,7 +717,7 @@ export default function Home() {
                 data-testid={`button-mode-${mode.id}`}
               >
                 <div className="absolute inset-0 pointer-events-none"
-                  style={{ background: `radial-gradient(ellipse at 80% 50%, ${mode.glow}0.12) 0%, transparent 65%)` }} />
+                  style={{ background: `radial-gradient(ellipse at 80% 50%, ${mode.glow}0.16) 0%, transparent 65%)` }} />
                 <div className="absolute inset-0 anim-shimmer pointer-events-none opacity-30 rounded-2xl" />
                 <div className="relative p-4">
                   <div className="flex items-start gap-3">
@@ -733,7 +733,7 @@ export default function Home() {
                           {mode.badge}
                         </span>
                       </div>
-                      <div className="text-[11px] font-mono mt-0.5" style={{ color: mode.color + 'aa' }}>{mode.tagline}</div>
+                      <div className="text-[11px] font-mono mt-0.5" style={{ color: mode.color + 'cc' }}>{mode.tagline}</div>
                       <p className="text-sm text-white/50 mt-1.5 leading-snug">{mode.description}</p>
                     </div>
                   </div>
@@ -793,7 +793,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="font-bold text-sm text-white/85 font-sans mb-0.5" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</div>
-                    <div className="text-[10px] font-mono leading-tight mb-2" style={{ color: mode.color + '90' }}>{mode.tagline}</div>
+                    <div className="text-[10px] font-mono leading-tight mb-2" style={{ color: mode.color + 'bb' }}>{mode.tagline}</div>
                     <div className="flex items-center justify-between">
                       <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
                       <div className="flex items-center gap-1">
@@ -813,7 +813,7 @@ export default function Home() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
-                <div className="text-base font-bold text-white/85 font-sans">Run it with Your Crew</div>
+                <div className="text-base font-bold text-white/92 font-sans">Run it with Your Crew</div>
                 <p className="text-xs text-white/40 mt-1 leading-relaxed">
                   All 5 games support real multiplayer — up to 5 players per table. Pick a game, share your link. No account, no download.
                 </p>
@@ -824,7 +824,7 @@ export default function Home() {
               <button
                 onClick={() => navigate('/badugi')}
                 className="flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
-                style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 10px ${C.emerald}55` }}
+                style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 12px ${C.emerald}70` }}
                 data-testid="button-create-table"
               >
                 Create Table
