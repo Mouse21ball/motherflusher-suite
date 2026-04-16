@@ -17,7 +17,7 @@ import {
   ACHIEVEMENT_MAP,
   type Achievement,
 } from '@/lib/progression';
-import { getRecentTable, generateTableCode } from '@/lib/tableSession';
+import { getRecentTable, generateTableCode, getSessionResult } from '@/lib/tableSession';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -235,16 +235,27 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
       {/* Rejoin row — pinned at top when the player's last table is still live */}
       {rejoinEntry && (() => {
         const info = LIVE_MODE_INFO[rejoinEntry.modeId] ?? { name: rejoinEntry.modeId, color: '#C9A227', path: '/' };
+        const sessionResult = getSessionResult();
+        const sessionDelta = sessionResult && Math.abs(sessionResult.delta) >= 10 ? sessionResult.delta : null;
         return (
           <div
             className="px-4 py-2.5 flex items-center gap-3 border-b"
             style={{ borderColor: 'rgba(201,162,39,0.10)', background: 'rgba(201,162,39,0.025)' }}
             data-testid="row-rejoin-table"
           >
-            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-              <span className="text-[9px] font-mono text-white/35 uppercase tracking-[0.18em]">Your table</span>
-              <span className="font-mono font-bold text-[11px]" style={{ color: info.color }}>{rejoinEntry.tableId}</span>
-              <span className="text-[9px] font-mono text-white/25">{info.name}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] font-mono text-white/30 uppercase tracking-[0.18em]">Pick up where you left off</span>
+                <span className="font-mono font-bold text-[11px]" style={{ color: info.color }}>{rejoinEntry.tableId}</span>
+                <span className="text-[9px] font-mono text-white/25">{info.name}</span>
+              </div>
+              {sessionDelta !== null && (
+                <p className="text-[9px] font-mono mt-0.5 tracking-wide" style={{
+                  color: sessionDelta > 0 ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)'
+                }} data-testid="text-session-pnl">
+                  {sessionDelta > 0 ? `Up $${sessionDelta} this session` : `Down $${Math.abs(sessionDelta)} this session`}
+                </p>
+              )}
             </div>
             <button
               onClick={() => onJoin(rejoinEntry.modeId, rejoinEntry.tableId)}

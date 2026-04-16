@@ -6,6 +6,7 @@ import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
 import { ReactionBar } from "./ReactionBar";
 import { getPhaseLabel } from "@/lib/phaseLabel";
+import { saveSessionResult } from "@/lib/tableSession";
 
 interface GameTableProps {
   gameState: GameState;
@@ -37,6 +38,23 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     }
     prevPotRef.current = gameState.pot;
   }, [gameState.pot]);
+
+  // Hero chip start: baseline for session P&L persistence
+  const heroChipStartRef = useRef<number | null>(null);
+  const heroNow = gameState.players.find(p => p.id === myId);
+  if (heroChipStartRef.current === null && heroNow) {
+    heroChipStartRef.current = heroNow.chips;
+  }
+
+  // Session P&L save: fires when a hand ends (SHOWDOWN → anything)
+  const wasShowdownSaveRef = useRef(gameState.phase === 'SHOWDOWN');
+  useEffect(() => {
+    const was = wasShowdownSaveRef.current;
+    wasShowdownSaveRef.current = gameState.phase === 'SHOWDOWN';
+    if (was && gameState.phase !== 'SHOWDOWN' && heroNow && heroChipStartRef.current !== null) {
+      saveSessionResult(heroNow.chips - heroChipStartRef.current);
+    }
+  }, [gameState.phase, heroNow]);
 
   // Win celebration — context-aware triggers, not raw chip thresholds
   const [showCelebration, setShowCelebration] = useState(false);

@@ -86,6 +86,26 @@ export function getRecentTable(): { tableId: string; ts: number } | null {
   }
 }
 
+// ─── Session P&L memory (localStorage) ───────────────────────────────────────
+// Persists the hero's chip delta for the current session so Home can surface it.
+
+const SESSION_RESULT_KEY = 'cgp_session_result';
+
+export function saveSessionResult(delta: number): void {
+  try {
+    localStorage.setItem(SESSION_RESULT_KEY, JSON.stringify({ delta, ts: Date.now() }));
+  } catch {}
+}
+
+export function getSessionResult(): { delta: number; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(SESSION_RESULT_KEY);
+    return raw ? (JSON.parse(raw) as { delta: number; ts: number }) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Server sync ──────────────────────────────────────────────────────────────
 
 // Registers a new table on the server. Returns the server-echoed session.

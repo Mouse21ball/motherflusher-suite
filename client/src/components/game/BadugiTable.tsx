@@ -6,6 +6,7 @@ import { ResolutionOverlay } from "./ResolutionOverlay";
 import { ReactionBar } from "./ReactionBar";
 import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
+import { saveSessionResult } from "@/lib/tableSession";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -72,6 +73,12 @@ export function BadugiTable({
   const leadCandidates = activePlayers.filter(p => p.chips === maxChips);
   const stackLeaderId = leadCandidates.length === 1 ? leadCandidates[0].id : null;
 
+  /* ── Hero chip start: baseline for session P&L persistence ─────────────── */
+  const heroChipStartRef = useRef<number | null>(null);
+  if (heroChipStartRef.current === null && me) {
+    heroChipStartRef.current = me.chips;
+  }
+
   /* ── Hand counter: client-side continuity signal ─────────────────────────── */
   const [handCount, setHandCount] = useState(1);
   const prevPhaseRef = useRef(gameState.phase);
@@ -106,6 +113,10 @@ export function BadugiTable({
         setLastResultEcho({ text, won });
         if (resultEchoTimer.current) clearTimeout(resultEchoTimer.current);
         resultEchoTimer.current = setTimeout(() => setLastResultEcho(null), 1600);
+      }
+      /* Persist session P&L so Home can surface it on return */
+      if (hero && heroChipStartRef.current !== null) {
+        saveSessionResult(hero.chips - heroChipStartRef.current);
       }
     }
   }, [gameState.phase]);
