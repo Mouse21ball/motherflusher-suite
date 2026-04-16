@@ -37,6 +37,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
+  const selfWonRef = useRef(false);
 
   /* ── Turn onset pulse — fires once when this seat becomes active ─────── */
   const [turnOnsetKey, setTurnOnsetKey] = useState(0);
@@ -72,9 +73,11 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     if (showdownState && player?.isWinner && isSelf) {
       sfx.win();
       setShowWinEffect(true);
+      selfWonRef.current = true;
     } else if (showdownState && player?.isLoser && isSelf) {
       sfx.lose();
       setShowWinEffect(false);
+      selfWonRef.current = false;
     } else {
       setShowWinEffect(false);
     }
@@ -88,7 +91,11 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     wasShowdownRef.current = showdownState;
     if (was && !showdownState) {
       setChipFlash(true);
-      const t = setTimeout(() => setChipFlash(false), 1600);
+      /* Hero win: chip glow lingers +200ms; hero loss: +120ms; others: base 1600ms */
+      const duration = isSelf
+        ? (selfWonRef.current ? 1800 : 1720)
+        : 1600;
+      const t = setTimeout(() => setChipFlash(false), duration);
       return () => clearTimeout(t);
     }
   }, [showdownState]);
@@ -220,6 +227,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         key={isActive ? `active-${turnOnsetKey}` : 'idle'}
         className={cn(
         "relative w-full min-w-[100px] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
+        /* Hero win: nameplate brightness stays elevated briefly — uses chipFlash window (1800ms) */
+        chipFlash && isSelf && selfWonRef.current && "brightness-[1.04]",
         isSelf ? "bg-[#101013]" : "bg-[#0a0a0d]",
         /* Active: stronger gold border + glow + one-shot onset pulse */
         isActive && !showdownState
@@ -285,12 +294,14 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           </div>
           {/* Session status label — self only, shown outside showdown */}
           {isSelf && !showdownState && sessionDelta > 75 && (
-            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5" style={{ color: 'rgba(52,211,153,0.45)' }}>
+            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+              style={{ color: chipFlash ? 'rgba(52,211,153,0.72)' : 'rgba(52,211,153,0.45)' }}>
               up this session
             </div>
           )}
           {isSelf && !showdownState && sessionDelta < -100 && (
-            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5" style={{ color: 'rgba(248,113,113,0.38)' }}>
+            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+              style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.38)' }}>
               down this session
             </div>
           )}
