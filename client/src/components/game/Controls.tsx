@@ -71,7 +71,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         autoRestartFired.current = true;
         onAction('restart');
       }
-    }, 2800);
+    }, 1700);
     return () => clearTimeout(t);
   }, [phase, chips, onAction]);
 
