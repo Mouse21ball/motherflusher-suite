@@ -59,17 +59,39 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
   }, [phase, callAmount]);
 
+  /* ── Auto next-hand: fires 2800ms after showdown if chips remain ──────── */
+  const autoRestartFired = useRef(false);
+  useEffect(() => {
+    if (phase !== 'SHOWDOWN' || chips <= 0) {
+      autoRestartFired.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (!autoRestartFired.current) {
+        autoRestartFired.current = true;
+        onAction('restart');
+      }
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [phase, chips, onAction]);
+
   if (phase === 'SHOWDOWN') {
     return (
-      <div className={`${panelClass} flex flex-col items-center gap-3`}>
+      <div className={`${panelClass} flex flex-col items-center gap-2`}>
         <Button
           size="lg"
-          onClick={() => onAction('restart')}
+          onClick={() => { autoRestartFired.current = true; onAction('restart'); }}
           className="w-full sm:w-auto font-bold uppercase tracking-widest bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
           data-testid="button-next-hand"
         >
           Next Hand
         </Button>
+        <p
+          className="text-[9px] font-mono tracking-[0.32em] uppercase anim-pulse-gold"
+          style={{ color: 'rgba(255,255,255,0.18)' }}
+        >
+          next hand…
+        </p>
         {chips <= 0 && (
           <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
             Rebuy $1000
