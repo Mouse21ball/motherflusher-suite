@@ -17,7 +17,7 @@ import {
   ACHIEVEMENT_MAP,
   type Achievement,
 } from '@/lib/progression';
-import { getRecentTable, generateTableCode, getSessionResult } from '@/lib/tableSession';
+import { getRecentTable, generateTableCode, getSessionResult, getStreakLabel } from '@/lib/tableSession';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -237,6 +237,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
         const info = LIVE_MODE_INFO[rejoinEntry.modeId] ?? { name: rejoinEntry.modeId, color: '#C9A227', path: '/' };
         const sessionResult = getSessionResult();
         const sessionDelta = sessionResult && Math.abs(sessionResult.delta) >= 10 ? sessionResult.delta : null;
+        const streakLabel = getStreakLabel();
         return (
           <div
             className="px-4 py-2.5 flex items-center gap-3 border-b"
@@ -249,11 +250,19 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                 <span className="font-mono font-bold text-[11px]" style={{ color: info.color }}>{rejoinEntry.tableId}</span>
                 <span className="text-[9px] font-mono text-white/25">{info.name}</span>
               </div>
-              {sessionDelta !== null && (
+              {(sessionDelta !== null || streakLabel) && (
                 <p className="text-[9px] font-mono mt-0.5 tracking-wide" style={{
-                  color: sessionDelta > 0 ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)'
+                  color: sessionDelta !== null
+                    ? (sessionDelta > 0 ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)')
+                    : 'rgba(255,255,255,0.30)'
                 }} data-testid="text-session-pnl">
-                  {sessionDelta > 0 ? `Up $${sessionDelta} this session` : `Down $${Math.abs(sessionDelta)} this session`}
+                  {sessionDelta !== null && (
+                    sessionDelta > 0 ? `Up $${sessionDelta} this session` : `Down $${Math.abs(sessionDelta)} this session`
+                  )}
+                  {sessionDelta !== null && streakLabel && (
+                    <span style={{ color: 'rgba(255,255,255,0.22)', marginLeft: '0.45em' }}>· {streakLabel}</span>
+                  )}
+                  {sessionDelta === null && streakLabel}
                 </p>
               )}
             </div>

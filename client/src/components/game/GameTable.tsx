@@ -6,7 +6,7 @@ import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
 import { ReactionBar } from "./ReactionBar";
 import { getPhaseLabel } from "@/lib/phaseLabel";
-import { saveSessionResult } from "@/lib/tableSession";
+import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 
 interface GameTableProps {
   gameState: GameState;
@@ -53,6 +53,9 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     wasShowdownSaveRef.current = gameState.phase === 'SHOWDOWN';
     if (was && gameState.phase !== 'SHOWDOWN' && heroNow && heroChipStartRef.current !== null) {
       saveSessionResult(heroNow.chips - heroChipStartRef.current);
+      const net = gameState.heroChipChange ?? 0;
+      if (net > 0) saveHandResult('win');
+      else if (net < 0) saveHandResult('loss');
     }
   }, [gameState.phase, heroNow]);
 

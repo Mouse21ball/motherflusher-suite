@@ -6,7 +6,7 @@ import { ResolutionOverlay } from "./ResolutionOverlay";
 import { ReactionBar } from "./ReactionBar";
 import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
-import { saveSessionResult } from "@/lib/tableSession";
+import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -114,10 +114,12 @@ export function BadugiTable({
         if (resultEchoTimer.current) clearTimeout(resultEchoTimer.current);
         resultEchoTimer.current = setTimeout(() => setLastResultEcho(null), 1600);
       }
-      /* Persist session P&L so Home can surface it on return */
+      /* Persist session P&L + hand streak so Home can surface them on return */
       if (hero && heroChipStartRef.current !== null) {
         saveSessionResult(hero.chips - heroChipStartRef.current);
       }
+      if (net > 0) saveHandResult('win');
+      else if (net < 0) saveHandResult('loss');
     }
   }, [gameState.phase]);
 

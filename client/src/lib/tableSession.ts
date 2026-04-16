@@ -86,6 +86,39 @@ export function getRecentTable(): { tableId: string; ts: number } | null {
   }
 }
 
+// ─── Hand result streak (sessionStorage only — no persistence) ───────────────
+// Tracks recent win/loss outcomes for the current browser session.
+// Used to derive a lightweight streak label on Home (e.g. "On a run").
+
+const HAND_RESULTS_KEY = 'cgp_hand_results';
+
+export function saveHandResult(outcome: 'win' | 'loss'): void {
+  try {
+    const raw = sessionStorage.getItem(HAND_RESULTS_KEY);
+    const results: string[] = raw ? (JSON.parse(raw) as string[]) : [];
+    results.push(outcome);
+    if (results.length > 6) results.splice(0, results.length - 6);
+    sessionStorage.setItem(HAND_RESULTS_KEY, JSON.stringify(results));
+  } catch {}
+}
+
+export function getStreakLabel(): string | null {
+  try {
+    const raw = sessionStorage.getItem(HAND_RESULTS_KEY);
+    if (!raw) return null;
+    const results = JSON.parse(raw) as string[];
+    if (results.length < 2) return null;
+    const tail3 = results.slice(-3);
+    const tail2 = results.slice(-2);
+    if (tail3.length === 3 && tail3.every(r => r === 'win')) return 'Heating up';
+    if (tail2.every(r => r === 'win')) return 'On a run';
+    if (tail2.every(r => r === 'loss')) return 'Cold table';
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Session P&L memory (localStorage) ───────────────────────────────────────
 // Persists the hero's chip delta for the current session so Home can surface it.
 
