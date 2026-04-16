@@ -49,13 +49,13 @@ export function getSwingHandHint(holeCards: SimpleCard[]): string {
   const isPair = sorted.some((v, i) => sorted[i + 1] === v);
   const highAvg = sorted.slice(0, 3).reduce((s, v) => s + v, 0) / Math.min(3, sorted.length);
 
-  if (maxSuit >= 5) return "Flush in hand → LOW path dominant";
-  if (maxSuit >= 4 && highAvg >= 11) return "Strong suit + high cards → SWING is live";
-  if (maxSuit >= 4) return "4-suit run → LOW path looks best";
-  if (isPair && highAvg >= 12) return "Pair of high cards → aim HIGH";
-  if (highAvg >= 12) return "High cards → HIGH path looks strongest";
-  if (maxSuit >= 3) return "Suit cluster forming → LOW may be best";
-  return "Mixed hand — read the table before declaring";
+  if (maxSuit >= 5) return "Flush dealt. Go LOW.";
+  if (maxSuit >= 4 && highAvg >= 11) return "Suited and heavy. SWING's live.";
+  if (maxSuit >= 4) return "4 of a suit. LOW.";
+  if (isPair && highAvg >= 12) return "High pair. HIGH.";
+  if (highAvg >= 12) return "Running high. HIGH.";
+  if (maxSuit >= 3) return "3 suited. LOW.";
+  return "Read it yourself.";
 }
 
 export function getPhaseHint(modeId: string, phase: GamePhase): string | undefined {
