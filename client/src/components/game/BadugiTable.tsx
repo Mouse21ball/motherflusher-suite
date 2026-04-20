@@ -396,7 +396,7 @@ export function BadugiTable({
       )}
 
       {/* Hero seat — rendered below the felt with overlap */}
-      <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30">
+      <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30 hero-seat-depth">
         {me && (
           <PlayerSeat
             player={me}

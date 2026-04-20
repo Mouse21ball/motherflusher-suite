@@ -154,7 +154,15 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           "relative flex justify-center",
           isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-75 pointer-events-none mb-[-20px]"
         )}
-        style={isSelf ? { width: '100%', maxWidth: '420px', margin: '0 auto 16px' } : undefined}
+        style={isSelf ? {
+          width: '100%',
+          maxWidth: '420px',
+          margin: '0 auto 16px',
+          perspective: '700px',
+          perspectiveOrigin: '50% 160%',
+          transform: (isActive && !showdownState) ? 'rotateX(-2deg)' : 'rotateX(0deg)',
+          transition: 'transform 400ms cubic-bezier(0.22, 1, 0.36, 1)',
+        } : undefined}
       >
         {player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
@@ -173,13 +181,13 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           return (
             <div 
               key={idx}
-              className="relative anim-card-deal"
+              className={cn("relative anim-card-deal", isSelf && selectableCards && !isSelected ? "hero-card-item" : undefined)}
               style={{ 
                 marginLeft: `${marginLeft}px`,
                 transform: `rotate(${rotDeg}deg) translateY(${arcY + liftY}px) scale(${scaleVal})`,
                 zIndex: isSelected ? 40 : 10 + idx,
                 animationDelay: `${idx * 0.06}s`,
-                transition: 'transform 120ms ease, box-shadow 120ms ease',
+                transition: isSelf ? 'transform 260ms cubic-bezier(0.22,1,0.36,1), box-shadow 260ms ease' : 'transform 120ms ease, box-shadow 120ms ease',
                 transformOrigin: 'bottom center',
               }}
               onClick={(e) => {

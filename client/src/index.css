@@ -272,12 +272,12 @@
   z-index: 0;
   background: radial-gradient(ellipse 56% 48% at 50% 42%, rgba(74,182,110,0.26) 0%, transparent 68%);
   animation: felt-breathe 8.5s ease-in-out infinite;
-  will-change: opacity;
+  will-change: opacity, transform;
 }
 
 @keyframes felt-breathe {
-  0%, 100% { opacity: 0.35; }
-  50%       { opacity: 1.0;  }
+  0%, 100% { opacity: 0.35; transform: scale(0.97); }
+  50%       { opacity: 1.0;  transform: scale(1.03); }
 }
 
 .felt-overlay {
@@ -313,6 +313,27 @@
 /* ── Hero card elevated — hero hand floats slightly above the felt ───────── */
 .hero-card-elevated {
   filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+}
+
+/* ── Hero card hover lift — physical card pickup feel ──────────────────── */
+.hero-card-item {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+.hero-card-item:hover {
+  /* lifts from base arcY=-3px to -10px, barely scales — feels like picking it up */
+  transform: rotate(0deg) translateY(-10px) scale(1.015) !important;
+}
+
+/* ── Hero seat parallax float — foreground depth plane separation ───────── */
+@keyframes hero-seat-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-1.5px); }
+}
+.hero-seat-depth {
+  /* 6.2s vs felt's 8.5s = always slightly out of phase = organic separation */
+  animation: hero-seat-float 6.2s ease-in-out infinite;
+  animation-delay: -1.8s;
+  will-change: transform;
 }
 
 /* ── Card depth shadow — for community card wrappers ───────────────────── */
@@ -361,12 +382,12 @@
   100% { opacity: 0; transform: translateY(-20px) scale(0.62); }
 }
 
-/* Chip toss — punchy spring into pot */
+/* Chip toss — exaggerated arc for Z-depth feel */
 @keyframes chip-toss {
-  0%   { opacity: 0; transform: scale(0.32) translateY(22px); }
-  36%  { opacity: 1; transform: scale(1.68) translateY(-12px); }
-  62%  { transform: scale(0.88) translateY(1px); }
-  80%  { transform: scale(1.07) translateY(0); }
+  0%   { opacity: 0; transform: scale(0.28) translateY(30px) rotateZ(7deg); }
+  36%  { opacity: 1; transform: scale(1.90) translateY(-24px) rotateZ(-3deg); }
+  62%  { transform: scale(0.90) translateY(2px) rotateZ(0deg); }
+  80%  { transform: scale(1.09) translateY(0); }
   100% { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
