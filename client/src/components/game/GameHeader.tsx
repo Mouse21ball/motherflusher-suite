@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { BookOpen, Flame } from "lucide-react";
+import { BookOpen, Flame, Home } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -292,7 +292,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
                 data-testid="button-rules"
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>How to Play</span>
+                <span className="hidden sm:inline">How to Play</span>
               </button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[320px] sm:w-[380px] bg-[#0B0B0D] border-white/[0.04] p-0" aria-describedby={undefined}>
@@ -342,10 +342,11 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
             className={headerBtnClass}
             data-testid="link-lobby"
           >
-            Lobby
+            <Home className="w-3.5 h-3.5 sm:hidden" />
+            <span className="hidden sm:inline">Lobby</span>
           </button>
 
-          <div className="text-right pl-2 flex flex-col items-end gap-0.5">
+          <div className="text-right pl-2 flex flex-col items-end gap-0.5 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               <div
                 className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md"
@@ -354,11 +355,11 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
               >
                 Lv {levelInfo.level}
               </div>
-              <div className="text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
+              <div className="hidden sm:block text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
             </div>
             <div className="font-mono text-[#C9A227] font-bold text-base leading-tight tabular-nums" data-testid="text-my-chips">${chips}</div>
-            {/* XP progress bar */}
-            <div className="w-14 h-0.5 rounded-full bg-white/[0.05] overflow-hidden">
+            {/* XP progress bar — hidden on small portrait screens to save space */}
+            <div className="hidden sm:block w-14 h-0.5 rounded-full bg-white/[0.05] overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.round(levelInfo.progress * 100)}%`, backgroundColor: rank.color }}

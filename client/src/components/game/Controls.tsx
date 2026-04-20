@@ -59,7 +59,24 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
   }, [phase, callAmount]);
 
-  /* ── Auto next-hand: fires 2800ms after showdown if chips remain ──────── */
+  /* ── Auto-ante: fires automatically 400ms after hero's ante turn begins ─ */
+  const autoAnteFired = useRef(false);
+  useEffect(() => {
+    if (phase !== 'ANTE' || !isMyTurn || chips <= 0) {
+      autoAnteFired.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (!autoAnteFired.current) {
+        autoAnteFired.current = true;
+        sfx.chipClink();
+        onAction('ante');
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [phase, isMyTurn, chips, onAction]);
+
+  /* ── Auto next-hand: fires 1700ms after showdown if chips remain ─────── */
   const autoRestartFired = useRef(false);
   useEffect(() => {
     if (phase !== 'SHOWDOWN' || chips <= 0) {
@@ -180,14 +197,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   if (phase === 'ANTE') {
     return (
-      <div className={`${panelClass} flex justify-center`}>
+      <div className={`${panelClass} flex flex-col items-center gap-2`}>
         <Button
           size="lg"
-          onClick={() => { sfx.chipClink(); onAction('ante'); }}
+          onClick={() => { autoAnteFired.current = true; sfx.chipClink(); onAction('ante'); }}
           className="w-full sm:w-auto font-bold uppercase tracking-wider bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          data-testid="button-pay-ante"
         >
           Pay Ante ($1)
         </Button>
+        <span className="text-[9px] font-mono text-white/20 tracking-[0.2em] uppercase anim-pulse-gold">auto-posting…</span>
       </div>
     );
   }

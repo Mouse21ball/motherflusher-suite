@@ -521,7 +521,8 @@ function resolveShowdown(table: GenericTable): void {
 
 function resetToAnte(table: GenericTable): void {
   const s = table.state;
-  const isRollover = s.pot > 0;
+  const hadWinner  = s.players.some(p => p.isWinner);
+  const isRollover = s.pot > 0 && !hadWinner;
   const basePlayers = isRollover ? s.players : moveDealer(s.players);
 
   const nextPlayers: Player[] = basePlayers.map(p => {

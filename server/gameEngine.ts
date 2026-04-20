@@ -430,7 +430,10 @@ function resolveShowdown(table: AuthTable): void {
 
 function resetToAnte(table: AuthTable): void {
   const s = table.state;
-  const isRollover = s.pot > 0;
+  /* A real rollover = pot carried forward because nobody qualified.
+     If there was a winner, pot was already distributed (s.pot === 0). */
+  const hadWinner  = s.players.some(p => p.isWinner);
+  const isRollover = s.pot > 0 && !hadWinner;
   const basePlayers = isRollover ? s.players : moveDealer(s.players);
 
   const nextPlayers: Player[] = basePlayers.map(p => {

@@ -428,7 +428,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
     if (action === 'restart') {
       setState(s => {
         if (s.phase !== 'SHOWDOWN') return s;
-        const isRollover = s.pot > 0;
+        const hadWinner  = s.players.some(p => p.isWinner);
+        const isRollover = s.pot > 0 && !hadWinner;
         const basePlayers = isRollover ? s.players : moveDealer(s.players);
         const nextPlayers = basePlayers.map(p => {
             const isBotBusted = p.id !== myId && p.chips === 0;
@@ -868,7 +869,8 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
             setState(s => {
                 if (s.phase !== 'SHOWDOWN') return s;
 
-                const isRollover = s.pot > 0;
+                const hadWinner  = s.players.some(p => p.isWinner);
+                const isRollover = s.pot > 0 && !hadWinner;
                 const basePlayers = isRollover ? s.players : moveDealer(s.players);
                 const nextPlayers = basePlayers.map(p => {
                     const isBotBusted = p.id !== myId && p.chips === 0;
