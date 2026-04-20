@@ -840,7 +840,7 @@ export default function Home() {
               </div>
               <div className="flex-1 flex flex-col gap-0.5">
                 <button
-                  onClick={() => { const code = generateTableCode(); navigate(`/badugi?t=${code}`); }}
+                  onClick={() => { const code = generateTableCode(); navigate(`/badugi?t=${code}&private=1`); }}
                   className="w-full h-10 rounded-xl text-sm font-bold border transition-all duration-200 active:scale-[0.98]"
                   style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
                   data-testid="button-private-table"
