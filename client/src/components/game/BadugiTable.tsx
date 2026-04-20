@@ -20,8 +20,20 @@ interface BadugiTableProps {
   incomingReactions?: ReactionEvent[];
 }
 
+// Scale per seat position — back/top seats are smaller (farther), side seats larger (closer).
+// Hero is full-scale (front row).
+function getOpponentDepth(index: number, total: number): string {
+  if (total === 1) return "scale-[0.68] sm:scale-[0.78]";
+  if (total === 2) return "scale-[0.70] sm:scale-[0.80]";
+  if (total === 3) {
+    // side seats slightly bigger than back center
+    return (["scale-[0.73] sm:scale-[0.83]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.73] sm:scale-[0.83]"] as const)[index] ?? "scale-[0.70] sm:scale-[0.80]";
+  }
+  // 4 opponents: sides larger, top two smaller (farther)
+  return (["scale-[0.74] sm:scale-[0.84]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.74] sm:scale-[0.84]"] as const)[index] ?? "scale-[0.70] sm:scale-[0.80]";
+}
+
 // Positions opponents in an arc across the top half of the oval.
-// Seats are scaled down at 0.7/0.8 — positions account for that.
 function getOpponentPosition(index: number, total: number): string {
   if (total === 1) {
     return "-top-2 sm:top-1 left-1/2 -translate-x-1/2";
@@ -188,7 +200,7 @@ export function BadugiTable({
   const hasActivePlayer = !!gameState.activePlayerId && !isShowdown && gameState.phase !== 'WAITING';
 
   return (
-    <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
+    <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter">
       {/* Live game message — above the table */}
       <div className="w-full text-center mb-1 relative z-40 min-h-[28px] flex items-center justify-center">
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
@@ -203,7 +215,7 @@ export function BadugiTable({
       </div>
 
       {/* Felt oval */}
-      <div className="relative w-full rounded-[80px] sm:rounded-[120px] game-table-felt shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]"
+      <div className="relative w-full table-perspective-oval game-table-felt shadow-2xl overflow-visible min-h-[340px] sm:min-h-[420px]"
         style={{ filter: isShowdown ? 'brightness(0.94)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}>
         <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
 
@@ -211,7 +223,7 @@ export function BadugiTable({
         {opponents.map((player, i) => (
           <div
             key={player.id}
-            className={`absolute ${getOpponentPosition(i, opponents.length)} z-20 scale-[0.7] sm:scale-[0.8] origin-center`}
+            className={`absolute ${getOpponentPosition(i, opponents.length)} z-20 ${getOpponentDepth(i, opponents.length)} origin-center`}
           >
             <PlayerSeat
               player={player}

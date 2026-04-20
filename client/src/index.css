@@ -102,12 +102,12 @@
   background: linear-gradient(165deg, #FEFEFE 0%, #F5F3EE 40%, #EDE9E0 100%);
   border-radius: 0.5rem;
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.32),
-    0 4px 10px rgba(0,0,0,0.30),
-    0 10px 24px rgba(0,0,0,0.20),
-    0 20px 40px rgba(0,0,0,0.10),
-    0 0 0 1px rgba(0,0,0,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.95);
+    0 1px 3px rgba(0,0,0,0.38),
+    0 5px 12px rgba(0,0,0,0.34),
+    0 12px 28px rgba(0,0,0,0.22),
+    0 24px 48px rgba(0,0,0,0.12),
+    0 0 0 1px rgba(0,0,0,0.09),
+    inset 0 1px 0 rgba(255,255,255,0.96);
   font-family: var(--font-mono);
   font-weight: 700;
   position: relative;
@@ -234,26 +234,31 @@
 /* ── Table felt — deep spotlight, dramatic depth ─────────────────────────── */
 .game-table-felt {
   background:
-    /* tight bright center pool — the action zone */
-    radial-gradient(ellipse 44% 38% at 50% 38%, rgba(74,182,110,0.82) 0%, transparent 100%),
+    /* tighter, brighter center spotlight — the action zone */
+    radial-gradient(ellipse 46% 40% at 50% 40%, rgba(74,182,110,0.90) 0%, transparent 100%),
     /* wide ambient spread */
-    radial-gradient(ellipse 76% 66% at 50% 38%, rgba(44,120,70,0.52) 0%, transparent 100%),
-    /* base table — near-black at edges */
-    radial-gradient(ellipse at 50% 30%, #1e4a2d 0%, #122e1b 35%, #09200f 60%, #030a05 100%);
+    radial-gradient(ellipse 78% 68% at 50% 40%, rgba(44,120,70,0.58) 0%, transparent 100%),
+    /* base — near-black at edges, faster falloff for cinematic depth */
+    radial-gradient(ellipse at 50% 28%, #1e4a2d 0%, #0f2619 28%, #07190e 52%, #020705 100%);
   box-shadow:
-    /* subtle gold inner rail — premium table edge */
-    inset 0 0 0 1px rgba(201,162,39,0.09),
+    /* front rail rim light — near edge catches overhead lamp */
+    inset 0 -2px 0 rgba(201,162,39,0.17),
+    /* far-edge top shadow — back of table recedes into darkness */
+    inset 0 5px 22px rgba(0,0,0,0.74),
+    /* gold inner rail — premium table edge */
+    inset 0 0 0 1px rgba(201,162,39,0.11),
     /* heavy inner vignette — pulls eye to center */
-    inset 0    0   120px rgba(0,0,0,0.88),
-    inset 100px 0  100px rgba(0,0,0,0.48),
-    inset -100px 0 100px rgba(0,0,0,0.48),
-    inset 0  80px  100px rgba(0,0,0,0.42),
-    inset 0 -40px   60px rgba(0,0,0,0.32),
-    /* outer rail */
-    0 0 0 3px #161209,
-    0 0 0 6px #0a0804,
-    0 10px 40px rgba(0,0,0,0.80),
-    0 24px 64px rgba(0,0,0,0.50);
+    inset 0     0   148px rgba(0,0,0,0.94),
+    inset 100px 0   108px rgba(0,0,0,0.52),
+    inset -100px 0  108px rgba(0,0,0,0.52),
+    inset 0   80px  108px rgba(0,0,0,0.46),
+    inset 0  -40px   64px rgba(0,0,0,0.28),
+    /* outer rail — physical wood edge */
+    0 0 0 3px #1a1306,
+    0 0 0 6px #0b0804,
+    /* deep table drop shadow — object hanging in space */
+    0 20px 60px rgba(0,0,0,0.94),
+    0 32px 80px rgba(0,0,0,0.58);
   border: none;
 }
 
@@ -265,7 +270,7 @@
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(ellipse 52% 44% at 50% 40%, rgba(74,182,110,0.22) 0%, transparent 68%);
+  background: radial-gradient(ellipse 56% 48% at 50% 42%, rgba(74,182,110,0.26) 0%, transparent 68%);
   animation: felt-breathe 8.5s ease-in-out infinite;
   will-change: opacity;
 }
@@ -286,20 +291,46 @@
   50%       { opacity: 0.3; }
 }
 
+/* ── Perspective-aware table oval — asymmetric radii suggest viewing angle ── */
+.table-perspective-oval {
+  border-radius: 88px 88px 72px 72px / 52px 52px 72px 72px !important;
+}
+@media (min-width: 640px) {
+  .table-perspective-oval {
+    border-radius: 130px 130px 104px 104px / 78px 78px 100px 100px !important;
+  }
+}
+
+/* ── Scene enter — table rises gently into view on mount ───────────────── */
+@keyframes table-reveal {
+  from { opacity: 0; transform: scale(0.975) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)     translateY(0); }
+}
+.table-scene-enter {
+  animation: table-reveal 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Hero card elevated — hero hand floats slightly above the felt ───────── */
+.hero-card-elevated {
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+}
+
 /* ── Card depth shadow — for community card wrappers ───────────────────── */
 .card-depth-shadow {
   filter:
-    drop-shadow(0 4px 8px rgba(0,0,0,0.55))
-    drop-shadow(0 10px 24px rgba(0,0,0,0.35));
+    drop-shadow(0 2px 4px rgba(0,0,0,0.75))
+    drop-shadow(0 6px 14px rgba(0,0,0,0.60))
+    drop-shadow(0 14px 32px rgba(0,0,0,0.40));
 }
 
-/* ── Pot counter — gold glow beneath ───────────────────────────────────── */
+/* ── Pot counter — layered depth, floating above felt ──────────────────── */
 .pot-counter {
   box-shadow:
-    0 0 0 1px rgba(201,162,39,0.12),
-    0 0 16px rgba(201,162,39,0.14),
-    0 0 40px rgba(201,162,39,0.06),
-    0 4px 12px rgba(0,0,0,0.50);
+    0 0 0 1px rgba(201,162,39,0.14),
+    0 0 20px rgba(201,162,39,0.18),
+    0 0 48px rgba(201,162,39,0.07),
+    0 6px 18px rgba(0,0,0,0.65),
+    0 14px 36px rgba(0,0,0,0.40);
 }
 
 /* ── Animations ──────────────────────────────────────────────────────────── */

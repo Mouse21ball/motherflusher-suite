@@ -152,7 +152,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       <div
         className={cn(
           "relative flex justify-center",
-          isSelf ? "z-50 mb-4" : "z-10 scale-75 pointer-events-none mb-[-20px]"
+          isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-75 pointer-events-none mb-[-20px]"
         )}
         style={isSelf ? { width: '100%', maxWidth: '420px', margin: '0 auto 16px' } : undefined}
       >
@@ -165,7 +165,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
           const marginLeft = idx === 0 ? 0 : (isSelf ? -22 : -32);
           const rotDeg = isSelf ? 0 : offset * 10;
-          const arcY = isSelf ? 0 : Math.abs(offset) * 5;
+          // Hero cards lift -3px off the felt; opponent cards arc downward naturally
+          const arcY = isSelf ? -3 : Math.abs(offset) * 5;
           const liftY = isSelected ? -14 : 0;
           const scaleVal = isSelected ? 1.03 : 1;
 

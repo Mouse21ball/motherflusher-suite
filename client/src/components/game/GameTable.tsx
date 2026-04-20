@@ -104,11 +104,14 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
 
   const getSeatPosition = (index: number) => {
     const positions = [
+      // Hero — front and center, largest
       "-bottom-3 sm:-bottom-6 left-1/2 -translate-x-1/2 scale-[1.05] sm:scale-110 origin-bottom",
-      "-left-1 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-left",
-      "top-2 sm:top-4 left-[8%] sm:left-[14%] scale-[0.6] sm:scale-[0.7] origin-top-left",
-      "top-2 sm:top-4 right-[8%] sm:right-[14%] scale-[0.6] sm:scale-[0.7] origin-top-right",
-      "-right-1 sm:-right-4 bottom-[8%] sm:bottom-[10%] scale-[0.6] sm:scale-[0.7] origin-bottom-right",
+      // Side seats (1 & 4) — closer than top, slightly bigger than top seats
+      "-left-1 sm:-left-4 bottom-[8%] sm:bottom-[10%] scale-[0.62] sm:scale-[0.72] origin-bottom-left",
+      // Top seats (2 & 3) — farthest, smallest
+      "top-2 sm:top-4 left-[8%] sm:left-[14%] scale-[0.55] sm:scale-[0.64] origin-top-left",
+      "top-2 sm:top-4 right-[8%] sm:right-[14%] scale-[0.55] sm:scale-[0.64] origin-top-right",
+      "-right-1 sm:-right-4 bottom-[8%] sm:bottom-[10%] scale-[0.62] sm:scale-[0.72] origin-bottom-right",
     ];
     return positions[index] || "hidden";
   };
@@ -119,9 +122,9 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
   const showMessage = gameState.phase !== 'SHOWDOWN' && !isIdleMessage;
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-8 sm:mb-24 px-2 sm:px-8">
+    <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-8 mb-8 sm:mb-24 px-2 sm:px-8 table-scene-enter">
       <div className="relative h-[70vh] min-h-[360px] sm:min-h-[560px]">
-        <div className="absolute inset-0 game-table-felt rounded-[100px] sm:rounded-[200px] overflow-hidden shadow-2xl"
+        <div className="absolute inset-0 game-table-felt table-perspective-oval overflow-hidden shadow-2xl"
           style={{ filter: gameState.phase === 'SHOWDOWN' ? 'brightness(0.94)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}>
           <div className="absolute inset-0 felt-overlay mix-blend-overlay"></div>
 
