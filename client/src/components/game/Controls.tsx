@@ -32,7 +32,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
   { label: 'LOW', value: 'LOW', className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-4 glass-panel rounded-t-2xl border-t border-white/[0.04]";
+const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
@@ -77,9 +77,11 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }, [phase, isMyTurn, chips, onAction]);
 
   /* ── Auto next-hand: fires 1700ms after showdown if chips remain ─────── */
+  /* Guard: only the active player's client sends restart to prevent         */
+  /* duplicate triggers when multiple humans are seated at the same table.   */
   const autoRestartFired = useRef(false);
   useEffect(() => {
-    if (phase !== 'SHOWDOWN' || chips <= 0) {
+    if (phase !== 'SHOWDOWN' || chips <= 0 || !isMyTurn) {
       autoRestartFired.current = false;
       return;
     }
@@ -90,7 +92,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       }
     }, 1700);
     return () => clearTimeout(t);
-  }, [phase, chips, onAction]);
+  }, [phase, chips, isMyTurn, onAction]);
 
   if (phase === 'SHOWDOWN') {
     return (
