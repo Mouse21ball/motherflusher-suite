@@ -260,23 +260,40 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     if (phase === 'DRAW_3') maxDiscards = 1;
 
     return (
-      <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset text-center`}>
+      <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset`}>
         {hintEl}
-        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.15em] uppercase">
-          Select up to {maxDiscards} to discard
-          <span className="ml-2 text-[#C9A227]/50 font-bold">{selectedCardsCount}/{maxDiscards}</span>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="text-[10px] font-mono text-white/30 tracking-[0.15em] uppercase">
+            {selectedCardsCount > 0
+              ? <span>Drawing <span className="text-[#C9A227]/70 font-bold">{selectedCardsCount}</span> card{selectedCardsCount !== 1 ? 's' : ''}</span>
+              : 'Tap cards to draw — or Stay'}
+          </div>
+          {selectedCardsCount > 0 && (
+            <span className="text-[10px] font-mono text-white/20">{selectedCardsCount}/{maxDiscards} max</span>
+          )}
         </div>
-        <Button
-          onClick={() => { if (selectedCardsCount > 0) sfx.cardFlip(); else sfx.check(); onAction('draw'); }}
-          size="lg"
-          className={`w-full sm:w-auto font-semibold ${
-            selectedCardsCount > 0
-              ? 'bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]'
-              : 'bg-[#1C1C20] text-white/60 hover:bg-[#242428] hover:text-white/80'
-          }`}
-        >
-          {selectedCardsCount > 0 ? `Discard ${selectedCardsCount}` : 'Stand Pat'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => { sfx.check(); onAction('draw'); }}
+            variant="outline"
+            className="flex-1 border-white/[0.08] text-white/55 hover:bg-white/[0.04] hover:text-white/80 transition-all duration-200"
+            data-testid="button-stay"
+          >
+            Stay
+          </Button>
+          <Button
+            onClick={() => { sfx.cardFlip(); onAction('draw'); }}
+            disabled={selectedCardsCount === 0}
+            className={`flex-1 font-semibold transition-all duration-200 ${
+              selectedCardsCount > 0
+                ? 'bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]'
+                : 'bg-[#1C1C20] text-white/25 cursor-not-allowed'
+            }`}
+            data-testid="button-draw"
+          >
+            Draw {selectedCardsCount > 0 ? selectedCardsCount : ''}
+          </Button>
+        </div>
       </div>
     );
   }

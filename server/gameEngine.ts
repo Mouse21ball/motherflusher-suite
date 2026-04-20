@@ -836,6 +836,17 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── restart: SHOWDOWN → ANTE (manual, overrides 5 s auto-reset) ──────────
     if (action === 'restart' && s.phase === 'SHOWDOWN') {
+      // Guard: if the player clicked restart within the 650ms resolve window,
+      // resolveShowdown hasn't fired yet — pot is still undistributed and no
+      // isWinner is set. Resolve synchronously now so resetToAnte sees the
+      // correct winner/pot state and never shows a false rollover message.
+      // Detection: resolveShowdown appends isResolution messages; absence means
+      // it hasn't run.
+      const resolved = s.messages.some(m => m.isResolution);
+      if (!resolved) {
+        const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
+        table.state = { ...table.state, players: result.players, pot: result.pot };
+      }
       for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
       table.botTimers.clear();
       table.actionLock = false;

@@ -901,6 +901,14 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── restart: SHOWDOWN → ANTE ─────────────────────────────────────────────
     if (action === 'restart' && s.phase === 'SHOWDOWN') {
+      // Guard: if restart fires within the 650ms resolve window, resolveShowdown
+      // hasn't run yet — resolve synchronously so resetToAnte sees the correct
+      // winner/pot state and never shows a false rollover message.
+      const resolved = s.messages.some(m => m.isResolution);
+      if (!resolved) {
+        const result = table.mode.resolveShowdown(s.players, s.pot, '__server__', s.communityCards);
+        table.state = { ...table.state, players: result.players, pot: result.pot };
+      }
       for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
       table.botTimers.clear();
       table.actionLock = false;
