@@ -1,0 +1,103 @@
+Do not add new systems.
+Do not redesign layout.
+Do not change gameplay logic.
+Do not touch 3D/depth/animation work in this pass.
+
+We are now improving HOME CLARITY + MODE INTENT + RETURN PULL in one bundled pass.
+
+Goal:
+A player should immediately understand:
+- what Play does
+- what Create Table does
+- what Private Table means
+- how to continue a session they were already in
+
+This pass should improve comprehension and retention, not add features.
+
+Implement only these 4 things together:
+
+1. QUICK PLAY / PUBLIC / PRIVATE WORDING CLARITY
+
+Current issue:
+The app behavior is getting stronger, but the intent of each path is still not obvious enough.
+
+Required:
+- make it immediately clear what each path means
+- Quick Play / Play should read like:
+  - instant game
+  - joins people first if possible
+  - otherwise starts fast with bots
+- Create Table should read like:
+  - open/public table
+  - others can discover and join
+- Private Table should read like:
+  - invite/code only
+  - not shown publicly
+
+Do this with wording only.
+No new systems.
+No new flow changes.
+No giant copy blocks.
+
+Goal:
+User understands the difference before tapping.
+
+2. HOME SCREEN “CONTINUE SESSION” PULL
+
+Current issue:
+We already have session memory and rejoin behavior, but the pull to come back in is still too weak.
+
+Required:
+- make the existing rejoin/session area feel more compelling
+- improve wording so it feels like:
+  - your table is still live
+  - your run is still going
+  - you can jump right back in
+- keep it subtle, not promotional or spammy
+
+Good examples of tone:
+- Continue your run
+- Your table is live
+- Pick up where you left off
+
+Goal:
+Returning player should feel unfinished business.
+
+3. FIRST-TIME PLAYER CLARITY
+
+Current issue:
+A new player can still hesitate because the app assumes they understand the structure too quickly.
+
+Required:
+- add lightweight first-time clarity in the home experience only
+- make it more obvious what to tap first
+- use existing areas/components if possible
+- no tutorial system
+- no popups
+- no modals
+- no onboarding flow
+
+Goal:
+A first-time player should instantly know where to start.
+
+4. KEEP IT TIGHT / REUSE EXISTING STRUCTURE
+
+Required:
+- reuse existing cards, labels, and session/rejoin area
+- prefer copy/label/hierarchy changes over new UI
+- if a tiny helper line is needed, keep it extremely short
+- do not add clutter
+
+Constraints:
+- no new systems
+- no gameplay changes
+- no backend work unless absolutely required for existing rejoin clarity
+- no new modal/tutorial/onboarding flow
+- no redesign
+- no more visual FX work in this pass
+
+Return only:
+1. which of the 4 were implemented
+2. files changed
+3. exact patch
+4. anything intentionally skipped and why

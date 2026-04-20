@@ -240,24 +240,24 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
         const streakLabel = getStreakLabel();
         return (
           <div
-            className="px-4 py-2.5 flex items-center gap-3 border-b"
-            style={{ borderColor: 'rgba(201,162,39,0.10)', background: 'rgba(201,162,39,0.025)' }}
+            className="px-4 py-3 flex items-center gap-3 border-b"
+            style={{ borderColor: 'rgba(201,162,39,0.14)', background: 'rgba(201,162,39,0.04)' }}
             data-testid="row-rejoin-table"
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[9px] font-mono text-white/30 uppercase tracking-[0.18em]">Pick up where you left off</span>
-                <span className="font-mono font-bold text-[11px]" style={{ color: info.color }}>{rejoinEntry.tableId}</span>
-                <span className="text-[9px] font-mono text-white/25">{info.name}</span>
+                <div className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: '#C9A227', boxShadow: '0 0 5px rgba(201,162,39,0.7)' }} />
+                <span className="text-[11px] font-mono font-bold" style={{ color: 'rgba(201,162,39,0.85)' }}>Your table is still live</span>
+                <span className="font-mono text-[10px]" style={{ color: info.color + 'bb' }}>{info.name} · {rejoinEntry.tableId}</span>
               </div>
               {(sessionDelta !== null || streakLabel) && (
-                <p className="text-[9px] font-mono mt-0.5 tracking-wide" style={{
+                <p className="text-[9px] font-mono mt-0.5 tracking-wide pl-3.5" style={{
                   color: sessionDelta !== null
                     ? (sessionDelta > 0 ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)')
                     : 'rgba(255,255,255,0.30)'
                 }} data-testid="text-session-pnl">
                   {sessionDelta !== null && (
-                    sessionDelta > 0 ? `Up $${sessionDelta} this session` : `Down $${Math.abs(sessionDelta)} this session`
+                    sessionDelta > 0 ? `Up $${sessionDelta} this run` : `Down $${Math.abs(sessionDelta)} this run`
                   )}
                   {sessionDelta !== null && streakLabel && (
                     <span style={{ color: 'rgba(255,255,255,0.22)', marginLeft: '0.45em' }}>· {streakLabel}</span>
@@ -268,11 +268,11 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
             </div>
             <button
               onClick={() => onJoin(rejoinEntry.modeId, rejoinEntry.tableId)}
-              className="shrink-0 text-[10px] font-mono font-bold px-3 py-1 rounded-lg transition-all duration-200 hover:opacity-80 active:scale-95"
-              style={{ color: '#C9A227', backgroundColor: 'rgba(201,162,39,0.10)', border: '1px solid rgba(201,162,39,0.22)' }}
+              className="shrink-0 text-[11px] font-mono font-bold px-3.5 py-1.5 rounded-lg transition-all duration-200 hover:opacity-85 active:scale-95"
+              style={{ color: '#05050A', backgroundColor: 'rgba(201,162,39,0.82)', border: '1px solid rgba(201,162,39,0.55)', boxShadow: '0 2px 8px rgba(201,162,39,0.25)' }}
               data-testid="button-rejoin-table"
             >
-              Rejoin →
+              Back In →
             </button>
           </div>
         );
@@ -735,6 +735,9 @@ export default function Home() {
                       </div>
                       <div className="text-[11px] font-mono mt-0.5" style={{ color: mode.color + 'cc' }}>{mode.tagline}</div>
                       <p className="text-sm text-white/50 mt-1.5 leading-snug">{mode.description}</p>
+                      {stats.handsPlayed === 0 && (
+                        <p className="text-[10px] font-mono mt-1.5" style={{ color: mode.color + '80' }}>New here — tap Quick Play and you're at a table in seconds.</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-2">
@@ -744,12 +747,15 @@ export default function Home() {
                         <span className="text-[10px] font-mono text-white/55">{tbl} tables live</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
-                      <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
-                        style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
-                        Play →
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
+                        <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
+                          style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
+                          Quick Play →
+                        </div>
                       </div>
+                      <span className="text-[9px] font-mono text-white/25">Joins real players · bots fill if needed</span>
                     </div>
                   </div>
                 </div>
@@ -813,30 +819,36 @@ export default function Home() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
-                <div className="text-base font-bold text-white/92 font-sans">Run it with Your Crew</div>
+                <div className="text-base font-bold text-white/92 font-sans">Play with Your Crew</div>
                 <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                  All 5 games support real multiplayer — up to 5 players per table. Pick a game, share your link. No account, no download.
+                  All 5 games support up to 5 real players. Open a table anyone can find — or go private and share your code with specific people.
                 </p>
               </div>
               <div className="text-3xl shrink-0 anim-float-coin">⛓️</div>
             </div>
             <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => navigate('/badugi')}
-                className="flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
-                style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 12px ${C.emerald}70` }}
-                data-testid="button-create-table"
-              >
-                Create Table
-              </button>
-              <button
-                onClick={() => navigateToMode('swing', '/swing')}
-                className="flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200"
-                style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
-                data-testid="button-browse-tables"
-              >
-                Mother Flusher
-              </button>
+              <div className="flex-1 flex flex-col gap-0.5">
+                <button
+                  onClick={() => navigate('/badugi')}
+                  className="w-full h-10 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
+                  style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 12px ${C.emerald}70` }}
+                  data-testid="button-create-table"
+                >
+                  Open a Table
+                </button>
+                <span className="text-[9px] font-mono text-white/25 text-center">Public · listed · anyone can join</span>
+              </div>
+              <div className="flex-1 flex flex-col gap-0.5">
+                <button
+                  onClick={() => { const code = generateTableCode(); navigate(`/badugi?t=${code}`); }}
+                  className="w-full h-10 rounded-xl text-sm font-bold border transition-all duration-200 active:scale-[0.98]"
+                  style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
+                  data-testid="button-private-table"
+                >
+                  Private Table
+                </button>
+                <span className="text-[9px] font-mono text-white/25 text-center">Code-only · not listed</span>
+              </div>
             </div>
           </div>
 
