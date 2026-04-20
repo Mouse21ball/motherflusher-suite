@@ -135,11 +135,11 @@ export const Fifteen35Mode: GameMode = {
         const distToLow = total < 13 ? 13 - total : (total > 15 ? 999 : 0);
         const distToHigh = total > 35 ? 999 : (total < 33 ? 33 - total : 0);
         const bestDist = Math.min(distToLow, distToHigh);
-        if (bestDist <= 2) strength = 0.32 - bot.cards.length * 0.02;
-        else if (bestDist <= 5) strength = 0.24 - bot.cards.length * 0.02;
-        else if (bestDist <= 10) strength = 0.16 - bot.cards.length * 0.01;
-        else strength = 0.08;
-        strength = Math.max(strength, 0.05);
+        if (bestDist <= 2) strength = 0.44 - bot.cards.length * 0.02;
+        else if (bestDist <= 5) strength = 0.34 - bot.cards.length * 0.02;
+        else if (bestDist <= 10) strength = 0.24 - bot.cards.length * 0.01;
+        else strength = 0.12;
+        strength = Math.max(strength, 0.08);
       }
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);

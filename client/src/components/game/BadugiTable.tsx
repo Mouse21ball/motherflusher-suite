@@ -7,6 +7,9 @@ import { ReactionBar } from "./ReactionBar";
 import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
+import { evaluateBadugi } from "@/lib/poker/modes/badugi";
+import { evaluateDead7 } from "@/lib/poker/modes/dead7";
+import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -18,6 +21,7 @@ interface BadugiTableProps {
   heroCardClassName?: string;
   onReact?: (emoji: string) => void;
   incomingReactions?: ReactionEvent[];
+  modeId?: string;
 }
 
 // Scale per seat position — back/top seats are smaller (farther), side seats larger (closer).
@@ -63,7 +67,7 @@ function getOpponentPosition(index: number, total: number): string {
 
 export function BadugiTable({
   gameState, myId, selectedCardIndices, onCardClick, selectableCards,
-  showVisibleCount, heroCardClassName, onReact, incomingReactions,
+  showVisibleCount, heroCardClassName, onReact, incomingReactions, modeId,
 }: BadugiTableProps) {
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
@@ -74,6 +78,40 @@ export function BadugiTable({
 
   const opponents = orderedPlayers.slice(1);
   const me = orderedPlayers[0];
+
+  // ── Hero made-hand status ─────────────────────────────────────────────────
+  // Only shown hero-side, only when cards are held, only outside showdown.
+  const showMadeStatus =
+    !!me &&
+    me.cards.length > 0 &&
+    gameState.phase !== 'SHOWDOWN' &&
+    gameState.phase !== 'WAITING' &&
+    gameState.phase !== 'ANTE' &&
+    gameState.phase !== 'DEAL';
+
+  let heroIsMade = false;
+  let heroMadeLabel = '';
+  if (showMadeStatus && me) {
+    if (modeId === 'badugi') {
+      const ev = evaluateBadugi(me.cards);
+      heroIsMade = !!ev?.isValidBadugi;
+      heroMadeLabel = heroIsMade ? `✓ ${ev!.description}` : '✗ No Badugi yet';
+    } else if (modeId === 'dead7') {
+      const ev = evaluateDead7(me.cards.map(c => ({ ...c, isHidden: false })));
+      heroIsMade = !!ev?.isValidBadugi;
+      if (ev?.isDead) heroMadeLabel = '✗ Dead — has a 7';
+      else if (heroIsMade) heroMadeLabel = `✓ ${ev!.description}`;
+      else heroMadeLabel = '✗ No qualifier yet';
+    } else if (modeId === 'fifteen35') {
+      const ev = Fifteen35Mode.evaluateHand?.(me, []);
+      heroIsMade = !!ev?.isValidBadugi;
+      heroMadeLabel = heroIsMade
+        ? `✓ ${ev!.description}`
+        : ev?.description?.includes('BUST')
+          ? '✗ Bust'
+          : '✗ No qualifier yet';
+    }
+  }
 
   const drawNumber = gameState.phase === 'DRAW_1' ? 1 : gameState.phase === 'DRAW_2' ? 2 : gameState.phase === 'DRAW_3' ? 3 : 0;
   const isDrawPhase = drawNumber > 0;
@@ -391,6 +429,27 @@ export function BadugiTable({
             data-testid="text-last-result-echo"
           >
             {lastResultEcho.text}
+          </div>
+        </div>
+      )}
+
+      {/* Hero made-hand status badge — tucked between felt edge and hero seat */}
+      {showMadeStatus && heroMadeLabel && (
+        <div className="w-full flex justify-center relative z-30 mb-[-4px] mt-1" data-testid="text-hero-made-status">
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-semibold tracking-wide border transition-all duration-500"
+            style={heroIsMade ? {
+              backgroundColor: 'rgba(0,200,150,0.10)',
+              borderColor: 'rgba(0,200,150,0.30)',
+              color: 'rgba(0,200,150,0.90)',
+              boxShadow: '0 0 8px rgba(0,200,150,0.12)',
+            } : {
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              borderColor: 'rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.35)',
+            }}
+          >
+            {heroMadeLabel}
           </div>
         </div>
       )}

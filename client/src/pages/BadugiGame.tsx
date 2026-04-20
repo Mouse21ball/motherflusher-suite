@@ -207,6 +207,7 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
           onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
+          modeId="badugi"
         />
       </main>
 

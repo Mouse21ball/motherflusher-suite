@@ -82,7 +82,7 @@ function Dead7GameServer({ tableId }: { tableId: string }) {
         </div>
       )}
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <BadugiTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={isSpectator ? [] : selectedCardIndices} onCardClick={handleCardClick} selectableCards={!isSpectator && isDrawPhase} heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]" />
+        <BadugiTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={isSpectator ? [] : selectedCardIndices} onCardClick={handleCardClick} selectableCards={!isSpectator && isDrawPhase} heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]" modeId="dead7" />
       </main>
       {xpToast && xpToast.xpGained > 0 && <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />}
       {!isSpectator && (
@@ -128,7 +128,7 @@ function Dead7GameClient() {
       <ModeIntro modeId="dead7" {...MODE_INTROS.dead7} />
       <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('dead7', me.chips); }} />
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <BadugiTable gameState={state} myId={myId} selectedCardIndices={selectedCardIndices} onCardClick={handleCardClick} selectableCards={isDrawPhase} heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]" />
+        <BadugiTable gameState={state} myId={myId} selectedCardIndices={selectedCardIndices} onCardClick={handleCardClick} selectableCards={isDrawPhase} heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]" modeId="dead7" />
       </main>
       {xpToast && xpToast.xpGained > 0 && <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />}
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">

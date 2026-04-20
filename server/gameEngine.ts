@@ -9,7 +9,7 @@
 
 import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent } from '../shared/gameTypes';
-import { BadugiMode } from '../shared/modes/badugi';
+import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 
@@ -341,6 +341,44 @@ function advanceToNextPhase(table: AuthTable): void {
     pot: table.state.pot,
     active: table.state.activePlayerId,
   });
+
+  // ── DECLARE: auto-fold any active player who does not hold a valid Badugi ───
+  // Bots handle this themselves in botAction; here we catch human players so
+  // they are never shown a declaration prompt with a dead hand.
+  if (nextPhase === 'DECLARE') {
+    const declPlayers = [...table.state.players];
+    const foldMsgs: string[] = [];
+    let anyAutoFolded = false;
+    for (let i = 0; i < declPlayers.length; i++) {
+      const p = declPlayers[i];
+      if (p.status !== 'active') continue;
+      const ev = evaluateBadugi(p.cards);
+      if (!ev?.isValidBadugi) {
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
+        foldMsgs.push(`${p.name} has no Badugi — auto-folded`);
+        anyAutoFolded = true;
+      }
+    }
+    if (anyAutoFolded) {
+      let st = { ...table.state, players: declPlayers };
+      for (const msg of foldMsgs) st = addMsg(st, msg);
+      // Update activePlayerId to next un-acted active player after auto-folds
+      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
+      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
+      table.state = st;
+      // If all were auto-folded, schedule phase advance explicitly
+      if (isRoundOver(table.state)) {
+        const fenced = table.handId;
+        const fencedPhase = table.state.phase;
+        setTimeout(() => {
+          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
+          advanceToNextPhase(table);
+          broadcastState(table);
+          scheduleNextBot(table);
+        }, 450);
+      }
+    }
+  }
 
   // ── DEAL is automatic: deal cards, then advance to DRAW_1 after 400ms ──────
   if (nextPhase === 'DEAL') {

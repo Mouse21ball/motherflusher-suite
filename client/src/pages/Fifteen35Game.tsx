@@ -64,7 +64,7 @@ function Fifteen35GameServer({ tableId }: { tableId: string }) {
         </div>
       )}
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <BadugiTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={[]} onCardClick={() => {}} selectableCards={false} showVisibleCount={true} />
+        <BadugiTable gameState={state} myId={isSpectator ? 'p1' : myId} selectedCardIndices={[]} onCardClick={() => {}} selectableCards={false} showVisibleCount={true} modeId="fifteen35" />
       </main>
       {xpToast && xpToast.xpGained > 0 && <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />}
       {!isSpectator && (
@@ -91,7 +91,7 @@ function Fifteen35GameClient() {
       <ModeIntro modeId="fifteen35" {...MODE_INTROS.fifteen35} />
       <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('fifteen35', me.chips); }} />
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
-        <BadugiTable gameState={state} myId={myId} selectedCardIndices={[]} onCardClick={() => {}} selectableCards={false} showVisibleCount={true} />
+        <BadugiTable gameState={state} myId={myId} selectedCardIndices={[]} onCardClick={() => {}} selectableCards={false} showVisibleCount={true} modeId="fifteen35" />
       </main>
       {xpToast && xpToast.xpGained > 0 && <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />}
       <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">

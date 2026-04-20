@@ -16,20 +16,24 @@ export function decideBet(
   options?: { bluffFreq?: number; passiveExtra?: number }
 ): BetDecision {
   const callAmount = currentBet - myBet;
-  const bluffFreq = options?.bluffFreq ?? 0.08;
+  const bluffFreq = options?.bluffFreq ?? 0.13;
   const passive = options?.passiveExtra ?? 0;
 
   if (callAmount >= chips) {
-    return strength > 0.35 ? { action: 'call' } : { action: 'fold' };
+    return strength > 0.3 ? { action: 'call' } : { action: 'fold' };
   }
 
+  // Occasional overbet sizing — adds unpredictability
+  const useOverbet = Math.random() < 0.18;
+  const sizeMult = useOverbet ? (0.65 + strength * 0.85) : (0.3 + strength * 0.5);
+
   if (callAmount === 0) {
-    if (strength > 0.6 - passive * 0.15 && Math.random() < 0.35 + strength * 0.35) {
-      const size = clampRaise(Math.floor(pot * (0.3 + strength * 0.5)), chips);
+    if (strength > 0.45 - passive * 0.12 && Math.random() < 0.40 + strength * 0.45) {
+      const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
-    if (strength < 0.2 && Math.random() < bluffFreq) {
-      const size = clampRaise(Math.floor(pot * 0.4), chips);
+    if (strength < 0.25 && Math.random() < bluffFreq) {
+      const size = clampRaise(Math.floor(pot * (useOverbet ? 0.6 : 0.4)), chips);
       return { action: 'raise', raiseAmount: size };
     }
     return { action: 'check' };
@@ -37,20 +41,20 @@ export function decideBet(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  if (strength > 0.7 - passive * 0.1 && Math.random() < 0.3 + strength * 0.4) {
-    const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * (0.3 + strength * 0.4))), chips);
+  if (strength > 0.55 - passive * 0.1 && Math.random() < 0.38 + strength * 0.45) {
+    const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }
 
-  if (strength > potOdds * 0.7) {
+  if (strength > potOdds * 0.65) {
     return { action: 'call' };
   }
 
-  if (potOdds < 0.2 && strength > 0.12) {
+  if (potOdds < 0.22 && strength > 0.10) {
     return { action: 'call' };
   }
 
-  if (Math.random() < bluffFreq && strength < 0.15 && chips > callAmount * 3) {
+  if (Math.random() < bluffFreq && strength < 0.18 && chips > callAmount * 3) {
     const size = clampRaise(callAmount * 2 + 2, chips);
     return { action: 'raise', raiseAmount: size };
   }

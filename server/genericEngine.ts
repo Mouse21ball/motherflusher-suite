@@ -4,7 +4,7 @@
 
 import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent, GameMode } from '../shared/gameTypes';
-import { Dead7Mode } from '../shared/modes/dead7';
+import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SwingPokerMode } from '../shared/modes/swing';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
@@ -345,6 +345,46 @@ function advanceToNextPhase(table: GenericTable): void {
   }, nextPhase.replace(/_/g, ' '));
 
   engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: prevPhase, to: nextPhase });
+
+  // ── DECLARE (Dead7 only): auto-fold any active player without a valid hand ───
+  // In Dead7, a valid hand means qualifying high or qualifying low (no 7s, no dup ranks).
+  // Bots handle this themselves via botAction; we intercept here for human players
+  // so they are never shown a declaration prompt with a dead/invalid hand.
+  if (nextPhase === 'DECLARE' && table.modeId === 'dead7') {
+    const declPlayers = [...table.state.players];
+    const foldMsgs: string[] = [];
+    let anyAutoFolded = false;
+    for (let i = 0; i < declPlayers.length; i++) {
+      const p = declPlayers[i];
+      if (p.status !== 'active') continue;
+      const ev = evaluateDead7(p.cards.map(c => ({ ...c, isHidden: false })));
+      if (!ev || !ev.isValidBadugi) {
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
+        const reason = ev?.isDead ? 'holds a 7' : 'has no qualifying hand';
+        foldMsgs.push(`${p.name} ${reason} — auto-folded`);
+        anyAutoFolded = true;
+      }
+    }
+    if (anyAutoFolded) {
+      let st = { ...table.state, players: declPlayers };
+      for (const msg of foldMsgs) st = addMsg(st, msg);
+      // Update activePlayerId to next un-acted active player after auto-folds
+      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
+      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
+      table.state = st;
+      // If all were auto-folded, schedule phase advance explicitly
+      if (isPhaseRoundOver(table.state)) {
+        const fenced = table.handId;
+        const fencedPhase = table.state.phase;
+        setTimeout(() => {
+          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
+          advanceToNextPhase(table);
+          broadcastState(table);
+          scheduleNextBot(table);
+        }, 450);
+      }
+    }
+  }
 
   // DEAL: auto-deal cards, then advance after brief pause
   if (nextPhase === 'DEAL') {

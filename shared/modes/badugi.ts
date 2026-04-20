@@ -186,10 +186,10 @@ export const BadugiMode: GameMode = {
           }
         }
         const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
-        if (goodCount >= 3 && hasDrawsLeft) strength = 0.25;
-        else if (goodCount >= 3) strength = 0.18;
-        else if (hasDrawsLeft) strength = 0.10;
-        else strength = 0.06;
+        if (goodCount >= 3 && hasDrawsLeft) strength = 0.42;
+        else if (goodCount >= 3) strength = 0.32;
+        else if (hasDrawsLeft) strength = 0.20;
+        else strength = 0.10;
       }
 
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);

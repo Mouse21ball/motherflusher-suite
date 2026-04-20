@@ -180,10 +180,10 @@ export const Dead7Mode: GameMode = {
           const lowCount = vals.filter(v => v <= 6).length;
           const bestSideCount = Math.max(highCount, lowCount);
           const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
-          if (bestSideCount >= 3 && hasDrawsLeft) strength = 0.24;
-          else if (bestSideCount >= 3) strength = 0.15;
-          else if (hasDrawsLeft) strength = 0.10;
-          else strength = 0.08;
+          if (bestSideCount >= 3 && hasDrawsLeft) strength = 0.40;
+          else if (bestSideCount >= 3) strength = 0.28;
+          else if (hasDrawsLeft) strength = 0.20;
+          else strength = 0.12;
         } else if (eval7.isFlush) strength = 0.95;
         else if (eval7.isBadugi) strength = 0.85;
         else if (eval7.isValidHigh || eval7.isValidLow) {
