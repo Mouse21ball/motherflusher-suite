@@ -336,6 +336,27 @@
   will-change: transform;
 }
 
+/* ── Home screen card elevation ─────────────────────────────────────────── */
+.home-hero-card {
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.55),
+    0 10px 32px rgba(0,0,0,0.40),
+    0 0 70px rgba(0,200,150,0.07);
+}
+.home-hero-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 20px rgba(0,0,0,0.65),
+    0 22px 56px rgba(0,0,0,0.50),
+    0 0 90px rgba(0,200,150,0.13);
+}
+.home-player-card {
+  box-shadow:
+    0 0 40px rgba(240,184,41,0.10),
+    0 8px 28px rgba(0,0,0,0.50),
+    inset 0 1px 0 rgba(240,184,41,0.08);
+}
+
 /* ── Card depth shadow — for community card wrappers ───────────────────── */
 .card-depth-shadow {
   filter:

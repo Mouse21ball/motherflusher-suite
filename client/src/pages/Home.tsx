@@ -503,12 +503,21 @@ export default function Home() {
 
       {/* ── Deep multi-layer ambience ─────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.16) 0%, transparent 70%)' }} />
-        <div className="absolute top-1/3 -right-32 w-80 h-80 rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.08) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 -left-20 w-72 h-72 rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(255,107,0,0.06) 0%, transparent 70%)' }} />
+        {/* Primary warm ceiling — gold depth anchor */}
+        <div className="absolute -top-52 left-1/2 -translate-x-1/2 w-[940px] h-[640px] rounded-full"
+          style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.22) 0%, rgba(240,184,41,0.06) 44%, transparent 70%)' }} />
+        {/* Right mid: emerald depth plane */}
+        <div className="absolute top-[26%] -right-40 w-[440px] h-[440px] rounded-full"
+          style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.11) 0%, transparent 70%)' }} />
+        {/* Bottom left: orange ember warmth */}
+        <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full"
+          style={{ background: 'radial-gradient(ellipse, rgba(255,107,0,0.07) 0%, transparent 70%)' }} />
+        {/* Center anchor: subtle glow behind game card area */}
+        <div className="absolute top-[46%] left-1/2 -translate-x-1/2 w-[520px] h-[320px] rounded-full"
+          style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.05) 0%, transparent 70%)' }} />
+        {/* Bottom vignette: grounds the page */}
+        <div className="absolute bottom-0 inset-x-0 h-52"
+          style={{ background: 'linear-gradient(to top, rgba(5,5,10,0.65) 0%, transparent 100%)' }} />
       </div>
 
       {/* ── Achievement toasts ─────────────────────────────────────────────── */}
@@ -588,11 +597,10 @@ export default function Home() {
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
           <div
-            className="w-full rounded-2xl p-4 relative overflow-hidden"
+            className="w-full rounded-2xl p-4 relative overflow-hidden home-player-card"
             style={{
-              background: `linear-gradient(135deg, rgba(240,184,41,0.09) 0%, rgba(255,107,0,0.04) 60%, rgba(0,200,150,0.04) 100%)`,
-              border: `1px solid rgba(240,184,41,0.18)`,
-              boxShadow: '0 0 30px rgba(240,184,41,0.05)',
+              background: `linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(255,107,0,0.045) 60%, rgba(0,200,150,0.045) 100%)`,
+              border: `1px solid rgba(240,184,41,0.24)`,
             }}
           >
             <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-2xl opacity-60" />
@@ -710,7 +718,7 @@ export default function Home() {
             return (
               <button
                 onClick={() => navigateToMode(mode.id, mode.path)}
-                className="w-full text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.99] group"
+                className="w-full text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.99] group home-hero-card"
                 style={{ background: mode.bg, border: `1px solid ${mode.border}` }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
