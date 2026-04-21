@@ -68,18 +68,6 @@ export function useGameToasts(
       }
     }
 
-    if (curr === "SHOWDOWN" && me) {
-      setTimeout(() => {
-        const isRollover = state.pot > 0;
-
-        if (isRollover) {
-          toast({
-            title: "Rollover",
-            description: `$${state.pot} carries to the next hand.`,
-            duration: 3500,
-          });
-        }
-      }, 1200);
-    }
+    
   }, [state.phase, state.pot, myChips, me, toast, modeName]);
 }

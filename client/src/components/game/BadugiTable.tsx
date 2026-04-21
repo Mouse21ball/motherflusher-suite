@@ -433,44 +433,44 @@ export function BadugiTable({
         </div>
       )}
 
-      {/* Hero made-hand status badge — tucked between felt edge and hero seat */}
-      {showMadeStatus && heroMadeLabel && (
-        <div className="w-full flex justify-center relative z-30 mb-[-4px] mt-1" data-testid="text-hero-made-status">
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-semibold tracking-wide border transition-all duration-500"
-            style={heroIsMade ? {
-              backgroundColor: 'rgba(0,200,150,0.10)',
-              borderColor: 'rgba(0,200,150,0.30)',
-              color: 'rgba(0,200,150,0.90)',
-              boxShadow: '0 0 8px rgba(0,200,150,0.12)',
-            } : {
-              backgroundColor: 'rgba(255,255,255,0.03)',
-              borderColor: 'rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.35)',
-            }}
-          >
-            {heroMadeLabel}
-          </div>
-        </div>
-      )}
-
       {/* Hero seat — rendered below the felt with overlap */}
       <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30 hero-seat-depth">
         {me && (
-          <PlayerSeat
-            player={me}
-            seatNumber={0}
-            isActive={me.id === gameState.activePlayerId}
-            isSelf={true}
-            selectedCardIndices={selectedCardIndices}
-            onCardClick={onCardClick}
-            selectableCards={selectableCards}
-            showdownState={isShowdown}
-            showVisibleCount={showVisibleCount}
-            heroCardClassName={heroCardClassName}
-            isStackLeader={stackLeaderId === me.id}
-            className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
-          />
+          <div className="flex flex-col items-center gap-2 w-full">
+            {/* Hero made-hand status badge — inside the hero area, always visible */}
+            {showMadeStatus && heroMadeLabel && (
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide border transition-all duration-400"
+                data-testid="text-hero-made-status"
+                style={heroIsMade ? {
+                  backgroundColor: 'rgba(0,200,150,0.20)',
+                  borderColor: 'rgba(0,200,150,0.60)',
+                  color: 'rgb(0,230,170)',
+                  boxShadow: '0 0 12px rgba(0,200,150,0.28)',
+                } : {
+                  backgroundColor: 'rgba(248,113,113,0.12)',
+                  borderColor: 'rgba(248,113,113,0.40)',
+                  color: 'rgba(252,165,165,0.90)',
+                }}
+              >
+                {heroMadeLabel}
+              </div>
+            )}
+            <PlayerSeat
+              player={me}
+              seatNumber={0}
+              isActive={me.id === gameState.activePlayerId}
+              isSelf={true}
+              selectedCardIndices={selectedCardIndices}
+              onCardClick={onCardClick}
+              selectableCards={selectableCards}
+              showdownState={isShowdown}
+              showVisibleCount={showVisibleCount}
+              heroCardClassName={heroCardClassName}
+              isStackLeader={stackLeaderId === me.id}
+              className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
+            />
+          </div>
         )}
       </div>
 

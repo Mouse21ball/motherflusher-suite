@@ -17,24 +17,14 @@ interface ResolutionOverlayProps {
 }
 
 function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | null, heroChipChange?: number): {
-  type: 'win' | 'loss' | 'split' | 'uncontested' | 'rollover';
+  type: 'win' | 'loss' | 'split' | 'uncontested';
   primary: string;
   secondary: string;
   details: string[];
 } {
   const texts = messages.map(m => m.text);
 
-  const isRollover = texts.some(t => /rolls?\s*over|carries?\s*forward|No qualif/i.test(t));
   const isSplit = texts.some(t => /Split Pot/i.test(t));
-
-  if (isRollover) {
-    return {
-      type: 'rollover',
-      primary: 'No qualifying hands',
-      secondary: 'Pot carries forward',
-      details: texts.filter(t => !/No qualif|rolls?\s*over/i.test(t)),
-    };
-  }
 
   const net = heroChipChange ?? 0;
   const absNet = Math.abs(net);
