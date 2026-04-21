@@ -129,28 +129,37 @@ function convertReservedToBots(table: GenericTable): void {
   table.joinWindowEndsAt = 0;
 }
 
-// Quick-fill: immediately convert all reserved seats EXCEPT the last one to bots.
-// Used for Quick Play tables so the creator starts with 3 bot opponents right away
-// while keeping 1 open seat for a human to claim if they navigate to the table.
+// Quick-fill: immediately seat bots up to the human-count-aware cap.
+// 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
+// Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: GenericTable): void {
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return;
-  const keepOpen = reserved[reserved.length - 1].id;
+  const humanCount = table.state.players.filter(p => p.presence === 'human').length;
+  const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
+  const toFill     = reserved.slice(0, maxBots);
+  if (toFill.length === 0) return;
+  const fillIds = new Set(toFill.map(p => p.id));
   table.state = {
     ...table.state,
     players: table.state.players.map(p => {
-      if (p.presence !== 'reserved' || p.id === keepOpen) return p;
+      if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
       return { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id };
     }),
   };
   table.joinWindowEndsAt = 0;
 }
 
+// Convert exactly ONE reserved seat (lowest id) to a bot.
+// Bot ceiling: 1 human → max 2 bots; 2 humans → max 1 bot; 3+ humans → 0 bots.
+// Keeps seats open so real players can always find a table with room.
 function convertOneReservedToBot(table: GenericTable): boolean {
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
   const humanCount = table.state.players.filter(p => p.presence === 'human').length;
-  if (reserved.length <= 1 && humanCount >= 2) return false;
+  const botCount   = table.state.players.filter(p => p.presence === 'bot').length;
+  const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
+  if (botCount >= maxBots) return false;
   const first = reserved[0];
   if (!first) return false;
   table.state = {
