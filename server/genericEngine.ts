@@ -427,6 +427,23 @@ function advanceToNextPhase(table: GenericTable): void {
       return;
     }
   }
+
+  // ── All-in bypass: BET phases ─────────────────────────────────────────────
+  // When every active player is already all-in (chips=0) entering a BET phase,
+  // nobody can act. getNextActivePlayerIndex falls back to a seat that may be the
+  // human hero — scheduleNextBot then exits immediately (human, not bot) and the
+  // engine freezes. Detect this on entry and auto-advance after a brief display
+  // delay, matching the same pattern used for the DECLARE all-fold case above.
+  if (isBetRound && isPhaseRoundOver(table.state)) {
+    const fencedHand  = table.handId;
+    const fencedPhase = table.state.phase;
+    setTimeout(() => {
+      if (table.handId !== fencedHand || table.state.phase !== fencedPhase) return;
+      advanceToNextPhase(table);
+      broadcastState(table);
+      scheduleNextBot(table);
+    }, 400);
+  }
 }
 
 // ─── Deal cards ───────────────────────────────────────────────────────────────
@@ -621,6 +638,24 @@ function scheduleNextBot(table: GenericTable): void {
   if (!state.activePlayerId) return;
 
   const active = state.players.find(p => p.id === state.activePlayerId);
+
+  // Safety net: if a human player is marked active but cannot act (all-in, chips=0)
+  // in a BET phase, the normal bot-scheduling path exits here and nothing runs.
+  // Catch that stall and auto-advance if the round is already complete.
+  if (active && active.presence !== 'bot' && active.chips === 0 &&
+      (state.phase.startsWith('BET') || state.phase === 'DECLARE_AND_BET') &&
+      isPhaseRoundOver(state)) {
+    const fencedHand  = table.handId;
+    const fencedPhase = table.state.phase;
+    setTimeout(() => {
+      if (table.handId !== fencedHand || table.state.phase !== fencedPhase) return;
+      advanceToNextPhase(table);
+      broadcastState(table);
+      scheduleNextBot(table);
+    }, 400);
+    return;
+  }
+
   if (!active || active.presence !== 'bot' || active.status !== 'active') return;
   if (table.humanSeats.has(active.id)) return;
 
