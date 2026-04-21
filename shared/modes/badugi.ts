@@ -194,7 +194,10 @@ export const BadugiMode: GameMode = {
         else                                   strength = 0.05; // no draw, no hand — fold
       }
 
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const heroPlayer = state.players.find(p => p.presence === 'human');
+      const heroWeak   = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
+      const largePot   = state.pot >= 20;
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot;

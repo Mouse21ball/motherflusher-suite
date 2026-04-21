@@ -13,26 +13,44 @@ export function decideBet(
   currentBet: number,
   myBet: number,
   chips: number,
-  options?: { bluffFreq?: number; passiveExtra?: number }
+  options?: {
+    bluffFreq?: number;
+    passiveExtra?: number;
+    heroWeak?: boolean;
+    largePot?: boolean;
+  }
 ): BetDecision {
   const callAmount = currentBet - myBet;
-  const bluffFreq = options?.bluffFreq ?? 0.13;
-  const passive = options?.passiveExtra ?? 0;
+  const bluffFreq  = options?.bluffFreq   ?? 0.13;
+  const passive    = options?.passiveExtra ?? 0;
+
+  // ── Human imperfection jitter ─────────────────────────────────────────────
+  // ±0.04 variance per call so threshold crossings feel less mechanical.
+  // A bot that is "just below" a raise gate will occasionally cross it, and
+  // one that is "just above" a fold threshold will occasionally miss.
+  const jitter = (Math.random() - 0.5) * 0.08;
+  const s = Math.max(0, Math.min(1, strength + jitter));
+
+  // ── Context pressure modifiers ────────────────────────────────────────────
+  // largePot: a big pot raises the stakes — bots raise more, check less.
+  // heroWeak: hero looks unmade/drawing — punish with extra aggression.
+  const aggBonus = (options?.largePot ? 0.07 : 0) + (options?.heroWeak ? 0.09 : 0);
 
   if (callAmount >= chips) {
-    return strength > 0.3 ? { action: 'call' } : { action: 'fold' };
+    return s > 0.3 ? { action: 'call' } : { action: 'fold' };
   }
 
   // Occasional overbet sizing — adds unpredictability
   const useOverbet = Math.random() < 0.18;
-  const sizeMult = useOverbet ? (0.65 + strength * 0.85) : (0.3 + strength * 0.5);
+  const sizeMult = useOverbet ? (0.65 + s * 0.85) : (0.3 + s * 0.5);
 
   if (callAmount === 0) {
-    if (strength > 0.45 - passive * 0.12 && Math.random() < 0.40 + strength * 0.45) {
+    // Open-raise gate lowered by aggBonus: big pots / weak heroes get pushed.
+    if (s + aggBonus > 0.45 - passive * 0.12 && Math.random() < 0.40 + s * 0.45) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
-    if (strength < 0.25 && Math.random() < bluffFreq) {
+    if (s < 0.25 && Math.random() < bluffFreq) {
       const size = clampRaise(Math.floor(pot * (useOverbet ? 0.6 : 0.4)), chips);
       return { action: 'raise', raiseAmount: size };
     }
@@ -41,20 +59,21 @@ export function decideBet(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  if (strength > 0.55 - passive * 0.1 && Math.random() < 0.38 + strength * 0.45) {
+  // Re-raise gate also lowered by aggBonus.
+  if (s + aggBonus > 0.55 - passive * 0.1 && Math.random() < 0.38 + s * 0.45) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }
 
-  if (strength > potOdds * 0.65) {
+  if (s > potOdds * 0.65) {
     return { action: 'call' };
   }
 
-  if (potOdds < 0.22 && strength > 0.10) {
+  if (potOdds < 0.22 && s > 0.10) {
     return { action: 'call' };
   }
 
-  if (Math.random() < bluffFreq && strength < 0.18 && chips > callAmount * 3) {
+  if (Math.random() < bluffFreq && s < 0.18 && chips > callAmount * 3) {
     const size = clampRaise(callAmount * 2 + 2, chips);
     return { action: 'raise', raiseAmount: size };
   }

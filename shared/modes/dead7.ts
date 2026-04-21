@@ -193,7 +193,11 @@ export const Dead7Mode: GameMode = {
           else strength = 0.35 + (6 - worst) * 0.08;
         }
       }
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips);
+      const heroPlayer = state.players.find(p => p.presence === 'human');
+      const heroEval   = heroPlayer?.cards.length === 4 ? evaluateDead7(heroPlayer.cards) : null;
+      const heroWeak   = heroEval ? !heroEval.isValidBadugi : false;
+      const largePot   = state.pot >= 20;
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot; newCurrentBet = result.currentBet; message = result.message;
