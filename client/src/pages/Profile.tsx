@@ -6,6 +6,7 @@ import {
 } from '@/lib/progression';
 import { getStreakInfo, getDailyRewardState } from '@/lib/dailyReward';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips } from '@/lib/persistence';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 const RARITY_COLORS: Record<string, string> = {
   common: 'text-white/50 border-white/10 bg-white/[0.03]',
@@ -27,7 +28,6 @@ export default function Profile() {
   const identity = ensurePlayerIdentity();
   const progression = getProgression();
   const levelInfo = getLevelInfo(progression.xp);
-  const rank = getRankForLevel(levelInfo.level);
   const stats = getPlayerStats();
   const chips = getAllChips();
   const streakInfo = getStreakInfo();
@@ -35,6 +35,17 @@ export default function Profile() {
   const initials = getAvatarInitials(identity.name);
   const avatarColor = getAvatarColor(identity.avatarSeed);
   const totalChips = Object.values(chips).reduce((s, c) => s + c, 0);
+
+  const { profile: serverProfile } = useServerProfile();
+
+  // Use server-authoritative values when available; fall back to localStorage.
+  const displayChips  = serverProfile?.chipBalance    ?? totalChips;
+  const displayHands  = serverProfile?.handsPlayed    ?? stats.handsPlayed;
+  const displayNet    = serverProfile?.lifetimeProfit ?? stats.totalChipChange;
+  const displayLevel  = serverProfile?.level          ?? levelInfo.level;
+
+  // Rank derived from displayLevel so badge text and rank color stay consistent.
+  const rank = getRankForLevel(displayLevel);
 
   const [tab, setTab] = useState<'overview' | 'achievements'>('overview');
 
@@ -81,7 +92,7 @@ export default function Profile() {
               style={{ backgroundColor: rank.color, color: '#0B0B0D' }}
               data-testid="badge-level"
             >
-              {levelInfo.level}
+              {displayLevel}
             </div>
           </div>
 
@@ -123,10 +134,10 @@ export default function Profile() {
         {/* Stats row */}
         <div className="w-full grid grid-cols-4 gap-2">
           {[
-            { label: 'Hands', value: stats.handsPlayed.toString() },
+            { label: 'Hands', value: displayHands.toString() },
             { label: 'Win%', value: `${stats.winRate}%` },
-            { label: 'Net', value: `${stats.totalChipChange >= 0 ? '+' : ''}$${stats.totalChipChange}` },
-            { label: 'Chips', value: `$${totalChips.toLocaleString()}` },
+            { label: 'Net', value: `${displayNet >= 0 ? '+' : ''}$${displayNet.toLocaleString()}` },
+            { label: 'Chips', value: `$${displayChips.toLocaleString()}` },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl bg-[#141417]/80 border border-white/[0.05] p-3 flex flex-col items-center gap-0.5">
               <div className="text-[9px] text-white/25 font-mono uppercase tracking-widest">{label}</div>

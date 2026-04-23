@@ -25,6 +25,7 @@ import {
   getModeTableCount,
 } from '@/lib/dailyReward';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 // ─── Chain Gang Poker · Color tokens ─────────────────────────────────────────
 // Prison-authentic aesthetic: chain silver, fire orange, gold, money green.
@@ -416,11 +417,21 @@ export default function Home() {
 
   const [progression, setProgression] = useState(() => getProgression());
   const levelInfo = getLevelInfo(progression.xp);
-  const rank      = getRankForLevel(levelInfo.level);
+
+  const { profile: serverProfile } = useServerProfile();
 
   const chipMap    = getAllChips();
   const stats      = getPlayerStats();
   const totalChips = Object.values(chipMap).reduce((a, b) => a + b, 0);
+
+  // Use server-authoritative values when available; fall back to localStorage.
+  const displayChips   = serverProfile?.chipBalance    ?? totalChips;
+  const displayNet     = serverProfile?.lifetimeProfit ?? stats.totalChipChange;
+  const displayHands   = serverProfile?.handsPlayed    ?? stats.handsPlayed;
+  const serverLevel    = serverProfile?.level          ?? levelInfo.level;
+
+  // Rank is derived from serverLevel so the badge text and rank color stay consistent.
+  const rank = getRankForLevel(serverLevel);
 
   const [dailyOpen,   setDailyOpen]   = useState(false);
   const [rewardReady, setRewardReady] = useState(isRewardAvailable);
@@ -618,7 +629,7 @@ export default function Home() {
                   <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md shrink-0"
                     style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
                     data-testid="badge-rank-home">
-                    Lv {levelInfo.level} · {rank.name}
+                    Lv {serverLevel} · {rank.name}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5">
@@ -631,10 +642,10 @@ export default function Home() {
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Bankroll</div>
-                <div className="text-lg font-bold font-mono tabular-nums" style={{ color: C.gold }}>${totalChips.toLocaleString()}</div>
-                {stats.handsPlayed > 0 && (
-                  <div className={`text-[10px] font-mono font-bold tabular-nums ${totalNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`}>
-                    {totalNet >= 0 ? '+' : ''}${totalNet}
+                <div className="text-lg font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">${displayChips.toLocaleString()}</div>
+                {displayHands > 0 && (
+                  <div className={`text-[10px] font-mono font-bold tabular-nums ${displayNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
+                    {displayNet >= 0 ? '+' : ''}${displayNet.toLocaleString()}
                   </div>
                 )}
               </div>
