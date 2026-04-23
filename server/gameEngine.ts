@@ -242,6 +242,10 @@ interface AuthTable {
   // Maps game seat id → stable PlayerIdentity UUID (from client localStorage).
   // Used to persist chip balance to the player_profiles DB table.
   seatToIdentityId: Map<string, string>;
+  // Monotonic guard against stale late-disconnect writes overwriting hand-end syncs.
+  // Stores the handId after increment for each seat that had a hand-end chip sync.
+  // Disconnect sync skips the chip write if handId matches (hand-end already ran).
+  lastChipSyncHand: Map<string, number>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
@@ -508,21 +512,23 @@ function resetToAnte(table: AuthTable): void {
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
 
-  // ── Sync human chip balances to player profiles ────────────────────────────
-  // Runs after every hand resolves. nextPlayers already has post-winnings chips.
-  // isWinner is set by resolveShowdown on the winning seat(s).
-  for (const p of nextPlayers) {
-    if (p.presence !== 'human') continue;
-    const identityId = table.seatToIdentityId.get(p.id);
-    if (!identityId) continue;
-    const won = !!p.isWinner;
-    storage.syncPlayerChips(identityId, p.chips, { won }).catch(() => {});
-  }
-
   // Cancel all pending bot timers from the previous hand
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   table.botTimers.clear();
   table.handId += 1;
+
+  // ── Sync human chip balances to player profiles ────────────────────────────
+  // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
+  // Disconnect syncs skip the write if lastChipSyncHand matches current handId,
+  // preventing a late connection-drop from overwriting this post-winnings balance
+  // with stale mid-hand chips (e.g., post-ante chips from the new hand).
+  for (const p of nextPlayers) {
+    if (p.presence !== 'human') continue;
+    const identityId = table.seatToIdentityId.get(p.id);
+    if (!identityId) continue;
+    table.lastChipSyncHand.set(p.id, table.handId);
+    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
+  }
 
   table.state = {
     ...s,
@@ -709,6 +715,7 @@ export function initEngine(): void {
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       seatToIdentityId: new Map(),
+      lastChipSyncHand: new Map(),
       spectators: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
@@ -750,6 +757,7 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       seatToIdentityId: new Map(),
+      lastChipSyncHand: new Map(),
       spectators: new Map(),
       joinWindowEndsAt,
       isPrivate,
@@ -774,7 +782,7 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     quickFillBots(table);
   }
 
-  const seat = assignSeat(table, sessionId);
+  let seat = assignSeat(table, sessionId);
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
@@ -791,7 +799,49 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     return '__spectator__';
   }
 
-  const isReconnect = table.sessionToSeat.has(sessionId);
+  // ── Multi-tab / duplicate identity guard ────────────────────────────────────
+  // Check if this identity already occupies a different seat (second tab or second
+  // device). We check BEFORE committing sessionToSeat so the seat assignment is
+  // still tentative and no state has been mutated.
+  if (identityId) {
+    let foundSeat: string | null = null;
+    for (const [s, id] of table.seatToIdentityId.entries()) {
+      if (id === identityId && s !== seat) { foundSeat = s; break; }
+    }
+    if (foundSeat) {
+      if (table.connections.has(foundSeat)) {
+        // The player's real seat has an active connection → this is a second active
+        // tab. Make it a spectator to prevent chips being loaded twice into two seats.
+        table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
+        engineLog('DUPLICATE_TAB_REJECTED', tableId, {
+          identity: identityId.slice(-8),
+          activeSeat: foundSeat,
+          newSession: sessionId.slice(-8),
+        });
+        try {
+          ws.send(JSON.stringify({
+            type: 'badugi:init',
+            playerId: '__spectator__',
+            role: 'spectator',
+            state: maskStateForPlayer(table.state, '__spectator__'),
+          }));
+        } catch {}
+        broadcastState(table);
+        return '__spectator__';
+      } else {
+        // The player's real seat has no active connection → reconnect from a new
+        // tab or device. Redirect this session to their existing seat.
+        engineLog('RECONNECT_NEW_TAB', tableId, {
+          identity: identityId.slice(-8),
+          reclaimedSeat: foundSeat,
+          newSession: sessionId.slice(-8),
+        });
+        seat = foundSeat as typeof seat;
+      }
+    }
+  }
+
+  const isReconnect = table.sessionToSeat.has(sessionId) || (identityId ? !!table.seatToIdentityId.get(seat) : false);
   table.sessionToSeat.set(sessionId, seat);
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
@@ -858,7 +908,7 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
   return seat;
 }
 
-export function removeBadugiConnection(tableId: string, sessionId: string): void {
+export function removeBadugiConnection(tableId: string, sessionId: string, intentional = false): void {
   const table = tables.get(tableId);
   if (!table) return;
 
@@ -875,26 +925,48 @@ export function removeBadugiConnection(tableId: string, sessionId: string): void
 
   table.connections.delete(seat);
   table.humanSeats.delete(seat);
-  // sessionToSeat is kept so a page-refresh reconnect gets the same seat.
 
-  // ── Sync chips on disconnect / leave ────────────────────────────────────────
-  // Best-effort: write the current table-state chips to the profile so they
-  // survive a server restart. If this is mid-hand the balance may not include
-  // the current pot, but it is correct for all completed hands.
+  // ── sessionToSeat retention policy ─────────────────────────────────────────
+  // On reconnectable disconnect (intentional=false): keep sessionToSeat entry so
+  // a same-session refresh reclaims the same seat automatically.
+  // On intentional leave: remove it so the seat can be reassigned to a new player.
+  if (intentional) {
+    table.sessionToSeat.delete(sessionId);
+  }
+
   const identityId = table.seatToIdentityId.get(seat);
   if (identityId) {
     const player = table.state.players.find(p => p.id === seat);
     if (player) {
-      storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+      // ── Monotonic chip sync guard ─────────────────────────────────────────
+      // Only write chips if a hand-end sync (resetToAnte) has NOT already run
+      // for the current handId. This prevents a late connection-drop event from
+      // overwriting a fresh post-hand balance with stale mid-hand chips.
+      // lastChipSyncHand is set to table.handId inside resetToAnte (after the
+      // handId increment), so equality means hand-end already wrote for this hand.
+      const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
+      if (lastSynced !== table.handId) {
+        storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+      }
+    }
+
+    if (intentional) {
+      // ── Intentional leave: clear active-table record ──────────────────────
+      // Reconnectable disconnects must NOT clear this — the player should be
+      // routable back to this table on next load via the reconnect endpoint.
       storage.clearPlayerActiveTable(identityId).catch(() => {});
+      // Clean up identity tracking so the seat can be reused by a new player.
+      table.seatToIdentityId.delete(seat);
+      table.lastChipSyncHand.delete(seat);
     }
   }
 
-  engineLog('PLAYER_LEAVE', tableId, {
+  engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', tableId, {
     player: seat,
     session: sessionId.slice(-8),
     phase: table.state.phase,
     remaining: table.connections.size,
+    intentional,
   });
 }
 

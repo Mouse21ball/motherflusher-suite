@@ -114,16 +114,16 @@ function broadcastRoomState(room: Room): void {
   }
 }
 
-function releasePlayer(playerId: string, tableId: string): void {
+function releasePlayer(playerId: string, tableId: string, intentional = false): void {
   const room = rooms.get(tableId);
   if (!room) return;
 
   room.connections.delete(playerId);
 
   if (room.isAuthoritative) {
-    removeBadugiConnection(tableId, playerId);
+    removeBadugiConnection(tableId, playerId, intentional);
   } else if (SERVER_MODES_ON && room.modeId !== 'badugi') {
-    removeGenericConnection(tableId, playerId);
+    removeGenericConnection(tableId, playerId, intentional);
   }
 
   for (const [seatId, claim] of room.seats.entries()) {
@@ -207,7 +207,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── leave ────────────────────────────────────────────────────────────────
       if (msg.type === 'leave') {
         const { tableId, playerId: pid } = msg;
-        if (tableId && pid) releasePlayer(pid, tableId);
+        if (tableId && pid) releasePlayer(pid, tableId, true /* intentional */);
         roomId   = null;
         playerId = null;
         return;

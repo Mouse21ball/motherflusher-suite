@@ -267,6 +267,9 @@ interface GenericTable {
   publicCardIndicesPerPlayer: Record<string, number[]>;
   // Maps game seat id → stable PlayerIdentity UUID (from client localStorage).
   seatToIdentityId: Map<string, string>;
+  // Monotonic guard: stores handId (post-increment) at which each seat last had a
+  // hand-end chip sync written. Disconnect syncs skip if handId matches.
+  lastChipSyncHand: Map<string, number>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
@@ -617,18 +620,21 @@ function resetToAnte(table: GenericTable): void {
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
 
-  // ── Sync human chip balances to player profiles ────────────────────────────
-  for (const p of nextPlayers) {
-    if (p.presence !== 'human') continue;
-    const identityId = table.seatToIdentityId.get(p.id);
-    if (!identityId) continue;
-    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
-  }
-
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   table.botTimers.clear();
   table.handId += 1;
   table.publicCardIndicesPerPlayer = {};
+
+  // ── Sync human chip balances to player profiles ────────────────────────────
+  // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
+  // Disconnect syncs skip the write if lastChipSyncHand matches current handId.
+  for (const p of nextPlayers) {
+    if (p.presence !== 'human') continue;
+    const identityId = table.seatToIdentityId.get(p.id);
+    if (!identityId) continue;
+    table.lastChipSyncHand.set(p.id, table.handId);
+    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
+  }
 
   table.state = {
     ...s,
@@ -839,6 +845,7 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
       humanSeats: new Set(),
       sessionToSeat: new Map(),
       seatToIdentityId: new Map(),
+      lastChipSyncHand: new Map(),
       spectators: new Map(),
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
@@ -866,7 +873,7 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
     quickFillBots(table);
   }
 
-  const seat = assignSeat(table, sessionId);
+  let seat = assignSeat(table, sessionId);
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
@@ -884,7 +891,45 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
     return '__spectator__';
   }
 
-  const isReconnect = table.sessionToSeat.has(sessionId);
+  // ── Multi-tab / duplicate identity guard ────────────────────────────────────
+  if (identityId) {
+    let foundSeat: string | null = null;
+    for (const [s, id] of table.seatToIdentityId.entries()) {
+      if (id === identityId && s !== seat) { foundSeat = s; break; }
+    }
+    if (foundSeat) {
+      if (table.connections.has(foundSeat)) {
+        // Second active tab: reject as spectator to prevent chip doubling.
+        table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
+        engineLog('DUPLICATE_TAB_REJECTED', `${modeId}:${tableId}`, {
+          identity: identityId.slice(-8),
+          activeSeat: foundSeat,
+          newSession: sessionId.slice(-8),
+        });
+        try {
+          ws.send(JSON.stringify({
+            type: 'mode:init',
+            playerId: '__spectator__',
+            modeId,
+            role: 'spectator',
+            state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
+          }));
+        } catch {}
+        broadcastState(table);
+        return '__spectator__';
+      } else {
+        // Reconnect from a new tab/device: redirect to existing seat.
+        engineLog('RECONNECT_NEW_TAB', `${modeId}:${tableId}`, {
+          identity: identityId.slice(-8),
+          reclaimedSeat: foundSeat,
+          newSession: sessionId.slice(-8),
+        });
+        seat = foundSeat as typeof seat;
+      }
+    }
+  }
+
+  const isReconnect = table.sessionToSeat.has(sessionId) || (identityId ? !!table.seatToIdentityId.get(seat) : false);
   table.sessionToSeat.set(sessionId, seat);
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
@@ -944,7 +989,7 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   return seat;
 }
 
-export function removeGenericConnection(tableId: string, sessionId: string): void {
+export function removeGenericConnection(tableId: string, sessionId: string, intentional = false): void {
   // Try all registered modes to find the table
   for (const modeId of Object.keys(MODE_REGISTRY)) {
     const key = tableKey(modeId, tableId);
@@ -965,20 +1010,36 @@ export function removeGenericConnection(tableId: string, sessionId: string): voi
     table.connections.delete(seat);
     table.humanSeats.delete(seat);
 
-    // ── Sync chips on disconnect / leave ──────────────────────────────────────
+    // On intentional leave: remove sessionToSeat so the seat can be reassigned.
+    // On disconnect: keep it so a same-session refresh reclaims the same seat.
+    if (intentional) {
+      table.sessionToSeat.delete(sessionId);
+    }
+
     const identityId = table.seatToIdentityId.get(seat);
     if (identityId) {
       const player = table.state.players.find(p => p.id === seat);
       if (player) {
-        storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+        // Monotonic guard: skip chip write if hand-end sync already ran this hand.
+        const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
+        if (lastSynced !== table.handId) {
+          storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+        }
+      }
+
+      if (intentional) {
+        // Only clear active-table on true leave — disconnects stay reconnectable.
         storage.clearPlayerActiveTable(identityId).catch(() => {});
+        table.seatToIdentityId.delete(seat);
+        table.lastChipSyncHand.delete(seat);
       }
     }
 
-    engineLog('PLAYER_LEAVE', `${modeId}:${tableId}`, {
+    engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', `${modeId}:${tableId}`, {
       player: seat,
       session: sessionId.slice(-8),
       remaining: table.connections.size,
+      intentional,
     });
     return;
   }
