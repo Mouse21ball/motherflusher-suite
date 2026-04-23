@@ -38,6 +38,11 @@ interface DecideBetOptions {
   bluffLine?: boolean;        // committed bluff this hand: continue pressure
   personality?: BotPersonality;
   momentum?: number;          // positive = winning streak, negative = losing streak
+  heroFoldsOften?: boolean;   // hero has folded to pressure ≥2× recently
+  focusTarget?: boolean;      // bot is actively targeting / hunting the hero
+  heroEscalating?: boolean;   // hero raised in 2+ consecutive betting rounds
+  stackMode?: 'bully' | 'normal' | 'survival' | 'critical';
+  handVariance?: number;      // -0.08..+0.08 per-hand shift to break repetition
 }
 
 // ── Core decision logic ───────────────────────────────────────────────────────
@@ -94,17 +99,39 @@ function _decideBetRaw(
   const passiveHeroGap = heroAgg < 0.20 ? 0.05 : 0;
   const aggHeroTighten = heroAgg > 0.65 ? 0.08 : 0;
 
-  // ── Scared money: high stack risk suppresses all bluffing ────────────────
+  // ── Session-level read modifiers ──────────────────────────────────────────
+  // heroFoldsOften: hero folds to pressure ≥2× this session → lower bluff bar
+  const foldBoostMult  = options?.heroFoldsOften ? 1.35 : 1.0;
+  // focusTarget: bot has decided to hunt this hero → extra aggression
+  const focusAggBonus  = options?.focusTarget  ? 0.08 : 0;
+  const focusGateDrop  = options?.focusTarget  ? 0.05 : 0;
+  // heroEscalating: hero raised in multiple rounds — personality determines response
+  const escalFold      = options?.heroEscalating && (pers === 'tight' || pers === 'passive')  ? 0.12 : 0;
+  const escalFire      = options?.heroEscalating && (pers === 'aggressive' || pers === 'loose') ? 0.08 : 0;
+  // stackMode: relative chip position vs table average
+  const sm             = options?.stackMode ?? 'normal';
+  const stackBullyGate = sm === 'bully'    ? -0.05 : 0;
+  const stackBullyRaise= sm === 'bully'    ?  0.07 : 0;
+  const stackSurvCall  = sm === 'survival' ?  0.08 : (sm === 'critical' ? 0.18 : 0);
+  const stackSurvRaise = sm === 'survival' ? -0.10 : (sm === 'critical' ? -0.18 : 0);
+  // handVariance: per-hand ±0.08 shift to break structural repetition
+  const hv             = options?.handVariance ?? 0;
+
+  // ── Scared money: high stack risk suppresses all bluffing ─────────────────
   const stackRisk         = options?.stackRisk ?? 0;
   const scaredMoney       = stackRisk > 0.35;
-  const baseBluffFreq     = (options?.bluffFreq ?? 0.09) * persBluffMult;
+  const baseBluffFreq     = (options?.bluffFreq ?? 0.09) * persBluffMult * foldBoostMult;
   const effectiveBluffFreq = scaredMoney ? 0 : baseBluffFreq;
 
-  // ── Bluff-line gate boost (gate checks only, not call/fold equity) ───────
+  // ── Bluff-line gate boost (gate checks only, not call/fold equity) ─────────
   const gateS = (options?.bluffLine && s < 0.28) ? Math.min(s + 0.18, 0.42) : s;
 
-  // ── Dead-hand absolute fold ───────────────────────────────────────────────
+  // ── Dead-hand absolute fold ────────────────────────────────────────────────
   if (callAmount > 0 && s < 0.07) {
+    return { action: 'fold' };
+  }
+  // Critical stack: fold everything marginal immediately
+  if (sm === 'critical' && callAmount > 0 && s < 0.18) {
     return { action: 'fold' };
   }
 
@@ -127,13 +154,14 @@ function _decideBetRaw(
   }
 
   if (callAmount === 0) {
-    const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap + momentumGate;
+    const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap - focusGateDrop
+                      + momentumGate + stackBullyGate;
     const raiseChance = 0.42 + s * 0.45 + earlyBoost * 0.25
                        - (multiway   ? 0.10 : 0)
                        - (potControl ? 0.15 : 0)
-                       + persRaiseAdj;
+                       + persRaiseAdj + stackBullyRaise + stackSurvRaise + hv;
 
-    if (gateS + aggBonus > gate && Math.random() < raiseChance) {
+    if (gateS + aggBonus + focusAggBonus > gate && Math.random() < raiseChance) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
@@ -146,12 +174,15 @@ function _decideBetRaw(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  // ── Call multiplier: stack risk + hero read + personality + momentum ──────
+  // ── Call multiplier: stack risk + hero read + personality + momentum + session reads
   const baseMult = stackRisk > 0.40 ? 0.90 : (stackRisk > 0.22 ? 0.78 : 0.65);
-  const callMult = baseMult + aggHeroTighten + persCallAdj + momentumTight;
+  const callMult = baseMult + aggHeroTighten + persCallAdj + momentumTight
+                            + escalFold + stackSurvCall;
 
-  // Re-raise gate
-  if (gateS + aggBonus > 0.55 - passive * 0.1 && Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5) {
+  // ── Re-raise gate — lowers when bot is focused on or escalating back ───────
+  const reraiseGate = 0.55 - passive * 0.1 - focusGateDrop - escalFire;
+  if (gateS + aggBonus + focusAggBonus > reraiseGate &&
+      Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5 + stackBullyRaise) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }

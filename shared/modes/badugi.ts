@@ -218,32 +218,56 @@ export const BadugiMode: GameMode = {
       // Winning bots get slightly bolder; losing bots tighten up.
       const momentum = bot.chips > 1080 ? 1 : bot.chips < 920 ? -1 : 0;
 
-      // ── Hero aggression profile from recent message history ───────────────
+      // ── Hero profiling from recent message history ────────────────────────
       const heroPlayer    = state.players.find(p => p.presence === 'human');
       const heroName      = heroPlayer?.name ?? '';
       const recentMsgs    = state.messages.slice(-8);
       let heroRaises = 0;
+      let heroFolds  = 0;
       let heroActs   = 0;
       for (const msg of recentMsgs) {
         if (heroName && msg.text.includes(heroName)) {
           heroActs++;
           if (msg.text.includes('raised') || msg.text.includes('bet')) heroRaises++;
+          else if (msg.text.includes('folded')) heroFolds++;
         }
       }
       const heroAggression = heroActs >= 2 ? heroRaises / heroActs : 0.3;
+      // Hero folds to pressure ≥2× this session → fold equity is real
+      const heroFoldsOften = heroActs >= 2 && heroFolds >= 2;
+      // Escalation: hero raised in 2+ rounds of THIS hand (last-bet round check)
+      const heroEscalating = isLastBet && heroRaises >= 2;
 
       // ── Per-hand bluff-line commitment (deterministic, stable per hand) ───
       const cardSum  = bot.cards.reduce((acc, c) => acc + rankValue(c.rank), 0);
       const handHash = ((cardSum * 1664525 + 1013904223) & 0x7fffffff) / 0x7fffffff;
       const bluffLine = handHash < 0.12 && !evaluation?.isValidBadugi && strength < 0.36;
 
+      // ── Focus / hunting: bot decides to target the hero this hand ─────────
+      // Uses a different hash than bluffLine to stay independent.
+      const heroChipsApprox = heroPlayer?.chips ?? 1000;
+      const focusSeed  = ((cardSum * 31337 + bot.id.charCodeAt(0) * 997
+                           + (heroChipsApprox % 100)) * 1664525) & 0x7fffffff;
+      const focusRng   = focusSeed / 0x7fffffff;
+      // Only hunt an aggressive hero; fires on ~30% of those hands per bot seat
+      const focusTarget = heroAggression > 0.45 && focusRng > 0.70;
+
       // ── Trap / bait: check BET_1 with a strong hand, fire in BET_2 ────────
-      // trapMode threshold rises when heads-up (more aggressive trapping).
-      // In BET_1 we slow-play; in BET_2 we treat it like an early-pressure spot.
       const trapThreshold = activeOpponents === 1 ? 0.35 : 0.22;
       const trapMode   = evaluation?.isValidBadugi && handHash < trapThreshold && state.pot < 14;
       const slowPlay   = trapMode && state.phase === 'BET_1';
-      const trapFire   = trapMode && state.phase === 'BET_2'; // complete the trap
+      const trapFire   = trapMode && state.phase === 'BET_2';
+
+      // ── Stack mode: chip position shapes aggression / survival instincts ──
+      const stackMode = bot.chips > 1200 ? 'bully'
+                      : bot.chips <  600 ? 'critical'
+                      : bot.chips <  800 ? 'survival'
+                      : 'normal';
+
+      // ── Hand variance: ±0.08 shift per hand breaks structural repetition ──
+      // Uses a third independent hash so it doesn't correlate with bluffLine or focusTarget.
+      const varSeed     = ((cardSum * 2654435761 + bIdx * 1000) * 1664525) & 0x7fffffff;
+      const handVariance = (varSeed / 0x7fffffff - 0.5) * 0.16;
 
       // ── Pot control: medium-strength hands keep pots small ────────────────
       const potControl = strength >= 0.30 && strength <= 0.52 && state.pot >= 6 && !trapFire;
@@ -258,6 +282,7 @@ export const BadugiMode: GameMode = {
         activeOpponents, stackRisk, slowPlay,
         heroAggression, bluffLine, potControl,
         personality, momentum,
+        heroFoldsOften, focusTarget, heroEscalating, stackMode, handVariance,
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
