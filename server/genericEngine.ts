@@ -252,11 +252,14 @@ const SEAT_ORDER = ['p1', 'p2', 'p3', 'p4', 'p5'] as const;
 type SeatId = typeof SEAT_ORDER[number];
 
 interface SessionStat {
-  startChips: number;      // chip balance when player joined this table session
-  handsPlayed: number;     // hands played at this table in this session
-  biggestPotWon: number;   // biggest pot the player won at this table
-  winStreak: number;       // current consecutive-win streak at this table
-  lossStreak: number;      // current consecutive-loss streak at this table
+  startChips: number;        // chip balance when player joined this table session
+  handsPlayed: number;       // hands played at this table in this session
+  biggestPotWon: number;     // biggest pot the player won at this table
+  winStreak: number;         // current consecutive-win streak at this table
+  lossStreak: number;        // current consecutive-loss streak at this table
+  sessionHighProfit: number; // highest netProfit reached this session (never DB)
+  sessionLowProfit: number;  // lowest netProfit reached this session (never DB)
+  recentDeltas: number[];    // last 3 per-hand chip deltas (for momentum/comeback)
 }
 
 interface GenericTable {
@@ -319,19 +322,60 @@ function assignSeat(table: GenericTable, sessionId: string): SeatId | null {
 function buildSessionStats(table: GenericTable, seatId: string): {
   startChips: number; currentChips: number; netProfit: number;
   handsPlayed: number; biggestPotWon: number; winStreak: number; lossStreak: number;
+  sessionHighProfit: number; sessionLowProfit: number;
+  isHeater: boolean; isCold: boolean; isNearEven: boolean;
+  comebackActive: boolean; momentum: 'up' | 'down' | 'flat';
 } {
   const ss = table.sessionStats.get(seatId);
   const currentChips = table.state.players.find(p => p.id === seatId)?.chips
     ?? ss?.startChips ?? 0;
-  const startChips = ss?.startChips ?? currentChips;
+  const startChips    = ss?.startChips ?? currentChips;
+  const netProfit     = currentChips - startChips;
+  const winStreak     = ss?.winStreak    ?? 0;
+  const lossStreak    = ss?.lossStreak   ?? 0;
+  const handsPlayed   = ss?.handsPlayed  ?? 0;
+
+  const sessionHighProfit = ss?.sessionHighProfit ?? 0;
+  const sessionLowProfit  = ss?.sessionLowProfit  ?? 0;
+  const recentDeltas      = ss?.recentDeltas ?? [];
+
+  // Streak pressure
+  const isHeater = winStreak >= 3;
+  const isCold   = lossStreak >= 3;
+
+  // Near-even: netProfit within ±5% of startChips (requires at least 1 hand played)
+  const nearEvenBand = Math.max(1, Math.round(startChips * 0.05));
+  const isNearEven   = handsPlayed > 0 && netProfit >= -nearEvenBand && netProfit <= nearEvenBand;
+
+  // Comeback: was significantly down AND last 2+ hands were profitable
+  const comebackThreshold = Math.max(5, Math.round(startChips * 0.05));
+  const lastTwoPositive   = recentDeltas.length >= 2 && recentDeltas.slice(-2).every(d => d > 0);
+  const comebackActive    = sessionLowProfit < -comebackThreshold
+    && netProfit > sessionLowProfit
+    && lastTwoPositive;
+
+  // Momentum: direction of last 2+ hand deltas
+  const momentum: 'up' | 'down' | 'flat' =
+    recentDeltas.length < 2 ? 'flat'
+    : recentDeltas.slice(-2).every(d => d > 0) ? 'up'
+    : recentDeltas.slice(-2).every(d => d < 0) ? 'down'
+    : 'flat';
+
   return {
     startChips,
     currentChips,
-    netProfit: currentChips - startChips,
-    handsPlayed:  ss?.handsPlayed  ?? 0,
-    biggestPotWon: ss?.biggestPotWon ?? 0,
-    winStreak:    ss?.winStreak    ?? 0,
-    lossStreak:   ss?.lossStreak   ?? 0,
+    netProfit,
+    handsPlayed,
+    biggestPotWon:    ss?.biggestPotWon ?? 0,
+    winStreak,
+    lossStreak,
+    sessionHighProfit,
+    sessionLowProfit,
+    isHeater,
+    isCold,
+    isNearEven,
+    comebackActive,
+    momentum,
   };
 }
 
@@ -704,6 +748,12 @@ function resetToAnte(table: GenericTable): void {
         ss.winStreak = 0;
         ss.lossStreak++;
       }
+      // Session pressure fields — never stored in DB, computed from live chip movement.
+      const netProfit = p.chips - ss.startChips;
+      if (netProfit > ss.sessionHighProfit) ss.sessionHighProfit = netProfit;
+      if (netProfit < ss.sessionLowProfit)  ss.sessionLowProfit  = netProfit;
+      ss.recentDeltas.push(deltaChips);
+      if (ss.recentDeltas.length > 3) ss.recentDeltas.shift();
     }
 
     // Record starting chips for the NEXT hand.
@@ -1087,6 +1137,9 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
         biggestPotWon: 0,
         winStreak: 0,
         lossStreak: 0,
+        sessionHighProfit: 0,
+        sessionLowProfit: 0,
+        recentDeltas: [],
       });
       table.chipsAtHandStart.set(seat, placeholder);
     }
@@ -1111,6 +1164,9 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
           biggestPotWon: 0,
           winStreak: 0,
           lossStreak: 0,
+          sessionHighProfit: 0,
+          sessionLowProfit: 0,
+          recentDeltas: [],
         });
         broadcastState(t);
         storage.setPlayerActiveTable(identityId, tableId, seat, modeId).catch(() => {});

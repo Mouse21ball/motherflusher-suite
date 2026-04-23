@@ -229,11 +229,14 @@ type SeatId = typeof SEAT_ORDER[number];
 
 // Per-seat in-session statistics, initialized on join and updated at hand end.
 interface SessionStat {
-  startChips:   number;
-  handsPlayed:  number;
-  biggestPotWon: number;
-  winStreak:    number;
-  lossStreak:   number;
+  startChips:        number;
+  handsPlayed:       number;
+  biggestPotWon:     number;
+  winStreak:         number;
+  lossStreak:        number;
+  sessionHighProfit: number; // highest netProfit this session (never DB)
+  sessionLowProfit:  number; // lowest netProfit this session (never DB)
+  recentDeltas:      number[]; // last 3 per-hand chip deltas
 }
 
 interface AuthTable {
@@ -301,19 +304,56 @@ function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
 function buildBadugiSessionStats(table: AuthTable, seatId: string): {
   startChips: number; currentChips: number; netProfit: number;
   handsPlayed: number; biggestPotWon: number; winStreak: number; lossStreak: number;
+  sessionHighProfit: number; sessionLowProfit: number;
+  isHeater: boolean; isCold: boolean; isNearEven: boolean;
+  comebackActive: boolean; momentum: 'up' | 'down' | 'flat';
 } {
   const ss = table.sessionStats.get(seatId);
-  const currentChips = table.state.players.find(p => p.id === seatId)?.chips
+  const currentChips  = table.state.players.find(p => p.id === seatId)?.chips
     ?? ss?.startChips ?? 0;
-  const startChips = ss?.startChips ?? currentChips;
+  const startChips    = ss?.startChips ?? currentChips;
+  const netProfit     = currentChips - startChips;
+  const winStreak     = ss?.winStreak    ?? 0;
+  const lossStreak    = ss?.lossStreak   ?? 0;
+  const handsPlayed   = ss?.handsPlayed  ?? 0;
+
+  const sessionHighProfit = ss?.sessionHighProfit ?? 0;
+  const sessionLowProfit  = ss?.sessionLowProfit  ?? 0;
+  const recentDeltas      = ss?.recentDeltas ?? [];
+
+  const isHeater = winStreak >= 3;
+  const isCold   = lossStreak >= 3;
+
+  const nearEvenBand = Math.max(1, Math.round(startChips * 0.05));
+  const isNearEven   = handsPlayed > 0 && netProfit >= -nearEvenBand && netProfit <= nearEvenBand;
+
+  const comebackThreshold = Math.max(5, Math.round(startChips * 0.05));
+  const lastTwoPositive   = recentDeltas.length >= 2 && recentDeltas.slice(-2).every(d => d > 0);
+  const comebackActive    = sessionLowProfit < -comebackThreshold
+    && netProfit > sessionLowProfit
+    && lastTwoPositive;
+
+  const momentum: 'up' | 'down' | 'flat' =
+    recentDeltas.length < 2 ? 'flat'
+    : recentDeltas.slice(-2).every(d => d > 0) ? 'up'
+    : recentDeltas.slice(-2).every(d => d < 0) ? 'down'
+    : 'flat';
+
   return {
     startChips,
     currentChips,
-    netProfit: currentChips - startChips,
-    handsPlayed:   ss?.handsPlayed   ?? 0,
-    biggestPotWon: ss?.biggestPotWon ?? 0,
-    winStreak:     ss?.winStreak     ?? 0,
-    lossStreak:    ss?.lossStreak    ?? 0,
+    netProfit,
+    handsPlayed,
+    biggestPotWon:  ss?.biggestPotWon ?? 0,
+    winStreak,
+    lossStreak,
+    sessionHighProfit,
+    sessionLowProfit,
+    isHeater,
+    isCold,
+    isNearEven,
+    comebackActive,
+    momentum,
   };
 }
 
@@ -604,6 +644,12 @@ function resetToAnte(table: AuthTable): void {
         ss.winStreak = 0;
         ss.lossStreak++;
       }
+      // Session pressure fields — never stored in DB.
+      const netProfit = p.chips - ss.startChips;
+      if (netProfit > ss.sessionHighProfit) ss.sessionHighProfit = netProfit;
+      if (netProfit < ss.sessionLowProfit)  ss.sessionLowProfit  = netProfit;
+      ss.recentDeltas.push(deltaChips);
+      if (ss.recentDeltas.length > 3) ss.recentDeltas.shift();
     }
 
     // Record starting chips for the NEXT hand.
@@ -1016,6 +1062,9 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
         biggestPotWon: 0,
         winStreak: 0,
         lossStreak: 0,
+        sessionHighProfit: 0,
+        sessionLowProfit: 0,
+        recentDeltas: [],
       });
       table.chipsAtHandStart.set(seat, placeholder);
     }
@@ -1040,6 +1089,9 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
           biggestPotWon: 0,
           winStreak: 0,
           lossStreak: 0,
+          sessionHighProfit: 0,
+          sessionLowProfit: 0,
+          recentDeltas: [],
         });
         broadcastState(t);
         // Record active table so reconnect endpoint can route the player back

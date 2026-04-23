@@ -34,13 +34,20 @@ interface RulesSection {
 }
 
 export interface GameSessionStats {
-  netProfit:    number;
-  handsPlayed:  number;
-  winStreak:    number;
-  lossStreak:   number;
-  biggestPotWon: number;
-  currentChips: number;
-  startChips:   number;
+  netProfit:         number;
+  handsPlayed:       number;
+  winStreak:         number;
+  lossStreak:        number;
+  biggestPotWon:     number;
+  currentChips:      number;
+  startChips:        number;
+  sessionHighProfit: number;
+  sessionLowProfit:  number;
+  isHeater:          boolean;
+  isCold:            boolean;
+  isNearEven:        boolean;
+  comebackActive:    boolean;
+  momentum:          'up' | 'down' | 'flat';
 }
 
 interface GameHeaderProps {
@@ -294,7 +301,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
               title={`${winStreak}-win streak!`}
             >
               <Flame className="w-3 h-3" />
-              <span>{winStreak}🔥</span>
+              <span>{sessionStats?.isHeater ? 'HEATER' : `${winStreak}🔥`}</span>
             </div>
           )}
           {lossStreak >= 2 && winStreak < 2 && (
@@ -303,7 +310,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
               data-testid="badge-loss-streak"
               title={`${lossStreak}-loss streak`}
             >
-              <span>-{lossStreak} 📉</span>
+              <span>{sessionStats?.isCold ? '❄️ COLD' : `-${lossStreak} 📉`}</span>
             </div>
           )}
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
@@ -392,6 +399,22 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
             {sessionStats && sessionStats.handsPlayed > 0 && (
               <div className="text-[8px] font-mono text-white/22 tabular-nums leading-tight" data-testid="text-session-hands">
                 {sessionStats.handsPlayed} hand{sessionStats.handsPlayed !== 1 ? 's' : ''}
+              </div>
+            )}
+            {/* Session pressure tags — subtle, single-line, existing space only */}
+            {sessionStats && sessionStats.sessionHighProfit > 0 && (
+              <div className="text-[8px] font-mono text-emerald-400/45 tabular-nums leading-tight" data-testid="text-session-high">
+                HIGH +${sessionStats.sessionHighProfit}
+              </div>
+            )}
+            {sessionStats && sessionStats.comebackActive && (
+              <div className="text-[8px] font-mono font-bold leading-tight" style={{ color: 'rgba(251,191,36,0.65)' }} data-testid="badge-comeback">
+                COMEBACK
+              </div>
+            )}
+            {sessionStats && sessionStats.isNearEven && !sessionStats.comebackActive && (
+              <div className="text-[8px] font-mono text-white/35 leading-tight" data-testid="badge-near-even">
+                BREAK EVEN
               </div>
             )}
             {/* XP progress bar — hidden on small portrait screens to save space */}

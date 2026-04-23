@@ -38,18 +38,28 @@ function getOrCreateSessionId(): string {
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
 // freshly generated). No myId parameter — the server assigns the seat.
 export interface BadugiSessionStats {
-  startChips:    number;
-  currentChips:  number;
-  netProfit:     number;
-  handsPlayed:   number;
-  biggestPotWon: number;
-  winStreak:     number;
-  lossStreak:    number;
+  startChips:        number;
+  currentChips:      number;
+  netProfit:         number;
+  handsPlayed:       number;
+  biggestPotWon:     number;
+  winStreak:         number;
+  lossStreak:        number;
+  sessionHighProfit: number;
+  sessionLowProfit:  number;
+  isHeater:          boolean;
+  isCold:            boolean;
+  isNearEven:        boolean;
+  comebackActive:    boolean;
+  momentum:          'up' | 'down' | 'flat';
 }
 
 const DEFAULT_SESSION_STATS: BadugiSessionStats = {
   startChips: 0, currentChips: 0, netProfit: 0,
   handsPlayed: 0, biggestPotWon: 0, winStreak: 0, lossStreak: 0,
+  sessionHighProfit: 0, sessionLowProfit: 0,
+  isHeater: false, isCold: false, isNearEven: false,
+  comebackActive: false, momentum: 'flat',
 };
 
 export function useServerBadugi(tableId: string) {
