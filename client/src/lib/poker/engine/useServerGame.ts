@@ -37,11 +37,27 @@ function getOrCreateSessionId(): string {
 
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
 // freshly generated). No myId parameter — the server assigns the seat.
+export interface BadugiSessionStats {
+  startChips:    number;
+  currentChips:  number;
+  netProfit:     number;
+  handsPlayed:   number;
+  biggestPotWon: number;
+  winStreak:     number;
+  lossStreak:    number;
+}
+
+const DEFAULT_SESSION_STATS: BadugiSessionStats = {
+  startChips: 0, currentChips: 0, netProfit: 0,
+  handsPlayed: 0, biggestPotWon: 0, winStreak: 0, lossStreak: 0,
+};
+
 export function useServerBadugi(tableId: string) {
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
   }));
+  const [sessionStats, setSessionStats] = useState<BadugiSessionStats>(DEFAULT_SESSION_STATS);
 
   // Start with 'p1' as a safe default for the pre-init render.
   // Will be replaced by the server-assigned seat when badugi:init arrives.
@@ -120,12 +136,13 @@ export function useServerBadugi(tableId: string) {
         try {
           const msg = JSON.parse(event.data as string);
 
-          // badugi:init: first message after join — carries both seat and initial state.
+          // badugi:init: first message after join — carries seat, state, and sessionStats.
           // Must be processed before any snapshot so masking uses the correct seat.
           if (msg.type === 'badugi:init') {
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
             setState(msg.state as GameState);
+            if (msg.sessionStats) setSessionStats(msg.sessionStats as BadugiSessionStats);
             if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
               setRole('spectator');
             }
@@ -135,6 +152,7 @@ export function useServerBadugi(tableId: string) {
           // badugi:snapshot: subsequent broadcasts after each action.
           if (msg.type === 'badugi:snapshot') {
             setState(msg.state as GameState);
+            if (msg.sessionStats) setSessionStats(msg.sessionStats as BadugiSessionStats);
             return;
           }
         } catch { /* malformed — ignore */ }
@@ -180,5 +198,5 @@ export function useServerBadugi(tableId: string) {
     }));
   }, [activeFlag]);
 
-  return { state, handleAction, myId, role };
+  return { state, handleAction, myId, role, sessionStats };
 }

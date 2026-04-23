@@ -227,6 +227,15 @@ type SeatId = typeof SEAT_ORDER[number];
 
 // ─── Table record ─────────────────────────────────────────────────────────────
 
+// Per-seat in-session statistics, initialized on join and updated at hand end.
+interface SessionStat {
+  startChips:   number;
+  handsPlayed:  number;
+  biggestPotWon: number;
+  winStreak:    number;
+  lossStreak:   number;
+}
+
 interface AuthTable {
   tableId: string;
   state: GameState;
@@ -251,6 +260,10 @@ interface AuthTable {
   // Stores the handId after increment for each seat that had a hand-end chip sync.
   // Disconnect sync skips the chip write if handId matches (hand-end already ran).
   lastChipSyncHand: Map<string, number>;
+  // Chip balance at the start of the current hand — used to compute deltaChips.
+  chipsAtHandStart: Map<string, number>;
+  // Per-seat in-session stats (init on join, updated at each hand end).
+  sessionStats: Map<string, SessionStat>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
   // Per-seat reconnect timers. Fired when a disconnected player has not returned
@@ -279,6 +292,31 @@ function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
   return null; // table full (>4 humans)
 }
 
+// ─── Session stats helper ─────────────────────────────────────────────────────
+// Always returns a fully-populated stats object for a seat.
+// Falls back to safe defaults when stats are not yet initialized (should not
+// happen after the synchronous init added in addBadugiConnection, but provides
+// safety for spectators and edge cases).
+
+function buildBadugiSessionStats(table: AuthTable, seatId: string): {
+  startChips: number; currentChips: number; netProfit: number;
+  handsPlayed: number; biggestPotWon: number; winStreak: number; lossStreak: number;
+} {
+  const ss = table.sessionStats.get(seatId);
+  const currentChips = table.state.players.find(p => p.id === seatId)?.chips
+    ?? ss?.startChips ?? 0;
+  const startChips = ss?.startChips ?? currentChips;
+  return {
+    startChips,
+    currentChips,
+    netProfit: currentChips - startChips,
+    handsPlayed:   ss?.handsPlayed   ?? 0,
+    biggestPotWon: ss?.biggestPotWon ?? 0,
+    winStreak:     ss?.winStreak     ?? 0,
+    lossStreak:    ss?.lossStreak    ?? 0,
+  };
+}
+
 // ─── Broadcast + persist ──────────────────────────────────────────────────────
 
 function broadcastState(table: AuthTable): void {
@@ -290,10 +328,14 @@ function broadcastState(table: AuthTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1 /* OPEN */) continue;
     try {
-      ws.send(JSON.stringify({ type: 'badugi:snapshot', state: maskStateForPlayer(stateWithMeta, playerId) }));
+      ws.send(JSON.stringify({
+        type: 'badugi:snapshot',
+        state: maskStateForPlayer(stateWithMeta, playerId),
+        sessionStats: buildBadugiSessionStats(table, playerId),
+      }));
     } catch { /* ignore closed socket race */ }
   }
-  // Also send to spectators (all cards hidden)
+  // Also send to spectators (all cards hidden, no sessionStats)
   for (const [, spec] of Array.from(table.spectators.entries())) {
     if (spec.ws.readyState !== 1) continue;
     try {
@@ -530,13 +572,45 @@ function resetToAnte(table: AuthTable): void {
   // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
   // Disconnect syncs skip the write if lastChipSyncHand matches current handId,
   // preventing a late connection-drop from overwriting this post-winnings balance
-  // with stale mid-hand chips (e.g., post-ante chips from the new hand).
+  // with stale mid-hand chips.
+  //
+  // IMPORTANT: nextPlayers.map() already set isWinner: undefined on all players.
+  // Winner status must be resolved from s.players (SHOWDOWN snapshot) BEFORE
+  // iterating nextPlayers — otherwise `won` is always false and handsWon /
+  // winStreak / biggestPotWon / lifetimeProfit are never updated.
+  const potWon = s.pot; // capture pot BEFORE state is replaced
+  const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
+
   for (const p of nextPlayers) {
     if (p.presence !== 'human') continue;
     const identityId = table.seatToIdentityId.get(p.id);
     if (!identityId) continue;
+
+    const isWinner = winnerSeatIds.has(p.id);
+
+    // Per-hand profit delta: end-of-hand chips minus recorded hand-start chips.
+    const prevChips = table.chipsAtHandStart.get(p.id) ?? p.chips;
+    const deltaChips = p.chips - prevChips;
+
+    // Update in-memory session stats.
+    const ss = table.sessionStats.get(p.id);
+    if (ss) {
+      ss.handsPlayed++;
+      if (isWinner) {
+        ss.winStreak++;
+        ss.lossStreak = 0;
+        if (potWon > ss.biggestPotWon) ss.biggestPotWon = potWon;
+      } else {
+        ss.winStreak = 0;
+        ss.lossStreak++;
+      }
+    }
+
+    // Record starting chips for the NEXT hand.
+    table.chipsAtHandStart.set(p.id, p.chips);
+
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
+    storage.syncPlayerChips(identityId, p.chips, { won: isWinner, deltaChips }).catch(() => {});
   }
 
   table.state = {
@@ -757,6 +831,8 @@ export function initEngine(): void {
       sessionToSeat: new Map(),
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
+      chipsAtHandStart: new Map(),
+      sessionStats: new Map(),
       spectators: new Map(),
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
@@ -800,6 +876,8 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       sessionToSeat: new Map(),
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
+      chipsAtHandStart: new Map(),
+      sessionStats: new Map(),
       spectators: new Map(),
       disconnectTimers: new Map(),
       joinWindowEndsAt,
@@ -925,6 +1003,23 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
   // For reconnects: trust the live table state (chips already authoritative).
   if (identityId) {
     table.seatToIdentityId.set(seat, identityId);
+
+    // ── Synchronous sessionStats init ────────────────────────────────────────
+    // Ensures sessionStats ALWAYS exists when badugi:init is sent (below),
+    // even before the async DB callback fires. Only initializes if no stats
+    // are present — preserves existing stats on same-session reconnect.
+    if (!table.sessionStats.has(seat)) {
+      const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 1000;
+      table.sessionStats.set(seat, {
+        startChips: placeholder,
+        handsPlayed: 0,
+        biggestPotWon: 0,
+        winStreak: 0,
+        lossStreak: 0,
+      });
+      table.chipsAtHandStart.set(seat, placeholder);
+    }
+
     if (wasReserved) {
       storage.getOrCreatePlayer(identityId, playerName).then(profile => {
         const t = tables.get(tableId);
@@ -937,6 +1032,15 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
             pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
           ),
         };
+        // Update session tracking with the real DB chip balance (overwrites placeholder).
+        t.chipsAtHandStart.set(seat, profile.chipBalance);
+        t.sessionStats.set(seat, {
+          startChips: profile.chipBalance,
+          handsPlayed: 0,
+          biggestPotWon: 0,
+          winStreak: 0,
+          lossStreak: 0,
+        });
         broadcastState(t);
         // Record active table so reconnect endpoint can route the player back
         storage.setPlayerActiveTable(identityId, tableId, seat, 'badugi').catch(() => {});
@@ -953,13 +1057,14 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     hasIdentity: !!identityId,
   });
 
-  // Atomic init: seat assignment + masked snapshot in one message.
+  // Atomic init: seat assignment + masked snapshot + sessionStats in one message.
   // Client must process seat before it can correctly display cards.
   try {
     ws.send(JSON.stringify({
       type: 'badugi:init',
       playerId: seat,
       state: maskStateForPlayer(table.state, seat),
+      sessionStats: buildBadugiSessionStats(table, seat),
     }));
   } catch { /* ws may have already closed */ }
 
@@ -1013,6 +1118,8 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       storage.clearPlayerActiveTable(identityId).catch(() => {});
       table.seatToIdentityId.delete(seat);
       table.lastChipSyncHand.delete(seat);
+      table.sessionStats.delete(seat);
+      table.chipsAtHandStart.delete(seat);
     }
   }
 
@@ -1045,6 +1152,8 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       if (id) {
         t.seatToIdentityId.delete(seat);
         t.lastChipSyncHand.delete(seat);
+        t.sessionStats.delete(seat);
+        t.chipsAtHandStart.delete(seat);
         storage.clearPlayerActiveTable(id).catch(() => {});
       }
       releaseSeat(t, seat);
