@@ -165,41 +165,69 @@ export const BadugiMode: GameMode = {
     } else {
       const evaluation = evaluateBadugi(bot.cards);
       let strength = 0.08;
+
+      // ── Phase context (hoisted so accessible to all branches below) ──────
+      const hasDrawsLeft  = state.phase === 'BET_1' || state.phase === 'BET_2';
+      const isLastBet     = state.phase === 'BET_3';
+
+      // ── Situational context ───────────────────────────────────────────────
+      const livePlayers     = state.players.filter(p => p.status === 'active');
+      const activeOpponents = Math.max(0, livePlayers.length - 1);
+      const callAmount      = state.currentBet - bot.bet;
+      const stackRisk       = bot.chips > 0 ? Math.min(callAmount / bot.chips, 1.0) : 0;
+
       if (evaluation?.isValidBadugi) {
         const h = evaluation.badugiRankValues![0];
         if (h <= 5) strength = 0.92;
         else if (h <= 7) strength = 0.75;
         else if (h <= 9) strength = 0.55;
         else if (h <= 11) strength = 0.42;
-        else strength = state.phase === 'BET_1' || state.phase === 'BET_2' ? 0.37 : 0.30;
+        else strength = hasDrawsLeft ? 0.37 : 0.30;
       } else {
         const cards = bot.cards;
         const usedR = new Set<string>();
         const usedS = new Set<string>();
         let goodCount = 0;
+        let lowRankCount = 0; // cards with rank A-4 (rank value ≤ 4) — premium draw fuel
         const sorted = cards.map((_, i) => i).sort((a, b) => rankValue(cards[a].rank) - rankValue(cards[b].rank));
         for (const i of sorted) {
+          const rv = rankValue(cards[i].rank);
           if (!usedR.has(cards[i].rank) && !usedS.has(cards[i].suit)) {
             goodCount++;
             usedR.add(cards[i].rank);
             usedS.add(cards[i].suit);
           }
+          if (rv <= 4) lowRankCount++;
         }
-        const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
-        const isLastBet    = state.phase === 'BET_3';
-        if (goodCount >= 3 && hasDrawsLeft)    strength = 0.60; // strong draw — clear open-raise territory
-        else if (goodCount >= 3 && !isLastBet) strength = 0.38; // late draw, still applies pressure
-        else if (goodCount >= 3 && isLastBet)  strength = 0.08; // no more draws — fold often
-        else if (hasDrawsLeft)                 strength = 0.22; // weak draw, mostly check
-        else                                   strength = 0.04; // no draw, no hand — fold hard
+
+        // Premium draw: 3-card draw where ≥2 cards are A-4 (a real wheel draw)
+        const isPremiumDraw = goodCount >= 3 && lowRankCount >= 2;
+
+        if (isPremiumDraw && hasDrawsLeft)        strength = 0.68; // premium draw — bet confidently early
+        else if (goodCount >= 3 && hasDrawsLeft)  strength = 0.60; // solid draw early
+        else if (goodCount >= 3 && !isLastBet)    strength = 0.38; // late draw, some pressure
+        else if (goodCount >= 3 && isLastBet)     strength = 0.08; // last bet, no draw — fold hard
+        else if (hasDrawsLeft)                    strength = 0.22; // weak draw, mostly check
+        else                                      strength = 0.04; // no draw at all — fold
       }
 
-      const heroPlayer   = state.players.find(p => p.presence === 'human');
-      const heroWeak     = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
-      const largePot     = state.pot >= 20;
-      const earlyPressure = state.phase === 'BET_1';
-      const passiveExtra = (isLastBet && !evaluation?.isValidBadugi) ? 0.22 : 0;
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, earlyPressure, passiveExtra });
+      // ── Slow-play: occasionally check a made hand in BET_1 to trap ────────
+      // Only in small pots where the trick has value; disable earlyPressure too.
+      const slowPlay = evaluation?.isValidBadugi &&
+                       state.phase === 'BET_1' &&
+                       state.pot < 12 &&
+                       Math.random() < 0.22;
+
+      const heroPlayer    = state.players.find(p => p.presence === 'human');
+      const heroWeak      = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
+      const largePot      = state.pot >= 20;
+      const earlyPressure = state.phase === 'BET_1' && !slowPlay;
+      const passiveExtra  = (isLastBet && !evaluation?.isValidBadugi) ? 0.22 : 0;
+
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
+        heroWeak, largePot, earlyPressure, passiveExtra,
+        activeOpponents, stackRisk, slowPlay,
+      });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot;

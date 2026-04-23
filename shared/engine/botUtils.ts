@@ -19,6 +19,9 @@ export function decideBet(
     heroWeak?: boolean;
     largePot?: boolean;
     earlyPressure?: boolean;
+    activeOpponents?: number;  // live opponents excluding this bot (1 = heads-up)
+    stackRisk?: number;        // callAmount / chips, 0..1
+    slowPlay?: boolean;        // this hand: check strong hand to trap
   }
 ): BetDecision {
   const callAmount = currentBet - myBet;
@@ -26,19 +29,21 @@ export function decideBet(
   const passive    = options?.passiveExtra ?? 0;
 
   // ── Human imperfection jitter ─────────────────────────────────────────────
-  // ±0.05 variance per call so threshold crossings feel natural and bots
-  // don't cluster around a single strategy line.
   const jitter = (Math.random() - 0.5) * 0.10;
   const s = Math.max(0, Math.min(1, strength + jitter));
 
-  // ── Context pressure modifiers ────────────────────────────────────────────
-  // largePot: a big pot raises the stakes — bots raise more, check less.
-  // heroWeak: hero looks unmade/drawing — punish with extra aggression.
-  // earlyPressure: early betting round — bots apply position pressure.
-  const aggBonus = (options?.largePot ? 0.07 : 0) + (options?.heroWeak ? 0.09 : 0);
+  // ── Positional / table-shape modifiers ───────────────────────────────────
+  // heads-up: more aggressive (one opponent to push around)
+  // multiway: tighter (more callers → need stronger hand to bet/call)
+  const opponents = options?.activeOpponents ?? 1;
+  const headsUp   = opponents === 1;
+  const multiway  = opponents >= 3;
+  const posBonus  = headsUp ? 0.10 : (multiway ? -0.06 : 0);
+
+  const aggBonus   = (options?.largePot ? 0.07 : 0) + (options?.heroWeak ? 0.09 : 0) + posBonus;
   const earlyBoost = options?.earlyPressure ? 0.13 : 0;
 
-  // ── Dead-hand absolute fold: don't call/raise with a truly dead hand ──────
+  // ── Dead-hand absolute fold ───────────────────────────────────────────────
   if (callAmount > 0 && s < 0.07) {
     return { action: 'fold' };
   }
@@ -47,15 +52,20 @@ export function decideBet(
     return s > 0.3 ? { action: 'call' } : { action: 'fold' };
   }
 
-  // Occasional overbet sizing — adds unpredictability
   const useOverbet = Math.random() < 0.18;
   const sizeMult = useOverbet ? (0.65 + s * 0.85) : (0.3 + s * 0.5);
 
+  // ── Slow-play: check strong hand to induce action ─────────────────────────
+  if (callAmount === 0 && options?.slowPlay) {
+    return { action: 'check' };
+  }
+
   if (callAmount === 0) {
-    // Open-raise gate: aggBonus (pot/hero pressure) + earlyBoost (early-round initiative).
-    // Gate lowered by passive penalty so losing bots slow down naturally.
-    const gate = 0.45 - passive * 0.12 - earlyBoost;
-    if (s + aggBonus > gate && Math.random() < 0.42 + s * 0.45 + earlyBoost * 0.25) {
+    // Open-raise gate: lower it by earlyBoost (initiative round) and raise it
+    // back by passive penalty and multiway caution.
+    const gate     = 0.45 - passive * 0.12 - earlyBoost;
+    const raiseChance = 0.42 + s * 0.45 + earlyBoost * 0.25 - (multiway ? 0.10 : 0);
+    if (s + aggBonus > gate && Math.random() < raiseChance) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
@@ -68,17 +78,24 @@ export function decideBet(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  // Re-raise gate also lowered by aggBonus.
+  // ── Stack-risk call multiplier: the more stack the call risks, the tighter ─
+  // Low risk (<22%): standard 0.65 threshold
+  // Medium risk (22-40%): 0.78 (need better equity to call)
+  // High risk (>40%): 0.90 (only strong hands justify risking this much)
+  const stackRisk = options?.stackRisk ?? 0;
+  const callMult  = stackRisk > 0.40 ? 0.90 : (stackRisk > 0.22 ? 0.78 : 0.65);
+
+  // Re-raise gate
   if (s + aggBonus > 0.55 - passive * 0.1 && Math.random() < 0.38 + s * 0.45) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }
 
-  if (s > potOdds * 0.65) {
+  if (s > potOdds * callMult) {
     return { action: 'call' };
   }
 
-  // Cheap-call gate: requires meaningful strength — dead/near-dead hands fold.
+  // Cheap-call gate: still requires meaningful strength
   if (potOdds < 0.22 && s > 0.16) {
     return { action: 'call' };
   }

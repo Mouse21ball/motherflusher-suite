@@ -696,7 +696,11 @@ function scheduleNextBot(table: GenericTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  const thinkMs = (capturedPhase.startsWith('BET') ? 650 : 280) + Math.random() * 350;
+  // Bimodal think time: 80% normal pace, 20% deliberation pause.
+  // Bet phases are slower (reading the action); draw/other phases are faster.
+  const baseMs    = capturedPhase.startsWith('BET') ? 500 + Math.random() * 500 : 180 + Math.random() * 270;
+  const pauseMs   = Math.random() < 0.20 ? 380 + Math.random() * 520 : 0;
+  const thinkMs   = baseMs + pauseMs;
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
