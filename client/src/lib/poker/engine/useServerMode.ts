@@ -3,8 +3,8 @@
 // Works with Dead7, Fifteen35, SwingPoker, SuitsPoker.
 // Protocol:
 //   mount → WebSocket connect → send 'join' with session UUID + modeId
-//   server → 'mode:init' { playerId, modeId, state } → hook stores assigned seat
-//   server → 'mode:snapshot' { state } → subsequent updates
+//   server → 'mode:init' { playerId, modeId, state, sessionStats } → hook stores assigned seat
+//   server → 'mode:snapshot' { state, sessionStats } → subsequent updates
 //   handleAction → send 'mode:action' → server processes
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -28,11 +28,32 @@ function getOrCreateSessionId(modeId: string): string {
   }
 }
 
+export interface SessionStats {
+  startChips: number;
+  currentChips: number;
+  netProfit: number;
+  handsPlayed: number;
+  biggestPotWon: number;
+  winStreak: number;
+  lossStreak: number;
+}
+
+const DEFAULT_SESSION_STATS: SessionStats = {
+  startChips: 0,
+  currentChips: 0,
+  netProfit: 0,
+  handsPlayed: 0,
+  biggestPotWon: 0,
+  winStreak: 0,
+  lossStreak: 0,
+};
+
 export function useServerMode(tableId: string, modeId: string) {
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
   }));
+  const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
 
   const [myId, setMyId] = useState<string>('p1');
   const [role, setRole] = useState<'player' | 'spectator'>('player');
@@ -68,17 +89,32 @@ export function useServerMode(tableId: string, modeId: string) {
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         if (!mountedRef.current) { ws.close(); return; }
         const _params = new URLSearchParams(window.location.search);
         const _quickPlay = _params.get('qp') === '1';
         const _isPrivate = _params.get('private') === '1';
+
+        // ── Real-player priority join ─────────────────────────────────────────
+        // If not joining via an invite link (?t=) and not a private/quick-play
+        // table, check for an existing public table that already has human players.
+        // This prevents each player from landing on an isolated table.
+        if (!_params.get('t') && !_isPrivate && !_quickPlay) {
+          try {
+            const res = await fetch(`/api/tables/mode/${modeIdRef.current}/join`);
+            const data = await res.json() as { tableId: string | null };
+            if (data.tableId && data.tableId !== tableIdRef.current) {
+              tableIdRef.current = data.tableId;
+            }
+          } catch {}
+        }
+
         ws.send(JSON.stringify({
           type: 'join',
           tableId: tableIdRef.current,
           modeId: modeIdRef.current,
           playerId: sessionId.current,
-          identityId: identity.id,   // stable UUID → chip persistence
+          identityId: identity.id,
           name: identity.name,
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),
@@ -99,10 +135,16 @@ export function useServerMode(tableId: string, modeId: string) {
               setRole('player');
             }
             setState(msg.state as GameState);
+            if (msg.sessionStats) {
+              setSessionStats(msg.sessionStats as SessionStats);
+            }
             return;
           }
           if (msg.type === 'mode:snapshot') {
             setState(msg.state as GameState);
+            if (msg.sessionStats) {
+              setSessionStats(msg.sessionStats as SessionStats);
+            }
             return;
           }
         } catch {}
@@ -146,5 +188,5 @@ export function useServerMode(tableId: string, modeId: string) {
     }));
   }, []);
 
-  return { state, handleAction, myId, role };
+  return { state, handleAction, myId, role, sessionStats };
 }

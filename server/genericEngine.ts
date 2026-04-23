@@ -311,6 +311,30 @@ function assignSeat(table: GenericTable, sessionId: string): SeatId | null {
   return null;
 }
 
+// ─── Session stats helper ─────────────────────────────────────────────────────
+// Always returns a fully-populated stats object for a seat.
+// Falls back to safe defaults if the seat has no stats yet (should not happen
+// after the synchronous init added in addGenericConnection, but provides safety).
+
+function buildSessionStats(table: GenericTable, seatId: string): {
+  startChips: number; currentChips: number; netProfit: number;
+  handsPlayed: number; biggestPotWon: number; winStreak: number; lossStreak: number;
+} {
+  const ss = table.sessionStats.get(seatId);
+  const currentChips = table.state.players.find(p => p.id === seatId)?.chips
+    ?? ss?.startChips ?? 0;
+  const startChips = ss?.startChips ?? currentChips;
+  return {
+    startChips,
+    currentChips,
+    netProfit: currentChips - startChips,
+    handsPlayed:  ss?.handsPlayed  ?? 0,
+    biggestPotWon: ss?.biggestPotWon ?? 0,
+    winStreak:    ss?.winStreak    ?? 0,
+    lossStreak:   ss?.lossStreak   ?? 0,
+  };
+}
+
 // ─── Broadcast ────────────────────────────────────────────────────────────────
 
 function broadcastState(table: GenericTable): void {
@@ -323,16 +347,11 @@ function broadcastState(table: GenericTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1) continue;
     try {
-      const ss = table.sessionStats.get(playerId);
-      const netProfit = ss
-        ? (table.state.players.find(p => p.id === playerId)?.chips ?? ss.startChips) - ss.startChips
-        : undefined;
-      const payload: Record<string, unknown> = {
+      ws.send(JSON.stringify({
         type: 'mode:snapshot',
         state: maskStateForPlayer(stateWithMeta, playerId, pub),
-      };
-      if (ss) payload.sessionStats = { ...ss, netProfit };
-      ws.send(JSON.stringify(payload));
+        sessionStats: buildSessionStats(table, playerId),
+      }));
     } catch {}
   }
   // Spectators see only public face-up cards; all private hole cards hidden
@@ -654,21 +673,30 @@ function resetToAnte(table: GenericTable): void {
   // ── Sync human chip balances + update session stats ───────────────────────
   // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
   // Disconnect syncs skip the write if lastChipSyncHand matches current handId.
-  const potWon = s.pot; // capture pot before state reset
+  //
+  // IMPORTANT: nextPlayers.map() already cleared isWinner to undefined on all
+  // players. We must resolve winner status from s.players (SHOWDOWN state) BEFORE
+  // iterating nextPlayers — otherwise `won` is always false and handsWon / winStreak
+  // are never updated.
+  const potWon = s.pot; // capture pot BEFORE state is replaced
+  const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
+
   for (const p of nextPlayers) {
     if (p.presence !== 'human') continue;
     const identityId = table.seatToIdentityId.get(p.id);
     if (!identityId) continue;
 
-    // Per-hand profit delta: compare end-of-hand chips to start-of-hand chips.
+    const isWinner = winnerSeatIds.has(p.id);
+
+    // Per-hand profit delta: compare end-of-hand chips to recorded hand-start chips.
     const prevChips = table.chipsAtHandStart.get(p.id) ?? p.chips;
     const deltaChips = p.chips - prevChips;
 
-    // Update session stats
-    let ss = table.sessionStats.get(p.id);
+    // Update session stats (always present — initialized synchronously on join).
+    const ss = table.sessionStats.get(p.id);
     if (ss) {
       ss.handsPlayed++;
-      if (p.isWinner) {
+      if (isWinner) {
         ss.winStreak++;
         ss.lossStreak = 0;
         if (potWon > ss.biggestPotWon) ss.biggestPotWon = potWon;
@@ -678,11 +706,11 @@ function resetToAnte(table: GenericTable): void {
       }
     }
 
-    // Record starting chips for the NEXT hand
+    // Record starting chips for the NEXT hand.
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner, deltaChips }).catch(() => {});
+    storage.syncPlayerChips(identityId, p.chips, { won: isWinner, deltaChips }).catch(() => {});
   }
 
   table.state = {
@@ -1046,6 +1074,23 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   // ── Persist identity and load chips ────────────────────────────────────────
   if (identityId) {
     table.seatToIdentityId.set(seat, identityId);
+
+    // ── Synchronous sessionStats init ────────────────────────────────────────
+    // Ensures sessionStats ALWAYS exists when mode:init is sent (below), even
+    // before the DB callback fires. Only initializes if no stats are present
+    // (preserves existing stats on reconnect within the same session).
+    if (!table.sessionStats.has(seat)) {
+      const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 1000;
+      table.sessionStats.set(seat, {
+        startChips: placeholder,
+        handsPlayed: 0,
+        biggestPotWon: 0,
+        winStreak: 0,
+        lossStreak: 0,
+      });
+      table.chipsAtHandStart.set(seat, placeholder);
+    }
+
     if (wasReserved) {
       storage.getOrCreatePlayer(identityId, playerName).then(profile => {
         const t = tables.get(tableKey(modeId, tableId));
@@ -1058,7 +1103,7 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
             pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
           ),
         };
-        // Initialize session tracking with the player's loaded chip balance.
+        // Update session tracking with the real DB chip balance (overwrites placeholder).
         t.chipsAtHandStart.set(seat, profile.chipBalance);
         t.sessionStats.set(seat, {
           startChips: profile.chipBalance,
@@ -1082,18 +1127,13 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   });
 
   try {
-    const ss = table.sessionStats.get(seat);
-    const initPayload: Record<string, unknown> = {
+    ws.send(JSON.stringify({
       type: 'mode:init',
       playerId: seat,
       modeId,
       state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
-    };
-    if (ss) {
-      const currentChips = table.state.players.find(p => p.id === seat)?.chips ?? ss.startChips;
-      initPayload.sessionStats = { ...ss, netProfit: currentChips - ss.startChips };
-    }
-    ws.send(JSON.stringify(initPayload));
+      sessionStats: buildSessionStats(table, seat),
+    }));
   } catch {}
 
   return seat;
@@ -1140,6 +1180,8 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         storage.clearPlayerActiveTable(identityId).catch(() => {});
         table.seatToIdentityId.delete(seat);
         table.lastChipSyncHand.delete(seat);
+        table.sessionStats.delete(seat);
+        table.chipsAtHandStart.delete(seat);
       }
     }
 
@@ -1158,6 +1200,8 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         if (id) {
           t.seatToIdentityId.delete(seat);
           t.lastChipSyncHand.delete(seat);
+          t.sessionStats.delete(seat);
+          t.chipsAtHandStart.delete(seat);
           storage.clearPlayerActiveTable(id).catch(() => {});
         }
         releaseSeat(t, seat);

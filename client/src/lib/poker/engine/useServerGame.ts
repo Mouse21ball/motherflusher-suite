@@ -82,19 +82,33 @@ export function useServerBadugi(tableId: string) {
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         if (!mountedRef.current) { ws.close(); return; }
         // Read table intent flags from URL params, set by the Home screen when
         // creating a Quick Play table (?qp=1) or a private table (?private=1).
         const _params = new URLSearchParams(window.location.search);
         const _quickPlay = _params.get('qp') === '1';
         const _isPrivate = _params.get('private') === '1';
+
+        // ── Real-player priority join ─────────────────────────────────────────
+        // If not joining via an invite link (?t=) and not a private/quick-play
+        // table, check for an existing public table that already has human players.
+        if (!_params.get('t') && !_isPrivate && !_quickPlay) {
+          try {
+            const res = await fetch('/api/tables/mode/badugi/join');
+            const data = await res.json() as { tableId: string | null };
+            if (data.tableId && data.tableId !== tableIdRef.current) {
+              tableIdRef.current = data.tableId;
+            }
+          } catch {}
+        }
+
         // Send the opaque session UUID as playerId.
         // The server maps it to a game seat (p1/p2/p3/p4) and responds with badugi:init.
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
           playerId: sessionId.current,
-          identityId: identity.id,   // stable UUID → chip persistence
+          identityId: identity.id,
           name: identity.name,
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),
