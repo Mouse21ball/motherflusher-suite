@@ -46,13 +46,21 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
     heroChipStartRef.current = heroNow.chips;
   }
 
+  // Hands played counter: increments on each SHOWDOWN → next-phase transition
+  const handsPlayedRef = useRef(0);
+
   // Session P&L save: fires when a hand ends (SHOWDOWN → anything)
   const wasShowdownSaveRef = useRef(gameState.phase === 'SHOWDOWN');
   useEffect(() => {
     const was = wasShowdownSaveRef.current;
     wasShowdownSaveRef.current = gameState.phase === 'SHOWDOWN';
     if (was && gameState.phase !== 'SHOWDOWN' && heroNow && heroChipStartRef.current !== null) {
-      saveSessionResult(heroNow.chips - heroChipStartRef.current);
+      handsPlayedRef.current++;
+      saveSessionResult(
+        heroNow.chips - heroChipStartRef.current,
+        handsPlayedRef.current,
+        heroChipStartRef.current,
+      );
       const net = gameState.heroChipChange ?? 0;
       if (net > 0) saveHandResult('win');
       else if (net < 0) saveHandResult('loss');

@@ -120,20 +120,41 @@ export function getStreakLabel(): string | null {
 }
 
 // ─── Session P&L memory (localStorage) ───────────────────────────────────────
-// Persists the hero's chip delta for the current session so Home can surface it.
+// Persists the hero's chip delta + hands for the last session so Home can
+// surface it on the next visit. Only localStorage is used (per spec).
 
 const SESSION_RESULT_KEY = 'cgp_session_result';
 
-export function saveSessionResult(delta: number): void {
+export interface SessionSnapshot {
+  delta:   number;
+  hands:   number;
+  result:  'WINNING SESSION' | 'BREAK EVEN' | 'LOSING SESSION';
+  ts:      number;
+}
+
+export function saveSessionResult(delta: number, hands = 0, startChips = 0): void {
   try {
-    localStorage.setItem(SESSION_RESULT_KEY, JSON.stringify({ delta, ts: Date.now() }));
+    const band   = Math.max(1, Math.round(startChips * 0.05));
+    const result: SessionSnapshot['result'] =
+      delta  >  band ? 'WINNING SESSION'
+      : delta < -band ? 'LOSING SESSION'
+      : 'BREAK EVEN';
+    const snap: SessionSnapshot = { delta, hands, result, ts: Date.now() };
+    localStorage.setItem(SESSION_RESULT_KEY, JSON.stringify(snap));
   } catch {}
 }
 
-export function getSessionResult(): { delta: number; ts: number } | null {
+export function getSessionResult(): SessionSnapshot | null {
   try {
     const raw = localStorage.getItem(SESSION_RESULT_KEY);
-    return raw ? (JSON.parse(raw) as { delta: number; ts: number }) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SessionSnapshot>;
+    return {
+      delta:  parsed.delta  ?? 0,
+      hands:  parsed.hands  ?? 0,
+      result: parsed.result ?? ((parsed.delta ?? 0) >= 0 ? 'WINNING SESSION' : 'LOSING SESSION'),
+      ts:     parsed.ts     ?? 0,
+    };
   } catch {
     return null;
   }

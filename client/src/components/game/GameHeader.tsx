@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { BookOpen, Flame, Home } from "lucide-react";
@@ -66,6 +66,7 @@ interface GameHeaderProps {
   pot?: number;
   onForfeit?: () => void;
   sessionStats?: GameSessionStats;
+  tableId?: string;
 }
 
 const MID_HAND_PHASES = new Set<GamePhase>([
@@ -250,10 +251,18 @@ export const MODE_INFO: Record<string, ModeInfo> = {
   },
 };
 
-export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, sessionStats }: GameHeaderProps) {
+export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, sessionStats, tableId }: GameHeaderProps) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [, navigate] = useLocation();
+
+  // Derive table type from URL — no extra prop needed.
+  const tableType = useMemo(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('qp') === '1' ? 'QUICK PLAY' : 'PUBLIC';
+    } catch { return 'PUBLIC'; }
+  }, []);
 
   // Player level for in-game progression display
   const progression = getProgression();
@@ -293,12 +302,17 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
     <>
       <header className="w-full px-3 py-3 sm:px-4 sm:py-3.5 flex justify-between items-center glass-panel border-b border-white/[0.04] z-50">
         <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[10px] ${mode.borderClass} border`}>
+          <div className={`w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[10px] ${mode.borderClass} border shrink-0`}>
             {mode.abbrev}
           </div>
-          <span className="font-medium tracking-wide text-sm text-white/60 font-sans">
-            {mode.name}
-          </span>
+          <div className="flex flex-col gap-0 leading-none">
+            <span className="font-medium tracking-wide text-sm text-white/60 font-sans">{mode.name}</span>
+            {tableId && (
+              <span className="text-[8px] font-mono text-white/18 tracking-widest" data-testid="text-table-identity">
+                {tableId} · {tableType}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">

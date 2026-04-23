@@ -19,7 +19,7 @@ import { generateTableCode } from "@/lib/tableSession";
 
 const useServer = import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
-function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
+function InviteBanner({ tableId, mode, humanCount = 1 }: { tableId: string; mode: string; humanCount?: number }) {
   const [copied, setCopied] = useState(false);
   const url = `${window.location.origin}/${mode}?t=${tableId}`;
   const handleCopy = useCallback(() => {
@@ -31,12 +31,15 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)] animate-pulse shrink-0" />
           <span className="text-[10px] text-white/35 font-mono truncate">
-            Table <span className="text-emerald-400/70 font-bold">{tableId}</span> · invite a friend to play
+            {humanCount >= 2
+              ? <><span className="text-emerald-400/70 font-bold">{humanCount} players</span> · share link to fill table</>
+              : <>Table <span className="text-emerald-400/70 font-bold">{tableId}</span> · invite a friend to play</>
+            }
           </span>
         </div>
         <button onClick={handleCopy} data-testid="button-copy-invite"
           className={`shrink-0 text-[9px] font-mono uppercase tracking-widest px-2 py-1 rounded-lg border transition-all duration-200 ${copied ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-white/30 border-white/[0.06] hover:text-white/55 hover:border-white/[0.12]'}`}>
-          {copied ? '✓ Copied!' : 'Copy Link'}
+          {copied ? '✓ Invite Copied' : 'Copy Link'}
         </button>
       </div>
     </div>
@@ -46,6 +49,7 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 function Dead7GameServer({ tableId }: { tableId: string }) {
   const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'dead7');
   const isSpectator = role === 'spectator';
+  const humanCount = state.players.filter(p => p.presence === 'human').length;
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
@@ -71,10 +75,10 @@ function Dead7GameServer({ tableId }: { tableId: string }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="dead7" {...MODE_INTROS.dead7} />
-      <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('dead7', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} />
+      <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('dead7', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} tableId={tableId} />
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
-        : <InviteBanner tableId={tableId} mode="dead7" />
+        : <InviteBanner tableId={tableId} mode="dead7" humanCount={humanCount} />
       }
       {!isSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
         <div className="flex justify-center pt-1">

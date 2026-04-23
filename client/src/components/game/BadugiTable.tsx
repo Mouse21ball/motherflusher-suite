@@ -166,7 +166,11 @@ export function BadugiTable({
       }
       /* Persist session P&L + hand streak so Home can surface them on return */
       if (hero && heroChipStartRef.current !== null) {
-        saveSessionResult(hero.chips - heroChipStartRef.current);
+        saveSessionResult(
+          hero.chips - heroChipStartRef.current,
+          handCount,
+          heroChipStartRef.current,
+        );
       }
       if (net > 0) saveHandResult('win');
       else if (net < 0) saveHandResult('loss');

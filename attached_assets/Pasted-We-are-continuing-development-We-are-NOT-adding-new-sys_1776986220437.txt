@@ -1,0 +1,144 @@
+We are continuing development.
+
+We are NOT adding new systems.
+We are NOT redesigning UI.
+We are NOT changing chip math or backend logic.
+
+We are now doing the CLARITY + RETURN LOOP phase.
+
+Goal:
+Make the player instantly understand:
+
+- where they are
+- how they are doing
+- why they should come back
+
+Only use existing systems:
+
+- sessionStats
+- server profile
+- table state
+
+---
+
+1. SESSION OUTCOME MEMORY (CRITICAL)
+
+On session end (leave or disconnect):
+Capture:
+
+- lastSessionProfit (netProfit)
+- lastSessionHands
+- lastSessionResult:
+  - "WINNING SESSION" (netProfit > 0)
+  - "BREAK EVEN" (within ±5%)
+  - "LOSING SESSION" (netProfit < 0)
+
+Store minimally (localStorage is acceptable here ONLY for last session snapshot).
+
+On next app load:
+Surface this in Home using existing layout (no new components).
+
+---
+
+2. RETURN-TO-TABLE PRIORITY
+
+If player has an active or recent table:
+
+- Surface “Return to Table” using existing UI area
+- Must include:
+  - mode name
+  - table identity (code or type)
+  - current chips (from server)
+
+Ensure:
+
+- this overrides generic “Play” priority
+- no new page
+
+---
+
+3. TABLE IDENTITY CLARITY
+
+In existing GameHeader:
+Add small text line:
+
+- Mode name (Badugi, 15/35, etc.)
+- Table type:
+  - PUBLIC
+  - PRIVATE
+  - QUICK PLAY
+
+No layout changes. Just text.
+
+---
+
+4. INVITE CLARITY (NO REDESIGN)
+
+Improve existing invite behavior:
+
+- Copy link should clearly reflect:
+  - tableId
+  - mode
+
+Add subtle text feedback:
+
+- “Invite copied”
+- If multiple humans at table:
+  - show “X players waiting”
+
+No new UI components.
+
+---
+
+5. SESSION UNDERSTANDING (IMPORTANT)
+
+Using existing sessionStats (already built):
+Ensure GameHeader clearly shows:
+
+- session net (+ / -)
+- hands played
+- streak (win/loss)
+
+These already exist—verify:
+
+- always present
+- never undefined
+- never using localStorage fallback
+
+---
+
+6. DATA RULES
+
+- All live values MUST come from:
+  
+  - server profile
+  - sessionStats
+
+- Only last session snapshot may use localStorage
+
+- No drift between chips and displayed values
+
+---
+
+RETURN FORMAT
+
+Return ONLY:
+
+1. issues found
+2. changes made
+3. files changed
+4. exact patch
+5. confirmation system now:
+   - clearer to understand instantly
+   - easier to return to
+   - ready for real user testing
+
+---
+
+We are not adding features.
+
+We are making the player:
+
+- understand their session
+- remember their last session
+- want to come back

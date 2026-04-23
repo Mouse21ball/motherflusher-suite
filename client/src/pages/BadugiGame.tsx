@@ -23,7 +23,7 @@ import type { GameSessionStats } from "@/components/game/GameHeader";
 // ─── Invite banner ────────────────────────────────────────────────────────────
 // Shows the table code and a copy-link button. Encourages real multiplayer.
 
-function InviteBanner({ tableId }: { tableId: string }) {
+function InviteBanner({ tableId, humanCount = 1 }: { tableId: string; humanCount?: number }) {
   const [copied, setCopied] = useState(false);
   const url = `${window.location.origin}/badugi?t=${tableId}`;
 
@@ -48,7 +48,10 @@ function InviteBanner({ tableId }: { tableId: string }) {
           <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-white/25 mb-0.5">Play with friends</div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono font-bold text-white/85 text-sm tracking-widest" data-testid="text-table-code">{tableId}</span>
-            <span className="text-[10px] font-mono text-emerald-400/55 truncate hidden sm:inline">· share this link to join your table</span>
+            {humanCount >= 2
+              ? <span className="text-[10px] font-mono text-emerald-400/70 truncate">{humanCount} players · share link to fill table</span>
+              : <span className="text-[10px] font-mono text-emerald-400/55 truncate hidden sm:inline">· share this link to join your table</span>
+            }
           </div>
         </div>
         <button
@@ -60,7 +63,7 @@ function InviteBanner({ tableId }: { tableId: string }) {
           }`}
           data-testid="button-copy-invite"
         >
-          {copied ? '✓ Copied' : 'Copy Link'}
+          {copied ? '✓ Invite Copied' : 'Copy Link'}
         </button>
       </div>
     </div>
@@ -160,11 +163,12 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player', session
         pot={state.pot}
         onForfeit={() => { if (me) saveChips('badugi', me.chips); }}
         sessionStats={isSpectator ? undefined : sessionStats}
+        tableId={tableId}
       />
 
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
-        : tableId ? <InviteBanner tableId={tableId} /> : null
+        : tableId ? <InviteBanner tableId={tableId} humanCount={humanCount} /> : null
       }
       {/* Mount confirmation — "Joined table" for 900ms on first load */}
       {showJoinConfirm && (

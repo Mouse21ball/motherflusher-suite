@@ -166,7 +166,7 @@ function phaseLabel(phase: string): string {
   return 'In Play';
 }
 
-function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: string) => void }) {
+function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, tableId: string) => void; serverChips?: number }) {
   const [tables, setTables] = useState<LiveTableEntry[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -267,6 +267,12 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                 </p>
               )}
             </div>
+            {serverChips != null && (
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <div className="text-[8px] font-mono text-white/20 uppercase tracking-widest">Bank</div>
+                <div className="text-sm font-bold font-mono tabular-nums" style={{ color: '#C9A227' }} data-testid="text-rejoin-chips">${serverChips.toLocaleString()}</div>
+              </div>
+            )}
             <button
               onClick={() => onJoin(rejoinEntry.modeId, rejoinEntry.tableId)}
               className="shrink-0 text-[11px] font-mono font-bold px-3.5 py-1.5 rounded-lg transition-all duration-200 hover:opacity-85 active:scale-95"
@@ -275,6 +281,36 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
             >
               Back In →
             </button>
+          </div>
+        );
+      })()}
+
+      {/* Last session recall — only when no live rejoin entry */}
+      {!rejoinEntry && (() => {
+        const sr = getSessionResult();
+        if (!sr || !sr.ts) return null;
+        const ageMs = Date.now() - sr.ts;
+        if (ageMs > 48 * 60 * 60 * 1000) return null; // hide after 48h
+        const isUp = sr.delta > 0;
+        const isEven = Math.abs(sr.delta) < 50;
+        const deltaColor = isEven ? 'rgba(255,255,255,0.35)' : isUp ? 'rgba(52,211,153,0.70)' : 'rgba(248,113,113,0.70)';
+        const deltaText = isEven ? 'BREAK EVEN' : isUp ? `+$${sr.delta}` : `-$${Math.abs(sr.delta)}`;
+        return (
+          <div
+            className="px-4 py-2.5 flex items-center gap-3 border-b"
+            style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}
+            data-testid="row-last-session"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/25">Last Session</span>
+                <span className="font-mono text-[10px] font-bold" style={{ color: deltaColor }} data-testid="text-last-session-delta">{deltaText}</span>
+                {sr.result && <span className="text-[9px] font-mono" style={{ color: deltaColor, opacity: 0.7 }}>{sr.result}</span>}
+              </div>
+              {sr.hands > 0 && (
+                <p className="text-[9px] font-mono text-white/20 mt-0.5 pl-0" data-testid="text-last-session-hands">{sr.hands} hands played</p>
+              )}
+            </div>
           </div>
         );
       })()}
@@ -783,7 +819,7 @@ export default function Home() {
           })()}
 
           {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
-          <LiveTablesSection onJoin={handleJoinTable} />
+          <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
 
           {/* ── 2-COLUMN GRID ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
