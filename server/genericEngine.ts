@@ -325,6 +325,11 @@ function buildSessionStats(table: GenericTable, seatId: string): {
   sessionHighProfit: number; sessionLowProfit: number;
   isHeater: boolean; isCold: boolean; isNearEven: boolean;
   comebackActive: boolean; momentum: 'up' | 'down' | 'flat';
+  bankrollTier: 'LOW' | 'MID' | 'HIGH';
+  tableStakes: 'LOW' | 'MID' | 'HIGH';
+  dangerZone: boolean; lastStand: boolean;
+  protectingLead: boolean; peakDrop: number;
+  shouldLeaveSignal: boolean; shouldContinueSignal: boolean;
 } {
   const ss = table.sessionStats.get(seatId);
   const currentChips = table.state.players.find(p => p.id === seatId)?.chips
@@ -361,6 +366,40 @@ function buildSessionStats(table: GenericTable, seatId: string): {
     : recentDeltas.slice(-2).every(d => d < 0) ? 'down'
     : 'flat';
 
+  // ── Stakes + pressure signals ─────────────────────────────────────────────
+  // Bankroll tier: player's current chip balance relative to health thresholds.
+  const bankrollTier: 'LOW' | 'MID' | 'HIGH' =
+    currentChips < 300 ? 'LOW' : currentChips <= 1000 ? 'MID' : 'HIGH';
+
+  // Table stakes: average chip balance of all seated (non-bot) players.
+  const humanChips = table.state.players
+    .filter(p => p.presence === 'human' && p.chips > 0)
+    .map(p => p.chips);
+  const avgTableChips = humanChips.length > 0
+    ? Math.round(humanChips.reduce((a, b) => a + b, 0) / humanChips.length) : 1000;
+  const tableStakes: 'LOW' | 'MID' | 'HIGH' =
+    avgTableChips < 300 ? 'LOW' : avgTableChips <= 1000 ? 'MID' : 'HIGH';
+
+  // Loss pressure: net loss > 20% of start OR below LOW tier threshold.
+  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 300;
+
+  // Last stand: chips are critically low — below hard floor.
+  const lastStand = currentChips < 150;
+
+  // Win protection: player is profitable and not in a downswing.
+  const protectingLead = netProfit > 0 && momentum !== 'down';
+
+  // Peak drop: how far below the session high the player currently sits.
+  const peakDrop = Math.max(0, sessionHighProfit - netProfit);
+
+  // Exit pressure: leave signal when a large win or deep loss is locked in.
+  const shouldLeaveSignal =
+    netProfit > startChips * 0.30
+    || (dangerZone && lossStreak >= 3);
+
+  // Continue pressure: signal to keep playing when recovery/momentum is live.
+  const shouldContinueSignal = comebackActive || isNearEven || isHeater;
+
   return {
     startChips,
     currentChips,
@@ -376,6 +415,14 @@ function buildSessionStats(table: GenericTable, seatId: string): {
     isNearEven,
     comebackActive,
     momentum,
+    bankrollTier,
+    tableStakes,
+    dangerZone,
+    lastStand,
+    protectingLead,
+    peakDrop,
+    shouldLeaveSignal,
+    shouldContinueSignal,
   };
 }
 

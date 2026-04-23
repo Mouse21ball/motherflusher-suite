@@ -31,6 +31,11 @@ function getOrCreateSessionId(modeId: string): string {
 export interface SessionStats {
   startChips: number;
   currentChips: number;
+  netProfit: number;
+  handsPlayed: number;
+  biggestPotWon: number;
+  winStreak: number;
+  lossStreak: number;
   sessionHighProfit: number;
   sessionLowProfit: number;
   isHeater: boolean;
@@ -38,11 +43,14 @@ export interface SessionStats {
   isNearEven: boolean;
   comebackActive: boolean;
   momentum: 'up' | 'down' | 'flat';
-  netProfit: number;
-  handsPlayed: number;
-  biggestPotWon: number;
-  winStreak: number;
-  lossStreak: number;
+  bankrollTier: 'LOW' | 'MID' | 'HIGH';
+  tableStakes: 'LOW' | 'MID' | 'HIGH';
+  dangerZone: boolean;
+  lastStand: boolean;
+  protectingLead: boolean;
+  peakDrop: number;
+  shouldLeaveSignal: boolean;
+  shouldContinueSignal: boolean;
 }
 
 const DEFAULT_SESSION_STATS: SessionStats = {
@@ -60,6 +68,14 @@ const DEFAULT_SESSION_STATS: SessionStats = {
   isNearEven: false,
   comebackActive: false,
   momentum: 'flat',
+  bankrollTier: 'MID',
+  tableStakes: 'MID',
+  dangerZone: false,
+  lastStand: false,
+  protectingLead: false,
+  peakDrop: 0,
+  shouldLeaveSignal: false,
+  shouldContinueSignal: false,
 };
 
 export function useServerMode(tableId: string, modeId: string) {

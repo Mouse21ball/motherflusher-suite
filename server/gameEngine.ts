@@ -307,6 +307,11 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
   sessionHighProfit: number; sessionLowProfit: number;
   isHeater: boolean; isCold: boolean; isNearEven: boolean;
   comebackActive: boolean; momentum: 'up' | 'down' | 'flat';
+  bankrollTier: 'LOW' | 'MID' | 'HIGH';
+  tableStakes: 'LOW' | 'MID' | 'HIGH';
+  dangerZone: boolean; lastStand: boolean;
+  protectingLead: boolean; peakDrop: number;
+  shouldLeaveSignal: boolean; shouldContinueSignal: boolean;
 } {
   const ss = table.sessionStats.get(seatId);
   const currentChips  = table.state.players.find(p => p.id === seatId)?.chips
@@ -339,6 +344,30 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
     : recentDeltas.slice(-2).every(d => d < 0) ? 'down'
     : 'flat';
 
+  // ── Stakes + pressure signals ─────────────────────────────────────────────
+  const bankrollTier: 'LOW' | 'MID' | 'HIGH' =
+    currentChips < 300 ? 'LOW' : currentChips <= 1000 ? 'MID' : 'HIGH';
+
+  const allChips = table.state.players
+    .filter(p => p.chips > 0)
+    .map(p => p.chips);
+  const avgTableChips = allChips.length > 0
+    ? Math.round(allChips.reduce((a, b) => a + b, 0) / allChips.length) : 1000;
+  const tableStakes: 'LOW' | 'MID' | 'HIGH' =
+    avgTableChips < 300 ? 'LOW' : avgTableChips <= 1000 ? 'MID' : 'HIGH';
+
+  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 300;
+  const lastStand  = currentChips < 150;
+
+  const protectingLead = netProfit > 0 && momentum !== 'down';
+  const peakDrop       = Math.max(0, sessionHighProfit - netProfit);
+
+  const shouldLeaveSignal =
+    netProfit > startChips * 0.30
+    || (dangerZone && lossStreak >= 3);
+
+  const shouldContinueSignal = comebackActive || isNearEven || isHeater;
+
   return {
     startChips,
     currentChips,
@@ -354,6 +383,14 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
     isNearEven,
     comebackActive,
     momentum,
+    bankrollTier,
+    tableStakes,
+    dangerZone,
+    lastStand,
+    protectingLead,
+    peakDrop,
+    shouldLeaveSignal,
+    shouldContinueSignal,
   };
 }
 

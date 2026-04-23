@@ -34,20 +34,28 @@ interface RulesSection {
 }
 
 export interface GameSessionStats {
-  netProfit:         number;
-  handsPlayed:       number;
-  winStreak:         number;
-  lossStreak:        number;
-  biggestPotWon:     number;
-  currentChips:      number;
-  startChips:        number;
-  sessionHighProfit: number;
-  sessionLowProfit:  number;
-  isHeater:          boolean;
-  isCold:            boolean;
-  isNearEven:        boolean;
-  comebackActive:    boolean;
-  momentum:          'up' | 'down' | 'flat';
+  netProfit:           number;
+  handsPlayed:         number;
+  winStreak:           number;
+  lossStreak:          number;
+  biggestPotWon:       number;
+  currentChips:        number;
+  startChips:          number;
+  sessionHighProfit:   number;
+  sessionLowProfit:    number;
+  isHeater:            boolean;
+  isCold:              boolean;
+  isNearEven:          boolean;
+  comebackActive:      boolean;
+  momentum:            'up' | 'down' | 'flat';
+  bankrollTier:        'LOW' | 'MID' | 'HIGH';
+  tableStakes:         'LOW' | 'MID' | 'HIGH';
+  dangerZone:          boolean;
+  lastStand:           boolean;
+  protectingLead:      boolean;
+  peakDrop:            number;
+  shouldLeaveSignal:   boolean;
+  shouldContinueSignal: boolean;
 }
 
 interface GameHeaderProps {
@@ -415,6 +423,27 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
             {sessionStats && sessionStats.isNearEven && !sessionStats.comebackActive && (
               <div className="text-[8px] font-mono text-white/35 leading-tight" data-testid="badge-near-even">
                 BREAK EVEN
+              </div>
+            )}
+            {/* Stakes + pressure indicators */}
+            {sessionStats && sessionStats.lastStand && (
+              <div className="text-[8px] font-mono font-bold leading-tight" style={{ color: 'rgba(239,68,68,0.80)' }} data-testid="badge-last-stand">
+                ALL-IN MODE
+              </div>
+            )}
+            {sessionStats && sessionStats.dangerZone && !sessionStats.lastStand && (
+              <div className="text-[8px] font-mono leading-tight" style={{ color: 'rgba(251,146,60,0.70)' }} data-testid="badge-danger-zone">
+                ⚠ LOW STACK
+              </div>
+            )}
+            {sessionStats && sessionStats.protectingLead && (
+              <div className="text-[8px] font-mono text-emerald-400/50 leading-tight" data-testid="badge-protecting-lead">
+                PROTECTING LEAD
+              </div>
+            )}
+            {sessionStats && sessionStats.peakDrop > 0 && !sessionStats.protectingLead && (
+              <div className="text-[8px] font-mono text-white/30 leading-tight" data-testid="text-peak-drop">
+                FROM HIGH: -${sessionStats.peakDrop}
               </div>
             )}
             {/* XP progress bar — hidden on small portrait screens to save space */}

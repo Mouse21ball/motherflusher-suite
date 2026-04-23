@@ -38,20 +38,28 @@ function getOrCreateSessionId(): string {
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
 // freshly generated). No myId parameter — the server assigns the seat.
 export interface BadugiSessionStats {
-  startChips:        number;
-  currentChips:      number;
-  netProfit:         number;
-  handsPlayed:       number;
-  biggestPotWon:     number;
-  winStreak:         number;
-  lossStreak:        number;
-  sessionHighProfit: number;
-  sessionLowProfit:  number;
-  isHeater:          boolean;
-  isCold:            boolean;
-  isNearEven:        boolean;
-  comebackActive:    boolean;
-  momentum:          'up' | 'down' | 'flat';
+  startChips:          number;
+  currentChips:        number;
+  netProfit:           number;
+  handsPlayed:         number;
+  biggestPotWon:       number;
+  winStreak:           number;
+  lossStreak:          number;
+  sessionHighProfit:   number;
+  sessionLowProfit:    number;
+  isHeater:            boolean;
+  isCold:              boolean;
+  isNearEven:          boolean;
+  comebackActive:      boolean;
+  momentum:            'up' | 'down' | 'flat';
+  bankrollTier:        'LOW' | 'MID' | 'HIGH';
+  tableStakes:         'LOW' | 'MID' | 'HIGH';
+  dangerZone:          boolean;
+  lastStand:           boolean;
+  protectingLead:      boolean;
+  peakDrop:            number;
+  shouldLeaveSignal:   boolean;
+  shouldContinueSignal: boolean;
 }
 
 const DEFAULT_SESSION_STATS: BadugiSessionStats = {
@@ -60,6 +68,10 @@ const DEFAULT_SESSION_STATS: BadugiSessionStats = {
   sessionHighProfit: 0, sessionLowProfit: 0,
   isHeater: false, isCold: false, isNearEven: false,
   comebackActive: false, momentum: 'flat',
+  bankrollTier: 'MID', tableStakes: 'MID',
+  dangerZone: false, lastStand: false,
+  protectingLead: false, peakDrop: 0,
+  shouldLeaveSignal: false, shouldContinueSignal: false,
 };
 
 export function useServerBadugi(tableId: string) {
