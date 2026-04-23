@@ -43,6 +43,10 @@ interface DecideBetOptions {
   heroEscalating?: boolean;   // hero raised in 2+ consecutive betting rounds
   stackMode?: 'bully' | 'normal' | 'survival' | 'critical';
   handVariance?: number;      // -0.08..+0.08 per-hand shift to break repetition
+  facingBigStack?: boolean;   // an opponent holds >130% of this bot's chips
+  shortStackPresent?: boolean; // a weak player at the table to apply pressure on
+  tableDrift?: number;        // per-seat hot/cold permanent bias -0.05..+0.05
+  rivalryMode?: boolean;      // hero raised 3+ times — active rivalry
 }
 
 // ── Core decision logic ───────────────────────────────────────────────────────
@@ -108,6 +112,8 @@ function _decideBetRaw(
   // heroEscalating: hero raised in multiple rounds — personality determines response
   const escalFold      = options?.heroEscalating && (pers === 'tight' || pers === 'passive')  ? 0.12 : 0;
   const escalFire      = options?.heroEscalating && (pers === 'aggressive' || pers === 'loose') ? 0.08 : 0;
+  // rivalryMode: hero raised 3+ times — active rivalry, aggressive seats push back harder
+  const rivalryFire    = options?.rivalryMode && (pers === 'aggressive' || pers === 'loose') ? 0.06 : 0;
   // stackMode: relative chip position vs table average
   const sm             = options?.stackMode ?? 'normal';
   const stackBullyGate = sm === 'bully'    ? -0.05 : 0;
@@ -116,6 +122,12 @@ function _decideBetRaw(
   const stackSurvRaise = sm === 'survival' ? -0.10 : (sm === 'critical' ? -0.18 : 0);
   // handVariance: per-hand ±0.08 shift to break structural repetition
   const hv             = options?.handVariance ?? 0;
+  // Bot vs bot awareness: avoid big stacks, apply pressure to short stacks
+  const bigStackCaution  = options?.facingBigStack    ? 0.08 : 0; // tighter calls
+  const bigStackGateUp   = options?.facingBigStack    ? 0.04 : 0; // harder to open-raise into big stack
+  const shortStackBonus  = options?.shortStackPresent ? 0.06 : 0; // extra aggBonus vs weak stacks
+  // tableDrift: per-seat permanent hot/cold bias
+  const drift            = options?.tableDrift ?? 0;
 
   // ── Scared money: high stack risk suppresses all bluffing ─────────────────
   const stackRisk         = options?.stackRisk ?? 0;
@@ -155,13 +167,13 @@ function _decideBetRaw(
 
   if (callAmount === 0) {
     const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap - focusGateDrop
-                      + momentumGate + stackBullyGate;
+                      + momentumGate + stackBullyGate + bigStackGateUp;
     const raiseChance = 0.42 + s * 0.45 + earlyBoost * 0.25
                        - (multiway   ? 0.10 : 0)
                        - (potControl ? 0.15 : 0)
-                       + persRaiseAdj + stackBullyRaise + stackSurvRaise + hv;
+                       + persRaiseAdj + stackBullyRaise + stackSurvRaise + hv + drift;
 
-    if (gateS + aggBonus + focusAggBonus > gate && Math.random() < raiseChance) {
+    if (gateS + aggBonus + focusAggBonus + shortStackBonus > gate && Math.random() < raiseChance) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
@@ -174,15 +186,15 @@ function _decideBetRaw(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  // ── Call multiplier: stack risk + hero read + personality + momentum + session reads
+  // ── Call multiplier: stack risk + hero read + personality + momentum + session reads + table
   const baseMult = stackRisk > 0.40 ? 0.90 : (stackRisk > 0.22 ? 0.78 : 0.65);
   const callMult = baseMult + aggHeroTighten + persCallAdj + momentumTight
-                            + escalFold + stackSurvCall;
+                            + escalFold + stackSurvCall + bigStackCaution;
 
-  // ── Re-raise gate — lowers when bot is focused on or escalating back ───────
-  const reraiseGate = 0.55 - passive * 0.1 - focusGateDrop - escalFire;
-  if (gateS + aggBonus + focusAggBonus > reraiseGate &&
-      Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5 + stackBullyRaise) {
+  // ── Re-raise gate — lowers when focused / escalating / rivalry / hunting ──
+  const reraiseGate = 0.55 - passive * 0.1 - focusGateDrop - escalFire - rivalryFire;
+  if (gateS + aggBonus + focusAggBonus + shortStackBonus > reraiseGate &&
+      Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5 + stackBullyRaise + drift) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }
@@ -218,6 +230,22 @@ export function decideBet(
 ): BetDecision {
   const callAmount = currentBet - myBet;
   const raw = _decideBetRaw(strength, pot, currentBet, myBet, chips, options);
+
+  // ── Controlled chaos — combined <3% frequency, partitioned roll ───────────
+  // Introduces rare unpredictable moments that remove the last traces of
+  // mechanical predictability. Each branch is mutually exclusive.
+  const chaosRoll = Math.random();
+  if (chaosRoll < 0.010) {
+    // 1.0%: spontaneous aggression — raise regardless of hand strength
+    const chaosSize = clampRaise(Math.floor(pot * 0.5) + callAmount, chips);
+    return { action: 'raise', raiseAmount: chaosSize };
+  } else if (chaosRoll < 0.022 && callAmount > 0) {
+    // 1.2%: unexpected call — call a bet we should fold
+    return { action: 'call' };
+  } else if (chaosRoll < 0.027 && chips > 200 && callAmount > 0) {
+    // 0.5%: loose all-in — only when meaningful chips remain
+    return { action: 'raise', raiseAmount: chips };
+  }
 
   // Missed raise: occasionally skip a raise we clearly had
   if (raw.action === 'raise' && Math.random() < 0.06) {

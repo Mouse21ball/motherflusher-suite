@@ -218,25 +218,31 @@ export const BadugiMode: GameMode = {
       // Winning bots get slightly bolder; losing bots tighten up.
       const momentum = bot.chips > 1080 ? 1 : bot.chips < 920 ? -1 : 0;
 
-      // ── Hero profiling from recent message history ────────────────────────
+      // ── Hero profiling — decayed window for light session carryover ─────────
+      // Recent 5 messages weight 1.0; older 6–15 weight 0.5 — natural decay
+      // so bots don't completely forget between hands but don't obsess either.
       const heroPlayer    = state.players.find(p => p.presence === 'human');
       const heroName      = heroPlayer?.name ?? '';
-      const recentMsgs    = state.messages.slice(-8);
+      const msgs15  = state.messages.slice(-15);
+      const msgs5   = state.messages.slice(-5);
+      const msgs5Set = new Set(msgs5);
       let heroRaises = 0;
       let heroFolds  = 0;
       let heroActs   = 0;
-      for (const msg of recentMsgs) {
-        if (heroName && msg.text.includes(heroName)) {
-          heroActs++;
-          if (msg.text.includes('raised') || msg.text.includes('bet')) heroRaises++;
-          else if (msg.text.includes('folded')) heroFolds++;
-        }
+      for (const msg of msgs15) {
+        if (!heroName || !msg.text.includes(heroName)) continue;
+        const w = msgs5Set.has(msg) ? 1.0 : 0.5;
+        heroActs   += w;
+        if (msg.text.includes('raised') || msg.text.includes('bet')) heroRaises += w;
+        else if (msg.text.includes('folded')) heroFolds += w;
       }
       const heroAggression = heroActs >= 2 ? heroRaises / heroActs : 0.3;
       // Hero folds to pressure ≥2× this session → fold equity is real
       const heroFoldsOften = heroActs >= 2 && heroFolds >= 2;
       // Escalation: hero raised in 2+ rounds of THIS hand (last-bet round check)
       const heroEscalating = isLastBet && heroRaises >= 2;
+      // Rivalry: hero raised 3+ times — aggressive bots push back harder
+      const rivalryMode    = isLastBet && heroRaises >= 3;
 
       // ── Per-hand bluff-line commitment (deterministic, stable per hand) ───
       const cardSum  = bot.cards.reduce((acc, c) => acc + rankValue(c.rank), 0);
@@ -251,6 +257,20 @@ export const BadugiMode: GameMode = {
       const focusRng   = focusSeed / 0x7fffffff;
       // Only hunt an aggressive hero; fires on ~30% of those hands per bot seat
       const focusTarget = heroAggression > 0.45 && focusRng > 0.70;
+
+      // ── Bot vs bot table awareness ────────────────────────────────────────
+      // Scan all active opponents (excluding this bot) for stack dynamics.
+      const opponents = state.players.filter(p => p.id !== bot.id && p.status !== 'folded');
+      const oppChips  = opponents.map(p => p.chips);
+      const tableMaxOpp = oppChips.length ? Math.max(...oppChips) : bot.chips;
+      const tableMinOpp = oppChips.length ? Math.min(...oppChips) : bot.chips;
+      // Avoid opening into a big stack; apply pressure when a short stack is present.
+      const facingBigStack    = tableMaxOpp > bot.chips * 1.30;
+      const shortStackPresent = tableMinOpp < 700 && bot.chips >= tableMinOpp;
+      // Per-seat hot/cold permanent drift: stable over the entire session.
+      // Range is -0.048 to +0.048 — one seat always slightly hotter, one colder.
+      const botIdSum   = bot.id.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+      const tableDrift = ((botIdSum % 7) - 3) * 0.016;
 
       // ── Trap / bait: check BET_1 with a strong hand, fire in BET_2 ────────
       const trapThreshold = activeOpponents === 1 ? 0.35 : 0.22;
@@ -283,6 +303,7 @@ export const BadugiMode: GameMode = {
         heroAggression, bluffLine, potControl,
         personality, momentum,
         heroFoldsOften, focusTarget, heroEscalating, stackMode, handVariance,
+        facingBigStack, shortStackPresent, tableDrift, rivalryMode,
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
