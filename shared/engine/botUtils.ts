@@ -7,29 +7,74 @@ export interface BetDecision {
   raiseAmount?: number;
 }
 
-export function decideBet(
+// ── Personality types ────────────────────────────────────────────────────────
+// Each bot seat is assigned a stable archetype derived from its ID.
+// tight:      folds more, calls less, rarely bluffs
+// loose:      calls wider, bluffs more, lower fold threshold
+// aggressive: raises frequently, large sizing, high bluff rate
+// passive:    prefers checks and calls, avoids large raises
+export type BotPersonality = 'tight' | 'loose' | 'aggressive' | 'passive';
+
+export function botPersonality(botId: string): BotPersonality {
+  const sum = botId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const v = sum % 4;
+  if (v === 0) return 'tight';
+  if (v === 1) return 'aggressive';
+  if (v === 2) return 'loose';
+  return 'passive';
+}
+
+interface DecideBetOptions {
+  bluffFreq?: number;
+  passiveExtra?: number;
+  heroWeak?: boolean;
+  largePot?: boolean;
+  earlyPressure?: boolean;
+  activeOpponents?: number;   // live opponents excluding this bot (1 = heads-up)
+  stackRisk?: number;         // callAmount / chips, 0..1
+  slowPlay?: boolean;         // this hand: check strong hand to trap
+  heroAggression?: number;    // 0..1 — recent hero raise-rate (0.3 = neutral)
+  potControl?: boolean;       // medium-strength mode: smaller sizing, more checks
+  bluffLine?: boolean;        // committed bluff this hand: continue pressure
+  personality?: BotPersonality;
+  momentum?: number;          // positive = winning streak, negative = losing streak
+}
+
+// ── Core decision logic ───────────────────────────────────────────────────────
+// Called by the public wrapper. Contains all situational logic.
+function _decideBetRaw(
   strength: number,
   pot: number,
   currentBet: number,
   myBet: number,
   chips: number,
-  options?: {
-    bluffFreq?: number;
-    passiveExtra?: number;
-    heroWeak?: boolean;
-    largePot?: boolean;
-    earlyPressure?: boolean;
-    activeOpponents?: number;  // live opponents excluding this bot (1 = heads-up)
-    stackRisk?: number;        // callAmount / chips, 0..1
-    slowPlay?: boolean;        // this hand: check strong hand to trap
-    heroAggression?: number;   // 0..1 — recent hero raise-rate (0.3 = neutral)
-    potControl?: boolean;      // medium-strength mode: smaller sizing, more checks
-    bluffLine?: boolean;       // committed bluff this hand: continue pressure on opens
-  }
+  options?: DecideBetOptions
 ): BetDecision {
   const callAmount = currentBet - myBet;
-  const bluffFreq  = options?.bluffFreq   ?? 0.09;
   const passive    = options?.passiveExtra ?? 0;
+
+  // ── Personality modifiers ─────────────────────────────────────────────────
+  const pers = options?.personality;
+  const persRaiseAdj  = pers === 'aggressive' ?  0.12
+                      : pers === 'loose'      ?  0.05
+                      : pers === 'passive'    ? -0.12
+                      : pers === 'tight'      ? -0.07
+                      : 0;
+  const persCallAdj   = pers === 'tight'      ?  0.08
+                      : pers === 'loose'      ? -0.07
+                      : pers === 'passive'    ?  0.04
+                      : pers === 'aggressive' ? -0.02
+                      : 0;
+  const persBluffMult = pers === 'aggressive' ? 1.80
+                      : pers === 'loose'      ? 1.50
+                      : pers === 'tight'      ? 0.40
+                      : pers === 'passive'    ? 0.50
+                      : 1.0;
+
+  // ── Momentum modifiers ────────────────────────────────────────────────────
+  const momentum     = options?.momentum ?? 0;
+  const momentumGate  = momentum > 0 ? -0.03 : 0;  // winning → lower raise gate
+  const momentumTight = momentum < 0 ?  0.04 : 0;  // losing  → tighter calls
 
   // ── Jitter ───────────────────────────────────────────────────────────────
   const jitter = (Math.random() - 0.5) * 0.10;
@@ -45,21 +90,17 @@ export function decideBet(
   const earlyBoost = options?.earlyPressure ? 0.13 : 0;
 
   // ── Hero-read adjustment ──────────────────────────────────────────────────
-  // vs aggressive hero: tighten calls (they have it more often)
-  // vs passive hero: lower the open-raise gate (they're giving away free pots)
   const heroAgg        = options?.heroAggression ?? 0.3;
-  const passiveHeroGap = heroAgg < 0.20 ? 0.05 : 0;   // lower gate vs passive hero
-  const aggHeroTighten = heroAgg > 0.65 ? 0.08 : 0;   // add to callMult vs aggro hero
+  const passiveHeroGap = heroAgg < 0.20 ? 0.05 : 0;
+  const aggHeroTighten = heroAgg > 0.65 ? 0.08 : 0;
 
   // ── Scared money: high stack risk suppresses all bluffing ────────────────
   const stackRisk         = options?.stackRisk ?? 0;
   const scaredMoney       = stackRisk > 0.35;
-  const effectiveBluffFreq = scaredMoney ? 0 : bluffFreq;
+  const baseBluffFreq     = (options?.bluffFreq ?? 0.09) * persBluffMult;
+  const effectiveBluffFreq = scaredMoney ? 0 : baseBluffFreq;
 
-  // ── Bluff-line effective strength for gate checks only ───────────────────
-  // A committed bluffer gets a gate boost so they continue pressure on opens
-  // and re-raise gates. The raw s still governs call/fold equity decisions,
-  // so the bot still folds to large re-raises — bluff, not recklessness.
+  // ── Bluff-line gate boost (gate checks only, not call/fold equity) ───────
   const gateS = (options?.bluffLine && s < 0.28) ? Math.min(s + 0.18, 0.42) : s;
 
   // ── Dead-hand absolute fold ───────────────────────────────────────────────
@@ -71,14 +112,14 @@ export function decideBet(
     return s > 0.3 ? { action: 'call' } : { action: 'fold' };
   }
 
-  // ── Sizing: pot-control hands use smaller, tighter ranges ────────────────
+  // ── Sizing ────────────────────────────────────────────────────────────────
   const potControl = options?.potControl ?? false;
   const useOverbet = !potControl && Math.random() < 0.18;
   const sizeMult   = potControl
-    ? 0.22 + s * 0.22                          // 0.22–0.44× pot (controlled sizing)
+    ? 0.22 + s * 0.22
     : useOverbet
-      ? 0.65 + s * 0.85                        // overbet
-      : 0.30 + s * 0.50;                       // standard
+      ? 0.65 + s * 0.85
+      : 0.30 + s * 0.50;
 
   // ── Slow-play: check strong hand to induce action ─────────────────────────
   if (callAmount === 0 && options?.slowPlay) {
@@ -86,16 +127,16 @@ export function decideBet(
   }
 
   if (callAmount === 0) {
-    const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap;
+    const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap + momentumGate;
     const raiseChance = 0.42 + s * 0.45 + earlyBoost * 0.25
-                       - (multiway  ? 0.10 : 0)
-                       - (potControl ? 0.15 : 0);  // pot-control hands check more
+                       - (multiway   ? 0.10 : 0)
+                       - (potControl ? 0.15 : 0)
+                       + persRaiseAdj;
 
     if (gateS + aggBonus > gate && Math.random() < raiseChance) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
-    // Low-strength bluff probe: suppressed when scared
     if (s < 0.22 && Math.random() < effectiveBluffFreq) {
       const size = clampRaise(Math.floor(pot * (useOverbet ? 0.6 : 0.4)), chips);
       return { action: 'raise', raiseAmount: size };
@@ -105,12 +146,12 @@ export function decideBet(
 
   const potOdds = callAmount / (pot + callAmount);
 
-  // ── Stack-risk + hero-read call multiplier ────────────────────────────────
-  const baseMult  = stackRisk > 0.40 ? 0.90 : (stackRisk > 0.22 ? 0.78 : 0.65);
-  const callMult  = baseMult + aggHeroTighten;
+  // ── Call multiplier: stack risk + hero read + personality + momentum ──────
+  const baseMult = stackRisk > 0.40 ? 0.90 : (stackRisk > 0.22 ? 0.78 : 0.65);
+  const callMult = baseMult + aggHeroTighten + persCallAdj + momentumTight;
 
-  // Re-raise gate — use gateS for gate check, raw s for sizing probability
-  if (gateS + aggBonus > 0.55 - passive * 0.1 && Math.random() < 0.38 + s * 0.45) {
+  // Re-raise gate
+  if (gateS + aggBonus > 0.55 - passive * 0.1 && Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
     return { action: 'raise', raiseAmount: size };
   }
@@ -119,18 +160,43 @@ export function decideBet(
     return { action: 'call' };
   }
 
-  // Cheap-call gate: still requires meaningful strength; disabled when scared
   if (potOdds < 0.22 && s > 0.16 && !scaredMoney) {
     return { action: 'call' };
   }
 
-  // Bluff-raise: only when not scared and not pot-controlling
   if (!scaredMoney && !potControl && Math.random() < effectiveBluffFreq && s < 0.18 && chips > callAmount * 3) {
     const size = clampRaise(callAmount * 2 + 2, chips);
     return { action: 'raise', raiseAmount: size };
   }
 
   return { action: 'fold' };
+}
+
+// ── Public entrypoint ─────────────────────────────────────────────────────────
+// Applies a light imperfection layer after the core decision:
+//   6% chance to miss a raise (downgrade to check or call)
+//   5% chance to make a loose call on a very cheap bet
+// Keeps bots from feeling "optimally correct" every single hand.
+export function decideBet(
+  strength: number,
+  pot: number,
+  currentBet: number,
+  myBet: number,
+  chips: number,
+  options?: DecideBetOptions
+): BetDecision {
+  const callAmount = currentBet - myBet;
+  const raw = _decideBetRaw(strength, pot, currentBet, myBet, chips, options);
+
+  // Missed raise: occasionally skip a raise we clearly had
+  if (raw.action === 'raise' && Math.random() < 0.06) {
+    return callAmount === 0 ? { action: 'check' } : { action: 'call' };
+  }
+  // Loose call: occasionally hero-call on small bets we should fold
+  if (raw.action === 'fold' && callAmount > 0 && callAmount < pot * 0.18 && Math.random() < 0.05) {
+    return { action: 'call' };
+  }
+  return raw;
 }
 
 function clampRaise(amount: number, chips: number): number {

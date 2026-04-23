@@ -697,15 +697,20 @@ function scheduleNextBot(table: GenericTable): void {
   if (existing) clearTimeout(existing);
 
   // Bimodal think time: most decisions at normal pace, some with deliberation.
-  // BET_3 (last-round decisions) get a higher deliberation rate — those choices
-  // carry the most weight and should feel like real thought.
-  const isBet3    = capturedPhase === 'BET_3';
-  const baseMs    = capturedPhase.startsWith('BET')
+  // BET_3 (last-round decisions) get a higher deliberation rate.
+  const isBet3      = capturedPhase === 'BET_3';
+  const baseMs      = capturedPhase.startsWith('BET')
     ? (isBet3 ? 600 + Math.random() * 550 : 500 + Math.random() * 450)
     : 180 + Math.random() * 270;
   const pauseChance = isBet3 ? 0.30 : 0.20;
-  const pauseMs   = Math.random() < pauseChance ? (isBet3 ? 450 + Math.random() * 650 : 380 + Math.random() * 520) : 0;
-  const thinkMs   = baseMs + pauseMs;
+  const pauseMs     = Math.random() < pauseChance
+    ? (isBet3 ? 450 + Math.random() * 650 : 380 + Math.random() * 520)
+    : 0;
+  // Per-bot timing personality: each seat has a stable fast/slow disposition
+  // derived from its ID so different bots feel like different players.
+  const botIdSum    = botId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const timingFactor = 0.75 + (botIdSum % 11) * 0.045; // 0.75 – 1.20×
+  const thinkMs     = Math.floor((baseMs + pauseMs) * timingFactor);
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
