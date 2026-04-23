@@ -70,6 +70,11 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
 // How long (ms) seats p2-p5 are held open for real players before bots fill them.
 const JOIN_WINDOW_MS = 30_000;
 
+// How long (ms) a disconnected seat is held before it is released (bot mid-hand,
+// 'reserved' between hands). 90 seconds is long enough for a page refresh or
+// network blip, short enough to prevent ghost seats from blocking the table.
+const RECONNECT_TIMEOUT_MS = 90_000;
+
 // Bot names restored when reserved seats convert to bots.
 const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
 
@@ -248,6 +253,10 @@ interface AuthTable {
   lastChipSyncHand: Map<string, number>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
+  // Per-seat reconnect timers. Fired when a disconnected player has not returned
+  // within RECONNECT_TIMEOUT_MS. On expiry the seat is released (converted to bot
+  // mid-hand or to 'reserved' between hands) so the game can continue.
+  disconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
@@ -580,6 +589,38 @@ function scheduleNextBot(table: AuthTable): void {
   table.botTimers.set(botId, timer);
 }
 
+// ─── Seat release ─────────────────────────────────────────────────────────────
+// Called when a player intentionally leaves OR when the reconnect timeout expires.
+// Between hands (WAITING): resets the seat to 'reserved' (open for a new player).
+// Mid-hand: converts the seat to a bot so the game can finish the round, then the
+// seat naturally becomes available when the next hand's WAITING phase begins.
+
+function releaseSeat(table: AuthTable, seat: string): void {
+  const isBetweenHands = table.state.phase === 'WAITING';
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.id !== seat) return p;
+      if (isBetweenHands) {
+        return {
+          ...p,
+          presence: 'reserved' as const,
+          status:   'sitting_out' as const,
+          name:     'Open',
+          cards:    [],
+          bet:      0,
+          totalBet: 0,
+        };
+      }
+      // Mid-hand: hand off to bot so the round completes cleanly.
+      return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+    }),
+  };
+  broadcastState(table);
+  // If it was this player's turn mid-hand, trigger the bot to act immediately.
+  if (!isBetweenHands) scheduleNextBot(table);
+}
+
 // ─── Bot action execution ─────────────────────────────────────────────────────
 
 function executeBotAction(table: AuthTable, botId: string): void {
@@ -717,6 +758,7 @@ export function initEngine(): void {
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
       spectators: new Map(),
+      disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
     });
@@ -759,6 +801,7 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
       spectators: new Map(),
+      disconnectTimers: new Map(),
       joinWindowEndsAt,
       isPrivate,
     };
@@ -810,27 +853,37 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     }
     if (foundSeat) {
       if (table.connections.has(foundSeat)) {
-        // The player's real seat has an active connection → this is a second active
-        // tab. Make it a spectator to prevent chips being loaded twice into two seats.
-        table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
-        engineLog('DUPLICATE_TAB_REJECTED', tableId, {
+        // Second tab / device while first is still connected: take over the seat.
+        // Send a supersede notice to the old connection so the first tab knows it
+        // has been displaced. The game state is unaffected — same seat, same chips.
+        let oldSessionId: string | null = null;
+        for (const [sid, s] of table.sessionToSeat.entries()) {
+          if (s === foundSeat) { oldSessionId = sid; break; }
+        }
+        if (oldSessionId) {
+          const oldWs = table.connections.get(foundSeat);
+          if (oldWs) {
+            try { oldWs.send(JSON.stringify({ type: 'badugi:superseded', reason: 'seat_taken_over' })); } catch {}
+          }
+          table.sessionToSeat.delete(oldSessionId);
+          table.connections.delete(foundSeat);
+          table.humanSeats.delete(foundSeat);
+          // Cancel any pending disconnect timeout on this seat
+          const dt = table.disconnectTimers.get(foundSeat);
+          if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
+        }
+        engineLog('SESSION_TAKEOVER', tableId, {
           identity: identityId.slice(-8),
-          activeSeat: foundSeat,
+          seat: foundSeat,
+          oldSession: (oldSessionId ?? '').slice(-8),
           newSession: sessionId.slice(-8),
         });
-        try {
-          ws.send(JSON.stringify({
-            type: 'badugi:init',
-            playerId: '__spectator__',
-            role: 'spectator',
-            state: maskStateForPlayer(table.state, '__spectator__'),
-          }));
-        } catch {}
-        broadcastState(table);
-        return '__spectator__';
+        seat = foundSeat as typeof seat;
       } else {
-        // The player's real seat has no active connection → reconnect from a new
-        // tab or device. Redirect this session to their existing seat.
+        // No active connection → reconnect from a new tab or device.
+        // Cancel the reconnect-expiry timer that may have been set on disconnect.
+        const dt = table.disconnectTimers.get(foundSeat);
+        if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         engineLog('RECONNECT_NEW_TAB', tableId, {
           identity: identityId.slice(-8),
           reclaimedSeat: foundSeat,
@@ -840,6 +893,11 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
       }
     }
   }
+
+  // Cancel any pending reconnect-expiry timer for this seat (covers same-session
+  // reconnects where the timer was set during the initial disconnect).
+  const pendingDisconnect = table.disconnectTimers.get(seat);
+  if (pendingDisconnect) { clearTimeout(pendingDisconnect); table.disconnectTimers.delete(seat); }
 
   const isReconnect = table.sessionToSeat.has(sessionId) || (identityId ? !!table.seatToIdentityId.get(seat) : false);
   table.sessionToSeat.set(sessionId, seat);
@@ -951,14 +1009,48 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
     }
 
     if (intentional) {
-      // ── Intentional leave: clear active-table record ──────────────────────
-      // Reconnectable disconnects must NOT clear this — the player should be
-      // routable back to this table on next load via the reconnect endpoint.
+      // ── Intentional leave: clear active-table record and release the seat ──
       storage.clearPlayerActiveTable(identityId).catch(() => {});
-      // Clean up identity tracking so the seat can be reused by a new player.
       table.seatToIdentityId.delete(seat);
       table.lastChipSyncHand.delete(seat);
     }
+  }
+
+  if (intentional) {
+    // Free the seat immediately so the game can continue without the player.
+    // Between hands → 'reserved'. Mid-hand → bot finishes the round.
+    releaseSeat(table, seat);
+  } else {
+    // ── Reconnect timeout ───────────────────────────────────────────────────
+    // Give the player RECONNECT_TIMEOUT_MS to return before releasing the seat.
+    // The timer is keyed by seat and cancelled in addBadugiConnection on reconnect.
+    const capturedSession = sessionId;
+    const timer = setTimeout(() => {
+      const t = tables.get(tableId);
+      if (!t) return;
+      // If the player has already reconnected (same or new session), abort.
+      if (t.connections.has(seat)) return;
+      // Session mapping was replaced by new reconnect (RECONNECT_NEW_TAB path)?
+      if (t.sessionToSeat.get(capturedSession) !== seat && !t.connections.has(seat)) {
+        // Could have reconnected via new session — also safe, timer already cleared.
+        // Only continue if seat is genuinely still unoccupied.
+        if (t.connections.has(seat)) return;
+      }
+
+      engineLog('RECONNECT_EXPIRED', tableId, { player: seat, session: capturedSession.slice(-8) });
+      t.disconnectTimers.delete(seat);
+      t.sessionToSeat.delete(capturedSession);
+
+      const id = t.seatToIdentityId.get(seat);
+      if (id) {
+        t.seatToIdentityId.delete(seat);
+        t.lastChipSyncHand.delete(seat);
+        storage.clearPlayerActiveTable(id).catch(() => {});
+      }
+      releaseSeat(t, seat);
+    }, RECONNECT_TIMEOUT_MS);
+
+    table.disconnectTimers.set(seat, timer);
   }
 
   engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', tableId, {
@@ -1232,6 +1324,7 @@ export function destroyBadugiTable(tableId: string): void {
   const table = tables.get(tableId);
   if (!table) return;
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+  for (const t of Array.from(table.disconnectTimers.values())) clearTimeout(t);
   deletePersistedTable(tableId);
   tables.delete(tableId);
   engineLog('TABLE_CREATE', tableId, { source: 'destroy' });

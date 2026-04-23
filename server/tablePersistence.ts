@@ -88,9 +88,17 @@ function sanitizeForRestore(tableId: string, state: GameState, handId: number): 
     return { tableId, state, handId };
   }
 
-  // Mid-hand or SHOWDOWN: reset to WAITING, preserve chips, clear hand data.
+  // Mid-hand or SHOWDOWN: reset to WAITING, return bets, preserve net chips.
+  //
+  // Bet-return rule: if pot > 0 there is money in play that was never distributed.
+  //   chips_safe = p.chips + p.totalBet  (restores the player to their pre-hand balance)
+  //   sum(totalBet for all players) == pot, so returning all totalBets zeroes the pot.
+  // If pot == 0 the hand resolved before the crash (e.g. SHOWDOWN already ran and
+  //   distributed winnings, then resetToAnte timed out). Chips are already correct.
+  const returnBets = state.pot > 0;
   const restoredPlayers = state.players.map(p => ({
     ...p,
+    chips: returnBets ? p.chips + (p.totalBet ?? 0) : p.chips,
     cards: [],
     bet: 0,
     totalBet: 0,
@@ -99,7 +107,7 @@ function sanitizeForRestore(tableId: string, state: GameState, handId: number): 
     isWinner: undefined as undefined,
     isLoser:  undefined as undefined,
     score:    undefined as undefined,
-    status: (p.chips > 0 ? 'active' : 'sitting_out') as 'active' | 'sitting_out',
+    status: ((returnBets ? p.chips + (p.totalBet ?? 0) : p.chips) > 0 ? 'active' : 'sitting_out') as 'active' | 'sitting_out',
   }));
 
   const chips = restoredPlayers.map(p => `${p.id}=$${p.chips}`).join(' ');
@@ -117,7 +125,9 @@ function sanitizeForRestore(tableId: string, state: GameState, handId: number): 
       players: restoredPlayers,
       messages: [{
         id: Math.random().toString(36).slice(2, 10),
-        text: 'Restored after server restart — chips preserved. Press start.',
+        text: returnBets
+          ? 'Restored after server restart — bets returned, chips preserved. Press start.'
+          : 'Restored after server restart — chips preserved. Press start.',
         time: Date.now(),
       }],
       chatMessages: state.chatMessages ?? [],

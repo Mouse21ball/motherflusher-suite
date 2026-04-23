@@ -102,6 +102,7 @@ function isPhaseRoundOver(state: GameState): boolean {
 
 // ─── Join window ──────────────────────────────────────────────────────────────
 const JOIN_WINDOW_MS = 30_000;
+const RECONNECT_TIMEOUT_MS = 90_000;
 const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
@@ -270,6 +271,9 @@ interface GenericTable {
   // Monotonic guard: stores handId (post-increment) at which each seat last had a
   // hand-end chip sync written. Disconnect syncs skip if handId matches.
   lastChipSyncHand: Map<string, number>;
+  // Per-seat reconnect timers. Fired RECONNECT_TIMEOUT_MS after a disconnect if the
+  // player has not returned. Releases the seat to bot/reserved so the table unblocks.
+  disconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
@@ -703,6 +707,24 @@ function scheduleNextBot(table: GenericTable): void {
   table.botTimers.set(botId, timer);
 }
 
+// ─── Seat release ─────────────────────────────────────────────────────────────
+
+function releaseSeat(table: GenericTable, seat: string): void {
+  const isBetweenHands = table.state.phase === 'WAITING';
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.id !== seat) return p;
+      if (isBetweenHands) {
+        return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
+      }
+      return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+    }),
+  };
+  broadcastState(table);
+  if (!isBetweenHands) scheduleNextBot(table);
+}
+
 // ─── Bot action execution ─────────────────────────────────────────────────────
 
 function executeBotAction(table: GenericTable, botId: string): void {
@@ -847,6 +869,7 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
       spectators: new Map(),
+      disconnectTimers: new Map(),
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
       isPrivate,
@@ -899,26 +922,33 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
     }
     if (foundSeat) {
       if (table.connections.has(foundSeat)) {
-        // Second active tab: reject as spectator to prevent chip doubling.
-        table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
-        engineLog('DUPLICATE_TAB_REJECTED', `${modeId}:${tableId}`, {
+        // Second tab / device while first is active: take over the seat.
+        let oldSessionId: string | null = null;
+        for (const [sid, s] of table.sessionToSeat.entries()) {
+          if (s === foundSeat) { oldSessionId = sid; break; }
+        }
+        if (oldSessionId) {
+          const oldWs = table.connections.get(foundSeat);
+          if (oldWs) {
+            try { oldWs.send(JSON.stringify({ type: 'mode:superseded', reason: 'seat_taken_over' })); } catch {}
+          }
+          table.sessionToSeat.delete(oldSessionId);
+          table.connections.delete(foundSeat);
+          table.humanSeats.delete(foundSeat);
+          const dt = table.disconnectTimers.get(foundSeat);
+          if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
+        }
+        engineLog('SESSION_TAKEOVER', `${modeId}:${tableId}`, {
           identity: identityId.slice(-8),
-          activeSeat: foundSeat,
+          seat: foundSeat,
+          oldSession: (oldSessionId ?? '').slice(-8),
           newSession: sessionId.slice(-8),
         });
-        try {
-          ws.send(JSON.stringify({
-            type: 'mode:init',
-            playerId: '__spectator__',
-            modeId,
-            role: 'spectator',
-            state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
-          }));
-        } catch {}
-        broadcastState(table);
-        return '__spectator__';
+        seat = foundSeat as typeof seat;
       } else {
-        // Reconnect from a new tab/device: redirect to existing seat.
+        // No active connection: reconnect from new tab/device.
+        const dt = table.disconnectTimers.get(foundSeat);
+        if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         engineLog('RECONNECT_NEW_TAB', `${modeId}:${tableId}`, {
           identity: identityId.slice(-8),
           reclaimedSeat: foundSeat,
@@ -928,6 +958,10 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
       }
     }
   }
+
+  // Cancel any pending reconnect-expiry timer for this seat.
+  const pendingDisconnect = table.disconnectTimers.get(seat);
+  if (pendingDisconnect) { clearTimeout(pendingDisconnect); table.disconnectTimers.delete(seat); }
 
   const isReconnect = table.sessionToSeat.has(sessionId) || (identityId ? !!table.seatToIdentityId.get(seat) : false);
   table.sessionToSeat.set(sessionId, seat);
@@ -1020,7 +1054,6 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
     if (identityId) {
       const player = table.state.players.find(p => p.id === seat);
       if (player) {
-        // Monotonic guard: skip chip write if hand-end sync already ran this hand.
         const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
         if (lastSynced !== table.handId) {
           storage.syncPlayerChips(identityId, player.chips).catch(() => {});
@@ -1028,11 +1061,32 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
       }
 
       if (intentional) {
-        // Only clear active-table on true leave — disconnects stay reconnectable.
         storage.clearPlayerActiveTable(identityId).catch(() => {});
         table.seatToIdentityId.delete(seat);
         table.lastChipSyncHand.delete(seat);
       }
+    }
+
+    if (intentional) {
+      releaseSeat(table, seat);
+    } else {
+      const capturedSession = sessionId;
+      const timer = setTimeout(() => {
+        const t = tables.get(key);
+        if (!t) return;
+        if (t.connections.has(seat)) return;
+        engineLog('RECONNECT_EXPIRED', `${modeId}:${tableId}`, { player: seat, session: capturedSession.slice(-8) });
+        t.disconnectTimers.delete(seat);
+        t.sessionToSeat.delete(capturedSession);
+        const id = t.seatToIdentityId.get(seat);
+        if (id) {
+          t.seatToIdentityId.delete(seat);
+          t.lastChipSyncHand.delete(seat);
+          storage.clearPlayerActiveTable(id).catch(() => {});
+        }
+        releaseSeat(t, seat);
+      }, RECONNECT_TIMEOUT_MS);
+      table.disconnectTimers.set(seat, timer);
     }
 
     engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', `${modeId}:${tableId}`, {
