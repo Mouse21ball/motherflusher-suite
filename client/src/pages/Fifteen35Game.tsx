@@ -44,7 +44,7 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 }
 
 function Fifteen35GameServer({ tableId }: { tableId: string }) {
-  const { state, handleAction, myId, role } = useServerMode(tableId, 'fifteen35');
+  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'fifteen35');
   const isSpectator = role === 'spectator';
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
@@ -53,7 +53,7 @@ function Fifteen35GameServer({ tableId }: { tableId: string }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="fifteen35" {...MODE_INTROS.fifteen35} />
-      <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('fifteen35', me.chips); }} />
+      <GameHeader mode={MODE_INFO.fifteen35} modeId="fifteen35" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('fifteen35', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} />
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : <InviteBanner tableId={tableId} mode="fifteen35" />

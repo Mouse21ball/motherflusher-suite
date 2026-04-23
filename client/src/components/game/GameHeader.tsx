@@ -33,6 +33,16 @@ interface RulesSection {
   items: string[];
 }
 
+export interface GameSessionStats {
+  netProfit:    number;
+  handsPlayed:  number;
+  winStreak:    number;
+  lossStreak:   number;
+  biggestPotWon: number;
+  currentChips: number;
+  startChips:   number;
+}
+
 interface GameHeaderProps {
   mode: ModeInfo;
   modeId: string;
@@ -40,6 +50,7 @@ interface GameHeaderProps {
   phase?: GamePhase;
   pot?: number;
   onForfeit?: () => void;
+  sessionStats?: GameSessionStats;
 }
 
 const MID_HAND_PHASES = new Set<GamePhase>([
@@ -224,7 +235,7 @@ export const MODE_INFO: Record<string, ModeInfo> = {
   },
 };
 
-export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameHeaderProps) {
+export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, sessionStats }: GameHeaderProps) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [, navigate] = useLocation();
@@ -234,9 +245,11 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
   const levelInfo = getLevelInfo(progression.xp);
   const rank = getRankForLevel(levelInfo.level);
 
-  // Win streak from history
+  // Streak: prefer server sessionStats; fall back to localStorage history.
   const stats = getPlayerStats();
-  const winStreak = stats.streakType === 'win' ? stats.currentStreak : 0;
+  const localWinStreak = stats.streakType === 'win' ? stats.currentStreak : 0;
+  const winStreak  = sessionStats?.winStreak  ?? localWinStreak;
+  const lossStreak = sessionStats?.lossStreak ?? 0;
 
   const isMidHand = phase ? MID_HAND_PHASES.has(phase) : false;
   const currentPot = pot ?? 0;
@@ -282,6 +295,15 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
             >
               <Flame className="w-3 h-3" />
               <span>{winStreak}🔥</span>
+            </div>
+          )}
+          {lossStreak >= 2 && winStreak < 2 && (
+            <div
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-red-500/25 bg-red-500/[0.06] text-red-400/70 text-[10px] font-mono font-bold tracking-wide"
+              data-testid="badge-loss-streak"
+              title={`${lossStreak}-loss streak`}
+            >
+              <span>-{lossStreak} 📉</span>
             </div>
           )}
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
@@ -358,6 +380,20 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit }: GameH
               <div className="hidden sm:block text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
             </div>
             <div className="font-mono text-[#C9A227] font-bold text-base leading-tight tabular-nums" data-testid="text-my-chips">${chips}</div>
+            {/* Session net profit — shown when server sessionStats is available */}
+            {sessionStats && (
+              <div
+                className={`text-[9px] font-mono font-bold tabular-nums leading-tight ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}
+                data-testid="text-session-net"
+              >
+                {sessionStats.netProfit >= 0 ? '+' : ''}${sessionStats.netProfit} session
+              </div>
+            )}
+            {sessionStats && sessionStats.handsPlayed > 0 && (
+              <div className="text-[8px] font-mono text-white/22 tabular-nums leading-tight" data-testid="text-session-hands">
+                {sessionStats.handsPlayed} hand{sessionStats.handsPlayed !== 1 ? 's' : ''}
+              </div>
+            )}
             {/* XP progress bar — hidden on small portrait screens to save space */}
             <div className="hidden sm:block w-14 h-0.5 rounded-full bg-white/[0.05] overflow-hidden">
               <div

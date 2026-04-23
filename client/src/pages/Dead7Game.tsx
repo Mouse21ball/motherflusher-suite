@@ -44,7 +44,7 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 }
 
 function Dead7GameServer({ tableId }: { tableId: string }) {
-  const { state, handleAction, myId, role } = useServerMode(tableId, 'dead7');
+  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'dead7');
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -71,7 +71,7 @@ function Dead7GameServer({ tableId }: { tableId: string }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="dead7" {...MODE_INTROS.dead7} />
-      <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('dead7', me.chips); }} />
+      <GameHeader mode={MODE_INFO.dead7} modeId="dead7" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('dead7', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} />
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : <InviteBanner tableId={tableId} mode="dead7" />

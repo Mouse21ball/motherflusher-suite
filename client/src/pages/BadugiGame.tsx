@@ -18,6 +18,7 @@ import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import type { GameState } from "@/lib/poker/types";
+import type { GameSessionStats } from "@/components/game/GameHeader";
 
 // ─── Invite banner ────────────────────────────────────────────────────────────
 // Shows the table code and a copy-link button. Encourages real multiplayer.
@@ -74,9 +75,10 @@ interface BadugiUIProps {
   myId: string;
   tableId?: string;
   role?: 'player' | 'spectator';
+  sessionStats?: GameSessionStats;
 }
 
-function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: BadugiUIProps) {
+function BadugiUI({ state, handleAction, myId, tableId, role = 'player', sessionStats }: BadugiUIProps) {
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -157,6 +159,7 @@ function BadugiUI({ state, handleAction, myId, tableId, role = 'player' }: Badug
         phase={state.phase}
         pot={state.pot}
         onForfeit={() => { if (me) saveChips('badugi', me.chips); }}
+        sessionStats={isSpectator ? undefined : sessionStats}
       />
 
       {isSpectator
@@ -276,8 +279,8 @@ function BadugiServerGame() {
   /* Persist this table so Home can offer a rejoin row */
   useEffect(() => { saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, myId, role } = useServerBadugi(tableId);
-  return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} role={role} />;
+  const { state, handleAction, myId, role, sessionStats } = useServerBadugi(tableId);
+  return <BadugiUI state={state} handleAction={handleAction} myId={myId} tableId={tableId} role={role} sessionStats={sessionStats} />;
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────

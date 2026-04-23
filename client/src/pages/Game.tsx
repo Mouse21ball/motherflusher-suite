@@ -42,7 +42,7 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 }
 
 function SwingGameServer({ tableId }: { tableId: string }) {
-  const { state, handleAction, myId, role } = useServerMode(tableId, 'swing_poker');
+  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'swing_poker');
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const me = state.players.find(p => p.id === myId);
@@ -65,7 +65,7 @@ function SwingGameServer({ tableId }: { tableId: string }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="swing" {...MODE_INTROS.swing} />
-      <GameHeader mode={MODE_INFO.swing} modeId="swing" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('swing', me.chips); }} />
+      <GameHeader mode={MODE_INFO.swing} modeId="swing" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('swing', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} />
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : <InviteBanner tableId={tableId} mode="swing" />

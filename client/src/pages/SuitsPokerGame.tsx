@@ -51,7 +51,7 @@ function InviteBanner({ tableId, mode }: { tableId: string; mode: string }) {
 }
 
 function SuitsPokerGameServer({ tableId }: { tableId: string }) {
-  const { state, handleAction, myId, role } = useServerMode(tableId, 'suits_poker');
+  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'suits_poker');
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -75,7 +75,7 @@ function SuitsPokerGameServer({ tableId }: { tableId: string }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
       <ModeIntro modeId="suitspoker" {...MODE_INTROS.suitspoker} />
-      <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('suitspoker', me.chips); }} />
+      <GameHeader mode={MODE_INFO.suitspoker} modeId="suitspoker" chips={me?.chips || 0} phase={state.phase} pot={state.pot} onForfeit={() => { if (me) saveChips('suitspoker', me.chips); }} sessionStats={isSpectator ? undefined : sessionStats} />
       {isSpectator
         ? <SpectatorBanner spectatorCount={state.spectatorCount} />
         : <InviteBanner tableId={tableId} mode="suitspoker" />
