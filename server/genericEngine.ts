@@ -696,10 +696,15 @@ function scheduleNextBot(table: GenericTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  // Bimodal think time: 80% normal pace, 20% deliberation pause.
-  // Bet phases are slower (reading the action); draw/other phases are faster.
-  const baseMs    = capturedPhase.startsWith('BET') ? 500 + Math.random() * 500 : 180 + Math.random() * 270;
-  const pauseMs   = Math.random() < 0.20 ? 380 + Math.random() * 520 : 0;
+  // Bimodal think time: most decisions at normal pace, some with deliberation.
+  // BET_3 (last-round decisions) get a higher deliberation rate — those choices
+  // carry the most weight and should feel like real thought.
+  const isBet3    = capturedPhase === 'BET_3';
+  const baseMs    = capturedPhase.startsWith('BET')
+    ? (isBet3 ? 600 + Math.random() * 550 : 500 + Math.random() * 450)
+    : 180 + Math.random() * 270;
+  const pauseChance = isBet3 ? 0.30 : 0.20;
+  const pauseMs   = Math.random() < pauseChance ? (isBet3 ? 450 + Math.random() * 650 : 380 + Math.random() * 520) : 0;
   const thinkMs   = baseMs + pauseMs;
 
   const timer = setTimeout(() => {

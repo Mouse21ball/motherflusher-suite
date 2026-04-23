@@ -212,7 +212,6 @@ export const BadugiMode: GameMode = {
       }
 
       // ── Slow-play: occasionally check a made hand in BET_1 to trap ────────
-      // Only in small pots where the trick has value; disable earlyPressure too.
       const slowPlay = evaluation?.isValidBadugi &&
                        state.phase === 'BET_1' &&
                        state.pot < 12 &&
@@ -224,9 +223,37 @@ export const BadugiMode: GameMode = {
       const earlyPressure = state.phase === 'BET_1' && !slowPlay;
       const passiveExtra  = (isLastBet && !evaluation?.isValidBadugi) ? 0.22 : 0;
 
+      // ── Hero aggression profile from recent message history ───────────────
+      // Scan last 8 messages for the hero's name + "raised". Requires at
+      // least 2 observed hero actions to override the neutral default (0.3).
+      const heroName      = heroPlayer?.name ?? '';
+      const recentMsgs    = state.messages.slice(-8);
+      let heroRaises = 0;
+      let heroActs   = 0;
+      for (const msg of recentMsgs) {
+        if (heroName && msg.text.includes(heroName)) {
+          heroActs++;
+          if (msg.text.includes('raised') || msg.text.includes('bet')) heroRaises++;
+        }
+      }
+      const heroAggression = heroActs >= 2 ? heroRaises / heroActs : 0.3;
+
+      // ── Per-hand bluff-line commitment (deterministic, stable per hand) ───
+      // Derive from card rank-sum: stable across BET_1/2/3 because cards
+      // don't change between betting rounds. LCG hash keeps it cheap.
+      const cardSum  = bot.cards.reduce((acc, c) => acc + rankValue(c.rank), 0);
+      const handHash = ((cardSum * 1664525 + 1013904223) & 0x7fffffff) / 0x7fffffff;
+      // Only run a bluff line on weak/medium unmade hands (not a made Badugi)
+      const bluffLine = handHash < 0.12 && !evaluation?.isValidBadugi && strength < 0.36;
+
+      // ── Pot control: medium-strength hands play for pot control ───────────
+      // Avoids bloating pots with hands that aren't strong enough to win big.
+      const potControl = strength >= 0.30 && strength <= 0.52 && state.pot >= 6;
+
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
         heroWeak, largePot, earlyPressure, passiveExtra,
         activeOpponents, stackRisk, slowPlay,
+        heroAggression, bluffLine, potControl,
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
