@@ -440,17 +440,18 @@ export function BadugiTable({
             {/* Hero made-hand status badge — inside the hero area, always visible */}
             {showMadeStatus && heroMadeLabel && (
               <div
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide border transition-all duration-400"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-mono font-bold tracking-wide border transition-all duration-300"
                 data-testid="text-hero-made-status"
                 style={heroIsMade ? {
-                  backgroundColor: 'rgba(0,200,150,0.20)',
-                  borderColor: 'rgba(0,200,150,0.60)',
-                  color: 'rgb(0,230,170)',
-                  boxShadow: '0 0 12px rgba(0,200,150,0.28)',
+                  backgroundColor: 'rgba(0,200,150,0.22)',
+                  borderColor: 'rgba(0,220,165,0.70)',
+                  color: 'rgb(0,240,180)',
+                  boxShadow: '0 0 14px rgba(0,200,150,0.35)',
                 } : {
-                  backgroundColor: 'rgba(248,113,113,0.12)',
-                  borderColor: 'rgba(248,113,113,0.40)',
-                  color: 'rgba(252,165,165,0.90)',
+                  backgroundColor: 'rgba(220,38,38,0.18)',
+                  borderColor: 'rgba(248,113,113,0.65)',
+                  color: 'rgb(254,150,150)',
+                  boxShadow: '0 0 10px rgba(220,38,38,0.20)',
                 }}
               >
                 {heroMadeLabel}

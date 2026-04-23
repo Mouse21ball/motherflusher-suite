@@ -50,7 +50,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   
   const callAmount = currentBet - myBet;
   const canCheck = callAmount === 0;
-  const maxBet = Math.min(chips, pot + callAmount * 2);
+  const maxBet = chips;
 
   useEffect(() => {
     if (phase !== 'DECLARE_AND_BET' && phase !== 'DECLARE') {

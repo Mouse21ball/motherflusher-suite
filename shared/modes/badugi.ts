@@ -170,8 +170,8 @@ export const BadugiMode: GameMode = {
         if (h <= 5) strength = 0.92;
         else if (h <= 7) strength = 0.75;
         else if (h <= 9) strength = 0.55;
-        else if (h <= 11) strength = 0.4;
-        else strength = 0.3;
+        else if (h <= 11) strength = 0.42;
+        else strength = state.phase === 'BET_1' || state.phase === 'BET_2' ? 0.37 : 0.30;
       } else {
         const cards = bot.cards;
         const usedR = new Set<string>();
@@ -187,17 +187,19 @@ export const BadugiMode: GameMode = {
         }
         const hasDrawsLeft = state.phase === 'BET_1' || state.phase === 'BET_2';
         const isLastBet    = state.phase === 'BET_3';
-        if (goodCount >= 3 && hasDrawsLeft)    strength = 0.52; // strong draw — crosses open-raise gate
-        else if (goodCount >= 3 && !isLastBet) strength = 0.36; // late draw, some pressure
-        else if (goodCount >= 3 && isLastBet)  strength = 0.12; // no more draws — cut losses
+        if (goodCount >= 3 && hasDrawsLeft)    strength = 0.60; // strong draw — clear open-raise territory
+        else if (goodCount >= 3 && !isLastBet) strength = 0.38; // late draw, still applies pressure
+        else if (goodCount >= 3 && isLastBet)  strength = 0.08; // no more draws — fold often
         else if (hasDrawsLeft)                 strength = 0.22; // weak draw, mostly check
-        else                                   strength = 0.05; // no draw, no hand — fold
+        else                                   strength = 0.04; // no draw, no hand — fold hard
       }
 
-      const heroPlayer = state.players.find(p => p.presence === 'human');
-      const heroWeak   = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
-      const largePot   = state.pot >= 20;
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot });
+      const heroPlayer   = state.players.find(p => p.presence === 'human');
+      const heroWeak     = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
+      const largePot     = state.pot >= 20;
+      const earlyPressure = state.phase === 'BET_1';
+      const passiveExtra = (isLastBet && !evaluation?.isValidBadugi) ? 0.22 : 0;
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, earlyPressure, passiveExtra });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot;

@@ -18,23 +18,30 @@ export function decideBet(
     passiveExtra?: number;
     heroWeak?: boolean;
     largePot?: boolean;
+    earlyPressure?: boolean;
   }
 ): BetDecision {
   const callAmount = currentBet - myBet;
-  const bluffFreq  = options?.bluffFreq   ?? 0.13;
+  const bluffFreq  = options?.bluffFreq   ?? 0.09;
   const passive    = options?.passiveExtra ?? 0;
 
   // ── Human imperfection jitter ─────────────────────────────────────────────
-  // ±0.04 variance per call so threshold crossings feel less mechanical.
-  // A bot that is "just below" a raise gate will occasionally cross it, and
-  // one that is "just above" a fold threshold will occasionally miss.
-  const jitter = (Math.random() - 0.5) * 0.08;
+  // ±0.05 variance per call so threshold crossings feel natural and bots
+  // don't cluster around a single strategy line.
+  const jitter = (Math.random() - 0.5) * 0.10;
   const s = Math.max(0, Math.min(1, strength + jitter));
 
   // ── Context pressure modifiers ────────────────────────────────────────────
   // largePot: a big pot raises the stakes — bots raise more, check less.
   // heroWeak: hero looks unmade/drawing — punish with extra aggression.
+  // earlyPressure: early betting round — bots apply position pressure.
   const aggBonus = (options?.largePot ? 0.07 : 0) + (options?.heroWeak ? 0.09 : 0);
+  const earlyBoost = options?.earlyPressure ? 0.13 : 0;
+
+  // ── Dead-hand absolute fold: don't call/raise with a truly dead hand ──────
+  if (callAmount > 0 && s < 0.07) {
+    return { action: 'fold' };
+  }
 
   if (callAmount >= chips) {
     return s > 0.3 ? { action: 'call' } : { action: 'fold' };
@@ -45,12 +52,14 @@ export function decideBet(
   const sizeMult = useOverbet ? (0.65 + s * 0.85) : (0.3 + s * 0.5);
 
   if (callAmount === 0) {
-    // Open-raise gate lowered by aggBonus: big pots / weak heroes get pushed.
-    if (s + aggBonus > 0.45 - passive * 0.12 && Math.random() < 0.40 + s * 0.45) {
+    // Open-raise gate: aggBonus (pot/hero pressure) + earlyBoost (early-round initiative).
+    // Gate lowered by passive penalty so losing bots slow down naturally.
+    const gate = 0.45 - passive * 0.12 - earlyBoost;
+    if (s + aggBonus > gate && Math.random() < 0.42 + s * 0.45 + earlyBoost * 0.25) {
       const size = clampRaise(Math.floor(pot * sizeMult), chips);
       return { action: 'raise', raiseAmount: size };
     }
-    if (s < 0.25 && Math.random() < bluffFreq) {
+    if (s < 0.22 && Math.random() < bluffFreq) {
       const size = clampRaise(Math.floor(pot * (useOverbet ? 0.6 : 0.4)), chips);
       return { action: 'raise', raiseAmount: size };
     }
@@ -69,7 +78,8 @@ export function decideBet(
     return { action: 'call' };
   }
 
-  if (potOdds < 0.22 && s > 0.10) {
+  // Cheap-call gate: requires meaningful strength — dead/near-dead hands fold.
+  if (potOdds < 0.22 && s > 0.16) {
     return { action: 'call' };
   }
 
