@@ -251,6 +251,14 @@ function maskStateForPlayer(
 const SEAT_ORDER = ['p1', 'p2', 'p3', 'p4', 'p5'] as const;
 type SeatId = typeof SEAT_ORDER[number];
 
+interface SessionStat {
+  startChips: number;      // chip balance when player joined this table session
+  handsPlayed: number;     // hands played at this table in this session
+  biggestPotWon: number;   // biggest pot the player won at this table
+  winStreak: number;       // current consecutive-win streak at this table
+  lossStreak: number;      // current consecutive-loss streak at this table
+}
+
 interface GenericTable {
   tableId: string;
   modeId: string;
@@ -278,6 +286,11 @@ interface GenericTable {
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
   isPrivate: boolean;
+  // Per-seat chip balance at the START of the current hand (for profit delta calculation).
+  // Initialized when player first loads chips from DB; updated after each hand sync.
+  chipsAtHandStart: Map<string, number>;
+  // Per-seat session stats (in-memory, this table session only).
+  sessionStats: Map<string, SessionStat>;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -310,7 +323,16 @@ function broadcastState(table: GenericTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1) continue;
     try {
-      ws.send(JSON.stringify({ type: 'mode:snapshot', state: maskStateForPlayer(stateWithMeta, playerId, pub) }));
+      const ss = table.sessionStats.get(playerId);
+      const netProfit = ss
+        ? (table.state.players.find(p => p.id === playerId)?.chips ?? ss.startChips) - ss.startChips
+        : undefined;
+      const payload: Record<string, unknown> = {
+        type: 'mode:snapshot',
+        state: maskStateForPlayer(stateWithMeta, playerId, pub),
+      };
+      if (ss) payload.sessionStats = { ...ss, netProfit };
+      ws.send(JSON.stringify(payload));
     } catch {}
   }
   // Spectators see only public face-up cards; all private hole cards hidden
@@ -629,15 +651,38 @@ function resetToAnte(table: GenericTable): void {
   table.handId += 1;
   table.publicCardIndicesPerPlayer = {};
 
-  // ── Sync human chip balances to player profiles ────────────────────────────
+  // ── Sync human chip balances + update session stats ───────────────────────
   // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
   // Disconnect syncs skip the write if lastChipSyncHand matches current handId.
+  const potWon = s.pot; // capture pot before state reset
   for (const p of nextPlayers) {
     if (p.presence !== 'human') continue;
     const identityId = table.seatToIdentityId.get(p.id);
     if (!identityId) continue;
+
+    // Per-hand profit delta: compare end-of-hand chips to start-of-hand chips.
+    const prevChips = table.chipsAtHandStart.get(p.id) ?? p.chips;
+    const deltaChips = p.chips - prevChips;
+
+    // Update session stats
+    let ss = table.sessionStats.get(p.id);
+    if (ss) {
+      ss.handsPlayed++;
+      if (p.isWinner) {
+        ss.winStreak++;
+        ss.lossStreak = 0;
+        if (potWon > ss.biggestPotWon) ss.biggestPotWon = potWon;
+      } else {
+        ss.winStreak = 0;
+        ss.lossStreak++;
+      }
+    }
+
+    // Record starting chips for the NEXT hand
+    table.chipsAtHandStart.set(p.id, p.chips);
+
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
+    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner, deltaChips }).catch(() => {});
   }
 
   table.state = {
@@ -887,6 +932,8 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
       isPrivate,
+      chipsAtHandStart: new Map(),
+      sessionStats: new Map(),
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
     if (!isPrivate && !quickPlay) {
@@ -1011,6 +1058,15 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
             pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
           ),
         };
+        // Initialize session tracking with the player's loaded chip balance.
+        t.chipsAtHandStart.set(seat, profile.chipBalance);
+        t.sessionStats.set(seat, {
+          startChips: profile.chipBalance,
+          handsPlayed: 0,
+          biggestPotWon: 0,
+          winStreak: 0,
+          lossStreak: 0,
+        });
         broadcastState(t);
         storage.setPlayerActiveTable(identityId, tableId, seat, modeId).catch(() => {});
       }).catch(() => {});
@@ -1026,12 +1082,18 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   });
 
   try {
-    ws.send(JSON.stringify({
+    const ss = table.sessionStats.get(seat);
+    const initPayload: Record<string, unknown> = {
       type: 'mode:init',
       playerId: seat,
       modeId,
       state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
-    }));
+    };
+    if (ss) {
+      const currentChips = table.state.players.find(p => p.id === seat)?.chips ?? ss.startChips;
+      initPayload.sessionStats = { ...ss, netProfit: currentChips - ss.startChips };
+    }
+    ws.send(JSON.stringify(initPayload));
   } catch {}
 
   return seat;

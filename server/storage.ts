@@ -4,9 +4,27 @@ import {
   type PlayerProfile,
   analyticsEvents, playerProfiles,
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { db } from "./db";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
+
+const scryptAsync = promisify(scrypt);
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const hash = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${hash.toString("hex")}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const hashBuf = Buffer.from(hash, "hex");
+  const derived = (await scryptAsync(password, salt, 64)) as Buffer;
+  if (hashBuf.length !== derived.length) return false;
+  return timingSafeEqual(hashBuf, derived);
+}
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -17,7 +35,9 @@ export interface IStorage {
   // ── Player Profiles ────────────────────────────────────────────────────────
   getOrCreatePlayer(id: string, displayName?: string): Promise<PlayerProfile>;
   getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
-  syncPlayerChips(id: string, chips: number, handResult?: { won: boolean }): Promise<void>;
+  getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
+  setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
+  syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
 }
@@ -164,6 +184,9 @@ export class MemStorage implements IStorage {
       activeModeId: null,
       handsPlayed: 0,
       handsWon: 0,
+      lifetimeProfit: 0,
+      email: null,
+      passwordHash: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -181,16 +204,29 @@ export class MemStorage implements IStorage {
     return rows[0];
   }
 
+  async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {
+    const rows = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.email, email))
+      .limit(1);
+    return rows[0];
+  }
+
+  async setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ email, passwordHash, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
   // Atomically write the canonical chip balance + optional hand stats.
   // Called at: (a) end of every hand, (b) disconnect/leave.
   // Safe to call multiple times — last write wins (idempotent per hand end).
-  async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean }): Promise<void> {
-    const update: Partial<typeof playerProfiles.$inferInsert> = {
-      chipBalance: chips,
-      updatedAt: new Date(),
-    };
+  // deltaChips: signed chip delta for this hand (positive=won, negative=lost).
+  async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void> {
     if (handResult) {
-      // Use SQL increment so concurrent calls don't clobber each other
+      // Use SQL increments so concurrent calls don't clobber each other
       await db
         .update(playerProfiles)
         .set({
@@ -200,13 +236,16 @@ export class MemStorage implements IStorage {
           handsWon: handResult.won
             ? sql`${playerProfiles.handsWon} + 1`
             : playerProfiles.handsWon,
+          lifetimeProfit: handResult.deltaChips != null
+            ? sql`${playerProfiles.lifetimeProfit} + ${handResult.deltaChips}`
+            : playerProfiles.lifetimeProfit,
         })
         .where(eq(playerProfiles.id, id));
       return;
     }
     await db
       .update(playerProfiles)
-      .set(update)
+      .set({ chipBalance: chips, updatedAt: new Date() })
       .where(eq(playerProfiles.id, id));
   }
 

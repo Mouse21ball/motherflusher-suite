@@ -26,12 +26,16 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card board (5 stacked pairs + 5 single factor cards). Declare HIGH/LOW/SWING all.
 - **Suits & Poker**: 5 hole cards, 12-card community board. Declare POKER/SUITS/SWING. Legal paths: A+Center or B+Center.
 
-## Player Persistence (Foundation Phase)
-- `player_profiles` DB table: `id` (stable UUID from client localStorage), `displayName`, `chipBalance` (global bankroll), `activeTableId/SeatId/ModeId` (reconnect info), `handsPlayed`, `handsWon`
-- Chip sync points: (1) end of every hand in `resetToAnte`, (2) disconnect in `removeBadugiConnection`/`removeGenericConnection`
+## Player Persistence & Auth
+- `player_profiles` DB table: `id` (stable UUID from client localStorage), `displayName`, `chipBalance` (global bankroll), `activeTableId/SeatId/ModeId` (reconnect info), `handsPlayed`, `handsWon`, `lifetimeProfit`, `email` (unique, nullable), `passwordHash` (nullable)
+- Auth: Email+password layer on top of guest identity. Password hashing via Node.js `crypto.scrypt` (no external deps). On register: links credentials to existing guest profile. On login: client adopts returned `profileId` as localStorage identity for cross-device restoration.
+- Chip sync points: (1) end of every hand in `resetToAnte` (with per-hand `deltaChips` for `lifetimeProfit`), (2) disconnect in `removeBadugiConnection`/`removeGenericConnection`
+- Per-hand profit: `chipsAtHandStart` Map in GenericTable tracks chip balance at hand start per seat; delta computed in `resetToAnte` and written to `lifetimeProfit` via SQL increment
+- Session stats: `sessionStats` Map in GenericTable tracks `startChips`, `handsPlayed`, `biggestPotWon`, `winStreak`, `lossStreak` per seat (in-memory per session); included in `mode:init` and `mode:snapshot` as `sessionStats` field
+- Level formula: `Math.floor(handsPlayed / 50)` — computed on fly in API responses (not stored)
 - Join flow: client sends `identityId` (stable UUID) alongside `playerId` (session UUID); server loads canonical chip balance from DB and applies it to seat within 1 async tick
-- Anti-exploit: `wasReserved` gate prevents chip reload on in-session reconnects; hand-end sync happens once per hand using `nextPlayers` (post-winnings); disconnect sync is best-effort
-- API: `POST /api/players`, `GET /api/players/:id`, `GET /api/players/:id/reconnect`
+- Anti-exploit: `wasReserved` gate prevents chip reload on in-session reconnects; `lastChipSyncHand` prevents duplicate hand-end syncs; intentional leave (msg.type='leave') calls `removeGenericConnection(..., intentional=true)` — mid-hand seat converts to bot, chips already synced
+- API: `POST /api/players`, `GET /api/players/:id`, `GET /api/players/:id/reconnect`, `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me/:profileId`, `GET /api/tables/mode/:modeId/join`
 
 ## Architecture
 - **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter routing

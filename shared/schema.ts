@@ -10,16 +10,19 @@ import { z } from "zod";
 // activeTable* is set on join and cleared on clean leave — used for reconnect.
 
 export const playerProfiles = pgTable("player_profiles", {
-  id:            text("id").primaryKey(),
-  displayName:   text("display_name").notNull().default("Guest"),
-  chipBalance:   integer("chip_balance").notNull().default(1000),
-  activeTableId: text("active_table_id"),
-  activeSeatId:  text("active_seat_id"),
-  activeModeId:  text("active_mode_id"),
-  handsPlayed:   integer("hands_played").notNull().default(0),
-  handsWon:      integer("hands_won").notNull().default(0),
-  createdAt:     timestamp("created_at").defaultNow().notNull(),
-  updatedAt:     timestamp("updated_at").defaultNow().notNull(),
+  id:             text("id").primaryKey(),
+  displayName:    text("display_name").notNull().default("Guest"),
+  chipBalance:    integer("chip_balance").notNull().default(1000),
+  activeTableId:  text("active_table_id"),
+  activeSeatId:   text("active_seat_id"),
+  activeModeId:   text("active_mode_id"),
+  handsPlayed:    integer("hands_played").notNull().default(0),
+  handsWon:       integer("hands_won").notNull().default(0),
+  lifetimeProfit: integer("lifetime_profit").notNull().default(0),
+  email:          text("email").unique(),
+  passwordHash:   text("password_hash"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
