@@ -94,6 +94,7 @@ export function useServerBadugi(tableId: string) {
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
           playerId: sessionId.current,
+          identityId: identity.id,   // stable UUID → chip persistence
           name: identity.name,
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),

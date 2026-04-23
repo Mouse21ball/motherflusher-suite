@@ -9,6 +9,7 @@ import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SwingPokerMode } from '../shared/modes/swing';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { engineLog } from './engineLog';
+import { storage } from './storage';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -264,6 +265,8 @@ interface GenericTable {
   // Card indices (per player) that are face-up for ALL players (e.g. 15/35 public cards).
   // Empty object means all opponent cards are hidden (default for Swing/SP/Dead7).
   publicCardIndicesPerPlayer: Record<string, number[]>;
+  // Maps game seat id → stable PlayerIdentity UUID (from client localStorage).
+  seatToIdentityId: Map<string, string>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
@@ -614,6 +617,14 @@ function resetToAnte(table: GenericTable): void {
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
 
+  // ── Sync human chip balances to player profiles ────────────────────────────
+  for (const p of nextPlayers) {
+    if (p.presence !== 'human') continue;
+    const identityId = table.seatToIdentityId.get(p.id);
+    if (!identityId) continue;
+    storage.syncPlayerChips(identityId, p.chips, { won: !!p.isWinner }).catch(() => {});
+  }
+
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   table.botTimers.clear();
   table.handId += 1;
@@ -827,6 +838,7 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      seatToIdentityId: new Map(),
       spectators: new Map(),
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
@@ -842,7 +854,7 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function addGenericConnection(tableId: string, modeId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false): string | null {
+export function addGenericConnection(tableId: string, modeId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false, identityId?: string): string | null {
   const key = tableKey(modeId, tableId);
   const isNew = !tables.has(key);
   const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay);
@@ -891,11 +903,33 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
     }),
   };
 
+  // ── Persist identity and load chips ────────────────────────────────────────
+  if (identityId) {
+    table.seatToIdentityId.set(seat, identityId);
+    if (wasReserved) {
+      storage.getOrCreatePlayer(identityId, playerName).then(profile => {
+        const t = tables.get(tableKey(modeId, tableId));
+        if (!t) return;
+        const player = t.state.players.find(pp => pp.id === seat);
+        if (!player || player.presence !== 'human') return;
+        t.state = {
+          ...t.state,
+          players: t.state.players.map(pp =>
+            pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
+          ),
+        };
+        broadcastState(t);
+        storage.setPlayerActiveTable(identityId, tableId, seat, modeId).catch(() => {});
+      }).catch(() => {});
+    }
+  }
+
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', `${modeId}:${tableId}`, {
     player: seat,
     session: sessionId.slice(-8),
     phase: table.state.phase,
     wasReserved,
+    hasIdentity: !!identityId,
   });
 
   try {
@@ -930,6 +964,16 @@ export function removeGenericConnection(tableId: string, sessionId: string): voi
 
     table.connections.delete(seat);
     table.humanSeats.delete(seat);
+
+    // ── Sync chips on disconnect / leave ──────────────────────────────────────
+    const identityId = table.seatToIdentityId.get(seat);
+    if (identityId) {
+      const player = table.state.players.find(p => p.id === seat);
+      if (player) {
+        storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+        storage.clearPlayerActiveTable(identityId).catch(() => {});
+      }
+    }
 
     engineLog('PLAYER_LEAVE', `${modeId}:${tableId}`, {
       player: seat,

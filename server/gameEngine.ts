@@ -12,6 +12,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
+import { storage } from './storage';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -238,6 +239,9 @@ interface AuthTable {
   // Maps a client's opaque session id → assigned game seat.
   // Kept across disconnects so a page-refresh gets the same seat back.
   sessionToSeat: Map<string, string>;
+  // Maps game seat id → stable PlayerIdentity UUID (from client localStorage).
+  // Used to persist chip balance to the player_profiles DB table.
+  seatToIdentityId: Map<string, string>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
   // Unix timestamp after which reserved seats convert to bots. 0 = window closed.
@@ -504,6 +508,17 @@ function resetToAnte(table: AuthTable): void {
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
 
+  // ── Sync human chip balances to player profiles ────────────────────────────
+  // Runs after every hand resolves. nextPlayers already has post-winnings chips.
+  // isWinner is set by resolveShowdown on the winning seat(s).
+  for (const p of nextPlayers) {
+    if (p.presence !== 'human') continue;
+    const identityId = table.seatToIdentityId.get(p.id);
+    if (!identityId) continue;
+    const won = !!p.isWinner;
+    storage.syncPlayerChips(identityId, p.chips, { won }).catch(() => {});
+  }
+
   // Cancel all pending bot timers from the previous hand
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   table.botTimers.clear();
@@ -693,6 +708,7 @@ export function initEngine(): void {
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      seatToIdentityId: new Map(),
       spectators: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
@@ -733,6 +749,7 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       connections: new Map(),
       humanSeats: new Set(),
       sessionToSeat: new Map(),
+      seatToIdentityId: new Map(),
       spectators: new Map(),
       joinWindowEndsAt,
       isPrivate,
@@ -750,7 +767,7 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
 // badugi:init message (seat + current state in one frame so the client
 // never processes a snapshot before it knows its own seat).
 // Returns the assigned seat id, or null if the table is full.
-export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false): string | null {
+export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false, identityId?: string): string | null {
   const isNew = !tables.has(tableId);
   const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay);
   if (isNew && quickPlay) {
@@ -794,12 +811,38 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     }),
   };
 
+  // ── Persist identity and load chips ────────────────────────────────────────
+  // For new joins (wasReserved): record identity, load canonical chip balance
+  // from the player_profiles table, then broadcast the corrected state.
+  // For reconnects: trust the live table state (chips already authoritative).
+  if (identityId) {
+    table.seatToIdentityId.set(seat, identityId);
+    if (wasReserved) {
+      storage.getOrCreatePlayer(identityId, playerName).then(profile => {
+        const t = tables.get(tableId);
+        if (!t) return;
+        const player = t.state.players.find(pp => pp.id === seat);
+        if (!player || player.presence !== 'human') return;
+        t.state = {
+          ...t.state,
+          players: t.state.players.map(pp =>
+            pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
+          ),
+        };
+        broadcastState(t);
+        // Record active table so reconnect endpoint can route the player back
+        storage.setPlayerActiveTable(identityId, tableId, seat, 'badugi').catch(() => {});
+      }).catch(() => {});
+    }
+  }
+
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
     player: seat,
     session: sessionId.slice(-8),
     phase: table.state.phase,
     connections: table.connections.size,
     wasReserved,
+    hasIdentity: !!identityId,
   });
 
   // Atomic init: seat assignment + masked snapshot in one message.
@@ -833,6 +876,19 @@ export function removeBadugiConnection(tableId: string, sessionId: string): void
   table.connections.delete(seat);
   table.humanSeats.delete(seat);
   // sessionToSeat is kept so a page-refresh reconnect gets the same seat.
+
+  // ── Sync chips on disconnect / leave ────────────────────────────────────────
+  // Best-effort: write the current table-state chips to the profile so they
+  // survive a server restart. If this is mid-hand the balance may not include
+  // the current pot, but it is correct for all completed hands.
+  const identityId = table.seatToIdentityId.get(seat);
+  if (identityId) {
+    const player = table.state.players.find(p => p.id === seat);
+    if (player) {
+      storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+      storage.clearPlayerActiveTable(identityId).catch(() => {});
+    }
+  }
 
   engineLog('PLAYER_LEAVE', tableId, {
     player: seat,

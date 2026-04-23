@@ -65,7 +65,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string }
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
@@ -175,7 +175,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
       // ── join ────────────────────────────────────────────────────────────────
       if (msg.type === 'join') {
-        const { tableId, modeId, playerId: pid, name, seatId, isPrivate, quickPlay } = msg;
+        const { tableId, modeId, playerId: pid, name, seatId, isPrivate, quickPlay, identityId } = msg;
         if (!tableId || !pid) return;
 
         if (roomId && playerId) releasePlayer(playerId, roomId);
@@ -193,10 +193,11 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // If authoritative Badugi, register with game engine.
         // Engine assigns a seat (p1-p4) and sends a badugi:init message that
         // bundles the seat assignment and the masked snapshot atomically.
+        // identityId is the stable player UUID from localStorage, used for chip persistence.
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay);
+          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay);
+          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId);
         }
 
         broadcastRoomState(room);

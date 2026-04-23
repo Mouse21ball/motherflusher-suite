@@ -3,6 +3,33 @@ import { pgTable, text, varchar, serial, integer, timestamp } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ─── Player Profiles ──────────────────────────────────────────────────────────
+// Persistent identity + chip balance. One row per stable player UUID.
+// The `id` matches the UUID from the client's localStorage PlayerIdentity.id.
+// chipBalance is global across all modes (one bankroll).
+// activeTable* is set on join and cleared on clean leave — used for reconnect.
+
+export const playerProfiles = pgTable("player_profiles", {
+  id:            text("id").primaryKey(),
+  displayName:   text("display_name").notNull().default("Guest"),
+  chipBalance:   integer("chip_balance").notNull().default(1000),
+  activeTableId: text("active_table_id"),
+  activeSeatId:  text("active_seat_id"),
+  activeModeId:  text("active_mode_id"),
+  handsPlayed:   integer("hands_played").notNull().default(0),
+  handsWon:      integer("hands_won").notNull().default(0),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+  updatedAt:     timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
+export type PlayerProfile = typeof playerProfiles.$inferSelect;
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),

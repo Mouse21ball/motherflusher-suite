@@ -26,6 +26,13 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card board (5 stacked pairs + 5 single factor cards). Declare HIGH/LOW/SWING all.
 - **Suits & Poker**: 5 hole cards, 12-card community board. Declare POKER/SUITS/SWING. Legal paths: A+Center or B+Center.
 
+## Player Persistence (Foundation Phase)
+- `player_profiles` DB table: `id` (stable UUID from client localStorage), `displayName`, `chipBalance` (global bankroll), `activeTableId/SeatId/ModeId` (reconnect info), `handsPlayed`, `handsWon`
+- Chip sync points: (1) end of every hand in `resetToAnte`, (2) disconnect in `removeBadugiConnection`/`removeGenericConnection`
+- Join flow: client sends `identityId` (stable UUID) alongside `playerId` (session UUID); server loads canonical chip balance from DB and applies it to seat within 1 async tick
+- Anti-exploit: `wasReserved` gate prevents chip reload on in-session reconnects; hand-end sync happens once per hand using `nextPlayers` (post-winnings); disconnect sync is best-effort
+- API: `POST /api/players`, `GET /api/players/:id`, `GET /api/players/:id/reconnect`
+
 ## Architecture
 - **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter routing
 - **Backend**: Express + WebSocket server (ws) on port 5000

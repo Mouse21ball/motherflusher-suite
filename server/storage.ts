@@ -1,4 +1,9 @@
-import { type User, type InsertUser, type InsertAnalyticsEvent, type AnalyticsEvent, analyticsEvents } from "@shared/schema";
+import {
+  type User, type InsertUser,
+  type InsertAnalyticsEvent, type AnalyticsEvent,
+  type PlayerProfile,
+  analyticsEvents, playerProfiles,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
@@ -9,6 +14,12 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   insertAnalyticsEvent(event: InsertAnalyticsEvent): Promise<void>;
   getDailyStats(days: number): Promise<DailyStats[]>;
+  // ── Player Profiles ────────────────────────────────────────────────────────
+  getOrCreatePlayer(id: string, displayName?: string): Promise<PlayerProfile>;
+  getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
+  syncPlayerChips(id: string, chips: number, handResult?: { won: boolean }): Promise<void>;
+  setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
+  clearPlayerActiveTable(id: string): Promise<void>;
 }
 
 export interface DailyStats {
@@ -76,8 +87,6 @@ export class MemStorage implements IStorage {
       }
     }
 
-    const allDatesSet = new Set(allDates);
-
     return allDates.map((date) => {
       const events = byDate.get(date) || [];
       const uniquePlayers = new Set(events.map((e) => e.playerId)).size;
@@ -120,6 +129,99 @@ export class MemStorage implements IStorage {
         returningPlayers,
       };
     });
+  }
+
+  // ── Player Profile methods ─────────────────────────────────────────────────
+  // These hit the PostgreSQL DB directly, regardless of the storage class name.
+  // "Mem" only refers to the legacy in-memory user store (users table).
+
+  async getOrCreatePlayer(id: string, displayName?: string): Promise<PlayerProfile> {
+    const existing = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+
+    if (existing.length > 0) {
+      // Update display name if a new one was supplied
+      if (displayName && displayName !== existing[0].displayName) {
+        await db
+          .update(playerProfiles)
+          .set({ displayName, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, id));
+        return { ...existing[0], displayName };
+      }
+      return existing[0];
+    }
+
+    const now = new Date();
+    const profile: PlayerProfile = {
+      id,
+      displayName: displayName ?? "Guest",
+      chipBalance: 1000,
+      activeTableId: null,
+      activeSeatId: null,
+      activeModeId: null,
+      handsPlayed: 0,
+      handsWon: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db.insert(playerProfiles).values(profile);
+    return profile;
+  }
+
+  async getPlayerProfile(id: string): Promise<PlayerProfile | undefined> {
+    const rows = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    return rows[0];
+  }
+
+  // Atomically write the canonical chip balance + optional hand stats.
+  // Called at: (a) end of every hand, (b) disconnect/leave.
+  // Safe to call multiple times — last write wins (idempotent per hand end).
+  async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean }): Promise<void> {
+    const update: Partial<typeof playerProfiles.$inferInsert> = {
+      chipBalance: chips,
+      updatedAt: new Date(),
+    };
+    if (handResult) {
+      // Use SQL increment so concurrent calls don't clobber each other
+      await db
+        .update(playerProfiles)
+        .set({
+          chipBalance: chips,
+          updatedAt: new Date(),
+          handsPlayed: sql`${playerProfiles.handsPlayed} + 1`,
+          handsWon: handResult.won
+            ? sql`${playerProfiles.handsWon} + 1`
+            : playerProfiles.handsWon,
+        })
+        .where(eq(playerProfiles.id, id));
+      return;
+    }
+    await db
+      .update(playerProfiles)
+      .set(update)
+      .where(eq(playerProfiles.id, id));
+  }
+
+  async setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ activeTableId: tableId, activeSeatId: seatId, activeModeId: modeId, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  async clearPlayerActiveTable(id: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ activeTableId: null, activeSeatId: null, activeModeId: null, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
   }
 }
 

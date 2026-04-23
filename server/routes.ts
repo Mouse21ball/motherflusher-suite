@@ -175,5 +175,64 @@ export async function registerRoutes(
     res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt });
   });
 
+  // ── Player Profiles ───────────────────────────────────────────────────────
+  // POST /api/players — create or return existing profile (idempotent guest upsert).
+  // Body: { id: string, displayName?: string }
+  const playerUpsertSchema = z.object({
+    id:          z.string().uuid(),
+    displayName: z.string().min(1).max(32).optional(),
+  });
+
+  app.post("/api/players", async (req, res) => {
+    try {
+      const parsed = playerUpsertSchema.parse(req.body);
+      const profile = await storage.getOrCreatePlayer(parsed.id, parsed.displayName);
+      res.status(200).json(profile);
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid player data" });
+      } else {
+        console.error("Player upsert error:", err);
+        res.status(500).json({ error: "Failed to create player" });
+      }
+    }
+  });
+
+  // GET /api/players/:id — fetch existing player profile
+  app.get("/api/players/:id", async (req, res) => {
+    try {
+      const profile = await storage.getPlayerProfile(req.params.id);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      res.json(profile);
+    } catch (err) {
+      console.error("Player fetch error:", err);
+      res.status(500).json({ error: "Failed to fetch player" });
+    }
+  });
+
+  // GET /api/players/:id/reconnect — check if player has an active table
+  // Returns { tableId, seatId, modeId } if present, else { tableId: null }.
+  app.get("/api/players/:id/reconnect", async (req, res) => {
+    try {
+      const profile = await storage.getPlayerProfile(req.params.id);
+      if (!profile) {
+        res.json({ tableId: null });
+        return;
+      }
+      res.json({
+        tableId:  profile.activeTableId ?? null,
+        seatId:   profile.activeSeatId  ?? null,
+        modeId:   profile.activeModeId  ?? null,
+        chips:    profile.chipBalance,
+      });
+    } catch (err) {
+      console.error("Reconnect check error:", err);
+      res.status(500).json({ error: "Failed to check reconnect" });
+    }
+  });
+
   return httpServer;
 }

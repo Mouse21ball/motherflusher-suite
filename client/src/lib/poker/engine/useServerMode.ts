@@ -78,6 +78,7 @@ export function useServerMode(tableId: string, modeId: string) {
           tableId: tableIdRef.current,
           modeId: modeIdRef.current,
           playerId: sessionId.current,
+          identityId: identity.id,   // stable UUID → chip persistence
           name: identity.name,
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),
