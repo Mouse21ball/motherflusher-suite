@@ -398,8 +398,9 @@ export function ThreeDTableScene({
   // ─────────────────────────────────────────────────────────────────────────
   if (isRingLayout) {
     return (
+      <div className="game-scene-scaler">
       <div className="relative w-full max-w-5xl mx-auto mt-4 sm:mt-6 mb-8 sm:mb-24 px-2 sm:px-8 table-scene-enter">
-        <div className="relative h-[70vh] min-h-[360px] sm:min-h-[560px] table-3d-perspective">
+        <div className="relative h-[70vh] min-h-[360px] sm:min-h-[560px] table-3d-perspective game-scene-ring-persp">
 
           {/* Felt surface — 3D tilted */}
           <div
@@ -471,6 +472,7 @@ export function ThreeDTableScene({
           />
         </div>
       </div>
+      </div>
     );
   }
 
@@ -478,6 +480,7 @@ export function ThreeDTableScene({
   // ARC LAYOUT (badugi / dead7 / fifteen35 / suitspoker)
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <div className="game-scene-scaler">
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter">
 
       {/* Message bar above table */}
@@ -494,13 +497,13 @@ export function ThreeDTableScene({
 
         {/* Felt surface — tilted for 3D depth */}
         <div
-          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[340px] sm:min-h-[420px] table-3d-tilt"
+          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[340px] sm:min-h-[420px] table-3d-tilt game-scene-arc-felt"
           style={{ filter: isShowdown ? 'brightness(0.92)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}
         >
           <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
 
           {/* Center content inside the tilted felt */}
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6">
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6 game-scene-arc-center">
             <div className="flex flex-col items-center gap-3 my-auto table-3d-counter">
 
               {gameState.phase === 'WAITING' ? renderWaitingCenter() : isShowdown ? null : (
@@ -626,6 +629,7 @@ export function ThreeDTableScene({
           <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
         </div>
       )}
+    </div>
     </div>
   );
 }

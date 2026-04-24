@@ -36,7 +36,7 @@ function InviteBanner({ tableId, modeId, humanCount = 1 }: InviteBannerProps) {
   }, [url]);
 
   return (
-    <div className="w-full px-3 pt-2">
+    <div className="w-full px-3 pt-2 game-invite-bar">
       <div
         className="max-w-md mx-auto rounded-xl border px-3.5 py-2.5 flex items-center gap-3"
         style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.07) 0%, rgba(0,200,150,0.03) 100%)', borderColor: 'rgba(0,200,150,0.22)' }}
@@ -146,7 +146,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const modeIntro = (MODE_INTROS as Record<string, typeof MODE_INTROS[keyof typeof MODE_INTROS]>)[modeId];
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30">
+    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root">
       {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
 
       {modeInfo && (
@@ -192,7 +192,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         </div>
       )}
 
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44">
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44 game-main-area">
         <ThreeDTableScene
           gameState={state}
           myId={isSpectator ? 'p1' : myId}
