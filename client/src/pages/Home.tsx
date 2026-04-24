@@ -26,6 +26,7 @@ import {
 } from '@/lib/dailyReward';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { apiUrl } from '@/lib/apiConfig';
 
 // ─── Chain Gang Poker · Color tokens ─────────────────────────────────────────
 // Prison-authentic aesthetic: chain silver, fire orange, gold, money green.
@@ -172,7 +173,7 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
 
   const fetchTables = useCallback(async () => {
     try {
-      const res = await fetch('/api/tables');
+      const res = await fetch(apiUrl('/api/tables'));
       if (res.ok) setTables(await res.json());
     } catch {}
     setReady(true);
@@ -511,7 +512,7 @@ export default function Home() {
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
     try {
       const engineModeId = MODE_ENGINE_ID[modeId] ?? modeId;
-      const res = await fetch('/api/tables');
+      const res = await fetch(apiUrl('/api/tables'));
       if (res.ok) {
         const liveTables: LiveTableEntry[] = await res.json();
         // Sort descending by humanCount so the first match is always the table

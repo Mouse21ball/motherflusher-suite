@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
 import { Dead7Mode } from "@/lib/poker/modes/dead7";
+import { shareOrigin } from "@/lib/apiConfig";
 import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -21,7 +22,7 @@ const useServer = import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
 function InviteBanner({ tableId, mode, humanCount = 1 }: { tableId: string; mode: string; humanCount?: number }) {
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}/${mode}?t=${tableId}`;
+  const url = `${shareOrigin()}/${mode}?t=${tableId}`;
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }, [url]);

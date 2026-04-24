@@ -93,7 +93,18 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - **No gambling/casino mechanics** — chips are play-money only, no real-money wagering
 - **No Stripe or payment integration** — merch is display-only, ready for future integration
 
+## Mobile (Capacitor)
+- **Packages**: `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, `@capacitor/ios` installed
+- **Config**: `capacitor.config.ts` — appId `com.dgmentertainment.poker`, appName `DGM Poker`, webDir `dist/public`
+- **Android**: `android/` project folder created via `npx cap add android`
+- **Build flow**: `npm run build` → `npx cap sync` → open `android/` in Android Studio → generate signed APK/AAB
+- **API helpers**: `client/src/lib/apiConfig.ts` provides `apiUrl()`, `wsUrl()`, `shareOrigin()` — used across all fetch/WebSocket/invite-link calls so Capacitor `file://` origins work correctly
+- **`shareOrigin()`**: Returns `VITE_SHARE_ORIGIN` env var if set (production deploy URL), otherwise `window.location.origin` — prevents broken `capacitor://` invite links
+- **`VITE_API_BASE_URL`**: Leave empty for web dev (relative URLs). Set to deployed backend URL for Capacitor production builds
+
 ## Environment Variables
 - `BADUGI_ALPHA_ENABLED=true` — enables server-authoritative mode for ALL 5 games
 - `MODES_ALPHA_ENABLED=true` — alternative flag for generic modes only
 - `FEATURES.SERVER_AUTHORITATIVE_BADUGI` — code-level flag in `shared/featureFlags.ts`
+- `VITE_API_BASE_URL` — (mobile builds) absolute URL of backend, e.g. `https://your-app.replit.app`
+- `VITE_SHARE_ORIGIN` — (mobile builds) base URL for invite links, e.g. `https://your-app.replit.app`

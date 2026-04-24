@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { ensurePlayerIdentity } from './persistence';
+import { apiUrl } from './apiConfig';
 
 export interface ServerProfile {
   profileId:     string;
@@ -35,7 +36,7 @@ export function useServerProfile(): UseServerProfileResult {
     const identity = ensurePlayerIdentity();
 
     setLoading(true);
-    fetch(`/api/auth/me/${identity.id}`)
+    fetch(apiUrl(`/api/auth/me/${identity.id}`))
       .then(r => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json() as Promise<ServerProfile>;

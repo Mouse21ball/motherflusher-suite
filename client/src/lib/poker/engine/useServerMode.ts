@@ -12,6 +12,7 @@ import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
+import { apiUrl, wsUrl } from '../../apiConfig';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
 
@@ -114,8 +115,7 @@ export function useServerMode(tableId: string, modeId: string) {
     function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = `${proto}//${window.location.host}/ws`;
+      const url = wsUrl();
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
@@ -132,7 +132,7 @@ export function useServerMode(tableId: string, modeId: string) {
         // This prevents each player from landing on an isolated table.
         if (!_params.get('t') && !_isPrivate && !_quickPlay) {
           try {
-            const res = await fetch(`/api/tables/mode/${modeIdRef.current}/join`);
+            const res = await fetch(apiUrl(`/api/tables/mode/${modeIdRef.current}/join`));
             const data = await res.json() as { tableId: string | null };
             if (data.tableId && data.tableId !== tableIdRef.current) {
               tableIdRef.current = data.tableId;

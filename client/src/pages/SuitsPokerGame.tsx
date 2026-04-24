@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
 import { SuitsPokerMode } from "@/lib/poker/modes/suitspoker";
+import { shareOrigin } from "@/lib/apiConfig";
 import { SuitsPokerTable } from "@/components/game/SuitsPokerTable";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -28,7 +29,7 @@ const spDeclarationOptions: { label: string; value: Declaration; className: stri
 
 function InviteBanner({ tableId, mode, humanCount = 1 }: { tableId: string; mode: string; humanCount?: number }) {
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}/${mode}?t=${tableId}`;
+  const url = `${shareOrigin()}/${mode}?t=${tableId}`;
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }, [url]);

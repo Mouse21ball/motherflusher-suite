@@ -15,6 +15,7 @@ import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
+import { apiUrl, wsUrl } from '../../apiConfig';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
 // Persisted in sessionStorage so a page refresh on the same tab gets the same
@@ -115,8 +116,7 @@ export function useServerBadugi(tableId: string) {
     function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const proto    = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url      = `${proto}//${window.location.host}/ws`;
+      const url      = wsUrl();
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
@@ -134,7 +134,7 @@ export function useServerBadugi(tableId: string) {
         // table, check for an existing public table that already has human players.
         if (!_params.get('t') && !_isPrivate && !_quickPlay) {
           try {
-            const res = await fetch('/api/tables/mode/badugi/join');
+            const res = await fetch(apiUrl('/api/tables/mode/badugi/join'));
             const data = await res.json() as { tableId: string | null };
             if (data.tableId && data.tableId !== tableIdRef.current) {
               tableIdRef.current = data.tableId;

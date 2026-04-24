@@ -3,6 +3,7 @@ import { useGameEngine } from "@/lib/poker/engine/useGameEngine";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { BadugiMode } from "@/lib/poker/modes/badugi";
 import { FEATURES } from "@/lib/featureFlags";
+import { shareOrigin } from "@/lib/apiConfig";
 import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
 import { BadugiTable } from "@/components/game/BadugiTable";
 import { ActionControls } from "@/components/game/Controls";
@@ -25,7 +26,7 @@ import type { GameSessionStats } from "@/components/game/GameHeader";
 
 function InviteBanner({ tableId, humanCount = 1 }: { tableId: string; humanCount?: number }) {
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}/badugi?t=${tableId}`;
+  const url = `${shareOrigin()}/badugi?t=${tableId}`;
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(url).then(() => {

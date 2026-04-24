@@ -6,6 +6,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ensurePlayerIdentity } from './persistence';
+import { wsUrl } from './apiConfig';
 
 export interface RoomSeat {
   seatId: string;
@@ -38,8 +39,7 @@ export function useTableRoom({ tableId, modeId, seatId = 'p1', onRoomUpdate }: U
       if (!mountedRef.current) return;
 
       const identity = ensurePlayerIdentity();
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = `${proto}//${window.location.host}/ws`;
+      const url = wsUrl();
 
       let ws: WebSocket;
       try {

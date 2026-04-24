@@ -162,10 +162,12 @@ export function getSessionResult(): SessionSnapshot | null {
 
 // ─── Server sync ──────────────────────────────────────────────────────────────
 
+import { apiUrl } from './apiConfig';
+
 // Registers a new table on the server. Returns the server-echoed session.
 export async function registerTable(session: TableSession): Promise<{ ok: boolean }> {
   try {
-    const res = await fetch('/api/tables', {
+    const res = await fetch(apiUrl('/api/tables'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -183,7 +185,7 @@ export async function registerTable(session: TableSession): Promise<{ ok: boolea
 // Looks up a table code on the server. Returns null if not found.
 export async function lookupTable(tableId: string): Promise<{ modeId: string; createdAt: number } | null> {
   try {
-    const res = await fetch(`/api/tables/${tableId.toUpperCase()}`);
+    const res = await fetch(apiUrl(`/api/tables/${tableId.toUpperCase()}`));
     if (!res.ok) return null;
     return res.json();
   } catch {

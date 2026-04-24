@@ -1,4 +1,5 @@
 import { ensurePlayerIdentity } from './persistence';
+import { apiUrl } from './apiConfig';
 
 const SESSION_START_KEY = "poker_table_session_start";
 
@@ -12,7 +13,7 @@ function getPlayerId(): string {
 function fire(body: Record<string, unknown>): void {
   try {
     const payload = JSON.stringify({ ...body, playerId: getPlayerId() });
-    fetch("/api/analytics/track", {
+    fetch(apiUrl("/api/analytics/track"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: payload,

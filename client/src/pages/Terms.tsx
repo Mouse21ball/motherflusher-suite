@@ -7,24 +7,28 @@ export default function Terms() {
         </a>
 
         <h1 className="text-xl sm:text-2xl font-bold text-white mb-6" data-testid="text-terms-title">
-          About This Beta
+          Terms &amp; Disclosures
         </h1>
 
         <div className="space-y-5">
-          <Section title="Early Beta">
-            This app is in closed beta testing. Features, rules, and balancing may change between sessions as we iterate based on tester feedback.
-          </Section>
-
-          <Section title="No Real Money">
-            All chips and balances are virtual and for entertainment purposes only. Nothing in this app involves real currency, wagering, or payouts.
+          <Section title="Virtual Chips — No Cash Value">
+            All chips, balances, and rewards in this app are virtual and have no monetary value. They cannot be withdrawn, transferred, redeemed for cash, or exchanged for any real-world goods or services. This app involves no real-money wagering, gambling, or payouts of any kind.
           </Section>
 
           <Section title="Entertainment Only">
-            Poker Table is a single-player game against bot opponents. It is designed purely for fun and to explore original poker variants.
+            Chain Gang Poker (DGM Poker) is a free-to-play social card game for entertainment purposes only. No purchase is necessary to play. Chip balances exist solely within the game and carry no financial value outside it.
           </Section>
 
-          <Section title="Bugs May Occur">
-            As an early build, you may encounter bugs, visual glitches, or unexpected behavior. Your chip balances are saved locally on your device and may reset during updates.
+          <Section title="Multiplayer &amp; Bots">
+            Tables support up to 5 real players. When real players are unavailable, bot opponents fill seats automatically so the game continues without delay.
+          </Section>
+
+          <Section title="No Gambling">
+            This app does not constitute gambling under any jurisdiction. There are no bets, wagers, or stakes involving real currency. Virtual chips are a game mechanic only.
+          </Section>
+
+          <Section title="Beta Software">
+            This app is in active development. Features, rules, and chip balances may change between updates. Progress is saved locally on your device and may be affected by app updates.
           </Section>
 
           <Section title="Feedback Welcome">
@@ -34,7 +38,7 @@ export default function Terms() {
 
         <div className="mt-8 pt-6 border-t border-white/[0.06]">
           <p className="text-white/25 text-[10px] font-mono text-center">
-            Poker Table — Closed Beta
+            DGM Poker · Chain Gang Poker · Virtual chips only · No cash value
           </p>
         </div>
       </div>
