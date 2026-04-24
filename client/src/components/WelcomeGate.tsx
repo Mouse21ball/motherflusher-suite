@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { getPlayerName, setPlayerName } from "@/lib/persistence";
+import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
+import { apiUrl } from "@/lib/apiConfig";
 
 interface WelcomeGateProps {
   children: ReactNode;
@@ -18,22 +19,89 @@ const FEATURES = [
   { icon: '🏆', title: 'Rank Up from Bronze to Master', sub: 'XP system, 6 rank tiers, 12 achievements to unlock' },
 ];
 
-function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
-  const [input,   setInput]   = useState("");
-  const [shaking, setShaking] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const trimmed = input.trim();
-  const valid   = trimmed.length >= 2 && trimmed.length <= 16;
+type Mode = 'choose' | 'guest' | 'login' | 'register';
 
-  const handleSubmit = (e: React.FormEvent) => {
+function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
+  const [mode,      setMode]      = useState<Mode>('choose');
+  const [input,     setInput]     = useState("");
+  const [email,     setEmail]     = useState("");
+  const [password,  setPassword]  = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [shaking,   setShaking]   = useState(false);
+  const [focused,   setFocused]   = useState<string | null>(null);
+  const [busy,      setBusy]      = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+
+  const trimName = input.trim();
+  const validGuest = trimName.length >= 2 && trimName.length <= 16;
+
+  const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid) { setShaking(true); setTimeout(() => setShaking(false), 500); return; }
-    onComplete(trimmed);
+    if (!validGuest) { setShaking(true); setTimeout(() => setShaking(false), 500); return; }
+    onComplete(trimName);
   };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? 'Login failed. Check your credentials.'); return; }
+      savePlayerIdentity({
+        id: data.profileId, name: data.displayName,
+        avatarSeed: data.profileId.slice(0, 8), createdAt: Date.now(),
+      });
+      onComplete(data.displayName);
+    } catch { setError('Could not reach the server.'); }
+    finally { setBusy(false); }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const dn = input.trim();
+    if (dn.length < 2 || dn.length > 32)        { setError('Handle must be 2–32 characters.'); return; }
+    if (!email.trim().includes('@'))              { setError('Enter a valid email address.'); return; }
+    if (password.length < 8)                     { setError('Password must be at least 8 characters.'); return; }
+    if (password !== confirmPw)                  { setError('Passwords do not match.'); return; }
+    const guest = ensurePlayerIdentity();
+    setBusy(true);
+    try {
+      const res = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identityId: guest.id, email: email.trim().toLowerCase(), password, displayName: dn }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? 'Registration failed.'); return; }
+      savePlayerIdentity({
+        id: data.profileId, name: data.displayName,
+        avatarSeed: data.profileId.slice(0, 8), createdAt: guest.createdAt,
+      });
+      onComplete(data.displayName);
+    } catch { setError('Could not reach the server.'); }
+    finally { setBusy(false); }
+  };
+
+  const inputStyle = (field: string) => ({
+    backgroundColor: '#17171F',
+    color: 'rgba(255,255,255,0.88)',
+    border: `1.5px solid ${focused === field ? 'rgba(240,184,41,0.45)' : 'rgba(255,255,255,0.07)'}`,
+    boxShadow: focused === field ? '0 0 0 3px rgba(240,184,41,0.08)' : 'none',
+  });
+
+  const inputCls = "w-full h-12 px-4 rounded-xl font-mono text-sm focus:outline-none transition-all duration-200";
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4 py-8 relative overflow-hidden" style={{ backgroundColor: '#05050A' }}>
-      {/* Deep ambient glow */}
+      {/* Ambient glows */}
       <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[600px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.20) 0%, transparent 70%)' }} />
       <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full pointer-events-none"
@@ -41,40 +109,32 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
       <div className="absolute bottom-20 left-0 w-56 h-56 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.08) 0%, transparent 70%)' }} />
 
-      {/* Faint card suit watermarks */}
+      {/* Suit watermarks */}
       <div className="absolute top-[12%] left-[6%]  text-5xl opacity-[0.04] pointer-events-none select-none rotate-[-15deg]">♠</div>
       <div className="absolute top-[20%] right-[5%] text-6xl opacity-[0.04] pointer-events-none select-none rotate-[12deg]">♦</div>
       <div className="absolute bottom-[18%] left-[4%]  text-4xl opacity-[0.04] pointer-events-none select-none rotate-[8deg]">♥</div>
       <div className="absolute bottom-[12%] right-[7%] text-5xl opacity-[0.04] pointer-events-none select-none rotate-[-10deg]">♣</div>
 
       <div className="w-full max-w-md flex flex-col items-center relative anim-slide-down">
-        {/* Logo mark */}
-        <div
-          className="w-20 h-20 rounded-3xl flex flex-col items-center justify-center mb-6"
+        {/* Logo */}
+        <div className="w-20 h-20 rounded-3xl flex flex-col items-center justify-center mb-6"
           style={{
             background: 'linear-gradient(135deg, rgba(240,184,41,0.18) 0%, rgba(255,107,0,0.10) 100%)',
             border: '1.5px solid rgba(240,184,41,0.28)',
             boxShadow: '0 0 60px rgba(240,184,41,0.14), 0 0 120px rgba(255,107,0,0.06)',
-          }}
-        >
+          }}>
           <span className="text-3xl leading-none">⛓️</span>
         </div>
 
-        {/* Headline */}
         <div className="text-center mb-2">
-          <h1
-            className="text-2xl sm:text-3xl font-bold tracking-tight font-sans"
-            style={{ color: 'rgba(255,255,255,0.90)' }}
-            data-testid="text-welcome-title"
-          >
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-sans" style={{ color: 'rgba(255,255,255,0.90)' }} data-testid="text-welcome-title">
             Chain Gang Poker
           </h1>
           <p className="text-[11px] font-mono uppercase tracking-[0.2em] mt-1.5" style={{ color: 'rgba(240,184,41,0.55)' }}>
             Prison rules. No mercy.
           </p>
           <p className="text-sm mt-3 max-w-sm" style={{ color: 'rgba(255,255,255,0.38)', lineHeight: '1.6' }}>
-            Five games nobody else runs. Real multiplayer, no account, no download.
-            <span className="font-semibold" style={{ color: '#F0B829' }}> Free forever.</span>
+            Five games nobody else runs. Real multiplayer, virtual chips, <span className="font-semibold" style={{ color: '#F0B829' }}>free forever.</span>
           </p>
         </div>
 
@@ -85,72 +145,201 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
           <span className="text-[11px] font-mono font-bold" style={{ color: '#00C896' }}>1,000+ players running right now</span>
         </div>
 
-        {/* Feature list */}
-        <div className="w-full rounded-2xl p-4 mb-5 space-y-3"
-          style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {FEATURES.map(f => (
-            <div key={f.icon} className="flex items-start gap-3">
-              <span className="text-base leading-none shrink-0 mt-0.5">{f.icon}</span>
-              <div>
-                <div className="text-sm font-semibold font-sans" style={{ color: 'rgba(255,255,255,0.75)' }}>{f.title}</div>
-                <div className="text-[11px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>{f.sub}</div>
+        {/* Feature list — only on choose screen */}
+        {mode === 'choose' && (
+          <div className="w-full rounded-2xl p-4 mb-5 space-y-3"
+            style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {FEATURES.map(f => (
+              <div key={f.icon} className="flex items-start gap-3">
+                <span className="text-base leading-none shrink-0 mt-0.5">{f.icon}</span>
+                <div>
+                  <div className="text-sm font-semibold font-sans" style={{ color: 'rgba(255,255,255,0.75)' }}>{f.title}</div>
+                  <div className="text-[11px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>{f.sub}</div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Name input */}
-        <form onSubmit={handleSubmit} className="w-full">
-          <label htmlFor="display-name"
-            className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2.5 pl-1"
-            style={{ color: 'rgba(255,255,255,0.22)' }}>
-            Pick your handle
-          </label>
-          <div className={`flex gap-2 ${shaking ? "animate-shake" : ""}`}>
-            <input
-              id="display-name"
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              placeholder="AceHunter, BluffKing…"
-              maxLength={16}
-              autoFocus
-              autoComplete="off"
-              className="flex-1 h-12 px-4 rounded-xl font-mono text-sm focus:outline-none transition-all duration-200"
-              style={{
-                backgroundColor: '#17171F',
-                color: 'rgba(255,255,255,0.88)',
-                border: `1.5px solid ${focused ? 'rgba(240,184,41,0.45)' : 'rgba(255,255,255,0.07)'}`,
-                boxShadow: focused ? '0 0 0 3px rgba(240,184,41,0.08)' : 'none',
-              }}
-              data-testid="input-display-name"
-            />
-            <button
-              type="submit"
-              disabled={!valid}
-              className="h-12 px-6 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] shrink-0"
-              style={{
-                backgroundColor: valid ? '#F0B829' : 'rgba(240,184,41,0.08)',
-                color: valid ? '#05050A' : 'rgba(240,184,41,0.25)',
-                boxShadow: valid ? '0 4px 24px rgba(240,184,41,0.30)' : 'none',
-              }}
-              data-testid="button-enter"
-            >
-              Run It →
-            </button>
+            ))}
           </div>
-          {input.length > 0 && !valid && (
-            <p className="text-[11px] font-mono mt-2 pl-1" style={{ color: 'rgba(220,38,38,0.55)' }}>
-              Handle must be 2–16 characters
-            </p>
-          )}
-        </form>
+        )}
 
-        <p className="text-[9px] font-mono mt-5 text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
-          No account. No email. No payment. Progress saved on this device only.
-        </p>
+        {/* ── CHOOSE ─────────────────────────────────────────────────────────── */}
+        {mode === 'choose' && (
+          <div className="w-full flex flex-col gap-2.5">
+            <button
+              onClick={() => setMode('login')}
+              className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97]"
+              style={{ backgroundColor: '#F0B829', color: '#05050A', boxShadow: '0 4px 24px rgba(240,184,41,0.30)' }}
+              data-testid="button-goto-login"
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => setMode('register')}
+              className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97]"
+              style={{ backgroundColor: 'rgba(240,184,41,0.10)', color: 'rgba(240,184,41,0.75)', border: '1.5px solid rgba(240,184,41,0.25)' }}
+              data-testid="button-goto-register"
+            >
+              Create Account
+            </button>
+            <button
+              onClick={() => setMode('guest')}
+              className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] text-white/30 hover:text-white/50"
+              data-testid="button-goto-guest"
+            >
+              Continue as Guest
+            </button>
+            <p className="text-[9px] font-mono mt-1 text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
+              Virtual chips only · No cash value · For entertainment
+            </p>
+          </div>
+        )}
+
+        {/* ── BACK button (non-choose screens) ─────────────────────────────── */}
+        {mode !== 'choose' && (
+          <button
+            onClick={() => { setMode('choose'); setError(null); }}
+            className="text-[10px] font-mono text-white/25 hover:text-white/45 uppercase tracking-widest mb-4 self-start"
+            data-testid="button-auth-back"
+          >
+            ‹ Back
+          </button>
+        )}
+
+        {/* ── GUEST ──────────────────────────────────────────────────────────── */}
+        {mode === 'guest' && (
+          <form onSubmit={handleGuest} className="w-full">
+            <label htmlFor="display-name" className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2.5 pl-1"
+              style={{ color: 'rgba(255,255,255,0.22)' }}>
+              Pick your handle
+            </label>
+            <div className={`flex gap-2 ${shaking ? 'animate-shake' : ''}`}>
+              <input
+                id="display-name"
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onFocus={() => setFocused('name')}
+                onBlur={() => setFocused(null)}
+                placeholder="AceHunter, BluffKing…"
+                maxLength={16}
+                autoFocus
+                autoComplete="off"
+                className={inputCls}
+                style={inputStyle('name')}
+                data-testid="input-display-name"
+              />
+              <button
+                type="submit"
+                disabled={!validGuest}
+                className="h-12 px-6 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] shrink-0"
+                style={{
+                  backgroundColor: validGuest ? '#F0B829' : 'rgba(240,184,41,0.08)',
+                  color: validGuest ? '#05050A' : 'rgba(240,184,41,0.25)',
+                  boxShadow: validGuest ? '0 4px 24px rgba(240,184,41,0.30)' : 'none',
+                }}
+                data-testid="button-enter"
+              >
+                Run It →
+              </button>
+            </div>
+            {input.length > 0 && !validGuest && (
+              <p className="text-[11px] font-mono mt-2 pl-1" style={{ color: 'rgba(220,38,38,0.55)' }}>
+                Handle must be 2–16 characters
+              </p>
+            )}
+            <p className="text-[9px] font-mono mt-4 text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
+              Guest progress saved on this device only. Create an account to save across devices.
+            </p>
+          </form>
+        )}
+
+        {/* ── LOG IN ─────────────────────────────────────────────────────────── */}
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} className="w-full flex flex-col gap-3">
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
+                placeholder="you@example.com" autoComplete="email" className={inputCls} style={inputStyle('email')}
+                data-testid="input-login-email" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
+                placeholder="••••••••" autoComplete="current-password" className={inputCls} style={inputStyle('password')}
+                data-testid="input-login-password" />
+            </div>
+            {error && <p className="text-[11px] font-mono text-red-400/70 text-center" data-testid="text-login-error">{error}</p>}
+            <button type="submit" disabled={busy}
+              className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] mt-1"
+              style={{
+                backgroundColor: busy ? 'rgba(240,184,41,0.25)' : '#F0B829',
+                color: busy ? 'rgba(240,184,41,0.4)' : '#05050A',
+                boxShadow: busy ? 'none' : '0 4px 24px rgba(240,184,41,0.30)',
+              }}
+              data-testid="button-login-submit">
+              {busy ? '…' : 'Log In'}
+            </button>
+            <button type="button" onClick={() => { setMode('register'); setError(null); }}
+              className="text-[11px] font-mono text-white/25 hover:text-white/45 text-center transition-colors"
+              data-testid="button-switch-to-register">
+              No account? Create one →
+            </button>
+          </form>
+        )}
+
+        {/* ── REGISTER ───────────────────────────────────────────────────────── */}
+        {mode === 'register' && (
+          <form onSubmit={handleRegister} className="w-full flex flex-col gap-3">
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Display Name</label>
+              <input type="text" value={input} onChange={e => setInput(e.target.value)}
+                onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
+                placeholder="AceHunter" maxLength={32} autoComplete="nickname" className={inputCls} style={inputStyle('name')}
+                data-testid="input-register-name" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
+                placeholder="you@example.com" autoComplete="email" className={inputCls} style={inputStyle('email')}
+                data-testid="input-register-email" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Password <span style={{ color: 'rgba(255,255,255,0.12)' }}>(min 8 chars)</span></label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
+                placeholder="••••••••" autoComplete="new-password" className={inputCls} style={inputStyle('password')}
+                data-testid="input-register-password" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Confirm Password</label>
+              <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+                onFocus={() => setFocused('confirm')} onBlur={() => setFocused(null)}
+                placeholder="••••••••" autoComplete="new-password" className={inputCls} style={inputStyle('confirm')}
+                data-testid="input-register-confirm" />
+            </div>
+            {error && <p className="text-[11px] font-mono text-red-400/70 text-center" data-testid="text-register-error">{error}</p>}
+            <button type="submit" disabled={busy}
+              className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] mt-1"
+              style={{
+                backgroundColor: busy ? 'rgba(240,184,41,0.25)' : '#F0B829',
+                color: busy ? 'rgba(240,184,41,0.4)' : '#05050A',
+                boxShadow: busy ? 'none' : '0 4px 24px rgba(240,184,41,0.30)',
+              }}
+              data-testid="button-register-submit">
+              {busy ? '…' : 'Create Account'}
+            </button>
+            <button type="button" onClick={() => { setMode('login'); setError(null); }}
+              className="text-[11px] font-mono text-white/25 hover:text-white/45 text-center transition-colors"
+              data-testid="button-switch-to-login">
+              Already have an account? Log in →
+            </button>
+            <p className="text-[9px] font-mono text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
+              Virtual chips only · No cash value · For entertainment
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );

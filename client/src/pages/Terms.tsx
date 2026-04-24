@@ -27,8 +27,8 @@ export default function Terms() {
             This app does not constitute gambling under any jurisdiction. There are no bets, wagers, or stakes involving real currency. Virtual chips are a game mechanic only.
           </Section>
 
-          <Section title="Beta Software">
-            This app is in active development. Features, rules, and chip balances may change between updates. Progress is saved locally on your device and may be affected by app updates.
+          <Section title="Account Play">
+            Creating an account lets you save your progress, chip balance, and stats across devices. Accounts use email and password. Your virtual chip balance has no cash value regardless of account type. Guest play is available without an account — progress is saved on your device only.
           </Section>
 
           <Section title="Feedback Welcome">

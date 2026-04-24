@@ -1,7 +1,7 @@
 // ─── useServerProfile ─────────────────────────────────────────────────────────
 // Fetches the canonical player profile from the server on mount.
 // Returns server-authoritative fields: chipBalance, lifetimeProfit,
-// handsPlayed, displayName, and computed level.
+// handsPlayed, displayName, email, hasAuth, and computed level.
 //
 // Falls back silently to `null` values so callers can always fall back to
 // localStorage stats when the fetch is loading or fails (e.g. offline).
@@ -11,13 +11,14 @@ import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
 
 export interface ServerProfile {
-  profileId:     string;
-  displayName:   string;
-  chipBalance:   number;
-  handsPlayed:   number;
+  profileId:      string;
+  displayName:    string;
+  chipBalance:    number;
+  handsPlayed:    number;
   lifetimeProfit: number;
-  level:         number;
-  hasAuth:       boolean;
+  level:          number;
+  hasAuth:        boolean;
+  email:          string | null;
 }
 
 interface UseServerProfileResult {

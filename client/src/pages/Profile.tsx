@@ -4,9 +4,10 @@ import {
   getProgression, getLevelInfo, getRankForLevel, getUnlockedAchievements,
   ACHIEVEMENTS, ACHIEVEMENT_MAP, type Achievement,
 } from '@/lib/progression';
-import { getStreakInfo, getDailyRewardState } from '@/lib/dailyReward';
-import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips } from '@/lib/persistence';
+import { getStreakInfo } from '@/lib/dailyReward';
+import { ensurePlayerIdentity, savePlayerIdentity, getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips } from '@/lib/persistence';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { AuthModal } from '@/components/AuthModal';
 
 const RARITY_COLORS: Record<string, string> = {
   common: 'text-white/50 border-white/10 bg-white/[0.03]',
@@ -48,6 +49,33 @@ export default function Profile() {
   const rank = getRankForLevel(displayLevel);
 
   const [tab, setTab] = useState<'overview' | 'achievements'>('overview');
+
+  // ── Account modal state ──────────────────────────────────────────────────────
+  const [authOpen,    setAuthOpen]    = useState(false);
+  const [authDefault, setAuthDefault] = useState<'login' | 'register'>('login');
+
+  const openAuth = (t: 'login' | 'register') => { setAuthDefault(t); setAuthOpen(true); };
+
+  const handleAuthSuccess = (displayName: string) => {
+    setAuthOpen(false);
+    // Force a page reload so WelcomeGate re-reads the name and useServerProfile
+    // fetches the adopted profile (chips, level, history all restored).
+    window.location.reload();
+    void displayName;
+  };
+
+  const handleLogout = () => {
+    // Generate a fresh guest UUID — detaches from the account.
+    // The account's chips remain on the server; logging back in restores them.
+    const freshId = crypto.randomUUID();
+    savePlayerIdentity({
+      id: freshId,
+      name: identity.name, // keep display name for convenience
+      avatarSeed: freshId.slice(0, 8),
+      createdAt: Date.now(),
+    });
+    window.location.reload();
+  };
 
   const progressPct = Math.round(levelInfo.progress * 100);
 
@@ -130,6 +158,57 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {/* ── Account status card ─────────────────────────────────────────── */}
+        {serverProfile?.hasAuth ? (
+          <div className="w-full rounded-xl bg-[#141417]/80 border border-white/[0.05] px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+              style={{ backgroundColor: 'rgba(0,200,150,0.10)', border: '1px solid rgba(0,200,150,0.22)' }}>
+              ✓
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest">Saved Account</div>
+              <div className="text-xs font-mono text-white/55 truncate mt-0.5" data-testid="text-account-email">
+                {serverProfile.email ?? 'Account linked'}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-[9px] font-mono text-white/20 hover:text-red-400/60 uppercase tracking-widest transition-colors shrink-0"
+              data-testid="button-logout"
+            >
+              Log Out
+            </button>
+          </div>
+        ) : (
+          <div className="w-full rounded-xl bg-[#141417]/80 border border-white/[0.05] px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              👤
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest">Guest Account</div>
+              <div className="text-[10px] font-mono text-white/30 mt-0.5">Progress saved on this device only</div>
+            </div>
+            <div className="flex gap-1.5 shrink-0">
+              <button
+                onClick={() => openAuth('login')}
+                className="text-[9px] font-mono text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors px-2 py-1 rounded-lg hover:bg-white/[0.04]"
+                data-testid="button-profile-login"
+              >
+                Log In
+              </button>
+              <button
+                onClick={() => openAuth('register')}
+                className="text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 rounded-lg"
+                style={{ color: 'rgba(240,184,41,0.70)', backgroundColor: 'rgba(240,184,41,0.07)', border: '1px solid rgba(240,184,41,0.18)' }}
+                data-testid="button-profile-register"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stats row */}
         <div className="w-full grid grid-cols-4 gap-2">
@@ -269,6 +348,13 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      <AuthModal
+        open={authOpen}
+        defaultTab={authDefault}
+        onClose={() => setAuthOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 }
