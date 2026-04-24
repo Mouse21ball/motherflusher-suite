@@ -17,7 +17,7 @@ interface ResolutionOverlayProps {
 }
 
 function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | null, heroChipChange?: number): {
-  type: 'win' | 'loss' | 'split' | 'uncontested';
+  type: 'win' | 'loss' | 'split';
   primary: string;
   secondary: string;
   details: string[];
@@ -31,12 +31,11 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
   const amountStr = absNet > 0 ? `$${absNet}` : '';
 
   if (heroPlayer?.isWinner) {
-    const isUncontested = texts.some(t => /last player standing/i.test(t));
     return {
-      type: isUncontested ? 'uncontested' : 'win',
-      primary: isUncontested ? 'Uncontested' : 'You win',
+      type: 'win',
+      primary: 'You win',
       secondary: amountStr ? `+${amountStr}` : '',
-      details: isUncontested ? [] : texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
+      details: texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
     };
   }
 
@@ -78,7 +77,7 @@ function classifyResult(messages: ResolutionMessage[], heroPlayer?: Player | nul
 
   return {
     type: 'loss',
-    primary: 'Hand complete',
+    primary: 'Hand settled',
     secondary: '',
     details: texts,
   };
@@ -102,7 +101,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
       if (!soundPlayed.current) {
         soundPlayed.current = true;
         const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
-        if (result.type === 'win' || result.type === 'uncontested') {
+        if (result.type === 'win') {
           sfx.win();
         } else if (result.type === 'loss') {
           sfx.lose();

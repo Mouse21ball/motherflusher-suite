@@ -597,13 +597,13 @@ function resolveShowdown(table: AuthTable): void {
 
     broadcastState(table);
 
-    // Auto-advance to next hand after 4 seconds
+    // Auto-advance to next hand after 2.5 seconds
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       resetToAnte(table);
       broadcastState(table);
-    }, 4000);
+    }, 2500);
   }, 650);
 }
 

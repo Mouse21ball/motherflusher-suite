@@ -681,7 +681,7 @@ function scheduleBotBanter(table: GenericTable, winnerIds: string[]): void {
   else pool = BOT_BANTER_NEUTRAL;
 
   const text = pool[Math.floor(Math.random() * pool.length)];
-  const delay = 1200 + Math.random() * 1600;
+  const delay = 400 + Math.random() * 700;
 
   setTimeout(() => {
     if (table.state.phase !== 'SHOWDOWN') return;
@@ -721,7 +721,7 @@ function resolveShowdown(table: GenericTable): void {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       resetToAnte(table);
       broadcastState(table);
-    }, 4000);
+    }, 2500);
   }, 650);
 }
 
