@@ -260,7 +260,9 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
   const tableType = useMemo(() => {
     try {
       const p = new URLSearchParams(window.location.search);
-      return p.get('qp') === '1' ? 'QUICK PLAY' : 'PUBLIC';
+      if (p.get('qp') === '1') return 'QUICK PLAY';
+      if (p.get('private') === '1') return 'PRIVATE';
+      return 'PUBLIC';
     } catch { return 'PUBLIC'; }
   }, []);
 

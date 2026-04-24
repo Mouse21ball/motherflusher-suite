@@ -13,7 +13,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
-import { registerTable } from '../../tableSession';
+import { registerTable, saveSessionResult } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
@@ -87,11 +87,12 @@ export function useServerBadugi(tableId: string) {
   const myIdRef = useRef<string>('p1');
   const [role, setRole] = useState<'player' | 'spectator'>('player');
 
-  const wsRef        = useRef<WebSocket | null>(null);
-  const mountedRef   = useRef(true);
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tableIdRef   = useRef<string>(tableId);
-  const sessionId    = useRef<string>(getOrCreateSessionId());
+  const wsRef           = useRef<WebSocket | null>(null);
+  const mountedRef      = useRef(true);
+  const reconnectRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tableIdRef      = useRef<string>(tableId);
+  const sessionId       = useRef<string>(getOrCreateSessionId());
+  const sessionStatsRef = useRef<BadugiSessionStats>(DEFAULT_SESSION_STATS);
   const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
   // Register the table code server-side so /join/:code can resolve it.
@@ -164,7 +165,11 @@ export function useServerBadugi(tableId: string) {
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
             setState(msg.state as GameState);
-            if (msg.sessionStats) setSessionStats(msg.sessionStats as BadugiSessionStats);
+            if (msg.sessionStats) {
+              const ss = msg.sessionStats as BadugiSessionStats;
+              sessionStatsRef.current = ss;
+              setSessionStats(ss);
+            }
             if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
               setRole('spectator');
             }
@@ -174,7 +179,11 @@ export function useServerBadugi(tableId: string) {
           // badugi:snapshot: subsequent broadcasts after each action.
           if (msg.type === 'badugi:snapshot') {
             setState(msg.state as GameState);
-            if (msg.sessionStats) setSessionStats(msg.sessionStats as BadugiSessionStats);
+            if (msg.sessionStats) {
+              const ss = msg.sessionStats as BadugiSessionStats;
+              sessionStatsRef.current = ss;
+              setSessionStats(ss);
+            }
             return;
           }
         } catch { /* malformed — ignore */ }
@@ -193,6 +202,10 @@ export function useServerBadugi(tableId: string) {
     return () => {
       mountedRef.current = false;
       if (reconnectRef.current) { clearTimeout(reconnectRef.current); reconnectRef.current = null; }
+      const ss = sessionStatsRef.current;
+      if (ss.handsPlayed > 0) {
+        saveSessionResult(ss.netProfit, ss.handsPlayed, ss.startChips);
+      }
       const ws = wsRef.current;
       if (ws) {
         if (ws.readyState === WebSocket.OPEN) {

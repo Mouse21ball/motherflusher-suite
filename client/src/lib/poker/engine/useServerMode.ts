@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
-import { registerTable } from '../../tableSession';
+import { registerTable, saveSessionResult } from '../../tableSession';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
 
@@ -91,9 +91,10 @@ export function useServerMode(tableId: string, modeId: string) {
   const wsRef      = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
   const reconnRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tableIdRef = useRef<string>(tableId);
-  const modeIdRef  = useRef<string>(modeId);
-  const sessionId  = useRef<string>(getOrCreateSessionId(modeId));
+  const tableIdRef      = useRef<string>(tableId);
+  const modeIdRef       = useRef<string>(modeId);
+  const sessionId       = useRef<string>(getOrCreateSessionId(modeId));
+  const sessionStatsRef = useRef<SessionStats>(DEFAULT_SESSION_STATS);
 
   useEffect(() => {
     // Only register when this player created the table (no ?t= in URL).
@@ -166,14 +167,18 @@ export function useServerMode(tableId: string, modeId: string) {
             }
             setState(msg.state as GameState);
             if (msg.sessionStats) {
-              setSessionStats(msg.sessionStats as SessionStats);
+              const ss = msg.sessionStats as SessionStats;
+              sessionStatsRef.current = ss;
+              setSessionStats(ss);
             }
             return;
           }
           if (msg.type === 'mode:snapshot') {
             setState(msg.state as GameState);
             if (msg.sessionStats) {
-              setSessionStats(msg.sessionStats as SessionStats);
+              const ss = msg.sessionStats as SessionStats;
+              sessionStatsRef.current = ss;
+              setSessionStats(ss);
             }
             return;
           }
@@ -193,6 +198,10 @@ export function useServerMode(tableId: string, modeId: string) {
     return () => {
       mountedRef.current = false;
       if (reconnRef.current) { clearTimeout(reconnRef.current); reconnRef.current = null; }
+      const ss = sessionStatsRef.current;
+      if (ss.handsPlayed > 0) {
+        saveSessionResult(ss.netProfit, ss.handsPlayed, ss.startChips);
+      }
       const ws = wsRef.current;
       if (ws) {
         if (ws.readyState === WebSocket.OPEN) {
