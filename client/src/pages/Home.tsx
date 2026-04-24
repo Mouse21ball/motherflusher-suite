@@ -291,10 +291,11 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
         if (!sr || !sr.ts) return null;
         const ageMs = Date.now() - sr.ts;
         if (ageMs > 48 * 60 * 60 * 1000) return null; // hide after 48h
-        const isUp = sr.delta > 0;
-        const isEven = Math.abs(sr.delta) < 50;
-        const deltaColor = isEven ? 'rgba(255,255,255,0.35)' : isUp ? 'rgba(52,211,153,0.70)' : 'rgba(248,113,113,0.70)';
-        const deltaText = isEven ? 'BREAK EVEN' : isUp ? `+$${sr.delta}` : `-$${Math.abs(sr.delta)}`;
+        const resultColor =
+          sr.result === 'WINNING SESSION' ? 'rgba(52,211,153,0.78)'
+          : sr.result === 'LOSING SESSION' ? 'rgba(248,113,113,0.75)'
+          : 'rgba(255,255,255,0.32)';
+        const deltaText = sr.delta === 0 ? null : sr.delta > 0 ? `+$${sr.delta}` : `-$${Math.abs(sr.delta)}`;
         return (
           <div
             className="px-4 py-2.5 flex items-center gap-3 border-b"
@@ -304,8 +305,10 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/25">Last Session</span>
-                <span className="font-mono text-[10px] font-bold" style={{ color: deltaColor }} data-testid="text-last-session-delta">{deltaText}</span>
-                {sr.result && <span className="text-[9px] font-mono" style={{ color: deltaColor, opacity: 0.7 }}>{sr.result}</span>}
+                <span className="font-mono text-[10px] font-bold" style={{ color: resultColor }} data-testid="text-last-session-result">{sr.result}</span>
+                {deltaText && (
+                  <span className="font-mono text-[9px]" style={{ color: resultColor, opacity: 0.65 }} data-testid="text-last-session-delta">{deltaText}</span>
+                )}
               </div>
               {sr.hands > 0 && (
                 <p className="text-[9px] font-mono text-white/20 mt-0.5 pl-0" data-testid="text-last-session-hands">{sr.hands} hands played</p>
