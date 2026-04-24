@@ -822,3 +822,105 @@
   background-size: 200% 200%;
   animation: gradient-shift 6s ease infinite;
 }
+
+/* ── 3D Table System ──────────────────────────────────────────────────────── */
+
+/* Outer wrapper applies CSS perspective so everything inside has 3D depth */
+.table-3d-perspective {
+  perspective: 1100px;
+  perspective-origin: 50% -5%;
+}
+
+/* The felt oval tilts back — simulates looking down at the table */
+.table-3d-tilt {
+  transform: rotateX(9deg);
+  transform-origin: center 60%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Counter-tilt: applied to elements inside the felt to keep them flat */
+.table-3d-counter {
+  transform: rotateX(-9deg);
+  transform-origin: center center;
+}
+
+/* Extra 3D rail — thicker, more dramatic wood edge + deep table shadow */
+.game-table-felt-3d {
+  box-shadow:
+    inset 0 -3px 0 rgba(201,162,39,0.22),
+    inset 0 6px 28px rgba(0,0,0,0.82),
+    inset 0 0 0 1px rgba(201,162,39,0.14),
+    inset 0 0 148px rgba(0,0,0,0.94),
+    inset 100px 0 108px rgba(0,0,0,0.52),
+    inset -100px 0 108px rgba(0,0,0,0.52),
+    inset 0 80px 108px rgba(0,0,0,0.46),
+    inset 0 -40px 64px rgba(0,0,0,0.28),
+    0 0 0 4px #1a1306,
+    0 0 0 7px #0b0804,
+    0 0 0 9px rgba(201,162,39,0.22),
+    0 28px 90px rgba(0,0,0,0.98),
+    0 48px 120px rgba(0,0,0,0.72),
+    0 72px 140px rgba(0,0,0,0.42);
+}
+
+/* Card deal from deck — 3D arc trajectory */
+@keyframes card-deal-3d {
+  0%   { opacity: 0; transform: scale(0.7) translateY(-20px) rotateY(-40deg); }
+  60%  { opacity: 1; transform: scale(1.03) translateY(2px) rotateY(2deg); }
+  100% { opacity: 1; transform: scale(1) translateY(0) rotateY(0deg); }
+}
+.anim-card-deal-3d {
+  animation: card-deal-3d 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Card reveal flip — hidden → visible (community card reveal) */
+@keyframes card-reveal-3d {
+  0%   { transform: rotateY(-90deg) scale(0.85); opacity: 0; }
+  65%  { transform: rotateY(5deg) scale(1.01); }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+.anim-card-reveal-3d {
+  animation: card-reveal-3d 300ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+/* Depth drop-shadow for the hero seat foreground plane */
+.seat-depth-hero {
+  filter:
+    drop-shadow(0 16px 32px rgba(0,0,0,0.70))
+    drop-shadow(0 4px 8px rgba(0,0,0,0.50));
+}
+
+/* Depth drop-shadow for side seats (mid-ground) */
+.seat-depth-side {
+  filter:
+    drop-shadow(0 8px 16px rgba(0,0,0,0.55))
+    drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+}
+
+/* Depth drop-shadow for top/back seats (farthest) */
+.seat-depth-top {
+  filter:
+    drop-shadow(0 4px 8px rgba(0,0,0,0.40))
+    drop-shadow(0 1px 3px rgba(0,0,0,0.25));
+}
+
+/* Chip stack: physical elevation feel */
+@keyframes chip-stack-appear {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.85); }
+  60%  { transform: translateY(-2px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.anim-chip-appear {
+  animation: chip-stack-appear 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Holographic table edge — premium felt rail ───────────────────────────── */
+@keyframes rail-shimmer {
+  0%   { opacity: 0.5; }
+  50%  { opacity: 1.0; }
+  100% { opacity: 0.5; }
+}
+.table-rail-glow {
+  animation: rail-shimmer 3s ease-in-out infinite;
+}

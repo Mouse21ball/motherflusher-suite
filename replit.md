@@ -66,14 +66,28 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - `shared/engine/core.ts` — Shared engine utilities (createDeck, getNextActivePlayerIndex, etc.)
 - `shared/featureFlags.ts` — Code-level feature flags
 
-## UI Components
-- `BadugiTable.tsx` — Used by Badugi, Dead7, Fifteen35 — supports 1-5 players dynamically
-- `GameTable.tsx` — Used by Mother Flusher (Swing) — 5 fixed seat positions, oval layout
-- `SuitsPokerTable.tsx` — Used by Suits & Poker — supports 1-5 players
-- `PlayerSeat.tsx` — Generic player seat component
-- `Controls.tsx` — Phase-aware action controls
+## UI Architecture (3D Rebuild — current)
+- `ThreeDTableScene.tsx` — **Unified 3D table for ALL 5 modes**. CSS 3D perspective on felt oval (`rotateX(9deg)` tilt + counter-rotation on interior). ARC layout (hero bottom, 2-4 opponents in arc above) for badugi/dead7/fifteen35/suitspoker; RING layout (5 fixed seats around oval) for swing/Mother Flusher. All session P&L, pot display, win celebration, made-hand badge, action labels, and community card layouts (SuitsPoker 12-card board, Mother Flusher pair stacks + factor cards) live here.
+- `UnifiedGamePage.tsx` — **Single page component for all 5 modes**. Consumes `useServerBadugi` (Badugi) or `useServerMode` (Dead7/Fifteen35/Swing/SuitsPoker). Renders GameHeader, InviteBanner, ThreeDTableScene, ActionControls, ChatBox. Draw-phase card selection, invite, spectator, XP, and sound logic all preserved here.
+- Each game route (`BadugiGame.tsx`, `Dead7Game.tsx`, `Fifteen35Game.tsx`, `Game.tsx`, `SuitsPokerGame.tsx`) is a 4-line thin wrapper: `<UnifiedGamePage modeId="..." />`
+
+### Legacy Table Components (still in codebase, superseded)
+- `BadugiTable.tsx`, `GameTable.tsx`, `SuitsPokerTable.tsx` — original per-mode tables, no longer used by game routes
+
+### Shared UI Components (unchanged)
+- `PlayerSeat.tsx` — Generic player seat component (used by ThreeDTableScene)
+- `Controls.tsx` — Phase-aware action controls (auto-ante, auto-next-hand, declaration)
 - `ChatBox.tsx` — Real-time chat (server-synced)
 - `ReactionBar.tsx` — Emoji reactions (synced to all players)
+- `WinCelebration.tsx`, `ResolutionOverlay.tsx`, `DiscardPile.tsx`, `HandHistory.tsx`
+
+### CSS 3D Classes (index.css)
+- `.table-3d-perspective` — outer container perspective (1100px, origin 50% -5%)
+- `.table-3d-tilt` — felt oval: `rotateX(9deg)` from `center 60%`
+- `.table-3d-counter` — counter-rotation for flat interior elements
+- `.game-table-felt-3d` — enhanced gold rail shadow for depth
+- `.seat-depth-hero/side/top` — CSS drop-shadow stratification by seat plane
+- `.anim-card-deal-3d`, `.anim-card-reveal-3d` — 3D card entry / flip animations
 
 ## Persistence (Client-Side)
 - Chip balances per mode in localStorage (`poker_table_chips`)
