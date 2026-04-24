@@ -9,6 +9,11 @@ import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SwingPokerMode } from '../shared/modes/swing';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { engineLog } from './engineLog';
+import {
+  scheduleGenericSave,
+  loadPersistedGenericTables,
+  deletePersistedGenericTable,
+} from './tablePersistence';
 import { storage } from './storage';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
@@ -62,6 +67,15 @@ function getNextActivePlayerIndex(players: Player[], currentIndex: number, skipA
     if (p.status === 'active' && (!skipAllIn || p.chips > 0)) break;
     nextIdx = (nextIdx + 1) % players.length;
     count++;
+  }
+  // Exhausted all slots with skipAllIn=true: relax the all-in constraint and
+  // try again so we never assign activePlayerId to a folded/sitting_out player.
+  if (count >= players.length && skipAllIn) {
+    nextIdx = (currentIndex + 1) % players.length;
+    for (let i = 0; i < players.length; i++) {
+      if (players[nextIdx].status === 'active') break;
+      nextIdx = (nextIdx + 1) % players.length;
+    }
   }
   return nextIdx;
 }
@@ -461,6 +475,8 @@ function broadcastState(table: GenericTable): void {
       spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
     } catch {}
   }
+  // Debounced persistence: write state ~2 s after last mutation
+  scheduleGenericSave(tableKey(table.modeId, table.tableId), table.state, table.handId);
 }
 
 // ─── Phase advancement ────────────────────────────────────────────────────────
@@ -830,7 +846,7 @@ function resetToAnte(table: GenericTable): void {
     communityCards: [],
     messages: [{
       id: makeId(),
-      text: isRollover ? `Rollover — $${s.pot} carries over.` : 'New hand.',
+      text: 'New hand.',
       time: Date.now(),
     }],
   };
@@ -900,9 +916,16 @@ function scheduleNextBot(table: GenericTable): void {
 }
 
 // ─── Seat release ─────────────────────────────────────────────────────────────
+// "Between hands" = WAITING (lobby) OR the very start of ANTE before this player
+// has posted their ante (they have not yet committed a chip to the hand).
+// In both cases the seat is freed back to 'reserved' (open for a new player).
+// Mid-hand: seat becomes a bot so the round completes cleanly.
 
 function releaseSeat(table: GenericTable, seat: string): void {
-  const isBetweenHands = table.state.phase === 'WAITING';
+  const phase      = table.state.phase;
+  const seatPlayer = table.state.players.find(p => p.id === seat);
+  const isBetweenHands = phase === 'WAITING' || (phase === 'ANTE' && !seatPlayer?.hasActed);
+
   table.state = {
     ...table.state,
     players: table.state.players.map(p => {
@@ -913,8 +936,19 @@ function releaseSeat(table: GenericTable, seat: string): void {
       return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
     }),
   };
-  broadcastState(table);
-  if (!isBetweenHands) scheduleNextBot(table);
+
+  if (!isBetweenHands) {
+    broadcastState(table);
+    scheduleNextBot(table);
+  } else if (phase === 'ANTE' && table.state.activePlayerId === seat) {
+    const myIdx  = table.state.players.findIndex(p => p.id === seat);
+    const nextIdx = getNextActivePlayerIndex(table.state.players, myIdx, false);
+    table.state = { ...table.state, activePlayerId: table.state.players[nextIdx].id };
+    broadcastState(table);
+    scheduleNextBot(table);
+  } else {
+    broadcastState(table);
+  }
 }
 
 // ─── Bot action execution ─────────────────────────────────────────────────────
@@ -1615,4 +1649,44 @@ export function getActiveGenericTables(): { tableId: string; modeId: string; hum
     }
   }
   return result;
+}
+
+// ─── Startup restore ──────────────────────────────────────────────────────────
+// Called once at server startup. Restores all generic mode tables (Dead7,
+// Fifteen35, SwingPoker, SuitsPoker) from disk so active players reconnecting
+// after a server restart find their table intact with chips preserved.
+
+export function initGenericEngine(): void {
+  const restored = loadPersistedGenericTables();
+  for (const { modeId, tableId, state, handId } of restored) {
+    const mode = MODE_REGISTRY[modeId];
+    if (!mode) continue; // skip unknown modes (e.g. leftover from a removed mode)
+    const key = tableKey(modeId, tableId);
+    if (tables.has(key)) continue; // already in-memory (shouldn't happen at startup)
+    tables.set(key, {
+      tableId,
+      modeId,
+      mode,
+      state,
+      handId,
+      actionLock: false,
+      botTimers: new Map(),
+      connections: new Map(),
+      humanSeats: new Set(),
+      sessionToSeat: new Map(),
+      seatToIdentityId: new Map(),
+      lastChipSyncHand: new Map(),
+      spectators: new Map(),
+      disconnectTimers: new Map(),
+      publicCardIndicesPerPlayer: {},
+      joinWindowEndsAt: 0, // join window closed for restored tables
+      isPrivate: false,
+      chipsAtHandStart: new Map(),
+      sessionStats: new Map(),
+    });
+    engineLog('TABLE_CREATE', key, { source: 'restore', mode: modeId, phase: state.phase, handId });
+  }
+  if (restored.length > 0) {
+    console.log(`[modes] Restored ${restored.length} generic table(s) from disk.`);
+  }
 }

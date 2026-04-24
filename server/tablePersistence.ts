@@ -185,3 +185,97 @@ export function deletePersistedTable(tableId: string): void {
     engineLog('PERSIST', tableId, { op: 'delete' });
   } catch { /* non-critical */ }
 }
+
+// ─── Generic mode persistence (Dead7, Fifteen35, SwingPoker, SuitsPoker) ──────
+// Uses a separate file so Badugi and generic tables are isolated.
+// Keys in the file are `${modeId}:${tableId}` composite strings.
+
+const GENERIC_DATA_FILE = path.join(DATA_DIR, 'generic_tables.json');
+const genericPending = new Map<string, PendingWrite>();
+
+function readGenericStore(): StoreFile {
+  try {
+    if (!fs.existsSync(GENERIC_DATA_FILE)) return {};
+    return JSON.parse(fs.readFileSync(GENERIC_DATA_FILE, 'utf-8')) as StoreFile;
+  } catch {
+    return {};
+  }
+}
+
+function writeGenericStore(store: StoreFile): void {
+  try {
+    ensureDir();
+    fs.writeFileSync(GENERIC_DATA_FILE, JSON.stringify(store, null, 2));
+  } catch (err) {
+    console.error('[generic:PERSIST] write failed:', err);
+  }
+}
+
+export interface RestoredGenericTable {
+  modeId: string;
+  tableId: string;
+  state: GameState;
+  handId: number;
+}
+
+export function loadPersistedGenericTables(): RestoredGenericTable[] {
+  const store = readGenericStore();
+  const cutoff = Date.now() - TABLE_EXPIRY_MS;
+  const results: RestoredGenericTable[] = [];
+
+  for (const [key, entry] of Object.entries(store)) {
+    if (entry.savedAt < cutoff) continue;
+    const colonIdx = key.indexOf(':');
+    if (colonIdx === -1) continue; // skip malformed keys
+    const modeId  = key.slice(0, colonIdx);
+    const tableId = key.slice(colonIdx + 1);
+    const { state, handId } = sanitizeForRestore(key, entry.state, entry.handId);
+    results.push({ modeId, tableId, state, handId });
+  }
+
+  return results;
+}
+
+export function scheduleGenericSave(persistKey: string, state: GameState, handId: number): void {
+  const existing = genericPending.get(persistKey);
+  if (existing) clearTimeout(existing.timer);
+
+  const timer = setTimeout(() => {
+    genericPending.delete(persistKey);
+    flushGeneric(persistKey, state, handId);
+  }, SAVE_DEBOUNCE_MS);
+
+  genericPending.set(persistKey, { timer, state, handId });
+}
+
+export function flushAllGenericPending(): void {
+  for (const [key, p] of Array.from(genericPending.entries())) {
+    clearTimeout(p.timer);
+    genericPending.delete(key);
+    flushGeneric(key, p.state, p.handId);
+  }
+}
+
+function flushGeneric(persistKey: string, state: GameState, handId: number): void {
+  try {
+    const store = readGenericStore();
+    store[persistKey] = { state, handId, savedAt: Date.now() };
+    writeGenericStore(store);
+    engineLog('PERSIST', persistKey, { op: 'save', phase: state.phase, handId });
+  } catch {
+    engineLog('ERROR', persistKey, { msg: 'generic-persist-flush-failed' });
+  }
+}
+
+export function deletePersistedGenericTable(persistKey: string): void {
+  const p = genericPending.get(persistKey);
+  if (p) { clearTimeout(p.timer); genericPending.delete(persistKey); }
+
+  try {
+    const store = readGenericStore();
+    if (!store[persistKey]) return;
+    delete store[persistKey];
+    writeGenericStore(store);
+    engineLog('PERSIST', persistKey, { op: 'delete' });
+  } catch { /* non-critical */ }
+}

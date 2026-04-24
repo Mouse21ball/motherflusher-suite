@@ -46,6 +46,15 @@ function getNextActivePlayerIndex(players: Player[], currentIndex: number, skipA
     nextIdx = (nextIdx + 1) % players.length;
     count++;
   }
+  // Exhausted all slots with skipAllIn=true: relax the all-in constraint and
+  // try again so we never assign activePlayerId to a folded/sitting_out player.
+  if (count >= players.length && skipAllIn) {
+    nextIdx = (currentIndex + 1) % players.length;
+    for (let i = 0; i < players.length; i++) {
+      if (players[nextIdx].status === 'active') break;
+      nextIdx = (nextIdx + 1) % players.length;
+    }
+  }
   return nextIdx;
 }
 
@@ -715,7 +724,7 @@ function resetToAnte(table: AuthTable): void {
     discardPile: [],
     messages: [{
       id: makeId(),
-      text: isRollover ? `Rollover — $${s.pot} carries over.` : 'New hand.',
+      text: 'New hand.',
       time: Date.now(),
     }],
   };
@@ -756,34 +765,47 @@ function scheduleNextBot(table: AuthTable): void {
 
 // ─── Seat release ─────────────────────────────────────────────────────────────
 // Called when a player intentionally leaves OR when the reconnect timeout expires.
-// Between hands (WAITING): resets the seat to 'reserved' (open for a new player).
-// Mid-hand: converts the seat to a bot so the game can finish the round, then the
-// seat naturally becomes available when the next hand's WAITING phase begins.
+//
+// "Between hands" = WAITING (lobby) OR the very start of ANTE before this player
+// has posted their ante (they have not yet committed a chip to the hand).
+// In both cases the seat is freed back to 'reserved' (open for a new player).
+//
+// Mid-hand (any other state): converts the seat to a bot so the round completes
+// cleanly. The bot placeholder is replaced when a new human joins the seat.
 
 function releaseSeat(table: AuthTable, seat: string): void {
-  const isBetweenHands = table.state.phase === 'WAITING';
+  const phase      = table.state.phase;
+  const seatPlayer = table.state.players.find(p => p.id === seat);
+  // Pre-ante leave: player has not yet committed a chip, treat as between-hands.
+  const isBetweenHands = phase === 'WAITING' || (phase === 'ANTE' && !seatPlayer?.hasActed);
+
   table.state = {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.id !== seat) return p;
       if (isBetweenHands) {
-        return {
-          ...p,
-          presence: 'reserved' as const,
-          status:   'sitting_out' as const,
-          name:     'Open',
-          cards:    [],
-          bet:      0,
-          totalBet: 0,
-        };
+        return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
       // Mid-hand: hand off to bot so the round completes cleanly.
       return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
     }),
   };
-  broadcastState(table);
-  // If it was this player's turn mid-hand, trigger the bot to act immediately.
-  if (!isBetweenHands) scheduleNextBot(table);
+
+  if (!isBetweenHands) {
+    // Mid-hand bot takeover: trigger the bot immediately if it was this player's turn.
+    broadcastState(table);
+    scheduleNextBot(table);
+  } else if (phase === 'ANTE' && table.state.activePlayerId === seat) {
+    // Freed seat was the active ante player — advance to the next eligible player
+    // so the ante round does not stall waiting for a now-empty seat.
+    const myIdx  = table.state.players.findIndex(p => p.id === seat);
+    const nextIdx = getNextActivePlayerIndex(table.state.players, myIdx, false);
+    table.state = { ...table.state, activePlayerId: table.state.players[nextIdx].id };
+    broadcastState(table);
+    scheduleNextBot(table);
+  } else {
+    broadcastState(table);
+  }
 }
 
 // ─── Bot action execution ─────────────────────────────────────────────────────

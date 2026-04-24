@@ -4,13 +4,15 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initRooms } from "./rooms";
 import { initEngine } from "./gameEngine";
-import { flushAllPending } from "./tablePersistence";
+import { initGenericEngine } from "./genericEngine";
+import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
 function onShutdown(signal: string): void {
-  console.log(`[badugi] ${signal} received — flushing persistence...`);
+  console.log(`[server] ${signal} received — flushing persistence...`);
   flushAllPending();
+  flushAllGenericPending();
   process.exit(0);
 }
 process.once('SIGTERM', () => onShutdown('SIGTERM'));
@@ -74,7 +76,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  initEngine();       // restore persisted Badugi tables before WS server opens
+  initEngine();              // restore persisted Badugi tables before WS server opens
+  initGenericEngine();       // restore persisted Dead7/Fifteen35/Swing/SuitsPoker tables
   initRooms(httpServer);
   await registerRoutes(httpServer, app);
 
