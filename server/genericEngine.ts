@@ -438,9 +438,17 @@ function broadcastState(table: GenericTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1) continue;
     try {
+      let personalState = maskStateForPlayer(stateWithMeta, playerId, pub);
+      if (table.state.phase === 'SHOWDOWN') {
+        const prevChips = table.chipsAtHandStart.get(playerId);
+        if (prevChips !== undefined) {
+          const nowChips = table.state.players.find(p => p.id === playerId)?.chips ?? prevChips;
+          personalState = { ...personalState, heroChipChange: nowChips - prevChips };
+        }
+      }
       ws.send(JSON.stringify({
         type: 'mode:snapshot',
-        state: maskStateForPlayer(stateWithMeta, playerId, pub),
+        state: personalState,
         sessionStats: buildSessionStats(table, playerId),
       }));
     } catch {}

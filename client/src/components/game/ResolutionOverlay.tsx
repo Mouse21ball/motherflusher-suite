@@ -109,7 +109,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
       }
 
       if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
-      continueTimerRef.current = setTimeout(() => setShowContinueHint(true), 2400);
+      continueTimerRef.current = setTimeout(() => setShowContinueHint(true), 1200);
     } else if (phase !== 'SHOWDOWN') {
       if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
       setShowContinueHint(false);
@@ -135,7 +135,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
   const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
 
-  const isWin = result.type === 'win' || result.type === 'uncontested';
+  const isWin = result.type === 'win';
   const isLoss = result.type === 'loss';
 
   return (

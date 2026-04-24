@@ -405,9 +405,17 @@ function broadcastState(table: AuthTable): void {
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1 /* OPEN */) continue;
     try {
+      let personalState = maskStateForPlayer(stateWithMeta, playerId);
+      if (table.state.phase === 'SHOWDOWN') {
+        const prevChips = table.chipsAtHandStart.get(playerId);
+        if (prevChips !== undefined) {
+          const nowChips = table.state.players.find(p => p.id === playerId)?.chips ?? prevChips;
+          personalState = { ...personalState, heroChipChange: nowChips - prevChips };
+        }
+      }
       ws.send(JSON.stringify({
         type: 'badugi:snapshot',
-        state: maskStateForPlayer(stateWithMeta, playerId),
+        state: personalState,
         sessionStats: buildBadugiSessionStats(table, playerId),
       }));
     } catch { /* ignore closed socket race */ }
