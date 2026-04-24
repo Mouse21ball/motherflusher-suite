@@ -32,7 +32,7 @@ export default function JoinTable() {
       setStatus("found");
       const basePath = MODE_ROUTES[table.modeId] ?? "/";
       const route = `${basePath}?t=${code}`;
-      setTimeout(() => navigate(route), 600);
+      setTimeout(() => navigate(route), 200);
     });
   }, [navigate]);
 

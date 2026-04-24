@@ -877,9 +877,9 @@ export default function Home() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
-                <div className="text-base font-bold text-white/92 font-sans">Play with Your Crew</div>
+                <div className="text-base font-bold text-white/92 font-sans">Play Badugi with Your Crew</div>
                 <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                  All 5 games support up to 5 real players. Open a table anyone can find — or go private and share your code with specific people.
+                  Open a Badugi table anyone can find — or go private and share the code with your crew. Up to 5 real players, bots fill empty seats instantly.
                 </p>
               </div>
               <div className="text-3xl shrink-0 anim-float-coin">⛓️</div>
