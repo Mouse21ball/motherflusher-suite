@@ -599,6 +599,8 @@
 
 .anim-turn-onset {
   animation: turn-onset 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 180ms;
+  animation-fill-mode: both;
 }
 
 .anim-win-flash {

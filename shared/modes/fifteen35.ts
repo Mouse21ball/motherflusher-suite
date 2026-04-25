@@ -8,25 +8,31 @@ const cardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
+// Returns the HIGHEST achievable total that is <= 35, considering all ace combinations.
+// If every combination exceeds 35, returns minimum possible (all aces as 1) to signal BUST.
+// Edge cases: A+A = try 22 first (both 11) → valid → use 22; never picks 12 over 22.
 const bestTotal = (cards: CardType[]): { total: number; aceAs1Count: number; aceCount: number } => {
   const aceCount = cards.filter(c => c.rank === 'A').length;
-  if (aceCount === 0) { const t = cards.reduce((sum, c) => sum + cardValue(c.rank), 0); return { total: t, aceAs1Count: 0, aceCount: 0 }; }
-  let best = { total: 0, aceAs1Count: 0, aceCount }, bestDist = Infinity;
+  const baseTotal = cards.reduce((sum, c) => c.rank === 'A' ? sum : sum + cardValue(c.rank), 0);
+
+  // Try every ace combination: a1 = number of aces treated as 1 (rest are 11).
+  // Collect all valid totals and pick the highest one.
+  let highestValid: number | null = null;
+  let bestA1 = 0;
   for (let a1 = 0; a1 <= aceCount; a1++) {
-    const t = cards.reduce((sum, c) => { if (c.rank === 'A') return sum; return sum + cardValue(c.rank); }, 0) + (aceCount - a1) * 11 + a1 * 1;
-    const dist = Math.min(Math.abs(t - 15), Math.abs(t - 35));
-    if (t <= 35 && (dist < bestDist || (dist === bestDist && t > best.total))) { bestDist = dist; best = { total: t, aceAs1Count: a1, aceCount }; }
+    const t = baseTotal + (aceCount - a1) * 11 + a1 * 1;
+    if (t <= 35 && (highestValid === null || t > highestValid)) {
+      highestValid = t;
+      bestA1 = a1;
+    }
   }
-  if (best.total === 0) {
-    let total = 0, aceAs1Count = 0;
-    for (const c of cards) { total += cardValue(c.rank); if (c.rank === 'A') aceCount; }
-    let t2 = 0;
-    for (const c of cards) t2 += cardValue(c.rank);
-    let a1 = 0;
-    while (t2 > 35 && a1 < aceCount) { t2 -= 10; a1++; }
-    return { total: t2, aceAs1Count: a1, aceCount };
+
+  if (highestValid !== null) {
+    return { total: highestValid, aceAs1Count: bestA1, aceCount };
   }
-  return best;
+
+  // All combinations bust — return min possible total (all aces as 1) for bust message display
+  return { total: baseTotal + aceCount * 1, aceAs1Count: aceCount, aceCount };
 };
 
 const qualifiesLow = (total: number) => total >= 13 && total <= 15;

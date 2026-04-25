@@ -151,10 +151,12 @@ function Fifteen35TotalBadge({ cards, isSelf, isBust, phase }: {
   const isQualHigh = !isOver && (total ?? 0) >= 33 && (total ?? 0) <= 35;
   const isQualLow  = !isOver && (total ?? 0) >= 13 && (total ?? 0) <= 15;
   const isQual = isQualHigh || isQualLow;
+  const label = isBust ? 'BUST' : String(total);
+  const prefix = !isSelf ? 'VIS ' : '';
   return (
     <div
-      className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tabular-nums tracking-wide border transition-all duration-200"
-      data-testid="text-fifteen35-total"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border transition-all duration-200"
+      data-testid={isSelf ? 'text-fifteen35-total-hero' : 'text-fifteen35-total'}
       style={isOver || isBust
         ? { background: 'rgba(220,38,38,0.20)', borderColor: 'rgba(248,113,113,0.55)', color: 'rgb(254,150,150)' }
         : isQual
@@ -162,7 +164,62 @@ function Fifteen35TotalBadge({ cards, isSelf, isBust, phase }: {
           : { background: 'rgba(201,162,39,0.10)', borderColor: 'rgba(201,162,39,0.25)', color: 'rgba(201,162,39,0.75)' }
       }
     >
-      {isBust ? 'BUST' : total}
+      {prefix && <span className="text-[8px] font-mono tracking-widest opacity-60">{prefix}</span>}
+      <span className={`font-mono font-bold tabular-nums tracking-wide ${isSelf ? 'text-[12px]' : 'text-[10px]'}`}>{label}</span>
+    </div>
+  );
+}
+
+// ── Suits & Poker compact opponent chip ───────────────────────────────────────
+
+function CompactOpponent({ player, isActive, lastAction, isShowdown }: {
+  player: import("@/lib/poker/types").Player;
+  isActive: boolean;
+  lastAction?: string;
+  isShowdown: boolean;
+}) {
+  const isFolded   = player.status === 'folded';
+  const isBust     = player.declaration === 'BUST';
+  const isStay     = player.declaration === 'STAY';
+  const initial    = (player.name || '?')[0].toUpperCase();
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl border transition-all duration-200 min-w-[48px]",
+        isActive
+          ? "bg-[#C9A227]/10 border-[#C9A227]/35 shadow-[0_0_8px_rgba(201,162,39,0.18)]"
+          : "border-white/[0.07] bg-white/[0.025]",
+        isFolded && "opacity-35",
+      )}
+      data-testid={`compact-opponent-${player.id}`}
+    >
+      {/* Avatar initial */}
+      <div className={cn(
+        "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold",
+        isActive ? "bg-[#C9A227]/25 text-[#C9A227]" : "bg-white/10 text-white/50"
+      )}>
+        {initial}
+      </div>
+      {/* Name */}
+      <span className="text-[8px] font-mono text-white/55 truncate max-w-[52px]">{player.name}</span>
+      {/* Chips */}
+      <span className="text-[9px] font-mono font-semibold text-[#C9A227]/80 tabular-nums">${player.chips}</span>
+      {/* Status label */}
+      {isBust   && <span className="text-[7px] font-mono text-red-400/80   bg-red-900/20   px-1 py-0.5 rounded" data-testid={`status-bust-${player.id}`}>BUST</span>}
+      {isStay && !isBust && <span className="text-[7px] font-mono text-emerald-400/70 bg-emerald-900/20 px-1 py-0.5 rounded">STAY</span>}
+      {isFolded && <span className="text-[7px] font-mono text-white/30     bg-white/[0.04] px-1 py-0.5 rounded">FOLD</span>}
+      {lastAction && !isFolded && !isBust && !isStay && (
+        <span className="text-[7px] font-mono text-white/40 max-w-[52px] truncate">{lastAction}</span>
+      )}
+      {/* At showdown only: show their actual hole cards */}
+      {isShowdown && player.cards.length > 0 && (
+        <div className="flex gap-0.5 mt-0.5">
+          {player.cards.map((c, i) => (
+            <PlayingCard key={i} card={{ ...c, isHidden: false }} className="w-[22px] h-[31px]" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -525,7 +582,115 @@ export function ThreeDTableScene({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ARC LAYOUT (badugi / dead7 / fifteen35 / suitspoker)
+  // SUITS & POKER: compact layout — hero large, opponents condensed row
+  // ─────────────────────────────────────────────────────────────────────────
+  if (isSuitsPoker) {
+    const activeSPOpponents = opponents.filter(p => p.status !== 'sitting_out');
+    return (
+      <div className="game-scene-scaler">
+      <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter flex flex-col gap-2">
+
+        {/* ── Message bar ── */}
+        <div className="w-full text-center min-h-[28px] flex items-center justify-center relative z-40">
+          {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
+            <p key={msg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
+              {msg.text}
+            </p>
+          ))}
+          {gameState.phase !== 'SHOWDOWN' && !gameState.messages.length && (
+            <span key={gameState.phase} className="text-white/22 text-[10px] font-mono tracking-[0.2em] uppercase anim-phase-snap" data-testid="text-phase">
+              {getPhaseLabel(gameState.phase)}
+            </span>
+          )}
+        </div>
+
+        {/* ── Opponents compact row ── */}
+        <div className="flex justify-center gap-1.5 sm:gap-2 flex-wrap min-h-[80px] items-center">
+          {activeSPOpponents.map(player => (
+            <CompactOpponent
+              key={player.id}
+              player={player}
+              isActive={player.id === gameState.activePlayerId}
+              lastAction={actionLabels[player.id]}
+              isShowdown={isShowdown}
+            />
+          ))}
+        </div>
+
+        {/* ── Community card board — fixed height, always 12 slots ── */}
+        <div className="flex justify-center py-1">
+          <SuitsPokerCenter cc={gameState.communityCards} phase={gameState.phase} players={gameState.players} />
+        </div>
+
+        {/* ── Pot ── */}
+        {gameState.pot > 0 && (
+          <div className="flex justify-center">
+            <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-chip-pop")} data-testid="text-pot">
+              <div className="gold-chip w-3.5 h-3.5" />
+              <span className={cn("text-sm font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
+              <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Hero seat ── */}
+        <div className="flex justify-center">
+          {me && (
+            <div className="flex flex-col items-center gap-2 w-full">
+              {showMadeStatus && heroMadeLabel && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] sm:text-[13px] font-mono font-bold tracking-wide border" data-testid="text-hero-made-status"
+                  style={heroIsMade
+                    ? { backgroundColor: 'rgba(0,200,150,0.22)', borderColor: 'rgba(0,220,165,0.70)', color: 'rgb(0,240,180)' }
+                    : { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.65)', color: 'rgb(254,150,150)' }}>
+                  {heroMadeLabel}
+                </div>
+              )}
+              <PlayerSeat
+                player={me}
+                seatNumber={0}
+                isActive={me.id === gameState.activePlayerId}
+                isSelf={true}
+                selectedCardIndices={selectedCardIndices}
+                onCardClick={onCardClick}
+                selectableCards={selectableCards}
+                showdownState={isShowdown}
+                heroCardClassName={heroCardClassName}
+                isStackLeader={stackLeaderId === me.id}
+                className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
+              />
+            </div>
+          )}
+        </div>
+
+        <ResolutionOverlay
+          messages={gameState.messages}
+          phase={gameState.phase}
+          heroPlayer={gameState.players.find(p => p.id === myId)}
+          heroChipChange={gameState.heroChipChange}
+        />
+
+        {showCelebration && <WinCelebration isScoop={isScoop} onDone={() => setShowCelebration(false)} />}
+
+        {lastResultEcho && (
+          <div className="w-full flex justify-center">
+            <div className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
+              {lastResultEcho.text}
+            </div>
+          </div>
+        )}
+
+        {onReact && (
+          <div className="w-full flex justify-center mt-1">
+            <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
+          </div>
+        )}
+      </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ARC LAYOUT (badugi / dead7 / fifteen35)
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="game-scene-scaler">
@@ -587,11 +752,8 @@ export function ThreeDTableScene({
                 </div>
               )}
 
-              {/* Mode-specific community content */}
-              {isSuitsPoker
-                ? <SuitsPokerCenter cc={gameState.communityCards} phase={gameState.phase} players={gameState.players} />
-                : <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
-              }
+              {/* Discard pile / draw status (badugi / dead7 / fifteen35) */}
+              <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
 
               {gameState.phase === 'DECLARE' && (
                 <div className="text-[#C9A227]/60 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse" data-testid="text-declare-prompt">
