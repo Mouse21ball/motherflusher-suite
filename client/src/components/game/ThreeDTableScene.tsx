@@ -71,11 +71,14 @@ function CommunityCardSlot({ card, selected }: { card?: import("@/lib/poker/type
 }
 
 function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/types").CardType[]; phase: string; players: import("@/lib/poker/types").Player[] }) {
-  const sideA = cc.slice(0, 3);
-  const sideB = cc.slice(3, 6);
-  const center = cc.slice(6, 9);
-  const lower  = cc.slice(9, 11);
-  const final  = cc.slice(11, 12);
+  // Always build exactly 12 slots so the layout never jumps when cards are revealed.
+  // Undefined entries render as placeholder boxes (same fixed size as a card slot).
+  const slots = Array.from({ length: 12 }, (_, i) => cc[i]);
+  const sideA  = slots.slice(0, 3);
+  const sideB  = slots.slice(3, 6);
+  const center = slots.slice(6, 9);
+  const lower  = slots.slice(9, 11);
+  const final  = slots.slice(11, 12);
   const isUsed = (idx: number) =>
     phase === 'SHOWDOWN' &&
     players.some(p =>
@@ -115,6 +118,51 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
         </div>
         <span className="text-[6px] sm:text-[7px] text-white/30 font-mono">path →</span>
       </div>
+    </div>
+  );
+}
+
+// ── 15/35 running total helper ─────────────────────────────────────────────────
+
+function computeVisibleTotal(cards: import("@/lib/poker/types").CardType[], isSelf: boolean): number | null {
+  const visible = isSelf ? cards : cards.filter(c => !c.isHidden);
+  if (!visible.length) return null;
+  const aceCount = visible.filter(c => c.rank === 'A').length;
+  let tot = visible.reduce((sum, c) => {
+    if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return sum + 0.5;
+    if (c.rank === 'A') return sum + 11;
+    return sum + parseInt(c.rank, 10);
+  }, 0);
+  let flipped = 0;
+  while (tot > 35 && flipped < aceCount) { tot -= 10; flipped++; }
+  return Math.round(tot * 2) / 2; // round to nearest 0.5 for face cards
+}
+
+function Fifteen35TotalBadge({ cards, isSelf, isBust, phase }: {
+  cards: import("@/lib/poker/types").CardType[];
+  isSelf: boolean;
+  isBust?: boolean;
+  phase: string;
+}) {
+  const total = computeVisibleTotal(cards, isSelf);
+  if (total === null && !isBust) return null;
+  if (['WAITING', 'ANTE'].includes(phase)) return null;
+  const isOver = (total ?? 0) > 35 || isBust;
+  const isQualHigh = !isOver && (total ?? 0) >= 33 && (total ?? 0) <= 35;
+  const isQualLow  = !isOver && (total ?? 0) >= 13 && (total ?? 0) <= 15;
+  const isQual = isQualHigh || isQualLow;
+  return (
+    <div
+      className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tabular-nums tracking-wide border transition-all duration-200"
+      data-testid="text-fifteen35-total"
+      style={isOver || isBust
+        ? { background: 'rgba(220,38,38,0.20)', borderColor: 'rgba(248,113,113,0.55)', color: 'rgb(254,150,150)' }
+        : isQual
+          ? { background: 'rgba(0,200,150,0.18)', borderColor: 'rgba(0,220,165,0.60)', color: 'rgb(0,230,170)' }
+          : { background: 'rgba(201,162,39,0.10)', borderColor: 'rgba(201,162,39,0.25)', color: 'rgba(201,162,39,0.75)' }
+      }
+    >
+      {isBust ? 'BUST' : total}
     </div>
   );
 }
@@ -575,6 +623,17 @@ export function ThreeDTableScene({
               anyJustActed={anyJustActed}
               hasActivePlayer={hasActivePlayer}
             />
+            {/* 15/35: running total badge from visible (face-up) cards only */}
+            {modeId === 'fifteen35' && player.cards.length > 0 && (
+              <div className="flex justify-center mt-0.5">
+                <Fifteen35TotalBadge
+                  cards={player.cards}
+                  isSelf={false}
+                  isBust={player.declaration === 'BUST'}
+                  phase={gameState.phase}
+                />
+              </div>
+            )}
           </div>
         ))}
 
@@ -619,6 +678,17 @@ export function ThreeDTableScene({
               isStackLeader={stackLeaderId === me.id}
               className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
             />
+            {/* 15/35: hero sees their own hidden card in the total */}
+            {modeId === 'fifteen35' && me.cards.length > 0 && (
+              <div className="flex justify-center mt-1">
+                <Fifteen35TotalBadge
+                  cards={me.cards}
+                  isSelf={true}
+                  isBust={me.declaration === 'BUST'}
+                  phase={gameState.phase}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

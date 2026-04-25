@@ -892,13 +892,17 @@ function scheduleNextBot(table: GenericTable): void {
 
   // Bimodal think time: most decisions at normal pace, some with deliberation.
   // BET_3 (last-round decisions) get a higher deliberation rate.
-  const isBet3      = capturedPhase === 'BET_3';
+  // 15/35 HIT_ phases get a longer base delay so players can read totals/actions.
+  const isBet3            = capturedPhase === 'BET_3';
+  const isFifteen35Hit    = capturedPhase.startsWith('HIT_') && table.modeId === 'fifteen35';
   const baseMs      = capturedPhase.startsWith('BET')
     ? (isBet3 ? 600 + Math.random() * 550 : 500 + Math.random() * 450)
-    : 180 + Math.random() * 270;
-  const pauseChance = isBet3 ? 0.30 : 0.20;
+    : isFifteen35Hit
+      ? 800 + Math.random() * 700   // 800–1500ms: readable pacing for 15/35 hit rounds
+      : 180 + Math.random() * 270;
+  const pauseChance = isBet3 ? 0.30 : isFifteen35Hit ? 0.25 : 0.20;
   const pauseMs     = Math.random() < pauseChance
-    ? (isBet3 ? 450 + Math.random() * 650 : 380 + Math.random() * 520)
+    ? (isBet3 ? 450 + Math.random() * 650 : isFifteen35Hit ? 400 + Math.random() * 500 : 380 + Math.random() * 520)
     : 0;
   // Per-bot timing personality: each seat has a stable fast/slow disposition
   // derived from its ID so different bots feel like different players.
@@ -1589,14 +1593,31 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       if (hitCard) {
         const newCardIndex = player.cards.length;
         const newCards = [...player.cards, { ...hitCard, isHidden: false }];
-        newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
         // Hit cards in 15/35 are face-up for all — add to public indices
         const prevPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
         table.publicCardIndicesPerPlayer = {
           ...table.publicCardIndicesPerPlayer,
           [playerId]: [...prevPub, newCardIndex],
         };
-        table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} hits`);
+        // Bust check: compute best total, reducing aces from 11→1 if needed
+        const aceCount = newCards.filter(c => c.rank === 'A').length;
+        let tot = newCards.reduce((sum, c) => {
+          if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return sum + 0.5;
+          if (c.rank === 'A') return sum + 11;
+          return sum + parseInt(c.rank, 10);
+        }, 0);
+        let acesFlipped = 0;
+        while (tot > 35 && acesFlipped < aceCount) { tot -= 10; acesFlipped++; }
+        if (tot > 35) {
+          // Player busts — lock them out immediately
+          newPlayers[playerIdx] = { ...player, cards: newCards, declaration: 'BUST', hasActed: true };
+          table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} BUSTS (${Math.round(tot * 2) / 2})`);
+          table.actionLock = false;
+          afterHumanAction(table, false);
+          return;
+        }
+        newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
+        table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} hits (${Math.round(tot * 2) / 2})`);
       } else {
         newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
         table.state = addMsg({ ...s, players: newPlayers }, `${player.name} stays`);

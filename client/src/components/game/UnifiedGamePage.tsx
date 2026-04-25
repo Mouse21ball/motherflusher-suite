@@ -121,7 +121,8 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   // Clear card selection on phase change
   useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
 
-  const isDrawPhase = state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
+  // 'DRAW' = Suits & Poker single draw phase; DRAW_1/2/3 = Badugi/Dead7 multi-draw phases
+  const isDrawPhase = state.phase === 'DRAW' || state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
 
   const handleCardClick = (index: number) => {
     if (isSpectator || !isDrawPhase) return;
@@ -130,6 +131,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       let maxCards = 1;
       if (state.phase === 'DRAW_1') maxCards = 3;
       if (state.phase === 'DRAW_2') maxCards = 2;
+      if (state.phase === 'DRAW') maxCards = 2; // Suits & Poker: discard up to 2 hole cards
       if (prev.length < maxCards) return [...prev, index];
       return prev;
     });
