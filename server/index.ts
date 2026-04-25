@@ -77,7 +77,7 @@ app.use((req, res, next) => {
 
 (async () => {
   initEngine();              // restore persisted Badugi tables before WS server opens
-  initGenericEngine();       // restore persisted Dead7/Fifteen35/Swing/SuitsPoker tables
+  initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   initRooms(httpServer);
   await registerRoutes(httpServer, app);
 

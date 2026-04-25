@@ -560,6 +560,22 @@ function advanceToNextPhase(table: GenericTable): void {
     }
   }
 
+  // ── DECLARE_AND_BET (SuitsPoker): auto-declare all-in active players ──────
+  // Players with chips=0 see an "ALL IN" badge in the UI and are never shown a
+  // declaration prompt, so their declaration remains null.  To keep them eligible
+  // for the POKER half of the pot we auto-assign declaration='POKER' and mark
+  // them as having acted.  activePlayerId is already pointing at a chips>0 player
+  // (skipAllIn=true for DECLARE_AND_BET), so no scheduling stall results.
+  if (nextPhase === 'DECLARE_AND_BET') {
+    const declPlayers = table.state.players.map(p => {
+      if (p.status !== 'active' || p.chips > 0 || p.declaration) return p;
+      return { ...p, declaration: 'POKER' as Declaration, hasActed: true };
+    });
+    if (declPlayers.some((p, i) => p !== table.state.players[i])) {
+      table.state = { ...table.state, players: declPlayers };
+    }
+  }
+
   // DEAL: auto-deal cards, then advance after brief pause
   if (nextPhase === 'DEAL') {
     dealCards(table);
@@ -1652,7 +1668,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       msg = `${player.name} stays`;
     }
 
-    // ── declare_and_bet (swing / suitspoker) ─────────────────────────────────
+    // ── declare_and_bet (suitspoker) ─────────────────────────────────────────
     // Combined declare+bet action. Payload: { declaration, action, amount? }
     else if (action === 'declare_and_bet') {
       const pl = (payload as { declaration?: string; action?: string; amount?: number }) ?? {};
@@ -1731,7 +1747,7 @@ export function getActiveGenericTables(): { tableId: string; modeId: string; hum
 
 // ─── Startup restore ──────────────────────────────────────────────────────────
 // Called once at server startup. Restores all generic mode tables (Dead7,
-// Fifteen35, SwingPoker, SuitsPoker) from disk so active players reconnecting
+// Fifteen35, SuitsPoker) from disk so active players reconnecting
 // after a server restart find their table intact with chips preserved.
 
 export function initGenericEngine(): void {

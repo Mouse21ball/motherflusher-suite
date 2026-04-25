@@ -44,7 +44,7 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - Feature flag: `BADUGI_ALPHA_ENABLED=true` enables all server-authoritative modes
 
 ## Multiplayer Infrastructure
-- **Server engines**: `server/gameEngine.ts` (Badugi) and `server/genericEngine.ts` (Dead7/Fifteen35/Swing/SuitsPoker)
+- **Server engines**: `server/gameEngine.ts` (Badugi) and `server/genericEngine.ts` (Dead7/Fifteen35/SuitsPoker)
 - **Seats**: p1-p5 (up to 5 humans per table; bots auto-fill empty seats)
 - **Default bot roster**: You (p1/human), Alice (p2), Bob (p3), Charlie (p4/dealer), Daisy (p5)
 - **WebSocket protocol**:
@@ -59,7 +59,6 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - **Badugi/Dead7**: `WAITING → ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → DECLARE → BET_3 → SHOWDOWN`
 - **15/35**: `WAITING → ANTE → DEAL → BET_1 → HIT_1 → BET_2 → HIT_2 → ... → SHOWDOWN`
 - **Suits & Poker**: `WAITING → ANTE → DEAL → REVEAL_TOP_ROW → DRAW → BET_1 → REVEAL_SECOND_ROW → BET_2 → REVEAL_LOWER_CENTER → BET_3 → REVEAL_FACTOR_CARD → DECLARE_AND_BET → SHOWDOWN`
-- **Mother Flusher (Swing)**: `WAITING → ANTE → DEAL → REVEAL_TOP_ROW → DRAW → BET_1 → REVEAL_SECOND_ROW → BET_2 → REVEAL_FACTOR_CARD → DECLARE_AND_BET → SHOWDOWN`
 
 ## Critical Engine ID Mappings
 UI modeId → server engine modeId (in `SERVER_ENGINE_ID` in `UnifiedGamePage.tsx`):
@@ -77,14 +76,14 @@ Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount
 
 ## Key Shared Files
 - `shared/gameTypes.ts` — All TypeScript types (GameState, Player, GameMode, etc.)
-- `shared/modes/` — Server-side mode definitions (dead7, fifteen35, swing, suitspoker, badugi)
+- `shared/modes/` — Server-side mode definitions (dead7, fifteen35, suitspoker, badugi)
 - `shared/engine/core.ts` — Shared engine utilities (createDeck, getNextActivePlayerIndex, etc.)
 - `shared/featureFlags.ts` — Code-level feature flags
 
 ## UI Architecture (3D Rebuild — current)
-- `ThreeDTableScene.tsx` — **Unified 3D table for ALL 5 modes**. CSS 3D perspective on felt oval (`rotateX(9deg)` tilt + counter-rotation on interior). ARC layout (hero bottom, 2-4 opponents in arc above) for badugi/dead7/fifteen35/suitspoker; RING layout (5 fixed seats around oval) for swing/Mother Flusher. All session P&L, pot display, win celebration, made-hand badge, action labels, and community card layouts (SuitsPoker 12-card board, Mother Flusher pair stacks + factor cards) live here.
-- `UnifiedGamePage.tsx` — **Single page component for all 5 modes**. Consumes `useServerBadugi` (Badugi) or `useServerMode` (Dead7/Fifteen35/Swing/SuitsPoker). Renders GameHeader, InviteBanner, ThreeDTableScene, ActionControls, ChatBox. Draw-phase card selection, invite, spectator, XP, and sound logic all preserved here.
-- Each game route (`BadugiGame.tsx`, `Dead7Game.tsx`, `Fifteen35Game.tsx`, `Game.tsx`, `SuitsPokerGame.tsx`) is a 4-line thin wrapper: `<UnifiedGamePage modeId="..." />`
+- `ThreeDTableScene.tsx` — **Unified 3D table for all 4 active modes**. CSS 3D perspective on felt oval (`rotateX(9deg)` tilt + counter-rotation on interior). ARC layout (hero bottom, 2-4 opponents in arc above) for badugi/dead7/fifteen35/suitspoker. All session P&L, pot display, win celebration, made-hand badge, action labels, and community card layouts (SuitsPoker 12-card board) live here.
+- `UnifiedGamePage.tsx` — **Single page component for all 4 modes**. Consumes `useServerBadugi` (Badugi) or `useServerMode` (Dead7/Fifteen35/SuitsPoker). Renders GameHeader, InviteBanner, ThreeDTableScene, ActionControls, ChatBox. Draw-phase card selection, invite, spectator, XP, and sound logic all preserved here.
+- Each game route (`BadugiGame.tsx`, `Dead7Game.tsx`, `Fifteen35Game.tsx`, `SuitsPokerGame.tsx`) is a 4-line thin wrapper: `<UnifiedGamePage modeId="..." />`
 
 ### Legacy Table Components (still in codebase, superseded)
 - `BadugiTable.tsx`, `GameTable.tsx`, `SuitsPokerTable.tsx` — original per-mode tables, no longer used by game routes

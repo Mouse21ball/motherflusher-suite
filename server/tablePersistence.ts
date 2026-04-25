@@ -186,7 +186,7 @@ export function deletePersistedTable(tableId: string): void {
   } catch { /* non-critical */ }
 }
 
-// ─── Generic mode persistence (Dead7, Fifteen35, SwingPoker, SuitsPoker) ──────
+// ─── Generic mode persistence (Dead7, Fifteen35, SuitsPoker) ──────────────────
 // Uses a separate file so Badugi and generic tables are isolated.
 // Keys in the file are `${modeId}:${tableId}` composite strings.
 
