@@ -182,6 +182,10 @@ export function useServerMode(tableId: string, modeId: string) {
             }
             return;
           }
+          if (msg.type === 'mode:error') {
+            console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
+            return;
+          }
         } catch {}
       };
 

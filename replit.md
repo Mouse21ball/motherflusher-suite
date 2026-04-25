@@ -59,6 +59,21 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - **Badugi/Dead7**: `WAITING → ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → DECLARE → BET_3 → SHOWDOWN`
 - **15/35**: `WAITING → ANTE → DEAL → BET_1 → HIT_1 → BET_2 → HIT_2 → ... → SHOWDOWN`
 - **Suits & Poker**: `WAITING → ANTE → DEAL → REVEAL_TOP_ROW → DRAW → BET_1 → REVEAL_SECOND_ROW → BET_2 → REVEAL_LOWER_CENTER → BET_3 → REVEAL_FACTOR_CARD → DECLARE_AND_BET → SHOWDOWN`
+- **Mother Flusher (Swing)**: `WAITING → ANTE → DEAL → REVEAL_TOP_ROW → DRAW → BET_1 → REVEAL_SECOND_ROW → BET_2 → REVEAL_FACTOR_CARD → DECLARE_AND_BET → SHOWDOWN`
+
+## Critical Engine ID Mappings
+UI modeId → server engine modeId (in `SERVER_ENGINE_ID` in `UnifiedGamePage.tsx`):
+- `badugi` → `badugi` (uses `useServerBadugi`, separate Badugi engine)
+- `dead7` → `dead7`
+- `fifteen35` → `fifteen35`
+- `swing` → `swing_poker` (NOT 'swing' — server mode registry key is 'swing_poker')
+- `suitspoker` → `suits_poker`
+SuitsPoker declarations: `POKER / SUITS / SWING` (not HIGH/LOW/SWING). Passed via `declarationOptions` prop.
+
+## Server Action Handlers (genericEngine.ts)
+Pre-turn-guard (any phase, any player): `start`, `restart`, `rebuy`, `chat`, `reaction`, `declare` (DECLARE phase only — simultaneous)
+Turn-guarded (active player only): `ante`, `fold`, `check`, `call`, `raise`/`bet`, `draw`, `hit`, `stay`, `declare_and_bet`
+Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount?: number }`. Used by swing and suitspoker DECLARE_AND_BET phase.
 
 ## Key Shared Files
 - `shared/gameTypes.ts` — All TypeScript types (GameState, Player, GameMode, etc.)

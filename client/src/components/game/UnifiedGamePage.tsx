@@ -80,6 +80,12 @@ interface UnifiedGameUIProps {
   sessionStats?: GameSessionStats;
 }
 
+const SUITSPOKER_DECLARATION_OPTIONS = [
+  { label: 'POKER', value: 'POKER' as const, className: 'border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200' },
+  { label: 'SWING', value: 'SWING' as const, className: 'border-purple-500/25 hover:bg-purple-500/10 text-purple-300/80 hover:text-purple-200' },
+  { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
+];
+
 function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
@@ -234,6 +240,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               phaseHint={getPhaseHint(modeId, state.phase)}
               openSeatsCount={openSeatsCount}
               humanCount={humanCount}
+              declarationOptions={modeId === 'suitspoker' ? SUITSPOKER_DECLARATION_OPTIONS : undefined}
             />
           </div>
         </div>
@@ -269,7 +276,7 @@ function BadugiServerGame({ modeId }: { modeId: string }) {
 const SERVER_ENGINE_ID: Record<string, string> = {
   dead7: 'dead7',
   fifteen35: 'fifteen35',
-  swing: 'swing',
+  swing: 'swing_poker',
   suitspoker: 'suits_poker',
 };
 

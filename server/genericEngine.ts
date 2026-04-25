@@ -1429,6 +1429,23 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       return;
     }
 
+    // ── rebuy: restore chips to 1000 when player is broke ────────────────────
+    if (action === 'rebuy') {
+      const playerIdx = s.players.findIndex(p => p.id === playerId);
+      if (playerIdx === -1) { table.actionLock = false; return; }
+      const player = s.players[playerIdx];
+      if (player.chips > 0) { table.actionLock = false; return; } // only if truly broke
+      table.state = addMsg({
+        ...s,
+        players: s.players.map(p =>
+          p.id === playerId ? { ...p, chips: 1000 } : p
+        ),
+      }, `${player.name} rebuys $1000`);
+      table.actionLock = false;
+      broadcastState(table);
+      return;
+    }
+
     // ── chat ─────────────────────────────────────────────────────────────────
     if (action === 'chat') {
       const text = typeof payload === 'string' ? payload.trim().slice(0, 150) : '';
@@ -1466,7 +1483,9 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       if (meIdx === -1) { table.actionLock = false; return; }
       const me = s.players[meIdx];
       if (me.hasActed || me.status !== 'active') { table.actionLock = false; return; }
-      const dec = typeof payload === 'string' ? payload : null;
+      const dec = typeof payload === 'string'
+        ? payload
+        : (typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>).declaration as string : null) ?? null;
       let newPlayers = [...s.players];
       let declMsg = '';
       if (dec === 'FOLD') {
@@ -1632,6 +1651,45 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       const player = newPlayers[playerIdx];
       newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
       msg = `${player.name} stays`;
+    }
+
+    // ── declare_and_bet (swing / suitspoker) ─────────────────────────────────
+    // Combined declare+bet action. Payload: { declaration, action, amount? }
+    else if (action === 'declare_and_bet') {
+      const pl = (payload as { declaration?: string; action?: string; amount?: number }) ?? {};
+      const declaration = pl.declaration;
+      const betAction   = pl.action;
+      const betAmount   = pl.amount;
+      if (!declaration) { table.actionLock = false; return; }
+      const player = newPlayers[playerIdx];
+      if (betAction === 'fold') {
+        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, status: 'folded', hasActed: true };
+        msg = `${player.name} declares ${declaration} and folds`;
+      } else if (betAction === 'check') {
+        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, hasActed: true };
+        msg = `${player.name} declares ${declaration} and checks`;
+      } else if (betAction === 'call') {
+        const callAmt = Math.min(newCurrentBet - player.bet, player.chips);
+        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - callAmt, bet: player.bet + callAmt, hasActed: true };
+        newPot += callAmt;
+        msg = callAmt === 0
+          ? `${player.name} declares ${declaration} and checks`
+          : `${player.name} declares ${declaration} and calls $${callAmt}`;
+      } else if (betAction === 'raise' || betAction === 'bet') {
+        const raiseTotal = Math.min(typeof betAmount === 'number' ? betAmount : s.minBet, player.chips + player.bet);
+        const chipCost = raiseTotal - player.bet;
+        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - chipCost, bet: raiseTotal, hasActed: true };
+        newPot += chipCost;
+        newCurrentBet = raiseTotal;
+        wasRaise = true;
+        msg = `${player.name} declares ${declaration} and raises to $${raiseTotal}`;
+        newPlayers = newPlayers.map((p, i) =>
+          i !== playerIdx && p.status === 'active' ? { ...p, hasActed: false } : p
+        );
+      } else {
+        table.actionLock = false;
+        return;
+      }
     }
 
     else {
