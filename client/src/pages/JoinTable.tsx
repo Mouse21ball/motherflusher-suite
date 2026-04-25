@@ -3,8 +3,6 @@ import { useLocation, useParams } from "wouter";
 import { lookupTable } from "@/lib/tableSession";
 
 const MODE_ROUTES: Record<string, string> = {
-  swing:       "/swing",
-  swing_poker: "/swing",
   badugi:      "/badugi",
   dead7:       "/dead7",
   fifteen35:   "/fifteen35",

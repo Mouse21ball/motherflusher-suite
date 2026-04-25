@@ -100,24 +100,6 @@ const MODES = [
     difficulty: 'Easy Hustle',
   },
   {
-    id: 'swing',
-    name: 'Mother Flusher',
-    tagline: 'Swing or go broke',
-    description: '5 cards, 15-card board. Declare High, Low, or Swing all. The signature Chain Gang move.',
-    path: '/swing',
-    icon: '⚡',
-    color: '#A855F7',
-    glow: 'rgba(168,85,247,',
-    bg: 'linear-gradient(135deg, rgba(168,85,247,0.12) 0%, rgba(168,85,247,0.03) 100%)',
-    border: 'rgba(168,85,247,0.22)',
-    borderHover: 'rgba(168,85,247,0.55)',
-    isMultiplayer: true,
-    isHero: false,
-    badge: '⚡ Signature · Up to 5',
-    badgeColor: 'rgba(168,85,247,',
-    difficulty: 'Signature',
-  },
-  {
     id: 'suitspoker',
     name: 'Suits & Poker',
     tagline: 'Two paths, one winner',
@@ -152,7 +134,6 @@ const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: stri
   badugi:      { name: 'Badugi',         abbrev: 'B',  color: '#00C896', path: '/badugi'    },
   dead7:       { name: 'Dead 7',         abbrev: 'D7', color: '#F03A2F', path: '/dead7'     },
   fifteen35:   { name: '15/35',          abbrev: '15', color: '#F59E0B', path: '/fifteen35' },
-  swing_poker: { name: 'Mother Flusher', abbrev: 'MF', color: '#A855F7', path: '/swing'     },
   suits_poker: { name: 'Suits & Poker',  abbrev: 'SP', color: '#3B82F6', path: '/suitspoker'},
 };
 
@@ -412,7 +393,6 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
 // ─── Live feed ────────────────────────────────────────────────────────────────
 
 const FEED_TEMPLATES = [
-  (n: string) => `${n} scooped a $420 Mother Flusher pot ⛓️`,
   (n: string) => `${n} is on a 4-win streak — untouchable 🔥`,
   (n: string) => `${n} hit a clean Badugi — nobody saw it coming`,
   (n: string) => `${n} busted in Dead 7 — snitch card hit`,
@@ -503,7 +483,7 @@ export default function Home() {
   // Maps the MODES id (client) → engine modeId (server) for table lookup.
   const MODE_ENGINE_ID: Record<string, string> = {
     badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
-    swing: 'swing_poker', suitspoker: 'suits_poker',
+    suitspoker: 'suits_poker',
   };
 
   // Quick Play routing: joins an existing WAITING table with other humans if one

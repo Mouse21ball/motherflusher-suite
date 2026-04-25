@@ -121,11 +121,10 @@ export function getSimulatedPlayerCount(): number {
 export function getModeTableCount(modeId: string): number {
   const total = getSimulatedPlayerCount();
   const shares: Record<string, number> = {
-    badugi: 0.35,
-    dead7: 0.18,
-    fifteen35: 0.20,
-    swing: 0.15,
-    suitspoker: 0.12,
+    badugi: 0.38,
+    dead7: 0.22,
+    fifteen35: 0.22,
+    suitspoker: 0.18,
   };
   const share = shares[modeId] ?? 0.15;
   const tick = Math.floor(Date.now() / 60000);

@@ -10,7 +10,6 @@ interface DailyStats {
 }
 
 const MODE_NAMES: Record<string, string> = {
-  swing: "Mother Flusher",
   badugi: "Badugi",
   dead7: "Dead 7",
   fifteen35: "15 / 35",

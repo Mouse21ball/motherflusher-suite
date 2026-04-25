@@ -6,25 +6,25 @@ Chain Gang Poker (CGP) is a premium poker platform built with React + Express. B
 Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald · `#9B5DE5` purple · `#A0A0B8` silver
 
 ## Routes
-- `/` — Home lobby (all 5 modes, XP/rank, daily reward, live feed)
+- `/` — Home lobby (4 modes, XP/rank, daily reward, live feed)
 - `/badugi` — Badugi (server-authoritative, up to 5 players)
 - `/dead7` — Dead 7 (server-authoritative, up to 5 players)
 - `/fifteen35` — 15 / 35 (server-authoritative, up to 5 players)
-- `/swing` — Mother Flusher / Swing Poker (server-authoritative, up to 5 players)
 - `/suitspoker` — Suits & Poker (server-authoritative, up to 5 players)
 - `/join/:code` — Universal table join redirect → `/{mode}?t=CODE`
+- `/swing` — **REMOVED** (Mother Flusher disabled; route returns 404)
 - `/profile` — Player profile (XP, rank, achievements, per-mode stats)
 - `/leaderboard` — Daily leaderboard
 - `/shop` — Merch shop (clothing, accessories — no payment integration)
 - `/terms` — Terms of service
 - `/admin` — Admin panel
 
-## Game Modes
+## Game Modes (4 active)
 - **Badugi**: 4 hole cards, 3 draw rounds, declare (HIGH/LOW/FOLD), bet, showdown. Build perfect 4-suit hand.
 - **Dead 7**: 4 hole cards, 3 draw rounds. Any 7 kills hand immediately. Flush scoops; otherwise hi-lo split.
 - **15 / 35**: 2-card deal (1 up, 1 down), blackjack-style hit/stay. A=1 or 11, J/Q/K=0.5. LOW: 13-15; HIGH: 33-35.
-- **Mother Flusher (Swing Poker)**: 5 hole cards, 15-card board (5 stacked pairs + 5 single factor cards). Declare HIGH/LOW/SWING all.
 - **Suits & Poker**: 5 hole cards, 12-card community board. Declare POKER/SUITS/SWING. Legal paths: A+Center or B+Center.
+- ~~Mother Flusher (Swing Poker)~~ — **REMOVED**. Code files kept (`shared/modes/swing.ts`, `client/src/pages/Game.tsx`, `client/src/lib/poker/modes/swing.ts`) but not registered or routed.
 
 ## Player Persistence & Auth
 - `player_profiles` DB table: `id` (stable UUID from client localStorage), `displayName`, `chipBalance` (global bankroll), `activeTableId/SeatId/ModeId` (reconnect info), `handsPlayed`, `handsWon`, `lifetimeProfit`, `email` (unique, nullable), `passwordHash` (nullable)
@@ -66,14 +66,14 @@ UI modeId → server engine modeId (in `SERVER_ENGINE_ID` in `UnifiedGamePage.ts
 - `badugi` → `badugi` (uses `useServerBadugi`, separate Badugi engine)
 - `dead7` → `dead7`
 - `fifteen35` → `fifteen35`
-- `swing` → `swing_poker` (NOT 'swing' — server mode registry key is 'swing_poker')
 - `suitspoker` → `suits_poker`
 SuitsPoker declarations: `POKER / SUITS / SWING` (not HIGH/LOW/SWING). Passed via `declarationOptions` prop.
+Any request for `swing_poker` on the server returns `mode:error` (not in MODE_REGISTRY).
 
 ## Server Action Handlers (genericEngine.ts)
 Pre-turn-guard (any phase, any player): `start`, `restart`, `rebuy`, `chat`, `reaction`, `declare` (DECLARE phase only — simultaneous)
 Turn-guarded (active player only): `ante`, `fold`, `check`, `call`, `raise`/`bet`, `draw`, `hit`, `stay`, `declare_and_bet`
-Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount?: number }`. Used by swing and suitspoker DECLARE_AND_BET phase.
+Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount?: number }`. Used by suitspoker DECLARE_AND_BET phase.
 
 ## Key Shared Files
 - `shared/gameTypes.ts` — All TypeScript types (GameState, Player, GameMode, etc.)

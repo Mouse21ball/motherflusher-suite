@@ -10,7 +10,6 @@ import { initAnalytics } from "@/lib/analytics";
 import { BetaFooter } from "@/components/BetaFooter";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import Game from "@/pages/Game";
 import BadugiGame from "@/pages/BadugiGame";
 import Dead7Game from "@/pages/Dead7Game";
 import Fifteen35Game from "@/pages/Fifteen35Game";
@@ -30,7 +29,6 @@ function Router() {
         <Route path="/profile" component={Profile}/>
         <Route path="/leaderboard" component={Leaderboard}/>
         <Route path="/shop" component={Shop}/>
-        <Route path="/swing" component={Game}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/dead7" component={Dead7Game}/>
         <Route path="/fifteen35" component={Fifteen35Game}/>

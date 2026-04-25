@@ -21,7 +21,7 @@ const RARITY_LABEL: Record<string, string> = {
 };
 
 const MODE_NAMES: Record<string, string> = {
-  badugi: 'Badugi', dead7: 'Dead 7', fifteen35: '15/35', swing: 'Mother Flusher', suitspoker: 'Suits & Poker',
+  badugi: 'Badugi', dead7: 'Dead 7', fifteen35: '15/35', suitspoker: 'Suits & Poker',
 };
 
 export default function Profile() {

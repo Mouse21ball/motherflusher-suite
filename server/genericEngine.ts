@@ -1,12 +1,11 @@
 // ─── Generic Server-Authoritative Game Engine ─────────────────────────────────
-// Handles Dead7, Fifteen35, SwingPoker, SuitsPoker in server-authoritative mode.
+// Handles Dead7, Fifteen35, SuitsPoker in server-authoritative mode.
 // Same seat/session model as the Badugi engine, parameterized by GameMode.
 
 import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent, GameMode } from '../shared/gameTypes';
 import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
-import { SwingPokerMode } from '../shared/modes/swing';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { engineLog } from './engineLog';
 import {
@@ -21,8 +20,8 @@ import { storage } from './storage';
 const MODE_REGISTRY: Record<string, GameMode> = {
   dead7: Dead7Mode,
   fifteen35: Fifteen35Mode,
-  swing_poker: SwingPokerMode,
   suits_poker: SuitsPokerMode,
+  // swing_poker removed — Mother Flusher is no longer an active game mode
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

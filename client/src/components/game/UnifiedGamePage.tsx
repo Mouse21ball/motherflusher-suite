@@ -276,7 +276,6 @@ function BadugiServerGame({ modeId }: { modeId: string }) {
 const SERVER_ENGINE_ID: Record<string, string> = {
   dead7: 'dead7',
   fifteen35: 'fifteen35',
-  swing: 'swing_poker',
   suitspoker: 'suits_poker',
 };
 

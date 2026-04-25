@@ -30,7 +30,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
     const reward = claimDailyReward();
 
     // Apply chips across all modes
-    const modes = ['badugi', 'dead7', 'fifteen35', 'swing', 'suitspoker'];
+    const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
     for (const modeId of modes) {
       saveChips(modeId, getChips(modeId) + reward.chips);
     }
