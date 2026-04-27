@@ -32,9 +32,9 @@ export function BrandBackground({ variant = "legal", children }: BrandBackground
         backgroundRepeat: "no-repeat",
       }
     : {
-        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.65) 100%), url(${bgUrl})`,
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.45) 100%), url(${bgUrl})`,
         backgroundSize: "cover",
-        backgroundPosition: "center center",
+        backgroundPosition: "center 65%",
         backgroundRepeat: "no-repeat",
       };
 

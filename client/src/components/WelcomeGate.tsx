@@ -71,6 +71,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
             border: '1px solid rgba(240,184,41,0.18)',
             boxShadow: '0 0 48px rgba(0,0,0,0.55), 0 0 1px rgba(240,184,41,0.12)',
             backdropFilter: 'blur(8px)',
+            transform: 'translateY(-20px)',
           }}
         >
           {/* Chain icon */}
