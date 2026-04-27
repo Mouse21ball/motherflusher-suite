@@ -79,6 +79,19 @@ export default function Profile() {
   const [deleteBusy,        setDeleteBusy]        = useState(false);
   const [deleteError,       setDeleteError]       = useState<string | null>(null);
 
+  const clearAllLocalData = () => {
+    const keys = [
+      'poker_table_identity',
+      'poker_table_player_name',
+      'poker_table_analytics_id',
+      'poker_table_chips',
+      'poker_table_history',
+      'pt_daily_reward',
+      'pt_progression',
+    ];
+    keys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  };
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
       setDeleteError('Type DELETE to confirm.');
@@ -86,21 +99,33 @@ export default function Profile() {
     }
     setDeleteBusy(true);
     setDeleteError(null);
+
+    const isGuest = !serverProfile?.hasAuth;
+
+    if (isGuest) {
+      // Guest-only: no server record exists — just wipe local data and return to onboarding.
+      clearAllLocalData();
+      window.location.href = '/';
+      return;
+    }
+
     try {
       const { apiUrl } = await import('@/lib/apiConfig');
       const res = await fetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        setDeleteError(d.error ?? 'Deletion failed. Try again.');
-        return;
+        // If the server says "not found", the record is already gone — treat as success.
+        if (res.status !== 404) {
+          setDeleteError(d.error ?? 'Deletion failed. Try again.');
+          setDeleteBusy(false);
+          return;
+        }
       }
-      // Clear local state and reload to WelcomeGate
-      localStorage.removeItem('poker_table_identity');
-      localStorage.removeItem('playerName');
+      // Clear all local data regardless of server result
+      clearAllLocalData();
       window.location.href = '/';
     } catch {
-      setDeleteError('Could not reach the server.');
-    } finally {
+      setDeleteError('Could not reach the server. Check your connection and try again.');
       setDeleteBusy(false);
     }
   };
@@ -391,8 +416,8 @@ export default function Profile() {
         </div>
 
         {/* Virtual chips disclaimer */}
-        <p className="text-center text-[10px] font-mono text-white/12" data-testid="text-chips-disclaimer">
-          Virtual chips only · No cash value · For entertainment · 17+
+        <p className="text-center text-[11px] font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.22)' }} data-testid="text-chips-disclaimer">
+          Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn.
         </p>
 
         {/* Delete account */}
@@ -403,7 +428,7 @@ export default function Profile() {
               className="text-[10px] font-mono text-white/15 hover:text-red-400/50 transition-colors uppercase tracking-widest"
               data-testid="button-delete-account-open"
             >
-              Delete Account
+              {serverProfile?.hasAuth ? 'Delete Account' : 'Clear Guest Data'}
             </button>
           </div>
         ) : (
@@ -413,10 +438,12 @@ export default function Profile() {
           >
             <div>
               <div className="text-[10px] font-mono font-bold text-red-400/70 uppercase tracking-widest mb-1">
-                ⚠ Delete Account
+                {serverProfile?.hasAuth ? '⚠ Delete Account' : '⚠ Clear Guest Data'}
               </div>
               <p className="text-[11px] font-mono text-white/35 leading-relaxed">
-                This permanently deletes your account, chip balance, and all stats. This cannot be undone.
+                {serverProfile?.hasAuth
+                  ? 'This permanently deletes your account, email, chip balance, and all stats from our servers. This cannot be undone.'
+                  : 'This clears all local guest data including your chip balance, stats, and progress on this device. This cannot be undone.'}
               </p>
             </div>
             <div>

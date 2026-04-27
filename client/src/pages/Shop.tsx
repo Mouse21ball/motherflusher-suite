@@ -347,9 +347,14 @@ export default function Shop() {
           </div>
         </div>
 
-        <p className="text-[10px] text-white/10 font-mono text-center tracking-wide max-w-xs">
-          All chip purchases are play-money only. No real gambling. Chips cannot be withdrawn or redeemed for cash.
+        <p className="text-[11px] text-white/25 font-mono text-center leading-relaxed max-w-xs" data-testid="text-shop-disclaimer">
+          Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. No real-money gambling.
         </p>
+        <div className="flex items-center justify-center gap-3 pb-2">
+          <a href="/terms" className="text-[9px] font-mono text-white/15 hover:text-white/35 transition-colors">Terms</a>
+          <span className="text-white/10 text-[9px]">·</span>
+          <a href="/privacy" className="text-[9px] font-mono text-white/15 hover:text-white/35 transition-colors">Privacy</a>
+        </div>
       </div>
     </div>
   );

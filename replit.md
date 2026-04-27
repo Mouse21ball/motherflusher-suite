@@ -38,13 +38,31 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - Anti-exploit: `wasReserved` gate prevents chip reload on in-session reconnects; `lastChipSyncHand` prevents duplicate hand-end syncs; intentional leave (msg.type='leave') calls `removeGenericConnection(..., intentional=true)` — mid-hand seat converts to bot, chips already synced
 - API: `POST /api/players`, `GET /api/players/:id`, `DELETE /api/players/:id` (account deletion — App Store requirement), `GET /api/players/:id/reconnect`, `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me/:profileId`, `GET /api/tables/mode/:modeId/join`
 
-## App Store Readiness
-- **Privacy Policy** — `/privacy` route. Covers data collection, usage, retention, deletion, children, security. Linked from WelcomeGate, AuthModal, Profile, Terms, Home footer.
-- **Account Deletion** — Profile page has a "Delete Account" button with type-DELETE confirmation. Calls `DELETE /api/players/:id`, clears localStorage, redirects to onboarding. Apple App Store requirement (June 2022).
-- **Legal links in onboarding** — Register forms in WelcomeGate and AuthModal both display "By creating an account you agree to our Terms & Privacy Policy." with live links. Terms/Privacy visible from first user interaction.
-- **Age disclosure** — "17+" shown in WelcomeGate disclaimer, register forms, Profile footer, Terms footer, Privacy footer.
-- **Virtual chips messaging** — "Virtual chips only · No cash value · For entertainment" visible in WelcomeGate, AuthModal, Profile page footer.
-- **Footer cross-linking** — Home lobby footer: Terms + Privacy links. Profile page footer: Terms & Disclosures + Privacy Policy links. Terms page: Privacy Policy link. Privacy page: Terms link.
+## App Store Readiness (Compliance Checklist)
+
+### Confirmed ✅
+- **No real-money gambling** — Virtual chips only. No bets, wagers, or stakes involving real currency. Stated in Terms, Privacy, WelcomeGate, Shop, Home footer.
+- **No cash-out** — Virtual chips cannot be withdrawn, redeemed, or transferred. Exact wording used everywhere: "Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn."
+- **No redeemable prizes** — No prizes, rewards, or goods can be obtained for virtual chips. Shop is cosmetic only.
+- **Virtual currency disclosure** — Exact required text present in: WelcomeGate age gate, WelcomeGate choose screen, WelcomeGate register form, AuthModal register tab, Home lobby footer, Profile page, Shop page footer, Terms, Privacy.
+- **Age gate** — First screen on every app route: "You must be 13 or older to use this app." Requires tap confirmation. Stored in localStorage (`cgp_age_confirmed`). Cannot be bypassed.
+- **Privacy Policy** — `/privacy` route. Covers: guest vs account data, gameplay stats, device diagnostics, server logs/IP, data usage, no data sale, account deletion, children's section (13+), security, contact (support@dgmentertainment.com).
+- **Terms of Service** — `/terms` route. Covers: virtual chips/no cash value, entertainment only, no gambling, age requirement (13+), guest & account play, account deletion, fair play/abuse rules, multiplayer & bots, app changes, disclaimer of warranties, contact.
+- **Account deletion** — Profile page: type-DELETE confirmation → calls `DELETE /api/players/:id` → clears all 7 localStorage keys → returns to onboarding. Guest-safe: bypasses server API for guests, just clears local data.
+- **Guest play supported** — No account required. "Play as Guest" button on WelcomeGate. "Play as guest now. Account features can be added later." shown on guest screen.
+- **LocalStorage keys cleared on deletion** — `poker_table_identity`, `poker_table_player_name`, `poker_table_analytics_id`, `poker_table_chips`, `poker_table_history`, `pt_daily_reward`, `pt_progression`.
+
+### Age Gate Implementation
+- localStorage key: `cgp_age_confirmed = '1'`
+- WelcomeGate checks this before playerName. Enforced on every route (WelcomeGate wraps entire Router).
+- Exact text: "You must be 13 or older to use this app."
+- Terms & Privacy links accessible FROM the age gate (before confirmation)
+
+### Virtual Chips Exact Wording (required everywhere)
+> "Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn."
+
+### Contact
+support@dgmentertainment.com (shown in Terms and Privacy)
 
 ## Architecture
 - **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter routing

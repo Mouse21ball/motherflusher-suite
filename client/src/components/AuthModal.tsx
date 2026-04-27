@@ -248,12 +248,12 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
           </button>
 
           {tab === 'register' && (
-            <p className="text-[10px] font-mono text-white/22 text-center leading-relaxed">
+            <p className="text-[10px] font-mono text-white/25 text-center leading-relaxed">
               By creating an account you agree to our{' '}
               <a href="/terms" className="underline hover:text-white/50 transition-colors">Terms</a>
               {' & '}
               <a href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</a>.
-              Virtual chips only · No cash value · 17+
+              Virtual chips have no cash value · 13+
             </p>
           )}
         </form>

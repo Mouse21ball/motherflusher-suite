@@ -2,16 +2,85 @@ import { useState, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
 
+const AGE_KEY = 'cgp_age_confirmed';
+
+function getAgeConfirmed(): boolean {
+  try { return localStorage.getItem(AGE_KEY) === '1'; } catch { return false; }
+}
+function setAgeConfirmed(): void {
+  try { localStorage.setItem(AGE_KEY, '1'); } catch {}
+}
+
 interface WelcomeGateProps {
   children: ReactNode;
 }
 
 export function WelcomeGate({ children }: WelcomeGateProps) {
-  const [name, setName] = useState(() => getPlayerName());
+  const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
+  const [name,  setName]    = useState(() => getPlayerName());
+
+  if (!ageOk) {
+    return (
+      <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); }} />
+    );
+  }
   if (name) return <>{children}</>;
   return <WelcomeScreen onComplete={(n) => { setPlayerName(n); setName(n); }} />;
 }
 
+// ── Age Gate ─────────────────────────────────────────────────────────────────
+function AgeGate({ onConfirm }: { onConfirm: () => void }) {
+  return (
+    <div
+      className="min-h-[100dvh] flex items-center justify-center px-4"
+      style={{ backgroundColor: '#05050A' }}
+    >
+      <div className="w-full max-w-sm flex flex-col items-center text-center gap-6">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl"
+          style={{ background: 'rgba(240,184,41,0.10)', border: '1.5px solid rgba(240,184,41,0.22)' }}
+        >
+          ⛓️
+        </div>
+
+        <div>
+          <h1 className="text-xl font-bold font-sans mb-2" style={{ color: 'rgba(255,255,255,0.90)' }} data-testid="text-age-gate-title">
+            Chain Gang Poker
+          </h1>
+          <p className="text-sm font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)' }} data-testid="text-age-gate-body">
+            You must be 13 or older to use this app.
+          </p>
+        </div>
+
+        <div
+          className="w-full rounded-xl p-4 text-left"
+          style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <p className="text-[11px] font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app involves no real-money gambling.
+          </p>
+        </div>
+
+        <button
+          onClick={onConfirm}
+          className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97]"
+          style={{ backgroundColor: '#F0B829', color: '#05050A', boxShadow: '0 4px 24px rgba(240,184,41,0.28)' }}
+          data-testid="button-age-confirm"
+        >
+          I am 13 or older — Continue
+        </button>
+
+        <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
+          <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
+          {' · '}
+          <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Feature list ──────────────────────────────────────────────────────────────
 const FEATURES = [
   { icon: '⛓️', title: '4 Games Nobody Else Has', sub: 'Badugi · Dead 7 · 15/35 · Suits & Poker' },
   { icon: '⚡', title: 'Real Multiplayer', sub: 'Create a private table, share the link, run it with your crew' },
@@ -59,7 +128,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         avatarSeed: data.profileId.slice(0, 8), createdAt: Date.now(),
       });
       onComplete(data.displayName);
-    } catch { setError('Could not reach the server.'); }
+    } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
   };
 
@@ -80,13 +149,13 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         body: JSON.stringify({ identityId: guest.id, email: email.trim().toLowerCase(), password, displayName: dn }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Registration failed.'); return; }
+      if (!res.ok) { setError(data.error ?? 'Registration failed. Try again.'); return; }
       savePlayerIdentity({
         id: data.profileId, name: data.displayName,
         avatarSeed: data.profileId.slice(0, 8), createdAt: guest.createdAt,
       });
       onComplete(data.displayName);
-    } catch { setError('Could not reach the server.'); }
+    } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
   };
 
@@ -134,7 +203,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
             Prison rules. No mercy.
           </p>
           <p className="text-sm mt-3 max-w-sm" style={{ color: 'rgba(255,255,255,0.38)', lineHeight: '1.6' }}>
-            Five games nobody else runs. Real multiplayer, virtual chips, <span className="font-semibold" style={{ color: '#F0B829' }}>free forever.</span>
+            Four games nobody else runs. Real multiplayer, virtual chips, <span className="font-semibold" style={{ color: '#F0B829' }}>free forever.</span>
           </p>
         </div>
 
@@ -185,15 +254,16 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] text-white/30 hover:text-white/50"
               data-testid="button-goto-guest"
             >
-              Continue as Guest
+              Play as Guest
             </button>
-            <p className="text-[10px] font-mono mt-2 text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.22)' }}>
-              Virtual chips only · No cash value · 17+ · Entertainment only
+            <p className="text-[10px] font-mono mt-1 text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.30)' }}>
+              Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn.
             </p>
-            <p className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.14)' }}>
+            <p className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.15)' }}>
               <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
               {' · '}
               <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
+              {' · '}13+
             </p>
           </div>
         )}
@@ -212,6 +282,9 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         {/* ── GUEST ──────────────────────────────────────────────────────────── */}
         {mode === 'guest' && (
           <form onSubmit={handleGuest} className="w-full">
+            <p className="text-sm font-mono mb-4 leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)' }} data-testid="text-guest-description">
+              Play as guest now. Account features can be added later.
+            </p>
             <label htmlFor="display-name" className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2.5 pl-1"
               style={{ color: 'rgba(255,255,255,0.22)' }}>
               Pick your handle
@@ -251,8 +324,8 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
                 Handle must be 2–16 characters
               </p>
             )}
-            <p className="text-[9px] font-mono mt-4 text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
-              Guest progress saved on this device only. Create an account to save across devices.
+            <p className="text-[10px] font-mono mt-4 text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              Guest progress saved on this device only. Create an account any time to save across devices.
             </p>
           </form>
         )}
@@ -340,12 +413,12 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               data-testid="button-switch-to-login">
               Already have an account? Log in →
             </button>
-            <p className="text-[10px] font-mono text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.20)' }}>
+            <p className="text-[10px] font-mono text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.28)' }}>
               By creating an account you agree to our{' '}
-              <a href="/terms" className="underline hover:text-white/45 transition-colors">Terms</a>
+              <a href="/terms" className="underline hover:text-white/50 transition-colors">Terms</a>
               {' & '}
-              <a href="/privacy" className="underline hover:text-white/45 transition-colors">Privacy Policy</a>.
-              Virtual chips only · No cash value · 17+
+              <a href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</a>.
+              {' '}Virtual chips only · No cash value · 13+
             </p>
           </form>
         )}

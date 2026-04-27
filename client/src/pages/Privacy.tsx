@@ -22,52 +22,73 @@ export default function Privacy() {
             Privacy Policy
           </h1>
           <p className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>
-            Chain Gang Poker · DGM Poker · Last updated April 2026
+            Chain Gang Poker · DGM Entertainment · Last updated April 2026
           </p>
         </div>
 
         <div className="space-y-4">
-          <Section title="What We Collect">
-            When you create an account we store your email address, display name, and a hashed (non-reversible) password. We also store your virtual chip balance, hands played, and win/loss statistics. Guest players are identified by a randomly generated device ID stored in your browser — no email is required.
+          <Section title="What Data We Collect">
+            We collect different data depending on how you use the app:{'\n\n'}
+            <strong>Guest players:</strong> We generate a random device ID and store it in your browser's local storage. No email or personal information is required or collected for guest play. Your chip balance, game stats, and XP are stored locally on your device only.{'\n\n'}
+            <strong>Account holders:</strong> When you create an account, we store your email address, display name, and a hashed (non-reversible) password on our servers. We also store your virtual chip balance, hands played, win/loss statistics, and game progress.
           </Section>
 
-          <Section title="How We Use It">
-            We use your information solely to run the game: saving your chip balance, tracking stats and achievements, and restoring your progress when you log in on a new device. We do not sell, rent, or share your personal information with third parties.
+          <Section title="Gameplay Statistics">
+            For all players, we store gameplay statistics including hands played, hands won, chip balance history, XP, rank, achievements, and daily streak information. For guest players, this is stored locally on your device. For account holders, this is stored on our servers and synced across devices.
+          </Section>
+
+          <Section title="Device & App Diagnostics">
+            We may collect anonymous, aggregate diagnostic data including app crash reports, error rates, and performance metrics to improve stability. This data does not identify individual players and is not linked to your account or device ID.
+          </Section>
+
+          <Section title="Server Logs & Network Data">
+            Our servers automatically record standard server logs including IP addresses, request timestamps, and connection events. These logs are used for security monitoring, abuse prevention, and debugging. Logs are retained for a limited period and are not used for advertising or sold to third parties.
           </Section>
 
           <Section title="Virtual Chips & No Purchases">
-            Chain Gang Poker is a free social card game. All chips are virtual and have no monetary value. The app contains no in-app purchases at this time. No payment data of any kind is collected or stored.
+            Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app contains no in-app purchases at this time. No payment data of any kind is collected or stored.
+          </Section>
+
+          <Section title="How We Use Your Data">
+            We use your data solely to operate the game: restoring your chip balance and progress when you log in on a new device, tracking achievements, and improving gameplay. We do not sell, rent, or share your personal information with third parties. We do not use your data for advertising.
           </Section>
 
           <Section title="Analytics">
-            We collect anonymous, aggregate usage data (session counts, mode popularity, error rates) to improve the game. This data cannot be used to identify individual players. We do not use third-party advertising SDKs.
+            We may collect anonymous, aggregate usage data (session counts, mode popularity, feature usage) to understand how the game is used and improve it. This aggregate data cannot be used to identify individual players. We do not use third-party advertising SDKs.
           </Section>
 
-          <Section title="Data Retention & Deletion">
-            You may request deletion of your account and all associated data at any time. To delete your account, go to your Profile page and tap "Delete Account." Your display name, email, chip balance, and statistics will be permanently and irreversibly removed within 24 hours.
+          <Section title="Account Deletion">
+            You may delete your account at any time from the Profile page. Upon deletion, your email address, display name, password hash, chip balance, and all associated gameplay statistics are permanently removed from our servers. Local device data (progression, daily rewards, guest stats) is also cleared during the deletion process. Deletion is immediate and irreversible. If you need help, contact us at support@dgmentertainment.com.
           </Section>
 
           <Section title="Children">
-            This app is rated 17+ and is not intended for users under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will remove it promptly.
+            This app requires users to be 13 years of age or older. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided personal information, please contact us at support@dgmentertainment.com and we will remove it promptly.
           </Section>
 
           <Section title="Security">
-            Passwords are stored using scrypt, a one-way cryptographic hash. We never store plain-text passwords. Data is transmitted over encrypted HTTPS connections.
+            Passwords are stored using scrypt, a one-way cryptographic hash function. We never store plain-text passwords. Data in transit is protected using HTTPS encryption. We take reasonable steps to protect data but cannot guarantee absolute security.
+          </Section>
+
+          <Section title="Data Retention">
+            Guest data is stored locally on your device and persists until you clear your browser data or delete through the Profile page. Account data is stored on our servers for the life of your account. You may request deletion at any time via the Profile page or by contacting support.
           </Section>
 
           <Section title="Contact">
-            Questions about this policy? Reach us through the feedback option in the app. We take privacy seriously and will respond within a reasonable time.
+            For privacy questions, data deletion requests, or concerns:{'\n'}
+            Email: <span className="text-white/60 font-mono">support@dgmentertainment.com</span>{'\n\n'}
+            We take privacy seriously and will respond within a reasonable time.
           </Section>
         </div>
 
         <div className="mt-8 pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div className="flex items-center justify-center gap-4 text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            <a href="/terms" className="hover:text-white/40 transition-colors">Terms &amp; Disclosures</a>
+          <div className="flex items-center justify-center gap-4 text-[10px] font-mono mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>
+            <a href="/terms" className="hover:text-white/40 transition-colors underline" data-testid="link-privacy-terms">Terms &amp; Disclosures</a>
             <span style={{ color: 'rgba(255,255,255,0.08)' }}>·</span>
-            <span>DGM Poker · Chain Gang Poker</span>
-            <span style={{ color: 'rgba(255,255,255,0.08)' }}>·</span>
-            <span>Virtual chips only</span>
+            <a href="/" className="hover:text-white/40 transition-colors">Back to Lobby</a>
           </div>
+          <p className="text-[10px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.15)' }}>
+            DGM Entertainment · Chain Gang Poker · Virtual chips only · No cash value · 13+
+          </p>
         </div>
       </div>
     </div>
@@ -81,7 +102,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       style={{ backgroundColor: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       <h2 className="text-sm font-bold font-sans mb-1.5" style={{ color: 'rgba(255,255,255,0.80)' }}>{title}</h2>
-      <p className="text-xs sm:text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.48)' }}>{children}</p>
+      <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line" style={{ color: 'rgba(255,255,255,0.48)' }}>{children}</p>
     </div>
   );
 }

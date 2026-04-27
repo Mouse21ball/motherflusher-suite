@@ -956,6 +956,9 @@ export default function Home() {
             <a href="/terms" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-terms">Terms</a>
             <a href="/privacy" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-privacy">Privacy</a>
           </div>
+          <p className="text-center text-[10px] font-mono pb-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.12)' }} data-testid="text-home-chips-disclaimer">
+            Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn.
+          </p>
 
         </div>
       </div>
