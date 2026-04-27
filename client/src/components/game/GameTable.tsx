@@ -76,7 +76,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
       if (!hero?.isWinner) return;
 
       // Scoop: hero declared SWING and holds both a high and low score at resolution.
-      // This is the rarest meaningful outcome in Mother Flusher.
+      // This is the rarest meaningful outcome in Swing Poker.
       const isSwingScoop =
         hero.declaration === 'SWING' &&
         !!(hero.score?.high && hero.score?.low);
@@ -159,7 +159,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               )}
             </div>
 
-            {/* ── Mother Flusher community card layout ── */}
+            {/* ── Swing Poker community card layout ── */}
             {/*
               5 columns of solitaire-style stacked pairs, then 5 single factor cards.
               Each pair: top card peeks (26px mobile / 34px desktop), full bottom card below.

@@ -87,7 +87,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor }: Mode
 
 export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
   swing: {
-    title: "Mother Flusher",
+    title: "Swing Poker",
     objective: "Declare High for the best poker hand, Low for the best suit total, or Swing to try winning both. A 15-card community board reveals in stages.",
     steps: [
       "Pay the $1 ante, then receive 5 hole cards",

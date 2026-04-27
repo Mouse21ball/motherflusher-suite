@@ -51,7 +51,7 @@ function getArcScale(index: number, total: number): string {
     "scale-[0.74] sm:scale-[0.84] seat-depth-side"] as const)[index] ?? "scale-[0.70]";
 }
 
-// ── Ring layout helpers (swing / Mother Flusher) ─────────────────────────────
+// ── Ring layout helpers (swing / Swing Poker) ────────────────────────────────
 function getRingPosition(seatIndex: number): string {
   const positions = [
     "absolute -bottom-3 sm:-bottom-6 left-1/2 -translate-x-1/2 scale-[1.05] sm:scale-[1.10] origin-bottom z-30 seat-depth-hero",
@@ -499,7 +499,7 @@ export function ThreeDTableScene({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // RING LAYOUT (swing / Mother Flusher)
+  // RING LAYOUT (swing / Swing Poker)
   // ─────────────────────────────────────────────────────────────────────────
   if (isRingLayout) {
     return (

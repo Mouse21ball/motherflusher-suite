@@ -1,19 +1,16 @@
 /**
  * BrandBackground — full-screen branded backdrop using DGM Entertainment artwork.
  *
- * variant="legal"   → dgm-legal-bg.png   (fox/wolf characters — legal pages)
- * variant="welcome" → dgm-agegate-bg.png (tiger/bear at poker table — age gate)
- * variant="splash"  → dgm-splash-bg.png  (tiger/leopard glamour — loading/splash)
+ * variant="legal"   → legal-bg.png   (fox/wolf crew — Terms & Privacy)
+ * variant="welcome" → agegate-bg.png (tiger/bear/rabbit crew — age gate)
+ * variant="splash"  → splash-bg.png  (tiger/leopard — loading/signature)
  *
  * Each variant applies a dark overlay so overlaid text is always readable.
- * Animal art placeholder class `.dgm-animal-art` is retained on the fallback
- * suit symbols — they become invisible when a real image loads but serve as
- * graceful CSS-only fallback if the image fails.
  */
 
-import legalBg   from "@/assets/images/dgm-legal-bg.png";
-import welcomeBg from "@/assets/images/dgm-agegate-bg.png";
-import splashBg  from "@/assets/images/dgm-splash-bg.png";
+import legalBg   from "@/assets/images/legal-bg.png";
+import welcomeBg from "@/assets/images/agegate-bg.png";
+import splashBg  from "@/assets/images/splash-bg.png";
 
 const BG_MAP = {
   legal:   legalBg,
@@ -22,9 +19,9 @@ const BG_MAP = {
 };
 
 const OVERLAY_MAP = {
-  legal:   "rgba(4,4,10,0.72)",
-  welcome: "rgba(3,3,10,0.62)",
-  splash:  "rgba(3,3,10,0.55)",
+  legal:   "rgba(0,0,0,0.70)",
+  welcome: "rgba(0,0,0,0.55)",
+  splash:  "rgba(0,0,0,0.50)",
 };
 
 interface BrandBackgroundProps {
@@ -46,14 +43,14 @@ export function BrandBackground({ variant = "legal", children }: BrandBackground
         aria-hidden="true"
       />
 
-      {/* ── Atmospheric overlay (readability) ─────────────────────────────── */}
+      {/* ── Dark overlay for text readability ─────────────────────────────── */}
       <div
         className="absolute inset-0"
         aria-hidden="true"
         style={{
           background: [
-            `linear-gradient(180deg, ${overlayBg} 0%, rgba(4,4,12,0.55) 45%, rgba(4,4,12,0.80) 100%)`,
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(240,184,41,0.06) 0%, transparent 65%)",
+            `linear-gradient(180deg, ${overlayBg} 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.75) 100%)`,
+            "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(240,184,41,0.05) 0%, transparent 65%)",
           ].join(", "),
         }}
       />
@@ -64,17 +61,17 @@ export function BrandBackground({ variant = "legal", children }: BrandBackground
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(240,184,41,0.55) 25%, rgba(240,184,41,0.88) 50%, rgba(240,184,41,0.55) 75%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(240,184,41,0.60) 25%, rgba(240,184,41,0.95) 50%, rgba(240,184,41,0.60) 75%, transparent 100%)",
         }}
       />
 
       {/* ── Pink bottom accent ────────────────────────────────────────────── */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-[1px]"
+        className="absolute bottom-0 left-0 right-0 h-[2px]"
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(255,80,160,0.30) 30%, rgba(255,80,160,0.55) 50%, rgba(255,80,160,0.30) 70%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(255,20,147,0.50) 30%, rgba(255,20,147,0.85) 50%, rgba(255,20,147,0.50) 70%, transparent 100%)",
         }}
       />
 
@@ -84,7 +81,7 @@ export function BrandBackground({ variant = "legal", children }: BrandBackground
         aria-hidden="true"
         style={{
           background:
-            "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 45%, rgba(0,0,0,0.65) 100%)",
+            "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 40%, rgba(0,0,0,0.70) 100%)",
         }}
       />
 

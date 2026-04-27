@@ -80,8 +80,8 @@ const MID_HAND_PHASES = new Set<GamePhase>([
 
 export const MODE_INFO: Record<string, ModeInfo> = {
   swing: {
-    abbrev: "MF",
-    name: "Mother Flusher",
+    abbrev: "SW",
+    name: "Swing Poker",
     accentClass: "text-blue-400",
     borderClass: "border-blue-500/20",
     rules: [
