@@ -15,15 +15,20 @@ interface WelcomeGateProps {
   children: ReactNode;
 }
 
+const LEGAL_PATHS = ['/terms', '/privacy'];
+
 export function WelcomeGate({ children }: WelcomeGateProps) {
   const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
   const [name,  setName]    = useState(() => getPlayerName());
 
-  if (!ageOk) {
+  const onLegalPage = LEGAL_PATHS.includes(window.location.pathname);
+
+  if (!ageOk && !onLegalPage) {
     return (
       <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); }} />
     );
   }
+  if (onLegalPage) return <>{children}</>;
   if (name) return <>{children}</>;
   return <WelcomeScreen onComplete={(n) => { setPlayerName(n); setName(n); }} />;
 }

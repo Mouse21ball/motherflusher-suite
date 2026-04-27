@@ -5,7 +5,7 @@ import { BarChart3 } from "lucide-react";
 import { getHandHistory, getAllChips, type HandRecord } from "@/lib/persistence";
 
 const MODE_NAMES: Record<string, string> = {
-  swing: "Mother Flusher",
+  swing: "Swing Poker",
   badugi: "Badugi",
   dead7: "Dead 7",
   fifteen35: "15 / 35",
