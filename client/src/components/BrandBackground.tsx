@@ -24,20 +24,18 @@ interface BrandBackgroundProps {
 export function BrandBackground({ variant = "legal", children }: BrandBackgroundProps) {
   const bgUrl = BG_MAP[variant];
 
-  const bgStyle = variant === "legal"
+  const bgStyle: React.CSSProperties = variant === "legal"
     ? {
-        backgroundImage: `url(${bgUrl})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-        backgroundRepeat: "no-repeat" as const,
-        backgroundColor: "rgba(0,0,0,0.65)",
-        backgroundBlendMode: "overlay" as const,
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.80) 100%), url(${bgUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+        backgroundRepeat: "no-repeat",
       }
     : {
-        backgroundImage: `url(${bgUrl})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-        backgroundRepeat: "no-repeat" as const,
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.65) 100%), url(${bgUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
       };
 
   return (

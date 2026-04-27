@@ -25,7 +25,7 @@ export function LegalPageLayout({
 }: LegalPageLayoutProps) {
   return (
     <BrandBackground variant="legal">
-      <div className="flex flex-col items-center px-4 pt-8 sm:pt-12 pb-16">
+      <div className="flex flex-col items-center px-4 pb-16" style={{ paddingTop: '120px' }}>
         <div className="w-full max-w-md">
 
           {/* DGM Entertainment header badge */}

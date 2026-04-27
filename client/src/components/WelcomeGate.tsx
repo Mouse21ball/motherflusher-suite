@@ -67,10 +67,10 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
         <div
           className="w-full max-w-sm rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5"
           style={{
-            background: 'rgba(7,7,16,0.88)',
+            background: 'rgba(7,7,16,0.72)',
             border: '1px solid rgba(240,184,41,0.18)',
-            boxShadow: '0 0 48px rgba(0,0,0,0.70), 0 0 1px rgba(240,184,41,0.12)',
-            backdropFilter: 'blur(12px)',
+            boxShadow: '0 0 48px rgba(0,0,0,0.55), 0 0 1px rgba(240,184,41,0.12)',
+            backdropFilter: 'blur(8px)',
           }}
         >
           {/* Chain icon */}
