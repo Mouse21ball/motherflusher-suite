@@ -58,23 +58,51 @@ export default function Profile() {
 
   const handleAuthSuccess = (displayName: string) => {
     setAuthOpen(false);
-    // Force a page reload so WelcomeGate re-reads the name and useServerProfile
-    // fetches the adopted profile (chips, level, history all restored).
     window.location.reload();
     void displayName;
   };
 
   const handleLogout = () => {
-    // Generate a fresh guest UUID — detaches from the account.
-    // The account's chips remain on the server; logging back in restores them.
     const freshId = crypto.randomUUID();
     savePlayerIdentity({
       id: freshId,
-      name: identity.name, // keep display name for convenience
+      name: identity.name,
       avatarSeed: freshId.slice(0, 8),
       createdAt: Date.now(),
     });
     window.location.reload();
+  };
+
+  // ── Delete account state ─────────────────────────────────────────────────────
+  const [deleteOpen,        setDeleteOpen]        = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteBusy,        setDeleteBusy]        = useState(false);
+  const [deleteError,       setDeleteError]       = useState<string | null>(null);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+      setDeleteError('Type DELETE to confirm.');
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const { apiUrl } = await import('@/lib/apiConfig');
+      const res = await fetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setDeleteError(d.error ?? 'Deletion failed. Try again.');
+        return;
+      }
+      // Clear local state and reload to WelcomeGate
+      localStorage.removeItem('poker_table_identity');
+      localStorage.removeItem('playerName');
+      window.location.href = '/';
+    } catch {
+      setDeleteError('Could not reach the server.');
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   const progressPct = Math.round(levelInfo.progress * 100);
@@ -344,6 +372,96 @@ export default function Profile() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Legal / account management footer ─────────────────────────── */}
+      <div className="w-full max-w-lg mx-auto px-4 pb-8 mt-2 space-y-3">
+        {/* Terms & Privacy links */}
+        <div className="flex items-center justify-center gap-4">
+          <a href="/terms" className="text-[10px] font-mono text-white/20 hover:text-white/45 transition-colors" data-testid="link-profile-terms">
+            Terms &amp; Disclosures
+          </a>
+          <span className="text-white/10 text-[10px]">·</span>
+          <a href="/privacy" className="text-[10px] font-mono text-white/20 hover:text-white/45 transition-colors" data-testid="link-profile-privacy">
+            Privacy Policy
+          </a>
+        </div>
+
+        {/* Virtual chips disclaimer */}
+        <p className="text-center text-[10px] font-mono text-white/12" data-testid="text-chips-disclaimer">
+          Virtual chips only · No cash value · For entertainment · 17+
+        </p>
+
+        {/* Delete account */}
+        {!deleteOpen ? (
+          <div className="flex justify-center pt-1">
+            <button
+              onClick={() => { setDeleteOpen(true); setDeleteError(null); setDeleteConfirmText(''); }}
+              className="text-[10px] font-mono text-white/15 hover:text-red-400/50 transition-colors uppercase tracking-widest"
+              data-testid="button-delete-account-open"
+            >
+              Delete Account
+            </button>
+          </div>
+        ) : (
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{ backgroundColor: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.14)' }}
+          >
+            <div>
+              <div className="text-[10px] font-mono font-bold text-red-400/70 uppercase tracking-widest mb-1">
+                ⚠ Delete Account
+              </div>
+              <p className="text-[11px] font-mono text-white/35 leading-relaxed">
+                This permanently deletes your account, chip balance, and all stats. This cannot be undone.
+              </p>
+            </div>
+            <div>
+              <label className="block text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1.5">
+                Type DELETE to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={e => { setDeleteConfirmText(e.target.value); setDeleteError(null); }}
+                placeholder="DELETE"
+                autoComplete="off"
+                className="w-full h-10 px-3 rounded-xl font-mono text-sm focus:outline-none transition-all"
+                style={{
+                  backgroundColor: '#17171F',
+                  color: 'rgba(255,255,255,0.80)',
+                  border: '1.5px solid rgba(220,38,38,0.25)',
+                }}
+                data-testid="input-delete-confirm"
+              />
+            </div>
+            {deleteError && (
+              <p className="text-[11px] font-mono text-red-400/70" data-testid="text-delete-error">{deleteError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setDeleteOpen(false); setDeleteError(null); setDeleteConfirmText(''); }}
+                className="flex-1 h-9 rounded-xl font-mono text-[11px] text-white/30 hover:text-white/60 transition-colors border border-white/[0.06]"
+                data-testid="button-delete-cancel"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteBusy}
+                className="flex-1 h-9 rounded-xl font-mono text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.97]"
+                style={{
+                  backgroundColor: deleteBusy ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.22)',
+                  color: deleteBusy ? 'rgba(220,38,38,0.35)' : 'rgba(220,38,38,0.80)',
+                  border: '1px solid rgba(220,38,38,0.25)',
+                }}
+                data-testid="button-delete-confirm"
+              >
+                {deleteBusy ? '…' : 'Delete Forever'}
+              </button>
             </div>
           </div>
         )}

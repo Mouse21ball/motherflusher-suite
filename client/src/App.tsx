@@ -16,6 +16,7 @@ import Fifteen35Game from "@/pages/Fifteen35Game";
 import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
 import JoinTable from "@/pages/JoinTable";
 import Profile from "@/pages/Profile";
 import Leaderboard from "@/pages/Leaderboard";
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/join/:code" component={JoinTable}/>
         <Route path="/admin" component={Admin}/>
         <Route path="/terms" component={Terms}/>
+        <Route path="/privacy" component={Privacy}/>
         <Route component={NotFound} />
       </Switch>
     </ErrorBoundary>

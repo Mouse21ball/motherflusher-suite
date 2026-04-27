@@ -7985,5 +7985,95 @@
     },
     "handId": 0,
     "savedAt": 1777153678541
+  },
+  "Y33GNE": {
+    "state": {
+      "tableId": "Y33GNE",
+      "phase": "ANTE",
+      "pot": 11677,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "p1",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1323,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "teajx8v0",
+          "text": "New hand.",
+          "time": 1777240711508
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 11,
+    "savedAt": 1777240713511
   }
 }

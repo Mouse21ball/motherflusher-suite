@@ -16,7 +16,8 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - `/profile` — Player profile (XP, rank, achievements, per-mode stats)
 - `/leaderboard` — Daily leaderboard
 - `/shop` — Merch shop (clothing, accessories — no payment integration)
-- `/terms` — Terms of service
+- `/terms` — Terms & Disclosures (links to Privacy)
+- `/privacy` — Privacy Policy (App Store requirement)
 - `/admin` — Admin panel
 
 ## Game Modes (4 active)
@@ -35,7 +36,15 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - Level formula: `Math.floor(handsPlayed / 50)` — computed on fly in API responses (not stored)
 - Join flow: client sends `identityId` (stable UUID) alongside `playerId` (session UUID); server loads canonical chip balance from DB and applies it to seat within 1 async tick
 - Anti-exploit: `wasReserved` gate prevents chip reload on in-session reconnects; `lastChipSyncHand` prevents duplicate hand-end syncs; intentional leave (msg.type='leave') calls `removeGenericConnection(..., intentional=true)` — mid-hand seat converts to bot, chips already synced
-- API: `POST /api/players`, `GET /api/players/:id`, `GET /api/players/:id/reconnect`, `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me/:profileId`, `GET /api/tables/mode/:modeId/join`
+- API: `POST /api/players`, `GET /api/players/:id`, `DELETE /api/players/:id` (account deletion — App Store requirement), `GET /api/players/:id/reconnect`, `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me/:profileId`, `GET /api/tables/mode/:modeId/join`
+
+## App Store Readiness
+- **Privacy Policy** — `/privacy` route. Covers data collection, usage, retention, deletion, children, security. Linked from WelcomeGate, AuthModal, Profile, Terms, Home footer.
+- **Account Deletion** — Profile page has a "Delete Account" button with type-DELETE confirmation. Calls `DELETE /api/players/:id`, clears localStorage, redirects to onboarding. Apple App Store requirement (June 2022).
+- **Legal links in onboarding** — Register forms in WelcomeGate and AuthModal both display "By creating an account you agree to our Terms & Privacy Policy." with live links. Terms/Privacy visible from first user interaction.
+- **Age disclosure** — "17+" shown in WelcomeGate disclaimer, register forms, Profile footer, Terms footer, Privacy footer.
+- **Virtual chips messaging** — "Virtual chips only · No cash value · For entertainment" visible in WelcomeGate, AuthModal, Profile page footer.
+- **Footer cross-linking** — Home lobby footer: Terms + Privacy links. Profile page footer: Terms & Disclosures + Privacy Policy links. Terms page: Privacy Policy link. Privacy page: Terms link.
 
 ## Architecture
 - **Frontend**: React + Vite + Tailwind + shadcn/ui, wouter routing

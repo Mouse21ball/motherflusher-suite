@@ -954,6 +954,7 @@ export default function Home() {
               </button>
             ))}
             <a href="/terms" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-terms">Terms</a>
+            <a href="/privacy" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-privacy">Privacy</a>
           </div>
 
         </div>

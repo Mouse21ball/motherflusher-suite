@@ -234,6 +234,28 @@ export async function registerRoutes(
     }
   });
 
+  // DELETE /api/players/:id — permanently delete a player account and all data.
+  // App Store requirement: users must be able to delete their own account from within the app.
+  app.delete("/api/players/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({ error: "Invalid player ID" });
+        return;
+      }
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      await storage.deletePlayer(id);
+      res.status(200).json({ deleted: true });
+    } catch (err) {
+      console.error("Delete player error:", err);
+      res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
   // ── Auth — Register / Login ────────────────────────────────────────────────
   // Auth is layered on top of the existing guest identity system.
   // On register: the client sends their existing identityId (UUID from localStorage)

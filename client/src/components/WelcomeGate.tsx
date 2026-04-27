@@ -187,8 +187,13 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
             >
               Continue as Guest
             </button>
-            <p className="text-[9px] font-mono mt-1 text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
-              Virtual chips only · No cash value · For entertainment
+            <p className="text-[10px] font-mono mt-2 text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              Virtual chips only · No cash value · 17+ · Entertainment only
+            </p>
+            <p className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.14)' }}>
+              <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
+              {' · '}
+              <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
             </p>
           </div>
         )}
@@ -335,8 +340,12 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               data-testid="button-switch-to-login">
               Already have an account? Log in →
             </button>
-            <p className="text-[9px] font-mono text-center leading-relaxed tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }}>
-              Virtual chips only · No cash value · For entertainment
+            <p className="text-[10px] font-mono text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.20)' }}>
+              By creating an account you agree to our{' '}
+              <a href="/terms" className="underline hover:text-white/45 transition-colors">Terms</a>
+              {' & '}
+              <a href="/privacy" className="underline hover:text-white/45 transition-colors">Privacy Policy</a>.
+              Virtual chips only · No cash value · 17+
             </p>
           </form>
         )}

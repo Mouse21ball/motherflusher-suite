@@ -1848,13 +1848,13 @@
       "players": [
         {
           "id": "p1",
-          "name": "Player",
-          "presence": "human",
+          "name": "Open",
+          "presence": "reserved",
           "chips": 1000,
           "bet": 0,
           "totalBet": 0,
           "cards": [],
-          "status": "active",
+          "status": "sitting_out",
           "isDealer": false,
           "declaration": null,
           "hasActed": false
@@ -1925,6 +1925,229 @@
       "discardPile": []
     },
     "handId": 0,
-    "savedAt": 1777156750040
+    "savedAt": 1777156801649
+  },
+  "dead7:HGZUNV": {
+    "state": {
+      "tableId": "HGZUNV",
+      "phase": "ANTE",
+      "pot": 1163,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p5",
+      "players": [
+        {
+          "id": "p1",
+          "name": "p1",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 930,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1884,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 69,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 10954,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "nsaiucr3",
+          "text": "New hand.",
+          "time": 1777241063002
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "6najpzwb",
+          "senderId": "p3",
+          "senderName": "Bob",
+          "text": "Read 'em and weep.",
+          "time": 1777240648061
+        },
+        {
+          "id": "ichttq3y",
+          "senderId": "p4",
+          "senderName": "Charlie",
+          "text": "Read 'em and weep.",
+          "time": 1777240791111
+        },
+        {
+          "id": "7bzqutov",
+          "senderId": "p5",
+          "senderName": "Daisy",
+          "text": "You see that? Classic.",
+          "time": 1777240855616
+        },
+        {
+          "id": "kfm70cn5",
+          "senderId": "p5",
+          "senderName": "Daisy",
+          "text": "Patience.",
+          "time": 1777240939440
+        },
+        {
+          "id": "zt0ygu2n",
+          "senderId": "p1",
+          "senderName": "p1",
+          "text": "Variance is a beast.",
+          "time": 1777241000969
+        },
+        {
+          "id": "48hvl1wn",
+          "senderId": "p2",
+          "senderName": "Alice",
+          "text": "Stay focused.",
+          "time": 1777241039176
+        }
+      ],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 27,
+    "savedAt": 1777241065004
+  },
+  "fifteen35:XES8XE": {
+    "state": {
+      "tableId": "XES8XE",
+      "phase": "WAITING",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "1oqckrr5",
+          "text": "Game ready. Press start.",
+          "time": 1777240787741
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 0,
+    "savedAt": 1777240905865
   }
 }

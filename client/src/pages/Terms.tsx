@@ -36,9 +36,18 @@ export default function Terms() {
           </Section>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/[0.06]">
-          <p className="text-white/25 text-[10px] font-mono text-center">
-            DGM Poker · Chain Gang Poker · Virtual chips only · No cash value
+        <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-3">
+          <div className="flex items-center justify-center gap-4">
+            <a href="/privacy" className="text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors underline">
+              Privacy Policy
+            </a>
+            <span className="text-white/10 text-[10px]">·</span>
+            <a href="/" className="text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors">
+              Back to Lobby
+            </a>
+          </div>
+          <p className="text-white/20 text-[10px] font-mono text-center">
+            DGM Poker · Chain Gang Poker · Virtual chips only · No cash value · 17+
           </p>
         </div>
       </div>

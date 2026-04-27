@@ -40,6 +40,7 @@ export interface IStorage {
   syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
+  deletePlayer(id: string): Promise<void>;
 }
 
 export interface DailyStats {
@@ -261,6 +262,10 @@ export class MemStorage implements IStorage {
       .update(playerProfiles)
       .set({ activeTableId: null, activeSeatId: null, activeModeId: null, updatedAt: new Date() })
       .where(eq(playerProfiles.id, id));
+  }
+
+  async deletePlayer(id: string): Promise<void> {
+    await db.delete(playerProfiles).where(eq(playerProfiles.id, id));
   }
 }
 
