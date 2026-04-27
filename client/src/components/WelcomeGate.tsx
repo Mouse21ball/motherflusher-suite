@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
+import { BrandBackground } from "./BrandBackground";
 
 const AGE_KEY = 'cgp_age_confirmed';
 
@@ -36,52 +37,140 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
 // ── Age Gate ─────────────────────────────────────────────────────────────────
 function AgeGate({ onConfirm }: { onConfirm: () => void }) {
   return (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center px-4"
-      style={{ backgroundColor: '#05050A' }}
-    >
-      <div className="w-full max-w-sm flex flex-col items-center text-center gap-6">
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl"
-          style={{ background: 'rgba(240,184,41,0.10)', border: '1.5px solid rgba(240,184,41,0.22)' }}
-        >
-          ⛓️
-        </div>
+    <BrandBackground variant="gate">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-10">
 
-        <div>
-          <h1 className="text-xl font-bold font-sans mb-2" style={{ color: 'rgba(255,255,255,0.90)' }} data-testid="text-age-gate-title">
-            Chain Gang Poker
-          </h1>
-          <p className="text-sm font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)' }} data-testid="text-age-gate-body">
-            You must be 13 or older to use this app.
+        {/* DGM publisher badge */}
+        <div className="mb-8 flex flex-col items-center gap-1">
+          <div
+            className="flex items-center gap-2 px-3 py-1 rounded-full"
+            style={{ background: 'rgba(240,184,41,0.07)', border: '1px solid rgba(240,184,41,0.16)' }}
+          >
+            <span style={{ color: 'rgba(240,184,41,0.65)', fontSize: '9px' }}>◆</span>
+            <span
+              className="font-mono uppercase font-semibold"
+              style={{ fontSize: '8px', color: 'rgba(240,184,41,0.65)', letterSpacing: '0.20em' }}
+            >
+              DGM Entertainment
+            </span>
+            <span style={{ color: 'rgba(240,184,41,0.65)', fontSize: '9px' }}>◆</span>
+          </div>
+          <p
+            className="font-mono"
+            style={{ fontSize: '8px', color: 'rgba(255,255,255,0.18)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
+          >
+            A DGM Entertainment Game
           </p>
         </div>
 
+        {/* Main confirmation card */}
         <div
-          className="w-full rounded-xl p-4 text-left"
-          style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.07)' }}
+          className="w-full max-w-sm rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5"
+          style={{
+            background: 'rgba(7,7,16,0.88)',
+            border: '1px solid rgba(240,184,41,0.18)',
+            boxShadow: '0 0 48px rgba(0,0,0,0.70), 0 0 1px rgba(240,184,41,0.12)',
+            backdropFilter: 'blur(12px)',
+          }}
         >
-          <p className="text-[11px] font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
-            Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app involves no real-money gambling.
+          {/* Chain icon */}
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+            style={{
+              background: 'radial-gradient(circle at 40% 35%, rgba(240,184,41,0.18), rgba(240,184,41,0.06))',
+              border: '1.5px solid rgba(240,184,41,0.28)',
+              boxShadow: '0 0 20px rgba(240,184,41,0.10)',
+            }}
+          >
+            ⛓️
+          </div>
+
+          {/* Title */}
+          <div>
+            <h1
+              className="text-xl font-bold font-sans mb-1"
+              style={{ color: 'rgba(255,255,255,0.93)' }}
+              data-testid="text-age-gate-title"
+            >
+              Welcome to Chain Gang Poker
+            </h1>
+            <p
+              className="text-xs font-mono"
+              style={{ color: 'rgba(255,255,255,0.38)' }}
+              data-testid="text-age-gate-body"
+            >
+              You must be 13 or older to use this app.
+            </p>
+          </div>
+
+          {/* Gold divider */}
+          <div
+            className="w-12 h-[1px]"
+            style={{ background: 'linear-gradient(90deg, transparent, rgba(240,184,41,0.45), transparent)' }}
+          />
+
+          {/* Chips disclaimer */}
+          <div
+            className="w-full rounded-xl p-3 text-left"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <p className="text-[11px] font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+              Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app involves no real-money gambling.
+            </p>
+          </div>
+
+          {/* Confirm button */}
+          <button
+            onClick={onConfirm}
+            className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-150 active:scale-[0.97]"
+            style={{
+              backgroundColor: '#F0B829',
+              color: '#05050A',
+              boxShadow: '0 4px 28px rgba(240,184,41,0.32)',
+            }}
+            data-testid="button-age-confirm"
+          >
+            I am 13 or older — Continue
+          </button>
+
+          {/* Legal links footer */}
+          <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            By continuing, you confirm you meet the required age and agree to the{' '}
+            <a
+              href="/terms"
+              className="underline underline-offset-2 transition-colors"
+              style={{ color: 'rgba(240,184,41,0.50)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.80)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.50)')}
+            >
+              Terms
+            </a>
+            {' & '}
+            <a
+              href="/privacy"
+              className="underline underline-offset-2 transition-colors"
+              style={{ color: 'rgba(240,184,41,0.50)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.80)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.50)')}
+            >
+              Privacy Policy
+            </a>
+            .
           </p>
         </div>
 
-        <button
-          onClick={onConfirm}
-          className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97]"
-          style={{ backgroundColor: '#F0B829', color: '#05050A', boxShadow: '0 4px 24px rgba(240,184,41,0.28)' }}
-          data-testid="button-age-confirm"
-        >
-          I am 13 or older — Continue
-        </button>
+        {/* Bottom signature */}
+        <div className="mt-8 flex flex-col items-center gap-1">
+          <p className="font-mono italic" style={{ fontSize: '9px', color: 'rgba(240,184,41,0.25)' }}>
+            Built for the table. Backed by DGM Entertainment.
+          </p>
+          <p className="font-mono" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.12)' }}>
+            © 2026 DGM Entertainment LLC
+          </p>
+        </div>
 
-        <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
-          <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
-          {' · '}
-          <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
-        </p>
       </div>
-    </div>
+    </BrandBackground>
   );
 }
 
