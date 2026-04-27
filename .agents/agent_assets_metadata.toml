@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "xLGuHMR1rXtZwADrkXwBo"
+uri = "file://client/src/assets/images/dgm-legal-bg.png"
+type = "image"
+title = "DGM legal background fox wolf casino"
+
+[[generated]]
+id = "0kSSTyc3ddyOY7utuUKOX"
+uri = "file://client/src/assets/images/dgm-agegate-bg.png"
+type = "image"
+title = "DGM age gate tiger bear poker welcome"
+
+[[generated]]
+id = "X7hA3An4iUWWjleiijdwV"
+uri = "file://client/src/assets/images/dgm-splash-bg.png"
+type = "image"
+title = "DGM splash tiger leopard gold casino"
+
+[[generated]]
+id = "8j4zMYtvx5XbKr_8eTNDx"
+uri = "file://client/src/assets/images/dgm-logo.png"
+type = "image"
+title = "DGM Entertainment crown logo gold pink"
