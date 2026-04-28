@@ -67,11 +67,11 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
         <div
           className="w-full max-w-sm rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5"
           style={{
-            background: 'rgba(7,7,16,0.72)',
+            background: 'rgba(7,7,16,0.78)',
             border: '1px solid rgba(240,184,41,0.18)',
             boxShadow: '0 0 48px rgba(0,0,0,0.55), 0 0 1px rgba(240,184,41,0.12)',
             backdropFilter: 'blur(8px)',
-            transform: 'translateY(-20px)',
+            transform: 'translateY(-35px)',
           }}
         >
           {/* Chain icon */}
@@ -90,7 +90,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
           <div>
             <h1
               className="text-xl font-bold font-sans mb-1"
-              style={{ color: 'rgba(255,255,255,0.93)' }}
+              style={{ color: 'rgba(255,255,255,0.93)', textShadow: '0 2px 12px rgba(255,255,255,0.15)' }}
               data-testid="text-age-gate-title"
             >
               Welcome to Chain Gang Poker
@@ -123,11 +123,12 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
           {/* Confirm button */}
           <button
             onClick={onConfirm}
-            className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-150 active:scale-[0.97]"
+            className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-150 active:scale-[0.97] hover:scale-[1.02]"
             style={{
               backgroundColor: '#F0B829',
               color: '#05050A',
-              boxShadow: '0 4px 28px rgba(240,184,41,0.32)',
+              boxShadow: '0 4px 28px rgba(240,184,41,0.32), 0 6px 20px rgba(255,200,80,0.35)',
+              letterSpacing: '0.5px',
             }}
             data-testid="button-age-confirm"
           >

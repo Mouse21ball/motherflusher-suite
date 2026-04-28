@@ -33,7 +33,7 @@ export function BrandBackground({ variant = "legal", children }: BrandBackground
       }
     : {
         backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.45) 100%), url(${bgUrl})`,
-        backgroundSize: "cover",
+        backgroundSize: "105%",
         backgroundPosition: "center 65%",
         backgroundRepeat: "no-repeat",
       };
