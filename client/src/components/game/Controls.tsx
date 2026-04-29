@@ -100,7 +100,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <Button
           size="lg"
           onClick={() => { autoRestartFired.current = true; onAction('restart'); }}
-          className="w-full sm:w-auto font-bold uppercase tracking-widest bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          className="w-full sm:w-auto uppercase tracking-widest btn-casino-gold"
           data-testid="button-next-hand"
         >
           Next Hand
@@ -184,7 +184,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <Button
           size="lg"
           onClick={() => onAction('start')}
-          className="w-full sm:w-auto font-bold tracking-[0.15em] uppercase bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          className="w-full sm:w-auto tracking-[0.15em] uppercase btn-casino-gold"
           disabled={chips <= 0}
           data-testid="button-deal-me-in"
         >
@@ -203,7 +203,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <Button
           size="lg"
           onClick={() => { autoAnteFired.current = true; sfx.chipClink(); onAction('ante'); }}
-          className="w-full sm:w-auto font-bold uppercase tracking-wider bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_2px_8px_rgba(201,162,39,0.2)]"
+          className="w-full sm:w-auto uppercase tracking-wider btn-casino-gold"
           data-testid="button-pay-ante"
         >
           Pay Ante ($1)
@@ -226,7 +226,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         <div className="grid grid-cols-3 gap-2">
           <Button
             variant="outline"
-            className="bg-transparent border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
+            className="btn-casino-fold"
             onClick={() => { sfx.fold(); onAction('fold'); }}
             data-testid="button-fold"
           >
@@ -234,14 +234,14 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           </Button>
           <Button
             variant="outline"
-            className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white/80 hover:border-white/[0.15] transition-all duration-200"
+            className="btn-casino-neutral"
             onClick={() => { sfx.check(); onAction('stay'); }}
             data-testid="button-stay"
           >
             Stay
           </Button>
           <Button
-            className="font-semibold bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]"
+            className="btn-casino-gold"
             onClick={() => { sfx.cardDeal(); onAction('hit'); }}
             data-testid="button-hit"
           >
@@ -276,7 +276,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <Button
             onClick={() => { sfx.check(); onAction('draw'); }}
             variant="outline"
-            className="flex-1 border-white/[0.08] text-white/55 hover:bg-white/[0.04] hover:text-white/80 transition-all duration-200"
+            className="flex-1 btn-casino-neutral"
             data-testid="button-stay"
           >
             Stay
@@ -284,11 +284,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <Button
             onClick={() => { sfx.cardFlip(); onAction('draw'); }}
             disabled={selectedCardsCount === 0}
-            className={`flex-1 font-semibold transition-all duration-200 ${
-              selectedCardsCount > 0
-                ? 'bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.15)]'
-                : 'bg-[#1C1C20] text-white/25 cursor-not-allowed'
-            }`}
+            className="flex-1 btn-casino-gold"
             data-testid="button-draw"
           >
             Draw {selectedCardsCount > 0 ? selectedCardsCount : ''}
@@ -383,7 +379,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button 
           variant="outline" 
-          className="bg-transparent border-red-500/20 text-red-400/60 hover:bg-red-500/8 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
+          className="btn-casino-fold"
           onClick={() => handleBetAction('fold')}
           data-testid="button-fold"
         >
@@ -392,7 +388,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         
         <Button 
           variant="outline"
-          className="bg-transparent border-white/[0.08] text-white/60 hover:bg-white/[0.04] hover:text-white/80 hover:border-white/[0.12] transition-all duration-200"
+          className="btn-casino-neutral"
           onClick={() => handleBetAction(canCheck ? 'check' : 'call')}
           data-testid={canCheck ? "button-check" : "button-call"}
         >
@@ -401,7 +397,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
         <div className="col-span-2 flex gap-2">
           <Button 
-            className="flex-1 font-semibold bg-[#C9A227] hover:bg-[#D4B44A] text-[#0B0B0D] shadow-[0_1px_4px_rgba(201,162,39,0.12)]"
+            className="flex-1 btn-casino-gold"
             onClick={() => handleBetAction('raise', betAmount)}
             disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < betAmount}
             data-testid="button-raise"
@@ -427,7 +423,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <Button 
             variant="outline" 
             size="sm" 
-            className="text-[10px] h-8 px-3 min-w-[56px] border-[#C9A227]/20 text-[#C9A227]/60 hover:bg-[#C9A227]/8 hover:text-[#C9A227]/90 hover:border-[#C9A227]/30 font-bold tracking-widest touch-manipulation transition-all duration-200"
+            className="text-[10px] h-8 px-3 min-w-[56px] touch-manipulation btn-casino-allin"
             onClick={() => handleBetAction('raise', chips)}
           >
             ALL IN

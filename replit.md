@@ -164,6 +164,19 @@ Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount
 - `.seat-depth-hero/side/top` — CSS drop-shadow stratification by seat plane
 - `.anim-card-deal-3d`, `.anim-card-reveal-3d` — 3D card entry / flip animations
 
+### Premium Visual Polish (index.css — added in visual polish pass)
+- `.btn-casino-gold` — 3-stop gold gradient button with bevel inset shadow, shimmer sweep on hover, active press scale. Used on all primary action buttons.
+- `.btn-casino-fold` — Transparent red border button for fold actions.
+- `.btn-casino-neutral` — Transparent white border button for check/stay/call.
+- `.btn-casino-allin` — Transparent gold border button for ALL IN.
+- `.lobby-orb-gold/emerald/pink` — Fixed-position, blurred radial orbs with drift animation for lobby ambient atmosphere.
+- `.cgp-header-glass` — Premium header glass with `blur(24px) saturate(1.4)`, gold shadow tint.
+- `.mode-card-hover` — Hover depth lift for lobby game mode cards.
+
+### Sound System (`client/src/lib/sounds.ts`)
+All sounds use Web Audio API (no external files). `sfx` export:
+- `cardDeal()`, `cardFlip()`, `chipClink()`, `fold()`, `win()`, `lose()`, `check()`, `declare()`, `reveal()`, `buttonTap()` (added in polish pass)
+
 ## Persistence (Client-Side)
 - Chip balances per mode in localStorage (`poker_table_chips`)
 - Hand history last 50 hands (`poker_table_history`)

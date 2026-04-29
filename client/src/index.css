@@ -995,3 +995,211 @@
  */
 
 /* Portrait (any height): preserve full scroll behaviour, no overrides needed */
+
+/* ── Premium Casino Buttons ─────────────────────────────────────────────────
+   Applied alongside existing shadcn Button classes.
+   Cascade order: these rules appear after @import "tailwindcss" so they
+   override Tailwind utilities of equal specificity automatically.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.btn-casino-gold {
+  background: linear-gradient(180deg, #D4B84E 0%, #C9A227 42%, #A8871E 100%);
+  color: #05050A;
+  border: 1px solid rgba(212, 184, 78, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.22),
+    inset 0 -1px 0 rgba(0,0,0,0.28),
+    0 2px 8px rgba(201,162,39,0.32),
+    0 5px 18px rgba(201,162,39,0.16);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  transition: background 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-casino-gold::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 28%, rgba(255,255,255,0.16) 50%, transparent 72%);
+  background-size: 200% 100%;
+  background-position: -200% center;
+  transition: background-position 380ms ease;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.btn-casino-gold:hover::after {
+  background-position: 200% center;
+}
+
+.btn-casino-gold:hover {
+  background: linear-gradient(180deg, #DFC45A 0%, #D4B44A 42%, #B89428 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.28),
+    inset 0 -1px 0 rgba(0,0,0,0.30),
+    0 4px 14px rgba(201,162,39,0.50),
+    0 8px 32px rgba(201,162,39,0.22);
+}
+
+.btn-casino-gold:active {
+  transform: scale(0.97) translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 2px 6px rgba(0,0,0,0.22),
+    0 1px 4px rgba(201,162,39,0.20);
+}
+
+.btn-casino-gold:disabled,
+.btn-casino-gold[disabled] {
+  background: linear-gradient(180deg, #2A2514 0%, #1C1A0E 100%);
+  color: rgba(255,255,255,0.20);
+  border-color: rgba(255,255,255,0.04);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-casino-gold:disabled::after,
+.btn-casino-gold[disabled]::after {
+  display: none;
+}
+
+.btn-casino-fold {
+  background: transparent;
+  color: rgba(248,113,113,0.78);
+  border: 1px solid rgba(239,68,68,0.22);
+  box-shadow: none;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+}
+
+.btn-casino-fold:hover {
+  background: rgba(239,68,68,0.09);
+  color: rgba(252,165,165,0.92);
+  border-color: rgba(239,68,68,0.38);
+  box-shadow: 0 0 12px rgba(239,68,68,0.11);
+}
+
+.btn-casino-fold:active {
+  transform: scale(0.97);
+}
+
+.btn-casino-neutral {
+  background: transparent;
+  color: rgba(255,255,255,0.60);
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow: none;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+}
+
+.btn-casino-neutral:hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.84);
+  border-color: rgba(255,255,255,0.16);
+}
+
+.btn-casino-neutral:active {
+  transform: scale(0.97);
+}
+
+.btn-casino-allin {
+  background: transparent;
+  color: rgba(201,162,39,0.72);
+  border: 1px solid rgba(201,162,39,0.22);
+  box-shadow: none;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+}
+
+.btn-casino-allin:hover {
+  background: rgba(201,162,39,0.10);
+  color: rgba(201,162,39,0.96);
+  border-color: rgba(201,162,39,0.42);
+  box-shadow: 0 0 16px rgba(201,162,39,0.16);
+}
+
+.btn-casino-allin:active {
+  transform: scale(0.97);
+}
+
+/* ── Lobby ambient atmosphere ───────────────────────────────────────────────
+   Soft radial glows behind the lobby content that breathe and pulse.
+   Applied as absolutely-positioned siblings inside the flex-1 scroll container.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes orb-drift-a {
+  0%, 100% { transform: translate(0px, 0px) scale(1.0); }
+  33%       { transform: translate(12px, -18px) scale(1.06); }
+  66%       { transform: translate(-8px, 10px) scale(0.97); }
+}
+
+@keyframes orb-drift-b {
+  0%, 100% { transform: translate(0px, 0px) scale(1.0); }
+  40%       { transform: translate(-14px, 12px) scale(1.04); }
+  70%       { transform: translate(10px, -8px) scale(0.98); }
+}
+
+.lobby-orb-gold {
+  position: fixed;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(201,162,39,0.11) 0%, rgba(201,162,39,0.04) 45%, transparent 70%);
+  filter: blur(48px);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 0;
+  animation: orb-drift-a 14s ease-in-out infinite;
+}
+
+.lobby-orb-emerald {
+  position: fixed;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,200,150,0.09) 0%, rgba(0,200,150,0.03) 45%, transparent 70%);
+  filter: blur(44px);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 0;
+  animation: orb-drift-b 18s ease-in-out infinite;
+  animation-delay: -5s;
+}
+
+.lobby-orb-pink {
+  position: fixed;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,20,147,0.06) 0%, rgba(255,20,147,0.02) 45%, transparent 70%);
+  filter: blur(36px);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 0;
+  animation: orb-drift-a 22s ease-in-out infinite;
+  animation-delay: -9s;
+}
+
+/* ── Header glass — stronger blur, hairline gold tint at bottom ─────────── */
+
+.cgp-header-glass {
+  background: rgba(5,5,10,0.94);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 1px 0 rgba(201,162,39,0.06), 0 4px 20px rgba(0,0,0,0.30);
+}
+
+/* ── Mode card hover depth — replaces inline onMouseEnter logic ─────────── */
+.mode-card-hover {
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+.mode-card-hover:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  transform: translateY(-1px);
+}
+.mode-card-hover:active {
+  transform: scale(0.99) translateY(0);
+}

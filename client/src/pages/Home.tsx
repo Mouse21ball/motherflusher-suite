@@ -615,8 +615,7 @@ export default function Home() {
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 w-full px-4 py-2.5 flex items-center gap-3 border-b"
-        style={{ backgroundColor: 'rgba(5,5,10,0.92)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.05)' }}
+        className="sticky top-0 z-40 w-full px-4 py-2.5 flex items-center gap-3 cgp-header-glass"
       >
         {/* Brand */}
         <div className="flex items-center gap-2.5 mr-auto">
@@ -657,6 +656,12 @@ export default function Home() {
       </header>
 
       <div className="flex-1 flex flex-col items-center relative">
+        {/* Ambient atmosphere orbs — fixed-position, pointer-events-none */}
+        <div className="lobby-orb-gold" style={{ top: '-60px', left: '-80px' }} aria-hidden="true" />
+        <div className="lobby-orb-emerald" style={{ top: '30vh', right: '-60px' }} aria-hidden="true" />
+        <div className="lobby-orb-pink" style={{ top: '62vh', left: '-40px' }} aria-hidden="true" />
+        <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
+
         <div className="w-full max-w-lg px-4 pt-5 pb-10 flex flex-col gap-4">
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}

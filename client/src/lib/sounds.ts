@@ -179,4 +179,11 @@ export const sfx = {
       noise(ac, 0.02, 0.04, t, 6000);
     });
   },
+
+  buttonTap() {
+    play((ac, t) => {
+      tone(ac, 1100, 0.028, 0.022, t, 'sine');
+      noise(ac, 0.018, 0.032, t, 6500);
+    });
+  },
 };
