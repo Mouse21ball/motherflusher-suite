@@ -1,0 +1,79 @@
+We need a REAL visual upgrade to the in-game table, especially the cards. Do not change gameplay logic, chip math, bots, routes, or rules.
+
+Use the attached reference style:
+- glossy premium casino table
+- larger beautiful cards
+- real card shadows
+- gold glow around active player/cards
+- cleaner player panels
+- stronger pot/chip display
+- dark green felt table
+- black/gold luxury casino look
+- action panel like premium mobile poker apps
+
+Main issue:
+Current cards look flat, tiny, plain, and cheap. Upgrade the card UI to look premium.
+
+Files to inspect first:
+client/src/components/game/GameTable.tsx
+client/src/components/game/PlayingCard.tsx or card component equivalent
+client/src/components/game/Controls.tsx
+client/src/index.css
+any card/table CSS files
+
+Required changes:
+1. Create/upgrade a reusable premium card component:
+   - rounded corners
+   - soft white card face
+   - subtle texture/pattern
+   - large suit icons
+   - clean red/black suits
+   - inner highlight
+   - drop shadow
+   - slight overlapping fan layout
+   - selected cards lift up with gold glow
+   - disabled/hidden cards still look intentional
+
+2. Upgrade player hand display:
+   - cards larger on mobile
+   - center hero cards more dramatically
+   - add depth/shadow under cards
+   - keep tap targets easy
+   - do not block buttons or player name
+
+3. Upgrade table visual:
+   - darker green felt
+   - gold rail glow
+   - subtle vignette
+   - pot chip stack visual near pot amount
+   - better spacing around pot/result message
+
+4. Upgrade player panels:
+   - black glass panel
+   - gold border
+   - avatar/name/chips readable
+   - bot badge cleaner
+   - active player glow
+
+5. Upgrade action area:
+   - premium black/gold control panel
+   - Stay/Draw/Fold/Check/Bet buttons look like real casino buttons
+   - strong disabled state but still readable
+
+6. Preserve all logic:
+   - no gameplay changes
+   - no engine changes
+   - no chip math changes
+   - no route changes
+   - no bot changes
+   - no server changes unless absolutely necessary
+
+7. After changes:
+   - run npm run build
+   - test Badugi deal/draw screen visually
+   - test Dead 7, 15/35, and Suits & Poker still load
+   - take screenshots of each mode
+   - report files changed and confirm gameplay untouched
+
+Goal:
+The in-game table should look close to the attached premium mockup, not just minor CSS tweaks. This is a visual redesign pass for cards, table, player panels, and controls.
