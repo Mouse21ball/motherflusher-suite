@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import {
   isHourlyReady, getHourlyCountdown, getHourlyBonusChips,
-  isStarterPackClaimed, shouldShowStarterPack, getVipTier,
+  shouldShowStarterPack, getVipTier,
   VIP_TIERS, DISCLAIMER,
 } from '@/lib/retention';
 import {

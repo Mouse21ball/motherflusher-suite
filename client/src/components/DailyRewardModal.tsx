@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { claimDailyReward, isRewardAvailable, DAILY_REWARD_TIERS, getStreakInfo, type DailyRewardTier } from '@/lib/dailyReward';
+import { claimDailyReward, DAILY_REWARD_TIERS, getStreakInfo, type DailyRewardTier } from '@/lib/dailyReward';
 import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
 import { saveChips, getChips } from '@/lib/persistence';
 import { getVipTier, DISCLAIMER } from '@/lib/retention';
