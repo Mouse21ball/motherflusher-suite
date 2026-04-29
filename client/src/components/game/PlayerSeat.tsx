@@ -203,7 +203,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 selectable={canSelect}
                 selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
                 isSelfHidden={isSelf && card.isHidden}
-                className={isSelf && heroCardClassName ? heroCardClassName : undefined}
+                className={isSelf
+                  ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]")
+                  : undefined}
               />
             </div>
           );
@@ -235,100 +237,104 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       <div
         key={isActive ? `active-${turnOnsetKey}` : 'idle'}
         className={cn(
-        "relative w-full min-w-[100px] rounded-lg p-2.5 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
-        /* Hero win: nameplate brightness stays elevated briefly — uses chipFlash window (1800ms) */
+        "relative w-full min-w-[100px] rounded-xl p-2 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
         chipFlash && isSelf && selfWonRef.current && "brightness-[1.04]",
-        isSelf ? "bg-[#101013]" : "bg-[#0a0a0d]",
-        /* Active: stronger gold border + glow + one-shot onset pulse */
+        isSelf ? "bg-[#0e0e11]" : "bg-[#09090c]",
         isActive && !showdownState
-          ? "border-[#C9A227]/75 shadow-[0_0_26px_rgba(201,162,39,0.32)] anim-active-turn anim-turn-onset"
+          ? "border-[#C9A227]/80 shadow-[0_0_28px_rgba(201,162,39,0.35),0_0_8px_rgba(201,162,39,0.20)] anim-active-turn anim-turn-onset"
           : isStackLeader && !showdownState
-          ? "border-[#C9A227]/18 shadow-[0_0_10px_rgba(201,162,39,0.09)]"
-          : "border-white/[0.05]",
-        /* Self border when idle — slightly more visible than bots */
-        isSelf && !isActive ? "border-white/[0.09]" : "",
-        /* Human opponent idle border — warm gold tint after 1st hand (rivalry feel) */
+          ? "border-[#C9A227]/22 shadow-[0_0_12px_rgba(201,162,39,0.10)]"
+          : "border-white/[0.06]",
+        isSelf && !isActive ? "border-[#C9A227]/18" : "",
         !isSelf && !isActive && player.presence === 'human'
           ? ((sessionHandCount ?? 0) >= 2
-              ? "border-[#C9A227]/20 bg-[#100e09]"
+              ? "border-[#C9A227]/24 bg-[#0f0d09]"
               : "border-white/[0.08]")
           : "",
-        /* Just-acted linger — brief silver border after any bet/call/fold */
-        justActed && !isActive && !showdownState ? "border-white/[0.22]" : "",
+        justActed && !isActive && !showdownState ? "border-white/[0.26]" : "",
         showdownState && player.isWinner && "anim-winner",
         showdownState && player.isWinner && isSelf && "anim-win-flash",
         showdownState && player.isLoser && "border-white/[0.03]"
       )}>
-        <div className="flex items-center gap-1.5 max-w-full">
+        {/* Avatar + name row */}
+        <div className="flex items-center gap-2 max-w-full w-full justify-center">
+          {/* Avatar circle */}
           <div className={cn(
-            "text-sm truncate font-sans",
-            /* Identity hierarchy: self > human opponent > bot; winner name turns gold at showdown */
-            isSelf ? "font-semibold text-white/90"
-              : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
-              : player.presence === 'human' ? "font-semibold text-white/85"
-              : "font-normal text-white/45"
+            "player-avatar-circle",
+            isActive && !showdownState && "is-active",
+            isSelf && "is-self"
           )}>
-            {player.name}
+            {(player.name || '?')[0].toUpperCase()}
           </div>
-          {!isSelf && player.presence === 'human' && (
-            <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
-          )}
-          {player.presence === 'bot' && !isSelf && (
-            <span className="text-[7px] font-mono uppercase tracking-widest text-white/18 border border-white/[0.07] px-1 py-0.5 rounded shrink-0">BOT</span>
-          )}
-        </div>
-        <div className="flex flex-col items-center gap-0">
-          <div className={cn(
-            "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700",
-            /* Session P&L color: green if meaningfully up, red if meaningfully down */
-            sessionDelta > 75
-              ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
-              : sessionDelta < -75
-              ? (isSelf ? "text-red-400/80" : "text-red-400/50")
-              : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
-            /* Brief color-clarity boost at hand end: full-brightness up/down read */
-            chipFlash && (
-              sessionDelta > 75  ? "text-emerald-400 anim-pulse-gold" :
-              sessionDelta < -75 ? "text-red-400 anim-pulse-gold" :
-                                   "text-[#D4B44A] anim-pulse-gold"
-            ),
-            showdownState && player.isWinner && "anim-win-chip-pop",
-            showdownState && player.isLoser && "anim-fold-drop"
-          )}>
-            {/* Stack leader marker — quiet gold chevron, all players */}
-            {isStackLeader && !showdownState && (
-              <span className="text-[7px] leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.55)' }}>▲</span>
+          <div className="flex flex-col items-start min-w-0">
+            {/* Name + badges */}
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "text-sm truncate font-sans leading-tight",
+                isSelf ? "font-semibold text-white/90"
+                  : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
+                  : player.presence === 'human' ? "font-semibold text-white/85"
+                  : "font-normal text-white/50"
+              )}>
+                {player.name}
+              </div>
+              {!isSelf && player.presence === 'human' && (
+                <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
+              )}
+              {player.presence === 'bot' && !isSelf && (
+                <span className="text-[7px] font-mono uppercase tracking-widest text-[#C9A227]/30 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">BOT</span>
+              )}
+            </div>
+            {/* Chips */}
+            <div className={cn(
+              "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
+              sessionDelta > 75
+                ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
+                : sessionDelta < -75
+                ? (isSelf ? "text-red-400/80" : "text-red-400/50")
+                : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
+              chipFlash && (
+                sessionDelta > 75  ? "text-emerald-400 anim-pulse-gold" :
+                sessionDelta < -75 ? "text-red-400 anim-pulse-gold" :
+                                     "text-[#D4B44A] anim-pulse-gold"
+              ),
+              showdownState && player.isWinner && "anim-win-chip-pop",
+              showdownState && player.isLoser && "anim-fold-drop"
+            )}>
+              {isStackLeader && !showdownState && (
+                <span className="text-[7px] leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.55)' }}>▲</span>
+              )}
+              <span className="opacity-60">$</span>{player.chips}
+            </div>
+            {/* Session status — self only */}
+            {isSelf && !showdownState && sessionDelta > 75 && (
+              <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+                style={{ color: chipFlash ? 'rgba(52,211,153,0.72)' : 'rgba(52,211,153,0.45)' }}>
+                up this session
+              </div>
             )}
-            <span className="opacity-60">$</span>{player.chips}
+            {isSelf && !showdownState && sessionDelta < -100 && (
+              <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+                style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.38)' }}>
+                down this session
+              </div>
+            )}
+            {/* Last-action label — opponents only */}
+            {!isSelf && lastActionLabel && (
+              <div
+                className="text-[9px] font-mono font-semibold anim-action-label mt-0.5 tracking-wide"
+                style={{
+                  color: lastActionLabel === 'Fold'
+                    ? 'rgba(248,113,113,0.72)'
+                    : 'rgba(201,162,39,0.85)',
+                }}
+                data-testid={`text-last-action-${player.id}`}
+              >
+                {lastActionLabel}
+              </div>
+            )}
           </div>
-          {/* Session status label — self only, shown outside showdown */}
-          {isSelf && !showdownState && sessionDelta > 75 && (
-            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
-              style={{ color: chipFlash ? 'rgba(52,211,153,0.72)' : 'rgba(52,211,153,0.45)' }}>
-              up this session
-            </div>
-          )}
-          {isSelf && !showdownState && sessionDelta < -100 && (
-            <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
-              style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.38)' }}>
-              down this session
-            </div>
-          )}
-          {/* Last-action label — opponents only, auto-cleared after 750ms */}
-          {!isSelf && lastActionLabel && (
-            <div
-              className="text-[9px] font-mono font-semibold anim-action-label mt-0.5 tracking-wide"
-              style={{
-                color: lastActionLabel === 'Fold'
-                  ? 'rgba(248,113,113,0.72)'
-                  : 'rgba(201,162,39,0.85)',
-              }}
-              data-testid={`text-last-action-${player.id}`}
-            >
-              {lastActionLabel}
-            </div>
-          )}
-        </div>
+        </div>{/* end avatar row */}
         {showVisibleCount && player.cards.length > 0 && (() => {
           const faceUpCards = player.cards.filter(c => !c.isHidden);
           if (faceUpCards.length === 0) return null;

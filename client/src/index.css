@@ -99,19 +99,49 @@
 /* ── Playing cards ──────────────────────────────────────────────────────────── */
 
 .playing-card-front {
-  background: linear-gradient(165deg, #FEFEFE 0%, #F5F3EE 40%, #EDE9E0 100%);
-  border-radius: 0.5rem;
+  background:
+    linear-gradient(160deg, #FFFFFF 0%, #F8F6F0 35%, #EFECe4 65%, #E8E4D8 100%);
+  border-radius: 0.6rem;
   box-shadow:
-    0 1px 3px rgba(0,0,0,0.38),
-    0 5px 12px rgba(0,0,0,0.34),
-    0 12px 28px rgba(0,0,0,0.22),
-    0 24px 48px rgba(0,0,0,0.12),
-    0 0 0 1px rgba(0,0,0,0.09),
-    inset 0 1px 0 rgba(255,255,255,0.96);
+    0 2px 4px rgba(0,0,0,0.42),
+    0 6px 16px rgba(0,0,0,0.36),
+    0 16px 36px rgba(0,0,0,0.26),
+    0 32px 56px rgba(0,0,0,0.16),
+    0 0 0 1px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,1.0),
+    inset 0 0 0 0.5px rgba(0,0,0,0.06);
   font-family: var(--font-mono);
-  font-weight: 700;
+  font-weight: 800;
   position: relative;
 }
+
+/* Inner glossy highlight */
+.card-inner-highlight {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 42%;
+  border-radius: 0.6rem 0.6rem 60% 60% / 0.6rem 0.6rem 36px 36px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.0) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Suit/rank colors */
+.card-rank-red   { color: #CC1122; }
+.card-rank-black { color: #16161E; }
+.card-suit-red   { color: #DD1133; }
+.card-suit-black { color: #1E1E28; }
+
+/* Center pip */
+.card-center-pip {
+  font-size: 2.1rem;
+  line-height: 1;
+}
+@media (min-width: 640px) {
+  .card-center-pip { font-size: 2.8rem; }
+}
+.card-center-red   { color: #DD1133; filter: drop-shadow(0 1px 2px rgba(200,0,30,0.18)); }
+.card-center-black { color: #1E1E28; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.28)); }
 
 /* ── DECK THEMES ─────────────────────────────────────────────────────────── */
 
@@ -120,8 +150,8 @@
 .deck-classic .playing-card-back {
   background:
     linear-gradient(135deg, #1C1A2E 0%, #12111C 50%, #0A0A12 100%);
-  border: 2px solid rgba(201, 162, 39, 0.12);
-  border-radius: 0.5rem;
+  border: 2px solid rgba(201, 162, 39, 0.16);
+  border-radius: 0.6rem;
   box-shadow:
     0 2px 5px rgba(0,0,0,0.35),
     0 8px 18px rgba(0,0,0,0.25),
@@ -225,10 +255,13 @@
 
 .card-selected {
   box-shadow:
-    0 0 0 2px rgba(255, 215, 0, 0.95),
-    0 0 14px rgba(255, 215, 0, 0.85),
-    0 0 26px rgba(255, 215, 0, 0.45);
-  border-radius: 0.5rem;
+    0 0 0 2.5px rgba(255, 215, 0, 1.0),
+    0 0 0 4px rgba(255, 200, 0, 0.35),
+    0 0 18px rgba(255, 215, 0, 0.90),
+    0 0 38px rgba(255, 200, 0, 0.55),
+    0 -8px 18px rgba(255, 215, 0, 0.30);
+  border-radius: 0.6rem;
+  transform: translateY(-2px);
 }
 
 /* ── Table felt — deep spotlight, dramatic depth ─────────────────────────── */
@@ -242,20 +275,26 @@
     radial-gradient(ellipse at 50% 28%, #1e4a2d 0%, #0f2619 28%, #07190e 52%, #020705 100%);
   box-shadow:
     /* front rail rim light — near edge catches overhead lamp */
-    inset 0 -2px 0 rgba(201,162,39,0.17),
+    inset 0 -3px 0 rgba(201,162,39,0.38),
     /* far-edge top shadow — back of table recedes into darkness */
-    inset 0 5px 22px rgba(0,0,0,0.74),
-    /* gold inner rail — premium table edge */
-    inset 0 0 0 1px rgba(201,162,39,0.11),
+    inset 0 5px 22px rgba(0,0,0,0.82),
+    /* gold inner rail — premium luxury table edge */
+    inset 0 0 0 2px rgba(201,162,39,0.28),
+    inset 0 0 0 4px rgba(201,162,39,0.08),
+    /* gold rail outer ambient glow */
+    inset 0 0 28px rgba(201,162,39,0.07),
     /* heavy inner vignette — pulls eye to center */
     inset 0     0   148px rgba(0,0,0,0.94),
     inset 100px 0   108px rgba(0,0,0,0.52),
     inset -100px 0  108px rgba(0,0,0,0.52),
     inset 0   80px  108px rgba(0,0,0,0.46),
     inset 0  -40px   64px rgba(0,0,0,0.28),
-    /* outer rail — physical wood edge */
-    0 0 0 3px #1a1306,
-    0 0 0 6px #0b0804,
+    /* outer rail — physical wood edge with gold tint */
+    0 0 0 4px #261c06,
+    0 0 0 7px #0d0903,
+    /* gold halo around table */
+    0 0 24px rgba(201,162,39,0.22),
+    0 0 56px rgba(201,162,39,0.10),
     /* deep table drop shadow — object hanging in space */
     0 20px 60px rgba(0,0,0,0.94),
     0 32px 80px rgba(0,0,0,0.58);
@@ -310,9 +349,11 @@
   animation: table-reveal 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* ── Hero card elevated — hero hand floats slightly above the felt ───────── */
+/* ── Hero card elevated — hero hand floats above the felt with rich shadow ── */
 .hero-card-elevated {
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+  filter:
+    drop-shadow(0 6px 16px rgba(0,0,0,0.60))
+    drop-shadow(0 2px 4px rgba(0,0,0,0.40));
 }
 
 /* ── Hero card hover lift — physical card pickup feel ──────────────────── */
@@ -320,8 +361,76 @@
   transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 .hero-card-item:hover {
-  /* lifts from base arcY=-3px to -10px, barely scales — feels like picking it up */
-  transform: rotate(0deg) translateY(-10px) scale(1.015) !important;
+  transform: rotate(0deg) translateY(-12px) scale(1.02) !important;
+}
+
+/* ── Premium pot display chip stack ────────────────────────────────────── */
+.pot-display-premium {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(201,162,39,0.12) 0%, transparent 60%),
+    linear-gradient(160deg, #0f0f12 0%, #080809 100%);
+  border: 1px solid rgba(201,162,39,0.32);
+  box-shadow:
+    0 0 0 1px rgba(201,162,39,0.08),
+    0 0 20px rgba(201,162,39,0.14),
+    0 4px 16px rgba(0,0,0,0.60),
+    inset 0 1px 0 rgba(201,162,39,0.18);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 8px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+}
+
+/* ── Chip stack icon for pot display ───────────────────────────────────── */
+.chip-stack-icon {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0;
+  margin-right: 4px;
+}
+.chip-stack-icon span {
+  display: block;
+  width: 18px;
+  height: 6px;
+  border-radius: 50%;
+  margin-bottom: -4px;
+  border: 1.5px solid rgba(0,0,0,0.35);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* ── Player nameplate premium ─────────────────────────────────────────── */
+.player-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+  border: 1.5px solid rgba(201,162,39,0.22);
+  background: linear-gradient(135deg, #1e1d26 0%, #14131a 100%);
+  color: rgba(201,162,39,0.75);
+}
+.player-avatar-circle.is-active {
+  border-color: rgba(201,162,39,0.65);
+  background: linear-gradient(135deg, #2a2518 0%, #1a190e 100%);
+  color: #C9A227;
+  box-shadow: 0 0 8px rgba(201,162,39,0.25);
+}
+.player-avatar-circle.is-self {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+  border-color: rgba(201,162,39,0.35);
+  color: rgba(201,162,39,0.90);
 }
 
 /* ── Hero seat parallax float — foreground depth plane separation ───────── */

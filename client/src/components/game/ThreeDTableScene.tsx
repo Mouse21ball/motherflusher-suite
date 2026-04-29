@@ -484,13 +484,18 @@ export function ThreeDTableScene({
   function PotDisplay() {
     return (
       <div
-        className={cn("pot-counter bg-[#080809]/92 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full flex flex-col items-center", potPulse && "anim-chip-pop")}
+        className={cn("pot-display-premium", potPulse && "anim-chip-pop")}
         data-testid="text-pot"
       >
-        <span className="text-[8px] text-[#C9A227]/65 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
-        <div className="flex items-center gap-1.5">
-          <div className="gold-chip w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className={cn("text-sm sm:text-base font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/85")}>
+        <span className="text-[7px] sm:text-[8px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
+        <div className="flex items-center gap-2">
+          {/* Chip stack icon */}
+          <div className="chip-stack-icon" aria-hidden="true">
+            <span style={{ background: 'linear-gradient(90deg,#c00,#e00)', width: '18px', height: '6px' }} />
+            <span style={{ background: 'linear-gradient(90deg,#b00,#d00)', width: '18px', height: '6px' }} />
+            <span style={{ background: 'linear-gradient(90deg,#a00,#c00)', width: '18px', height: '6px' }} />
+          </div>
+          <span className={cn("text-base sm:text-lg font-mono font-black tabular-nums tracking-tight", potPulse ? "text-[#C9A227]" : "text-white")}>
             ${gameState.pot}
           </span>
         </div>
@@ -563,7 +568,7 @@ export function ThreeDTableScene({
                   justActed={!!actionLabels[player?.id ?? '']}
                   anyJustActed={anyJustActed}
                   hasActivePlayer={hasActivePlayer}
-                  className={player?.id === myId ? "bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md" : ""}
+                  className={player?.id === myId ? "bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md" : ""}
                 />
               </div>
             );
@@ -656,7 +661,7 @@ export function ThreeDTableScene({
                 showdownState={isShowdown}
                 heroCardClassName={heroCardClassName}
                 isStackLeader={stackLeaderId === me.id}
-                className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
+                className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"
               />
             </div>
           )}
@@ -838,7 +843,7 @@ export function ThreeDTableScene({
               showdownState={isShowdown}
               heroCardClassName={heroCardClassName}
               isStackLeader={stackLeaderId === me.id}
-              className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
+              className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"
             />
             {/* 15/35: hero sees their own hidden card in the total */}
             {modeId === 'fifteen35' && me.cards.length > 0 && (
