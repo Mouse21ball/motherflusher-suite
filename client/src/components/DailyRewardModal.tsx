@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { claimDailyReward, isRewardAvailable, DAILY_REWARD_TIERS, getStreakInfo, type DailyRewardTier } from '@/lib/dailyReward';
-import { awardDailyXP } from '@/lib/progression';
+import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
 import { saveChips, getChips } from '@/lib/persistence';
+import { getVipTier, DISCLAIMER } from '@/lib/retention';
 
 interface DailyRewardModalProps {
   open: boolean;
@@ -15,6 +16,9 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
   const [claimed, setClaimed] = useState<DailyRewardTier | null>(null);
   const [animating, setAnimating] = useState(false);
   const [streakInfo, setStreakInfo] = useState(getStreakInfo);
+  const progression = getProgression();
+  const levelInfo   = getLevelInfo(progression.xp);
+  const vip         = getVipTier(levelInfo.level);
 
   useEffect(() => {
     if (open) setStreakInfo(getStreakInfo());
@@ -55,19 +59,32 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
 
         <div className="relative p-6 flex flex-col items-center gap-4">
           {/* Header */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1.5">
             <div className="text-3xl leading-none">{claimed ? '🎉' : '🎁'}</div>
             <h2 className="text-lg font-bold text-white/90 font-sans" data-testid="text-daily-title">
               {claimed ? 'Reward Claimed!' : 'Daily Bonus'}
             </h2>
             {streakInfo.streak > 0 && (
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-mono text-white/35 uppercase tracking-widest">
                   {streakInfo.streak} day streak
                 </span>
                 <span className="text-sm leading-none">{flameStr}</span>
               </div>
             )}
+            {/* VIP tier badge */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full mt-0.5"
+              style={{ backgroundColor: vip.bg, border: `1px solid ${vip.border}` }}
+            >
+              <span className="text-xs">{vip.badge}</span>
+              <span className="text-[10px] font-mono font-bold" style={{ color: vip.color }}>
+                {vip.name} VIP
+              </span>
+              {vip.dailyBonusPct > 0 && (
+                <span className="text-[9px] font-mono text-white/35">+{vip.dailyBonusPct}% bonus</span>
+              )}
+            </div>
           </div>
 
           {/* 7-day tracker */}
@@ -163,6 +180,14 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
               Come back tomorrow for day {(streakInfo.dayInCycle % 7) + 1} of your streak!
             </p>
           )}
+
+          {/* Compliance disclaimer */}
+          <p
+            className="text-[9px] font-mono text-white/20 text-center leading-relaxed"
+            data-testid="text-daily-disclaimer"
+          >
+            {DISCLAIMER}
+          </p>
         </div>
       </div>
     </div>

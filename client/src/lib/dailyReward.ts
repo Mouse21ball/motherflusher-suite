@@ -23,7 +23,8 @@ export const DAILY_REWARD_TIERS: DailyRewardTier[] = [
 ];
 
 export interface DailyRewardState {
-  lastClaimedDate: string | null;  // YYYY-MM-DD
+  lastClaimedDate: string | null;      // YYYY-MM-DD
+  lastClaimedTimestamp: number | null; // unix ms — for 48-hour streak window
   currentStreak: number;
   totalClaimed: number;
 }
@@ -41,9 +42,16 @@ function yesterdayStr(): string {
 function loadState(): DailyRewardState {
   try {
     const raw = localStorage.getItem(DAILY_REWARD_KEY);
-    if (raw) return JSON.parse(raw) as DailyRewardState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as DailyRewardState;
+      // Backfill timestamp for existing records that have a date but no timestamp
+      if (parsed.lastClaimedDate && parsed.lastClaimedTimestamp == null) {
+        parsed.lastClaimedTimestamp = new Date(parsed.lastClaimedDate).getTime();
+      }
+      return parsed;
+    }
   } catch {}
-  return { lastClaimedDate: null, currentStreak: 0, totalClaimed: 0 };
+  return { lastClaimedDate: null, lastClaimedTimestamp: null, currentStreak: 0, totalClaimed: 0 };
 }
 
 function saveState(state: DailyRewardState): void {
@@ -59,11 +67,15 @@ export function isRewardAvailable(): boolean {
   return state.lastClaimedDate !== todayStr();
 }
 
+const STREAK_WINDOW_MS = 48 * 60 * 60 * 1000; // 48-hour streak protection
+
 export function getStreakInfo(): { streak: number; dayInCycle: number; nextReward: DailyRewardTier } {
   const state = loadState();
   const today = todayStr();
-  const yesterday = yesterdayStr();
-  const isActive = state.lastClaimedDate === today || state.lastClaimedDate === yesterday;
+  // Streak is active if claimed today OR within the past 48 hours
+  const withinWindow = state.lastClaimedTimestamp != null
+    && (Date.now() - state.lastClaimedTimestamp) <= STREAK_WINDOW_MS;
+  const isActive = state.lastClaimedDate === today || withinWindow;
   const streak = isActive ? state.currentStreak : 0;
   const dayInCycle = (streak % 7) + 1;
   return { streak, dayInCycle, nextReward: DAILY_REWARD_TIERS[dayInCycle - 1] };
@@ -80,12 +92,20 @@ export function getTodayReward(): DailyRewardTier | null {
 // Claim today's reward. Returns the tier claimed.
 export function claimDailyReward(): DailyRewardTier {
   const state = loadState();
-  const yesterday = yesterdayStr();
-  const isStreak = state.lastClaimedDate === yesterday || state.lastClaimedDate === null;
+  const now = Date.now();
+  // Streak continues if last claim was within the 48-hour window
+  const withinWindow = state.lastClaimedTimestamp != null
+    && (now - state.lastClaimedTimestamp) <= STREAK_WINDOW_MS;
+  const isStreak = state.lastClaimedDate === null || withinWindow;
   const newStreak = isStreak ? state.currentStreak + 1 : 1;
   const dayIndex = (newStreak - 1) % 7;
   const reward = DAILY_REWARD_TIERS[dayIndex];
-  saveState({ lastClaimedDate: todayStr(), currentStreak: newStreak, totalClaimed: state.totalClaimed + 1 });
+  saveState({
+    lastClaimedDate: todayStr(),
+    lastClaimedTimestamp: now,
+    currentStreak: newStreak,
+    totalClaimed: state.totalClaimed + 1,
+  });
   return reward;
 }
 

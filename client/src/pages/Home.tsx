@@ -24,7 +24,14 @@ import {
   getSimulatedPlayerCount,
   getModeTableCount,
 } from '@/lib/dailyReward';
+import {
+  isHourlyReady,
+  shouldShowStarterPack,
+  getVipTier,
+} from '@/lib/retention';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
+import { HourlyBonusModal } from '@/components/HourlyBonusModal';
+import { StarterPackModal } from '@/components/StarterPackModal';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 
@@ -39,6 +46,7 @@ const C = {
   purple:  '#9B5DE5',
   silver:  '#A0A0B8',
   red:     '#DC2626',
+  pink:    '#FF1493',
   bg:      '#05050A',
 } as const;
 
@@ -454,8 +462,13 @@ export default function Home() {
   const rank = getRankForLevel(serverLevel);
 
   const [dailyOpen,   setDailyOpen]   = useState(false);
-  const [rewardReady, setRewardReady] = useState(isRewardAvailable);
+  const [hourlyOpen,  setHourlyOpen]  = useState(false);
+  const [starterOpen, setStarterOpen] = useState(false);
+  const [rewardReady,      setRewardReady]      = useState(isRewardAvailable);
+  const [hourlyReady,      setHourlyReady]      = useState(isHourlyReady);
+  const [starterAvailable, setStarterAvailable] = useState(shouldShowStarterPack);
   const streakInfo = getStreakInfo();
+  const vip = getVipTier(serverLevel);
 
   const [playerCount, setPlayerCount] = useState(getSimulatedPlayerCount);
   useEffect(() => {
@@ -468,10 +481,28 @@ export default function Home() {
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
+  // Auto-show starter pack once for very new players (< 5 hands played)
+  useEffect(() => {
+    if (shouldShowStarterPack() && stats.handsPlayed < 5) {
+      const timer = setTimeout(() => setStarterOpen(true), 1800);
+      return () => clearTimeout(timer);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleDailyClose = useCallback(() => {
     setDailyOpen(false);
     setRewardReady(false);
     setProgression(getProgression());
+  }, []);
+
+  const handleHourlyClose = useCallback(() => {
+    setHourlyOpen(false);
+    setHourlyReady(isHourlyReady());
+  }, []);
+
+  const handleStarterClose = useCallback(() => {
+    setStarterOpen(false);
+    setStarterAvailable(false);
   }, []);
 
   const handleJoinTable = useCallback((modeId: string, tableId: string) => {
@@ -578,7 +609,9 @@ export default function Home() {
         </div>
       )}
 
-      <DailyRewardModal open={dailyOpen} onClose={handleDailyClose} />
+      <DailyRewardModal open={dailyOpen}   onClose={handleDailyClose}   />
+      <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
+      <StarterPackModal  open={starterOpen} onClose={handleStarterClose} />
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <header
@@ -709,6 +742,59 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* ── RETENTION STRIP ──────────────────────────────────────────── */}
+          <div className={`grid gap-2 ${starterAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {/* Hourly Bonus */}
+            <button
+              onClick={() => setHourlyOpen(true)}
+              className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97] relative"
+              style={hourlyReady
+                ? { background: 'linear-gradient(135deg, rgba(240,184,41,0.14) 0%, rgba(240,184,41,0.05) 100%)', border: '1px solid rgba(240,184,41,0.35)' }
+                : { backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }
+              }
+              data-testid="button-hourly-home"
+            >
+              {hourlyReady && (
+                <span
+                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#05050A]"
+                  style={{ backgroundColor: C.pink }}
+                />
+              )}
+              <div className="text-base leading-none">{hourlyReady ? '⚡' : '⏰'}</div>
+              <div className="text-[10px] font-bold font-sans" style={{ color: hourlyReady ? C.gold : 'rgba(255,255,255,0.40)' }}>
+                {hourlyReady ? 'Claim Bonus' : 'Hourly'}
+              </div>
+            </button>
+
+            {/* Starter Kit — only if unclaimed */}
+            {starterAvailable && (
+              <button
+                onClick={() => setStarterOpen(true)}
+                className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97] relative"
+                style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.12) 0%, rgba(255,107,0,0.06) 100%)', border: '1px solid rgba(240,184,41,0.30)' }}
+                data-testid="button-starter-home"
+              >
+                <span
+                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#05050A]"
+                  style={{ backgroundColor: C.pink }}
+                />
+                <div className="text-base leading-none">🎁</div>
+                <div className="text-[10px] font-bold font-sans" style={{ color: C.gold }}>Starter Kit</div>
+              </button>
+            )}
+
+            {/* Bonus Center */}
+            <button
+              onClick={() => navigate('/bonus')}
+              className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97]"
+              style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
+              data-testid="link-bonus-center-home"
+            >
+              <div className="text-base leading-none">⚡</div>
+              <div className="text-[10px] font-bold font-sans text-white/40">Bonus Center</div>
+            </button>
+          </div>
 
           {/* ── PRIZE BAND ────────────────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-2">

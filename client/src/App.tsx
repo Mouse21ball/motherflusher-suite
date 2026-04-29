@@ -21,6 +21,7 @@ import JoinTable from "@/pages/JoinTable";
 import Profile from "@/pages/Profile";
 import Leaderboard from "@/pages/Leaderboard";
 import Shop from "@/pages/Shop";
+import BonusCenter from "@/pages/BonusCenter";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
         <Route path="/profile" component={Profile}/>
         <Route path="/leaderboard" component={Leaderboard}/>
         <Route path="/shop" component={Shop}/>
+        <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/dead7" component={Dead7Game}/>
         <Route path="/fifteen35" component={Fifteen35Game}/>

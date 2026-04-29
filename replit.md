@@ -6,7 +6,8 @@ Chain Gang Poker (CGP) is a premium poker platform built with React + Express. B
 Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald · `#9B5DE5` purple · `#A0A0B8` silver
 
 ## Routes
-- `/` — Home lobby (4 modes, XP/rank, daily reward, live feed)
+- `/` — Home lobby (4 modes, XP/rank, daily reward, retention strip, live feed)
+- `/bonus` — **NEW** Bonus Center (daily reward, hourly bonus, starter kit, VIP tier progress)
 - `/badugi` — Badugi (server-authoritative, up to 5 players)
 - `/dead7` — Dead 7 (server-authoritative, up to 5 players)
 - `/fifteen35` — 15 / 35 (server-authoritative, up to 5 players)
@@ -19,6 +20,39 @@ Colors: `#05050A` bg · `#F0B829` gold · `#FF6B00` orange · `#00C896` emerald 
 - `/terms` — Terms & Disclosures (links to Privacy)
 - `/privacy` — Privacy Policy (App Store requirement)
 - `/admin` — Admin panel
+
+## Retention & Monetization System (virtual chips only)
+All retention features use `localStorage` only — no purchases, no real money.
+
+### Compliance
+Every bonus/reward screen shows exact disclaimer: *"Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn."*
+
+### Daily Reward (`client/src/lib/dailyReward.ts`)
+- 7-day streak cycle: Day 1 = 250 chips, Day 7 (Jackpot) = 3,000 chips
+- **48-hour streak window**: streak is maintained if last claim was within 48 hours (not calendar-day strict). Stored in `lastClaimedTimestamp` (unix ms).
+- Modal: `DailyRewardModal.tsx` — shows VIP tier badge + bonus %, 7-day tracker, disclaimer
+
+### Hourly Bonus (`client/src/lib/retention.ts` + `HourlyBonusModal.tsx`)
+- 150 base chips/hour, scaled by VIP tier bonus %
+- Ready state shows notification dot (pink `#FF1493`) on lobby button
+- `localStorage` key: `cgp_hourly_bonus`
+
+### Starter Pack (`client/src/lib/retention.ts` + `StarterPackModal.tsx`)
+- One-time claim: 2,500 chips + Bronze VIP badge + 5 emotes + Time Bank perk (placeholder)
+- Auto-shown 1.8s after first lobby visit for players with <5 hands played
+- `localStorage` key: `cgp_starter_pack`
+
+### VIP Lite System (`client/src/lib/retention.ts`)
+- Derived from existing `progression.ts` level — no paid tiers
+- Bronze (L1-10): base perks, 0% bonus
+- Silver (L11-20): +10% hourly/daily bonus chips, +5 emotes
+- Gold (L21-35): +20% bonus, +10 emotes
+- Platinum+ (L36+): +25% bonus, +15 emotes
+
+### Bonus Center (`client/src/pages/BonusCenter.tsx`)
+- Full-page hub at `/bonus` — all 4 reward systems in one place
+- VIP tier progress bar + perks grid
+- Legal compliance section with Terms/Privacy links
 
 ## Game Modes (4 active)
 - **Badugi**: 4 hole cards, 3 draw rounds, declare (HIGH/LOW/FOLD), bet, showdown. Build perfect 4-suit hand.
