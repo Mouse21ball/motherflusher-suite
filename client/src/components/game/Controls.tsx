@@ -59,7 +59,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     setBetAmount(Math.max(callAmount > 0 ? callAmount * 2 : 2, 2));
   }, [phase, callAmount]);
 
-  /* ── Auto-ante: fires automatically 400ms after hero's ante turn begins ─ */
+  /* ── Auto-ante: fires automatically 180ms after hero's ante turn begins ─ */
   const autoAnteFired = useRef(false);
   useEffect(() => {
     if (phase !== 'ANTE' || !isMyTurn || chips <= 0) {
@@ -72,11 +72,11 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         sfx.chipClink();
         onAction('ante');
       }
-    }, 400);
+    }, 180);
     return () => clearTimeout(t);
   }, [phase, isMyTurn, chips, onAction]);
 
-  /* ── Auto next-hand: fires 1700ms after showdown if chips remain ─────── */
+  /* ── Auto next-hand: fires 1200ms after showdown if chips remain ─────── */
   /* Guard: only the active player's client sends restart to prevent         */
   /* duplicate triggers when multiple humans are seated at the same table.   */
   const autoRestartFired = useRef(false);
@@ -90,7 +90,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         autoRestartFired.current = true;
         onAction('restart');
       }
-    }, 1700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [phase, chips, isMyTurn, onAction]);
 
@@ -183,8 +183,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         )}
         <Button
           size="lg"
-          onClick={() => onAction('start')}
-          className="w-full sm:w-auto tracking-[0.15em] uppercase btn-casino-gold"
+          onClick={() => { sfx.buttonTap(); onAction('start'); }}
+          className="w-full sm:w-auto tracking-[0.15em] uppercase btn-casino-gold btn-deal-me-in"
           disabled={chips <= 0}
           data-testid="button-deal-me-in"
         >
@@ -282,7 +282,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
             Stay
           </Button>
           <Button
-            onClick={() => { sfx.cardFlip(); onAction('draw'); }}
+            onClick={() => { sfx.drawCards(); onAction('draw'); }}
             disabled={selectedCardsCount === 0}
             className="flex-1 btn-casino-gold"
             data-testid="button-draw"
@@ -336,8 +336,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   const handleBetAction = (actionName: string, amount?: number) => {
     if (actionName === 'fold') sfx.fold();
     else if (actionName === 'check') sfx.check();
-    else if (actionName === 'call') sfx.chipClink();
-    else if (actionName === 'raise') sfx.chipClink();
+    else if (actionName === 'call') sfx.betPlace();
+    else if (actionName === 'raise') sfx.raise();
 
     if (phase === 'DECLARE_AND_BET') {
       onAction('declare_and_bet', { declaration: pendingDeclaration, action: actionName, amount });

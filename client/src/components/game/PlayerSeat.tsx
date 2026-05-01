@@ -90,7 +90,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   useEffect(() => {
     if (showdownState && player?.isWinner && isSelf) {
-      sfx.win();
+      sfx.bigWin();
       setShowWinEffect(true);
       selfWonRef.current = true;
     } else if (showdownState && player?.isLoser && isSelf) {
@@ -280,8 +280,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           {/* Avatar circle with color + optional timer ring */}
           {(() => {
             const av = getAvatarStyle(player.name || 'X');
+            const isIdleOpponent = !isSelf && !isActive && !showdownState && player.status !== 'folded';
             return (
-              <div className={cn("player-avatar-circle", isSelf && "is-self")}
+              <div className={cn("player-avatar-circle", isSelf && "is-self", isIdleOpponent && "anim-avatar-idle")}
                 style={{ background: av.bg, border: `2px solid ${isActive && !showdownState ? '#C9A227' : av.ring}` }}
               >
                 {/* Timer ring when active */}
@@ -311,7 +312,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
               )}
               {player.presence === 'bot' && !isSelf && (
-                <span className="text-[7px] font-mono uppercase tracking-widest text-[#C9A227]/30 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">BOT</span>
+                <span className="text-[7px] font-mono uppercase tracking-widest text-[#C9A227]/30 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">{isActive && !showdownState ? '…' : 'BOT'}</span>
               )}
             </div>
             {/* Chips */}
@@ -346,6 +347,14 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
                 style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.38)' }}>
                 down this session
+              </div>
+            )}
+            {/* Thinking dots — shown when an opponent is deciding */}
+            {!isSelf && isActive && !showdownState && (
+              <div className="flex items-center gap-[3px] mt-1 h-[6px]" aria-label="Thinking">
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
+                <span className="thinking-dot" />
               </div>
             )}
             {/* Last-action label — opponents only */}

@@ -53,7 +53,7 @@ export function WinCelebration({ isScoop = false, onDone }: WinCelebrationProps)
   }, [isScoop]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-[60] overflow-hidden flex items-center justify-center">
+    <div className={`absolute inset-0 pointer-events-none z-[60] overflow-hidden flex items-center justify-center anim-screen-shake`}>
       {/* Gold flash ring */}
       <div
         className="absolute rounded-full"

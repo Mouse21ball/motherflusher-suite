@@ -186,4 +186,80 @@ export const sfx = {
       noise(ac, 0.018, 0.032, t, 6500);
     });
   },
+
+  raise() {
+    play((ac, t) => {
+      [3800, 5600, 4400, 6200].forEach((freq, i) => {
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = 'sine';
+        const s = t + i * 0.012;
+        osc.frequency.setValueAtTime(freq, s);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.55, s + 0.09);
+        g.gain.setValueAtTime(0.07 - i * 0.012, s);
+        g.gain.exponentialRampToValueAtTime(0.001, s + 0.09);
+        osc.connect(g).connect(ac.destination);
+        osc.start(s); osc.stop(s + 0.1);
+      });
+      noise(ac, 0.04, 0.08, t, 5500);
+    });
+  },
+
+  betPlace() {
+    play((ac, t) => {
+      noise(ac, 0.04, 0.07, t, 4800);
+      tone(ac, 2800, 0.06, 0.045, t + 0.01);
+      tone(ac, 4200, 0.04, 0.03, t + 0.025);
+    });
+  },
+
+  dealSingle() {
+    play((ac, t) => {
+      noise(ac, 0.06, 0.14, t, 4500);
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2200, t);
+      osc.frequency.exponentialRampToValueAtTime(1200, t + 0.055);
+      g.gain.setValueAtTime(0.04, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      osc.connect(g).connect(ac.destination);
+      osc.start(t); osc.stop(t + 0.07);
+    });
+  },
+
+  bigWin() {
+    play((ac, t) => {
+      const notes = [523, 659, 784, 1047, 1319, 1568];
+      notes.forEach((freq, i) => {
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = i < 4 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        const s = t + i * 0.055;
+        g.gain.setValueAtTime(0, s);
+        g.gain.linearRampToValueAtTime(0.12 - i * 0.012, s + 0.018);
+        g.gain.exponentialRampToValueAtTime(0.001, s + 0.45);
+        osc.connect(g).connect(ac.destination);
+        osc.start(s); osc.stop(s + 0.5);
+      });
+      noise(ac, 0.06, 0.05, t + 0.32, 7000);
+      tone(ac, 2093, 0.2, 0.06, t + 0.33, 'triangle');
+    });
+  },
+
+  drawCards() {
+    play((ac, t) => {
+      noise(ac, 0.09, 0.08, t, 3800);
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1600, t);
+      osc.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+      g.gain.setValueAtTime(0.03, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+      osc.connect(g).connect(ac.destination);
+      osc.start(t); osc.stop(t + 0.09);
+    });
+  },
 };
