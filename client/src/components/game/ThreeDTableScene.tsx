@@ -725,16 +725,37 @@ export function ThreeDTableScene({
             <div className="flex flex-col items-center gap-3 my-auto table-3d-counter">
 
               {gameState.phase === 'WAITING' ? renderWaitingCenter() : isShowdown ? null : (
-                <div className="flex flex-col items-center gap-1.5 anim-slide-up">
-                  <div className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium" data-testid="text-phase">
-                    {getPhaseLabel(gameState.phase)}
-                  </div>
-                  {handCount > 1 && (
-                    <div className="text-[9px] font-mono tracking-widest uppercase transition-colors duration-[2000ms]" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.26)' }}>
+                <div className="flex flex-col items-center gap-2 anim-slide-up">
+                  {/* Big phase header — prominent during draw phases */}
+                  {isDrawPhase ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="text-white/90 font-bold tracking-widest uppercase text-[13px] sm:text-[16px]"
+                        style={{ fontFamily: "'Oswald', 'Inter', sans-serif", letterSpacing: '0.18em', textShadow: '0 0 24px rgba(201,162,39,0.35)' }}
+                        data-testid="text-phase">
+                        DRAW &mdash; ROUND {drawNumber}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3].map(d => (
+                          <div key={d} className={cn(
+                            "w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 transition-all",
+                            d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
+                            d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] shadow-[0_0_12px_rgba(201,162,39,0.60)]" :
+                            "bg-white/[0.06] border-white/15 text-white/30"
+                          )}>{d}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.22em] uppercase font-medium" data-testid="text-phase">
+                      {getPhaseLabel(gameState.phase)}
+                    </div>
+                  )}
+                  {handCount > 1 && !isDrawPhase && (
+                    <div className="text-[9px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
                       Hand {handCount}
                     </div>
                   )}
-                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.28 }}>
+                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
                     <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                     <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                       {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
@@ -743,13 +764,13 @@ export function ThreeDTableScene({
                 </div>
               )}
 
-              {/* Draw round tracker */}
-              {drawNumber > 0 && (
+              {/* Draw round tracker shown only for non-draw phases with a draw number (edge case) */}
+              {drawNumber > 0 && !isDrawPhase && (
                 <div className="flex items-center gap-1.5" data-testid="text-draw-round">
                   {[1, 2, 3].map(d => (
                     <div key={d} className={cn("w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border",
-                      d < drawNumber ? "bg-green-600/60 border-green-400 text-white" :
-                      d === drawNumber ? "bg-yellow-500/80 border-yellow-300 text-black animate-pulse" :
+                      d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
+                      d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] animate-pulse" :
                       "bg-white/10 border-white/20 text-white/45"
                     )}>{d}</div>
                   ))}

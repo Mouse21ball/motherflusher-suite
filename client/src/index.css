@@ -100,48 +100,74 @@
 
 .playing-card-front {
   background:
-    linear-gradient(160deg, #FFFFFF 0%, #F8F6F0 35%, #EFECe4 65%, #E8E4D8 100%);
-  border-radius: 0.6rem;
+    linear-gradient(158deg, #FFFFFF 0%, #F9F7F2 40%, #EDE9DF 70%, #E5E0D3 100%);
+  border-radius: 0.65rem;
   box-shadow:
-    0 2px 4px rgba(0,0,0,0.42),
-    0 6px 16px rgba(0,0,0,0.36),
-    0 16px 36px rgba(0,0,0,0.26),
-    0 32px 56px rgba(0,0,0,0.16),
-    0 0 0 1px rgba(0,0,0,0.12),
+    0 2px 4px rgba(0,0,0,0.44),
+    0 6px 18px rgba(0,0,0,0.38),
+    0 18px 40px rgba(0,0,0,0.28),
+    0 34px 60px rgba(0,0,0,0.18),
+    0 0 0 1px rgba(0,0,0,0.14),
     inset 0 1px 0 rgba(255,255,255,1.0),
-    inset 0 0 0 0.5px rgba(0,0,0,0.06);
-  font-family: var(--font-mono);
-  font-weight: 800;
+    inset 0 0 0 0.5px rgba(0,0,0,0.05);
   position: relative;
 }
 
-/* Inner glossy highlight */
+/* Inner glossy highlight — top third catches light */
 .card-inner-highlight {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 42%;
-  border-radius: 0.6rem 0.6rem 60% 60% / 0.6rem 0.6rem 36px 36px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.0) 100%);
+  height: 44%;
+  border-radius: 0.65rem 0.65rem 55% 55% / 0.65rem 0.65rem 32px 32px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.0) 100%);
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
 }
 
-/* Suit/rank colors */
-.card-rank-red   { color: #CC1122; }
-.card-rank-black { color: #16161E; }
-.card-suit-red   { color: #DD1133; }
-.card-suit-black { color: #1E1E28; }
-
-/* Center pip */
-.card-center-pip {
-  font-size: 2.1rem;
+/* Card rank — Playfair Display (classic serif, looks like a real casino card) */
+.card-rank-text {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 900;
+  font-size: 11px;
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 @media (min-width: 640px) {
-  .card-center-pip { font-size: 2.8rem; }
+  .card-rank-text {
+    font-size: 15px;
+  }
 }
-.card-center-red   { color: #DD1133; filter: drop-shadow(0 1px 2px rgba(200,0,30,0.18)); }
-.card-center-black { color: #1E1E28; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.28)); }
+
+/* Center pip — fills 52% of card width, scales with card */
+.card-center-pip {
+  width: 100%;
+  height: 100%;
+}
+.card-center-pip svg {
+  width: 52%;
+  height: 52%;
+  max-width: 38px;
+  max-height: 38px;
+  flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .card-center-pip svg {
+    max-width: 50px;
+    max-height: 50px;
+  }
+}
+
+/* Corner suit icon sizing */
+.card-corner-suit svg {
+  width: 12px;
+  height: 12px;
+}
+@media (min-width: 640px) {
+  .card-corner-suit svg {
+    width: 15px;
+    height: 15px;
+  }
+}
 
 /* ── DECK THEMES ─────────────────────────────────────────────────────────── */
 
@@ -403,34 +429,77 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
-/* ── Player nameplate premium ─────────────────────────────────────────── */
+/* ── Active player timer ring — conic depleting arc ─────────────────────── */
+@property --timer-prog {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+.timer-ring-wrap {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    rgba(201,162,39,0.85) var(--timer-prog),
+    rgba(255,255,255,0.06) var(--timer-prog)
+  );
+  animation: timer-deplete 18s linear forwards;
+}
+
+@keyframes timer-deplete {
+  from { --timer-prog: 100%; }
+  to   { --timer-prog: 0%; }
+}
+
+/* Fallback shimmer for browsers without @property support */
+@supports not (background: conic-gradient(red 50%, blue 50%)) {
+  .timer-ring-wrap {
+    background: none;
+    border: 2px solid rgba(201,162,39,0.65);
+    animation: anim-active-turn 1.2s ease-in-out infinite;
+  }
+}
+
+/* ── Player nameplate — avatar with name-color system ────────────────────── */
 .player-avatar-circle {
-  width: 28px;
-  height: 28px;
+  position: relative;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   font-family: var(--font-sans);
   flex-shrink: 0;
-  border: 1.5px solid rgba(201,162,39,0.22);
-  background: linear-gradient(135deg, #1e1d26 0%, #14131a 100%);
-  color: rgba(201,162,39,0.75);
+  z-index: 1;
 }
-.player-avatar-circle.is-active {
-  border-color: rgba(201,162,39,0.65);
-  background: linear-gradient(135deg, #2a2518 0%, #1a190e 100%);
-  color: #C9A227;
-  box-shadow: 0 0 8px rgba(201,162,39,0.25);
+
+.player-avatar-circle .avatar-inner {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: inherit;
+  font-weight: inherit;
+  z-index: 2;
 }
+
 .player-avatar-circle.is-self {
-  width: 32px;
-  height: 32px;
-  font-size: 13px;
-  border-color: rgba(201,162,39,0.35);
-  color: rgba(201,162,39,0.90);
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+}
+
+/* ── Chip amount — Oswald display font for impact ────────────────────────── */
+.chip-amount-text {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* ── Hero seat parallax float — foreground depth plane separation ───────── */
@@ -826,6 +895,40 @@
     transform: translate(-50%, -50%) scale(9);
     opacity: 0;
   }
+}
+
+/* ── Upgraded win celebration keyframes ─────────────────────────────────── */
+@keyframes particle-burst-v2 {
+  0% {
+    transform: translate(-50%, -50%) scale(1.2) rotate(0deg);
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.10) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+
+@keyframes win-ring-expand {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(14);
+    opacity: 0;
+  }
+}
+
+@keyframes win-text-flash {
+  0%   { opacity: 0; transform: scale(0.5); }
+  15%  { opacity: 1; transform: scale(1.12); }
+  35%  { opacity: 1; transform: scale(1.0); }
+  75%  { opacity: 1; transform: scale(1.0); }
+  100% { opacity: 0; transform: scale(1.05) translateY(-12px); }
 }
 
 /* ── Social reactions — emoji float up and fade ───────────────────────────── */

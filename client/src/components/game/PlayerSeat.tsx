@@ -1,10 +1,29 @@
 import { Player, CardType, HandEvaluation } from '@/lib/poker/types';
 import { PlayingCard } from './Card';
 import { cn } from '@/lib/utils';
-import { User, Coins } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { sfx } from '@/lib/sounds';
+
+/* ── Avatar color palette — 10 distinct player colors ─────────────────── */
+const AVATAR_PALETTE = [
+  { bg: '#1a0d28', ring: '#7c3aed', text: '#c4b5fd' }, // violet
+  { bg: '#0c1d2e', ring: '#0ea5e9', text: '#7dd3fc' }, // sky
+  { bg: '#102218', ring: '#16a34a', text: '#86efac' }, // green
+  { bg: '#2a1800', ring: '#d97706', text: '#fcd34d' }, // amber
+  { bg: '#2a0e0e', ring: '#dc2626', text: '#fca5a5' }, // red
+  { bg: '#0e2a20', ring: '#059669', text: '#6ee7b7' }, // emerald
+  { bg: '#241030', ring: '#9333ea', text: '#e879f9' }, // fuchsia
+  { bg: '#2a1a06', ring: '#c2410c', text: '#fdba74' }, // orange
+  { bg: '#102030', ring: '#0284c7', text: '#38bdf8' }, // blue
+  { bg: '#2a0c1a', ring: '#be185d', text: '#f9a8d4' }, // pink
+];
+
+function getAvatarStyle(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
 
 interface PlayerSeatProps {
   player: Player | null;
@@ -130,13 +149,13 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-200",
-      /* Opponent opacity + brightness — contextual attention hierarchy */
-      !isSelf && isActive && "opacity-100 brightness-[1.06]",
+      /* Opponent opacity — visible enough to feel present at all times */
+      !isSelf && isActive && "opacity-100 brightness-[1.08]",
       !isSelf && !isActive && !showdownState && (
-        justActed   ? "opacity-90"   /* spotlight: just acted — snap to foreground briefly */
-        : anyJustActed ? "opacity-20" /* others recede while a seat has the moment */
-        : hasActivePlayer ? "opacity-25" /* softer during active decisions — table tension */
-        : "opacity-35"                   /* normal idle — slightly receded */
+        justActed    ? "opacity-95"
+        : anyJustActed ? "opacity-50"
+        : hasActivePlayer ? "opacity-55"
+        : "opacity-65"
       ),
       player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
       player.status === 'sitting_out' && "opacity-30 grayscale",
@@ -152,7 +171,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       <div
         className={cn(
           "relative flex justify-center",
-          isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-75 pointer-events-none mb-[-20px]"
+          isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-[0.9] pointer-events-none mb-[-18px]"
         )}
         style={isSelf ? {
           width: '100%',
@@ -171,7 +190,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const center = (n - 1) / 2;
           const offset = idx - center;
 
-          const marginLeft = idx === 0 ? 0 : (isSelf ? -22 : -32);
+          const marginLeft = idx === 0 ? 0 : (isSelf ? -20 : -22);
           const rotDeg = isSelf ? 0 : offset * 10;
           // Hero cards lift -3px off the felt; opponent cards arc downward naturally
           const arcY = isSelf ? -3 : Math.abs(offset) * 5;
@@ -258,14 +277,24 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}>
         {/* Avatar + name row */}
         <div className="flex items-center gap-2 max-w-full w-full justify-center">
-          {/* Avatar circle */}
-          <div className={cn(
-            "player-avatar-circle",
-            isActive && !showdownState && "is-active",
-            isSelf && "is-self"
-          )}>
-            {(player.name || '?')[0].toUpperCase()}
-          </div>
+          {/* Avatar circle with color + optional timer ring */}
+          {(() => {
+            const av = getAvatarStyle(player.name || 'X');
+            return (
+              <div className={cn("player-avatar-circle", isSelf && "is-self")}
+                style={{ background: av.bg, border: `2px solid ${isActive && !showdownState ? '#C9A227' : av.ring}` }}
+              >
+                {/* Timer ring when active */}
+                {isActive && !showdownState && (
+                  <div key={turnOnsetKey} className="timer-ring-wrap" />
+                )}
+                {/* Mask inner circle over the ring */}
+                <div className="avatar-inner" style={{ background: av.bg, color: av.text }}>
+                  {(player.name || '?')[0].toUpperCase()}
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex flex-col items-start min-w-0">
             {/* Name + badges */}
             <div className="flex items-center gap-1">
@@ -287,7 +316,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
             {/* Chips */}
             <div className={cn(
-              "font-mono text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
+              "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
               sessionDelta > 75
                 ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
                 : sessionDelta < -75

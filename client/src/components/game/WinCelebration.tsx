@@ -7,27 +7,32 @@ interface Particle {
   size: number;
   color: string;
   delay: number;
+  shape: 'circle' | 'rect' | 'chip';
+  rotate: number;
 }
 
 const PALETTE = [
-  '#C9A227',
-  '#D4B44A',
-  '#A8871E',
-  'rgba(212,180,74,0.55)',
-  'rgba(255,255,255,0.45)',
+  '#C9A227', '#D4B44A', '#F0D060', '#E8C040',
+  '#FFD700', '#FFC107',
+  'rgba(255,255,255,0.70)',
+  'rgba(212,180,74,0.80)',
+  '#ff6b6b', '#00C896',
 ];
 
 function generateParticles(count: number): Particle[] {
   return Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * 2 * Math.PI + (Math.random() * 0.35 - 0.17);
-    const dist = 65 + Math.random() * 110;
+    const angle = (i / count) * 2 * Math.PI + (Math.random() * 0.6 - 0.3);
+    const dist = 70 + Math.random() * 160;
+    const shapes: Particle['shape'][] = ['circle', 'circle', 'rect', 'chip', 'rect'];
     return {
       id: i,
       dx: Math.cos(angle) * dist,
-      dy: Math.sin(angle) * dist,
-      size: 4 + Math.floor(Math.random() * 5),
+      dy: Math.sin(angle) * dist - 40,
+      size: 5 + Math.floor(Math.random() * 8),
       color: PALETTE[i % PALETTE.length],
-      delay: i * 22,
+      delay: i * 16,
+      shape: shapes[i % shapes.length],
+      rotate: Math.random() * 360,
     };
   });
 }
@@ -38,47 +43,75 @@ interface WinCelebrationProps {
 }
 
 export function WinCelebration({ isScoop = false, onDone }: WinCelebrationProps) {
-  const particles = useMemo(() => generateParticles(isScoop ? 26 : 18), [isScoop]);
+  const particles = useMemo(() => generateParticles(isScoop ? 48 : 32), [isScoop]);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
 
   useEffect(() => {
-    const t = setTimeout(() => doneRef.current(), 1100);
+    const t = setTimeout(() => doneRef.current(), isScoop ? 2000 : 1600);
     return () => clearTimeout(t);
-  }, []);
+  }, [isScoop]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-[60] overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none z-[60] overflow-hidden flex items-center justify-center">
+      {/* Gold flash ring */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 24, height: 24,
+          border: '3px solid rgba(201,162,39,0.90)',
+          animation: 'win-ring-expand 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        }}
+      />
+      {isScoop && (
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: 24, height: 24,
+            border: '2px solid rgba(255,255,255,0.55)',
+            animation: 'win-ring-expand 800ms 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+          }}
+        />
+      )}
+
+      {/* WIN text flash */}
+      <div
+        className="absolute z-10 select-none"
+        style={{
+          fontFamily: "'Oswald', 'Inter', sans-serif",
+          fontWeight: 700,
+          fontSize: isScoop ? '28px' : '22px',
+          color: '#C9A227',
+          letterSpacing: '0.2em',
+          textShadow: '0 0 24px rgba(201,162,39,0.90), 0 0 48px rgba(201,162,39,0.50)',
+          animation: 'win-text-flash 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        }}
+      >
+        {isScoop ? 'SCOOP!' : 'YOU WIN!'}
+      </div>
+
+      {/* Particles */}
       {particles.map((p) => (
         <div
           key={p.id}
           style={{
             position: 'absolute',
-            top: '45%',
-            left: '50%',
-            width: p.size,
-            height: p.size,
-            borderRadius: '50%',
-            background: p.color,
+            top: '50%', left: '50%',
+            width: p.shape === 'rect' ? p.size * 0.55 : p.size,
+            height: p.shape === 'rect' ? p.size * 1.6 : p.size,
+            borderRadius: p.shape === 'chip' ? '50%' : p.shape === 'rect' ? '2px' : '50%',
+            background: p.shape === 'chip'
+              ? `radial-gradient(circle at 40% 35%, ${p.color}, rgba(0,0,0,0.4))`
+              : p.color,
+            border: p.shape === 'chip' ? `1px solid rgba(0,0,0,0.25)` : 'none',
             ['--dx' as string]: `${p.dx}px`,
             ['--dy' as string]: `${p.dy}px`,
-            animation: `particle-burst 880ms cubic-bezier(0.22, 0.61, 0.36, 1) ${p.delay}ms forwards`,
+            ['--rot' as string]: `${p.rotate}deg`,
+            animation: `particle-burst-v2 ${900 + Math.random() * 400}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${p.delay}ms forwards`,
             willChange: 'transform, opacity',
           }}
         />
       ))}
-      {isScoop && (
-        <div
-          className="absolute rounded-full border-2 border-[#C9A227]"
-          style={{
-            top: '45%',
-            left: '50%',
-            width: 32,
-            height: 32,
-            animation: 'scoop-ring 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
-          }}
-        />
-      )}
     </div>
   );
 }
