@@ -214,7 +214,17 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   const hintEl = phaseHint ? (
-    <div className="text-[11px] text-[#C9A227]/50 text-center mb-3 leading-snug font-mono tracking-wide" data-testid="text-phase-hint">{phaseHint}</div>
+    <div
+      key={phaseHint}
+      className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg anim-hint-enter"
+      style={{ background: 'rgba(201,162,39,0.04)', border: '1px solid rgba(201,162,39,0.10)' }}
+      data-testid="text-phase-hint"
+    >
+      <span className="text-[13px] shrink-0 mt-0.5 leading-none" aria-hidden="true">💡</span>
+      <span className="text-[11px] leading-snug font-mono tracking-wide" style={{ color: 'rgba(201,162,39,0.65)' }}>
+        {phaseHint}
+      </span>
+    </div>
   ) : null;
 
   const isHitPhase = phase.startsWith('HIT_');

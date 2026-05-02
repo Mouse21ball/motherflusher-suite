@@ -13544,13 +13544,13 @@
       "players": [
         {
           "id": "p1",
-          "name": "You",
-          "presence": "human",
+          "name": "Open",
+          "presence": "reserved",
           "chips": 1000,
           "bet": 0,
           "totalBet": 0,
           "cards": [],
-          "status": "active",
+          "status": "sitting_out",
           "isDealer": false,
           "declaration": null,
           "hasActed": false
@@ -13621,6 +13621,6 @@
       "discardPile": []
     },
     "handId": 0,
-    "savedAt": 1777690988022
+    "savedAt": 1777691038030
   }
 }

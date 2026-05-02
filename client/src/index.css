@@ -1511,3 +1511,71 @@
 .mode-card-hover:active {
   transform: scale(0.99) translateY(0);
 }
+
+/* ── Task 1: Hint pill entrance animation ───────────────────────────────── */
+
+@keyframes hint-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-hint-enter {
+  animation: hint-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Task 4: Subtle table camera drift ──────────────────────────────────── */
+/* Adds a very gentle living-table sway on top of the static 3D tilt.      */
+/* Keyframes include the base rotateX(9deg) so animation overrides static.  */
+
+@keyframes table-cam-drift {
+  0%,  100% { transform: rotateX(9deg) rotateZ(0deg) translateZ(0px); }
+  28%        { transform: rotateX(9.35deg) rotateZ(0.14deg) translateZ(1px); }
+  56%        { transform: rotateX(8.75deg) rotateZ(-0.11deg) translateZ(0px); }
+  82%        { transform: rotateX(9.20deg) rotateZ(0.07deg) translateZ(0.5px); }
+}
+
+/* Override: animate instead of static for the 3D felt tilt */
+.table-3d-tilt {
+  animation: table-cam-drift 18s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+/* ── Task 4: Card deal stagger — each card arrives with a tiny offset ───── */
+/* Already applied via inline animationDelay in PlayerSeat.tsx.              */
+/* These extra classes add a more satisfying entrance when re-dealing.       */
+
+@keyframes card-deal-stagger {
+  0%   { opacity: 0; transform: scale(0.78) translateY(-18px) rotateZ(-6deg); }
+  55%  { opacity: 1; transform: scale(1.03) translateY(2px) rotateZ(1deg); }
+  100% { opacity: 1; transform: scale(1) translateY(0) rotateZ(0deg); }
+}
+
+.anim-card-deal {
+  animation: card-deal-stagger 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+/* ── Task 4: Enhanced pot arrival glow ─────────────────────────────────── */
+
+@keyframes pot-arrival-v2 {
+  0%   { box-shadow: 0 0 0 0 rgba(201,162,39,0); }
+  30%  { box-shadow: 0 0 0 6px rgba(201,162,39,0.35), 0 0 24px rgba(201,162,39,0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(201,162,39,0); }
+}
+
+.anim-pot-arrival {
+  animation: pot-arrival-v2 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Task 3: Resolution overlay chip-count entrance ─────────────────────── */
+
+@keyframes count-up-pop {
+  0%   { opacity: 0; transform: scale(0.70) translateY(8px); }
+  60%  { opacity: 1; transform: scale(1.08) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.anim-count-up {
+  animation: count-up-pop 420ms cubic-bezier(0.22, 1.1, 0.36, 1) both;
+  animation-delay: 60ms;
+}
