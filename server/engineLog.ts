@@ -8,13 +8,19 @@ type Event =
   | 'TABLE_CREATE'
   | 'PLAYER_JOIN'
   | 'PLAYER_LEAVE'
+  | 'PLAYER_DISCONNECT'
   | 'SPECTATOR_JOIN'
   | 'SPECTATOR_LEAVE'
+  | 'SESSION_TAKEOVER'
+  | 'RECONNECT_NEW_TAB'
+  | 'RECONNECT_EXPIRED'
   | 'PHASE'
   | 'ACTION'
   | 'BOT'
   | 'RECONNECT'
   | 'PERSIST'
+  | 'TURN_TIMEOUT'
+  | 'REJECT_HIT_AFTER_STAY'
   | 'ERROR';
 
 type Detail = Record<string, string | number | boolean | undefined>;

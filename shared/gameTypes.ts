@@ -147,6 +147,10 @@ export interface GameState {
   heroChipChange?: number;
   spectatorCount?: number;
   raisesThisRound?: number;
+  /** Server-authoritative deadline for the active player's action (epoch ms).
+   *  Null/undefined when no timer is armed (waiting/showdown/bot turns).
+   *  Client uses this to render a countdown; server enforces auto-action. */
+  turnDeadline?: number | null;
 }
 
 // ─── GameMode interface ───────────────────────────────────────────────────────

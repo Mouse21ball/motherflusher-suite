@@ -10,6 +10,8 @@ import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
+import { BustOutModal } from "@/components/game/BustOutModal";
+import { useLocation } from "wouter";
 import { DebugOverlay } from "@/components/game/DebugOverlay";
 import { XPToast } from "@/components/XPToast";
 import { useXPWatcher } from "@/lib/useXPWatcher";
@@ -91,9 +93,21 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
 
 function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
+  const [, navigate] = useLocation();
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
+
+  /* P2 — Bust-out modal: shown when hero stack is 0 outside of a hand
+   *      (waiting/showdown). Suppressed during active play so it doesn't
+   *      interrupt resolution animations or all-in showdowns. The user
+   *      can rebuy, spectate the rest of the table, or leave. */
+  const [bustDismissed, setBustDismissed] = useState(false);
+  const heroBust = !!me && me.chips <= 0 && !isSpectator;
+  const bustEligiblePhase = state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
+  const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
+  // Reset dismissal once chips return.
+  useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
   const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
   const humanCount = state.players.filter(p => p.presence === 'human').length;
 
@@ -264,12 +278,21 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               openSeatsCount={openSeatsCount}
               humanCount={humanCount}
               declarationOptions={modeId === 'suitspoker' ? SUITSPOKER_DECLARATION_OPTIONS : undefined}
+              myDeclaration={me?.declaration ?? null}
+              turnDeadline={state.turnDeadline ?? null}
             />
           </div>
         </div>
       )}
 
       <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={handleSendMessage} />
+
+      <BustOutModal
+        open={showBustModal}
+        onRebuy={() => { handleAction('rebuy'); setBustDismissed(true); }}
+        onSpectate={() => setBustDismissed(true)}
+        onLeaveTable={() => { if (me) saveChips(modeId, me.chips); navigate('/'); }}
+      />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { GamePhase, Declaration } from "@/lib/poker/types";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +26,12 @@ interface ActionControlsProps {
   /** Brief lock (200–300ms) after hero sends an action — prevents double-fire
    *  and gives a "bet impact" pause before the next player's turn appears.  */
   locked?: boolean;
+  /** Hero's current declaration — used to hide the Hit button after STAY/BUST
+   *  (P6). Server is authoritative; this is only for UI suppression. */
+  myDeclaration?: Declaration;
+  /** Server-set deadline (epoch ms) for the active player's action. When set
+   *  and it's the hero's turn, a countdown is rendered (P4). */
+  turnDeadline?: number | null;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -37,7 +42,38 @@ const defaultDeclarationOptions: DeclarationOption[] = [
 
 const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked }: ActionControlsProps) {
+function TurnCountdown({ deadline }: { deadline: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, []);
+  const remainingMs = Math.max(0, deadline - now);
+  const seconds = Math.ceil(remainingMs / 1000);
+  const totalMs = 30000;
+  const pct = Math.max(0, Math.min(100, (remainingMs / totalMs) * 100));
+  const urgent = remainingMs <= 5000;
+  return (
+    <div className="w-full mb-2" data-testid="turn-countdown">
+      <div className="flex items-center justify-between mb-1 px-1">
+        <span className={`text-[9px] font-mono tracking-[0.2em] uppercase ${urgent ? 'text-red-400/80 animate-pulse' : 'text-white/30'}`}>
+          {urgent ? 'Hurry!' : 'Your turn'}
+        </span>
+        <span className={`text-[10px] font-mono font-bold tabular-nums ${urgent ? 'text-red-400' : 'text-white/45'}`} data-testid="text-turn-seconds">
+          {seconds}s
+        </span>
+      </div>
+      <div className="h-0.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
+        <div
+          className={`h-full transition-all duration-200 ${urgent ? 'bg-red-500/70' : 'bg-[#C9A227]/55'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked, myDeclaration, turnDeadline }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
 
@@ -112,7 +148,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         autoRestartFired.current = true;
         onAction('restart');
       }
-    }, 1800);
+    }, 3000);
     return () => clearTimeout(t);
   }, [phase, chips, isMyTurn, onAction]);
 
@@ -264,11 +300,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
 
   const isHitPhase = phase.startsWith('HIT_');
   if (isHitPhase) {
+    // P6: hide Hit if hero has stayed or busted on a prior round (server also rejects).
+    const hideHit = myDeclaration === 'STAY' || myDeclaration === 'BUST';
     return (
       <div key={phase} className={`${panelClass} anim-decision-ready text-center`}>
+        {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
         {hintEl}
-        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Hit, Stay, or Fold</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">
+          {hideHit ? 'Standing — Fold or Wait' : 'Hit, Stay, or Fold'}
+        </div>
+        <div className={`grid ${hideHit ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}>
           <Button
             variant="outline"
             className="btn-casino-fold"
@@ -282,16 +323,19 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
             className="btn-casino-neutral"
             onClick={() => { sfx.check(); onAction('stay'); }}
             data-testid="button-stay"
+            disabled={hideHit}
           >
-            Stay
+            {hideHit ? 'Standing' : 'Stay'}
           </Button>
-          <Button
-            className="btn-casino-gold"
-            onClick={() => { sfx.cardDeal(); onAction('hit'); }}
-            data-testid="button-hit"
-          >
-            Hit
-          </Button>
+          {!hideHit && (
+            <Button
+              className="btn-casino-gold"
+              onClick={() => { sfx.cardDeal(); onAction('hit'); }}
+              data-testid="button-hit"
+            >
+              Hit
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -421,17 +465,19 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         {callAmount > 0 && <Badge variant="outline" className="bg-[#0B0B0D]/50 font-mono border-white/[0.05] text-white/45 text-[10px]">Call ${callAmount}</Badge>}
       </div>
 
+      {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="btn-casino-fold"
           onClick={() => handleBetAction('fold')}
           data-testid="button-fold"
         >
           Fold
         </Button>
-        
-        <Button 
+
+        <Button
           variant="outline"
           className={
             "btn-casino-neutral " +
@@ -445,40 +491,66 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         </Button>
 
         <div className="col-span-2 flex gap-2">
-          <Button 
+          <Button
             className="flex-1 btn-casino-gold"
             onClick={() => handleBetAction('raise', betAmount)}
-            disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < betAmount}
+            disabled={betAmount < (callAmount > 0 ? callAmount * 2 : 2) || chips < (betAmount - myBet)}
             data-testid="button-raise"
           >
-            {callAmount > 0 ? 'Raise' : 'Bet'} ${betAmount}
+            {callAmount > 0 ? 'Raise to' : 'Bet'} ${betAmount}
           </Button>
         </div>
       </div>
 
-      {chips > 0 && maxBet > 0 && (
-        <div className="flex items-center gap-3 px-1">
-          <span className="text-[10px] font-mono text-white/20 min-w-[30px] tabular-nums">${callAmount > 0 ? callAmount * 2 : 2}</span>
-          <Slider 
-            value={[betAmount]} 
-            min={callAmount > 0 ? callAmount * 2 : 2} 
-            max={maxBet} 
-            step={1}
-            onValueChange={(val) => setBetAmount(val[0])}
-            className="flex-1"
-          />
-          <span className="text-[10px] font-mono text-white/20 min-w-[40px] text-right tabular-nums">${maxBet}</span>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-[10px] h-8 px-3 min-w-[56px] touch-manipulation btn-casino-allin"
-            onClick={() => handleBetAction('raise', chips)}
-          >
-            ALL IN
-          </Button>
-        </div>
-      )}
+      {chips > 0 && maxBet > 0 && (() => {
+        // P11: Bet sizing presets — replaces free-form slider for clearer
+        // strategic decisions. Each preset computes a "raise-to" amount
+        // (the new currentBet), bounded by minimum raise and hero's stack.
+        const minRaiseTo = callAmount > 0 ? currentBet + Math.max(callAmount, 2) : Math.max(currentBet, 2);
+        const maxRaiseTo = myBet + chips;
+        const clamp = (v: number) => Math.max(minRaiseTo, Math.min(maxRaiseTo, Math.round(v)));
+        const halfPot = clamp(currentBet + Math.max(2, Math.floor((pot + callAmount) / 2)));
+        const onePot  = clamp(currentBet + Math.max(2, pot + callAmount));
+        const twoPot  = clamp(currentBet + Math.max(2, 2 * (pot + callAmount)));
+        const allInTo = maxRaiseTo;
+        const presets: Array<{ label: string; amt: number; testId: string }> = [
+          { label: '½ Pot',  amt: halfPot, testId: 'button-bet-half-pot' },
+          { label: 'Pot',    amt: onePot,  testId: 'button-bet-pot' },
+          { label: '2× Pot', amt: twoPot,  testId: 'button-bet-two-pot' },
+          { label: 'All In', amt: allInTo, testId: 'button-bet-allin' },
+        ];
+        const isActive = (amt: number) => amt === betAmount;
+        return (
+          <div className="flex flex-col gap-2 px-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-white/25 tracking-[0.2em] uppercase">Sizing</span>
+              <span className="text-[10px] font-mono text-white/35 tabular-nums">${minRaiseTo} – ${maxRaiseTo}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {presets.map(p => (
+                <Button
+                  key={p.label}
+                  variant="outline"
+                  size="sm"
+                  disabled={p.amt < minRaiseTo || p.amt > maxRaiseTo}
+                  onClick={() => setBetAmount(p.amt)}
+                  data-testid={p.testId}
+                  className={`text-[10px] font-mono h-9 px-1 tabular-nums tracking-wide ${
+                    isActive(p.amt)
+                      ? 'border-[#C9A227]/60 bg-[#C9A227]/10 text-[#C9A227]'
+                      : 'border-white/[0.06] text-white/45 hover:text-white/75 hover:border-white/[0.12]'
+                  }`}
+                >
+                  <div className="flex flex-col items-center leading-tight">
+                    <span>{p.label}</span>
+                    <span className="text-[9px] opacity-70">${p.amt}</span>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

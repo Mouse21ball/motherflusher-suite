@@ -185,10 +185,13 @@ export const SuitsPokerMode: GameMode = {
   },
 
   getAutoTransition: (phase) => {
-    if (phase === 'REVEAL_TOP_ROW') return { delay: 1000, action: (state) => ({ stateUpdates: { communityCards: state.communityCards.map((c, i) => i < 6 ? { ...c, isHidden: false } : c) }, message: 'Side A & Side B flops revealed!', advancePhase: true }) };
-    if (phase === 'REVEAL_SECOND_ROW') return { delay: 1000, action: (state) => ({ stateUpdates: { communityCards: state.communityCards.map((c, i) => (i >= 6 && i <= 8) ? { ...c, isHidden: false } : c) }, message: 'Center flop revealed!', advancePhase: true }) };
-    if (phase === 'REVEAL_LOWER_CENTER') return { delay: 1000, action: (state) => ({ stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 9 || i === 10) ? { ...c, isHidden: false } : c) }, message: 'Lower center cards revealed!', advancePhase: true }) };
-    if (phase === 'REVEAL_FACTOR_CARD') return { delay: 1000, action: (state) => ({ stateUpdates: { communityCards: state.communityCards.map((c, i) => i === 11 ? { ...c, isHidden: false } : c) }, message: 'Final card revealed!', advancePhase: true }) };
+    // P7: lightweight phase-progression instrumentation — surfaces the
+    // sequence of reveal phases in the server log so a stuck phase is
+    // immediately visible from logs alone.
+    if (phase === 'REVEAL_TOP_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_TOP_ROW → BET_1'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i < 6 ? { ...c, isHidden: false } : c) }, message: 'Side A & Side B flops revealed!', advancePhase: true }; } };
+    if (phase === 'REVEAL_SECOND_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_SECOND_ROW → BET_2'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i >= 6 && i <= 8) ? { ...c, isHidden: false } : c) }, message: 'Center flop revealed!', advancePhase: true }; } };
+    if (phase === 'REVEAL_LOWER_CENTER') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_LOWER_CENTER → BET_3'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 9 || i === 10) ? { ...c, isHidden: false } : c) }, message: 'Lower center cards revealed!', advancePhase: true }; } };
+    if (phase === 'REVEAL_FACTOR_CARD') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_FACTOR_CARD → DECLARE_AND_BET'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i === 11 ? { ...c, isHidden: false } : c) }, message: 'Final card revealed!', advancePhase: true }; } };
     return null;
   },
 

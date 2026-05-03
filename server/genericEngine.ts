@@ -308,6 +308,14 @@ interface GenericTable {
   chipsAtHandStart: Map<string, number>;
   // Per-seat session stats (in-memory, this table session only).
   sessionStats: Map<string, SessionStat>;
+  // P4: Single per-table turn timer. Armed when active player is human and
+  // the phase is interactive; cleared when the player acts or the phase
+  // advances. Auto-acts (check/fold/stay) on expiry.
+  turnTimer?: ReturnType<typeof setTimeout> | null;
+  // Monotonic generation token: every armTurnTimer/clearTurnTimer increments
+  // it. The fired callback only acts when its captured token still equals the
+  // current one — kills any stale post-clear ghost timers (architect H-2).
+  turnTimerGen?: number;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -441,6 +449,106 @@ function buildSessionStats(table: GenericTable, seatId: string): {
 }
 
 // ─── Broadcast ────────────────────────────────────────────────────────────────
+
+// ─── P4: Turn timer (server-authoritative auto-action on expiry) ─────────────
+const TURN_TIMEOUT_MS = 30_000;
+
+const INTERACTIVE_PHASES = new Set<GamePhase>([
+  'BET_1','BET_2','BET_3','BET_4','BET_5','BET_6','BET_7','BET_8',
+  'DRAW','DRAW_1','DRAW_2','DRAW_3',
+  'HIT_1','HIT_2','HIT_3','HIT_4','HIT_5','HIT_6','HIT_7','HIT_8',
+  'DECLARE','DECLARE_AND_BET',
+]);
+
+function clearTurnTimer(table: GenericTable): void {
+  // Bump the generation token so any already-queued callback bails out on
+  // its stale-fire guard, even if clearTimeout missed it (architect H-2).
+  table.turnTimerGen = (table.turnTimerGen ?? 0) + 1;
+  if (table.turnTimer) { clearTimeout(table.turnTimer); table.turnTimer = null; }
+  if (table.state.turnDeadline != null) {
+    table.state = { ...table.state, turnDeadline: null };
+  }
+}
+
+function armTurnTimer(table: GenericTable): void {
+  // Always clear (and bump gen) before re-arming.
+  if (table.turnTimer) { clearTimeout(table.turnTimer); table.turnTimer = null; }
+  table.turnTimerGen = (table.turnTimerGen ?? 0) + 1;
+  const s = table.state;
+  const seat = s.activePlayerId;
+  if (!seat || !INTERACTIVE_PHASES.has(s.phase)) {
+    if (s.turnDeadline != null) table.state = { ...s, turnDeadline: null };
+    return;
+  }
+  const player = s.players.find(p => p.id === seat);
+  if (!player || player.status !== 'active' || player.presence !== 'human') {
+    // Bots have their own scheduling path; don't arm a timer for them.
+    if (s.turnDeadline != null) table.state = { ...s, turnDeadline: null };
+    return;
+  }
+  const deadline = Date.now() + TURN_TIMEOUT_MS;
+  table.state = { ...s, turnDeadline: deadline };
+  const handAtArm = table.handId;
+  const phaseAtArm = s.phase;
+  const seatAtArm = seat;
+  const genAtArm = table.turnTimerGen;
+  const fire = () => {
+    // Stale-fire guard: gen token + hand/phase/seat + player still must-act.
+    if (table.turnTimerGen !== genAtArm) return;     // armTurnTimer/clearTurnTimer was called since
+    if (table.handId !== handAtArm) return;
+    if (table.state.phase !== phaseAtArm) return;
+    if (table.state.activePlayerId !== seatAtArm) return;
+    const cur = table.state.players.find(p => p.id === seatAtArm);
+    if (!cur || cur.status !== 'active' || cur.hasActed) return;
+    if (table.actionLock) {
+      // Architect H-1: another action is being processed. Re-queue the firing
+      // briefly so the timeout is never silently consumed mid-action.
+      table.turnTimer = setTimeout(fire, 100);
+      return;
+    }
+    autoActOnTimeout(table, seatAtArm);
+  };
+  table.turnTimer = setTimeout(fire, TURN_TIMEOUT_MS);
+}
+
+function autoActOnTimeout(table: GenericTable, seat: string): void {
+  const s = table.state;
+  const playerIdx = s.players.findIndex(p => p.id === seat);
+  if (playerIdx === -1) return;
+  const player = s.players[playerIdx];
+  if (player.status !== 'active') return;
+  const phase = s.phase;
+  const callAmt = s.currentBet - player.bet;
+  const newPlayers = [...s.players];
+  let msg = '';
+  if (phase.startsWith('HIT_')) {
+    // Auto-stay: safest action (no extra chips, no fold-out).
+    newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
+    msg = `${player.name} times out — stays`;
+  } else if (phase.startsWith('DRAW')) {
+    // Stand pat (no card swap).
+    newPlayers[playerIdx] = { ...player, hasActed: true };
+    msg = `${player.name} times out — stands pat`;
+  } else if (phase === 'DECLARE') {
+    newPlayers[playerIdx] = { ...player, declaration: 'FOLD', status: 'folded', hasActed: true };
+    msg = `${player.name} times out — folds`;
+  } else if (phase === 'DECLARE_AND_BET') {
+    newPlayers[playerIdx] = { ...player, declaration: 'FOLD' as Declaration, status: 'folded', hasActed: true };
+    msg = `${player.name} times out — folds`;
+  } else if (callAmt <= 0) {
+    // Free check available — auto-check.
+    newPlayers[playerIdx] = { ...player, hasActed: true };
+    msg = `${player.name} times out — checks`;
+  } else {
+    // Owes chips — auto-fold.
+    newPlayers[playerIdx] = { ...player, status: 'folded', hasActed: true };
+    msg = `${player.name} times out — folds`;
+  }
+  table.state = addMsg({ ...s, players: newPlayers, turnDeadline: null }, msg);
+  engineLog('TURN_TIMEOUT', `${table.modeId}:${table.tableId}`, { seat, phase, msg });
+  table.turnTimer = null;
+  afterHumanAction(table, false);
+}
 
 function broadcastState(table: GenericTable): void {
   const spectatorCount = table.spectators.size;
@@ -635,7 +743,12 @@ function advanceToNextPhase(table: GenericTable): void {
       broadcastState(table);
       scheduleNextBot(table);
     }, 400);
+    return;
   }
+
+  // P4: arm turn timer for the new active player once a phase advance has
+  // settled (after all auto-advance / showdown / reveal early-returns above).
+  armTurnTimer(table);
 }
 
 // ─── Deal cards ───────────────────────────────────────────────────────────────
@@ -1152,6 +1265,7 @@ function executeBotAction(table: GenericTable, botId: string): void {
       }, wasRaise ? 500 : 350);
     } else if (nextPlayerId) {
       table.state = { ...table.state, activePlayerId: nextPlayerId };
+      armTurnTimer(table); // P4: arm timer if next player is human
       broadcastState(table);
       scheduleNextBot(table);
     }
@@ -1165,6 +1279,8 @@ function executeBotAction(table: GenericTable, botId: string): void {
 // ─── After-human-action plumbing ──────────────────────────────────────────────
 
 function afterHumanAction(table: GenericTable, wasRaise = false): void {
+  // P4: clear any armed turn timer for the player who just acted.
+  clearTurnTimer(table);
   broadcastState(table);
 
   // Terminal-state guard: lone survivor wins by fold, or zero actors → reset.
@@ -1198,6 +1314,7 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
       nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
     }
     table.state = { ...s, activePlayerId: s.players[nextIdx].id };
+    armTurnTimer(table); // P4: arm timer if next player is human
     broadcastState(table);
     scheduleNextBot(table);
   }
@@ -1327,6 +1444,15 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
 
+  // P4 (architect M-3): if this human reconnects into a seat that is the
+  // active player in an interactive phase, the prior timer (set when the
+  // seat was already 'human') is fine — but if the seat just transitioned
+  // from 'reserved' or this is a restored table with no timer, we must arm.
+  // armTurnTimer is idempotent (bumps gen + clears any existing handle).
+  const willBeActiveHuman =
+    table.state.activePlayerId === seat &&
+    INTERACTIVE_PHASES.has(table.state.phase);
+
   const wasReserved = table.state.players.find(p => p.id === seat)?.presence === 'reserved';
   table.state = {
     ...table.state,
@@ -1392,6 +1518,13 @@ export function addGenericConnection(tableId: string, modeId: string, sessionId:
         storage.setPlayerActiveTable(identityId, tableId, seat, modeId).catch(() => {});
       }).catch(() => {});
     }
+  }
+
+  // P4 (architect M-3): if this human is the active seat in an interactive
+  // phase (restored table or post-reserved-flip mid-hand), arm the turn
+  // timer now. armTurnTimer is idempotent — bumps gen + replaces any handle.
+  if (willBeActiveHuman) {
+    armTurnTimer(table);
   }
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', `${modeId}:${tableId}`, {
@@ -1767,6 +1900,17 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // ── hit (fifteen35) ──────────────────────────────────────────────────────
     else if (action === 'hit') {
       const player = newPlayers[playerIdx];
+      // P6: Reject hit if player has already declared STAY or BUST.
+      // Prevents an out-of-turn or stale-client request from re-drawing on a
+      // standing hand. The client also hides Hit in this case but the server
+      // must remain authoritative.
+      if (player.declaration === 'STAY' || player.declaration === 'BUST') {
+        engineLog('REJECT_HIT_AFTER_STAY', `${table.modeId}:${table.tableId}`, {
+          seat: playerId, declaration: player.declaration, phase: s.phase,
+        });
+        table.actionLock = false;
+        return;
+      }
       const newDeck = [...s.deck];
       const hitCard = newDeck.shift();
       if (hitCard) {

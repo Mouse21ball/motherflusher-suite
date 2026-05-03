@@ -343,6 +343,82 @@ await (async () => {
   }
 })();
 
+// ─── 7. P11 — Bet sizing preset math ────────────────────────────────────────
+// Mirrors the client-side computation in Controls.tsx so the contract is
+// locked: each preset clamps to [minRaiseTo, myBet+chips] and the buttons
+// disable when the preset can't be reached (short stack).
+section('P11 bet sizing presets — clamp & ordering');
+{
+  function presets(currentBet: number, myBet: number, pot: number, chips: number) {
+    const callAmount = currentBet - myBet;
+    const minRaiseTo = callAmount > 0 ? currentBet + Math.max(callAmount, 2) : Math.max(currentBet, 2);
+    const maxRaiseTo = myBet + chips;
+    const clamp = (v: number) => Math.max(minRaiseTo, Math.min(maxRaiseTo, Math.round(v)));
+    return {
+      minRaiseTo, maxRaiseTo,
+      half:  clamp(currentBet + Math.max(2, Math.floor((pot + callAmount) / 2))),
+      pot:   clamp(currentBet + Math.max(2, pot + callAmount)),
+      twoP:  clamp(currentBet + Math.max(2, 2 * (pot + callAmount))),
+      allIn: maxRaiseTo,
+    };
+  }
+  // Standard mid-hand: hero owes 20, pot is 100, deep stack.
+  const a = presets(20, 0, 100, 1000);
+  assert(a.minRaiseTo === 40,                  `min raise-to = currentBet+max(call,2) = 40 (got ${a.minRaiseTo})`);
+  assert(a.half === 20 + 60,                   `½-pot raise-to = currentBet + (pot+call)/2 = 80 (got ${a.half})`);
+  assert(a.pot  === 20 + 120,                  `pot raise-to = currentBet + (pot+call) = 140 (got ${a.pot})`);
+  assert(a.twoP === 20 + 240,                  `2× pot raise-to = currentBet + 2(pot+call) = 260 (got ${a.twoP})`);
+  assert(a.allIn === 1000,                     `all-in = myBet+chips = 1000 (got ${a.allIn})`);
+  assert(a.half >= a.minRaiseTo,               `½-pot ≥ min`);
+  assert(a.pot  >= a.half,                      `pot ≥ ½-pot`);
+  assert(a.twoP >= a.pot,                      `2× pot ≥ pot`);
+  // Short stack — every preset must clamp into [min, max] and never exceed all-in.
+  const b = presets(20, 0, 100, 50);
+  assert(b.maxRaiseTo === 50,                  `short-stack max = 50 (got ${b.maxRaiseTo})`);
+  assert(b.half  <= 50 && b.pot <= 50 && b.twoP <= 50, `presets clamp to all-in (50)`);
+  assert(b.half  >= b.minRaiseTo,              `short-stack ½-pot still ≥ min raise`);
+  // No-bet round (open): currentBet=0, no call.
+  const c = presets(0, 0, 60, 1000);
+  assert(c.minRaiseTo === 2,                   `open-bet min = 2 (got ${c.minRaiseTo})`);
+  assert(c.pot  === 60,                        `open-bet pot-sized = 60 (got ${c.pot})`);
+  assert(c.twoP === 120,                       `open-bet 2× pot = 120 (got ${c.twoP})`);
+}
+
+// ─── 8. P6 — 15/35 hit-after-stay reject (pure-logic mirror) ────────────────
+section('P6 — fifteen35 hit rejected after STAY/BUST');
+{
+  // The server rejects with REJECT_HIT_AFTER_STAY when:
+  //   player.declaration === 'STAY' OR player.declaration === 'BUST'
+  // Mirrors the guard at server/genericEngine.ts (~line 1771).
+  function shouldRejectHit(decl: Player['declaration']): boolean {
+    return decl === 'STAY' || decl === 'BUST';
+  }
+  assert(shouldRejectHit('STAY')           === true,  'STAY → reject hit');
+  assert(shouldRejectHit('BUST')           === true,  'BUST → reject hit');
+  assert(shouldRejectHit(null)             === false, 'no declaration → allow hit');
+  assert(shouldRejectHit('HIGH' as any)    === false, 'HIGH (high/low decl) → allow hit (different phase)');
+}
+
+// ─── 9. P4 — Turn timer auto-action selection ───────────────────────────────
+section('P4 — turn timeout selects safest action');
+{
+  // Mirrors autoActOnTimeout phase→action mapping in genericEngine.ts.
+  function autoActFor(phase: GamePhase, callAmt: number): 'stay' | 'stand-pat' | 'fold' | 'check' {
+    if (phase.startsWith('HIT_'))            return 'stay';
+    if (phase.startsWith('DRAW'))            return 'stand-pat';
+    if (phase === 'DECLARE')                 return 'fold';
+    if (phase === 'DECLARE_AND_BET')         return 'fold';
+    if (callAmt <= 0)                        return 'check';
+    return 'fold';
+  }
+  assert(autoActFor('HIT_3' as GamePhase, 0)             === 'stay',      'HIT phase → auto-stay');
+  assert(autoActFor('DRAW_2' as GamePhase, 0)            === 'stand-pat', 'DRAW phase → stand pat');
+  assert(autoActFor('DECLARE' as GamePhase, 0)           === 'fold',      'DECLARE → auto-fold (no chips lost — already in pot)');
+  assert(autoActFor('DECLARE_AND_BET' as GamePhase, 50)  === 'fold',      'DECLARE_AND_BET → auto-fold');
+  assert(autoActFor('BET_1' as GamePhase, 0)             === 'check',     'BET with no call → auto-check');
+  assert(autoActFor('BET_2' as GamePhase, 50)            === 'fold',      'BET owing chips → auto-fold');
+}
+
 // ─── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n── Results: ${passes} passed, ${failures} failed ──`);
 process.exit(failures === 0 ? 0 : 1);

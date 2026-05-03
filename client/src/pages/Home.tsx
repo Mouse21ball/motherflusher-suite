@@ -835,7 +835,10 @@ export default function Home() {
           {/* ── BADUGI HERO CARD ──────────────────────────────────────────── */}
           {(() => {
             const mode  = MODES[0];
-            const chips = chipMap[mode.id] ?? 1000;
+            // P1: Unified bankroll — all modes share the server-authoritative
+            // chipBalance. Only fall back to per-mode localStorage values when
+            // the server profile hasn't loaded yet.
+            const chips = serverProfile?.chipBalance ?? chipMap[mode.id] ?? 1000;
             const tbl   = getModeTableCount(mode.id);
             return (
               <button
@@ -899,7 +902,10 @@ export default function Home() {
           {/* ── 2-COLUMN GRID ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
             {MODES.slice(1).map(mode => {
-              const chips = chipMap[mode.id] ?? 1000;
+              // P1: Unified bankroll — all modes share the server-authoritative
+            // chipBalance. Only fall back to per-mode localStorage values when
+            // the server profile hasn't loaded yet.
+            const chips = serverProfile?.chipBalance ?? chipMap[mode.id] ?? 1000;
               const tbl   = getModeTableCount(mode.id);
               return (
                 <button
