@@ -321,13 +321,31 @@ export function ThreeDTableScene({
     prevPhaseRef.current = gameState.phase;
   }, [gameState.phase]);
 
+  // ── Snapshot showdown outcome the moment SHOWDOWN starts so we can render
+  //    the result echo without depending on stale fields after the server
+  //    advances to the next hand (server-authoritative; no local derivation).
+  const showdownSnapRef = useRef<{
+    isWinner: boolean; isLoser: boolean; folded: boolean; net: number;
+  } | null>(null);
+  useEffect(() => {
+    if (gameState.phase === 'SHOWDOWN') {
+      const hero = gameState.players.find(p => p.id === myId);
+      showdownSnapRef.current = {
+        isWinner: !!hero?.isWinner,
+        isLoser:  !!hero?.isLoser,
+        folded:   hero?.status === 'folded',
+        net:      gameState.heroChipChange ?? 0,
+      };
+    }
+  }, [gameState.phase, gameState.players, gameState.heroChipChange, myId]);
+
   const wasShowdownRef = useRef(gameState.phase === 'SHOWDOWN');
   useEffect(() => {
     const was = wasShowdownRef.current;
     wasShowdownRef.current = gameState.phase === 'SHOWDOWN';
     if (was && gameState.phase !== 'SHOWDOWN' && heroNow && heroChipStartRef.current !== null) {
       saveSessionResult(heroNow.chips - heroChipStartRef.current, handCount, heroChipStartRef.current);
-      const net = gameState.heroChipChange ?? 0;
+      const net = showdownSnapRef.current?.net ?? 0;
       if (net > 0) saveHandResult('win');
       else if (net < 0) saveHandResult('loss');
     }
@@ -341,13 +359,13 @@ export function ThreeDTableScene({
     const was = wasShowdownRef2.current;
     wasShowdownRef2.current = gameState.phase === 'SHOWDOWN';
     if (was && gameState.phase !== 'SHOWDOWN') {
-      const hero = gameState.players.find(p => p.id === myId);
-      const net = gameState.heroChipChange ?? 0;
+      const snap = showdownSnapRef.current;
+      const net = snap?.net ?? 0;
       let text = '';
       let won = false;
-      if (hero?.isWinner) { text = net > 0 ? `+$${net}` : 'Won'; won = true; }
-      else if (hero?.isLoser || net < 0) { text = net < 0 ? `-$${Math.abs(net)}` : 'Lost'; }
-      else if (hero?.status === 'folded') { text = 'Folded'; }
+      if (snap?.isWinner) { text = net > 0 ? `+$${net}` : 'Won'; won = true; }
+      else if (snap?.isLoser || net < 0) { text = net < 0 ? `-$${Math.abs(net)}` : 'Lost'; }
+      else if (snap?.folded) { text = 'Folded'; }
       if (text) {
         setLastResultEcho({ text, won });
         if (resultEchoTimer.current) clearTimeout(resultEchoTimer.current);

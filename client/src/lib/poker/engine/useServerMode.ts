@@ -85,6 +85,12 @@ export function useServerMode(tableId: string, modeId: string) {
     tableId,
   }));
   const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
+  const [lastWsAt, setLastWsAt] = useState<number | null>(null);
+  const [lastWsType, setLastWsType] = useState<string | null>(null);
+  // Client-side invariant: total chips + pot should not silently change
+  // mid-hand. We log when it does so desync is visible immediately.
+  const lastTotalRef = useRef<number | null>(null);
+  const lastPhaseRef = useRef<string | null>(null);
 
   const [myId, setMyId] = useState<string>('p1');
   const [role, setRole] = useState<'player' | 'spectator'>('player');
@@ -156,6 +162,38 @@ export function useServerMode(tableId: string, modeId: string) {
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
+          // ── WS IN audit (every message, regardless of payload shape) ──
+          setLastWsAt(Date.now());
+          setLastWsType(msg.type ?? '?');
+          if (!msg.state) {
+            console.log('[WS IN]', msg.type ?? '?', '(no state)', msg.reason ?? '');
+          }
+          // ── WS IN with state: invariant check ──────────────────────────
+          if (msg.state) {
+            const s = msg.state as GameState;
+            const totalChips = s.players?.reduce((acc: number, p) => acc + (p.chips ?? 0), 0) ?? 0;
+            const total = totalChips + (s.pot ?? 0) + (s.players?.reduce((acc: number, p) => acc + (p.bet ?? 0), 0) ?? 0);
+            console.log('[WS IN]', msg.type, 'phase=', s.phase, 'pot=', s.pot, 'players=', s.players?.length, 'total(chips+pot+bets)=', total);
+            // Phase reset → expect total to stay equal to prev hand's total.
+            const phaseChanged = lastPhaseRef.current !== s.phase;
+            if (lastTotalRef.current != null && total !== lastTotalRef.current) {
+              const delta = total - lastTotalRef.current;
+              // Allow legitimate changes only when humans buy in via 'rebuy'
+              // (handled separately) — otherwise warn.
+              console.warn('[CGP][client] chip+pot invariant changed', {
+                prev: lastTotalRef.current, now: total, delta, phase: s.phase, prevPhase: lastPhaseRef.current,
+              });
+            }
+            lastTotalRef.current = total;
+            lastPhaseRef.current = s.phase;
+            // Hand-start sanity: at ANTE/WAITING the pot should be 0.
+            if ((s.phase === 'WAITING' || s.phase === 'ANTE') && (s.pot ?? 0) !== 0 && phaseChanged) {
+              console.warn('[CGP][client] pot expected 0 at hand-start', { phase: s.phase, pot: s.pot });
+            }
+            // NOTE: invariant warning may legitimately fire on rebuy/reseat
+            // (chips appear from outside the hand). Tolerated — diagnostic only.
+          }
+
           if (msg.type === 'mode:init') {
             const pid = msg.playerId as string;
             myIdRef.current = pid;
@@ -165,6 +203,7 @@ export function useServerMode(tableId: string, modeId: string) {
             } else {
               setRole('player');
             }
+            // FULL replace — no merge.
             setState(msg.state as GameState);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as SessionStats;
@@ -174,6 +213,7 @@ export function useServerMode(tableId: string, modeId: string) {
             return;
           }
           if (msg.type === 'mode:snapshot') {
+            // FULL replace — no merge.
             setState(msg.state as GameState);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as SessionStats;
@@ -186,7 +226,11 @@ export function useServerMode(tableId: string, modeId: string) {
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
-        } catch {}
+          // Unhandled types — log so we can spot missing handlers.
+          console.warn('[WS IN] unhandled message type', msg.type);
+        } catch (err) {
+          console.error('[WS IN] parse failed', err);
+        }
       };
 
       ws.onclose = () => {
@@ -236,5 +280,5 @@ export function useServerMode(tableId: string, modeId: string) {
     ws.send(JSON.stringify(outgoing));
   }, []);
 
-  return { state, handleAction, myId, role, sessionStats };
+  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType };
 }

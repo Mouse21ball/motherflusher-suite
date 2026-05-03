@@ -81,6 +81,10 @@ export function useServerBadugi(tableId: string) {
     tableId,
   }));
   const [sessionStats, setSessionStats] = useState<BadugiSessionStats>(DEFAULT_SESSION_STATS);
+  const [lastWsAt, setLastWsAt] = useState<number | null>(null);
+  const [lastWsType, setLastWsType] = useState<string | null>(null);
+  const lastTotalRef = useRef<number | null>(null);
+  const lastPhaseRef = useRef<string | null>(null);
 
   // Start with 'p1' as a safe default for the pre-init render.
   // Will be replaced by the server-assigned seat when badugi:init arrives.
@@ -159,11 +163,40 @@ export function useServerBadugi(tableId: string) {
         try {
           const msg = JSON.parse(event.data as string);
 
+          // ── WS IN audit (every message, regardless of payload shape) ──
+          setLastWsAt(Date.now());
+          setLastWsType(msg.type ?? '?');
+          if (!msg.state) {
+            console.log('[WS IN]', msg.type ?? '?', '(no state)', msg.reason ?? '');
+          }
+          // ── WS IN with state: invariant check ──────────────────────────
+          if (msg.state) {
+            const s = msg.state as GameState;
+            const totalChips = s.players?.reduce((acc: number, p) => acc + (p.chips ?? 0), 0) ?? 0;
+            const total = totalChips + (s.pot ?? 0) + (s.players?.reduce((acc: number, p) => acc + (p.bet ?? 0), 0) ?? 0);
+            console.log('[WS IN]', msg.type, 'phase=', s.phase, 'pot=', s.pot, 'players=', s.players?.length, 'total(chips+pot+bets)=', total);
+            const phaseChanged = lastPhaseRef.current !== s.phase;
+            if (lastTotalRef.current != null && total !== lastTotalRef.current) {
+              console.warn('[CGP][client] chip+pot invariant changed', {
+                prev: lastTotalRef.current, now: total, delta: total - lastTotalRef.current,
+                phase: s.phase, prevPhase: lastPhaseRef.current,
+              });
+            }
+            lastTotalRef.current = total;
+            lastPhaseRef.current = s.phase;
+            if ((s.phase === 'WAITING' || s.phase === 'ANTE') && (s.pot ?? 0) !== 0 && phaseChanged) {
+              console.warn('[CGP][client] pot expected 0 at hand-start', { phase: s.phase, pot: s.pot });
+            }
+            // NOTE: invariant warning may legitimately fire on rebuy/reseat
+            // (chips appear from outside the hand). Tolerated — diagnostic only.
+          }
+
           // badugi:init: first message after join — carries seat, state, and sessionStats.
           // Must be processed before any snapshot so masking uses the correct seat.
           if (msg.type === 'badugi:init') {
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
+            // FULL replace — no merge.
             setState(msg.state as GameState);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as BadugiSessionStats;
@@ -178,6 +211,7 @@ export function useServerBadugi(tableId: string) {
 
           // badugi:snapshot: subsequent broadcasts after each action.
           if (msg.type === 'badugi:snapshot') {
+            // FULL replace — no merge.
             setState(msg.state as GameState);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as BadugiSessionStats;
@@ -186,7 +220,11 @@ export function useServerBadugi(tableId: string) {
             }
             return;
           }
-        } catch { /* malformed — ignore */ }
+          // Unhandled types — log to spot missing handlers.
+          console.warn('[WS IN] unhandled message type', msg.type);
+        } catch (err) {
+          console.error('[WS IN] parse failed', err);
+        }
       };
 
       ws.onclose = () => {
@@ -241,5 +279,5 @@ export function useServerBadugi(tableId: string) {
     ws.send(JSON.stringify(outgoing));
   }, [activeFlag]);
 
-  return { state, handleAction, myId, role, sessionStats };
+  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType };
 }

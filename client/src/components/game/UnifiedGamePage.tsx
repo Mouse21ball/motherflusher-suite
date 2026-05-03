@@ -10,6 +10,7 @@ import { ChatBox } from "@/components/game/ChatBox";
 import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
+import { DebugOverlay } from "@/components/game/DebugOverlay";
 import { XPToast } from "@/components/XPToast";
 import { useXPWatcher } from "@/lib/useXPWatcher";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
@@ -78,6 +79,8 @@ interface UnifiedGameUIProps {
   tableId?: string;
   role?: 'player' | 'spectator';
   sessionStats?: GameSessionStats;
+  lastWsAt?: number | null;
+  lastWsType?: string | null;
 }
 
 const SUITSPOKER_DECLARATION_OPTIONS = [
@@ -86,7 +89,7 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
   { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats }: UnifiedGameUIProps) {
+function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -127,26 +130,8 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   // Clear card selection on phase change
   useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
 
-  // ── Track chip count from prior phase so heroChipChange always has a value
-  //    (server only computes heroChipChange for hand 2+; hand 1 falls back here)
-  const prevChipsRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (state.phase !== 'SHOWDOWN' && me?.chips !== undefined) {
-      prevChipsRef.current = me.chips;
-    }
-  }, [state.phase, me?.chips]);
-
-  const fallbackChipChange =
-    state.phase === 'SHOWDOWN' &&
-    state.heroChipChange === undefined &&
-    me?.chips !== undefined &&
-    prevChipsRef.current !== undefined
-      ? me.chips - prevChipsRef.current
-      : state.heroChipChange;
-
-  const augmentedState: GameState = state.heroChipChange === undefined && fallbackChipChange !== undefined
-    ? { ...state, heroChipChange: fallbackChipChange }
-    : state;
+  // ── SERVER-AUTHORITATIVE: no client-derived state. heroChipChange comes
+  //    from the server snapshot or is undefined. Do not merge fallbacks.
 
   // 'DRAW' = Suits & Poker single draw phase; DRAW_1/2/3 = Badugi/Dead7 multi-draw phases
   const isDrawPhase = state.phase === 'DRAW' || state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
@@ -221,9 +206,13 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         </div>
       )}
 
+      {import.meta.env.DEV && (
+        <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
+      )}
+
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44 game-main-area">
         <ThreeDTableScene
-          gameState={augmentedState}
+          gameState={state}
           myId={isSpectator ? 'p1' : myId}
           modeId={modeId}
           selectedCardIndices={isSpectator ? [] : selectedCardIndices}
@@ -289,8 +278,8 @@ function useTableId(modeId: string) {
 function BadugiServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const { state, handleAction, myId, role, sessionStats } = useServerBadugi(tableId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType } = useServerBadugi(tableId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} />;
 }
 
 // Server engine modeId mapping (UI modeId → server engine modeId)
@@ -304,8 +293,8 @@ function GenericServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
-  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, engineId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType } = useServerMode(tableId, engineId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} />;
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
