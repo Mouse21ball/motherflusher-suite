@@ -1,6 +1,7 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
 import { getNextActivePlayerIndex } from '../engine/core';
 import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 function suitsCardValue(rank: string): number {
   if (rank === 'A') return 11;
@@ -167,15 +168,18 @@ export const SuitsPokerMode: GameMode = {
       const suitsStrength = evaluation?.suitsValid ? Math.min((evaluation?.suitsScore || 0) / 55, 1) : 0;
       let handStrength = declaration === 'SWING' ? Math.min(pokerStrength, suitsStrength) : declaration === 'SUITS' ? suitsStrength : pokerStrength;
       if (phase === 'BET_1') handStrength = Math.max(handStrength, 0.15); else if (phase === 'BET_2') handStrength = Math.max(handStrength, 0.12);
-      const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips);
-      const result = applyBetDecision(decision, bot, currentBet, pot);
+      const raisesSoFar = state.raisesThisRound ?? 0;
+      const activeOpponents = players.filter(p => p.id !== botId && p.status === 'active').length;
+      const raiseCap = activeOpponents <= 1 ? 4 : 3;
+      const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips, { raisesThisRound: raisesSoFar, raiseCap });
+      const result = applyBetDecision(decision, bot, currentBet, pot, raisesSoFar);
       const newPlayers = players.map(p => p.id !== botId ? p : { ...p, status: result.status as any, chips: result.chips, bet: result.bet, hasActed: true, declaration: declaration || p.declaration });
       const activeForRound = isDeclarePhase ? newPlayers.filter(p => p.status === 'active') : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
       const roundOver = activeForRound.every(p => p.hasActed) && activeForRound.every(p => p.bet === result.currentBet || p.chips === 0);
       let msg = `${bot.name}`;
       if (phase === 'DECLARE_AND_BET' && declaration) msg += ` declares ${declaration} and`;
       if (decision.action === 'fold') msg += ' folds'; else if (decision.action === 'check') msg += ' checks'; else if (decision.action === 'call') msg += ` calls $${currentBet - bot.bet}`; else msg += ` raises to $${result.bet}`;
-      return { stateUpdates: { pot: result.pot, currentBet: result.currentBet, players: newPlayers }, message: msg, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
+      return { stateUpdates: { pot: result.pot, currentBet: result.currentBet, raisesThisRound: result.raisesThisRound, players: newPlayers }, message: msg, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
     }
     return null;
   },
@@ -195,34 +199,108 @@ export const SuitsPokerMode: GameMode = {
     const finalPlayers: Player[] = players.map(p => { if (p.status === 'folded') return p; const cards = p.cards.map(c => ({ ...c, isHidden: false })); return { ...p, cards, score: spEvaluateHand({ ...p, cards }, cc) || undefined }; });
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
     const messages: string[] = [];
-    if (activePlayers.length === 1) { activePlayers[0].chips += pot; activePlayers[0].isWinner = true; messages.push(`${activePlayers[0].name} wins $${pot} (last player standing)`); return { players: finalPlayers, pot: 0, messages }; }
+
+    let sidePots: SidePot[] = computeSidePots(finalPlayers);
+    if (sidePots.length === 0 && pot > 0) {
+      sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
+    }
+    const totalAwardable = totalSidePotAmount(sidePots);
+
+    if (activePlayers.length === 1) {
+      const sole = activePlayers[0];
+      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
+      sole.chips += award; sole.isWinner = true;
+      messages.push(`${sole.name} wins $${award} (last player standing)`);
+      return { players: finalPlayers, pot: totalAwardable - award, messages };
+    }
+
     const findPokerWinner = (contenders: Player[]): Player[] => { let bestVal = -1, winners: Player[] = []; for (const p of contenders) { const val = p.declaration === 'SWING' ? (p.score?.swingPokerValue || 0) : (p.score?.pokerValue || 0); if (val > bestVal) { bestVal = val; winners = [p]; } else if (val === bestVal && val > 0) winners.push(p); } return winners; };
     const findSuitsWinner = (contenders: Player[]): Player[] => { let bestVal = 0, winners: Player[] = []; for (const p of contenders) { const val = p.declaration === 'SWING' ? (p.score?.swingSuitsScore || 0) : (p.score?.suitsScore || 0); const valid = p.declaration === 'SWING' ? ((p.score?.swingSuitsScore || 0) > 0) : (p.score?.suitsValid || false); if (!valid) continue; if (val > bestVal) { bestVal = val; winners = [p]; } else if (val === bestVal && val > 0) winners.push(p); } return winners; };
-    let pokerEligible = activePlayers.filter(p => p.declaration === 'POKER' || p.declaration === 'SWING');
-    let suitsEligible = activePlayers.filter(p => p.declaration === 'SUITS' || p.declaration === 'SWING');
-    let pokerWinners = findPokerWinner(pokerEligible), suitsWinners = findSuitsWinner(suitsEligible);
-    const swingIds = activePlayers.filter(p => p.declaration === 'SWING').map(p => p.id);
-    const successfulSwings = swingIds.filter(sid => pokerWinners.some(w => w.id === sid) && suitsWinners.some(w => w.id === sid));
-    if (successfulSwings.length > 0) {
-      const share = Math.floor(pot / successfulSwings.length);
-      if (successfulSwings.length > 1) messages.push(`Split Pot — ${successfulSwings.length} SWING scoops split $${pot}`);
-      for (const sid of successfulSwings) { const p = finalPlayers.find(pp => pp.id === sid)!; p.chips += share; p.isWinner = true; messages.push(`${p.name} SCOOPS $${share} with SWING!`); }
-      finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
-      return { players: finalPlayers, pot: 0, messages };
+
+    const deltas: Record<string, number> = {};
+    const swingScoopIds = new Set<string>();
+    const pokerWinIds = new Set<string>();
+    const suitsWinIds = new Set<string>();
+    const failedSwingsAnnounced = new Set<string>();
+    let rolledOver = 0;
+    let anyWinner = false;
+
+    const distribute = (ids: string[], amount: number) => {
+      if (ids.length === 0 || amount === 0) return;
+      const share = Math.floor(amount / ids.length);
+      let rem = amount - share * ids.length;
+      for (const id of ids) {
+        const award = share + (rem > 0 ? 1 : 0);
+        deltas[id] = (deltas[id] || 0) + award;
+        if (rem > 0) rem--;
+      }
+    };
+
+    for (const sp of sidePots) {
+      const eligible = activePlayers.filter(p => sp.eligibleIds.includes(p.id));
+      let pokerCands = eligible.filter(p => p.declaration === 'POKER' || p.declaration === 'SWING');
+      let suitsCands = eligible.filter(p => p.declaration === 'SUITS' || p.declaration === 'SWING');
+      let pokerW = findPokerWinner(pokerCands);
+      let suitsW = findSuitsWinner(suitsCands);
+
+      const swingIds = eligible.filter(p => p.declaration === 'SWING').map(p => p.id);
+      const successfulSwings = swingIds.filter(sid =>
+        pokerW.some(w => w.id === sid) && suitsW.some(w => w.id === sid));
+
+      if (successfulSwings.length > 0) {
+        distribute(successfulSwings, sp.amount);
+        successfulSwings.forEach(id => swingScoopIds.add(id));
+        anyWinner = true;
+        continue;
+      }
+
+      // Failed SWINGs disqualified from this pot.
+      for (const sid of swingIds) {
+        if (!failedSwingsAnnounced.has(sid)) {
+          const fp = finalPlayers.find(p => p.id === sid)!;
+          messages.push(`${fp.name} fails SWING`);
+          failedSwingsAnnounced.add(sid);
+        }
+      }
+      pokerCands = pokerCands.filter(p => !swingIds.includes(p.id));
+      suitsCands = suitsCands.filter(p => !swingIds.includes(p.id));
+      pokerW = findPokerWinner(pokerCands);
+      suitsW = findSuitsWinner(suitsCands);
+
+      if (pokerW.length === 0 && suitsW.length === 0) { rolledOver += sp.amount; continue; }
+      let pokerShare = 0, suitsShare = 0;
+      if (pokerW.length > 0 && suitsW.length > 0) {
+        pokerShare = Math.floor(sp.amount / 2);
+        suitsShare = sp.amount - pokerShare;
+      } else if (pokerW.length > 0) pokerShare = sp.amount;
+      else suitsShare = sp.amount;
+      distribute(pokerW.map(w => w.id), pokerShare);
+      distribute(suitsW.map(w => w.id), suitsShare);
+      pokerW.forEach(w => pokerWinIds.add(w.id));
+      suitsW.forEach(w => suitsWinIds.add(w.id));
+      anyWinner = true;
     }
-    const failedSwingIds: string[] = [];
-    for (const sid of swingIds) { failedSwingIds.push(sid); const sp = finalPlayers.find(p => p.id === sid)!; messages.push(`${sp.name} fails SWING`); }
-    pokerEligible = pokerEligible.filter(p => !failedSwingIds.includes(p.id));
-    suitsEligible = suitsEligible.filter(p => !failedSwingIds.includes(p.id));
-    pokerWinners = findPokerWinner(pokerEligible); suitsWinners = findSuitsWinner(suitsEligible);
-    if (pokerWinners.length === 0 && suitsWinners.length === 0) { messages.push(`No qualifiers. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
-    let pokerPot = 0, suitsPot = 0;
-    if (pokerWinners.length > 0 && suitsWinners.length > 0) { pokerPot = Math.floor(pot / 2); suitsPot = pot - pokerPot; messages.push(`Split Pot — POKER/SUITS split $${pot}`); }
-    else if (pokerWinners.length > 0) pokerPot = pot;
-    else suitsPot = pot;
-    if (pokerWinners.length > 0) { const share = Math.floor(pokerPot / pokerWinners.length); for (const w of pokerWinners) { const p = finalPlayers.find(pp => pp.id === w.id)!; p.chips += share; p.isWinner = true; messages.push(`${p.name} wins POKER — $${share} (${p.score?.high})`); } }
-    if (suitsWinners.length > 0) { const share = Math.floor(suitsPot / suitsWinners.length); for (const w of suitsWinners) { const p = finalPlayers.find(pp => pp.id === w.id)!; p.chips += share; p.isWinner = true; messages.push(`${p.name} wins SUITS — $${share} (${p.score?.low})`); } }
+
+    if (!anyWinner) {
+      messages.push(`No qualifiers. $${rolledOver} rolls over!`);
+      return { players: finalPlayers, pot: rolledOver, messages };
+    }
+
+    const awardedTotal = totalAwardable - rolledOver;
+    if (swingScoopIds.size > 0 && swingScoopIds.size > 1) messages.push(`Split Pot — ${swingScoopIds.size} SWING scoops split $${awardedTotal}`);
+    else if (pokerWinIds.size > 0 && suitsWinIds.size > 0) messages.push(`Split Pot — POKER/SUITS split $${awardedTotal}`);
+
+    for (const id of Object.keys(deltas)) {
+      const fp = finalPlayers.find(p => p.id === id);
+      if (!fp) continue;
+      const award = deltas[id];
+      fp.chips += award;
+      fp.isWinner = true;
+      if (swingScoopIds.has(id)) messages.push(`${fp.name} SCOOPS $${award} with SWING!`);
+      else if (pokerWinIds.has(id)) messages.push(`${fp.name} wins POKER — $${award} (${fp.score?.high})`);
+      else if (suitsWinIds.has(id)) messages.push(`${fp.name} wins SUITS — $${award} (${fp.score?.low})`);
+    }
     finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
-    return { players: finalPlayers, pot: 0, messages };
+    return { players: finalPlayers, pot: rolledOver, messages };
   }
 };

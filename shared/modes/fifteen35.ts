@@ -1,6 +1,7 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
 import { getNextActivePlayerIndex, getDealerIndex } from '../engine/core';
 import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { computeSidePots, totalSidePotAmount, resolveSplitPots } from '../engine/sidePots';
 
 const cardValue = (rank: string): number => {
   if (rank === 'J' || rank === 'Q' || rank === 'K') return 0.5;
@@ -72,6 +73,7 @@ export const Fifteen35Mode: GameMode = {
     let newDeck = [...state.deck];
     let newPot = state.pot;
     let newCurrentBet = state.currentBet;
+    let newRaisesThisRound = state.raisesThisRound ?? 0;
     let message = '';
     const bIdx = newPlayers.findIndex(p => p.id === botId);
     const bot = newPlayers[bIdx];
@@ -150,10 +152,13 @@ export const Fifteen35Mode: GameMode = {
       const heroPlayer = state.players.find(p => p.presence === 'human');
       const heroWeak   = heroPlayer ? heroPlayer.declaration !== 'STAY' : false;
       const largePot   = state.pot >= 20;
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot });
-      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      const raisesSoFar = state.raisesThisRound ?? 0;
+      const activeOpponents = state.players.filter(p => p.id !== botId && p.status === 'active').length;
+      const raiseCap = activeOpponents <= 1 ? 4 : 3;
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap });
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
-      newPot = result.pot; newCurrentBet = result.currentBet; message = result.message;
+      newPot = result.pot; newCurrentBet = result.currentBet; newRaisesThisRound = result.raisesThisRound; message = result.message;
     }
 
     const activePlayers = isHitPhase ? newPlayers.filter(p => p.status === 'active') : newPlayers.filter(p => p.status === 'active' && p.chips > 0);
@@ -172,7 +177,7 @@ export const Fifteen35Mode: GameMode = {
       }
       nextPlayerId = newPlayers[nextIdx].id;
     }
-    return { stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet }, message, roundOver, nextPlayerId };
+    return { stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet, raisesThisRound: newRaisesThisRound }, message, roundOver, nextPlayerId };
   },
 
   getAutoTransition: () => null,
@@ -202,43 +207,68 @@ export const Fifteen35Mode: GameMode = {
     });
     const messages: string[] = [];
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
+
+    let sidePots = computeSidePots(finalPlayers);
+    if (sidePots.length === 0 && pot > 0) {
+      sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
+    }
+    const totalAwardable = totalSidePotAmount(sidePots);
+
     if (activePlayers.length === 1) {
-      const sole = finalPlayers.find(p => p.id === activePlayers[0].id)!;
-      sole.chips += pot; sole.isWinner = true;
-      messages.push(`${sole.name} wins $${pot} (last player standing)`);
-      return { players: finalPlayers, pot: 0, messages };
+      const sole = activePlayers[0];
+      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
+      const idx = finalPlayers.findIndex(p => p.id === sole.id);
+      finalPlayers[idx].chips += award;
+      finalPlayers[idx].isWinner = true;
+      messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
+      return { players: finalPlayers, pot: totalAwardable - award, messages };
     }
-    if (activePlayers.length === 0) { messages.push(`No active players. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
-    const lowCandidates = activePlayers.filter(p => qualifiesLow(bestTotal(p.cards).total));
-    const highCandidates = activePlayers.filter(p => qualifiesHigh(bestTotal(p.cards).total));
-    if (lowCandidates.length === 0 && highCandidates.length === 0) { messages.push(`No qualifying hands. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
-    let lowPot = Math.floor(pot / 2), highPot = Math.floor(pot / 2);
-    if (pot % 2 !== 0) highPot += 1;
-    if (lowCandidates.length === 0) { highPot += lowPot; lowPot = 0; }
-    if (highCandidates.length === 0) { lowPot += highPot; highPot = 0; }
-    const winners = new Set<string>();
-    const hasBothSides = highCandidates.length > 0 && lowCandidates.length > 0;
-    if (highCandidates.length > 0) {
-      highCandidates.sort((a, b) => bestTotal(b.cards).total - bestTotal(a.cards).total);
-      const bestHighT = bestTotal(highCandidates[0].cards).total;
-      const highWinners = highCandidates.filter(p => bestTotal(p.cards).total === bestHighT);
-      const share = Math.floor(highPot / highWinners.length); let rem = highPot - share * highWinners.length;
-      for (const w of highWinners) { const fp = finalPlayers.find(p => p.id === w.id)!; const award = share + (rem > 0 ? 1 : 0); fp.chips += award; if (rem > 0) rem--; fp.isWinner = true; winners.add(w.id); }
-      if (highWinners.length === 1) messages.push(`${highWinners[0].name} wins HIGH — $${highPot} (${bestHighT})`);
-      else highWinners.forEach(w => messages.push(`${w.name} wins HIGH — split`));
+    if (activePlayers.length === 0) {
+      messages.push(`No active players. $${totalAwardable} rolls over!`);
+      return { players: finalPlayers, pot: totalAwardable, messages };
     }
-    if (lowCandidates.length > 0) {
-      lowCandidates.sort((a, b) => Math.abs(bestTotal(b.cards).total - 15) - Math.abs(bestTotal(a.cards).total - 15) || bestTotal(b.cards).total - bestTotal(a.cards).total);
-      const bestLowT = bestTotal(lowCandidates[0].cards).total;
-      const lowWinners = lowCandidates.filter(p => bestTotal(p.cards).total === bestLowT);
-      const share = Math.floor(lowPot / lowWinners.length); let rem = lowPot - share * lowWinners.length;
-      for (const w of lowWinners) { const fp = finalPlayers.find(p => p.id === w.id)!; const award = share + (rem > 0 ? 1 : 0); fp.chips += award; if (rem > 0) rem--; fp.isWinner = true; winners.add(w.id); }
-      if (lowWinners.length === 1) messages.push(`${lowWinners[0].name} wins LOW — $${lowPot} (${bestLowT})`);
-      else lowWinners.forEach(w => messages.push(`${w.name} wins LOW — split`));
+
+    const findHigh = (eligible: Player[]): string[] => {
+      const cands = eligible.filter(p => qualifiesHigh(bestTotal(p.cards).total));
+      if (cands.length === 0) return [];
+      cands.sort((a, b) => bestTotal(b.cards).total - bestTotal(a.cards).total);
+      const best = bestTotal(cands[0].cards).total;
+      return cands.filter(p => bestTotal(p.cards).total === best).map(p => p.id);
+    };
+    const findLow = (eligible: Player[]): string[] => {
+      const cands = eligible.filter(p => qualifiesLow(bestTotal(p.cards).total));
+      if (cands.length === 0) return [];
+      cands.sort((a, b) =>
+        Math.abs(bestTotal(b.cards).total - 15) - Math.abs(bestTotal(a.cards).total - 15)
+        || bestTotal(b.cards).total - bestTotal(a.cards).total);
+      const best = bestTotal(cands[0].cards).total;
+      return cands.filter(p => bestTotal(p.cards).total === best).map(p => p.id);
+    };
+
+    const resolution = resolveSplitPots(sidePots, finalPlayers, { findHigh, findLow });
+
+    if (!resolution.hadAnyWinner) {
+      messages.push(`No qualifying hands. $${resolution.rolledOver} rolls over!`);
+      return { players: finalPlayers, pot: resolution.rolledOver, messages };
     }
-    if (hasBothSides) messages.unshift(`Split Pot — HIGH/LOW split $${pot}`);
-    finalPlayers.forEach(p => { if (p.status !== 'folded' && !winners.has(p.id)) p.isLoser = true; });
-    return { players: finalPlayers, pot: 0, messages };
+
+    if (resolution.highWinnerIds.size > 0 && resolution.lowWinnerIds.size > 0) {
+      messages.push(`Split Pot — HIGH/LOW split $${totalAwardable}`);
+    }
+
+    for (const id of Object.keys(resolution.deltas)) {
+      const idx = finalPlayers.findIndex(p => p.id === id);
+      if (idx === -1) continue;
+      const award = resolution.deltas[id];
+      finalPlayers[idx].chips += award;
+      finalPlayers[idx].isWinner = true;
+      const total = bestTotal(finalPlayers[idx].cards).total;
+      if (resolution.highWinnerIds.has(id)) messages.push(`${finalPlayers[idx].name} wins HIGH — $${award} (${total})`);
+      else if (resolution.lowWinnerIds.has(id)) messages.push(`${finalPlayers[idx].name} wins LOW — $${award} (${total})`);
+    }
+
+    finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+    return { players: finalPlayers, pot: resolution.rolledOver, messages };
   },
 
   checkAutoStay: (state: GameState, playerId: string): boolean => {

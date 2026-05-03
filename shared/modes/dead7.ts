@@ -1,5 +1,6 @@
 import { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
 import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 const rankValue = (rank: string): number => {
   if (rank === 'A') return 1;
@@ -99,6 +100,7 @@ export const Dead7Mode: GameMode = {
     let newDeck = [...state.deck];
     let newPot = state.pot;
     let newCurrentBet = state.currentBet;
+    let newRaisesThisRound = state.raisesThisRound ?? 0;
     let message = '';
     let discardPile = state.discardPile || [];
     const bIdx = newPlayers.findIndex(p => p.id === botId);
@@ -197,10 +199,13 @@ export const Dead7Mode: GameMode = {
       const heroEval   = heroPlayer?.cards.length === 4 ? evaluateDead7(heroPlayer.cards) : null;
       const heroWeak   = heroEval ? !heroEval.isValidBadugi : false;
       const largePot   = state.pot >= 20;
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot });
-      const result = applyBetDecision(decision, bot, state.currentBet, state.pot);
+      const raisesSoFar = state.raisesThisRound ?? 0;
+      const activeOpponents = state.players.filter(p => p.id !== botId && p.status === 'active').length;
+      const raiseCap = activeOpponents <= 1 ? 4 : 3;
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap });
+      const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
-      newPot = result.pot; newCurrentBet = result.currentBet; message = result.message;
+      newPot = result.pot; newCurrentBet = result.currentBet; newRaisesThisRound = result.raisesThisRound; message = result.message;
     }
 
     const isDrawRound = ['DRAW_1','DRAW_2','DRAW_3'].includes(state.phase);
@@ -220,7 +225,7 @@ export const Dead7Mode: GameMode = {
       }
       nextPlayerId = newPlayers[nextIdx].id;
     }
-    return { stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet, discardPile }, message, roundOver, nextPlayerId };
+    return { stateUpdates: { players: newPlayers, deck: newDeck, pot: newPot, currentBet: newCurrentBet, raisesThisRound: newRaisesThisRound, discardPile }, message, roundOver, nextPlayerId };
   },
 
   getAutoTransition: () => null,
@@ -237,91 +242,123 @@ export const Dead7Mode: GameMode = {
       finalPlayers[myIndex] = { ...finalPlayers[myIndex], score: evaluateDead7(finalPlayers[myIndex].cards) };
     }
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
-    let messages: string[] = [];
-    if (activePlayers.length === 1) {
-      const soleIdx = finalPlayers.findIndex(p => p.id === activePlayers[0].id);
-      finalPlayers[soleIdx] = { ...finalPlayers[soleIdx], chips: finalPlayers[soleIdx].chips + pot, isWinner: true };
-      messages.push(`${finalPlayers[soleIdx].name} wins $${pot} (last player standing)`);
-      return { players: finalPlayers, pot: 0, messages };
-    }
-    type QualifiedPlayer = Player & { eval7: Dead7Eval };
-    const qualified: QualifiedPlayer[] = activePlayers.filter(p => {
-      const e = p.score as Dead7Eval | undefined;
-      if (!e || e.isDead || e.handType === 'INVALID' || e.handType === 'NONE') return false;
-      if (p.declaration === 'HIGH' && e.isValidHigh) return true;
-      if (p.declaration === 'LOW' && e.isValidLow) return true;
-      return false;
-    }).map(p => ({ ...p, eval7: p.score as Dead7Eval }));
+    const messages: string[] = [];
 
-    if (qualified.length === 0) {
-      messages.push(`No qualifying hands. $${pot} rolls over!`);
+    let sidePots: SidePot[] = computeSidePots(finalPlayers);
+    if (sidePots.length === 0 && pot > 0) {
+      sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
+    }
+    const totalAwardable = totalSidePotAmount(sidePots);
+
+    if (activePlayers.length === 1) {
+      const sole = activePlayers[0];
+      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
+      const idx = finalPlayers.findIndex(p => p.id === sole.id);
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
+      messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
+      return { players: finalPlayers, pot: totalAwardable - award, messages };
+    }
+
+    type QualifiedPlayer = Player & { eval7: Dead7Eval };
+    const qualifyOf = (p: Player): QualifiedPlayer | null => {
+      const e = p.score as Dead7Eval | undefined;
+      if (!e || e.isDead || e.handType === 'INVALID' || e.handType === 'NONE') return null;
+      if (p.declaration === 'HIGH' && e.isValidHigh) return { ...p, eval7: e };
+      if (p.declaration === 'LOW' && e.isValidLow) return { ...p, eval7: e };
+      return null;
+    };
+
+    const deltas: Record<string, number> = {};
+    const flagWinner = new Set<string>();
+    const flushIds = new Set<string>();
+    const badugiIds = new Set<string>();
+    const highIds = new Set<string>();
+    const lowIds = new Set<string>();
+    let rolledOver = 0;
+    let anyWinner = false;
+
+    const distribute = (ids: string[], amount: number) => {
+      if (ids.length === 0 || amount === 0) return;
+      const share = Math.floor(amount / ids.length);
+      let rem = amount - share * ids.length;
+      for (const id of ids) {
+        const award = share + (rem > 0 ? 1 : 0);
+        deltas[id] = (deltas[id] || 0) + award;
+        if (rem > 0) rem--;
+        flagWinner.add(id);
+      }
+    };
+
+    for (const sp of sidePots) {
+      const eligible = activePlayers.filter(p => sp.eligibleIds.includes(p.id));
+      const qualified = eligible.map(qualifyOf).filter((q): q is QualifiedPlayer => q !== null);
+      if (qualified.length === 0) { rolledOver += sp.amount; continue; }
+
+      const flushes = qualified.filter(q => q.eval7.handType === 'HIGH_FLUSH' || q.eval7.handType === 'LOW_FLUSH');
+      if (flushes.length > 0) {
+        const ids = flushes.map(q => q.id);
+        distribute(ids, sp.amount);
+        ids.forEach(i => flushIds.add(i));
+        anyWinner = true;
+        continue;
+      }
+      const badugis = qualified.filter(q => q.eval7.handType === 'HIGH_BADUGI' || q.eval7.handType === 'LOW_BADUGI');
+      if (badugis.length > 0) {
+        const ids = badugis.map(q => q.id);
+        distribute(ids, sp.amount);
+        ids.forEach(i => badugiIds.add(i));
+        anyWinner = true;
+        continue;
+      }
+      const hQ = qualified.filter(q => q.declaration === 'HIGH');
+      const lQ = qualified.filter(q => q.declaration === 'LOW');
+      let hWinIds: string[] = [];
+      let lWinIds: string[] = [];
+      if (hQ.length > 0) {
+        hQ.sort((a, b) => compareHighHands(a.eval7.badugiRankValues, b.eval7.badugiRankValues));
+        const top = hQ[0].eval7.badugiRankValues;
+        hWinIds = hQ.filter(q => compareHighHands(q.eval7.badugiRankValues, top) === 0).map(q => q.id);
+      }
+      if (lQ.length > 0) {
+        lQ.sort((a, b) => compareLowHands(a.eval7.badugiRankValues, b.eval7.badugiRankValues));
+        const top = lQ[0].eval7.badugiRankValues;
+        lWinIds = lQ.filter(q => compareLowHands(q.eval7.badugiRankValues, top) === 0).map(q => q.id);
+      }
+      if (hWinIds.length === 0 && lWinIds.length === 0) { rolledOver += sp.amount; continue; }
+      let highShare = Math.floor(sp.amount / 2);
+      let lowShare = Math.floor(sp.amount / 2);
+      if (sp.amount % 2 !== 0) highShare += 1;
+      if (hWinIds.length === 0) { lowShare += highShare; highShare = 0; }
+      else if (lWinIds.length === 0) { highShare += lowShare; lowShare = 0; }
+      distribute(hWinIds, highShare);
+      distribute(lWinIds, lowShare);
+      hWinIds.forEach(i => highIds.add(i));
+      lWinIds.forEach(i => lowIds.add(i));
+      anyWinner = true;
+    }
+
+    if (!anyWinner) {
+      messages.push(`No qualifying hands. $${rolledOver} rolls over!`);
       finalPlayers = finalPlayers.map(p => p.status !== 'folded' ? { ...p, isLoser: true } : p);
-      return { players: finalPlayers, pot, messages };
+      return { players: finalPlayers, pot: rolledOver, messages };
     }
-    const highFlushes = qualified.filter(q => q.declaration === 'HIGH' && q.eval7.handType === 'HIGH_FLUSH');
-    const lowFlushes = qualified.filter(q => q.declaration === 'LOW' && q.eval7.handType === 'LOW_FLUSH');
-    const allFlushes = [...highFlushes, ...lowFlushes];
-    if (allFlushes.length === 1) {
-      const winIdx = finalPlayers.findIndex(p => p.id === allFlushes[0].id);
-      finalPlayers[winIdx] = { ...finalPlayers[winIdx], chips: finalPlayers[winIdx].chips + pot, isWinner: true };
-      messages.push(`${finalPlayers[winIdx].name} scoops $${pot} with ${allFlushes[0].eval7.description}!`);
-      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
-      return { players: finalPlayers, pot: 0, messages };
-    }
-    if (allFlushes.length > 1) {
-      const share = Math.floor(pot / allFlushes.length);
-      const rem = pot % allFlushes.length;
-      messages.push(`Split Pot — ${allFlushes.length} flushes split $${pot}`);
-      allFlushes.forEach((q, idx) => {
-        const pIdx = finalPlayers.findIndex(p => p.id === q.id);
-        const award = share + (idx === 0 ? rem : 0);
-        finalPlayers[pIdx] = { ...finalPlayers[pIdx], chips: finalPlayers[pIdx].chips + award, isWinner: true };
-        messages.push(`${finalPlayers[pIdx].name} receives $${award} (${q.eval7.description})`);
-      });
-      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
-      return { players: finalPlayers, pot: 0, messages };
-    }
-    const allBadugis = [...qualified.filter(q => q.declaration === 'HIGH' && q.eval7.handType === 'HIGH_BADUGI'), ...qualified.filter(q => q.declaration === 'LOW' && q.eval7.handType === 'LOW_BADUGI')];
-    if (allBadugis.length === 1) {
-      const winIdx = finalPlayers.findIndex(p => p.id === allBadugis[0].id);
-      finalPlayers[winIdx] = { ...finalPlayers[winIdx], chips: finalPlayers[winIdx].chips + pot, isWinner: true };
-      messages.push(`${finalPlayers[winIdx].name} scoops $${pot} with ${allBadugis[0].eval7.description}!`);
-      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
-      return { players: finalPlayers, pot: 0, messages };
-    }
-    if (allBadugis.length > 1) {
-      const share = Math.floor(pot / allBadugis.length);
-      const rem = pot % allBadugis.length;
-      messages.push(`Split Pot — ${allBadugis.length} badugis split $${pot}`);
-      allBadugis.forEach((q, idx) => {
-        const pIdx = finalPlayers.findIndex(p => p.id === q.id);
-        const award = share + (idx === 0 ? rem : 0);
-        finalPlayers[pIdx] = { ...finalPlayers[pIdx], chips: finalPlayers[pIdx].chips + award, isWinner: true };
-        messages.push(`${finalPlayers[pIdx].name} receives $${award} (${q.eval7.description})`);
-      });
-      finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
-      return { players: finalPlayers, pot: 0, messages };
-    }
-    const highQ = qualified.filter(q => q.declaration === 'HIGH');
-    const lowQ = qualified.filter(q => q.declaration === 'LOW');
-    let highWinner: QualifiedPlayer | null = null, lowWinner: QualifiedPlayer | null = null;
-    if (highQ.length > 0) { highQ.sort((a, b) => compareHighHands(a.eval7.badugiRankValues, b.eval7.badugiRankValues)); highWinner = highQ[0]; }
-    if (lowQ.length > 0) { lowQ.sort((a, b) => compareLowHands(a.eval7.badugiRankValues, b.eval7.badugiRankValues)); lowWinner = lowQ[0]; }
-    if (!highWinner && !lowWinner) { messages.push(`No qualifying hands. $${pot} rolls over!`); return { players: finalPlayers, pot, messages }; }
-    let highPot = Math.floor(pot / 2), lowPot = Math.floor(pot / 2);
-    if (pot % 2 !== 0) highPot += 1;
-    if (!highWinner) { lowPot += highPot; highPot = 0; }
-    if (!lowWinner) { highPot += lowPot; lowPot = 0; }
-    if (highWinner && lowWinner && highWinner.id !== lowWinner.id) messages.push(`Split Pot — HIGH/LOW split $${pot}`);
-    if (highWinner) {
-      const idx = finalPlayers.findIndex(p => p.id === highWinner!.id);
-      if (idx !== -1) { finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + highPot, isWinner: true }; messages.push(`${finalPlayers[idx].name} wins HIGH — $${highPot} (${highWinner.eval7.description})`); }
-    }
-    if (lowWinner) {
-      const idx = finalPlayers.findIndex(p => p.id === lowWinner!.id);
-      if (idx !== -1) { finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + lowPot, isWinner: true }; messages.push(`${finalPlayers[idx].name} wins LOW — $${lowPot} (${lowWinner.eval7.description})`); }
+
+    if (flushIds.size > 1) messages.push(`Split Pot — ${flushIds.size} flushes split`);
+    else if (badugiIds.size > 1) messages.push(`Split Pot — ${badugiIds.size} badugis split`);
+    else if (highIds.size > 0 && lowIds.size > 0) messages.push(`Split Pot — HIGH/LOW split $${totalAwardable - rolledOver}`);
+
+    for (const id of Object.keys(deltas)) {
+      const idx = finalPlayers.findIndex(p => p.id === id);
+      if (idx === -1) continue;
+      const award = deltas[id];
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
+      const desc = (finalPlayers[idx].score as Dead7Eval | undefined)?.description || '';
+      if (flushIds.has(id)) messages.push(`${finalPlayers[idx].name} scoops $${award} with ${desc}!`);
+      else if (badugiIds.has(id)) messages.push(`${finalPlayers[idx].name} scoops $${award} with ${desc}!`);
+      else if (highIds.has(id)) messages.push(`${finalPlayers[idx].name} wins HIGH — $${award} (${desc})`);
+      else if (lowIds.has(id)) messages.push(`${finalPlayers[idx].name} wins LOW — $${award} (${desc})`);
     }
     finalPlayers = finalPlayers.map(p => p.status !== 'folded' && !p.isWinner ? { ...p, isLoser: true } : p);
-    return { players: finalPlayers, pot: 0, messages };
+    return { players: finalPlayers, pot: rolledOver, messages };
   }
 };

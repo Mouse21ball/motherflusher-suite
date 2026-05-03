@@ -47,6 +47,8 @@ interface DecideBetOptions {
   shortStackPresent?: boolean; // a weak player at the table to apply pressure on
   tableDrift?: number;        // per-seat hot/cold permanent bias -0.05..+0.05
   rivalryMode?: boolean;      // hero raised 3+ times — active rivalry
+  raisesThisRound?: number;   // raises already made this betting round (cap enforcement)
+  raiseCap?: number;          // hard cap of raises per round (default 3, heads-up 4)
 }
 
 // ── Core decision logic ───────────────────────────────────────────────────────
@@ -166,7 +168,7 @@ function _decideBetRaw(
   }
 
   if (callAmount === 0) {
-    const gate = 0.45 - passive * 0.12 - earlyBoost - passiveHeroGap - focusGateDrop
+    const gate = 0.55 - passive * 0.12 - earlyBoost - passiveHeroGap - focusGateDrop
                       + momentumGate + stackBullyGate + bigStackGateUp;
     const raiseChance = 0.42 + s * 0.45 + earlyBoost * 0.25
                        - (multiway   ? 0.10 : 0)
@@ -192,7 +194,7 @@ function _decideBetRaw(
                             + escalFold + stackSurvCall + bigStackCaution;
 
   // ── Re-raise gate — lowers when focused / escalating / rivalry / hunting ──
-  const reraiseGate = 0.55 - passive * 0.1 - focusGateDrop - escalFire - rivalryFire;
+  const reraiseGate = 0.62 - passive * 0.1 - focusGateDrop - escalFire - rivalryFire;
   if (gateS + aggBonus + focusAggBonus + shortStackBonus > reraiseGate &&
       Math.random() < 0.38 + s * 0.45 + persRaiseAdj * 0.5 + stackBullyRaise + drift) {
     const size = clampRaise(Math.max(callAmount * 2, Math.floor(pot * sizeMult)), chips);
@@ -231,18 +233,26 @@ export function decideBet(
   const callAmount = currentBet - myBet;
   const raw = _decideBetRaw(strength, pot, currentBet, myBet, chips, options);
 
+  // ── Raise cap (WSOP/social-poker style) ──────────────────────────────────
+  // Hard ceiling on raises per betting round to prevent runaway re-raise spirals.
+  // Default 3 raises/round, 4 heads-up. When at cap, downgrade any raise to
+  // call (if facing a bet) or check (if first to act).
+  const raiseCap = options?.raiseCap ?? 3;
+  const raisesSoFar = options?.raisesThisRound ?? 0;
+  const atCap = raisesSoFar >= raiseCap;
+
   // ── Controlled chaos — combined <3% frequency, partitioned roll ───────────
   // Introduces rare unpredictable moments that remove the last traces of
   // mechanical predictability. Each branch is mutually exclusive.
   const chaosRoll = Math.random();
-  if (chaosRoll < 0.010) {
+  if (chaosRoll < 0.010 && !atCap) {
     // 1.0%: spontaneous aggression — raise regardless of hand strength
     const chaosSize = clampRaise(Math.floor(pot * 0.5) + callAmount, chips);
     return { action: 'raise', raiseAmount: chaosSize };
   } else if (chaosRoll < 0.022 && callAmount > 0) {
     // 1.2%: unexpected call — call a bet we should fold
     return { action: 'call' };
-  } else if (chaosRoll < 0.027 && chips > 200 && callAmount > 0) {
+  } else if (chaosRoll < 0.027 && chips > 200 && callAmount > 0 && !atCap) {
     // 0.5%: loose all-in — only when meaningful chips remain
     return { action: 'raise', raiseAmount: chips };
   }
@@ -255,6 +265,11 @@ export function decideBet(
   if (raw.action === 'fold' && callAmount > 0 && callAmount < pot * 0.18 && Math.random() < 0.05) {
     return { action: 'call' };
   }
+
+  // Final cap enforcement — never let a raise through past the cap.
+  if (atCap && raw.action === 'raise') {
+    return callAmount === 0 ? { action: 'check' } : { action: 'call' };
+  }
   return raw;
 }
 
@@ -266,23 +281,24 @@ export function applyBetDecision(
   decision: BetDecision,
   bot: { name: string; chips: number; bet: number; status: string; hasActed?: boolean },
   currentBet: number,
-  pot: number
-): { chips: number; bet: number; status: string; hasActed: true; pot: number; currentBet: number; message: string } {
+  pot: number,
+  raisesThisRound: number = 0
+): { chips: number; bet: number; status: string; hasActed: true; pot: number; currentBet: number; raisesThisRound: number; message: string } {
   const callAmount = currentBet - bot.bet;
 
   if (decision.action === 'fold') {
-    return { chips: bot.chips, bet: bot.bet, status: 'folded', hasActed: true, pot, currentBet, message: `${bot.name} folded` };
+    return { chips: bot.chips, bet: bot.bet, status: 'folded', hasActed: true, pot, currentBet, raisesThisRound, message: `${bot.name} folded` };
   }
 
   if (decision.action === 'check') {
-    return { chips: bot.chips, bet: bot.bet, status: bot.status, hasActed: true, pot, currentBet, message: `${bot.name} checked` };
+    return { chips: bot.chips, bet: bot.bet, status: bot.status, hasActed: true, pot, currentBet, raisesThisRound, message: `${bot.name} checked` };
   }
 
   if (decision.action === 'call') {
     const pay = Math.min(callAmount, bot.chips);
     return {
       chips: bot.chips - pay, bet: bot.bet + pay, status: bot.status, hasActed: true,
-      pot: pot + pay, currentBet,
+      pot: pot + pay, currentBet, raisesThisRound,
       message: pay === 0 ? `${bot.name} checked` : `${bot.name} called $${pay}`
     };
   }
@@ -295,6 +311,7 @@ export function applyBetDecision(
   return {
     chips: bot.chips - actualPay, bet: newBet, status: bot.status, hasActed: true,
     pot: pot + actualPay, currentBet: Math.max(currentBet, newBet),
+    raisesThisRound: raisesThisRound + 1,
     message: `${bot.name} raised to $${newBet}`
   };
 }

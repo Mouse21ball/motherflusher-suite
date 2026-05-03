@@ -200,6 +200,7 @@ function makeInitialState(tableId: string): GameState {
     pot: 0,
     currentBet: 0,
     minBet: 2,
+    raisesThisRound: 0,
     activePlayerId: 'p1',
     players: makeInitialPlayers(1000),
     communityCards: [],
@@ -491,6 +492,7 @@ function advanceToNextPhase(table: AuthTable): void {
     ...state,
     phase: nextPhase,
     currentBet: isBetRound ? 0 : state.currentBet,
+    raisesThisRound: isBetRound ? 0 : (state.raisesThisRound ?? 0),
     activePlayerId: nextPlayers[firstActIdx].id,
     players: nextPlayers,
   }, nextPhase.replace(/_/g, ' '));
@@ -808,6 +810,7 @@ function resetToAnte(table: AuthTable): void {
     ...s,
     phase: 'ANTE',
     currentBet: 0,
+    raisesThisRound: 0,
     heroChipChange: undefined,
     activePlayerId: nextPlayers[firstActIdx].id,
     players: nextPlayers,
@@ -1581,14 +1584,39 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── raise ─────────────────────────────────────────────────────────────────
     if (action === 'raise' && s.phase.startsWith('BET') && typeof payload === 'number') {
+      // Validate amount: must be finite, positive
+      if (!Number.isFinite(payload) || payload <= 0) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'invalid_amount', amount: payload });
+        table.actionLock = false; return;
+      }
       const me = s.players.find(p => p.id === playerId)!;
+      // Server-side raise cap (matches bot logic): 3 raises per round, 4 heads-up
+      const activeCount = s.players.filter(p => p.status === 'active').length;
+      const raiseCap = activeCount <= 2 ? 4 : 3;
+      if ((s.raisesThisRound ?? 0) >= raiseCap) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'cap_reached', raisesThisRound: s.raisesThisRound, cap: raiseCap });
+        table.actionLock = false; return;
+      }
       const prevBet   = me.bet;
-      const increment = Math.min(payload - prevBet, me.chips);
-      const newBet    = prevBet + increment;
+      // Cap raise at all-in
+      const desired   = Math.min(payload, prevBet + me.chips);
+      const isAllIn   = desired === prevBet + me.chips;
+      // Must be a real raise above currentBet, unless going all-in
+      if (desired <= s.currentBet && !isAllIn) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'below_current_bet', desired, currentBet: s.currentBet });
+        table.actionLock = false; return;
+      }
+      const increment = desired - prevBet;
+      if (increment <= 0) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'non_positive_increment', increment });
+        table.actionLock = false; return;
+      }
+      const newBet    = desired;
       let newState: GameState = addMsg({
         ...s,
         currentBet: newBet,
         pot: s.pot + increment,
+        raisesThisRound: (s.raisesThisRound ?? 0) + 1,
         players: s.players.map(p =>
           p.id === playerId
             ? { ...p, chips: p.chips - increment, bet: newBet, hasActed: true, totalBet: (p.totalBet || 0) + increment }

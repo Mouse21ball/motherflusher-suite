@@ -139,7 +139,17 @@ Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount
 - `shared/gameTypes.ts` — All TypeScript types (GameState, Player, GameMode, etc.)
 - `shared/modes/` — Server-side mode definitions (dead7, fifteen35, suitspoker, badugi)
 - `shared/engine/core.ts` — Shared engine utilities (createDeck, getNextActivePlayerIndex, etc.)
+- `shared/engine/sidePots.ts` — Side-pot accounting helpers (`computeSidePots`, `totalSidePotAmount`, `resolveSplitPots`)
+- `shared/engine/botUtils.ts` — Bot decision logic (`decideBet`, `applyBetDecision`); enforces raise cap
 - `shared/featureFlags.ts` — Code-level feature flags
+
+## Engine Invariants (added 2026-05)
+- **Shared bankroll**: A single chip balance per identity persists across all 4 modes via `storage.syncPlayerChips`. No per-mode wallets.
+- **Raise cap (bot AND human)**: Hard ceiling 3 raises per betting round (4 heads-up). `GameState.raisesThisRound` is threaded through `decideBet`/`applyBetDecision` (bots) AND enforced server-side in both `gameEngine.ts` and `genericEngine.ts` raise/declare_and_bet handlers (humans). Cap reset on phase advance. Opening gate 0.55, re-raise gate 0.62.
+- **Raise validation (server-side, integrity guard)**: Both engines reject non-finite, non-positive, or below-currentBet raise totals (unless going all-in). Prevents chip-mint / pot-drain via malformed client payloads.
+- **Side-pot algorithm** (`shared/engine/sidePots.ts`): sort distinct `totalBet` levels ascending; pot at level L = `(L − prevL) × count(totalBet ≥ L)`; eligible = non-folded players who reached level L. Folded contributions count toward pot AMOUNTS, never toward eligibility. Each mode's `resolveShowdown` iterates side pots and awards each only to eligible non-folded contributors. Short stacks can never be paid more than they put in × number of callers. Returns `pot: rolledOver` for any unawarded chips (e.g. unsplit odd chips).
+- **Regression tests**: `server/__tests__/engine.test.ts` (234 assertions, run via `npx tsx`) — covers side-pot ladder math, raise cap (3-way and heads-up), `applyBetDecision` threading, and chip conservation across all 4 modes including a 50/200/200 unequal-all-in scenario where the short stack provably cannot win > 150. Plus `terminalState.test.ts` (28 assertions) for win-by-fold paths.
+- **Deferred**: Mobile-specific layout (Plan task E) is intentionally out of scope until the engine work above is fully battle-tested.
 
 ## UI Architecture (3D Rebuild — current)
 - `ThreeDTableScene.tsx` — **Unified 3D table for all 4 active modes**. CSS 3D perspective on felt oval (`rotateX(9deg)` tilt + counter-rotation on interior). ARC layout (hero bottom, 2-4 opponents in arc above) for badugi/dead7/fifteen35/suitspoker. All session P&L, pot display, win celebration, made-hand badge, action labels, and community card layouts (SuitsPoker 12-card board) live here.

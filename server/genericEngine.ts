@@ -215,6 +215,7 @@ function makeInitialState(tableId: string): GameState {
     pot: 0,
     currentBet: 0,
     minBet: 2,
+    raisesThisRound: 0,
     activePlayerId: 'p1',
     players: makeInitialPlayers(),
     communityCards: [],
@@ -514,6 +515,7 @@ function advanceToNextPhase(table: GenericTable): void {
     ...state,
     phase: nextPhase,
     currentBet: isBetRound ? 0 : state.currentBet,
+    raisesThisRound: isBetRound ? 0 : (state.raisesThisRound ?? 0),
     activePlayerId: nextPlayers[firstActIdx].id,
     players: nextPlayers,
   }, nextPhase.replace(/_/g, ' '));
@@ -955,6 +957,7 @@ function resetToAnte(table: GenericTable): void {
     ...s,
     phase: 'ANTE',
     currentBet: 0,
+    raisesThisRound: 0,
     heroChipChange: undefined,
     activePlayerId: nextPlayers[firstActIdx].id,
     players: nextPlayers,
@@ -1652,6 +1655,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     let newPlayers = [...s.players];
     let newPot = s.pot;
     let newCurrentBet = s.currentBet;
+    let newRaisesThisRound = s.raisesThisRound ?? 0;
     let msg = '';
     let wasRaise = false;
 
@@ -1690,12 +1694,31 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     else if (action === 'raise' || action === 'bet') {
       const player = newPlayers[playerIdx];
       const amount = typeof payload === 'number' ? payload : s.minBet;
+      // Validate amount
+      if (!Number.isFinite(amount) || amount <= 0) {
+        table.actionLock = false; return;
+      }
+      // Server-side raise cap
+      const activeCount = s.players.filter(p => p.status === 'active').length;
+      const raiseCap = activeCount <= 2 ? 4 : 3;
+      if (newRaisesThisRound >= raiseCap) {
+        table.actionLock = false; return;
+      }
       const raiseTotal = Math.min(amount, player.chips + player.bet);
+      const isAllIn = raiseTotal === player.chips + player.bet;
+      // Must be a real raise above currentBet (unless all-in)
+      if (raiseTotal <= newCurrentBet && !isAllIn) {
+        table.actionLock = false; return;
+      }
       const chipCost = raiseTotal - player.bet;
+      if (chipCost <= 0) {
+        table.actionLock = false; return;
+      }
       newPlayers[playerIdx] = { ...player, chips: player.chips - chipCost, bet: raiseTotal, hasActed: true };
       newPot += chipCost;
       newCurrentBet = raiseTotal;
       wasRaise = true;
+      newRaisesThisRound = (newRaisesThisRound ?? 0) + 1;
       msg = `${player.name} raises to $${raiseTotal}`;
       // Re-open action for other players
       newPlayers = newPlayers.map(p =>
@@ -1813,12 +1836,21 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
           ? `${player.name} declares ${declaration} and checks`
           : `${player.name} declares ${declaration} and calls $${callAmt}`;
       } else if (betAction === 'raise' || betAction === 'bet') {
-        const raiseTotal = Math.min(typeof betAmount === 'number' ? betAmount : s.minBet, player.chips + player.bet);
+        const amt = typeof betAmount === 'number' ? betAmount : s.minBet;
+        if (!Number.isFinite(amt) || amt <= 0) { table.actionLock = false; return; }
+        const activeCount = s.players.filter(p => p.status === 'active').length;
+        const raiseCap = activeCount <= 2 ? 4 : 3;
+        if (newRaisesThisRound >= raiseCap) { table.actionLock = false; return; }
+        const raiseTotal = Math.min(amt, player.chips + player.bet);
+        const isAllIn = raiseTotal === player.chips + player.bet;
+        if (raiseTotal <= newCurrentBet && !isAllIn) { table.actionLock = false; return; }
         const chipCost = raiseTotal - player.bet;
+        if (chipCost <= 0) { table.actionLock = false; return; }
         newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - chipCost, bet: raiseTotal, hasActed: true };
         newPot += chipCost;
         newCurrentBet = raiseTotal;
         wasRaise = true;
+        newRaisesThisRound += 1;
         msg = `${player.name} declares ${declaration} and raises to $${raiseTotal}`;
         newPlayers = newPlayers.map((p, i) =>
           i !== playerIdx && p.status === 'active' ? { ...p, hasActed: false } : p
@@ -1845,6 +1877,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       }),
       pot: newPot,
       currentBet: newCurrentBet,
+      raisesThisRound: newRaisesThisRound,
     };
     if (msg) newState = addMsg(newState, msg);
 
