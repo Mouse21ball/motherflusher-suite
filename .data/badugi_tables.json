@@ -13622,5 +13622,2048 @@
     },
     "handId": 0,
     "savedAt": 1777691038030
+  },
+  "badugi-reg1777771017802": {
+    "state": {
+      "tableId": "badugi-reg1777771017802",
+      "phase": "ANTE",
+      "pot": 3101,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p5",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 905,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 994,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "wuax5pp9",
+          "text": "New hand.",
+          "time": 1777771049480
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 3,
+    "savedAt": 1777771138338
+  },
+  "badugi-reg1777771115415": {
+    "state": {
+      "tableId": "badugi-reg1777771115415",
+      "phase": "SHOWDOWN",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p4",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 915,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false,
+          "isLoser": true
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 915,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "J",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": "HIGH",
+          "hasActed": false,
+          "isLoser": true,
+          "score": {
+            "description": "J-High Badugi",
+            "isValidBadugi": true,
+            "badugiRankValues": [
+              11,
+              5,
+              2,
+              1
+            ]
+          }
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 349,
+          "bet": 0,
+          "totalBet": 915,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "3",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "8",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "7",
+              "isHidden": false
+            }
+          ],
+          "status": "folded",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 3736,
+          "bet": 0,
+          "totalBet": 915,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "4",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": "HIGH",
+          "hasActed": true,
+          "isWinner": true,
+          "score": {
+            "description": "K-High Badugi",
+            "isValidBadugi": true,
+            "badugiRankValues": [
+              13,
+              12,
+              8,
+              4
+            ]
+          }
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 1101,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "2",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "A",
+              "isHidden": true
+            }
+          ],
+          "status": "folded",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "bcvftijv",
+          "text": "DECLARE",
+          "time": 1777771257397,
+          "isResolution": false
+        },
+        {
+          "id": "t36ap7su",
+          "text": "Bob has no Badugi — auto-folded",
+          "time": 1777771257398,
+          "isResolution": false
+        },
+        {
+          "id": "71y7c9fs",
+          "text": "Daisy has no Badugi — auto-folded",
+          "time": 1777771257398,
+          "isResolution": false
+        },
+        {
+          "id": "8efjf33p",
+          "text": "Alice declared HIGH",
+          "time": 1777771257922,
+          "isResolution": false
+        },
+        {
+          "id": "78hludy5",
+          "text": "Charlie declared HIGH",
+          "time": 1777771258354,
+          "isResolution": false
+        },
+        {
+          "id": "9qp0666d",
+          "text": "BET 3",
+          "time": 1777771258705,
+          "isResolution": false
+        },
+        {
+          "id": "nrpsy9n9",
+          "text": "Charlie checked",
+          "time": 1777771259587,
+          "isResolution": false
+        },
+        {
+          "id": "iqo7dkw9",
+          "text": "SHOWDOWN",
+          "time": 1777771259938,
+          "isResolution": false
+        },
+        {
+          "id": "ppb8uf7o",
+          "text": "Charlie checked",
+          "time": 1777771260395,
+          "isResolution": false
+        },
+        {
+          "id": "bjd8fe34",
+          "text": "Charlie wins HIGH — $3660 (K-High Badugi)",
+          "time": 1777771260590,
+          "isResolution": true
+        }
+      ],
+      "chatMessages": [],
+      "deck": [
+        {
+          "suit": "clubs",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "clubs",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "Q",
+          "isHidden": true
+        },
+        {
+          "suit": "spades",
+          "rank": "A",
+          "isHidden": true
+        },
+        {
+          "suit": "hearts",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "Q",
+          "isHidden": false
+        }
+      ]
+    },
+    "handId": 4,
+    "savedAt": 1777771261049
+  },
+  "badugi-ux1777771373526": {
+    "state": {
+      "tableId": "badugi-ux1777771373526",
+      "phase": "WAITING",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "You",
+          "presence": "human",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "nwho5liv",
+          "text": "Game ready. Press start.",
+          "time": 1777771373556
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 0,
+    "savedAt": 1777771415566
+  },
+  "badugi-ux1777771558030": {
+    "state": {
+      "tableId": "badugi-ux1777771558030",
+      "phase": "BET_1",
+      "pot": 15,
+      "currentBet": 6,
+      "minBet": 2,
+      "activePlayerId": "p2",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 975,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "9",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "J",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "7",
+              "isHidden": true
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 4022,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [
+            {
+              "suit": "diamonds",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "hearts",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "Q",
+              "isHidden": true
+            }
+          ],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 996,
+          "bet": 3,
+          "totalBet": 4,
+          "cards": [
+            {
+              "suit": "diamonds",
+              "rank": "7",
+              "isHidden": true
+            },
+            {
+              "suit": "hearts",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "3",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 993,
+          "bet": 6,
+          "totalBet": 7,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "2",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "5",
+              "isHidden": true
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "q9x397o3",
+          "text": "Bob paid $1 Ante",
+          "time": 1777771677376,
+          "isResolution": false
+        },
+        {
+          "id": "ck4kvcl6",
+          "text": "DEAL",
+          "time": 1777771677728,
+          "isResolution": false
+        },
+        {
+          "id": "8zarxyp0",
+          "text": "DRAW 1",
+          "time": 1777771677979,
+          "isResolution": false
+        },
+        {
+          "id": "rm9zbpxs",
+          "text": "Charlie discarded 1 card",
+          "time": 1777771678331,
+          "isResolution": false
+        },
+        {
+          "id": "7jxy4t6o",
+          "text": "Daisy discarded 2 cards",
+          "time": 1777771678615,
+          "isResolution": false
+        },
+        {
+          "id": "rkix0d25",
+          "text": "Alice discarded 2 cards",
+          "time": 1777771679119,
+          "isResolution": false
+        },
+        {
+          "id": "9s8u013r",
+          "text": "Bob discarded 2 cards",
+          "time": 1777771679422,
+          "isResolution": false
+        },
+        {
+          "id": "dvyp9667",
+          "text": "BET 1",
+          "time": 1777771679773,
+          "isResolution": false
+        },
+        {
+          "id": "nfkeio1z",
+          "text": "Charlie raised to $3",
+          "time": 1777771680706,
+          "isResolution": false
+        },
+        {
+          "id": "moixk6wt",
+          "text": "Daisy raised to $6",
+          "time": 1777771681511,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [
+        {
+          "suit": "diamonds",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "hearts",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "K",
+          "isHidden": false
+        }
+      ]
+    },
+    "handId": 4,
+    "savedAt": 1777771681662
+  },
+  "badugi-ux1777771706011": {
+    "state": {
+      "tableId": "badugi-ux1777771706011",
+      "phase": "BET_3",
+      "pot": 4089,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p5",
+      "players": [
+        {
+          "id": "p1",
+          "name": "p1",
+          "presence": "bot",
+          "chips": 911,
+          "bet": 0,
+          "totalBet": 89,
+          "cards": [
+            {
+              "suit": "diamonds",
+              "rank": "10",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            }
+          ],
+          "status": "folded",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 1000,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "A",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "5",
+              "isHidden": true
+            }
+          ],
+          "status": "folded",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 1000,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "6",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "3",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "J",
+              "isHidden": true
+            }
+          ],
+          "status": "folded",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 1000,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "A",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "3",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "9",
+              "isHidden": false
+            }
+          ],
+          "status": "folded",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 1615,
+          "cards": [
+            {
+              "suit": "diamonds",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "9",
+              "isHidden": true
+            }
+          ],
+          "status": "folded",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "uq5ty2ro",
+          "text": "Daisy discarded 1 card",
+          "time": 1777771740317,
+          "isResolution": false
+        },
+        {
+          "id": "dvgw7hzu",
+          "text": "Alice discarded 1 card",
+          "time": 1777771740644,
+          "isResolution": false
+        },
+        {
+          "id": "kkno4a6h",
+          "text": "Bob discarded 1 card",
+          "time": 1777771741128,
+          "isResolution": false
+        },
+        {
+          "id": "p7bjqxz2",
+          "text": "Charlie discarded 1 card",
+          "time": 1777771741525,
+          "isResolution": false
+        },
+        {
+          "id": "pmv3u939",
+          "text": "DECLARE",
+          "time": 1777771741875,
+          "isResolution": false
+        },
+        {
+          "id": "9vnxxryj",
+          "text": "Alice has no Badugi — auto-folded",
+          "time": 1777771741876,
+          "isResolution": false
+        },
+        {
+          "id": "mqo04rhf",
+          "text": "Bob has no Badugi — auto-folded",
+          "time": 1777771741876,
+          "isResolution": false
+        },
+        {
+          "id": "jpf8v9vk",
+          "text": "Charlie has no Badugi — auto-folded",
+          "time": 1777771741876,
+          "isResolution": false
+        },
+        {
+          "id": "wrobbgwl",
+          "text": "Daisy has no Badugi — auto-folded",
+          "time": 1777771741876,
+          "isResolution": false
+        },
+        {
+          "id": "8ncbrm47",
+          "text": "BET 3",
+          "time": 1777771742327,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [
+        {
+          "suit": "clubs",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "4",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "diamonds",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": true
+        },
+        {
+          "suit": "spades",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "5",
+          "isHidden": true
+        },
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "7",
+          "isHidden": true
+        },
+        {
+          "suit": "spades",
+          "rank": "Q",
+          "isHidden": true
+        }
+      ]
+    },
+    "handId": 2,
+    "savedAt": 1777771858036
+  },
+  "badugi-diag-1777771839091": {
+    "state": {
+      "tableId": "badugi-diag-1777771839091",
+      "phase": "WAITING",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "847paxw3",
+          "text": "Game ready. Press start.",
+          "time": 1777771839102
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 0,
+    "savedAt": 1777771939106
+  },
+  "badugi-trace-1777771874578": {
+    "state": {
+      "tableId": "badugi-trace-1777771874578",
+      "phase": "ANTE",
+      "pot": 5,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 807,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 3594,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 3596,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "2apxuwlc",
+          "text": "New hand.",
+          "time": 1777772024008
+        },
+        {
+          "id": "wwo3du3y",
+          "text": "Bob paid $1 Ante",
+          "time": 1777772024316,
+          "isResolution": false
+        },
+        {
+          "id": "l3n4mu2i",
+          "text": "Charlie paid $1 Ante",
+          "time": 1777772024685,
+          "isResolution": false
+        },
+        {
+          "id": "n9hbaloe",
+          "text": "Daisy paid $1 Ante",
+          "time": 1777772024966,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 5,
+    "savedAt": 1777772026968
+  },
+  "badugi-ux-1777771998140": {
+    "state": {
+      "tableId": "badugi-ux-1777771998140",
+      "phase": "ANTE",
+      "pot": 3,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 992,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 991,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1006,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 988,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 1020,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "75haq7hx",
+          "text": "New hand.",
+          "time": 1777772132781
+        },
+        {
+          "id": "7jffavbs",
+          "text": "Bob paid $1 Ante",
+          "time": 1777772133112,
+          "isResolution": false
+        },
+        {
+          "id": "8s36q5ic",
+          "text": "Charlie paid $1 Ante",
+          "time": 1777772133407,
+          "isResolution": false
+        },
+        {
+          "id": "grr4rgxo",
+          "text": "Daisy paid $1 Ante",
+          "time": 1777772133941,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 5,
+    "savedAt": 1777772135944
+  },
+  "badugi-scored-1777772093492": {
+    "state": {
+      "tableId": "badugi-scored-1777772093492",
+      "phase": "ANTE",
+      "pot": 4,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "You",
+          "presence": "human",
+          "chips": 919,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 4079,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "66621b48",
+          "text": "New hand.",
+          "time": 1777772130413
+        },
+        {
+          "id": "felwzp6y",
+          "text": "Charlie paid $1 Ante",
+          "time": 1777772130817,
+          "isResolution": false
+        },
+        {
+          "id": "sdinqpuz",
+          "text": "Daisy paid $1 Ante",
+          "time": 1777772131180,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 3,
+    "savedAt": 1777772133183
+  },
+  "hcc-1777772243917": {
+    "state": {
+      "tableId": "hcc-1777772243917",
+      "phase": "ANTE",
+      "pot": 3,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "You",
+          "presence": "human",
+          "chips": 825,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 4173,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "16wrvqyq",
+          "text": "New hand.",
+          "time": 1777772280379
+        },
+        {
+          "id": "ninu19f3",
+          "text": "Daisy paid $1 Ante",
+          "time": 1777772280866,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 3,
+    "savedAt": 1777772282871
+  },
+  "badugi-reg1777772383194": {
+    "state": {
+      "tableId": "badugi-reg1777772383194",
+      "phase": "ANTE",
+      "pot": 6,
+      "currentBet": 0,
+      "minBet": 2,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "You",
+          "presence": "human",
+          "chips": 923,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 2037,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 2035,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 999,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "yhommx0m",
+          "text": "New hand.",
+          "time": 1777772418802
+        },
+        {
+          "id": "ayk93m1r",
+          "text": "Charlie paid $1 Ante",
+          "time": 1777772419258,
+          "isResolution": false
+        },
+        {
+          "id": "e0cf0egj",
+          "text": "Daisy paid $1 Ante",
+          "time": 1777772419808,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 3,
+    "savedAt": 1777772421812
   }
 }
