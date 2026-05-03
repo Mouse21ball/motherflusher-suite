@@ -17,25 +17,28 @@ interface ResolutionOverlayProps {
   players?: Player[];
 }
 
-function classifyResult(
-  messages: ResolutionMessage[],
-  heroPlayer?: Player | null,
-  heroChipChange?: number,
-): {
-  type: 'win' | 'loss' | 'split';
+type ResultType = 'win' | 'loss' | 'split' | 'fold';
+
+interface ClassifiedResult {
+  type: ResultType;
   primary: string;
   secondary: string;
   handName: string;
   winnerName: string;
   details: string[];
-} {
+}
+
+function classifyResult(
+  messages: ResolutionMessage[],
+  heroPlayer?: Player | null,
+  heroChipChange?: number,
+): ClassifiedResult {
   const texts = messages.map(m => m.text);
   const isSplit = texts.some(t => /Split Pot/i.test(t));
   const net = heroChipChange ?? 0;
   const absNet = Math.abs(net);
   const amountStr = absNet > 0 ? `$${absNet}` : '';
 
-  // Extract hand description from hero score
   const handName = heroPlayer?.score?.description
     ?? heroPlayer?.score?.highEval?.description
     ?? heroPlayer?.score?.lowEval?.description
@@ -43,56 +46,61 @@ function classifyResult(
 
   // Find winner name from resolution messages
   let winnerName = '';
-  const winMsg = texts.find(t => /wins with|scoops with|wins the/i.test(t));
+  const winMsg = texts.find(t => /wins with|scoops with|wins the|takes the/i.test(t));
   if (winMsg) {
-    const m = winMsg.match(/^(.+?)\s+(wins|scoops)/i);
+    const m = winMsg.match(/^(.+?)\s+(wins|scoops|takes)/i);
     if (m) winnerName = m[1].trim();
   }
 
+  // ── 1. Hero folded — distinct fold state with muted-red treatment ──
+  if (heroPlayer?.status === 'folded') {
+    return {
+      type: 'fold',
+      primary: 'You folded',
+      secondary: amountStr ? `−${amountStr}` : '',
+      handName: '',
+      winnerName,
+      details: winnerName ? [`Pot goes to ${winnerName}`] : texts,
+    };
+  }
+
+  // ── 2. Hero won outright ──
   if (heroPlayer?.isWinner) {
     return {
       type: 'win',
       primary: net >= 0 ? 'You Win' : 'You Split',
-      secondary: amountStr ? `+${amountStr}` : '',
+      secondary: net > 0 ? `+${amountStr}` : amountStr ? `+${amountStr}` : '+$0',
       handName,
       winnerName: '',
       details: texts.filter(t => !/^You\s+(win|scoop|receive)/i.test(t)),
     };
   }
 
+  // ── 3. Pot split ──
   if (isSplit) {
     return {
       type: net > 0 ? 'win' : net < 0 ? 'loss' : 'split',
       primary: 'Pot Split',
-      secondary: net > 0 ? `+${amountStr}` : net < 0 ? `-${amountStr}` : '',
+      secondary: net > 0 ? `+${amountStr}` : net < 0 ? `−${amountStr}` : '$0',
       handName,
       winnerName,
       details: texts.filter(t => !/^Split Pot/i.test(t)),
     };
   }
 
+  // ── 4. Hero lost (showed cards, didn't win) ──
   if (heroPlayer?.isLoser || net < 0) {
     return {
       type: 'loss',
       primary: 'Hand Lost',
-      secondary: amountStr ? `-${amountStr}` : '',
+      secondary: amountStr ? `−${amountStr}` : '−$0',
       handName,
       winnerName,
       details: texts,
     };
   }
 
-  if (net === 0 && heroPlayer?.status === 'folded') {
-    return {
-      type: 'loss',
-      primary: 'Folded',
-      secondary: '',
-      handName: '',
-      winnerName,
-      details: texts,
-    };
-  }
-
+  // ── 5. Net positive but no winner flag ──
   if (net > 0) {
     return {
       type: 'win',
@@ -104,27 +112,32 @@ function classifyResult(
     };
   }
 
+  // ── 6. Hand settled (no chip change and no flag) — rare ──
   return {
     type: 'loss',
     primary: 'Hand Settled',
-    secondary: '',
+    secondary: '$0',
     handName,
     winnerName,
     details: texts,
   };
 }
 
+// ── Color tokens per result type ──────────────────────────────────────────────
+const TOKENS = {
+  win:   { color: '#22C55E',                textShadow: '0 0 28px rgba(34,197,94,0.55), 0 0 56px rgba(34,197,94,0.22)' },
+  loss:  { color: 'rgba(248,113,113,0.85)', textShadow: '0 0 22px rgba(248,113,113,0.40)' },
+  fold:  { color: 'rgba(220,138,138,0.70)', textShadow: '0 0 16px rgba(220,138,138,0.25)' },
+  split: { color: '#C9A227',                textShadow: '0 0 22px rgba(201,162,39,0.40)' },
+} as const;
+
 // ── Animated chip-change number ───────────────────────────────────────────────
-function ChipChange({ value, isWin }: { value: string; isWin: boolean }) {
+function ChipChange({ value, type }: { value: string; type: ResultType }) {
+  const tok = TOKENS[type];
   return (
     <div
-      className="relative font-mono text-3xl sm:text-4xl font-black tracking-tight text-center anim-count-up select-none"
-      style={{
-        color: isWin ? '#C9A227' : 'rgba(248,113,113,0.80)',
-        textShadow: isWin
-          ? '0 0 28px rgba(201,162,39,0.55), 0 0 56px rgba(201,162,39,0.25)'
-          : '0 0 20px rgba(248,113,113,0.35)',
-      }}
+      className="relative font-mono text-3xl sm:text-4xl font-black tracking-tight text-center anim-count-up select-none tabular-nums"
+      style={{ color: tok.color, textShadow: tok.textShadow }}
       data-testid="text-resolution-secondary"
     >
       {value}
@@ -133,32 +146,34 @@ function ChipChange({ value, isWin }: { value: string; isWin: boolean }) {
 }
 
 // ── Hand name badge ───────────────────────────────────────────────────────────
-function HandBadge({ name, isWin }: { name: string; isWin: boolean }) {
+function HandBadge({ name, type }: { name: string; type: ResultType }) {
   if (!name) return null;
+  const styles =
+    type === 'win'  ? { background: 'rgba(34,197,94,0.10)',  borderColor: 'rgba(34,197,94,0.30)',  color: 'rgba(34,197,94,0.85)' }
+  : type === 'loss' ? { background: 'rgba(248,113,113,0.06)', borderColor: 'rgba(248,113,113,0.20)', color: 'rgba(248,113,113,0.75)' }
+                    : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.42)' };
   return (
     <div
       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono tracking-wide font-semibold border anim-slide-up"
-      style={isWin
-        ? { background: 'rgba(201,162,39,0.10)', borderColor: 'rgba(201,162,39,0.30)', color: 'rgba(201,162,39,0.85)' }
-        : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.38)' }
-      }
+      style={styles}
       data-testid="text-hand-name"
     >
-      {isWin ? '♠' : '—'}&ensp;{name}
+      {type === 'win' ? '♠' : '—'}&ensp;{name}
     </div>
   );
 }
 
-// ── Winner name (when hero loses) ─────────────────────────────────────────────
-function WinnerLine({ name }: { name: string }) {
+// ── Winner name (when hero loses or folds) ────────────────────────────────────
+function WinnerLine({ name, type }: { name: string; type: ResultType }) {
   if (!name) return null;
+  const accentColor = type === 'fold' ? 'rgba(220,138,138,0.65)' : 'rgba(201,162,39,0.55)';
   return (
     <div
       className="text-[11px] font-mono text-center anim-slide-up"
       style={{ color: 'rgba(255,255,255,0.30)', animationDelay: '80ms', animationFillMode: 'both' }}
       data-testid="text-winner-name"
     >
-      <span style={{ color: 'rgba(201,162,39,0.55)' }}>{name}</span> takes the pot
+      <span style={{ color: accentColor }}>{name}</span> takes the pot
     </div>
   );
 }
@@ -183,7 +198,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
         soundPlayed.current = true;
         const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
         if (result.type === 'win') sfx.win();
-        else if (result.type === 'loss') sfx.lose();
+        else if (result.type === 'loss' || result.type === 'fold') sfx.lose();
       }
 
       if (continueTimerRef.current) clearTimeout(continueTimerRef.current);
@@ -212,11 +227,30 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
   const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
   const isWin  = result.type === 'win';
   const isLoss = result.type === 'loss';
+  const isFold = result.type === 'fold';
+
+  // Border + primary-text styling per result type
+  const borderClass = isWin
+    ? 'border-[#22C55E]/35'
+    : isFold
+      ? 'border-[rgba(220,138,138,0.18)]'
+      : isLoss
+        ? 'border-[rgba(248,113,113,0.22)]'
+        : 'border-[#C9A227]/15';
+
+  const primaryClass = isWin
+    ? 'text-[#22C55E]/85'
+    : isFold
+      ? 'text-[rgba(220,138,138,0.65)]'
+      : isLoss
+        ? 'text-[rgba(248,113,113,0.75)]'
+        : 'text-white/50';
 
   return (
     <div
       className={`absolute inset-x-3 sm:inset-x-8 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex justify-center transition-opacity duration-[360ms] ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}
       data-testid="resolution-overlay"
+      data-result-type={result.type}
     >
       <div
         className={`
@@ -227,43 +261,41 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
           max-w-sm w-full
           flex flex-col items-center gap-2
           anim-slide-up
-          ${isWin ? 'border-[#C9A227]/35' : isLoss ? 'border-white/[0.06]' : 'border-[#C9A227]/15'}
+          ${borderClass}
         `}
       >
-        {/* Glow overlay */}
+        {/* Glow overlay (win only) */}
         {isWin && (
-          <div className="absolute inset-0 bg-gradient-to-b from-[#C9A227]/[0.07] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#22C55E]/[0.07] via-transparent to-transparent pointer-events-none" />
         )}
 
         {/* Primary label */}
         <p
-          className={`relative font-sans text-sm font-semibold tracking-[0.12em] uppercase text-center ${
-            isWin ? 'text-[#C9A227]/70' : isLoss ? 'text-white/35' : 'text-white/50'
-          }`}
+          className={`relative font-sans text-sm font-semibold tracking-[0.12em] uppercase text-center ${primaryClass}`}
           data-testid="text-resolution-primary"
         >
           {result.primary}
         </p>
 
-        {/* Big chip change number */}
+        {/* Big chip change number — always shown for win/loss/fold when amount known */}
         {result.secondary && (
-          <ChipChange value={result.secondary} isWin={isWin} />
+          <ChipChange value={result.secondary} type={result.type} />
         )}
 
         {/* Hand name badge */}
         {result.handName && (
-          <HandBadge name={result.handName} isWin={isWin} />
+          <HandBadge name={result.handName} type={result.type} />
         )}
 
-        {/* Who won (if hero lost) */}
+        {/* Who won (when hero lost or folded) */}
         {!isWin && result.winnerName && (
-          <WinnerLine name={result.winnerName} />
+          <WinnerLine name={result.winnerName} type={result.type} />
         )}
 
         {/* Divider + details */}
         {result.details.length > 0 && (
           <>
-            <div className={`w-6 h-px my-1 ${isWin ? 'bg-[#C9A227]/25' : 'bg-white/[0.07]'}`} />
+            <div className={`w-6 h-px my-1 ${isWin ? 'bg-[#22C55E]/25' : isFold ? 'bg-[rgba(220,138,138,0.15)]' : 'bg-white/[0.07]'}`} />
             {result.details.slice(0, 3).map((detail, i) => (
               <p
                 key={i}

@@ -1,7 +1,6 @@
 import { GamePhase } from './poker/types';
 
-// ── Per-mode, per-phase hint copy ─────────────────────────────────────────────
-// Keys match exact GamePhase strings. BET_* wildcards handled in getPhaseHint.
+// ── Per-mode, per-phase static hint copy ─────────────────────────────────────
 
 const hints: Record<string, Record<string, string>> = {
   badugi: {
@@ -70,24 +69,40 @@ const hints: Record<string, Record<string, string>> = {
   },
 };
 
-// ── Context-sensitive dynamic hints ──────────────────────────────────────────
+// ── Card helpers ──────────────────────────────────────────────────────────────
 
 interface SimpleCard { rank: string; suit: string; isHidden?: boolean; }
+
+function rankVal(r: string): number {
+  if (r === 'A') return 1;          // Badugi/Dead-7 treat Ace as low
+  if (r === 'K') return 13;
+  if (r === 'Q') return 12;
+  if (r === 'J') return 11;
+  return parseInt(r, 10) || 0;
+}
+
+function fifteen35Total(cards: SimpleCard[]): number {
+  return cards.filter(c => !c.isHidden).reduce((sum, c) => {
+    if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return sum + 0.5;
+    if (c.rank === 'A') return sum + 11;
+    return sum + parseInt(c.rank, 10);
+  }, 0);
+}
+
+// ── Public dynamic hint helpers (used by HUD and contextual hint) ────────────
 
 export function getSwingHandHint(holeCards: SimpleCard[]): string {
   const visible = holeCards.filter(c => !c.isHidden);
   if (visible.length === 0) return "Read the board — choose your path";
-
   const suitGroups: Record<string, number> = {};
   for (const c of visible) suitGroups[c.suit] = (suitGroups[c.suit] || 0) + 1;
   const maxSuit = Math.max(...Object.values(suitGroups));
-
-  const rankVal = (r: string) =>
-    r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : parseInt(r, 10);
-  const sorted = visible.map(c => rankVal(c.rank)).sort((a, b) => b - a);
-  const isPair = sorted.some((v, i) => sorted[i + 1] === v);
+  const sorted = visible.map(c => {
+    const v = c.rank === 'A' ? 14 : c.rank === 'K' ? 13 : c.rank === 'Q' ? 12 : c.rank === 'J' ? 11 : parseInt(c.rank, 10);
+    return v;
+  }).sort((a, b) => b - a);
+  const isPair  = sorted.some((v, i) => sorted[i + 1] === v);
   const highAvg = sorted.slice(0, 3).reduce((s, v) => s + v, 0) / Math.min(3, sorted.length);
-
   if (maxSuit >= 5) return "Flush dealt. Go LOW.";
   if (maxSuit >= 4 && highAvg >= 11) return "Suited and heavy. SWING's live.";
   if (maxSuit >= 4) return "4 of a suit. LOW.";
@@ -97,50 +112,188 @@ export function getSwingHandHint(holeCards: SimpleCard[]): string {
   return "Read it yourself.";
 }
 
-// ── 15/35 dynamic hand hint ───────────────────────────────────────────────────
-
 export function getFifteen35HandHint(cards: SimpleCard[]): string {
   const visible = cards.filter(c => !c.isHidden);
   if (!visible.length) return "";
-  const tot = visible.reduce((sum, c) => {
-    if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return sum + 0.5;
-    if (c.rank === 'A') return sum + 11;
-    return sum + parseInt(c.rank, 10);
-  }, 0);
-  if (tot > 35) return "Busted — over 35";
-  if (tot >= 33) return `${tot} — qualified High! Stay`;
+  const tot = fifteen35Total(cards);
+  if (tot > 35) return `Busted — ${tot} (over 35)`;
+  if (tot >= 33 && tot <= 35) return `${tot} — qualified High! Stay`;
   if (tot >= 28) return `${tot} — one more hit may finish High`;
   if (tot >= 13 && tot <= 15) return `${tot} — qualified Low! Stay`;
   if (tot >= 10 && tot < 13) return `${tot} — close to Low range. Hit carefully`;
   return `${tot} — keep hitting toward 13–15 or 33–35`;
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Badugi DRAW: duplicate detection ─────────────────────────────────────────
+function getBadugiDrawHint(cards: SimpleCard[]): string | undefined {
+  const visible = cards.filter(c => !c.isHidden);
+  if (visible.length < 2) return undefined;
+  const suits: Record<string, number> = {};
+  const ranks: Record<string, number> = {};
+  for (const c of visible) {
+    suits[c.suit] = (suits[c.suit] || 0) + 1;
+    ranks[c.rank] = (ranks[c.rank] || 0) + 1;
+  }
+  const uniqueSuits = Object.keys(suits).length;
+  const uniqueRanks = Object.keys(ranks).length;
+  const dupRank = Object.entries(ranks).find(([_, n]) => n > 1);
+  const dupSuit = Object.entries(suits).find(([_, n]) => n > 1);
 
-export function getPhaseHint(modeId: string, phase: GamePhase): string | undefined {
-  const modeHints = hints[modeId];
-  if (!modeHints) return undefined;
+  if (visible.length === 4 && uniqueSuits === 4 && uniqueRanks === 4) {
+    const lowAll = visible.every(c => rankVal(c.rank) <= 4);
+    return lowAll ? "Strong Badugi (A–4) — stand pat" : "Valid 4-card Badugi — stand pat";
+  }
+  if (dupRank) return `Pair of ${dupRank[0]}s — drop one to draw a Badugi`;
+  if (dupSuit) return `${dupSuit[1]} cards same-suit — drop a duplicate`;
+  return undefined;
+}
 
-  if (modeHints[phase]) return modeHints[phase];
+// ── Dead 7 DRAW: 7-detection + flush count ───────────────────────────────────
+function getDead7DrawHint(cards: SimpleCard[]): string | undefined {
+  const visible = cards.filter(c => !c.isHidden);
+  if (!visible.length) return undefined;
+  const sevens = visible.filter(c => c.rank === '7').length;
+  const suits: Record<string, number> = {};
+  for (const c of visible) suits[c.suit] = (suits[c.suit] || 0) + 1;
+  const maxSuit = Math.max(...Object.values(suits));
+  const uniqueSuits = Object.keys(suits).length;
+  if (sevens > 0) return `${sevens} dead 7${sevens > 1 ? 's' : ''} in hand — drop them first`;
+  if (maxSuit === 4) return "4 of a suit — flush scoops!";
+  if (maxSuit === 3) return "3 suited — flush draw is live";
+  if (visible.length === 4 && uniqueSuits === 4) return "All different suits — qualifies for scoop";
+  return undefined;
+}
 
-  // BET_* wildcard
-  if (phase.startsWith('BET_')) {
-    const n = parseInt(phase.replace('BET_', ''), 10);
-    for (let i = n; i >= 1; i--) {
-      const key = `BET_${i}`;
-      if (modeHints[key]) return modeHints[key];
+// ── Hand-strength annotation (BET phases) ────────────────────────────────────
+function getStrengthAnnotation(modeId: string, cards: SimpleCard[]): string | undefined {
+  const visible = cards.filter(c => !c.isHidden);
+  if (!visible.length) return undefined;
+
+  if (modeId === 'badugi') {
+    const suits: Record<string, number> = {};
+    const ranks: Record<string, number> = {};
+    for (const c of visible) {
+      suits[c.suit] = (suits[c.suit] || 0) + 1;
+      ranks[c.rank] = (ranks[c.rank] || 0) + 1;
     }
-    return undefined;
+    const uniqSuits = Object.keys(suits).length;
+    const uniqRanks = Object.keys(ranks).length;
+    if (visible.length === 4 && uniqSuits === 4 && uniqRanks === 4) {
+      const lowAll = visible.every(c => rankVal(c.rank) <= 4);
+      return lowAll ? "Strong hand — push hard" : "Good hand — consider betting";
+    }
+    if (uniqSuits === 3) return "Playable hand — proceed cautiously";
+    return "Weak hand — you may want to fold to pressure";
   }
 
-  // HIT_* wildcard — use numbered key if available, else fall back
-  if (phase.startsWith('HIT_')) {
-    const hitNum = parseInt(phase.replace('HIT_', ''), 10);
-    const key = `HIT_${hitNum}`;
-    if (modeHints[key]) return modeHints[key];
-    if (modeHints['HIT_4']) return modeHints['HIT_4']; // generic late hit
-    return modeHints['HIT_1'];
+  if (modeId === 'dead7') {
+    const sevens = visible.filter(c => c.rank === '7').length;
+    const suits: Record<string, number> = {};
+    for (const c of visible) suits[c.suit] = (suits[c.suit] || 0) + 1;
+    const maxSuit = Math.max(...Object.values(suits));
+    if (sevens > 0) return "Dead — has a 7. Fold cheap";
+    if (maxSuit >= 4) return "Strong — flush scoops!";
+    const allHigh = visible.every(c => c.rank !== '7' && rankVal(c.rank) >= 8 || c.rank === 'A');
+    const allLow  = visible.every(c => c.rank !== '7' && rankVal(c.rank) <= 6);
+    if (allHigh || allLow) return "Strong hand — qualifies";
+    if (maxSuit === 3) return "Playable — flush draw alive";
+    return "Weak — no qualifier yet";
+  }
+
+  if (modeId === 'fifteen35') {
+    const tot = fifteen35Total(cards);
+    if (tot > 35) return "Busted — fold to pressure";
+    if ((tot >= 13 && tot <= 15) || (tot >= 33 && tot <= 35)) return `Strong — ${tot} qualifies`;
+    if (tot >= 28 || (tot >= 10 && tot < 13)) return `Playable — ${tot}`;
+    return `Weak — ${tot}`;
   }
 
   return undefined;
+}
+
+// ── Bet-context annotation (when facing a call) ──────────────────────────────
+function getBetContextAnnotation(callAmount: number, pot: number): string | undefined {
+  if (callAmount === 0) return undefined;
+  if (pot <= 0) return undefined;
+  const ratio = callAmount / pot;
+  if (ratio >= 0.5) return "Large bet — risky call";
+  if (ratio <= 0.2) return "Small bet — safe call";
+  return "Mid-size bet";
+}
+
+// ── Main exports ──────────────────────────────────────────────────────────────
+
+export function getPhaseHint(modeId: string, phase: GamePhase): string | undefined {
+  const m = hints[modeId];
+  if (!m) return undefined;
+  if (m[phase]) return m[phase];
+  if (phase.startsWith('BET_')) {
+    const n = parseInt(phase.replace('BET_', ''), 10);
+    for (let i = n; i >= 1; i--) { if (m[`BET_${i}`]) return m[`BET_${i}`]; }
+    return undefined;
+  }
+  if (phase.startsWith('HIT_')) {
+    const hitNum = parseInt(phase.replace('HIT_', ''), 10);
+    if (m[`HIT_${hitNum}`]) return m[`HIT_${hitNum}`];
+    if (m['HIT_4']) return m['HIT_4'];
+    return m['HIT_1'];
+  }
+  return undefined;
+}
+
+interface HeroLite { cards?: SimpleCard[]; bet?: number; status?: string; }
+interface CtxLite { currentBet?: number; pot?: number; }
+
+/**
+ * Contextual hint — base phase hint augmented with live state.
+ * Returns either a dynamic string (preferred when relevant) or the static fallback.
+ */
+export function getContextualHint(
+  modeId: string,
+  phase: GamePhase,
+  hero?: HeroLite | null,
+  ctx?: CtxLite,
+): string | undefined {
+  const baseHint = getPhaseHint(modeId, phase);
+  if (!hero) return baseHint;
+
+  const cards = hero.cards || [];
+  const myBet = hero.bet ?? 0;
+  const currentBet = ctx?.currentBet ?? 0;
+  const callAmount = Math.max(0, currentBet - myBet);
+  const pot = ctx?.pot ?? 0;
+
+  // Badugi DRAW phases — duplicate detection
+  if (modeId === 'badugi' && phase.startsWith('DRAW')) {
+    const dyn = getBadugiDrawHint(cards);
+    if (dyn) return dyn;
+  }
+
+  // Dead 7 DRAW phases — 7s + flush awareness
+  if (modeId === 'dead7' && phase.startsWith('DRAW')) {
+    const dyn = getDead7DrawHint(cards);
+    if (dyn) return dyn;
+  }
+
+  // 15/35 HIT phases + DEAL — running total
+  if (modeId === 'fifteen35' && (phase.startsWith('HIT_') || phase === 'DEAL')) {
+    const dyn = getFifteen35HandHint(cards);
+    if (dyn) return dyn;
+  }
+
+  // Suitspoker DRAW — swing-style hint
+  if (modeId === 'suitspoker' && phase === 'DRAW') {
+    const dyn = getSwingHandHint(cards);
+    if (dyn && dyn !== "Read it yourself.") return dyn;
+  }
+
+  // BET / DECLARE_AND_BET — strength + bet context
+  if (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') {
+    const strength = getStrengthAnnotation(modeId, cards);
+    const betCtx   = getBetContextAnnotation(callAmount, pot);
+    const parts    = [strength, betCtx].filter(Boolean);
+    if (parts.length) return parts.join(' · ');
+  }
+
+  return baseHint;
 }

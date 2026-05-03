@@ -13,7 +13,7 @@ import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/Spect
 import { XPToast } from "@/components/XPToast";
 import { useXPWatcher } from "@/lib/useXPWatcher";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
-import { getPhaseHint } from "@/lib/phaseHints";
+import { getContextualHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
@@ -127,6 +127,27 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   // Clear card selection on phase change
   useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
 
+  // ── Track chip count from prior phase so heroChipChange always has a value
+  //    (server only computes heroChipChange for hand 2+; hand 1 falls back here)
+  const prevChipsRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (state.phase !== 'SHOWDOWN' && me?.chips !== undefined) {
+      prevChipsRef.current = me.chips;
+    }
+  }, [state.phase, me?.chips]);
+
+  const fallbackChipChange =
+    state.phase === 'SHOWDOWN' &&
+    state.heroChipChange === undefined &&
+    me?.chips !== undefined &&
+    prevChipsRef.current !== undefined
+      ? me.chips - prevChipsRef.current
+      : state.heroChipChange;
+
+  const augmentedState: GameState = state.heroChipChange === undefined && fallbackChipChange !== undefined
+    ? { ...state, heroChipChange: fallbackChipChange }
+    : state;
+
   // 'DRAW' = Suits & Poker single draw phase; DRAW_1/2/3 = Badugi/Dead7 multi-draw phases
   const isDrawPhase = state.phase === 'DRAW' || state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
 
@@ -202,7 +223,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
       <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44 game-main-area">
         <ThreeDTableScene
-          gameState={state}
+          gameState={augmentedState}
           myId={isSpectator ? 'p1' : myId}
           modeId={modeId}
           selectedCardIndices={isSpectator ? [] : selectedCardIndices}
@@ -237,7 +258,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               onAction={handleControlAction}
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
               selectedCardsCount={selectedCardIndices.length}
-              phaseHint={getPhaseHint(modeId, state.phase)}
+              phaseHint={getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot })}
               openSeatsCount={openSeatsCount}
               humanCount={humanCount}
               declarationOptions={modeId === 'suitspoker' ? SUITSPOKER_DECLARATION_OPTIONS : undefined}
