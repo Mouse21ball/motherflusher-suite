@@ -764,6 +764,95 @@ function resolveShowdown(table: GenericTable): void {
   }, 650);
 }
 
+// ─── Terminal-state guard (win-by-fold / no-actors) ──────────────────────────
+// Called after every human/bot action. If the hand has effectively ended
+// because every opponent folded (or busted out of `active` status), award the
+// pot to the lone survivor and transition cleanly to SHOWDOWN → next hand.
+// If zero players remain active, close the hand cleanly (rollover) and reset.
+// Returns true if the hand was resolved here; callers should bail out of any
+// further phase advancement when true.
+
+function resolveByFold(table: GenericTable): boolean {
+  const s = table.state;
+  // Only fire mid-hand. WAITING/SHOWDOWN/ANTE/DEAL handle themselves.
+  if (s.phase === 'WAITING' || s.phase === 'SHOWDOWN' || s.phase === 'ANTE' || s.phase === 'DEAL') {
+    return false;
+  }
+
+  const nonFolded = s.players.filter(p => p.status === 'active');
+
+  // ── Case A: lone survivor wins by fold ──────────────────────────────────
+  if (nonFolded.length === 1) {
+    const winner = nonFolded[0];
+    const pot = s.pot;
+    const newPlayers = s.players.map(p =>
+      p.id === winner.id
+        ? { ...p, chips: p.chips + pot, isWinner: true, hasActed: true }
+        : { ...p, isWinner: false }
+    );
+    const winMsg = `${winner.name} wins $${pot} (all opponents folded)`;
+    table.state = {
+      ...s,
+      players: newPlayers,
+      pot: 0,
+      phase: 'SHOWDOWN' as GamePhase,
+      activePlayerId: winner.id,
+      currentBet: 0,
+      messages: [
+        ...s.messages,
+        { id: makeId(), text: winMsg, time: Date.now(), isResolution: true },
+      ].slice(-10),
+    };
+    engineLog('PHASE', `${table.modeId}:${table.tableId}`, {
+      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot,
+    });
+    console.log(`[CGP][server] win-by-fold ${table.modeId}:${table.tableId} winner=${winner.id} pot=$${pot} from=${s.phase}`);
+
+    // Cancel any pending bot timers — they would early-return on phase mismatch
+    // anyway, but clearing prevents leaked timers in long-running tables.
+    for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+    table.botTimers.clear();
+
+    broadcastState(table);
+
+    const fenced = table.handId;
+    setTimeout(() => {
+      if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+      resetToAnte(table);
+      broadcastState(table);
+    }, 2500);
+    return true;
+  }
+
+  // ── Case B: no active players at all — close hand, rollover pot ─────────
+  if (nonFolded.length === 0) {
+    console.log(`[CGP][server] no-active-players ${table.modeId}:${table.tableId} pot=$${s.pot} from=${s.phase} — closing hand`);
+    engineLog('PHASE', `${table.modeId}:${table.tableId}`, {
+      from: s.phase, to: 'SHOWDOWN', reason: 'no-active-players', pot: s.pot,
+    });
+    table.state = addMsg({
+      ...s,
+      phase: 'SHOWDOWN' as GamePhase,
+      currentBet: 0,
+      // pot left as-is — resetToAnte detects pot>0 + no winner = rollover
+    }, 'Hand closed — no eligible players');
+
+    for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+    table.botTimers.clear();
+    broadcastState(table);
+
+    const fenced = table.handId;
+    setTimeout(() => {
+      if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+      resetToAnte(table);
+      broadcastState(table);
+    }, 1500);
+    return true;
+  }
+
+  return false;
+}
+
 // ─── Reset after showdown ─────────────────────────────────────────────────────
 
 function resetToAnte(table: GenericTable): void {
@@ -772,7 +861,7 @@ function resetToAnte(table: GenericTable): void {
   const isRollover = s.pot > 0 && !hadWinner;
   const basePlayers = isRollover ? s.players : moveDealer(s.players);
 
-  const nextPlayers: Player[] = basePlayers.map(p => {
+  let nextPlayers: Player[] = basePlayers.map(p => {
     const isBotBusted = p.presence === 'bot' && p.chips === 0;
     const newChips = isBotBusted ? 1000 : p.chips;
     return {
@@ -791,6 +880,19 @@ function resetToAnte(table: GenericTable): void {
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
     };
   });
+
+  // ── Safety: rollover with zero active players (no-actors close-out) ──────
+  // If the previous hand resolved with everyone folded, the rollover branch
+  // above produces all `sitting_out` and the next hand would stall in ANTE.
+  // Detect this and fall back to non-rollover semantics: any seat with chips
+  // becomes active again so the table can deal a fresh hand.
+  if (isRollover && !nextPlayers.some(p => p.status === 'active')) {
+    console.log(`[CGP][server] reset:no-active-after-rollover ${table.modeId}:${table.tableId} — reactivating eligible seats`);
+    nextPlayers = nextPlayers.map(p => ({
+      ...p,
+      status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+    }));
+  }
 
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
@@ -1033,6 +1135,9 @@ function executeBotAction(table: GenericTable, botId: string): void {
     table.actionLock = false;
     broadcastState(table);
 
+    // Terminal-state guard (post-bot-action): same as afterHumanAction.
+    if (resolveByFold(table)) return;
+
     if (roundOver) {
       const capturedHandId = table.handId;
       const capturedPhase  = table.state.phase;
@@ -1058,6 +1163,10 @@ function executeBotAction(table: GenericTable, botId: string): void {
 
 function afterHumanAction(table: GenericTable, wasRaise = false): void {
   broadcastState(table);
+
+  // Terminal-state guard: lone survivor wins by fold, or zero actors → reset.
+  // Must run BEFORE isPhaseRoundOver to short-circuit phase advancement.
+  if (resolveByFold(table)) return;
 
   if (isPhaseRoundOver(table.state)) {
     const capturedHandId = table.handId;

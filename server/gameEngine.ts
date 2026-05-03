@@ -624,6 +624,86 @@ function resolveShowdown(table: AuthTable): void {
   }, 650);
 }
 
+// ─── Terminal-state guard (win-by-fold / no-actors) ──────────────────────────
+// Mirror of resolveByFold in genericEngine.ts, scoped to the Badugi engine.
+// If the hand is mid-flight and only one (or zero) non-folded players remain,
+// award the pot to the survivor (or close the hand) and reset, instead of
+// stalling in BET_*/DRAW_*/DECLARE with no legal actor.
+
+function resolveByFoldBadugi(table: AuthTable): boolean {
+  const s = table.state;
+  if (s.phase === 'WAITING' || s.phase === 'SHOWDOWN' || s.phase === 'ANTE' || s.phase === 'DEAL') {
+    return false;
+  }
+
+  const nonFolded = s.players.filter(p => p.status === 'active');
+
+  if (nonFolded.length === 1) {
+    const winner = nonFolded[0];
+    const pot = s.pot;
+    const newPlayers = s.players.map(p =>
+      p.id === winner.id
+        ? { ...p, chips: p.chips + pot, isWinner: true, hasActed: true }
+        : { ...p, isWinner: false }
+    );
+    const winMsg = `${winner.name} wins $${pot} (all opponents folded)`;
+    table.state = {
+      ...s,
+      players: newPlayers,
+      pot: 0,
+      phase: 'SHOWDOWN' as GamePhase,
+      activePlayerId: winner.id,
+      currentBet: 0,
+      messages: [
+        ...s.messages,
+        { id: makeId(), text: winMsg, time: Date.now(), isResolution: true },
+      ].slice(-10),
+    };
+    engineLog('PHASE', table.tableId, {
+      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot,
+    });
+    console.log(`[CGP][server] win-by-fold badugi:${table.tableId} winner=${winner.id} pot=$${pot} from=${s.phase}`);
+
+    for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+    table.botTimers.clear();
+    broadcastState(table);
+
+    const fenced = table.handId;
+    setTimeout(() => {
+      if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+      resetToAnte(table);
+      broadcastState(table);
+    }, 2500);
+    return true;
+  }
+
+  if (nonFolded.length === 0) {
+    console.log(`[CGP][server] no-active-players badugi:${table.tableId} pot=$${s.pot} from=${s.phase} — closing hand`);
+    engineLog('PHASE', table.tableId, {
+      from: s.phase, to: 'SHOWDOWN', reason: 'no-active-players', pot: s.pot,
+    });
+    table.state = addMsg({
+      ...s,
+      phase: 'SHOWDOWN' as GamePhase,
+      currentBet: 0,
+    }, 'Hand closed — no eligible players');
+
+    for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+    table.botTimers.clear();
+    broadcastState(table);
+
+    const fenced = table.handId;
+    setTimeout(() => {
+      if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+      resetToAnte(table);
+      broadcastState(table);
+    }, 1500);
+    return true;
+  }
+
+  return false;
+}
+
 // ─── Reset after showdown ─────────────────────────────────────────────────────
 
 function resetToAnte(table: AuthTable): void {
@@ -634,7 +714,7 @@ function resetToAnte(table: AuthTable): void {
   const isRollover = s.pot > 0 && !hadWinner;
   const basePlayers = isRollover ? s.players : moveDealer(s.players);
 
-  const nextPlayers: Player[] = basePlayers.map(p => {
+  let nextPlayers: Player[] = basePlayers.map(p => {
     const isBotBusted = p.presence === 'bot' && p.chips === 0;
     const newChips = isBotBusted ? 1000 : p.chips;
     return {
@@ -653,6 +733,17 @@ function resetToAnte(table: AuthTable): void {
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
     };
   });
+
+  // ── Safety: rollover with zero active players (no-actors close-out) ──────
+  // Mirror of genericEngine: if everyone folded last hand, reactivate eligible
+  // seats so the next hand can begin instead of stalling in ANTE.
+  if (isRollover && !nextPlayers.some(p => p.status === 'active')) {
+    console.log(`[CGP][server] reset:no-active-after-rollover badugi:${table.tableId} — reactivating eligible seats`);
+    nextPlayers = nextPlayers.map(p => ({
+      ...p,
+      status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+    }));
+  }
 
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
@@ -866,6 +957,9 @@ function executeBotAction(table: AuthTable, botId: string): void {
     table.actionLock = false;
     broadcastState(table);
 
+    // Terminal-state guard (post-bot-action): same as afterHumanAction.
+    if (resolveByFoldBadugi(table)) return;
+
     if (roundOver) {
       const capturedHandId = table.handId;
       const capturedPhase  = table.state.phase;
@@ -891,6 +985,9 @@ function executeBotAction(table: AuthTable, botId: string): void {
 
 function afterHumanAction(table: AuthTable, wasRaise = false): void {
   broadcastState(table);
+
+  // Terminal-state guard: lone survivor wins by fold, or zero actors → reset.
+  if (resolveByFoldBadugi(table)) return;
 
   if (isRoundOver(table.state)) {
     const capturedHandId = table.handId;
