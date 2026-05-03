@@ -220,15 +220,20 @@ export function useServerMode(tableId: string, modeId: string) {
 
   const handleAction = useCallback((action: string, payload?: unknown) => {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({
-      type: 'mode:action',
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn('[CGP][client] mode:action DROPPED — ws not open', { action, readyState: ws?.readyState });
+      return;
+    }
+    const outgoing = {
+      type: 'mode:action' as const,
       tableId: tableIdRef.current,
       modeId: modeIdRef.current,
       playerId: myIdRef.current,
       action,
       payload: payload ?? null,
-    }));
+    };
+    console.log('[CGP][client] → mode:action', outgoing);
+    ws.send(JSON.stringify(outgoing));
   }, []);
 
   return { state, handleAction, myId, role, sessionStats };

@@ -1400,8 +1400,14 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     }
   }
 
-  if (!table) return;
-  if (table.actionLock) return;
+  if (!table) {
+    console.warn('[CGP][server] handleGenericAction: NO TABLE FOUND', { tableId, playerOrSessionId, action });
+    return;
+  }
+  if (table.actionLock) {
+    console.warn('[CGP][server] handleGenericAction: actionLock held — DROPPING', { tableId, action });
+    return;
+  }
 
   table.actionLock = true;
 
@@ -1410,6 +1416,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // Resolve seat: if playerOrSessionId is a UUID, map via sessionToSeat;
     // if it's already a seatId (p1-p5), fall back to it directly.
     const playerId = table.sessionToSeat.get(playerOrSessionId) || playerOrSessionId;
+    console.log('[CGP][server] handleGenericAction enter', { mode: table.modeId, tableId, action, playerId, phase: s.phase });
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
@@ -1420,10 +1427,16 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       const dealerIdx   = getDealerIndex(freshPlayers);
       const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
       table.state = addMsg({ ...table.state, phase: 'ANTE', activePlayerId: freshPlayers[firstActIdx].id }, 'Ante up!');
+      console.log('[CGP][server] start ACCEPTED', { mode: table.modeId, tableId, nextPhase: 'ANTE', activePlayerId: freshPlayers[firstActIdx].id, handId: table.handId });
       table.actionLock = false;
       broadcastState(table);
       scheduleNextBot(table);
       return;
+    }
+
+    // Log rejected start so we can see why
+    if (action === 'start') {
+      console.warn('[CGP][server] start REJECTED', { mode: table.modeId, tableId, currentPhase: s.phase, reason: 'phase!=WAITING' });
     }
 
     // ── restart: SHOWDOWN → ANTE ─────────────────────────────────────────────

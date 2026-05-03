@@ -221,16 +221,24 @@ export function useServerBadugi(tableId: string) {
   // handleAction uses a ref so it always sends the currently-assigned seat,
   // even if React hasn't re-rendered yet after receiving badugi:init.
   const handleAction = useCallback((action: string, payload?: unknown) => {
-    if (!activeFlag) return;
+    if (!activeFlag) {
+      console.warn('[CGP][client] badugi:action DROPPED — activeFlag off', { action });
+      return;
+    }
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({
-      type: 'badugi:action',
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn('[CGP][client] badugi:action DROPPED — ws not open', { action, readyState: ws?.readyState });
+      return;
+    }
+    const outgoing = {
+      type: 'badugi:action' as const,
       tableId: tableIdRef.current,
       playerId: myIdRef.current,
       action,
       payload: payload ?? null,
-    }));
+    };
+    console.log('[CGP][client] → badugi:action', outgoing);
+    ws.send(JSON.stringify(outgoing));
   }, [activeFlag]);
 
   return { state, handleAction, myId, role, sessionStats };

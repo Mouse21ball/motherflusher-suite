@@ -221,18 +221,20 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
       // ── badugi:action (authoritative mode only) ────────────────────────────
       if (msg.type === 'badugi:action') {
-        if (!SERVER_BADUGI_ON) return; // gate off → silently drop
+        console.log('[CGP][server] ← badugi:action', { tableId: msg.tableId, playerId: msg.playerId, action: msg.action, gateOn: SERVER_BADUGI_ON });
+        if (!SERVER_BADUGI_ON) { console.warn('[CGP][server] badugi:action DROPPED — gate off'); return; }
         const { tableId, playerId: pid, action, payload } = msg;
-        if (!tableId || !pid || !action) return;
+        if (!tableId || !pid || !action) { console.warn('[CGP][server] badugi:action DROPPED — missing field', { tableId, pid, action }); return; }
         handleBadugiAction(tableId, pid, action, payload);
         return;
       }
 
       // ── mode:action (generic authoritative modes) ───────────────────────────
       if (msg.type === 'mode:action') {
-        if (!SERVER_MODES_ON) return;
+        console.log('[CGP][server] ← mode:action', { tableId: msg.tableId, modeId: msg.modeId, playerId: msg.playerId, action: msg.action, gateOn: SERVER_MODES_ON });
+        if (!SERVER_MODES_ON) { console.warn('[CGP][server] mode:action DROPPED — gate off'); return; }
         const { tableId, playerId: pid, action, payload } = msg;
-        if (!tableId || !pid || !action) return;
+        if (!tableId || !pid || !action) { console.warn('[CGP][server] mode:action DROPPED — missing field', { tableId, pid, action }); return; }
         handleGenericAction(tableId, pid, action, payload);
         return;
       }

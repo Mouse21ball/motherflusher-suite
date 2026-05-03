@@ -1293,14 +1293,17 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
 export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): void {
   const table = tables.get(tableId);
   if (!table) {
+    console.warn('[CGP][server] handleBadugiAction: NO TABLE FOUND', { tableId, playerId, action });
     engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'no-table' });
     return;
   }
 
   if (table.actionLock) {
+    console.warn('[CGP][server] handleBadugiAction: actionLock held — DROPPING', { tableId, action });
     engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'locked' });
     return;
   }
+  console.log('[CGP][server] handleBadugiAction enter', { tableId, action, playerId, phase: table.state.phase });
 
   table.actionLock = true;
 
@@ -1321,10 +1324,15 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
         activePlayerId: freshPlayers[firstActIdx].id,
       }, 'Ante up!');
       engineLog('ACTION', tableId, { player: playerId, action: 'start', accepted: true, phase: 'ANTE' });
+      console.log('[CGP][server] badugi start ACCEPTED', { tableId, nextPhase: 'ANTE', activePlayerId: freshPlayers[firstActIdx].id, handId: table.handId });
       table.actionLock = false;
       broadcastState(table);
       scheduleNextBot(table);
       return;
+    }
+
+    if (action === 'start') {
+      console.warn('[CGP][server] badugi start REJECTED', { tableId, currentPhase: s.phase, reason: 'phase!=WAITING' });
     }
 
     // ── restart: SHOWDOWN → ANTE (manual, overrides 5 s auto-reset) ──────────

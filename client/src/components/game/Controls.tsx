@@ -183,7 +183,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         )}
         <Button
           size="lg"
-          onClick={() => { sfx.buttonTap(); onAction('start'); }}
+          onClick={() => { console.log('[CGP][client] Deal Me In clicked'); sfx.buttonTap(); onAction('start'); }}
           className="w-full sm:w-auto tracking-[0.15em] uppercase btn-casino-gold btn-deal-me-in"
           disabled={chips <= 0}
           data-testid="button-deal-me-in"

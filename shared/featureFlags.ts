@@ -6,5 +6,5 @@
 // ROLLBACK: set SERVER_AUTHORITATIVE_BADUGI to false — instant, no data migration.
 
 export const FEATURES = {
-  SERVER_AUTHORITATIVE_BADUGI: false,
+  SERVER_AUTHORITATIVE_BADUGI: true,
 } as const;
