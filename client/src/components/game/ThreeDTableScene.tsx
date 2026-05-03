@@ -484,7 +484,7 @@ export function ThreeDTableScene({
   function PotDisplay() {
     return (
       <div
-        className={cn("pot-display-premium", potPulse && "anim-chip-pop", potPulse && "anim-pot-arrival")}
+        className={cn("pot-display-premium", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")}
         data-testid="text-pot"
       >
         <span className="text-[7px] sm:text-[8px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
@@ -528,7 +528,7 @@ export function ThreeDTableScene({
               </div>
               <div className="flex flex-col items-center gap-2 sm:gap-4 pointer-events-auto">
                 {gameState.pot > 0 && (
-                  <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-chip-pop", potPulse && "anim-pot-arrival")} data-testid="text-pot">
+                  <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
                     <div className="gold-chip w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className={cn("text-sm sm:text-base font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
                     <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
@@ -630,7 +630,7 @@ export function ThreeDTableScene({
         {/* ── Pot ── */}
         {gameState.pot > 0 && (
           <div className="flex justify-center">
-            <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-chip-pop")} data-testid="text-pot">
+            <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
               <div className="gold-chip w-3.5 h-3.5" />
               <span className={cn("text-sm font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
               <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>

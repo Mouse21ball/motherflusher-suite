@@ -125,10 +125,10 @@ function classifyResult(
 
 // ── Color tokens per result type ──────────────────────────────────────────────
 const TOKENS = {
-  win:   { color: '#22C55E',                textShadow: '0 0 28px rgba(34,197,94,0.55), 0 0 56px rgba(34,197,94,0.22)' },
-  loss:  { color: 'rgba(248,113,113,0.85)', textShadow: '0 0 22px rgba(248,113,113,0.40)' },
-  fold:  { color: 'rgba(220,138,138,0.70)', textShadow: '0 0 16px rgba(220,138,138,0.25)' },
-  split: { color: '#C9A227',                textShadow: '0 0 22px rgba(201,162,39,0.40)' },
+  win:   { color: 'rgba(74,222,128,0.92)',  textShadow: '0 0 14px rgba(34,197,94,0.28)' },
+  loss:  { color: 'rgba(248,113,113,0.82)', textShadow: '0 0 14px rgba(248,113,113,0.26)' },
+  fold:  { color: 'rgba(220,138,138,0.66)', textShadow: '0 0 10px rgba(220,138,138,0.18)' },
+  split: { color: '#C9A227',                textShadow: '0 0 14px rgba(201,162,39,0.28)' },
 } as const;
 
 // ── Animated chip-change number ───────────────────────────────────────────────
@@ -149,9 +149,9 @@ function ChipChange({ value, type }: { value: string; type: ResultType }) {
 function HandBadge({ name, type }: { name: string; type: ResultType }) {
   if (!name) return null;
   const styles =
-    type === 'win'  ? { background: 'rgba(34,197,94,0.10)',  borderColor: 'rgba(34,197,94,0.30)',  color: 'rgba(34,197,94,0.85)' }
-  : type === 'loss' ? { background: 'rgba(248,113,113,0.06)', borderColor: 'rgba(248,113,113,0.20)', color: 'rgba(248,113,113,0.75)' }
-                    : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.42)' };
+    type === 'win'  ? { background: 'rgba(34,197,94,0.06)',  borderColor: 'rgba(34,197,94,0.18)',  color: 'rgba(74,222,128,0.78)' }
+  : type === 'loss' ? { background: 'rgba(248,113,113,0.05)', borderColor: 'rgba(248,113,113,0.16)', color: 'rgba(248,113,113,0.70)' }
+                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.40)' };
   return (
     <div
       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono tracking-wide font-semibold border anim-slide-up"
@@ -231,20 +231,20 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
   // Border + primary-text styling per result type
   const borderClass = isWin
-    ? 'border-[#22C55E]/35'
+    ? 'border-[rgba(34,197,94,0.20)]'
     : isFold
-      ? 'border-[rgba(220,138,138,0.18)]'
+      ? 'border-[rgba(220,138,138,0.14)]'
       : isLoss
-        ? 'border-[rgba(248,113,113,0.22)]'
-        : 'border-[#C9A227]/15';
+        ? 'border-[rgba(248,113,113,0.16)]'
+        : 'border-[#C9A227]/12';
 
   const primaryClass = isWin
-    ? 'text-[#22C55E]/85'
+    ? 'text-[rgba(74,222,128,0.78)]'
     : isFold
-      ? 'text-[rgba(220,138,138,0.65)]'
+      ? 'text-[rgba(220,138,138,0.60)]'
       : isLoss
-        ? 'text-[rgba(248,113,113,0.75)]'
-        : 'text-white/50';
+        ? 'text-[rgba(248,113,113,0.70)]'
+        : 'text-white/45';
 
   return (
     <div
@@ -266,7 +266,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
       >
         {/* Glow overlay (win only) */}
         {isWin && (
-          <div className="absolute inset-0 bg-gradient-to-b from-[#22C55E]/[0.07] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[rgba(34,197,94,0.035)] via-transparent to-transparent pointer-events-none" />
         )}
 
         {/* Primary label */}
@@ -295,7 +295,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
         {/* Divider + details */}
         {result.details.length > 0 && (
           <>
-            <div className={`w-6 h-px my-1 ${isWin ? 'bg-[#22C55E]/25' : isFold ? 'bg-[rgba(220,138,138,0.15)]' : 'bg-white/[0.07]'}`} />
+            <div className={`w-6 h-px my-1 ${isWin ? 'bg-[rgba(34,197,94,0.18)]' : isFold ? 'bg-[rgba(220,138,138,0.12)]' : 'bg-white/[0.06]'}`} />
             {result.details.slice(0, 3).map((detail, i) => (
               <p
                 key={i}

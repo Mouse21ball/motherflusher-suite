@@ -235,19 +235,19 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       {player.score && !isSelf && showdownState && (
         <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex flex-col gap-0.5 w-[140px] z-50 pointer-events-none">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
-             <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30 shadow-sm">
-               {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
-             </Badge>
+            <span className="status-pill-soft status-pill-high w-full">
+              {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
+            </span>
           )}
           {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
-             <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30 shadow-sm">
-               {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
-             </Badge>
+            <span className="status-pill-soft status-pill-low w-full">
+              {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
+            </span>
           )}
           {player.score.description && (
-             <Badge className={cn("w-full justify-center text-[9px] py-0.5 shadow-sm", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
-               {player.score.description}
-             </Badge>
+            <span className={cn("status-pill-soft w-full", player.score.isValidBadugi ? "status-pill-good" : "status-pill-bad")}>
+              {player.score.description}
+            </span>
           )}
         </div>
       )}
@@ -389,19 +389,19 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         {player.score && isSelf && showdownState && (
           <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
             {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
-              <Badge className="w-full justify-center bg-blue-600/80 text-[9px] py-0.5 border-blue-500/30">
+              <span className="status-pill-soft status-pill-high w-full">
                 {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Poker' : 'High'}: {player.score.high}
-              </Badge>
+              </span>
             )}
             {['LOW', 'SWING', 'SUITS'].includes(player.declaration || '') && player.score.low && (
-              <Badge className="w-full justify-center bg-purple-600/80 text-[9px] py-0.5 border-purple-500/30">
+              <span className="status-pill-soft status-pill-low w-full">
                 {['POKER', 'SUITS'].includes(player.declaration || '') ? 'Suits' : 'Low'}: {player.score.low}
-              </Badge>
+              </span>
             )}
             {player.score.description && (
-              <Badge className={cn("w-full justify-center text-[9px] py-0.5", player.score.isValidBadugi ? "bg-green-700/80 border-green-600/30 text-white" : "bg-red-700/80 border-red-600/30 text-white")}>
+              <span className={cn("status-pill-soft w-full", player.score.isValidBadugi ? "status-pill-good" : "status-pill-bad")}>
                 {player.score.description}
-              </Badge>
+              </span>
             )}
           </div>
         )}
@@ -409,25 +409,25 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
       {/* Declaration badges */}
       {player.declaration === 'BUST' && (
-        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Bust</Badge>
+        <span className="status-pill-soft status-pill-bust absolute -bottom-3 z-30 uppercase">Bust</span>
       )}
       {player.declaration === 'STAY' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-amber-700/80 text-white border-none z-30">Stay</Badge>
+        <span className="status-pill-soft status-pill-stay absolute -bottom-3 z-30 uppercase">Stay</span>
       )}
       {player.declaration === 'HIGH' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-red-700/80 text-white border-none z-30">High</Badge>
+        <span className="status-pill-soft status-pill-high absolute -bottom-3 z-30 uppercase">High</span>
       )}
       {player.declaration === 'LOW' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-blue-700/80 text-white border-none z-30">Low</Badge>
+        <span className="status-pill-soft status-pill-low absolute -bottom-3 z-30 uppercase">Low</span>
       )}
       {player.declaration === 'SWING' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-purple-700/80 text-white border-none z-30">Swing</Badge>
+        <span className="status-pill-soft status-pill-swing absolute -bottom-3 z-30 uppercase">Swing</span>
       )}
       {player.declaration === 'POKER' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-red-700/80 text-white border-none z-30">Poker</Badge>
+        <span className="status-pill-soft status-pill-poker absolute -bottom-3 z-30 uppercase">Poker</span>
       )}
       {player.declaration === 'SUITS' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-cyan-700/80 text-white border-none z-30">Suits</Badge>
+        <span className="status-pill-soft status-pill-suits absolute -bottom-3 z-30 uppercase">Suits</span>
       )}
       {player.status === 'folded' && !player.declaration && (
         <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Folded</Badge>

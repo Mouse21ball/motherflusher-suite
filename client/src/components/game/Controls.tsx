@@ -398,7 +398,11 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         
         <Button 
           variant="outline"
-          className="btn-casino-neutral"
+          className={
+            "btn-casino-neutral " +
+            (!canCheck && pot > 0 && callAmount / pot >= 0.5 ? "bet-tension-large" :
+             !canCheck && pot > 0 && callAmount / pot <= 0.2 ? "bet-tension-small" : "")
+          }
           onClick={() => handleBetAction(canCheck ? 'check' : 'call')}
           data-testid={canCheck ? "button-check" : "button-call"}
         >
