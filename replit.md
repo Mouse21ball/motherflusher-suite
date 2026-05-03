@@ -148,7 +148,7 @@ Note: `declare_and_bet` payload = `{ declaration: string, action: string, amount
 - **Raise cap (bot AND human)**: Hard ceiling 3 raises per betting round (4 heads-up). `GameState.raisesThisRound` is threaded through `decideBet`/`applyBetDecision` (bots) AND enforced server-side in both `gameEngine.ts` and `genericEngine.ts` raise/declare_and_bet handlers (humans). Cap reset on phase advance. Opening gate 0.55, re-raise gate 0.62.
 - **Raise validation (server-side, integrity guard)**: Both engines reject non-finite, non-positive, or below-currentBet raise totals (unless going all-in). Prevents chip-mint / pot-drain via malformed client payloads.
 - **Side-pot algorithm** (`shared/engine/sidePots.ts`): sort distinct `totalBet` levels ascending; pot at level L = `(L − prevL) × count(totalBet ≥ L)`; eligible = non-folded players who reached level L. Folded contributions count toward pot AMOUNTS, never toward eligibility. Each mode's `resolveShowdown` iterates side pots and awards each only to eligible non-folded contributors. Short stacks can never be paid more than they put in × number of callers. Returns `pot: rolledOver` for any unawarded chips (e.g. unsplit odd chips).
-- **Regression tests**: `server/__tests__/engine.test.ts` (234 assertions, run via `npx tsx`) — covers side-pot ladder math, raise cap (3-way and heads-up), `applyBetDecision` threading, and chip conservation across all 4 modes including a 50/200/200 unequal-all-in scenario where the short stack provably cannot win > 150. Plus `terminalState.test.ts` (28 assertions) for win-by-fold paths.
+- **Regression tests**: `server/__tests__/engine.test.ts` (240 assertions, run via `npx tsx`) — covers side-pot ladder math, raise cap (3-way and heads-up), `applyBetDecision` threading, chip conservation across all 4 modes including a 50/200/200 unequal-all-in scenario where the short stack provably cannot win > 150, and a live DB round-trip for `syncPlayerChips` (skipped with a warning if `DATABASE_URL` is absent). Plus `terminalState.test.ts` (25 assertions) for win-by-fold paths.
 - **Deferred**: Mobile-specific layout (Plan task E) is intentionally out of scope until the engine work above is fully battle-tested.
 
 ## UI Architecture (3D Rebuild — current)
@@ -197,7 +197,7 @@ All sounds use Web Audio API (no external files). `sfx` export:
 ## Bot AI
 - `shared/engine/botUtils.ts` — `decideBet()` with pot-odds-aware fold/check/call/raise + ~8% bluffs
 - Each mode implements `botAction()` with mode-specific draw/declare logic
-- Bot think time: 700-1800ms (varies by phase to feel human)
+- Bot think time: 400–1000ms standard (genericEngine); 420–900ms BET / 420–960ms other phases (gameEngine). Post-hand restart delay 1800ms. Turn-start curtain 380ms. Post-action UI lock 280ms. Showdown card reveal staggered 320ms/seat (non-winners first, winners last).
 - Bots rebuy to $1000 automatically when busted
 
 ## Monetization (Non-Casino)

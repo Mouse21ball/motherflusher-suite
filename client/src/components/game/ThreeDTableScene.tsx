@@ -307,6 +307,43 @@ export function ThreeDTableScene({
     prevPotRef.current = gameState.pot;
   }, [gameState.pot]);
 
+  // ── Showdown stagger: reveal players one-by-one (non-winners first, winner last)
+  //    Each step adds one more seat to the "revealed" set, every 320ms.
+  const [sdRevealCount, setSdRevealCount] = useState(0);
+  const sdRevealOrderRef = useRef<string[]>([]);
+  const sdRevealIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (gameState.phase !== 'SHOWDOWN') {
+      setSdRevealCount(0);
+      if (sdRevealIntervalRef.current) { clearInterval(sdRevealIntervalRef.current); sdRevealIntervalRef.current = null; }
+      return;
+    }
+    // Snapshot reveal order at SHOWDOWN entry: losers/folded first, winners last
+    const active = gameState.players.filter(p => p.presence !== 'reserved');
+    sdRevealOrderRef.current = [
+      ...active.filter(p => !p.isWinner).map(p => p.id),
+      ...active.filter(p =>  p.isWinner).map(p => p.id),
+    ];
+    setSdRevealCount(0);
+    let n = 0;
+    sdRevealIntervalRef.current = setInterval(() => {
+      n++;
+      setSdRevealCount(n);
+      if (n >= sdRevealOrderRef.current.length) {
+        clearInterval(sdRevealIntervalRef.current!);
+        sdRevealIntervalRef.current = null;
+      }
+    }, 320);
+    return () => { if (sdRevealIntervalRef.current) { clearInterval(sdRevealIntervalRef.current); sdRevealIntervalRef.current = null; } };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.phase]); // snapshot on phase change only — no players dep to avoid restarts
+
+  // Set of player IDs whose seat has been revealed in the stagger
+  const revealedIdSet = new Set(sdRevealOrderRef.current.slice(0, sdRevealCount));
+
+  // ── Pot animation duration — scales slightly with pot size for big-hand drama
+  const potAnimDur = `${Math.min(620 + Math.floor(gameState.pot / 120) * 55, 980)}ms`;
+
   // ── Session P&L tracking ──────────────────────────────────────────────────
   const heroNow = gameState.players.find(p => p.id === myId);
   const heroChipStartRef = useRef<number | null>(null);
@@ -503,6 +540,7 @@ export function ThreeDTableScene({
     return (
       <div
         className={cn("pot-display-premium", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")}
+        style={potPulse ? { animationDuration: potAnimDur } : undefined}
         data-testid="text-pot"
       >
         <span className="text-[7px] sm:text-[8px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
@@ -581,6 +619,7 @@ export function ThreeDTableScene({
                   onCardClick={onCardClick}
                   selectableCards={selectableCards}
                   showdownState={isShowdown}
+                  showdownRevealPending={isShowdown && !!player && !revealedIdSet.has(player.id)}
                   isStackLeader={stackLeaderId === player?.id}
                   lastActionLabel={actionLabels[player?.id ?? '']}
                   justActed={!!actionLabels[player?.id ?? '']}
@@ -677,6 +716,7 @@ export function ThreeDTableScene({
                 onCardClick={onCardClick}
                 selectableCards={selectableCards}
                 showdownState={isShowdown}
+                showdownRevealPending={isShowdown && !revealedIdSet.has(me.id)}
                 heroCardClassName={heroCardClassName}
                 isStackLeader={stackLeaderId === me.id}
                 className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"
@@ -822,6 +862,7 @@ export function ThreeDTableScene({
               isActive={player.id === gameState.activePlayerId}
               isSelf={false}
               showdownState={isShowdown}
+              showdownRevealPending={isShowdown && !revealedIdSet.has(player.id)}
               sessionHandCount={handCount}
               isStackLeader={stackLeaderId === player.id}
               lastActionLabel={actionLabels[player.id]}
@@ -880,6 +921,7 @@ export function ThreeDTableScene({
               onCardClick={onCardClick}
               selectableCards={selectableCards}
               showdownState={isShowdown}
+              showdownRevealPending={isShowdown && !revealedIdSet.has(me.id)}
               heroCardClassName={heroCardClassName}
               isStackLeader={stackLeaderId === me.id}
               className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"

@@ -149,9 +149,21 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
     });
   };
 
+  /* ── Post-action lock: brief 280ms pause after hero acts so the "bet
+   *    impact" lands before the next player's controls appear.            */
+  const [actionLocked, setActionLocked] = useState(false);
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleControlAction = (action: string, amount?: number | unknown) => {
     if (action === 'draw') handleAction(action, selectedCardIndices);
     else handleAction(action, amount);
+    // Lock controls briefly — skip for passive events (restart, rebuy, chat, reaction)
+    const PASSIVE = ['restart', 'rebuy', 'chat', 'reaction', 'ante'];
+    if (!PASSIVE.includes(action)) {
+      setActionLocked(true);
+      if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+      lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
+    }
   };
 
   const handleSendMessage = (text: string) => handleAction('chat', text);
@@ -246,6 +258,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               chips={me?.chips ?? 0}
               onAction={handleControlAction}
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
+              locked={actionLocked}
               selectedCardsCount={selectedCardIndices.length}
               phaseHint={getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot })}
               openSeatsCount={openSeatsCount}

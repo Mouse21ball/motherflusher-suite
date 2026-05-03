@@ -24,6 +24,9 @@ interface ActionControlsProps {
   phaseHint?: string;
   openSeatsCount?: number;
   humanCount?: number;
+  /** Brief lock (200–300ms) after hero sends an action — prevents double-fire
+   *  and gives a "bet impact" pause before the next player's turn appears.  */
+  locked?: boolean;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -34,7 +37,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
 
 const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] glass-panel rounded-t-2xl border-t border-white/[0.04]";
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
 
@@ -46,6 +49,25 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       setHeroTurnKey(k => k + 1);
     }
     prevIsMyTurnRef.current = isMyTurn;
+  }, [isMyTurn, phase]);
+
+  /* ── Turn-start curtain: interactive controls materialize 380ms after
+   *    it becomes hero's turn. Instant for passive phases (WAITING, SHOWDOWN,
+   *    ANTE, DEAL) — those transitions don't need the tension pause.       */
+  const INSTANT_PHASES = ['WAITING', 'SHOWDOWN', 'ANTE', 'DEAL'] as const;
+  const isInstantPhase = (INSTANT_PHASES as readonly string[]).includes(phase);
+  const [controlsReady, setControlsReady] = useState(true);
+  const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (readyTimerRef.current) clearTimeout(readyTimerRef.current);
+    if (!isMyTurn || isInstantPhase) {
+      setControlsReady(true);
+      return;
+    }
+    setControlsReady(false);
+    readyTimerRef.current = setTimeout(() => setControlsReady(true), 380);
+    return () => { if (readyTimerRef.current) clearTimeout(readyTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMyTurn, phase]);
   
   const callAmount = currentBet - myBet;
@@ -76,7 +98,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return () => clearTimeout(t);
   }, [phase, isMyTurn, chips, onAction]);
 
-  /* ── Auto next-hand: fires 1200ms after showdown if chips remain ─────── */
+  /* ── Auto next-hand: fires 1800ms after showdown if chips remain ─────── */
   /* Guard: only the active player's client sends restart to prevent         */
   /* duplicate triggers when multiple humans are seated at the same table.   */
   const autoRestartFired = useRef(false);
@@ -90,7 +112,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         autoRestartFired.current = true;
         onAction('restart');
       }
-    }, 1200);
+    }, 1800);
     return () => clearTimeout(t);
   }, [phase, chips, isMyTurn, onAction]);
 
@@ -140,6 +162,19 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return (
       <div className={`${panelClass} flex items-center justify-center min-h-[88px]`}>
         <span className="text-white/20 text-xs font-mono tracking-wider uppercase anim-pulse-gold">Waiting for opponents</span>
+      </div>
+    );
+  }
+
+  /* ── Bet impact / turn-start curtain ─────────────────────────────────── */
+  if (!controlsReady || locked) {
+    return (
+      <div className={`${panelClass} flex items-center justify-center min-h-[88px]`}>
+        <div className="flex items-center gap-1.5">
+          <span className="thinking-dot" style={{ animationDelay: '0ms' }} />
+          <span className="thinking-dot" style={{ animationDelay: '140ms' }} />
+          <span className="thinking-dot" style={{ animationDelay: '280ms' }} />
+        </div>
       </div>
     );
   }

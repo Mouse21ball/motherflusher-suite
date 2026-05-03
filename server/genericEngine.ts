@@ -1016,10 +1016,10 @@ function scheduleNextBot(table: GenericTable): void {
   const isBet3            = capturedPhase === 'BET_3';
   const isFifteen35Hit    = capturedPhase.startsWith('HIT_') && table.modeId === 'fifteen35';
   const baseMs      = capturedPhase.startsWith('BET')
-    ? (isBet3 ? 600 + Math.random() * 550 : 500 + Math.random() * 450)
+    ? (isBet3 ? 700 + Math.random() * 650 : 550 + Math.random() * 500)
     : isFifteen35Hit
       ? 800 + Math.random() * 700   // 800–1500ms: readable pacing for 15/35 hit rounds
-      : 180 + Math.random() * 270;
+      : 400 + Math.random() * 600;  // 400–1000ms: real-money pacing tension
   const pauseChance = isBet3 ? 0.30 : isFifteen35Hit ? 0.25 : 0.20;
   const pauseMs     = Math.random() < pauseChance
     ? (isBet3 ? 450 + Math.random() * 650 : isFifteen35Hit ? 400 + Math.random() * 500 : 380 + Math.random() * 520)

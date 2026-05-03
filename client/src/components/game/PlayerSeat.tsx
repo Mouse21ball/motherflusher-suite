@@ -44,6 +44,8 @@ interface PlayerSeatProps {
   justActed?: boolean;
   anyJustActed?: boolean;
   hasActivePlayer?: boolean;
+  /** True during the showdown stagger window before this seat is dramatically revealed */
+  showdownRevealPending?: boolean;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -52,7 +54,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
@@ -146,6 +148,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
     );
   }
 
+  /* ── Showdown reveal pending — seat is dimmed/blurred until its dramatic
+   *    reveal moment arrives in the staggered sequence.                    */
+  const isPending = showdownRevealPending && showdownState;
+
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-200",
@@ -159,7 +165,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       ),
       player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
       player.status === 'sitting_out' && "opacity-30 grayscale",
-      showdownState && player.isLoser && "anim-loser",
+      /* Reveal pending: dimmed until stagger reveals this seat */
+      isPending && "opacity-20 scale-95 blur-[1px]",
+      /* Normal showdown styles — only when fully revealed */
+      !isPending && showdownState && player.isLoser && "anim-loser",
       className
     )}>
       {player.isDealer && (
@@ -231,8 +240,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         })}
       </div>
 
-      {/* Bot score badges at showdown only */}
-      {player.score && !isSelf && showdownState && (
+      {/* Bot score badges at showdown only — hidden while reveal is pending */}
+      {player.score && !isSelf && showdownState && !isPending && (
         <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex flex-col gap-0.5 w-[140px] z-50 pointer-events-none">
           {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
             <span className="status-pill-soft status-pill-high w-full">
@@ -271,9 +280,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               : "border-white/[0.08]")
           : "",
         justActed && !isActive && !showdownState ? "border-white/[0.26]" : "",
-        showdownState && player.isWinner && "anim-winner",
-        showdownState && player.isWinner && isSelf && "anim-win-flash",
-        showdownState && player.isLoser && "border-white/[0.03]"
+        /* Winner/loser showdown styles — only after reveal */
+        !isPending && showdownState && player.isWinner && "anim-winner",
+        !isPending && showdownState && player.isWinner && isSelf && "anim-win-flash",
+        !isPending && showdownState && player.isLoser && "border-white/[0.03]"
       )}>
         {/* Avatar + name row */}
         <div className="flex items-center gap-2 max-w-full w-full justify-center">
@@ -385,8 +395,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           );
         })()}
 
-        {/* Hero score badges — showdown only, clutter-free during live play */}
-        {player.score && isSelf && showdownState && (
+        {/* Hero score badges — showdown only, hidden while pending reveal */}
+        {player.score && isSelf && showdownState && !isPending && (
           <div className="flex flex-col gap-0.5 w-full mt-1.5 pt-1.5 border-t border-white/[0.06]">
             {['HIGH', 'SWING', 'POKER'].includes(player.declaration || '') && player.score.high && (
               <span className="status-pill-soft status-pill-high w-full">

@@ -846,7 +846,7 @@ function scheduleNextBot(table: AuthTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  const thinkMs = (capturedPhase.startsWith('BET') ? 650 : 280) + Math.random() * 350;
+  const thinkMs = (capturedPhase.startsWith('BET') ? 750 : 420) + Math.random() * 480;
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);

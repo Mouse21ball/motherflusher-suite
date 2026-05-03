@@ -309,6 +309,40 @@ section('Badugi resolveShowdown — rolledOver propagation');
   assert(result.pot === 200, `unawarded pot rolled over (got ${result.pot})`);
 }
 
+// ─── 6. Shared bankroll — storage.syncPlayerChips round-trip ────────────────
+// DB integration test: skipped (not a failure) if DATABASE_URL is absent.
+section('Shared bankroll — syncPlayerChips round-trip');
+await (async () => {
+  if (!process.env.DATABASE_URL) {
+    console.log('  ⚠ DATABASE_URL not set — storage round-trip skipped (not a failure)');
+    return;
+  }
+  let storage: any;
+  try {
+    const mod = await import('../storage');
+    storage = mod.storage;
+  } catch {
+    console.log('  ⚠ storage module unavailable — skipped');
+    return;
+  }
+
+  const testId = `__test_engine_${Date.now()}`;
+  try {
+    await storage.getOrCreatePlayer(testId, 'TestBot');
+    await storage.syncPlayerChips(testId, 7777);
+    const profile = await storage.getPlayerProfile(testId);
+    assert(profile?.chipBalance === 7777, `round-trip: wrote 7777, read back ${profile?.chipBalance}`);
+
+    await storage.syncPlayerChips(testId, 3333, { won: true, deltaChips: 100 });
+    const profile2 = await storage.getPlayerProfile(testId);
+    assert(profile2?.chipBalance === 3333, `round-trip with handResult: wrote 3333, read back ${profile2?.chipBalance}`);
+    assert((profile2?.handsPlayed ?? 0) >= 1, `handsPlayed incremented (got ${profile2?.handsPlayed})`);
+    assert((profile2?.handsWon ?? 0) >= 1, `handsWon incremented on win (got ${profile2?.handsWon})`);
+  } finally {
+    try { await storage.deletePlayer(testId); } catch { /* cleanup best-effort */ }
+  }
+})();
+
 // ─── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n── Results: ${passes} passed, ${failures} failed ──`);
 process.exit(failures === 0 ? 0 : 1);
