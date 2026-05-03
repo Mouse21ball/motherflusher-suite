@@ -16267,15 +16267,15 @@
     "state": {
       "tableId": "TST_BAD_2G5I",
       "phase": "ANTE",
-      "pot": 1,
+      "pot": 3,
       "currentBet": 0,
       "minBet": 2,
       "activePlayerId": "p1",
       "players": [
         {
           "id": "p1",
-          "name": "T",
-          "presence": "human",
+          "name": "Open",
+          "presence": "reserved",
           "chips": 1000,
           "bet": 0,
           "totalBet": 0,
@@ -16289,33 +16289,7 @@
           "id": "p2",
           "name": "Alice",
           "presence": "bot",
-          "chips": 1000,
-          "bet": 0,
-          "totalBet": 0,
-          "cards": [],
-          "status": "active",
-          "isDealer": false,
-          "declaration": null,
-          "hasActed": false
-        },
-        {
-          "id": "p3",
-          "name": "Bob",
-          "presence": "bot",
-          "chips": 1000,
-          "bet": 0,
-          "totalBet": 0,
-          "cards": [],
-          "status": "active",
-          "isDealer": false,
-          "declaration": null,
-          "hasActed": false
-        },
-        {
-          "id": "p4",
-          "name": "Charlie",
-          "presence": "bot",
-          "chips": 1000,
+          "chips": 1219,
           "bet": 0,
           "totalBet": 0,
           "cards": [],
@@ -16325,10 +16299,36 @@
           "hasActed": false
         },
         {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 926,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 926,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
           "id": "p5",
           "name": "Daisy",
           "presence": "bot",
-          "chips": 999,
+          "chips": 926,
           "bet": 0,
           "totalBet": 1,
           "cards": [],
@@ -16341,20 +16341,26 @@
       "communityCards": [],
       "messages": [
         {
-          "id": "35lc1fho",
-          "text": "Game ready. Press start.",
-          "time": 1777778510620
+          "id": "bemvs7yi",
+          "text": "New hand.",
+          "time": 1777778631029
         },
         {
-          "id": "761fkp55",
-          "text": "Ante up!",
-          "time": 1777778511226,
+          "id": "8ianto0s",
+          "text": "Bob paid $1 Ante",
+          "time": 1777778631546,
           "isResolution": false
         },
         {
-          "id": "xoeuftav",
+          "id": "bakk3r2o",
+          "text": "Charlie paid $1 Ante",
+          "time": 1777778632074,
+          "isResolution": false
+        },
+        {
+          "id": "etzdmth5",
           "text": "Daisy paid $1 Ante",
-          "time": 1777778511778,
+          "time": 1777778632635,
           "isResolution": false
         }
       ],
@@ -16362,7 +16368,7 @@
       "deck": [],
       "discardPile": []
     },
-    "handId": 1,
-    "savedAt": 1777778513783
+    "handId": 3,
+    "savedAt": 1777778634639
   }
 }
