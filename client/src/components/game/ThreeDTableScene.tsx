@@ -889,13 +889,13 @@ export function ThreeDTableScene({
       </div>
 
       {/* Pot row — sits between the felt and hero seat to avoid badge overlap */}
-      <div className="relative z-30 flex justify-center mt-1 mb-[-4px]">
+      <div className="relative z-30 flex justify-center mt-2 mb-1">
         <PotDisplay />
       </div>
 
       {/* Last result echo */}
       {lastResultEcho && (
-        <div className="w-full flex justify-center relative z-30 mb-[-6px]">
+        <div className="w-full flex justify-center relative z-30 mb-1">
           <div className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
             {lastResultEcho.text}
           </div>
@@ -903,7 +903,7 @@ export function ThreeDTableScene({
       )}
 
       {/* Hero seat — prominent foreground, below the felt */}
-      <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30 seat-depth-hero">
+      <div className="w-full flex justify-center relative z-30 seat-depth-hero">
         {me && (
           <div className="flex flex-col items-center gap-2 w-full">
             {showMadeStatus && heroMadeLabel && (

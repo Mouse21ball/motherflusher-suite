@@ -75,6 +75,17 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
   };
 }
 
+// ─── Turn timer ───────────────────────────────────────────────────────────────
+// Phases in which the server arms a per-player countdown.  Bot turns and
+// non-interactive phases (WAITING / SHOWDOWN / ANTE / DEAL) are excluded.
+const BADUGI_TURN_TIMEOUT_MS = 30_000;
+
+const BADUGI_INTERACTIVE_PHASES = new Set<GamePhase>([
+  'BET_1', 'BET_2', 'BET_3', 'BET_4',
+  'DRAW_1', 'DRAW_2', 'DRAW_3',
+  'DECLARE',
+]);
+
 // ─── Join window ──────────────────────────────────────────────────────────────
 // How long (ms) seats p2-p5 are held open for real players before bots fill them.
 const JOIN_WINDOW_MS = 30_000;
@@ -287,6 +298,11 @@ interface AuthTable {
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
   isPrivate: boolean;
+  // Turn-timer support: monotonic generation counter + active handle.
+  // Increments whenever armTurnTimer or clearTurnTimer is called so that
+  // a late-firing timeout can detect it is stale and abort cleanly.
+  turnTimerGen: number;
+  turnTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const tables = new Map<string, AuthTable>();
@@ -558,9 +574,13 @@ function advanceToNextPhase(table: AuthTable): void {
 
   // ── SHOWDOWN: resolve after a brief pause ─────────────────────────────────
   if (nextPhase === 'SHOWDOWN') {
+    clearTurnTimerBadugi(table);
     resolveShowdown(table);
     return;
   }
+
+  // Arm turn timer for the first human to act in the new phase
+  armTurnTimerBadugi(table);
 }
 
 // ─── Card dealing (server canonical: all isHidden = false) ───────────────────
@@ -976,6 +996,7 @@ function executeBotAction(table: AuthTable, botId: string): void {
       table.state = { ...table.state, activePlayerId: nextPlayerId };
       broadcastState(table);
       scheduleNextBot(table);
+      armTurnTimerBadugi(table);
     }
   } catch (err) {
     engineLog('ERROR', table.tableId, { msg: 'bot-action-threw', bot: botId, phase: table.state.phase });
@@ -984,9 +1005,125 @@ function executeBotAction(table: AuthTable, botId: string): void {
   }
 }
 
+// ─── Turn timer (Badugi engine) ───────────────────────────────────────────────
+
+function clearTurnTimerBadugi(table: AuthTable): void {
+  table.turnTimerGen += 1;
+  if (table.turnTimer !== null) {
+    clearTimeout(table.turnTimer);
+    table.turnTimer = null;
+  }
+  if (table.state.turnDeadline != null) {
+    table.state = { ...table.state, turnDeadline: null };
+  }
+}
+
+function armTurnTimerBadugi(table: AuthTable): void {
+  clearTurnTimerBadugi(table); // bumps gen, clears existing handle
+  const s = table.state;
+  const activeSeat = s.activePlayerId ? s.players.find(p => p.id === s.activePlayerId) : null;
+
+  // Only arm for human seats in interactive phases
+  if (!activeSeat || activeSeat.presence !== 'human' || !BADUGI_INTERACTIVE_PHASES.has(s.phase)) {
+    if (s.turnDeadline != null) table.state = { ...s, turnDeadline: null };
+    return;
+  }
+
+  const deadline = Date.now() + BADUGI_TURN_TIMEOUT_MS;
+  const genAtArm = table.turnTimerGen;
+  const seatAtArm = activeSeat.id;
+
+  table.state = { ...table.state, turnDeadline: deadline };
+
+  table.turnTimer = setTimeout(() => {
+    table.turnTimer = null;
+    if (table.turnTimerGen !== genAtArm) return; // stale — a newer arm/clear ran
+    if (table.state.activePlayerId !== seatAtArm) return; // player already acted
+    autoActOnTimeoutBadugi(table, seatAtArm);
+  }, BADUGI_TURN_TIMEOUT_MS);
+}
+
+function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
+  if (table.actionLock) {
+    // Retry in 200 ms — lock will release shortly
+    const genAtRetry = table.turnTimerGen;
+    setTimeout(() => {
+      if (table.turnTimerGen !== genAtRetry) return;
+      autoActOnTimeoutBadugi(table, seat);
+    }, 200);
+    return;
+  }
+
+  table.actionLock = true;
+  try {
+    const s = table.state;
+    if (s.activePlayerId !== seat) { table.actionLock = false; return; }
+
+    const player = s.players.find(p => p.id === seat);
+    if (!player || player.status !== 'active') { table.actionLock = false; return; }
+
+    const phase = s.phase;
+    engineLog('TURN_TIMEOUT', table.tableId, { seat, phase });
+
+    if (phase.startsWith('BET')) {
+      // Auto-check if no bet to call, otherwise auto-fold
+      const canCheck = (s.currentBet - player.bet) === 0;
+      if (canCheck) {
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p => p.id === seat ? { ...p, hasActed: true } : p),
+          turnDeadline: null,
+        }, `${player.name} timed out — auto-check`);
+      } else {
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', hasActed: true } : p),
+          turnDeadline: null,
+        }, `${player.name} timed out — auto-fold`);
+      }
+    } else if (phase.startsWith('DRAW')) {
+      // Auto-stand-pat (discard nothing)
+      table.state = addMsg({
+        ...s,
+        players: s.players.map(p => p.id === seat ? { ...p, hasActed: true } : p),
+        turnDeadline: null,
+      }, `${player.name} timed out — stood pat`);
+    } else if (phase === 'DECLARE') {
+      // Auto-fold on declare timeout
+      table.state = addMsg({
+        ...s,
+        players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', declaration: null, hasActed: true } : p),
+        turnDeadline: null,
+      }, `${player.name} timed out — auto-fold on declare`);
+    } else if (phase === 'ANTE') {
+      // Auto-ante
+      table.state = addMsg({
+        ...s,
+        pot: s.pot + 1,
+        players: s.players.map(p =>
+          p.id === seat ? { ...p, chips: p.chips - 1, hasActed: true, totalBet: (p.totalBet || 0) + 1 } : p
+        ),
+        turnDeadline: null,
+      }, `${player.name} timed out — auto-ante`);
+    } else {
+      table.actionLock = false;
+      return;
+    }
+
+    table.actionLock = false;
+    afterHumanAction(table);
+  } catch (err) {
+    engineLog('ERROR', table.tableId, { msg: 'turn-timeout-threw', seat, phase: table.state.phase });
+    console.error('[badugi:ERROR] turn timeout error:', err);
+    table.actionLock = false;
+  }
+}
+
 // ─── After-human-action plumbing ──────────────────────────────────────────────
 
 function afterHumanAction(table: AuthTable, wasRaise = false): void {
+  // Clear the timer — player acted in time (or timeout already fired).
+  clearTurnTimerBadugi(table);
   broadcastState(table);
 
   // Terminal-state guard: lone survivor wins by fold, or zero actors → reset.
@@ -1024,6 +1161,7 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
     table.state = { ...s, activePlayerId: s.players[nextIdx].id };
     broadcastState(table);
     scheduleNextBot(table);
+    armTurnTimerBadugi(table);
   }
 }
 
@@ -1050,6 +1188,8 @@ export function initEngine(): void {
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
+      turnTimerGen: 0,
+      turnTimer: null,
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -1095,6 +1235,8 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       disconnectTimers: new Map(),
       joinWindowEndsAt,
       isPrivate,
+      turnTimerGen: 0,
+      turnTimer: null,
     };
     tables.set(tableId, table);
     engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
@@ -1428,6 +1570,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       table.actionLock = false;
       broadcastState(table);
       scheduleNextBot(table);
+      armTurnTimerBadugi(table);
       return;
     }
 
@@ -1686,6 +1829,7 @@ export function destroyBadugiTable(tableId: string): void {
   if (!table) return;
   for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
   for (const t of Array.from(table.disconnectTimers.values())) clearTimeout(t);
+  clearTurnTimerBadugi(table);
   deletePersistedTable(tableId);
   tables.delete(tableId);
   engineLog('TABLE_CREATE', tableId, { source: 'destroy' });
