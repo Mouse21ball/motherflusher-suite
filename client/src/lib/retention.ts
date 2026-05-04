@@ -130,16 +130,25 @@ export function claimHourlyBonus(level: number): number {
 interface StarterState {
   claimed: boolean;
   seenAt: number | null;
+  emotesFromPack: number;
 }
 
-export const STARTER_PACK_CHIPS = 2500;
+export const STARTER_PACK_CHIPS  = 2500;
+export const STARTER_PACK_EMOTES = 5;
 
 function loadStarter(): StarterState {
   try {
     const raw = localStorage.getItem(STARTER_KEY);
-    if (raw) return JSON.parse(raw) as StarterState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<StarterState>;
+      return {
+        claimed:        parsed.claimed        ?? false,
+        seenAt:         parsed.seenAt         ?? null,
+        emotesFromPack: parsed.emotesFromPack ?? 0,
+      };
+    }
   } catch {}
-  return { claimed: false, seenAt: null };
+  return { claimed: false, seenAt: null, emotesFromPack: 0 };
 }
 
 function saveStarter(state: StarterState): void {
@@ -159,7 +168,13 @@ export function markStarterPackSeen(): void {
   if (!state.seenAt) saveStarter({ ...state, seenAt: Date.now() });
 }
 
-export function claimStarterPack(): { chips: number } {
-  saveStarter({ claimed: true, seenAt: Date.now() });
-  return { chips: STARTER_PACK_CHIPS };
+/** Returns the number of emotes unlocked via the starter pack (0 until claimed). */
+export function getStarterEmoteCount(): number {
+  const state = loadStarter();
+  return state.claimed ? (state.emotesFromPack || STARTER_PACK_EMOTES) : 0;
+}
+
+export function claimStarterPack(): { chips: number; emotes: number } {
+  saveStarter({ claimed: true, seenAt: Date.now(), emotesFromPack: STARTER_PACK_EMOTES });
+  return { chips: STARTER_PACK_CHIPS, emotes: STARTER_PACK_EMOTES };
 }

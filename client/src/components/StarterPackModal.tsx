@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { claimStarterPack, isStarterPackClaimed, STARTER_PACK_CHIPS, DISCLAIMER } from '@/lib/retention';
+import { claimStarterPack, isStarterPackClaimed, STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
 import { saveChips, getChips } from '@/lib/persistence';
 
 interface StarterPackModalProps {
@@ -54,6 +54,8 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
       setAnimating(false);
     }, 600);
   };
+
+  const emoteCount = STARTER_PACK_EMOTES;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
@@ -159,11 +161,14 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
               <div
                 className="w-full rounded-xl py-3 px-4 text-center"
                 style={{ backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.20)' }}
+                data-testid="text-starter-claimed"
               >
                 <div className="text-sm font-bold text-emerald-400">
                   Kit Claimed! +${STARTER_PACK_CHIPS.toLocaleString()} chips added
                 </div>
-                <div className="text-[10px] font-mono text-white/30 mt-0.5">Now go win some hands</div>
+                <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
+                  {emoteCount} reaction emotes unlocked · Bronze badge active
+                </div>
               </div>
               <button
                 onClick={() => onClose(true)}

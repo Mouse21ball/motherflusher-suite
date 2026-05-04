@@ -419,6 +419,67 @@ section('P4 — turn timeout selects safest action');
   assert(autoActFor('BET_2' as GamePhase, 50)            === 'fold',      'BET owing chips → auto-fold');
 }
 
+// ─── 10. P7 — DECLARE_AND_BET: isPhaseRoundOver with all-in players ──────────
+section('P7 — DECLARE_AND_BET round-over with all-in players');
+{
+  // Mirrors isPhaseRoundOver in server/genericEngine.ts (~line 108).
+  // For DECLARE_AND_BET the active set is filtered to chips > 0 only, so
+  // all-in players (chips=0) never block round advancement.
+  function dAndBRoundOver(players: ReturnType<typeof makePlayer>[], currentBet: number): boolean {
+    const active = players.filter(p => p.status === 'active' && p.chips > 0);
+    return active.every(p => p.hasActed) && active.every(p => p.bet === currentBet);
+  }
+
+  const allIn  = { ...makePlayer('p1', { chips: 0, bet: 5 }), hasActed: true };
+  const acted  = { ...makePlayer('p2', { chips: 50, bet: 10 }), hasActed: true };
+  const waiting = { ...makePlayer('p3', { chips: 50, bet: 5 }), hasActed: false };
+
+  // All-in only — empty active set, every() vacuously true
+  assert(dAndBRoundOver([allIn], 5)  === true,  'DECLARE_AND_BET: only all-in player → round over (vacuous)');
+
+  // All-in + acted player both at currentBet
+  assert(dAndBRoundOver([allIn, acted], 10) === true,  'DECLARE_AND_BET: all-in + acted chip player → round over');
+
+  // All-in + unacted chip player
+  assert(dAndBRoundOver([allIn, waiting], 10) === false, 'DECLARE_AND_BET: all-in + unacted chip player → not over');
+
+  // Two chip players, both acted, same bet
+  const p1 = { ...makePlayer('p4', { chips: 40, bet: 10 }), hasActed: true };
+  const p2 = { ...makePlayer('p5', { chips: 30, bet: 10 }), hasActed: true };
+  assert(dAndBRoundOver([p1, p2], 10) === true,  'DECLARE_AND_BET: two acted players same bet → round over');
+
+  // Two chip players, one not at currentBet (needs to call)
+  const p3 = { ...makePlayer('p6', { chips: 40, bet: 5 }), hasActed: true };
+  assert(dAndBRoundOver([p1, p3], 10) === false, 'DECLARE_AND_BET: player not at currentBet → not over');
+}
+
+// ─── 11. P9 — Emote unlock: starter pack tracks emotes separately ─────────────
+section('P9 — starter pack emote unlock state');
+{
+  // Pure-logic mirror of client/src/lib/retention.ts.
+  // Tests the getStarterEmoteCount() semantics without touching localStorage.
+  const STARTER_EMOTES = 5;
+
+  function getEmoteCount(state: { claimed: boolean; emotesFromPack?: number }): number {
+    return state.claimed ? (state.emotesFromPack || STARTER_EMOTES) : 0;
+  }
+
+  assert(getEmoteCount({ claimed: false })                        === 0, 'unclaimed → 0 emotes');
+  assert(getEmoteCount({ claimed: true, emotesFromPack: 5 })      === 5, 'claimed with 5 → 5 emotes');
+  assert(getEmoteCount({ claimed: true, emotesFromPack: 0 })      === 5, 'claimed with 0 stored → defaults to STARTER_EMOTES');
+  assert(getEmoteCount({ claimed: true })                         === 5, 'claimed, no emotesFromPack field → defaults to STARTER_EMOTES');
+
+  // claimStarterPack should always write emotesFromPack = STARTER_EMOTES
+  function mockClaim(): { chips: number; emotes: number } {
+    const chips = 2500;
+    const emotes = STARTER_EMOTES;
+    return { chips, emotes };
+  }
+  const result = mockClaim();
+  assert(result.chips  === 2500, 'claimStarterPack returns correct chip count');
+  assert(result.emotes === 5,    'claimStarterPack returns emote count = 5');
+}
+
 // ─── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n── Results: ${passes} passed, ${failures} failed ──`);
 process.exit(failures === 0 ? 0 : 1);

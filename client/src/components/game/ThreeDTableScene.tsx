@@ -847,10 +847,6 @@ export function ThreeDTableScene({
             </div>
           </div>
 
-          {/* Pot — absolute bottom-right of felt */}
-          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-7 z-30">
-            <PotDisplay />
-          </div>
         </div>
 
         {/* Opponent seats — positioned on the perspective wrapper, NOT inside the felt */}
@@ -890,6 +886,11 @@ export function ThreeDTableScene({
           heroPlayer={gameState.players.find(p => p.id === myId)}
           heroChipChange={gameState.heroChipChange}
         />
+      </div>
+
+      {/* Pot row — sits between the felt and hero seat to avoid badge overlap */}
+      <div className="relative z-30 flex justify-center mt-1 mb-[-4px]">
+        <PotDisplay />
       </div>
 
       {/* Last result echo */}
