@@ -413,6 +413,83 @@ export async function registerRoutes(
 
   // ── Chip Shop — Stripe ────────────────────────────────────────────────────
 
+  // POST /api/create-checkout-session
+  // Creates a Stripe Checkout Session for a one-time chip purchase.
+  // Body: { productId: string, userId: string }
+  // The chip amount is looked up server-side from product metadata — never trusted from client.
+  // Returns: { url: string } — the Stripe-hosted checkout URL to redirect to.
+  app.post('/api/create-checkout-session', async (req, res) => {
+    try {
+      const { productId, userId } = z.object({
+        productId: z.string().min(1),
+        userId:    z.string().min(1),
+      }).parse(req.body);
+
+      const { getUncachableStripeClient } = await import('./stripeClient');
+      const stripe = await getUncachableStripeClient();
+
+      // Look up the active price and chip count from product metadata (server-side only)
+      const priceRow = await db.execute(drizzleSql`
+        SELECT pr.id AS price_id, pr.unit_amount, p.metadata
+        FROM stripe.prices pr
+        JOIN stripe.products p ON p.id = pr.product
+        WHERE p.id = ${productId}
+          AND pr.active = true
+          AND p.active = true
+        LIMIT 1
+      `);
+      if (!priceRow.rows.length) {
+        res.status(404).json({ error: 'Product not found or no active price' });
+        return;
+      }
+      const priceData = priceRow.rows[0] as any;
+      const priceId   = priceData.price_id as string;
+      const chipAmount = parseInt((priceData.metadata as any)?.chips ?? '0', 10);
+      if (!priceId || chipAmount <= 0) {
+        res.status(400).json({ error: 'Product has no valid price or chip amount' });
+        return;
+      }
+
+      // Find or create a Stripe customer tied to this userId
+      let customerId = await storage.getPlayerStripeCustomerId(userId);
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          metadata: { userId },
+          description: `CGP player ${userId}`,
+        });
+        await storage.getOrCreatePlayer(userId);
+        await storage.setPlayerStripeCustomerId(userId, customer.id);
+        customerId = customer.id;
+      }
+
+      // Build success / cancel URLs pointing to dedicated pages
+      const origin =
+        req.headers.origin ||
+        `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'payment',
+        success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:  `${origin}/cancel`,
+        // Chip amount is embedded in metadata — webhook is the only source of truth.
+        // Client never sends chipAmount; it is always read from the server-side product record.
+        metadata: { userId, chipAmount: String(chipAmount) },
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      if (err?.name === 'ZodError') {
+        res.status(400).json({ error: 'Invalid request body' });
+        return;
+      }
+      console.error('[checkout] create-checkout-session error:', err.message);
+      res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
   // GET /api/chips/products
   // Reads from the stripe.products + stripe.prices tables synced by stripe-replit-sync.
   // Returns [] gracefully when Stripe tables are not yet initialised.

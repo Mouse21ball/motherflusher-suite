@@ -115,23 +115,7 @@ export default function Shop() {
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
 
-  // Detect Stripe redirect result
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') === '1') {
-      const chips = params.get('chips');
-      setToast({
-        type: 'success',
-        msg: chips
-          ? `${parseInt(chips).toLocaleString()} chips added to your bankroll! 🎉`
-          : 'Purchase successful! Chips added to your bankroll.',
-      });
-      window.history.replaceState({}, '', '/shop');
-    } else if (params.get('canceled') === '1') {
-      setToast({ type: 'info', msg: 'Purchase canceled — no charge made.' });
-      window.history.replaceState({}, '', '/shop');
-    }
-  }, []);
+  // No Stripe redirect handling here — success/cancel go to /success and /cancel pages.
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -151,14 +135,14 @@ export default function Shop() {
     return () => { alive = false; };
   }, []);
 
-  async function handleChipPurchase(priceId: string) {
+  async function handleChipPurchase(productId: string) {
     if (checkingOut) return;
-    setCheckingOut(priceId);
+    setCheckingOut(productId);
     try {
-      const res = await fetch('/api/chips/checkout', {
+      const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId, playerId: identity.id }),
+        body: JSON.stringify({ productId, userId: identity.id }),
       });
       const data = await res.json();
       if (data.url) {
@@ -180,7 +164,7 @@ export default function Shop() {
 
   // Determine what to render: live Stripe products or fallback static list
   const displayBundles: Array<{
-    priceId?: string;
+    productId?: string;
     chips: number;
     unitAmount: number;
     name: string;
@@ -189,7 +173,7 @@ export default function Shop() {
     isLive: boolean;
   }> = products.length > 0
     ? products.map(p => ({
-        priceId: p.priceId,
+        productId: p.id,
         chips: p.chips,
         unitAmount: p.unitAmount,
         name: p.name,
@@ -298,15 +282,15 @@ export default function Shop() {
             <div className="grid grid-cols-2 gap-2">
               {displayBundles.map(bundle => (
                 <button
-                  key={bundle.priceId ?? bundle.chips}
+                  key={bundle.productId ?? bundle.chips}
                   onClick={() => {
-                    if (bundle.isLive && bundle.priceId) {
-                      handleChipPurchase(bundle.priceId);
+                    if (bundle.isLive && bundle.productId) {
+                      handleChipPurchase(bundle.productId);
                     } else {
                       handleComingSoon(`chips_${bundle.chips}`);
                     }
                   }}
-                  disabled={checkingOut === bundle.priceId}
+                  disabled={checkingOut === bundle.productId}
                   className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group disabled:opacity-60 disabled:cursor-wait"
                   data-testid={`button-bundle-${bundle.chips}`}
                 >
@@ -324,7 +308,7 @@ export default function Shop() {
                     <div className="text-[#C9A227] font-bold font-mono text-sm">
                       {formatPrice(bundle.unitAmount)}
                     </div>
-                    {checkingOut === bundle.priceId ? (
+                    {checkingOut === bundle.productId ? (
                       <span className="text-[9px] font-mono text-white/30 uppercase tracking-widest">Loading…</span>
                     ) : bundle.isLive ? (
                       <span className="text-[9px] font-mono text-green-400/50 uppercase tracking-widest">Buy ›</span>

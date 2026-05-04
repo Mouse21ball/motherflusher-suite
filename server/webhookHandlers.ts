@@ -26,18 +26,23 @@ export class WebhookHandlers {
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const paymentStatus: string = session.payment_status ?? '';
-        const playerId: string = session.metadata?.playerId ?? '';
-        const chipsStr: string = session.metadata?.chips ?? '0';
         const sessionId: string = session.id ?? '';
         const amountTotal: number = session.amount_total ?? 0;
-        const chips = parseInt(chipsStr, 10);
 
-        if (paymentStatus === 'paid' && playerId && chips > 0 && sessionId) {
+        // Support both new metadata keys (userId/chipAmount) and legacy keys (playerId/chips)
+        // for backward compatibility with any sessions created before this update.
+        const userId: string =
+          session.metadata?.userId ?? session.metadata?.playerId ?? '';
+        const chipAmountStr: string =
+          session.metadata?.chipAmount ?? session.metadata?.chips ?? '0';
+        const chipAmount = parseInt(chipAmountStr, 10);
+
+        if (paymentStatus === 'paid' && userId && chipAmount > 0 && sessionId) {
           const alreadyProcessed = await storage.hasProcessedCheckout(sessionId);
           if (!alreadyProcessed) {
-            await storage.addChipsToPlayer(playerId, chips);
-            await storage.recordChipPurchase(playerId, sessionId, chips, amountTotal);
-            console.log(`[stripe] granted ${chips} chips to player ${playerId} (session ${sessionId})`);
+            await storage.addChipsToPlayer(userId, chipAmount);
+            await storage.recordChipPurchase(userId, sessionId, chipAmount, amountTotal);
+            console.log(`[stripe] granted ${chipAmount} chips to user ${userId} (session ${sessionId})`);
           } else {
             console.log(`[stripe] checkout ${sessionId} already processed — skipping`);
           }
