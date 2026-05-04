@@ -4,6 +4,8 @@ import { storage, hashPassword, verifyPassword } from "./storage";
 import { z } from "zod";
 import { getActiveBadugiTables } from "./gameEngine";
 import { getActiveGenericTables } from "./genericEngine";
+import { db } from "./db";
+import { sql as drizzleSql } from "drizzle-orm";
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -406,6 +408,113 @@ export async function registerRoutes(
       res.json({ tableId: tables[0].tableId, humanCount: tables[0].humanCount });
     } else {
       res.json({ tableId: null });
+    }
+  });
+
+  // ── Chip Shop — Stripe ────────────────────────────────────────────────────
+
+  // GET /api/chips/products
+  // Reads from the stripe.products + stripe.prices tables synced by stripe-replit-sync.
+  // Returns [] gracefully when Stripe tables are not yet initialised.
+  app.get('/api/chips/products', async (_req, res) => {
+    try {
+      const result = await db.execute(drizzleSql`
+        SELECT
+          p.id          AS product_id,
+          p.name,
+          p.description,
+          p.metadata    AS product_metadata,
+          pr.id         AS price_id,
+          pr.unit_amount,
+          pr.currency
+        FROM stripe.products p
+        JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
+        WHERE p.active = true
+          AND p.metadata->>'category' = 'chip_pack'
+        ORDER BY pr.unit_amount ASC
+      `);
+
+      const products = result.rows.map((row: any) => ({
+        id:          row.product_id  as string,
+        name:        row.name        as string,
+        description: row.description as string,
+        priceId:     row.price_id   as string,
+        unitAmount:  row.unit_amount as number,
+        chips:       parseInt((row.product_metadata as any)?.chips ?? '0', 10),
+        icon:        (row.product_metadata as any)?.icon  as string | undefined,
+        badge:       (row.product_metadata as any)?.badge as string | undefined,
+      }));
+
+      res.json({ products });
+    } catch (err: any) {
+      console.warn('[chips] products query skipped (Stripe not yet synced):', err.message);
+      res.json({ products: [] });
+    }
+  });
+
+  // POST /api/chips/checkout
+  // Creates a Stripe Checkout session for a one-time chip bundle purchase.
+  // Body: { priceId: string, playerId: string }
+  app.post('/api/chips/checkout', async (req, res) => {
+    try {
+      const { priceId, playerId } = z.object({
+        priceId:  z.string().min(1),
+        playerId: z.string().min(1),
+      }).parse(req.body);
+
+      const { getUncachableStripeClient } = await import('./stripeClient');
+      const stripe = await getUncachableStripeClient();
+
+      // Find or create a Stripe customer tied to this player UUID
+      let customerId = await storage.getPlayerStripeCustomerId(playerId);
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          metadata: { playerId },
+          description: `CGP player ${playerId}`,
+        });
+        await storage.getOrCreatePlayer(playerId); // ensure row exists
+        await storage.setPlayerStripeCustomerId(playerId, customer.id);
+        customerId = customer.id;
+      }
+
+      // Look up the price to get chip count from product metadata
+      const priceRow = await db.execute(drizzleSql`
+        SELECT pr.id, pr.unit_amount, p.metadata
+        FROM stripe.prices pr
+        JOIN stripe.products p ON p.id = pr.product
+        WHERE pr.id = ${priceId} AND pr.active = true
+        LIMIT 1
+      `);
+      if (!priceRow.rows.length) {
+        res.status(404).json({ error: 'Price not found' });
+        return;
+      }
+      const meta = priceRow.rows[0] as any;
+      const chips = parseInt(meta.metadata?.chips ?? '0', 10);
+
+      // Build success / cancel URLs
+      const origin =
+        req.headers.origin ||
+        `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'payment',
+        success_url: `${origin}/shop?success=1&chips=${chips}`,
+        cancel_url:  `${origin}/shop?canceled=1`,
+        metadata: { playerId, chips: String(chips) },
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      if (err?.name === 'ZodError') {
+        res.status(400).json({ error: 'Invalid request body' });
+        return;
+      }
+      console.error('[chips] checkout error:', err.message);
+      res.status(500).json({ error: 'Failed to create checkout session' });
     }
   });
 

@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 
 // ─── Premium Shop ─────────────────────────────────────────────────────────────
-// Cosmetics, subscriptions, chip bundles — all play money, no gambling.
-// Psychology: status signaling, exclusivity, FOMO with limited offers.
+// Virtual chips only — play money, no cash value, no withdrawals.
+
+interface ChipProduct {
+  id: string;
+  name: string;
+  description: string;
+  priceId: string;
+  unitAmount: number;
+  chips: number;
+  icon?: string;
+  badge?: string;
+}
 
 const SUBSCRIPTION_TIERS = [
   {
@@ -71,11 +81,12 @@ const SUBSCRIPTION_TIERS = [
   },
 ];
 
-const CHIP_BUNDLES = [
-  { chips: 5000,   price: '$1.99',  label: 'Starter Pack', icon: '🪙' },
-  { chips: 15000,  price: '$4.99',  label: 'Popular Pack',  icon: '💰', badge: 'Best Value' },
-  { chips: 50000,  price: '$9.99',  label: 'High Roller',   icon: '💎' },
-  { chips: 150000, price: '$19.99', label: 'Whale Pack',    icon: '🐳' },
+// Fallback UI while Stripe products load or if Stripe isn't connected yet
+const FALLBACK_BUNDLES = [
+  { chips: 5000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙' },
+  { chips: 15000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', badge: 'Best Value' },
+  { chips: 50000,  unitAmount: 999,  name: 'High Roller',   icon: '💎' },
+  { chips: 150000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳' },
 ];
 
 const AVATAR_FRAMES = [
@@ -87,18 +98,106 @@ const AVATAR_FRAMES = [
   { id: 'stealth_black', name: 'Stealth Black',  price: 'Elite',  color: '#374151', preview: '🌑', locked: true  },
 ];
 
+function formatPrice(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 export default function Shop() {
   const [, navigate] = useLocation();
   const identity = ensurePlayerIdentity();
   const progression = getProgression();
   const levelInfo = getLevelInfo(progression.xp);
   const rank = getRankForLevel(levelInfo.level);
-  const [comingSoon, setComingSoon] = useState<string | null>(null);
 
-  const handlePurchase = (id: string) => {
+  const [products, setProducts] = useState<ChipProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
+
+  // Detect Stripe redirect result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === '1') {
+      const chips = params.get('chips');
+      setToast({
+        type: 'success',
+        msg: chips
+          ? `${parseInt(chips).toLocaleString()} chips added to your bankroll! 🎉`
+          : 'Purchase successful! Chips added to your bankroll.',
+      });
+      window.history.replaceState({}, '', '/shop');
+    } else if (params.get('canceled') === '1') {
+      setToast({ type: 'info', msg: 'Purchase canceled — no charge made.' });
+      window.history.replaceState({}, '', '/shop');
+    }
+  }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Fetch real Stripe products
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/chips/products')
+      .then(r => r.json())
+      .then(data => { if (alive) setProducts(data.products ?? []); })
+      .catch(() => { if (alive) setProducts([]); })
+      .finally(() => { if (alive) setLoadingProducts(false); });
+    return () => { alive = false; };
+  }, []);
+
+  async function handleChipPurchase(priceId: string) {
+    if (checkingOut) return;
+    setCheckingOut(priceId);
+    try {
+      const res = await fetch('/api/chips/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, playerId: identity.id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setToast({ type: 'error', msg: data.error || 'Checkout failed. Try again.' });
+        setCheckingOut(null);
+      }
+    } catch {
+      setToast({ type: 'error', msg: 'Network error. Please try again.' });
+      setCheckingOut(null);
+    }
+  }
+
+  function handleComingSoon(id: string) {
     setComingSoon(id);
     setTimeout(() => setComingSoon(null), 3000);
-  };
+  }
+
+  // Determine what to render: live Stripe products or fallback static list
+  const displayBundles: Array<{
+    priceId?: string;
+    chips: number;
+    unitAmount: number;
+    name: string;
+    icon?: string;
+    badge?: string;
+    isLive: boolean;
+  }> = products.length > 0
+    ? products.map(p => ({
+        priceId: p.priceId,
+        chips: p.chips,
+        unitAmount: p.unitAmount,
+        name: p.name,
+        icon: p.icon,
+        badge: p.badge,
+        isLive: true,
+      }))
+    : FALLBACK_BUNDLES.map(b => ({ ...b, isLive: false }));
 
   return (
     <div className="min-h-[100dvh] bg-[#070709] flex flex-col">
@@ -109,6 +208,7 @@ export default function Shop() {
         <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full"
           style={{ background: 'radial-gradient(ellipse, rgba(155,93,229,0.08) 0%, transparent 70%)' }} />
       </div>
+
       {/* Header */}
       <header
         className="sticky top-0 z-40 w-full px-4 py-3 flex items-center gap-3 border-b"
@@ -122,17 +222,29 @@ export default function Shop() {
           ‹ Lobby
         </button>
         <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Shop & Merch</span>
+        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Shop</span>
       </header>
 
-      {/* Coming soon toast */}
+      {/* Toast notifications */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl border transition-all ${
+          toast.type === 'success'
+            ? 'bg-[#0d1a12] border-[#2dbd6e]/40'
+            : toast.type === 'error'
+              ? 'bg-[#1a0d0d] border-red-500/30'
+              : 'bg-[#141417] border-white/10'
+        }`}
+          data-testid="toast-shop"
+        >
+          <p className="text-sm font-semibold text-white/85 font-sans text-center">{toast.msg}</p>
+        </div>
+      )}
+
+      {/* Coming-soon toast (subscriptions/frames) */}
       {comingSoon && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-[#141417] border border-[#C9A227]/30 shadow-2xl">
           <p className="text-sm font-semibold text-white/80 font-sans text-center">
-            Payments launching soon! 🚀
-          </p>
-          <p className="text-[10px] text-white/30 font-mono text-center mt-0.5">
-            Join the waitlist to get notified first
+            Subscriptions launching soon! 🚀
           </p>
         </div>
       )}
@@ -162,6 +274,79 @@ export default function Shop() {
               {progression.xp.toLocaleString()}
             </div>
           </div>
+        </div>
+
+        {/* ── Chip Bundles ──────────────────────────────────────────────────── */}
+        <div className="w-full">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
+              Chip Bundles
+            </div>
+            <span className="text-[9px] font-mono text-white/12 normal-case">(play money only · no cash value)</span>
+            {!loadingProducts && products.length > 0 && (
+              <span className="ml-auto text-[8px] font-mono text-green-400/60 uppercase tracking-widest">● Live</span>
+            )}
+          </div>
+
+          {loadingProducts ? (
+            <div className="grid grid-cols-2 gap-2">
+              {[0,1,2,3].map(i => (
+                <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] h-28 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {displayBundles.map(bundle => (
+                <button
+                  key={bundle.priceId ?? bundle.chips}
+                  onClick={() => {
+                    if (bundle.isLive && bundle.priceId) {
+                      handleChipPurchase(bundle.priceId);
+                    } else {
+                      handleComingSoon(`chips_${bundle.chips}`);
+                    }
+                  }}
+                  disabled={checkingOut === bundle.priceId}
+                  className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group disabled:opacity-60 disabled:cursor-wait"
+                  data-testid={`button-bundle-${bundle.chips}`}
+                >
+                  {bundle.badge && (
+                    <div className="absolute -top-2 right-2 text-[8px] font-mono font-bold bg-[#C9A227] text-[#0B0B0D] px-1.5 py-0.5 rounded-full uppercase tracking-widest">
+                      {bundle.badge}
+                    </div>
+                  )}
+                  <div className="text-2xl leading-none mb-1.5">{bundle.icon ?? '🪙'}</div>
+                  <div className="font-bold font-mono text-white/80 tabular-nums text-sm">
+                    {bundle.chips.toLocaleString()} chips
+                  </div>
+                  <div className="text-[10px] text-white/35 font-sans mt-0.5">{bundle.name}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-[#C9A227] font-bold font-mono text-sm">
+                      {formatPrice(bundle.unitAmount)}
+                    </div>
+                    {checkingOut === bundle.priceId ? (
+                      <span className="text-[9px] font-mono text-white/30 uppercase tracking-widest">Loading…</span>
+                    ) : bundle.isLive ? (
+                      <span className="text-[9px] font-mono text-green-400/50 uppercase tracking-widest">Buy ›</span>
+                    ) : (
+                      <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Soon ›</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Test-mode badge */}
+          {!loadingProducts && products.length > 0 && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/5 border border-amber-500/15"
+              data-testid="badge-test-mode">
+              <span className="text-amber-400/70 text-[10px]">🧪</span>
+              <span className="text-[10px] font-mono text-amber-400/60">
+                Test mode — use card <strong className="font-bold">4242 4242 4242 4242</strong>, any future date, any CVC
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── Subscription tiers ──────────────────────────────────────────── */}
@@ -205,7 +390,7 @@ export default function Shop() {
                   ))}
                 </ul>
                 <button
-                  onClick={() => !tier.ctaDisabled && handlePurchase(tier.id)}
+                  onClick={() => !tier.ctaDisabled && handleComingSoon(tier.id)}
                   disabled={tier.ctaDisabled}
                   className={`w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
                     tier.ctaDisabled
@@ -222,35 +407,6 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* ── Chip bundles ──────────────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">
-            Chip Bundles <span className="text-white/15 normal-case">(play money only)</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {CHIP_BUNDLES.map(bundle => (
-              <button
-                key={bundle.chips}
-                onClick={() => handlePurchase(`chips_${bundle.chips}`)}
-                className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group"
-                data-testid={`button-bundle-${bundle.chips}`}
-              >
-                {bundle.badge && (
-                  <div className="absolute -top-2 right-2 text-[8px] font-mono font-bold bg-[#C9A227] text-[#0B0B0D] px-1.5 py-0.5 rounded-full uppercase tracking-widest">
-                    {bundle.badge}
-                  </div>
-                )}
-                <div className="text-2xl leading-none mb-1.5">{bundle.icon}</div>
-                <div className="font-bold font-mono text-white/80 tabular-nums text-sm">
-                  ${bundle.chips.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-white/35 font-sans mt-0.5">{bundle.label}</div>
-                <div className="text-[#C9A227] font-bold font-mono text-sm mt-1">{bundle.price}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* ── Avatar frames ─────────────────────────────────────────────── */}
         <div className="w-full">
           <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">Avatar Frames</div>
@@ -258,7 +414,7 @@ export default function Shop() {
             {AVATAR_FRAMES.map(frame => (
               <button
                 key={frame.id}
-                onClick={() => !frame.locked && handlePurchase(frame.id)}
+                onClick={() => !frame.locked && handleComingSoon(frame.id)}
                 className={`rounded-2xl border p-3 flex flex-col items-center gap-1.5 transition-all duration-200 ${
                   frame.locked
                     ? 'opacity-50 cursor-not-allowed border-white/[0.04] bg-white/[0.01]'
@@ -288,23 +444,6 @@ export default function Shop() {
             <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
             <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
           </div>
-          <div
-            className="w-full rounded-2xl p-4 mb-3 relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,107,0,0.09) 0%, rgba(240,184,41,0.05) 100%)',
-              border: '1px solid rgba(255,107,0,0.22)',
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-3xl leading-none anim-float-coin">🧥</div>
-              <div>
-                <div className="font-bold text-white/80 font-sans">Official CGP Merch</div>
-                <div className="text-xs text-white/35 mt-0.5 leading-snug">
-                  Rep the gang. Exclusive Chain Gang Poker clothing — hoodies, tees, snapbacks. Limited drops.
-                </div>
-              </div>
-            </div>
-          </div>
           <div className="grid grid-cols-2 gap-2">
             {[
               { icon: '🧥', name: 'Chain Gang Hoodie', sub: 'Heavyweight pullover · OG logo', price: '$55', hot: true  },
@@ -316,7 +455,7 @@ export default function Shop() {
             ].map(item => (
               <button
                 key={item.name}
-                onClick={() => handlePurchase(item.name)}
+                onClick={() => handleComingSoon(item.name)}
                 className="rounded-2xl p-3.5 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.97] group"
                 style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.28)')}
@@ -337,13 +476,6 @@ export default function Shop() {
                 </div>
               </button>
             ))}
-          </div>
-          <div className="mt-3 rounded-xl p-3 flex items-center gap-3"
-            style={{ backgroundColor: 'rgba(255,107,0,0.05)', border: '1px solid rgba(255,107,0,0.12)' }}>
-            <span className="text-base shrink-0">📦</span>
-            <p className="text-[11px] font-mono text-white/25 leading-snug">
-              Merch store launching soon. Drop your email to get first access + 20% off your first order.
-            </p>
           </div>
         </div>
 
