@@ -977,8 +977,10 @@ function resetToAnte(table: GenericTable): void {
   const basePlayers = isRollover ? s.players : moveDealer(s.players);
 
   let nextPlayers: Player[] = basePlayers.map(p => {
-    const isBotBusted = p.presence === 'bot' && p.chips === 0;
-    const newChips = isBotBusted ? 1000 : p.chips;
+    // Restock bots that busted (chips <= 0 catches both the normal all-in case
+    // and any persisted negative-chip state from prior bugs).
+    const isBotBusted = p.presence === 'bot' && p.chips <= 0;
+    const newChips = isBotBusted ? 1000 : Math.max(0, p.chips);
     return {
       ...p,
       cards: [],
@@ -1817,7 +1819,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // ── call ─────────────────────────────────────────────────────────────────
     else if (action === 'call') {
       const player = newPlayers[playerIdx];
-      const callAmount = Math.min(newCurrentBet - player.bet, player.chips);
+      const callAmount = Math.max(0, Math.min(newCurrentBet - player.bet, player.chips));
       newPlayers[playerIdx] = { ...player, chips: player.chips - callAmount, bet: player.bet + callAmount, hasActed: true };
       newPot += callAmount;
       msg = callAmount === 0 ? `${player.name} checks` : `${player.name} calls $${callAmount}`;
@@ -1973,7 +1975,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, hasActed: true };
         msg = `${player.name} declares ${declaration} and checks`;
       } else if (betAction === 'call') {
-        const callAmt = Math.min(newCurrentBet - player.bet, player.chips);
+        const callAmt = Math.max(0, Math.min(newCurrentBet - player.bet, player.chips));
         newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - callAmt, bet: player.bet + callAmt, hasActed: true };
         newPot += callAmt;
         msg = callAmt === 0

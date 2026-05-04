@@ -295,21 +295,24 @@ export function applyBetDecision(
   }
 
   if (decision.action === 'call') {
-    const pay = Math.min(callAmount, bot.chips);
+    // Guard: chips must be >= 0 before computing pay to prevent negative pot.
+    const availChips = Math.max(0, bot.chips);
+    const pay = Math.min(callAmount, availChips);
     return {
-      chips: bot.chips - pay, bet: bot.bet + pay, status: bot.status, hasActed: true,
+      chips: availChips - pay, bet: bot.bet + pay, status: bot.status, hasActed: true,
       pot: pot + pay, currentBet, raisesThisRound,
       message: pay === 0 ? `${bot.name} checked` : `${bot.name} called $${pay}`
     };
   }
 
-  const raiseTotal = Math.min(decision.raiseAmount || currentBet + 2, bot.chips + bot.bet);
+  const availChips = Math.max(0, bot.chips);
+  const raiseTotal = Math.min(decision.raiseAmount || currentBet + 2, availChips + bot.bet);
   const toPay = raiseTotal - bot.bet;
-  const actualPay = Math.min(toPay, bot.chips);
+  const actualPay = Math.max(0, Math.min(toPay, availChips));
   const newBet = bot.bet + actualPay;
 
   return {
-    chips: bot.chips - actualPay, bet: newBet, status: bot.status, hasActed: true,
+    chips: availChips - actualPay, bet: newBet, status: bot.status, hasActed: true,
     pot: pot + actualPay, currentBet: Math.max(currentBet, newBet),
     raisesThisRound: raisesThisRound + 1,
     message: `${bot.name} raised to $${newBet}`
