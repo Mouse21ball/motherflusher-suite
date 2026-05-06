@@ -3,6 +3,20 @@ import type { ReactionEvent } from '@/lib/poker/types';
 
 const REACTIONS = ['🔥', '👀', '😈', '💀', '⛓️', '💯', '😂'] as const;
 
+// Key written by StarterPackModal when the pack (including emotes) is claimed.
+// Cleared here after showing the one-time "Emotes unlocked" badge.
+const EMOTES_UNLOCKED_KEY = 'cgp_emotes_just_unlocked';
+
+function consumeEmotesUnlockedFlag(): boolean {
+  try {
+    if (localStorage.getItem(EMOTES_UNLOCKED_KEY) === '1') {
+      localStorage.removeItem(EMOTES_UNLOCKED_KEY);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 interface FloatItem {
   id: number;
   emoji: string;
@@ -17,9 +31,19 @@ interface ReactionBarProps {
 }
 
 export function ReactionBar({ onReact, incomingReactions, className = '' }: ReactionBarProps) {
-  const [floats, setFloats]       = useState<FloatItem[]>([]);
-  const [cooldowns, setCooldowns] = useState<Partial<Record<string, boolean>>>({});
-  const seenReactionIds           = useRef<Set<string>>(new Set());
+  const [floats, setFloats]         = useState<FloatItem[]>([]);
+  const [cooldowns, setCooldowns]   = useState<Partial<Record<string, boolean>>>({});
+  const [showUnlocked, setShowUnlocked] = useState(false);
+  const seenReactionIds             = useRef<Set<string>>(new Set());
+
+  // One-time "Emotes unlocked!" badge after StarterPack is claimed.
+  useEffect(() => {
+    if (consumeEmotesUnlockedFlag()) {
+      setShowUnlocked(true);
+      const t = setTimeout(() => setShowUnlocked(false), 3200);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const fire = useCallback((emoji: string) => {
     const id       = Date.now() + Math.random();
@@ -67,6 +91,27 @@ export function ReactionBar({ onReact, incomingReactions, className = '' }: Reac
           </div>
         ))}
       </div>
+
+      {/* One-time "Emotes unlocked" badge after StarterPack claim (T09) */}
+      {showUnlocked && (
+        <div
+          className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none"
+          data-testid="text-emotes-unlocked"
+          style={{
+            background: 'rgba(52,211,153,0.12)',
+            border: '1px solid rgba(52,211,153,0.28)',
+            borderRadius: '999px',
+            padding: '4px 12px',
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            color: 'rgba(52,211,153,0.85)',
+            letterSpacing: '0.12em',
+            animation: 'fadeIn 0.3s ease',
+          }}
+        >
+          🎭 Emotes unlocked — tap any reaction!
+        </div>
+      )}
 
       {/* Trigger tray — compact pill at table edge */}
       <div className="flex items-center gap-0.5 px-2 py-1 bg-black/50 backdrop-blur-sm border border-white/[0.07] rounded-full">

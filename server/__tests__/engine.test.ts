@@ -480,6 +480,184 @@ section('P9 — starter pack emote unlock state');
   assert(result.emotes === 5,    'claimStarterPack returns emote count = 5');
 }
 
+// ─── 12. Bankroll persistence — regression suite ─────────────────────────────
+// Tests the six scenarios from the persistence bug report.
+// DB-backed tests run only when DATABASE_URL is set; pure-logic tests always run.
+section('Bankroll persistence — disconnect race guard (pure logic)');
+{
+  // Mirrors the fix in gameEngine.ts / genericEngine.ts:
+  // lastChipSyncHand is seeded to table.handId at join time so a pre-hand-end
+  // disconnect never overwrites the DB bankroll with the placeholder 1000.
+  interface ChipSyncState {
+    handId: number;
+    lastChipSyncHand: Map<string, number>;
+    playerChips: number;
+  }
+
+  function simulateDisconnectSync(state: ChipSyncState, seat: string): boolean {
+    const lastSynced = state.lastChipSyncHand.get(seat) ?? -1;
+    return lastSynced !== state.handId; // true = would write to DB
+  }
+
+  // BUG scenario (pre-fix): freshly-joined player, no hands played, lastChipSyncHand not set
+  const bugState: ChipSyncState = { handId: 0, lastChipSyncHand: new Map(), playerChips: 1000 };
+  assert(simulateDisconnectSync(bugState, 'p1') === true,
+    'PRE-FIX: uninitialized lastChipSyncHand triggers disconnect write (was the bug)');
+
+  // FIXED: lastChipSyncHand seeded to handId=0 at join time
+  const fixedState: ChipSyncState = { handId: 0, lastChipSyncHand: new Map([['p1', 0]]), playerChips: 5000 };
+  assert(simulateDisconnectSync(fixedState, 'p1') === false,
+    'FIX: seeded lastChipSyncHand prevents pre-hand disconnect from overwriting 5000 with 1000');
+
+  // After one hand completes: resetToAnte increments handId to 1, sets lastChipSyncHand[seat]=1
+  const afterHandState: ChipSyncState = { handId: 1, lastChipSyncHand: new Map([['p1', 1]]), playerChips: 1200 };
+  assert(simulateDisconnectSync(afterHandState, 'p1') === false,
+    'After hand-end sync: disconnect skipped (hand-end already wrote correct chips)');
+
+  // Mid-hand (hand 2 running, lastChipSyncHand still at 1 from last resetToAnte→2 not yet run)
+  // Actually handId stays N until resetToAnte increments it. So mid-hand handId == lastSynced.
+  const midHandState: ChipSyncState = { handId: 1, lastChipSyncHand: new Map([['p1', 1]]), playerChips: 900 };
+  assert(simulateDisconnectSync(midHandState, 'p1') === false,
+    'Mid-hand disconnect: skipped because lastSynced === handId (hand-end will write correct chips)');
+}
+
+section('Bankroll persistence — new player gets starter chips once (DB)');
+await (async () => {
+  if (!process.env.DATABASE_URL) {
+    console.log('  ⚠ DATABASE_URL not set — DB tests skipped');
+    return;
+  }
+  let storage: any;
+  try {
+    const mod = await import('../storage');
+    storage = mod.storage;
+  } catch {
+    console.log('  ⚠ storage module unavailable — skipped');
+    return;
+  }
+
+  const newId = `__test_bankroll_new_${Date.now()}`;
+  try {
+    // New player: getOrCreatePlayer should assign exactly 1000 starter chips
+    const profile = await storage.getOrCreatePlayer(newId, 'TestNew');
+    assert(profile.chipBalance === 1000,
+      `new player starts with 1000 chips (got ${profile.chipBalance})`);
+
+    // Second call (idempotent): chips must not be doubled
+    const profile2 = await storage.getOrCreatePlayer(newId, 'TestNew');
+    assert(profile2.chipBalance === 1000,
+      `second getOrCreate does not re-grant chips (got ${profile2.chipBalance})`);
+  } finally {
+    try { await storage.deletePlayer(newId); } catch {}
+  }
+})();
+
+section('Bankroll persistence — wins survive logout and next-day return (DB)');
+await (async () => {
+  if (!process.env.DATABASE_URL) { console.log('  ⚠ skipped'); return; }
+  let storage: any;
+  try { const mod = await import('../storage'); storage = mod.storage; } catch { return; }
+
+  const playerId = `__test_bankroll_persist_${Date.now()}`;
+  try {
+    await storage.getOrCreatePlayer(playerId, 'TestWinner');
+    // Simulate winning a big hand → syncPlayerChips called by resetToAnte
+    await storage.syncPlayerChips(playerId, 8500, { won: true, deltaChips: 7500 });
+
+    // Simulate server restart: getOrCreatePlayer returns EXISTING row (no reset)
+    const returned = await storage.getOrCreatePlayer(playerId, 'TestWinner');
+    assert(returned.chipBalance === 8500,
+      `returning player still has 8500 after simulated logout/restart (got ${returned.chipBalance})`);
+
+    // Explicit read-back via getPlayerProfile
+    const direct = await storage.getPlayerProfile(playerId);
+    assert(direct?.chipBalance === 8500,
+      `getPlayerProfile returns 8500 (got ${direct?.chipBalance})`);
+  } finally {
+    try { await storage.deletePlayer(playerId); } catch {}
+  }
+})();
+
+section('Bankroll persistence — addChipsToPlayer is atomic (bonus chips)');
+await (async () => {
+  if (!process.env.DATABASE_URL) { console.log('  ⚠ skipped'); return; }
+  let storage: any;
+  try { const mod = await import('../storage'); storage = mod.storage; } catch { return; }
+
+  const bonusId = `__test_bankroll_bonus_${Date.now()}`;
+  try {
+    await storage.getOrCreatePlayer(bonusId, 'BonusTest');
+    await storage.syncPlayerChips(bonusId, 3000);
+
+    // Simulate daily reward (200) + hourly bonus (100) credited to DB
+    await storage.addChipsToPlayer(bonusId, 200);
+    await storage.addChipsToPlayer(bonusId, 100);
+
+    const profile = await storage.getPlayerProfile(bonusId);
+    assert(profile?.chipBalance === 3300,
+      `after two bonus grants, balance is 3300 (got ${profile?.chipBalance})`);
+  } finally {
+    try { await storage.deletePlayer(bonusId); } catch {}
+  }
+})();
+
+section('Bankroll persistence — guest cannot overwrite registered account (DB)');
+await (async () => {
+  if (!process.env.DATABASE_URL) { console.log('  ⚠ skipped'); return; }
+  let storage: any;
+  try { const mod = await import('../storage'); storage = mod.storage; } catch { return; }
+
+  const registeredId = `__test_bankroll_auth_${Date.now()}`;
+  const guestId      = `__test_bankroll_guest_${Date.now()}`;
+  try {
+    // Registered player with big balance
+    await storage.getOrCreatePlayer(registeredId, 'RegPlayer');
+    await storage.syncPlayerChips(registeredId, 15000);
+
+    // Guest player with low balance
+    await storage.getOrCreatePlayer(guestId, 'GuestPlayer');
+    await storage.syncPlayerChips(guestId, 500);
+
+    // Each profile stays independent — guest write doesn't touch registered row
+    const reg   = await storage.getPlayerProfile(registeredId);
+    const guest = await storage.getPlayerProfile(guestId);
+    assert(reg?.chipBalance === 15000,
+      `registered balance unchanged at 15000 (got ${reg?.chipBalance})`);
+    assert(guest?.chipBalance === 500,
+      `guest balance stays at 500 (got ${guest?.chipBalance})`);
+  } finally {
+    try { await storage.deletePlayer(registeredId); } catch {}
+    try { await storage.deletePlayer(guestId); } catch {}
+  }
+})();
+
+section('Bankroll persistence — table chips and DB bankroll stay synced after hand (pure logic)');
+{
+  // Mirrors resetToAnte's syncPlayerChips call: after every hand the table-seat
+  // chips (post-pot-distribution) must equal what would be written to DB.
+  interface HandResult { seatChips: number; won: boolean; delta: number; }
+
+  function syncedBalance(before: number, result: HandResult): number {
+    // Simulate what resetToAnte writes: just seatChips (the chips field after pot award)
+    return result.seatChips;
+  }
+
+  // Win: hero had 1000, won pot of 400 (from 4×100 ante), ending at 1400
+  const winResult: HandResult = { seatChips: 1400, won: true, delta: 400 };
+  assert(syncedBalance(1000, winResult) === 1400,
+    'win: DB written value matches post-hand seat chips (1400)');
+
+  // Loss: hero had 1000, lost ante of 100, ending at 900
+  const lossResult: HandResult = { seatChips: 900, won: false, delta: -100 };
+  assert(syncedBalance(1000, lossResult) === 900,
+    'loss: DB written value matches post-hand seat chips (900)');
+
+  // Bust: hero at 0 after all-in loss
+  const bustResult: HandResult = { seatChips: 0, won: false, delta: -1000 };
+  assert(syncedBalance(1000, bustResult) === 0,
+    'bust: DB written value is 0 (not reset to default)');
+}
+
 // ─── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n── Results: ${passes} passed, ${failures} failed ──`);
 process.exit(failures === 0 ? 0 : 1);

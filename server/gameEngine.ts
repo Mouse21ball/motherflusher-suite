@@ -1353,17 +1353,17 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
   };
 
   // ── Persist identity and load chips ────────────────────────────────────────
-  // For new joins (wasReserved): record identity, load canonical chip balance
-  // from the player_profiles table, then broadcast the corrected state.
-  // For reconnects: trust the live table state (chips already authoritative).
+  // Load canonical chip balance from DB for:
+  //   (a) wasReserved — first time a player takes this seat
+  //   (b) server-restart reconnect — sessionStats absent (in-memory, not disk-persisted)
+  // For same-session reconnects (hadSessionStats=true): trust live table chips.
   if (identityId) {
     table.seatToIdentityId.set(seat, identityId);
 
     // ── Synchronous sessionStats init ────────────────────────────────────────
-    // Ensures sessionStats ALWAYS exists when badugi:init is sent (below),
-    // even before the async DB callback fires. Only initializes if no stats
-    // are present — preserves existing stats on same-session reconnect.
-    if (!table.sessionStats.has(seat)) {
+    // Capture BEFORE init so we can detect server-restart reconnects below.
+    const hadSessionStats = table.sessionStats.has(seat);
+    if (!hadSessionStats) {
       const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 1000;
       table.sessionStats.set(seat, {
         startChips: placeholder,
@@ -1376,34 +1376,41 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
         recentDeltas: [],
       });
       table.chipsAtHandStart.set(seat, placeholder);
+      // FIX: Seed lastChipSyncHand so a pre-hand-end disconnect never overwrites
+      // the DB bankroll with the placeholder chip value (1000).
+      table.lastChipSyncHand.set(seat, table.handId);
     }
 
-    if (wasReserved) {
+    // Reload DB chips on fresh join OR server-restart reconnect.
+    if (wasReserved || !hadSessionStats) {
       storage.getOrCreatePlayer(identityId, playerName).then(profile => {
         const t = tables.get(tableId);
         if (!t) return;
         const player = t.state.players.find(pp => pp.id === seat);
         if (!player || player.presence !== 'human') return;
-        t.state = {
-          ...t.state,
-          players: t.state.players.map(pp =>
-            pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
-          ),
-        };
-        // Update session tracking with the real DB chip balance (overwrites placeholder).
-        t.chipsAtHandStart.set(seat, profile.chipBalance);
-        t.sessionStats.set(seat, {
-          startChips: profile.chipBalance,
-          handsPlayed: 0,
-          biggestPotWon: 0,
-          winStreak: 0,
-          lossStreak: 0,
-          sessionHighProfit: 0,
-          sessionLowProfit: 0,
-          recentDeltas: [],
-        });
+        // Mid-hand guard: on server-restart reconnects only overwrite chips
+        // between hands so live table chips are never clobbered mid-hand.
+        const isBetweenHands = t.state.phase === 'WAITING' || t.state.phase === 'ANTE';
+        if (wasReserved || isBetweenHands) {
+          t.state = {
+            ...t.state,
+            players: t.state.players.map(pp =>
+              pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
+            ),
+          };
+          t.chipsAtHandStart.set(seat, profile.chipBalance);
+          t.sessionStats.set(seat, {
+            startChips: profile.chipBalance,
+            handsPlayed: 0,
+            biggestPotWon: 0,
+            winStreak: 0,
+            lossStreak: 0,
+            sessionHighProfit: 0,
+            sessionLowProfit: 0,
+            recentDeltas: [],
+          });
+        }
         broadcastState(t);
-        // Record active table so reconnect endpoint can route the player back
         storage.setPlayerActiveTable(identityId, tableId, seat, 'badugi').catch(() => {});
       }).catch(() => {});
     }

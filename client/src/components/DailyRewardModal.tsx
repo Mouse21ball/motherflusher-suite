@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { claimDailyReward, DAILY_REWARD_TIERS, getStreakInfo, type DailyRewardTier } from '@/lib/dailyReward';
 import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
-import { saveChips, getChips } from '@/lib/persistence';
+import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getVipTier, DISCLAIMER } from '@/lib/retention';
+import { apiUrl } from '@/lib/apiConfig';
 
 interface DailyRewardModalProps {
   open: boolean;
@@ -33,13 +34,21 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
     setAnimating(true);
     const reward = claimDailyReward();
 
-    // Apply chips across all modes
+    // Apply chips across all modes (localStorage — immediate display)
     const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
     for (const modeId of modes) {
       saveChips(modeId, getChips(modeId) + reward.chips);
     }
     // Award XP
     awardDailyXP(reward.xp);
+
+    // Persist to DB so balance survives refresh/login on any device
+    const identity = ensurePlayerIdentity();
+    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chips: reward.chips }),
+    }).catch(() => {});
 
     setTimeout(() => {
       setClaimed(reward);

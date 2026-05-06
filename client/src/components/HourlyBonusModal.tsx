@@ -3,8 +3,9 @@ import {
   isHourlyReady, getHourlyCountdown, getHourlyBonusChips,
   claimHourlyBonus, getVipTier, DISCLAIMER,
 } from '@/lib/retention';
-import { saveChips, getChips } from '@/lib/persistence';
+import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getLevelInfo, getProgression } from '@/lib/progression';
+import { apiUrl } from '@/lib/apiConfig';
 
 interface HourlyBonusModalProps {
   open: boolean;
@@ -61,6 +62,15 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
     for (const modeId of MODES) {
       saveChips(modeId, getChips(modeId) + earned);
     }
+
+    // Persist to DB so balance survives refresh/login on any device
+    const identity = ensurePlayerIdentity();
+    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chips: earned }),
+    }).catch(() => {});
+
     setTimeout(() => {
       setChipsGained(earned);
       setClaimed(true);

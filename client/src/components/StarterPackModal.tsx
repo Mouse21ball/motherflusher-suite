@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { claimStarterPack, isStarterPackClaimed, STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
-import { saveChips, getChips } from '@/lib/persistence';
+import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
+import { apiUrl } from '@/lib/apiConfig';
 
 interface StarterPackModalProps {
   open: boolean;
@@ -49,6 +50,19 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
     for (const modeId of MODES) {
       saveChips(modeId, getChips(modeId) + chips);
     }
+
+    // Persist to DB so balance survives refresh/login on any device
+    const identity = ensurePlayerIdentity();
+    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chips }),
+    }).catch(() => {});
+
+    // T09: Signal the ReactionBar to show its one-time "Emotes unlocked" badge
+    // the next time the game table renders.
+    try { localStorage.setItem('cgp_emotes_just_unlocked', '1'); } catch {}
+
     setTimeout(() => {
       setClaimed(true);
       setAnimating(false);

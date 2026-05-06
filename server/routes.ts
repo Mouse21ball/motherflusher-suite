@@ -379,6 +379,33 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/players/:id/bonus-chips
+  // Credits virtual chips from in-app bonuses (daily reward, hourly bonus, starter pack)
+  // directly to the DB bankroll. Fire-and-forget safe — client already updates local state.
+  // Max 100,000 chips per call guards against accidental over-grant.
+  app.post("/api/players/:id/bonus-chips", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const bonusSchema = z.object({ chips: z.number().int().positive().max(100000) });
+      const { chips } = bonusSchema.parse(req.body);
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      await storage.addChipsToPlayer(id, chips);
+      const updated = await storage.getPlayerProfile(id);
+      res.json({ chipBalance: updated?.chipBalance ?? profile.chipBalance + chips });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "chips must be a positive integer ≤ 100,000" });
+      } else {
+        console.error("bonus-chips error:", err);
+        res.status(500).json({ error: "Failed to add bonus chips" });
+      }
+    }
+  });
+
   // ── Real-player priority join ──────────────────────────────────────────────
   // GET /api/tables/mode/:modeId/join
   // Returns the best existing public table for a mode (most humans, at least 1 open seat),
