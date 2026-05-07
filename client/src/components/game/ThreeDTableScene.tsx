@@ -522,7 +522,7 @@ export function ThreeDTableScene({
       : others.length === 1 ? `${others[0].name} · you`
       : `${others.slice(0, 2).map(p => p.name).join(', ')}${others.length > 2 ? ` +${others.length - 2}` : ''} · you`;
     const subLabel = others.length === 0
-      ? (reservedCount > 0 ? 'Bots filling open seats' : 'Bots joining now')
+      ? (reservedCount > 0 ? 'More bots joining soon' : 'Bots are in — deal when ready')
       : (reservedCount > 0 ? `${reservedCount} seat${reservedCount !== 1 ? 's' : ''} open` : 'Full crew');
     return (
       <div className="flex flex-col items-center gap-2 text-center anim-slide-up">

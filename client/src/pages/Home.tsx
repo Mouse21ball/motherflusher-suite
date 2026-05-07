@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import {
   ensurePlayerIdentity,
@@ -396,34 +396,6 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
   );
 }
 
-// ─── Live feed ────────────────────────────────────────────────────────────────
-
-const FEED_TEMPLATES = [
-  (n: string) => `${n} is on a 4-win streak — untouchable 🔥`,
-  (n: string) => `${n} hit a clean Badugi — nobody saw it coming`,
-  (n: string) => `${n} busted in Dead 7 — snitch card hit`,
-  (n: string) => `${n} climbed to Silver rank`,
-  (n: string) => `${n} claimed the daily bonus ($750 chips)`,
-  (n: string) => `${n} swung both sides and scooped $640 💯`,
-  (n: string) => `${n} just unlocked "Hat Trick" 🎩`,
-  (n: string) => `${n} ran a 7-win streak 🚀`,
-  (n: string) => `${n} reached Gold — Level 21 ⛓️`,
-  (n: string) => `${n} hit 100 hands — Century Club member`,
-  (n: string) => `${n} won the 15/35 pot with a perfect 35`,
-  (n: string) => `${n} created a private Badugi table — crew only`,
-];
-
-const FEED_NAMES = ['AceHunter','BluffKing','CardShark','DeckMaster','FlushQueen',
-  'GoldStrike','IronSuit','JackWild','KingBluff','MidStack',
-  'PotSweeper','RiverRat','TiltKing','UltBadugi','VegasGhost'];
-
-function buildFeed(seed: number): string[] {
-  return Array.from({ length: 14 }, (_, i) => {
-    const n = FEED_NAMES[(seed + i * 7) % FEED_NAMES.length];
-    const t = FEED_TEMPLATES[(seed + i * 13) % FEED_TEMPLATES.length];
-    return t(n);
-  });
-}
 
 function syncXPFromHistory(): void {
   const history = getHandHistory();
@@ -561,8 +533,6 @@ export default function Home() {
 
   const progressPct  = Math.round(levelInfo.progress * 100);
   const totalNet     = stats.totalChipChange;
-  const feedSeed     = Math.floor(Date.now() / (1000 * 60 * 5));
-  const feedItems    = useMemo(() => buildFeed(feedSeed), [feedSeed]);
 
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
@@ -1000,24 +970,6 @@ export default function Home() {
                   Private Table
                 </button>
                 <span className="text-[9px] font-mono text-white/25 text-center">Code-only · not listed</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ── FEED TICKER ───────────────────────────────────────────────── */}
-          <div className="w-full rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.04)' }}>
-            <div className="px-3 py-2 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.emerald + '50' }} />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">Community Buzz</span>
-            </div>
-            <div className="relative overflow-hidden h-8">
-              <div className="flex anim-ticker whitespace-nowrap absolute left-0 top-0 h-full items-center">
-                {[...feedItems, ...feedItems].map((item, i) => (
-                  <span key={i} className="text-[10px] font-mono text-white/30 px-4 shrink-0">
-                    <span style={{ color: C.orange }} className="mr-1">•</span>{item}
-                  </span>
-                ))}
               </div>
             </div>
           </div>

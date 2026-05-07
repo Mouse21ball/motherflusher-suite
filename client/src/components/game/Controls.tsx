@@ -170,9 +170,12 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           next hand…
         </p>
         {chips <= 0 && (
-          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
-            Rebuy $1000
-          </Button>
+          <div className="flex flex-col items-center gap-0.5">
+            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
+              Rebuy $1,000
+            </Button>
+            <span className="text-[8px] font-mono text-white/15 tracking-widest">Free · virtual chips only</span>
+          </div>
         )}
       </div>
     );
@@ -248,9 +251,12 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           </span>
         </div>
         {chips <= 0 && (
-          <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
-            Rebuy $1000
-          </Button>
+          <div className="flex flex-col items-center gap-0.5">
+            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
+              Rebuy $1,000
+            </Button>
+            <span className="text-[8px] font-mono text-white/15 tracking-widest">Free · virtual chips only</span>
+          </div>
         )}
         <Button
           size="lg"

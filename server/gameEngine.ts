@@ -517,7 +517,7 @@ function advanceToNextPhase(table: AuthTable): void {
     from: prevPhase,
     to: nextPhase,
     pot: table.state.pot,
-    active: table.state.activePlayerId,
+    active: table.state.activePlayerId ?? undefined,
   });
 
   // ── DECLARE: auto-fold any active player who does not hold a valid Badugi ───
@@ -843,7 +843,7 @@ function resetToAnte(table: AuthTable): void {
     }],
   };
 
-  engineLog('PHASE', table.tableId, { from: 'SHOWDOWN', to: 'ANTE', pot: table.state.pot, active: table.state.activePlayerId });
+  engineLog('PHASE', table.tableId, { from: 'SHOWDOWN', to: 'ANTE', pot: table.state.pot, active: table.state.activePlayerId ?? undefined });
 
   scheduleNextBot(table);
 }
@@ -1678,7 +1678,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // All remaining actions require it to be this player's turn
     if (s.activePlayerId !== playerId) {
-      engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'not-turn', active: s.activePlayerId });
+      engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'not-turn', active: s.activePlayerId ?? undefined });
       table.actionLock = false;
       return;
     }
