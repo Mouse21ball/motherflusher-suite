@@ -450,7 +450,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   return (
-    <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset flex flex-col gap-4`}>
+    <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset flex flex-col gap-3`}>
       {phase === 'DECLARE_AND_BET' && (
         <div className="flex justify-between items-center px-1">
           <span className="text-[10px] font-mono text-white/20 tracking-[0.15em] uppercase">Step 2: Bet</span>
@@ -461,8 +461,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       )}
       
       <div className="flex justify-between items-center px-1">
-        <Badge variant="outline" className="bg-[#0B0B0D]/50 font-mono border-white/[0.05] text-white/45 text-[10px]">Pot ${pot}</Badge>
-        {callAmount > 0 && <Badge variant="outline" className="bg-[#0B0B0D]/50 font-mono border-white/[0.05] text-white/45 text-[10px]">Call ${callAmount}</Badge>}
+        <span className="text-[10px] font-mono text-white/35">Pot <span className="text-white/60 font-bold tabular-nums">${pot}</span></span>
+        {callAmount > 0 && <span className="text-[10px] font-mono" style={{ color: '#C9A227' }}>To call: <strong>${callAmount}</strong></span>}
       </div>
 
       {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
@@ -523,7 +523,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         return (
           <div className="flex flex-col gap-2 px-1">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono text-white/25 tracking-[0.2em] uppercase">Sizing</span>
+              <span className="text-[9px] font-mono text-white/25 tracking-[0.2em] uppercase">Bet Size</span>
               <span className="text-[10px] font-mono text-white/35 tabular-nums">${minRaiseTo} – ${maxRaiseTo}</span>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
@@ -543,7 +543,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
                 >
                   <div className="flex flex-col items-center leading-tight">
                     <span>{p.label}</span>
-                    <span className="text-[9px] opacity-70">${p.amt}</span>
+                    <span className="text-[9px] opacity-70">+${p.amt - myBet}</span>
                   </div>
                 </Button>
               ))}

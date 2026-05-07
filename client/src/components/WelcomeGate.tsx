@@ -303,12 +303,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
           </p>
         </div>
 
-        {/* Live badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-6"
-          style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.18)' }}>
-          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
-          <span className="text-[11px] font-mono font-bold" style={{ color: '#00C896' }}>1,000+ players running right now</span>
-        </div>
+        <div className="mb-6" />
 
         {/* Feature list — only on choose screen */}
         {mode === 'choose' && (

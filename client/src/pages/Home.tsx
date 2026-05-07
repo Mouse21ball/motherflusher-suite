@@ -21,8 +21,6 @@ import { getRecentTable, generateTableCode, getSessionResult, getStreakLabel } f
 import {
   isRewardAvailable,
   getStreakInfo,
-  getSimulatedPlayerCount,
-  getModeTableCount,
 } from '@/lib/dailyReward';
 import {
   isHourlyReady,
@@ -470,11 +468,24 @@ export default function Home() {
   const streakInfo = getStreakInfo();
   const vip = getVipTier(serverLevel);
 
-  const [playerCount, setPlayerCount] = useState(getSimulatedPlayerCount);
+  const [liveTables, setLiveTables] = useState<LiveTableEntry[]>([]);
   useEffect(() => {
-    const id = setInterval(() => setPlayerCount(getSimulatedPlayerCount()), 30000);
+    const fetchLive = async () => {
+      try {
+        const res = await fetch(apiUrl('/api/tables'));
+        if (res.ok) setLiveTables(await res.json());
+      } catch {}
+    };
+    fetchLive();
+    const id = setInterval(fetchLive, 30000);
     return () => clearInterval(id);
   }, []);
+
+  const realPlayerCount = liveTables.reduce((sum, t) => sum + (t.humanCount ?? 0), 0);
+  const getModeRealCount = (modeId: string): number => {
+    const engineId = modeId === 'suitspoker' ? 'suits_poker' : modeId;
+    return liveTables.filter(t => t.modeId === engineId).length;
+  };
 
   const [newAchievements, setNewAchievements] = useState<Achievement[]>(() => {
     const p = getProgression();
@@ -556,9 +567,8 @@ export default function Home() {
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
 
-  const dayKey       = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  const dailyJackpot = 8000 + ((dayKey * 137) % 14000);
-  const weeklyPrize  = 45000 + ((dayKey * 53) % 30000);
+  const biggestPot = getProgression().biggestPot ?? 0;
+  const winRate = stats.handsPlayed > 0 ? Math.round((stats.wins / stats.handsPlayed) * 100) : 0;
 
   return (
     <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden" style={{ backgroundColor: C.bg }}>
@@ -631,14 +641,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Live count */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-          style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.15)' }}>
-          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald, boxShadow: `0 0 6px ${C.emerald}` }} />
-          <span className="text-[11px] font-mono font-bold tabular-nums" style={{ color: C.emerald }} data-testid="text-live-count">
-            {playerCount.toLocaleString()} live
-          </span>
-        </div>
+        {/* Live count — only shown when real players are online */}
+        {realPlayerCount > 0 && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
+            style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.15)' }}>
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald, boxShadow: `0 0 6px ${C.emerald}` }} />
+            <span className="text-[11px] font-mono font-bold tabular-nums" style={{ color: C.emerald }} data-testid="text-live-count">
+              {realPlayerCount} live
+            </span>
+          </div>
+        )}
 
         {/* Nav */}
         <div className="flex items-center gap-1">
@@ -703,7 +715,7 @@ export default function Home() {
                 <div className="text-lg font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">${displayChips.toLocaleString()}</div>
                 {displayHands > 0 && (
                   <div className={`text-[10px] font-mono font-bold tabular-nums ${displayNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
-                    {displayNet >= 0 ? '+' : ''}${displayNet.toLocaleString()}
+                    {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
                   </div>
                 )}
               </div>
@@ -801,19 +813,23 @@ export default function Home() {
             </button>
           </div>
 
-          {/* ── PRIZE BAND ────────────────────────────────────────────────── */}
+          {/* ── STATS BAND ────────────────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl p-3 flex flex-col items-center text-center"
               style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
-              <div className="text-base mb-1">🏅</div>
-              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Daily Pot</div>
-              <div className="text-sm font-bold font-mono tabular-nums anim-jackpot" style={{ color: C.gold }}>${dailyJackpot.toLocaleString()}</div>
+              <div className="text-base mb-1">🏆</div>
+              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Best Win</div>
+              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.gold }}>
+                {biggestPot > 0 ? `$${biggestPot.toLocaleString()}` : '—'}
+              </div>
             </div>
             <div className="rounded-xl p-3 flex flex-col items-center text-center"
-              style={{ background: 'linear-gradient(135deg, rgba(155,93,229,0.10) 0%, rgba(155,93,229,0.03) 100%)', border: '1px solid rgba(155,93,229,0.18)' }}>
-              <div className="text-base mb-1">👑</div>
-              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Weekly</div>
-              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.purple }}>${weeklyPrize.toLocaleString()}</div>
+              style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
+              <div className="text-base mb-1">📈</div>
+              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Win Rate</div>
+              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.emerald }}>
+                {stats.handsPlayed > 0 ? `${winRate}%` : '—'}
+              </div>
             </div>
             <div className="rounded-xl p-3 flex flex-col items-center text-center"
               style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
@@ -835,11 +851,7 @@ export default function Home() {
           {/* ── BADUGI HERO CARD ──────────────────────────────────────────── */}
           {(() => {
             const mode  = MODES[0];
-            // P1: Unified bankroll — all modes share the server-authoritative
-            // chipBalance. Only fall back to per-mode localStorage values when
-            // the server profile hasn't loaded yet.
-            const chips = serverProfile?.chipBalance ?? chipMap[mode.id] ?? 1000;
-            const tbl   = getModeTableCount(mode.id);
+            const tbl = getModeRealCount(mode.id);
             return (
               <button
                 onClick={() => navigateToMode(mode.id, mode.path)}
@@ -874,19 +886,23 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />
-                        <span className="text-[10px] font-mono text-white/55">{tbl} tables live</span>
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      {tbl > 0 ? (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />
+                          <span className="text-[10px] font-mono text-white/55">{tbl} active</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: mode.color + '40' }} />
+                          <span className="text-[10px] font-mono text-white/30">Be first in</span>
+                        </>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
-                        <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
-                          style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
-                          Quick Play →
-                        </div>
+                      <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
+                        style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
+                        Quick Play →
                       </div>
                       <span className="text-[9px] font-mono text-white/25">Joins real players · bots fill if needed</span>
                     </div>
@@ -902,11 +918,7 @@ export default function Home() {
           {/* ── 2-COLUMN GRID ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
             {MODES.slice(1).map(mode => {
-              // P1: Unified bankroll — all modes share the server-authoritative
-            // chipBalance. Only fall back to per-mode localStorage values when
-            // the server profile hasn't loaded yet.
-            const chips = serverProfile?.chipBalance ?? chipMap[mode.id] ?? 1000;
-              const tbl   = getModeTableCount(mode.id);
+              const tbl = getModeRealCount(mode.id);
               return (
                 <button
                   key={mode.id}
@@ -925,23 +937,24 @@ export default function Home() {
                         style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.25)`, color: mode.color }}>
                         {mode.icon}
                       </div>
-                      {mode.badge ? (
-                        <div className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)`, border: `1px solid ${mode.glow}0.20)` }}>
-                          {mode.badge}
-                        </div>
-                      ) : (
-                        <div className="text-[8px] font-mono text-white/20">{mode.difficulty}</div>
-                      )}
+                      <div className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)`, border: `1px solid ${mode.glow}0.20)` }}>
+                        {mode.badge}
+                      </div>
                     </div>
                     <div className="font-bold text-sm text-white/85 font-sans mb-0.5" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</div>
                     <div className="text-[10px] font-mono leading-tight mb-2" style={{ color: mode.color + 'bb' }}>{mode.tagline}</div>
                     <div className="flex items-center justify-between">
-                      <div className="font-mono font-bold text-sm tabular-nums" style={{ color: mode.color }}>${chips.toLocaleString()}</div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-1 h-1 rounded-full" style={{ backgroundColor: mode.color + '60' }} />
-                        <span className="text-[9px] font-mono text-white/20">{tbl}</span>
-                      </div>
+                      {tbl > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: mode.color + '90' }} />
+                          <span className="text-[9px] font-mono text-white/40">{tbl} active</span>
+                        </div>
+                      ) : (
+                        <span className="text-[9px] font-mono text-white/20">Be first in</span>
+                      )}
+                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-lg"
+                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)` }}>Play →</span>
                     </div>
                   </div>
                 </button>

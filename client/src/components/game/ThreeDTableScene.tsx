@@ -551,7 +551,7 @@ export function ThreeDTableScene({
             <span style={{ background: 'linear-gradient(90deg,#b00,#d00)', width: '18px', height: '6px' }} />
             <span style={{ background: 'linear-gradient(90deg,#a00,#c00)', width: '18px', height: '6px' }} />
           </div>
-          <span className={cn("text-base sm:text-lg font-mono font-black tabular-nums tracking-tight", potPulse ? "text-[#C9A227]" : "text-white")}>
+          <span className={cn("text-lg sm:text-xl font-mono font-black tabular-nums tracking-tight", potPulse ? "text-[#C9A227]" : "text-white")}>
             ${gameState.pot}
           </span>
         </div>
