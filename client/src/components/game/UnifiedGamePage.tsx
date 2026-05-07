@@ -235,7 +235,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-44 game-main-area">
+      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-72 game-main-area">
         <ThreeDTableScene
           gameState={state}
           myId={isSpectator ? 'p1' : myId}

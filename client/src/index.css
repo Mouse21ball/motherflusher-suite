@@ -1255,6 +1255,34 @@
 }
 
 /*
+ * Action panel cap — prevents fixed controls from obscuring hero cards.
+ * Capped at 260px; any overflow scrolls. The main area pb-72 (288px) combined
+ * with the 16px wrapper padding leaves ~12px clearance above the panel top.
+ */
+.game-action-panel {
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,162,39,0.20) transparent;
+}
+
+/*
+ * Portrait small phone (≤430px wide, e.g. iPhone SE in portrait)
+ * Scale the table scene to 88% so more vertical space is recovered and
+ * opponents never clip into the GameHeader.
+ */
+@media (max-width: 430px) and (orientation: portrait) {
+  .game-scene-scaler {
+    zoom: 0.88;
+  }
+  .game-scene-arc-felt,
+  .game-scene-arc-center {
+    min-height: 280px !important;
+  }
+}
+
+/*
  * Phone landscape (max-height: 520px — e.g. iPhone SE/12/14 held sideways)
  * Strategy:
  *   1. Shrink main bottom-padding from 176px → 80px (controls are fixed, don't need that space)
