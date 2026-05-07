@@ -56,14 +56,14 @@ function getOpponentPosition(index: number, total: number): string {
       "top-[30%] -right-5 sm:right-0 -translate-y-1/2",
     ][index] ?? "hidden";
   }
-  // 4 opponents (5-player): arc — left-mid | upper-left | upper-right | right-mid
-  // Raised from top-[36%] → top-[18%] to keep seats clear of the center
-  // content area (phase label, HIT OR STAY, discard pile).
+  // 4 opponents (5-player): arc — left-lower | upper-left | upper-right | right-lower
+  // Side seats sit in the lower-middle of the oval, below the center content
+  // area (phase label / HIT OR STAY), well above the bottom-left POT counter.
   return [
-    "top-[18%] -left-5 sm:left-0 -translate-y-1/2",
+    "top-[62%] -left-5 sm:left-0 -translate-y-1/2",
     "-top-2 sm:top-1 left-[22%] sm:left-[24%] -translate-x-1/2",
     "-top-2 sm:top-1 right-[22%] sm:right-[24%] translate-x-1/2",
-    "top-[18%] -right-5 sm:right-0 -translate-y-1/2",
+    "top-[62%] -right-5 sm:right-0 -translate-y-1/2",
   ][index] ?? "hidden";
 }
 
