@@ -1944,8 +1944,9 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         let acesFlipped = 0;
         while (tot > 35 && acesFlipped < aceCount) { tot -= 10; acesFlipped++; }
         if (tot > 35) {
-          // Player busts — lock them out immediately
-          newPlayers[playerIdx] = { ...player, cards: newCards, declaration: 'BUST', hasActed: true };
+          // Player busts — fold them from the hand immediately (same as bots).
+          // Without status:'folded' the player stays 'active' and blocks round progression.
+          newPlayers[playerIdx] = { ...player, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
           table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} BUSTS (${Math.round(tot * 2) / 2})`);
           table.actionLock = false;
           afterHumanAction(table, false);

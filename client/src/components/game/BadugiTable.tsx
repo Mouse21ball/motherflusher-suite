@@ -56,12 +56,14 @@ function getOpponentPosition(index: number, total: number): string {
       "top-[30%] -right-5 sm:right-0 -translate-y-1/2",
     ][index] ?? "hidden";
   }
-  // 4 opponents (5-player): even arc — left | upper-left | upper-right | right
+  // 4 opponents (5-player): arc — left-mid | upper-left | upper-right | right-mid
+  // Raised from top-[36%] → top-[18%] to keep seats clear of the center
+  // content area (phase label, HIT OR STAY, discard pile).
   return [
-    "top-[36%] -left-5 sm:left-0 -translate-y-1/2",
+    "top-[18%] -left-5 sm:left-0 -translate-y-1/2",
     "-top-2 sm:top-1 left-[22%] sm:left-[24%] -translate-x-1/2",
     "-top-2 sm:top-1 right-[22%] sm:right-[24%] translate-x-1/2",
-    "top-[36%] -right-5 sm:right-0 -translate-y-1/2",
+    "top-[18%] -right-5 sm:right-0 -translate-y-1/2",
   ][index] ?? "hidden";
 }
 
@@ -284,8 +286,8 @@ export function BadugiTable({
           </div>
         ))}
 
-        {/* Pot counter — absolute bottom-right, never overlaps discard pile */}
-        <div className="absolute bottom-5 right-5 sm:bottom-7 sm:right-8 z-30">
+        {/* Pot counter — absolute bottom-left; moved from right to avoid right-side seat overlap */}
+        <div className="absolute bottom-5 left-5 sm:bottom-7 sm:left-8 z-30">
           <div
             className={cn(
               "pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full flex flex-col items-center",
@@ -441,7 +443,22 @@ export function BadugiTable({
       <div className="w-full flex justify-center -mt-10 sm:-mt-12 relative z-30 hero-seat-depth">
         {me && (
           <div className="flex flex-col items-center gap-2 w-full">
-            {/* Hero made-hand status badge — inside the hero area, always visible */}
+            <PlayerSeat
+              player={me}
+              seatNumber={0}
+              isActive={me.id === gameState.activePlayerId}
+              isSelf={true}
+              selectedCardIndices={selectedCardIndices}
+              onCardClick={onCardClick}
+              selectableCards={selectableCards}
+              showdownState={isShowdown}
+              showVisibleCount={showVisibleCount}
+              heroCardClassName={heroCardClassName}
+              isStackLeader={stackLeaderId === me.id}
+              className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
+            />
+            {/* Hero made-hand status badge — below the chip so it stays
+                outside the felt area and doesn't block center table content */}
             {showMadeStatus && heroMadeLabel && (
               <div
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-mono font-bold tracking-wide border transition-all duration-300"
@@ -461,20 +478,6 @@ export function BadugiTable({
                 {heroMadeLabel}
               </div>
             )}
-            <PlayerSeat
-              player={me}
-              seatNumber={0}
-              isActive={me.id === gameState.activePlayerId}
-              isSelf={true}
-              selectedCardIndices={selectedCardIndices}
-              onCardClick={onCardClick}
-              selectableCards={selectableCards}
-              showdownState={isShowdown}
-              showVisibleCount={showVisibleCount}
-              heroCardClassName={heroCardClassName}
-              isStackLeader={stackLeaderId === me.id}
-              className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"
-            />
           </div>
         )}
       </div>
