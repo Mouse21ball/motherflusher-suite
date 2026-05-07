@@ -714,8 +714,11 @@ export default function Home() {
                 <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Bankroll</div>
                 <div className="text-lg font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">${displayChips.toLocaleString()}</div>
                 {displayHands > 0 && (
-                  <div className={`text-[10px] font-mono font-bold tabular-nums ${displayNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
-                    {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[8px] font-mono text-white/15 uppercase tracking-widest">Net</span>
+                    <span className={`text-[10px] font-mono font-bold tabular-nums ${displayNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
+                      {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1001,12 +1004,12 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── LIVE FEED TICKER ──────────────────────────────────────────── */}
+          {/* ── FEED TICKER ───────────────────────────────────────────────── */}
           <div className="w-full rounded-2xl overflow-hidden"
             style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.04)' }}>
             <div className="px-3 py-2 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald }} />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">Live Activity</span>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.emerald + '50' }} />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">Community Buzz</span>
             </div>
             <div className="relative overflow-hidden h-8">
               <div className="flex anim-ticker whitespace-nowrap absolute left-0 top-0 h-full items-center">

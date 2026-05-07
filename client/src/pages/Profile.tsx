@@ -268,7 +268,7 @@ export default function Profile() {
           {[
             { label: 'Hands', value: displayHands.toString() },
             { label: 'Win%', value: `${stats.winRate}%` },
-            { label: 'Net', value: `${displayNet >= 0 ? '+' : ''}$${displayNet.toLocaleString()}` },
+            { label: 'Net', value: displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}` },
             { label: 'Chips', value: `$${displayChips.toLocaleString()}` },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl bg-[#141417]/80 border border-white/[0.05] p-3 flex flex-col items-center gap-0.5">
@@ -311,7 +311,7 @@ export default function Profile() {
                         <span className="text-xs font-mono text-white/30">{m.played} hands</span>
                         <span className="text-xs font-mono text-white/30">{m.played > 0 ? Math.round(m.wins / m.played * 100) : 0}% W</span>
                         <span className={`text-xs font-mono tabular-nums ${m.chipChange >= 0 ? 'text-emerald-400/60' : 'text-red-400/60'}`}>
-                          {m.chipChange >= 0 ? '+' : ''}${m.chipChange}
+                          {m.chipChange >= 0 ? `+$${m.chipChange}` : `-$${Math.abs(m.chipChange)}`}
                         </span>
                       </div>
                     </div>
