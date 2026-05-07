@@ -184,7 +184,6 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
   const modeInfo = MODE_INFO[modeId];
   const modeIntro = (MODE_INTROS as Record<string, typeof MODE_INTROS[keyof typeof MODE_INTROS]>)[modeId];
-
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root">
       {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
