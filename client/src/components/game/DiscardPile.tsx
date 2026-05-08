@@ -66,7 +66,7 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
   const totalDiscards = discardEvents.reduce((sum, e) => sum + e.count, 0);
   const allExiting = discardEvents.length > 0 && discardEvents.every(e => e.exiting);
 
-  if (!isDrawPhase && totalDiscards === 0) return null;
+  if (totalDiscards === 0) return null;
 
   return (
     <div className="flex flex-col items-center gap-1" data-testid="discard-pile">
@@ -90,13 +90,6 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
             }}
           />
         ))}
-        {totalDiscards === 0 && isDrawPhase && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-10 h-14 sm:w-12 sm:h-16 rounded-sm border border-dashed border-white/12 flex items-center justify-center">
-              <span className="text-white/20 text-[8px] font-mono">MUCK</span>
-            </div>
-          </div>
-        )}
       </div>
       {/* Label disappears with the cards — not during exit */}
       {totalDiscards > 0 && !allExiting && (
