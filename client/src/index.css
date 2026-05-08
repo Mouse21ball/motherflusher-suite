@@ -1159,14 +1159,14 @@
 
 /* The felt oval tilts back — simulates looking down at the table */
 .table-3d-tilt {
-  transform: rotateX(14deg);
+  transform: rotateX(11deg);
   transform-style: preserve-3d;
   transform-origin: 50% 60%;
 }
 
 /* Counter-tilt: applied to elements inside the felt to keep them flat */
 .table-3d-counter {
-  transform: rotateX(-14deg);
+  transform: rotateX(-11deg);
   transform-style: preserve-3d;
 }
 
@@ -1214,24 +1214,24 @@
 
 /* Depth: hero seat closest to viewer */
 .seat-depth-hero {
-  transform: translateZ(40px);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.65)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
 }
 
 /* Depth: side seats mid-ground */
 .seat-depth-side {
-  transform: translateZ(-15px);
-  filter: brightness(0.96);
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.5)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+  opacity: 0.97;
 }
 
 /* Depth: top/back seats farthest */
 .seat-depth-top {
-  transform: translateZ(-30px) translateY(2px);
-  filter: brightness(0.92);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  opacity: 0.95;
 }
 
 /* Depth: foreground seats in front of hero */
 .seat-depth-foreground {
-  transform: translateZ(20px);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
 }
 
 /* Chip stack: physical elevation feel */

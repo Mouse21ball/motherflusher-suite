@@ -16370,5 +16370,115 @@
     },
     "handId": 3,
     "savedAt": 1777778634639
+  },
+  "XFUBTN": {
+    "state": {
+      "tableId": "XFUBTN",
+      "phase": "ANTE",
+      "pot": 3,
+      "currentBet": 0,
+      "minBet": 2,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 1498,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "Alice",
+          "presence": "bot",
+          "chips": 1436,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "Bob",
+          "presence": "bot",
+          "chips": 835,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "Charlie",
+          "presence": "bot",
+          "chips": 835,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "Daisy",
+          "presence": "bot",
+          "chips": 892,
+          "bet": 0,
+          "totalBet": 1,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "elrsbv8e",
+          "text": "New hand.",
+          "time": 1778260882883
+        },
+        {
+          "id": "zc20kw8m",
+          "text": "Bob paid $1 Ante",
+          "time": 1778260883533,
+          "isResolution": false
+        },
+        {
+          "id": "0nwd7bhf",
+          "text": "Charlie paid $1 Ante",
+          "time": 1778260884268,
+          "isResolution": false
+        },
+        {
+          "id": "buma8sya",
+          "text": "Daisy paid $1 Ante",
+          "time": 1778260884882,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1778260886892
   }
 }
