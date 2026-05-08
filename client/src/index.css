@@ -100,89 +100,83 @@
 
 .playing-card-front {
   background:
-    linear-gradient(158deg, #FFFFFF 0%, #F9F7F2 40%, #EDE9DF 70%, #E5E0D3 100%);
-  border-radius: 0.65rem;
+    repeating-linear-gradient(0deg, transparent 0px, rgba(0, 0, 0, 0.012) 1px, transparent 2px),
+    linear-gradient(135deg, #fefefe 0%, #f4f4f0 100%);
+  border-radius: 8px;
   box-shadow:
-    0 2px 4px rgba(0,0,0,0.44),
-    0 6px 18px rgba(0,0,0,0.38),
-    0 18px 40px rgba(0,0,0,0.28),
-    0 34px 60px rgba(0,0,0,0.18),
-    0 0 0 1px rgba(0,0,0,0.14),
-    inset 0 1px 0 rgba(255,255,255,1.0),
-    inset 0 0 0 0.5px rgba(0,0,0,0.05);
+    inset -1px 0 0 rgba(0, 0, 0, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 0.5px rgba(40, 28, 12, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.35);
   position: relative;
 }
 
 /* Inner glossy highlight — top third catches light */
 .card-inner-highlight {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 44%;
-  border-radius: 0.65rem 0.65rem 55% 55% / 0.65rem 0.65rem 32px 32px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.0) 100%);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 8px 8px 0 0;
   pointer-events: none;
-  z-index: 2;
 }
 
-/* Card rank — Playfair Display (classic serif, looks like a real casino card) */
+/* Card rank */
 .card-rank-text {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-weight: 900;
-  font-size: 11px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 14px;
   line-height: 1;
   letter-spacing: -0.02em;
 }
 @media (min-width: 640px) {
   .card-rank-text {
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
 /* Center pip — fills 52% of card width, scales with card */
 .card-center-pip {
-  width: 100%;
-  height: 100%;
+  opacity: 0.92;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.18));
 }
+
 .card-center-pip svg {
-  width: 52%;
-  height: 52%;
-  max-width: 38px;
-  max-height: 38px;
-  flex-shrink: 0;
-}
-@media (min-width: 640px) {
-  .card-center-pip svg {
-    max-width: 50px;
-    max-height: 50px;
-  }
+  max-width: 52%;
+  max-height: 52%;
+  width: auto;
+  height: auto;
 }
 
 /* Corner suit icon sizing */
-.card-corner-suit svg {
-  width: 12px;
-  height: 12px;
-}
-@media (min-width: 640px) {
-  .card-corner-suit svg {
-    width: 15px;
-    height: 15px;
-  }
+.card-corner-suit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
 }
 
 /* ── DECK THEMES ─────────────────────────────────────────────────────────── */
 
-/* Classic (default) — dark navy / antique gold */
-.playing-card-back,
-.deck-classic .playing-card-back {
+/* Classic (default) — dark red / gold border */
+.playing-card-back {
   background:
-    linear-gradient(135deg, #1C1A2E 0%, #12111C 50%, #0A0A12 100%);
-  border: 2px solid rgba(201, 162, 39, 0.16);
-  border-radius: 0.6rem;
+    repeating-linear-gradient(45deg, #2a1818 0px, #2a1818 4px, #3a2020 4px, #3a2020 8px),
+    linear-gradient(135deg, #4a1f1f 0%, #2a0f0f 100%);
+  border-radius: 8px;
+  border: 2px solid #c9a227;
   box-shadow:
-    0 2px 5px rgba(0,0,0,0.35),
-    0 8px 18px rgba(0,0,0,0.25),
-    0 18px 32px rgba(0,0,0,0.15),
-    inset 0 0 20px rgba(201, 162, 39, 0.03);
+    inset 0 0 0 1px rgba(201, 162, 39, 0.4),
+    inset 0 0 12px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.35);
   position: relative;
   overflow: hidden;
 }
@@ -280,14 +274,17 @@
 }
 
 .card-selected {
+  outline: 2.5px solid #C9A227;
+  outline-offset: 2px;
   box-shadow:
-    0 0 0 2.5px rgba(255, 215, 0, 1.0),
-    0 0 0 4px rgba(255, 200, 0, 0.35),
-    0 0 18px rgba(255, 215, 0, 0.90),
-    0 0 38px rgba(255, 200, 0, 0.55),
-    0 -8px 18px rgba(255, 215, 0, 0.30);
-  border-radius: 0.6rem;
-  transform: translateY(-2px);
+    inset -1px 0 0 rgba(0, 0, 0, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 0.5px rgba(40, 28, 12, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(201, 162, 39, 0.55),
+    0 8px 16px rgba(0, 0, 0, 0.45);
 }
 
 /* ── Table felt — deep spotlight, dramatic depth ─────────────────────────── */
@@ -346,9 +343,14 @@
 }
 
 .felt-overlay {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
-  animation: felt-texture-pulse 12s ease-in-out infinite;
-  will-change: opacity;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    repeating-linear-gradient(45deg, transparent 0px, rgba(255, 255, 255, 0.012) 1px, transparent 2px, transparent 4px),
+    repeating-linear-gradient(-45deg, transparent 0px, rgba(0, 0, 0, 0.025) 1px, transparent 2px, transparent 4px);
+  pointer-events: none;
+  mix-blend-mode: overlay;
 }
 
 @keyframes felt-texture-pulse {
@@ -358,12 +360,7 @@
 
 /* ── Perspective-aware table oval — asymmetric radii suggest viewing angle ── */
 .table-perspective-oval {
-  border-radius: 88px 88px 72px 72px / 52px 52px 72px 72px !important;
-}
-@media (min-width: 640px) {
-  .table-perspective-oval {
-    border-radius: 130px 130px 104px 104px / 78px 78px 100px 100px !important;
-  }
+  transform-style: preserve-3d;
 }
 
 /* ── Scene enter — table rises gently into view on mount ───────────────── */
@@ -392,41 +389,54 @@
 
 /* ── Premium pot display chip stack ────────────────────────────────────── */
 .pot-display-premium {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(201,162,39,0.12) 0%, transparent 60%),
-    linear-gradient(160deg, #0f0f12 0%, #080809 100%);
-  border: 1px solid rgba(201,162,39,0.32);
-  box-shadow:
-    0 0 0 1px rgba(201,162,39,0.08),
-    0 0 20px rgba(201,162,39,0.14),
-    0 4px 16px rgba(0,0,0,0.60),
-    inset 0 1px 0 rgba(201,162,39,0.18);
-  backdrop-filter: blur(8px);
-  border-radius: 14px;
-  padding: 8px 16px 10px;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  min-width: 72px;
+  gap: 4px;
+  padding: 8px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 18, 12, 0.95) 0%, rgba(8, 6, 4, 0.95) 100%);
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(201, 162, 39, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(201, 162, 39, 0.08);
 }
 
 /* ── Chip stack icon for pot display ───────────────────────────────────── */
 .chip-stack-icon {
-  display: flex;
+  display: inline-flex;
   flex-direction: column-reverse;
-  align-items: center;
   gap: 0;
-  margin-right: 4px;
+  position: relative;
+  width: 22px;
+  height: 18px;
 }
+
 .chip-stack-icon span {
   display: block;
-  width: 18px;
-  height: 6px;
+  width: 22px !important;
+  height: 5px !important;
   border-radius: 50%;
-  margin-bottom: -4px;
-  border: 1.5px solid rgba(0,0,0,0.35);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  margin-top: -2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #d63838 0%, #a01c1c 50%, #6b0d0d 100%) !important;
+}
+
+.chip-stack-icon span:nth-child(1) {
+  background: linear-gradient(180deg, #ee5050 0%, #b82020 50%, #770e0e 100%) !important;
+}
+
+.chip-stack-icon span:nth-child(2) {
+  background: linear-gradient(180deg, #d63838 0%, #a01c1c 50%, #6b0d0d 100%) !important;
+}
+
+.chip-stack-icon span:nth-child(3) {
+  background: linear-gradient(180deg, #be2020 0%, #881010 50%, #5a0808 100%) !important;
 }
 
 /* ── Active player timer ring — conic depleting arc ─────────────────────── */
@@ -537,10 +547,7 @@
 
 /* ── Card depth shadow — for community card wrappers ───────────────────── */
 .card-depth-shadow {
-  filter:
-    drop-shadow(0 2px 4px rgba(0,0,0,0.75))
-    drop-shadow(0 6px 14px rgba(0,0,0,0.60))
-    drop-shadow(0 14px 32px rgba(0,0,0,0.40));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 /* ── Pot counter — layered depth, floating above felt ──────────────────── */
@@ -953,28 +960,26 @@
 }
 
 .gold-chip {
-  width: 1rem;
-  height: 1rem;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #D4B44A 0%, #C9A227 50%, #A8871E 100%);
+  background: radial-gradient(circle at 30% 30%, #f4d678 0%, #c9a227 40%, #8b6f1a 100%);
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.3),
-    0 0 10px rgba(201,162,39,0.80),
-    0 0 22px rgba(201,162,39,0.35),
-    0 0 40px rgba(201,162,39,0.12),
-    inset 0 1px 1px rgba(255,255,255,0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    inset 0 0 0 1.5px rgba(40, 28, 12, 0.85),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+  position: relative;
   flex-shrink: 0;
 }
 
 .gold-chip::after {
   content: '';
-  width: 60%;
-  height: 60%;
+  position: absolute;
+  inset: 3px;
   border-radius: 50%;
-  border: 1px solid rgba(168, 135, 30, 0.4);
+  border: 1px dashed rgba(40, 28, 12, 0.5);
 }
 
 /* ── Win celebration — gold particle burst ────────────────────────────────── */
@@ -1148,41 +1153,43 @@
 
 /* Outer wrapper applies CSS perspective so everything inside has 3D depth */
 .table-3d-perspective {
-  perspective: 1100px;
-  perspective-origin: 50% -5%;
+  perspective: 1400px;
+  perspective-origin: 50% 30%;
 }
 
 /* The felt oval tilts back — simulates looking down at the table */
 .table-3d-tilt {
-  transform: rotateX(9deg);
-  transform-origin: center 60%;
-  will-change: transform;
-  backface-visibility: hidden;
+  transform: rotateX(14deg);
+  transform-style: preserve-3d;
+  transform-origin: 50% 60%;
 }
 
 /* Counter-tilt: applied to elements inside the felt to keep them flat */
 .table-3d-counter {
-  transform: rotateX(-9deg);
-  transform-origin: center center;
+  transform: rotateX(-14deg);
+  transform-style: preserve-3d;
 }
 
 /* Extra 3D rail — thicker, more dramatic wood edge + deep table shadow */
 .game-table-felt-3d {
+  position: relative;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 38%, rgba(255, 220, 150, 0.18) 0%, rgba(255, 200, 130, 0.08) 25%, transparent 60%),
+    radial-gradient(ellipse 80% 70% at 50% 50%, #1a3d2e 0%, #0f2a1f 50%, #08160f 90%, #050a07 100%);
+  border-radius: 76px;
   box-shadow:
-    inset 0 -3px 0 rgba(201,162,39,0.22),
-    inset 0 6px 28px rgba(0,0,0,0.82),
-    inset 0 0 0 1px rgba(201,162,39,0.14),
-    inset 0 0 148px rgba(0,0,0,0.94),
-    inset 100px 0 108px rgba(0,0,0,0.52),
-    inset -100px 0 108px rgba(0,0,0,0.52),
-    inset 0 80px 108px rgba(0,0,0,0.46),
-    inset 0 -40px 64px rgba(0,0,0,0.28),
-    0 0 0 4px #1a1306,
-    0 0 0 7px #0b0804,
-    0 0 0 9px rgba(201,162,39,0.22),
-    0 28px 90px rgba(0,0,0,0.98),
-    0 48px 120px rgba(0,0,0,0.72),
-    0 72px 140px rgba(0,0,0,0.42);
+    inset 0 0 80px 20px rgba(0, 0, 0, 0.85),
+    inset 0 0 30px 4px rgba(0, 0, 0, 0.6),
+    0 0 0 4px rgba(60, 42, 18, 0.9),
+    0 0 0 8px rgba(120, 90, 40, 0.4),
+    0 24px 48px rgba(0, 0, 0, 0.7),
+    0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 640px) {
+  .game-table-felt-3d {
+    border-radius: 116px;
+  }
 }
 
 /* Card deal from deck — 3D arc trajectory */
@@ -1205,25 +1212,26 @@
   animation: card-reveal-3d 300ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
 }
 
-/* Depth drop-shadow for the hero seat foreground plane */
+/* Depth: hero seat closest to viewer */
 .seat-depth-hero {
-  filter:
-    drop-shadow(0 16px 32px rgba(0,0,0,0.70))
-    drop-shadow(0 4px 8px rgba(0,0,0,0.50));
+  transform: translateZ(40px);
 }
 
-/* Depth drop-shadow for side seats (mid-ground) */
+/* Depth: side seats mid-ground */
 .seat-depth-side {
-  filter:
-    drop-shadow(0 8px 16px rgba(0,0,0,0.55))
-    drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+  transform: translateZ(-15px);
+  filter: brightness(0.96);
 }
 
-/* Depth drop-shadow for top/back seats (farthest) */
+/* Depth: top/back seats farthest */
 .seat-depth-top {
-  filter:
-    drop-shadow(0 4px 8px rgba(0,0,0,0.40))
-    drop-shadow(0 1px 3px rgba(0,0,0,0.25));
+  transform: translateZ(-30px) translateY(2px);
+  filter: brightness(0.92);
+}
+
+/* Depth: foreground seats in front of hero */
+.seat-depth-foreground {
+  transform: translateZ(20px);
 }
 
 /* Chip stack: physical elevation feel */

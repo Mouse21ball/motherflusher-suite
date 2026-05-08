@@ -1,4 +1,4 @@
-# Chain Gang Poker
+o# Chain Gang Poker
 
 Chain Gang Poker is a premium poker platform offering five exclusive multiplayer game modes with virtual chips.
 
@@ -70,7 +70,4 @@ Chain Gang Poker offers four distinct poker game modes: Badugi, Dead 7, 15 / 35,
 
 - **React Docs**: `https://react.dev/`
 - **Tailwind CSS Docs**: `https://tailwindcss.com/docs`
-- **Prisma Docs**: `https://www.prisma.io/docs/`
-- **Capacitor Docs**: `https://capacitorjs.com/docs`
-- **WebSocket (ws) Docs**: `https://github.com/websockets/ws`
-- **shadcn/ui Docs**: `https://ui.shadcn.com/docs`
+- **Prisma Docs**: `
