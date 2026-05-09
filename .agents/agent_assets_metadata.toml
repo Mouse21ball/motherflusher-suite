@@ -48,8 +48,20 @@ uri = "file://client/public/cgp-wallpaper.png"
 type = "image"
 title = "dark gritty card room wallpaper"
 
+[[generated]]
+id = "rK71EsIUnRMS8o3jUV8ej"
+uri = "file://client/public/cgp-wallpaper-luxury.png"
+type = "image"
+title = "luxury private poker room wallpaper"
+
 [[outputs]]
 id = "YUZU3DDcT8jbhadw2UlIp"
 uri = "file://client/public/cgp-wallpaper.png"
 type = "image"
 title = "CGP Dark Card Room Wallpaper (9:16)"
+
+[[outputs]]
+id = "_jlqWkb8zd0W31lYot1J7"
+uri = "file://client/public/cgp-wallpaper-luxury.png"
+type = "image"
+title = "CGP Luxury Poker Room Wallpaper (9:16)"
