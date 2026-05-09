@@ -22,6 +22,7 @@ import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
+import { qualifiesForSuits } from '@shared/modes/suitspoker';
 
 // ── Invite Banner ─────────────────────────────────────────────────────────────
 
@@ -276,7 +277,13 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               phaseHint={getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot })}
               openSeatsCount={openSeatsCount}
               humanCount={humanCount}
-              declarationOptions={modeId === 'suitspoker' ? SUITSPOKER_DECLARATION_OPTIONS : undefined}
+              declarationOptions={modeId === 'suitspoker' ? (() => {
+                const heroSuitsQualifies = me ? qualifiesForSuits(me.cards) : false;
+                return SUITSPOKER_DECLARATION_OPTIONS.map(opt => ({
+                  ...opt,
+                  disabled: (opt.value === 'SUITS' || opt.value === 'SWING') && !heroSuitsQualifies,
+                }));
+              })() : undefined}
               myDeclaration={me?.declaration ?? null}
               turnDeadline={state.turnDeadline ?? null}
             />

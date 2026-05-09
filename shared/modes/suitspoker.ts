@@ -9,6 +9,27 @@ function suitsCardValue(rank: string): number {
   return parseInt(rank, 10);
 }
 
+export function evaluateSuitsScore(cards: CardType[]): number {
+  if (!cards || cards.length === 0) return 0;
+  const suitTotals: Record<string, number> = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
+  for (const card of cards) {
+    const pts = suitsCardValue(card.rank);
+    if (!isNaN(pts)) suitTotals[card.suit] = (suitTotals[card.suit] || 0) + pts;
+  }
+  return Math.max(suitTotals.hearts, suitTotals.diamonds, suitTotals.clubs, suitTotals.spades);
+}
+
+export function qualifiesForSuits(cards: CardType[]): boolean {
+  return evaluateSuitsScore(cards) >= 40;
+}
+
+export function evaluatePokerHand(cards: CardType[]): { description: string; tier: number } | null {
+  if (!cards || cards.length < 5) return null;
+  const result = eval5Cards(cards.slice(0, 5));
+  const tier = Math.floor(result.value / 1000000);
+  return { description: result.name, tier };
+}
+
 const pokerRankValues: Record<string, number> = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
 
 function getCombinations<T>(array: T[], k: number): T[][] {
@@ -157,8 +178,8 @@ export const SuitsPokerMode: GameMode = {
       let declaration: Declaration = bot.declaration;
       if (phase === 'DECLARE_AND_BET') {
         const isStrongPoker = (evaluation?.pokerValue || 0) >= 2000000;
-        const isDecentSuits = evaluation?.suitsValid && (evaluation?.suitsScore || 0) >= 35;
-        const isStrongSuits = evaluation?.suitsValid && (evaluation?.suitsScore || 0) >= 45;
+        const isDecentSuits = qualifiesForSuits(bot.cards);
+        const isStrongSuits = qualifiesForSuits(bot.cards) && (evaluation?.suitsScore || 0) >= 45;
         if (isStrongPoker && isStrongSuits) declaration = 'SWING';
         else if (isDecentSuits && !isStrongPoker) declaration = 'SUITS';
         else if (isStrongPoker && !isDecentSuits) declaration = 'POKER';
@@ -199,7 +220,21 @@ export const SuitsPokerMode: GameMode = {
 
   resolveShowdown: (players, pot, myId, communityCards) => {
     const cc = communityCards || [];
-    const finalPlayers: Player[] = players.map(p => { if (p.status === 'folded') return p; const cards = p.cards.map(c => ({ ...c, isHidden: false })); return { ...p, cards, score: spEvaluateHand({ ...p, cards }, cc) || undefined }; });
+    let finalPlayers: Player[] = players.map(p => { if (p.status === 'folded') return p; const cards = p.cards.map(c => ({ ...c, isHidden: false })); return { ...p, cards, score: spEvaluateHand({ ...p, cards }, cc) || undefined }; });
+    // Validate SUITS / SWING qualifiers — downgrade to FOLD if score < 40
+    finalPlayers = finalPlayers.map(p => {
+      if (p.status === 'folded') return p;
+      if (p.declaration === 'SUITS' || p.declaration === 'SWING') {
+        if (!qualifiesForSuits(p.cards)) {
+          if (p.declaration === 'SWING') {
+            return { ...p, declaration: 'POKER' as Declaration };
+          } else {
+            return { ...p, status: 'folded' as 'folded', declaration: null };
+          }
+        }
+      }
+      return p;
+    });
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
     const messages: string[] = [];
 

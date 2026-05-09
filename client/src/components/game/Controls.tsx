@@ -8,6 +8,7 @@ interface DeclarationOption {
   label: string;
   value: Declaration;
   className: string;
+  disabled?: boolean;
 }
 
 interface ActionControlsProps {
@@ -401,7 +402,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         </div>
         <div className="grid grid-cols-3 gap-2">
           {declOpts.map(opt => (
-            <Button key={opt.value} variant="outline" className={`${opt.className} transition-all duration-200`} onClick={() => {
+            <Button key={opt.value} variant="outline" className={`${opt.className} transition-all duration-200${opt.disabled ? ' opacity-40 pointer-events-none' : ''}`} disabled={!!opt.disabled} onClick={() => {
+              if (opt.disabled) return;
               sfx.declare();
               if (isAllIn) {
                 onAction('declare_and_bet', { declaration: opt.value, action: 'check', amount: 0 });

@@ -11,6 +11,7 @@ import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 import { evaluateBadugi } from "@/lib/poker/modes/badugi";
 import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
+import { evaluateSuitsScore, evaluatePokerHand } from '@shared/modes/suitspoker';
 import { cn } from "@/lib/utils";
 
 interface ThreeDTableSceneProps {
@@ -280,7 +281,7 @@ export function ThreeDTableScene({
   heroCardClassName, onReact, incomingReactions,
 }: ThreeDTableSceneProps) {
   const isRingLayout = modeId === 'swing';
-  const isDrawModeFull = ['badugi', 'dead7', 'fifteen35'].includes(modeId);
+  const isDrawModeFull = ['badugi', 'dead7', 'fifteen35', 'suitspoker'].includes(modeId);
   const isSuitsPoker   = modeId === 'suitspoker';
   const isShowdown     = gameState.phase === 'SHOWDOWN';
 
@@ -516,6 +517,21 @@ export function ThreeDTableScene({
       } else {
         heroMadeLabel = '✗ No qualifier yet';
       }
+    } else if (modeId === 'suitspoker') {
+      const pokerEv = evaluatePokerHand(me.cards);
+      const suitsScore = evaluateSuitsScore(me.cards);
+      const suitsQualifies = suitsScore >= 40;
+      const tier = pokerEv?.tier ?? 0;
+      heroIsMade = !!pokerEv || suitsQualifies;
+      let rec = '';
+      if (tier >= 8 && suitsQualifies) rec = 'declare SWING';
+      else if (suitsQualifies && tier < 2) rec = 'declare SUITS';
+      else if (tier >= 2) rec = 'declare POKER';
+      const pokerLabel = pokerEv?.description ?? 'High Card';
+      const suitsLabel = suitsQualifies ? `Suits ${suitsScore}` : `Suits ${suitsScore} (need 40+)`;
+      heroMadeLabel = rec
+        ? `✓ ${pokerLabel} · ${suitsLabel} — ${rec}`
+        : `${pokerLabel} · ${suitsLabel}`;
     }
   }
 
