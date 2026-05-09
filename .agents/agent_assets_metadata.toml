@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "xLGuHMR1rXtZwADrkXwBo"
@@ -42,3 +41,15 @@ id = "ivHQMGqk2RH-sLvLkBnGd"
 uri = "file://client/src/assets/images/splash-bg.png"
 type = "image"
 title = "splash tiger leopard dgm pink black"
+
+[[generated]]
+id = "1-yhaYJI0OggrTuuSX78B"
+uri = "file://client/public/cgp-wallpaper.png"
+type = "image"
+title = "dark gritty card room wallpaper"
+
+[[outputs]]
+id = "YUZU3DDcT8jbhadw2UlIp"
+uri = "file://client/public/cgp-wallpaper.png"
+type = "image"
+title = "CGP Dark Card Room Wallpaper (9:16)"
