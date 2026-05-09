@@ -33,10 +33,10 @@ function getArcPosition(index: number, total: number): string {
   if (total === 3) return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
     "absolute top-0 left-1/2 -translate-x-1/2 z-20",
     "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
-  return (["absolute top-[44%] -left-2 sm:left-2 -translate-y-1/2 z-20",
+  return (["absolute bottom-[6%] -left-2 sm:left-2 z-20",
     "absolute top-0 left-[18%] sm:left-[22%] -translate-x-1/2 z-20",
     "absolute top-0 right-[18%] sm:right-[22%] translate-x-1/2 z-20",
-    "absolute top-[44%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
+    "absolute bottom-[6%] -right-2 sm:right-2 z-20"] as const)[index] ?? "hidden";
 }
 
 function getArcScale(index: number, total: number): string {
