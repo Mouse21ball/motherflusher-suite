@@ -507,7 +507,15 @@ export function ThreeDTableScene({
     } else if (modeId === 'fifteen35') {
       const ev = Fifteen35Mode.evaluateHand?.(me, []);
       heroIsMade = !!ev?.isValidBadugi;
-      heroMadeLabel = heroIsMade ? `✓ ${ev!.description}` : ev?.description?.includes('BUST') ? '✗ Bust' : '✗ No qualifier yet';
+      if (heroIsMade && ev) {
+        const total = ev.badugiRankValues![0];
+        const rec = total >= 13 && total <= 15 ? 'LOW' : total >= 33 && total <= 35 ? 'HIGH' : null;
+        heroMadeLabel = rec ? `✓ ${ev.description} — declare ${rec}` : `✓ ${ev.description}`;
+      } else if (ev?.description?.includes('BUST') || ev?.description?.includes('Bust')) {
+        heroMadeLabel = '✗ Bust';
+      } else {
+        heroMadeLabel = '✗ No qualifier yet';
+      }
     }
   }
 
