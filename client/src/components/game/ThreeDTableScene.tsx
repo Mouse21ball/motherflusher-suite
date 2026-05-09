@@ -493,7 +493,13 @@ export function ThreeDTableScene({
     if (modeId === 'badugi') {
       const ev = evaluateBadugi(me.cards);
       heroIsMade = !!ev?.isValidBadugi;
-      heroMadeLabel = heroIsMade ? `✓ ${ev!.description}` : '✗ No Badugi yet';
+      if (heroIsMade && ev) {
+        const highest = ev.badugiRankValues![0];
+        const recommendation = highest <= 8 ? 'declare LOW' : 'declare HIGH';
+        heroMadeLabel = `✓ ${ev.description} — ${recommendation}`;
+      } else {
+        heroMadeLabel = '✗ No Badugi yet';
+      }
     } else if (modeId === 'dead7') {
       const ev = evaluateDead7(me.cards.map(c => ({ ...c, isHidden: false })));
       heroIsMade = !!ev?.isValidBadugi;
