@@ -27,28 +27,28 @@ interface ThreeDTableSceneProps {
 
 // ── Arc layout helpers (badugi / dead7 / fifteen35 / suitspoker) ─────────────
 function getArcPosition(index: number, total: number): string {
-  if (total === 1) return "absolute -top-4 sm:-top-1 left-1/2 -translate-x-1/2 z-20";
-  if (total === 2) return (["absolute -top-4 sm:-top-1 left-[26%] -translate-x-1/2 z-20",
-    "absolute -top-4 sm:-top-1 right-[26%] translate-x-1/2 z-20"] as const)[index] ?? "hidden";
-  if (total === 3) return (["absolute top-[28%] -left-6 sm:-left-3 -translate-y-1/2 z-20",
-    "absolute -top-4 sm:-top-1 left-1/2 -translate-x-1/2 z-20",
-    "absolute top-[28%] -right-6 sm:-right-3 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
-  return (["absolute top-[34%] -left-6 sm:-left-3 -translate-y-1/2 z-20",
-    "absolute -top-4 sm:-top-1 left-[22%] sm:left-[24%] -translate-x-1/2 z-20",
-    "absolute -top-4 sm:-top-1 right-[22%] sm:right-[24%] translate-x-1/2 z-20",
-    "absolute top-[34%] -right-6 sm:-right-3 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
+  if (total === 1) return "absolute top-0 left-1/2 -translate-x-1/2 z-20";
+  if (total === 2) return (["absolute top-0 left-[20%] -translate-x-1/2 z-20",
+    "absolute top-0 right-[20%] translate-x-1/2 z-20"] as const)[index] ?? "hidden";
+  if (total === 3) return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
+    "absolute top-0 left-1/2 -translate-x-1/2 z-20",
+    "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
+  return (["absolute top-[44%] -left-2 sm:left-2 -translate-y-1/2 z-20",
+    "absolute top-0 left-[18%] sm:left-[22%] -translate-x-1/2 z-20",
+    "absolute top-0 right-[18%] sm:right-[22%] translate-x-1/2 z-20",
+    "absolute top-[44%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
 }
 
 function getArcScale(index: number, total: number): string {
-  if (total === 1) return "scale-[0.68] sm:scale-[0.78] seat-depth-top";
-  if (total === 2) return "scale-[0.70] sm:scale-[0.80] seat-depth-top";
-  if (total === 3) return (["scale-[0.73] sm:scale-[0.83] seat-depth-side",
-    "scale-[0.67] sm:scale-[0.77] seat-depth-top",
-    "scale-[0.73] sm:scale-[0.83] seat-depth-side"] as const)[index] ?? "scale-[0.70]";
-  return (["scale-[0.74] sm:scale-[0.84] seat-depth-side",
-    "scale-[0.67] sm:scale-[0.77] seat-depth-top",
-    "scale-[0.67] sm:scale-[0.77] seat-depth-top",
-    "scale-[0.74] sm:scale-[0.84] seat-depth-side"] as const)[index] ?? "scale-[0.70]";
+  if (total === 1) return "scale-[0.62] sm:scale-[0.72] seat-depth-top";
+  if (total === 2) return "scale-[0.64] sm:scale-[0.74] seat-depth-top";
+  if (total === 3) return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
+    "scale-[0.62] sm:scale-[0.72] seat-depth-top",
+    "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
+  return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
+    "scale-[0.60] sm:scale-[0.70] seat-depth-top",
+    "scale-[0.60] sm:scale-[0.70] seat-depth-top",
+    "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
 }
 
 // ── Ring layout helpers (swing / Swing Poker) ────────────────────────────────
@@ -770,7 +770,7 @@ export function ThreeDTableScene({
       </div>
 
       {/* 3D perspective wrapper */}
-      <div className="relative table-3d-perspective">
+      <div className="relative table-3d-perspective pt-12 sm:pt-16 pb-6 sm:pb-8">
 
         {/* Felt surface — tilted for 3D depth */}
         <div
