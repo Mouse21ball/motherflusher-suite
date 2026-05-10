@@ -541,7 +541,7 @@ export default function Home() {
   const winRate = stats.handsPlayed > 0 ? Math.round((stats.wins / stats.handsPlayed) * 100) : 0;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden" style={{ backgroundColor: C.bg }}>
+    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden" style={{ backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 50%, rgba(10,10,14,0.85) 100%), url('/home-hero.jpg')", backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
 
       {/* ── Deep multi-layer ambience ─────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
@@ -600,69 +600,58 @@ export default function Home() {
         <div className="lobby-orb-pink" style={{ top: '62vh', left: '-40px' }} aria-hidden="true" />
         <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
 
-        {/* ── HERO BANNER — full-bleed cinematic ───────────────────────────── */}
-        <div className="relative w-full h-[70vh] min-h-[480px] sm:h-[75vh] sm:min-h-[600px] overflow-hidden">
-          <img
-            src="/home-hero.jpg"
-            alt="Chain Gang Poker"
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0a0a0e] pointer-events-none" />
+        {/* ── HERO SPACE — transparent window into fixed wallpaper ─────────── */}
+        <div className="relative w-full h-[60vh] sm:h-[65vh] flex flex-col max-w-lg">
 
-          {/* Top-left live indicator */}
-          <div className="absolute top-3 left-3 z-20">
+          {/* Top floating nav bar */}
+          <div className="flex items-center justify-between px-3 pt-3 z-20">
             <div className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald }} />
               <span className="text-[9px] font-mono text-white/70 tracking-wider uppercase" data-testid="text-live-count">
                 {realPlayerCount > 0 ? `${realPlayerCount} live` : 'Live'}
               </span>
             </div>
-          </div>
-
-          {/* Top-right glass nav icons */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
-            <button
-              onClick={() => navigate('/leaderboard')}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
-              data-testid="link-leaderboard-header"
-            >🏆</button>
-            <button
-              onClick={() => navigate('/shop')}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
-              data-testid="link-shop-header"
-            >🛍️</button>
-            <button
-              onClick={() => navigate('/profile')}
-              className="w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center text-xs font-bold font-mono text-white active:scale-95 transition-transform"
-              style={{ backgroundColor: avatarColor + '80', borderColor: rank.color + '90' }}
-              data-testid="button-open-profile"
-            >{initials}</button>
-          </div>
-
-          {/* Floating Quick Play CTA — sits in lower portion of hero */}
-          <div className="absolute bottom-8 left-0 right-0 z-20 px-4">
-            <div className="max-w-lg mx-auto">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => navigateToMode('badugi', '/badugi')}
-                className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-4 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.55)] hover:shadow-[0_0_36px_rgba(201,162,39,0.75)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
-                data-testid="button-quick-play-hero"
-              >
-                <span>QUICK PLAY →</span>
-                <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
-              </button>
+                onClick={() => navigate('/leaderboard')}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
+                data-testid="link-leaderboard-header"
+              >🏆</button>
+              <button
+                onClick={() => navigate('/shop')}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
+                data-testid="link-shop-header"
+              >🛍️</button>
+              <button
+                onClick={() => navigate('/profile')}
+                className="w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center text-xs font-bold font-mono text-white active:scale-95 transition-transform"
+                style={{ backgroundColor: avatarColor + '80', borderColor: rank.color + '90' }}
+                data-testid="button-open-profile"
+              >{initials}</button>
             </div>
           </div>
 
-          {/* Scroll hint */}
-          <div className="absolute bottom-1 left-0 right-0 flex justify-center z-10 pointer-events-none">
-            <div className="text-white/30 text-[10px] font-mono tracking-widest animate-bounce">▼</div>
+          {/* Spacer — lets the chain hex art breathe */}
+          <div className="flex-1" />
+
+          {/* Quick Play CTA anchored to bottom of hero space */}
+          <div className="px-4 pb-4 z-20">
+            <button
+              onClick={() => navigateToMode('badugi', '/badugi')}
+              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-4 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.55)] hover:shadow-[0_0_36px_rgba(201,162,39,0.75)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
+              data-testid="button-quick-play-hero"
+            >
+              <span>QUICK PLAY →</span>
+              <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
+            </button>
           </div>
+
         </div>
 
         <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3 -mt-6 relative z-10">
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-3 py-2.5 bg-[#0e0e11]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] relative overflow-hidden">
+          <div className="flex items-center gap-3 px-3 py-2.5 bg-black/45 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.5)] relative overflow-hidden">
             <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-xl opacity-30" />
             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold font-mono text-white shrink-0 relative"
               style={{ backgroundColor: avatarColor + '30', border: `1.5px solid ${rank.color}65` }}>
@@ -695,8 +684,7 @@ export default function Home() {
           {rewardReady ? (
             <button
               onClick={() => setDailyOpen(true)}
-              className="w-full rounded-2xl px-4 py-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.99] group relative overflow-hidden"
-              style={{ background: `linear-gradient(135deg, rgba(255,107,0,0.14) 0%, rgba(240,184,41,0.08) 100%)`, border: `1px solid rgba(255,107,0,0.35)` }}
+              className="w-full rounded-2xl px-4 py-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.99] group relative overflow-hidden bg-orange-950/50 backdrop-blur-md border border-orange-500/30"
               data-testid="button-claim-daily-home"
             >
               <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-2xl opacity-50" />
@@ -715,8 +703,7 @@ export default function Home() {
               <div className="text-xl relative" style={{ color: C.orange }}>›</div>
             </button>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-              style={{ backgroundColor: '#1a1208', border: '1px solid rgba(201,162,39,0.20)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs bg-[#1a1208]/60 backdrop-blur-xl border border-[#C9A227]/25">
               <span style={{ color: C.gold }}>{streakInfo.streak > 0 ? '🔥' : '⏰'}</span>
               <span className="text-white/70 flex-1 font-sans">
                 {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak` : 'Daily Ration'}
@@ -732,11 +719,8 @@ export default function Home() {
             {/* Hourly Bonus */}
             <button
               onClick={() => setHourlyOpen(true)}
-              className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97] relative"
-              style={hourlyReady
-                ? { background: 'linear-gradient(135deg, rgba(240,184,41,0.14) 0%, rgba(240,184,41,0.05) 100%)', border: '1px solid rgba(240,184,41,0.35)' }
-                : { backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }
-              }
+              className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border active:scale-[0.97] transition-transform relative"
+              style={{ borderColor: hourlyReady ? 'rgba(240,184,41,0.40)' : 'rgba(255,255,255,0.10)' }}
               data-testid="button-hourly-home"
             >
               {hourlyReady && (
@@ -755,8 +739,7 @@ export default function Home() {
             {starterAvailable && (
               <button
                 onClick={() => setStarterOpen(true)}
-                className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97] relative"
-                style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.12) 0%, rgba(255,107,0,0.06) 100%)', border: '1px solid rgba(240,184,41,0.30)' }}
+                className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border border-[#F0B829]/30 active:scale-[0.97] transition-transform relative"
                 data-testid="button-starter-home"
               >
                 <span
@@ -771,8 +754,7 @@ export default function Home() {
             {/* Bonus Center */}
             <button
               onClick={() => navigate('/bonus')}
-              className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97]"
-              style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
+              className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border border-white/10 active:scale-[0.97] transition-transform"
               data-testid="link-bonus-center-home"
             >
               <div className="text-sm leading-none">⚡</div>
@@ -791,24 +773,21 @@ export default function Home() {
             return (
               <div className={`grid ${colClass} gap-2`}>
                 {showBestWin && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
-                    style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#F0B829]/15">
                     <div className="text-sm mb-0.5">🏆</div>
                     <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Best Win</div>
                     <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.gold }}>${biggestPot.toLocaleString()}</div>
                   </div>
                 )}
                 {showWinRate && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
-                    style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#00C896]/15">
                     <div className="text-sm mb-0.5">📈</div>
                     <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Win Rate</div>
                     <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.emerald }}>{winRate}%</div>
                   </div>
                 )}
                 {showStreak && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
-                    style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#FF6B00]/15">
                     <div className="text-sm mb-0.5">⛓️</div>
                     <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Streak</div>
                     <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.orange }}>{streakInfo.streak} days</div>
@@ -835,7 +814,7 @@ export default function Home() {
                 <button
                   key={mode.id}
                   onClick={() => navigateToMode(mode.id, mode.path)}
-                  className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group flex flex-col"
+                  className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group flex flex-col backdrop-blur-md"
                   style={{ background: mode.bg, border: `1px solid ${mode.border}`, minHeight: '120px' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
@@ -880,11 +859,12 @@ export default function Home() {
           </div>
 
           {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
-          <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
+          <div className="rounded-2xl bg-black/45 backdrop-blur-xl border border-white/10 overflow-hidden">
+            <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
+          </div>
 
           {/* ── CREW INVITE (Multiplayer spotlight) ───────────────────────── */}
-          <div className="w-full rounded-2xl p-4 relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.08) 0%, rgba(155,93,229,0.06) 100%)', border: '1px solid rgba(0,200,150,0.16)' }}>
+          <div className="w-full rounded-2xl p-4 relative overflow-hidden bg-emerald-950/35 backdrop-blur-xl border border-emerald-500/20">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
@@ -922,8 +902,7 @@ export default function Home() {
 
           {/* ── STATS STRIP ───────────────────────────────────────────────── */}
           {stats.handsPlayed > 0 && (
-            <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
-              style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.04)' }}>
+            <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4 bg-black/40 backdrop-blur-md border border-white/[0.06]">
               <div className="flex items-center gap-2.5 flex-wrap">
                 {[
                   { label: 'Hands', value: String(stats.handsPlayed), color: 'text-white/55' },
@@ -951,7 +930,7 @@ export default function Home() {
           )}
 
           {/* ── BOTTOM NAV ────────────────────────────────────────────────── */}
-          <div className="flex justify-around items-center pt-1">
+          <div className="flex flex-wrap justify-around items-center gap-y-2 px-2 py-3 bg-black/30 backdrop-blur-md border-t border-white/5 rounded-2xl">
             {[
               { label: '🏆 Leaderboard', path: '/leaderboard', color: C.gold,    id: 'link-leaderboard-footer' },
               { label: '🛍️ Shop & Merch', path: '/shop',        color: C.orange,  id: 'link-shop-footer'        },
