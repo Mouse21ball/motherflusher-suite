@@ -53,6 +53,12 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
   };
 }
 
+// ─── Sole-survivor helper (Parts 3/5) ────────────────────────────────────────
+function checkSoleSurvivor(players: Player[]): Player | null {
+  const active = players.filter(p => p.status === 'active');
+  return active.length === 1 ? active[0] : null;
+}
+
 function getDealerIndex(players: Player[]): number {
   const idx = players.findIndex(p => p.isDealer);
   return idx === -1 ? 0 : idx;
@@ -594,6 +600,11 @@ function advanceToNextPhase(table: GenericTable): void {
   const phases = mode.phases;
   const idx = phases.indexOf(state.phase);
   if (idx === -1 || state.phase === 'SHOWDOWN') return;
+
+  // Part 5: belt-and-suspenders sole-survivor guard — catches any edge case where
+  // a fold reduced the table to one active player between the setTimeout scheduling
+  // this call and the call actually firing.
+  if (resolveByFold(table)) return;
 
   let nextPhase = phases[(idx + 1) % phases.length] as GamePhase;
 
@@ -2040,6 +2051,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     table.state = newState;
     table.actionLock = false;
+    // Part 4: sole-survivor early exit after any fold — resolveByFold handles award + broadcast
+    if (resolveByFold(table)) return;
     afterHumanAction(table, wasRaise);
   } catch (err) {
     console.error('[genericEngine:ERROR] handleGenericAction threw:', err);

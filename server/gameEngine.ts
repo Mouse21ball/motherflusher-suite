@@ -68,6 +68,12 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// ─── Sole-survivor helper (Parts 1/5) ────────────────────────────────────────
+function checkSoleSurvivor(players: Player[]): Player | null {
+  const active = players.filter(p => p.status === 'active');
+  return active.length === 1 ? active[0] : null;
+}
+
 function addMsg(state: GameState, text: string, isResolution = false): GameState {
   return {
     ...state,
@@ -486,6 +492,11 @@ function advanceToNextPhase(table: AuthTable): void {
   const phases = BadugiMode.phases;
   const idx = phases.indexOf(state.phase);
   if (idx === -1 || state.phase === 'SHOWDOWN') return;
+
+  // Part 5: belt-and-suspenders sole-survivor guard — catches any edge case where
+  // a fold reduced the table to one active player between the setTimeout scheduling
+  // this call and the call actually firing.
+  if (resolveByFoldBadugi(table)) return;
 
   const nextPhase = phases[(idx + 1) % phases.length] as GamePhase;
 
@@ -1708,6 +1719,8 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       }, 'You folded');
       engineLog('ACTION', tableId, { player: playerId, action: 'fold', accepted: true, phase: s.phase });
       table.actionLock = false;
+      // Part 2: sole-survivor early exit — resolveByFoldBadugi handles award + broadcast
+      if (resolveByFoldBadugi(table)) return;
       afterHumanAction(table);
       return;
     }
