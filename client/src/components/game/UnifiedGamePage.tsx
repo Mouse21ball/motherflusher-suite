@@ -20,6 +20,7 @@ import { getContextualHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
+import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
 import { qualifiesForSuits } from '@shared/modes/suitspoker';
@@ -109,6 +110,25 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
   // Reset dismissal once chips return.
   useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
+
+  // Bust counters — increment exactly once per bust event.
+  const bustCountedRef = useRef(false);
+  useEffect(() => {
+    if (heroBust && bustEligiblePhase && !bustCountedRef.current) {
+      bustCountedRef.current = true;
+      const lifetime = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
+      localStorage.setItem('cgp_lifetime_busts', (lifetime + 1).toString());
+      const session = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
+      sessionStorage.setItem('cgp_session_busts', (session + 1).toString());
+    }
+    if (!heroBust) bustCountedRef.current = false;
+  }, [heroBust, bustEligiblePhase]);
+
+  // State vars read once when bust modal opens.
+  const lifetimeBusts = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
+  const sessionBusts = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
+  const hasNeverPurchased = !localStorage.getItem('cgp_first_purchase_complete');
+  const dailyBonusAvailable = isRewardAvailable();
   const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
   const humanCount = state.players.filter(p => p.presence === 'human').length;
 
@@ -295,9 +315,15 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
       <BustOutModal
         open={showBustModal}
+        lifetimeBusts={lifetimeBusts}
+        sessionBusts={sessionBusts}
+        hasNeverPurchased={hasNeverPurchased}
         onRebuy={() => { handleAction('rebuy'); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(modeId, me.chips); navigate('/'); }}
+        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
+        onWatchAd={undefined}
+        onStarterPack={undefined}
       />
     </div>
   );
