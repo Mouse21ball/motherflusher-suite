@@ -106,27 +106,16 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
    *      can rebuy, spectate the rest of the table, or leave. */
   const [bustDismissed, setBustDismissed] = useState(false);
   const heroBust = !!me && me.chips <= 0 && !isSpectator;
-  const bustEligiblePhase = state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
+  const bustEligiblePhase = me?.status === 'sitting_out' || state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
   const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
   // Reset dismissal once chips return.
   useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
-
-  // [BUST DEBUG] Trace heroBust changes
-  useEffect(() => {
-    console.log('[BUST DEBUG] heroBust:', heroBust, 'phase:', state.phase, 'chips:', me?.chips);
-  }, [heroBust, state.phase, me?.chips]);
-
-  // [BUST DEBUG] Trace showBustModal changes
-  useEffect(() => {
-    console.log('[BUST DEBUG] showBustModal:', showBustModal, 'bustEligiblePhase:', bustEligiblePhase, 'bustDismissed:', bustDismissed);
-  }, [showBustModal, bustEligiblePhase, bustDismissed]);
 
   // Bust counters — increment exactly once per bust event.
   const bustCountedRef = useRef(false);
   useEffect(() => {
     if (heroBust && bustEligiblePhase && !bustCountedRef.current) {
       bustCountedRef.current = true;
-      console.log('[BUST DEBUG] counter increment fired');
       const lifetime = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
       localStorage.setItem('cgp_lifetime_busts', (lifetime + 1).toString());
       const session = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
