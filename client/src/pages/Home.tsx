@@ -602,7 +602,7 @@ export default function Home() {
 
         {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
         <div className="w-full max-w-lg">
-          <div className="relative w-full h-[260px] sm:h-[320px] overflow-hidden">
+          <div className="relative w-full h-[200px] sm:h-[240px] overflow-hidden">
             <img
               src="/home-hero.jpg"
               alt="Chain Gang Poker"
@@ -637,66 +637,46 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-4">
+        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3">
 
           {/* ── QUICK PLAY CTA ──────────────────────────────────────────────── */}
           <button
             onClick={() => navigateToMode('badugi', '/badugi')}
-            className="w-full mt-2 bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-5 px-6 font-black text-2xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.35)] hover:shadow-[0_0_36px_rgba(201,162,39,0.55)] transition-all flex flex-col items-center gap-1 active:scale-[0.98]"
+            className="w-full mt-0 bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-3.5 px-6 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.35)] hover:shadow-[0_0_36px_rgba(201,162,39,0.55)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
             data-testid="button-quick-play-hero"
           >
             <span>QUICK PLAY →</span>
-            <span className="text-[10px] font-mono tracking-[0.18em] opacity-70 normal-case">
-              Auto-fills with bots · Table in seconds
-            </span>
+            <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
           </button>
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
-          <div
-            className="w-full rounded-2xl p-4 relative overflow-hidden home-player-card"
-            style={{
-              background: `linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(255,107,0,0.045) 60%, rgba(0,200,150,0.045) 100%)`,
-              border: `1px solid rgba(240,184,41,0.24)`,
-            }}
-          >
-            <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-2xl opacity-60" />
-            <div className="relative flex items-center gap-3">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold font-mono text-white shrink-0"
-                style={{ backgroundColor: avatarColor + '30', border: `2px solid ${rank.color}65`, boxShadow: `0 0 18px ${rank.color}22` }}
-              >
-                {initials}
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl relative overflow-hidden"
+            style={{ backgroundColor: '#0e0e11', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-xl opacity-30" />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold font-mono text-white shrink-0 relative"
+              style={{ backgroundColor: avatarColor + '30', border: `1.5px solid ${rank.color}65` }}>
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0 relative">
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/90 font-semibold text-sm truncate font-sans" data-testid="text-player-name">{identity.name}</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0"
+                  style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
+                  data-testid="badge-rank-home">Lv {serverLevel}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">{greeting}, inmate</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-base font-bold text-white/90 font-sans truncate" data-testid="text-player-name">{identity.name}</span>
-                  <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md shrink-0"
-                    style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
-                    data-testid="badge-rank-home">
-                    Lv {serverLevel} · {rank.name}
-                  </span>
+              <div className="text-[9px] font-mono text-white/35 uppercase tracking-wider mt-0.5">
+                {rank.name} · {levelInfo.xpIntoLevel}/{levelInfo.xpNeeded} XP
+              </div>
+            </div>
+            <div className="text-right shrink-0 relative">
+              <div className="text-base font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">
+                ${displayChips.toLocaleString()}
+              </div>
+              {displayHands > 0 && (
+                <div className={`text-[9px] font-mono tabular-nums ${displayNet >= 0 ? 'text-emerald-400/65' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
+                  {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
                 </div>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex-1 h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${rank.color}, ${C.gold})` }} />
-                  </div>
-                  <span className="text-[9px] font-mono text-white/20 shrink-0 tabular-nums">{levelInfo.xpIntoLevel}/{levelInfo.xpNeeded} XP</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Bankroll</div>
-                <div className="text-lg font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">${displayChips.toLocaleString()}</div>
-                {displayHands > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[8px] font-mono text-white/15 uppercase tracking-widest">Net</span>
-                    <span className={`text-[10px] font-mono font-bold tabular-nums ${displayNet >= 0 ? 'text-emerald-400/70' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
-                      {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -724,26 +704,24 @@ export default function Home() {
               <div className="text-xl relative" style={{ color: C.orange }}>›</div>
             </button>
           ) : (
-            <div className="w-full rounded-2xl px-4 py-2 flex items-center gap-3"
-              style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <div className="text-xl leading-none">{streakInfo.streak > 0 ? '🔥' : '⏰'}</div>
-              <div>
-                <div className="text-xs font-semibold text-white/40 font-sans">
-                  {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak Running` : 'Daily Ration'}
-                </div>
-                <div className="text-[10px] text-white/20 font-mono mt-0.5">
-                  Claimed · Come back tomorrow for +${(streakInfo.nextReward?.chips ?? 250).toLocaleString()}
-                </div>
-              </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+              style={{ backgroundColor: '#1a1208', border: '1px solid rgba(201,162,39,0.20)' }}>
+              <span style={{ color: C.gold }}>{streakInfo.streak > 0 ? '🔥' : '⏰'}</span>
+              <span className="text-white/70 flex-1 font-sans">
+                {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak` : 'Daily Ration'}
+              </span>
+              <span className="font-mono text-[10px]" style={{ color: `${C.gold}90` }}>
+                Tomorrow: +${(streakInfo.nextReward?.chips ?? 250).toLocaleString()}
+              </span>
             </div>
           )}
 
           {/* ── RETENTION STRIP ──────────────────────────────────────────── */}
-          <div className={`grid gap-2 ${starterAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <div className={`grid gap-1.5 ${starterAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
             {/* Hourly Bonus */}
             <button
               onClick={() => setHourlyOpen(true)}
-              className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97] relative"
+              className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97] relative"
               style={hourlyReady
                 ? { background: 'linear-gradient(135deg, rgba(240,184,41,0.14) 0%, rgba(240,184,41,0.05) 100%)', border: '1px solid rgba(240,184,41,0.35)' }
                 : { backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }
@@ -756,9 +734,9 @@ export default function Home() {
                   style={{ backgroundColor: C.pink }}
                 />
               )}
-              <div className="text-base leading-none">{hourlyReady ? '⚡' : '⏰'}</div>
-              <div className="text-[10px] font-bold font-sans" style={{ color: hourlyReady ? C.gold : 'rgba(255,255,255,0.40)' }}>
-                {hourlyReady ? 'Claim Bonus' : 'Hourly'}
+              <div className="text-sm leading-none">{hourlyReady ? '⚡' : '⏰'}</div>
+              <div className="text-[10px] font-bold font-sans uppercase tracking-wider" style={{ color: hourlyReady ? C.gold : 'rgba(255,255,255,0.40)' }}>
+                {hourlyReady ? 'Claim' : 'Hourly'}
               </div>
             </button>
 
@@ -766,7 +744,7 @@ export default function Home() {
             {starterAvailable && (
               <button
                 onClick={() => setStarterOpen(true)}
-                className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97] relative"
+                className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97] relative"
                 style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.12) 0%, rgba(255,107,0,0.06) 100%)', border: '1px solid rgba(240,184,41,0.30)' }}
                 data-testid="button-starter-home"
               >
@@ -774,54 +752,59 @@ export default function Home() {
                   className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#05050A]"
                   style={{ backgroundColor: C.pink }}
                 />
-                <div className="text-base leading-none">🎁</div>
-                <div className="text-[10px] font-bold font-sans" style={{ color: C.gold }}>Starter Kit</div>
+                <div className="text-sm leading-none">🎁</div>
+                <div className="text-[10px] font-bold font-sans uppercase tracking-wider" style={{ color: C.gold }}>Starter</div>
               </button>
             )}
 
             {/* Bonus Center */}
             <button
               onClick={() => navigate('/bonus')}
-              className="rounded-xl p-3 flex flex-col items-center text-center gap-1 transition-all duration-200 active:scale-[0.97]"
+              className="rounded-xl py-2 px-2 flex flex-col items-center text-center gap-0.5 transition-all duration-200 active:scale-[0.97]"
               style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
               data-testid="link-bonus-center-home"
             >
-              <div className="text-base leading-none">⚡</div>
-              <div className="text-[10px] font-bold font-sans text-white/40">Bonus Center</div>
+              <div className="text-sm leading-none">⚡</div>
+              <div className="text-[10px] font-bold font-sans uppercase tracking-wider text-white/40">Bonuses</div>
             </button>
           </div>
 
-          {/* ── STATS BAND — hidden for brand-new players with nothing to show ── */}
+          {/* ── STATS TILES — per-tile visibility, no empty placeholders ────── */}
           {(() => {
-            const hasAnyStat = biggestPot > 0 || stats.handsPlayed > 0 || streakInfo.streak > 1;
-            return hasAnyStat ? (
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-xl p-3 flex flex-col items-center text-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
-                  <div className="text-base mb-1">🏆</div>
-                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Best Win</div>
-                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.gold }}>
-                    {biggestPot > 0 ? `$${biggestPot.toLocaleString()}` : '—'}
+            const showBestWin = biggestPot > 0;
+            const showWinRate = stats.handsPlayed > 0;
+            const showStreak  = streakInfo.streak > 1;
+            const count = [showBestWin, showWinRate, showStreak].filter(Boolean).length;
+            if (count === 0) return null;
+            const colClass = count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-2' : 'grid-cols-3';
+            return (
+              <div className={`grid ${colClass} gap-2`}>
+                {showBestWin && (
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
+                    <div className="text-sm mb-0.5">🏆</div>
+                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Best Win</div>
+                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.gold }}>${biggestPot.toLocaleString()}</div>
                   </div>
-                </div>
-                <div className="rounded-xl p-3 flex flex-col items-center text-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
-                  <div className="text-base mb-1">📈</div>
-                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Win Rate</div>
-                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.emerald }}>
-                    {stats.handsPlayed > 0 ? `${winRate}%` : '—'}
+                )}
+                {showWinRate && (
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
+                    <div className="text-sm mb-0.5">📈</div>
+                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Win Rate</div>
+                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.emerald }}>{winRate}%</div>
                   </div>
-                </div>
-                <div className="rounded-xl p-3 flex flex-col items-center text-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
-                  <div className="text-base mb-1">⛓️</div>
-                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Streak</div>
-                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.orange }}>
-                    {streakInfo.streak > 0 ? `${streakInfo.streak} days` : 'Start'}
+                )}
+                {showStreak && (
+                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
+                    <div className="text-sm mb-0.5">⛓️</div>
+                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Streak</div>
+                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.orange }}>{streakInfo.streak} days</div>
                   </div>
-                </div>
+                )}
               </div>
-            ) : null;
+            );
           })()}
 
           {/* ── SECTION LABEL ─────────────────────────────────────────────── */}
@@ -842,14 +825,14 @@ export default function Home() {
                   key={mode.id}
                   onClick={() => navigateToMode(mode.id, mode.path)}
                   className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group flex flex-col"
-                  style={{ background: mode.bg, border: `1px solid ${mode.border}`, minHeight: '140px' }}
+                  style={{ background: mode.bg, border: `1px solid ${mode.border}`, minHeight: '120px' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
                   data-testid={`button-mode-${mode.id}`}
                 >
                   <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none"
                     style={{ background: `radial-gradient(ellipse at top right, ${mode.glow}0.22) 0%, transparent 70%)` }} />
-                  <div className="relative p-3.5 flex flex-col flex-1">
+                  <div className="relative p-3 flex flex-col flex-1">
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold font-mono text-sm"
                         style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.30)`, color: mode.color }}>
@@ -878,21 +861,27 @@ export default function Home() {
             })}
           </div>
 
+          {/* ── MORE DIVIDER ──────────────────────────────────────────────── */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">More</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
           {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
           <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
 
           {/* ── CREW INVITE (Multiplayer spotlight) ───────────────────────── */}
           <div className="w-full rounded-2xl p-4 relative overflow-hidden"
             style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.08) 0%, rgba(155,93,229,0.06) 100%)', border: '1px solid rgba(0,200,150,0.16)' }}>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
-                <div className="text-base font-bold text-white/92 font-sans">Play Badugi with Your Crew</div>
-                <p className="text-xs text-white/40 mt-1 leading-relaxed">
-                  Open a Badugi table anyone can find — or go private and share the code with your crew. Up to 5 real players, bots fill empty seats instantly.
+                <p className="text-xs text-white/55 leading-relaxed">
+                  Open a public Badugi table or share a private code with your crew.
                 </p>
               </div>
-              <div className="text-3xl shrink-0 anim-float-coin">⛓️</div>
+              <div className="text-2xl shrink-0">⛓️</div>
             </div>
             <div className="mt-3 flex gap-2">
               <div className="flex-1 flex flex-col gap-0.5">
@@ -951,7 +940,7 @@ export default function Home() {
           )}
 
           {/* ── BOTTOM NAV ────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-center gap-1 flex-wrap pt-2">
+          <div className="flex justify-around items-center pt-1">
             {[
               { label: '🏆 Leaderboard', path: '/leaderboard', color: C.gold,    id: 'link-leaderboard-footer' },
               { label: '🛍️ Shop & Merch', path: '/shop',        color: C.orange,  id: 'link-shop-footer'        },
