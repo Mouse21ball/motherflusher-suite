@@ -600,58 +600,69 @@ export default function Home() {
         <div className="lobby-orb-pink" style={{ top: '62vh', left: '-40px' }} aria-hidden="true" />
         <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
 
-        {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
-        <div className="w-full max-w-lg">
-          <div className="relative w-full h-[200px] sm:h-[240px] overflow-hidden">
-            <img
-              src="/home-hero.jpg"
-              alt="Chain Gang Poker"
-              className="absolute inset-0 w-full h-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/95" />
-            <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between z-10">
-              <div className="flex items-center gap-1.5">
-                {realPlayerCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-                    style={{ backgroundColor: 'rgba(0,200,150,0.18)', border: '1px solid rgba(0,200,150,0.30)' }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald, boxShadow: `0 0 6px ${C.emerald}` }} />
-                    <span className="text-[11px] font-mono font-bold tabular-nums" style={{ color: C.emerald }} data-testid="text-live-count">
-                      {realPlayerCount} live
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => navigate('/leaderboard')} className="w-9 h-9 rounded-xl flex items-center justify-center text-sm bg-black/50 hover:bg-black/70 transition-all" title="Leaderboard" data-testid="link-leaderboard-header">🏆</button>
-                <button onClick={() => navigate('/shop')} className="w-9 h-9 rounded-xl flex items-center justify-center text-sm bg-black/50 hover:bg-black/70 transition-all" title="Shop" data-testid="link-shop-header">🛍️</button>
-                <button
-                  onClick={() => navigate('/profile')}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold font-mono text-white hover:opacity-80 shrink-0"
-                  style={{ backgroundColor: avatarColor + '50', border: `1.5px solid ${rank.color}90` }}
-                  data-testid="button-open-profile"
-                >
-                  {initials}
-                </button>
-              </div>
+        {/* ── HERO BANNER — full-bleed cinematic ───────────────────────────── */}
+        <div className="relative w-full h-[70vh] min-h-[480px] sm:h-[75vh] sm:min-h-[600px] overflow-hidden">
+          <img
+            src="/home-hero.jpg"
+            alt="Chain Gang Poker"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0a0a0e] pointer-events-none" />
+
+          {/* Top-left live indicator */}
+          <div className="absolute top-3 left-3 z-20">
+            <div className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald }} />
+              <span className="text-[9px] font-mono text-white/70 tracking-wider uppercase" data-testid="text-live-count">
+                {realPlayerCount > 0 ? `${realPlayerCount} live` : 'Live'}
+              </span>
             </div>
+          </div>
+
+          {/* Top-right glass nav icons */}
+          <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
+              data-testid="link-leaderboard-header"
+            >🏆</button>
+            <button
+              onClick={() => navigate('/shop')}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
+              data-testid="link-shop-header"
+            >🛍️</button>
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center text-xs font-bold font-mono text-white active:scale-95 transition-transform"
+              style={{ backgroundColor: avatarColor + '80', borderColor: rank.color + '90' }}
+              data-testid="button-open-profile"
+            >{initials}</button>
+          </div>
+
+          {/* Floating Quick Play CTA — sits in lower portion of hero */}
+          <div className="absolute bottom-8 left-0 right-0 z-20 px-4">
+            <div className="max-w-lg mx-auto">
+              <button
+                onClick={() => navigateToMode('badugi', '/badugi')}
+                className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-4 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.55)] hover:shadow-[0_0_36px_rgba(201,162,39,0.75)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
+                data-testid="button-quick-play-hero"
+              >
+                <span>QUICK PLAY →</span>
+                <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Scroll hint */}
+          <div className="absolute bottom-1 left-0 right-0 flex justify-center z-10 pointer-events-none">
+            <div className="text-white/30 text-[10px] font-mono tracking-widest animate-bounce">▼</div>
           </div>
         </div>
 
-        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3">
-
-          {/* ── QUICK PLAY CTA ──────────────────────────────────────────────── */}
-          <button
-            onClick={() => navigateToMode('badugi', '/badugi')}
-            className="w-full mt-0 bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-3.5 px-6 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.35)] hover:shadow-[0_0_36px_rgba(201,162,39,0.55)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
-            data-testid="button-quick-play-hero"
-          >
-            <span>QUICK PLAY →</span>
-            <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
-          </button>
+        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3 -mt-6 relative z-10">
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl relative overflow-hidden"
-            style={{ backgroundColor: '#0e0e11', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-3 px-3 py-2.5 bg-[#0e0e11]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.6)] relative overflow-hidden">
             <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-xl opacity-30" />
             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold font-mono text-white shrink-0 relative"
               style={{ backgroundColor: avatarColor + '30', border: `1.5px solid ${rank.color}65` }}>
