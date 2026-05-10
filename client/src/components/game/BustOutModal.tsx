@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { isRewardAvailable, getTodayReward } from "@/lib/dailyReward";
 
 interface BustOutModalProps {
@@ -14,12 +15,6 @@ interface BustOutModalProps {
 }
 
 // ── Triage tiers ─────────────────────────────────────────────────────────────
-// Tier 1: first-ever bust, never purchased  → push Starter Pack hard
-// Tier 2: daily bonus available             → claim bonus CTA
-// Tier 3: 2+ session busts, paid before    → watch ad CTA
-// Tier 4: 2+ session busts, never purchased → push Starter Pack again
-// Tier 5: default                           → plain rebuy
-
 type Tier = 1 | 2 | 3 | 4 | 5;
 
 function getTier(lifetimeBusts: number, sessionBusts: number, hasNeverPurchased: boolean): Tier {
@@ -43,6 +38,39 @@ export function BustOutModal({
   onWatchAd,
   onStarterPack,
 }: BustOutModalProps) {
+
+  // ── Block Android back button / browser back while modal is open ──────────
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ bustModalOpen: true }, '');
+    const handlePopState = () => {
+      window.history.pushState({ bustModalOpen: true }, '');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [open]);
+
+  // ── Block Escape key ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [open]);
+
+  // ── Lock body scroll while modal is open ─────────────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = originalOverflow; };
+  }, [open]);
+
   if (!open) return null;
 
   const tier = getTier(lifetimeBusts, sessionBusts, hasNeverPurchased);
@@ -77,10 +105,14 @@ export function BustOutModal({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
-      data-testid="modal-bust-out"
+      className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={(e) => e.stopPropagation()}
+      data-testid="bust-out-modal"
     >
-      <div className="bg-[#0a0a0e] border border-[#C9A227]/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_60px_rgba(201,162,39,0.2)]">
+      <div
+        className="bg-[#0a0a0e] border border-[#C9A227]/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_60px_rgba(201,162,39,0.2)]"
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="text-center mb-4">
