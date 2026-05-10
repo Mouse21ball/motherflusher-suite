@@ -70,7 +70,13 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
           className
         )}
         onClick={onClick}
-      />
+      >
+        <img
+          src="/card-back.png"
+          alt=""
+          className="w-full h-full object-cover rounded-lg"
+        />
+      </div>
     );
   }
 

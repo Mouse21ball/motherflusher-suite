@@ -593,50 +593,6 @@ export default function Home() {
       <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} />
 
-      {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <header
-        className="sticky top-0 z-40 w-full px-4 py-2.5 flex items-center gap-3 cgp-header-glass"
-      >
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 mr-auto">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold font-mono text-xs"
-            style={{ background: `linear-gradient(135deg, rgba(240,184,41,0.22) 0%, rgba(255,107,0,0.12) 100%)`, border: `1px solid rgba(240,184,41,0.30)`, color: C.gold }}
-          >
-            ⛓️
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-xs font-bold font-sans text-white/80 tracking-tight">Chain Gang Poker</span>
-            <span className="text-[8px] font-mono text-white/25 tracking-widest uppercase">Prison rules. No mercy.</span>
-          </div>
-        </div>
-
-        {/* Live count — only shown when real players are online */}
-        {realPlayerCount > 0 && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-            style={{ backgroundColor: 'rgba(0,200,150,0.07)', border: '1px solid rgba(0,200,150,0.15)' }}>
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald, boxShadow: `0 0 6px ${C.emerald}` }} />
-            <span className="text-[11px] font-mono font-bold tabular-nums" style={{ color: C.emerald }} data-testid="text-live-count">
-              {realPlayerCount} live
-            </span>
-          </div>
-        )}
-
-        {/* Nav */}
-        <div className="flex items-center gap-1">
-          <button onClick={() => navigate('/leaderboard')} className="w-8 h-8 rounded-lg flex items-center justify-center text-sm hover:bg-white/[0.05] transition-all" title="Leaderboard" data-testid="link-leaderboard-header">🏆</button>
-          <button onClick={() => navigate('/shop')}        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm hover:bg-white/[0.05] transition-all" title="Shop"        data-testid="link-shop-header">🛍️</button>
-          <button
-            onClick={() => navigate('/profile')}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold font-mono text-white hover:opacity-80 shrink-0"
-            style={{ backgroundColor: avatarColor + '28', border: `1.5px solid ${rank.color}55` }}
-            data-testid="button-open-profile"
-          >
-            {initials}
-          </button>
-        </div>
-      </header>
-
       <div className="flex-1 flex flex-col items-center relative">
         {/* Ambient atmosphere orbs — fixed-position, pointer-events-none */}
         <div className="lobby-orb-gold" style={{ top: '-60px', left: '-80px' }} aria-hidden="true" />
@@ -644,7 +600,56 @@ export default function Home() {
         <div className="lobby-orb-pink" style={{ top: '62vh', left: '-40px' }} aria-hidden="true" />
         <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
 
-        <div className="w-full max-w-lg px-4 pt-5 pb-10 flex flex-col gap-4">
+        {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
+        <div className="w-full max-w-lg">
+          <div className="relative w-full h-[260px] sm:h-[320px] overflow-hidden">
+            <img
+              src="/home-hero.jpg"
+              alt="Chain Gang Poker"
+              className="absolute inset-0 w-full h-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/95" />
+            <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between z-10">
+              <div className="flex items-center gap-1.5">
+                {realPlayerCount > 0 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
+                    style={{ backgroundColor: 'rgba(0,200,150,0.18)', border: '1px solid rgba(0,200,150,0.30)' }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald, boxShadow: `0 0 6px ${C.emerald}` }} />
+                    <span className="text-[11px] font-mono font-bold tabular-nums" style={{ color: C.emerald }} data-testid="text-live-count">
+                      {realPlayerCount} live
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => navigate('/leaderboard')} className="w-9 h-9 rounded-xl flex items-center justify-center text-sm bg-black/50 hover:bg-black/70 transition-all" title="Leaderboard" data-testid="link-leaderboard-header">🏆</button>
+                <button onClick={() => navigate('/shop')} className="w-9 h-9 rounded-xl flex items-center justify-center text-sm bg-black/50 hover:bg-black/70 transition-all" title="Shop" data-testid="link-shop-header">🛍️</button>
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold font-mono text-white hover:opacity-80 shrink-0"
+                  style={{ backgroundColor: avatarColor + '50', border: `1.5px solid ${rank.color}90` }}
+                  data-testid="button-open-profile"
+                >
+                  {initials}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-4">
+
+          {/* ── QUICK PLAY CTA ──────────────────────────────────────────────── */}
+          <button
+            onClick={() => navigateToMode('badugi', '/badugi')}
+            className="w-full mt-2 bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-5 px-6 font-black text-2xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.35)] hover:shadow-[0_0_36px_rgba(201,162,39,0.55)] transition-all flex flex-col items-center gap-1 active:scale-[0.98]"
+            data-testid="button-quick-play-hero"
+          >
+            <span>QUICK PLAY →</span>
+            <span className="text-[10px] font-mono tracking-[0.18em] opacity-70 normal-case">
+              Auto-fills with bots · Table in seconds
+            </span>
+          </button>
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
           <div
@@ -719,7 +724,7 @@ export default function Home() {
               <div className="text-xl relative" style={{ color: C.orange }}>›</div>
             </button>
           ) : (
-            <div className="w-full rounded-2xl px-4 py-3 flex items-center gap-3"
+            <div className="w-full rounded-2xl px-4 py-2 flex items-center gap-3"
               style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.04)' }}>
               <div className="text-xl leading-none">{streakInfo.streak > 0 ? '🔥' : '⏰'}</div>
               <div>
@@ -786,33 +791,38 @@ export default function Home() {
             </button>
           </div>
 
-          {/* ── STATS BAND ────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl p-3 flex flex-col items-center text-center"
-              style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
-              <div className="text-base mb-1">🏆</div>
-              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Best Win</div>
-              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.gold }}>
-                {biggestPot > 0 ? `$${biggestPot.toLocaleString()}` : '—'}
+          {/* ── STATS BAND — hidden for brand-new players with nothing to show ── */}
+          {(() => {
+            const hasAnyStat = biggestPot > 0 || stats.handsPlayed > 0 || streakInfo.streak > 1;
+            return hasAnyStat ? (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl p-3 flex flex-col items-center text-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(240,184,41,0.10) 0%, rgba(240,184,41,0.03) 100%)', border: '1px solid rgba(240,184,41,0.18)' }}>
+                  <div className="text-base mb-1">🏆</div>
+                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Best Win</div>
+                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.gold }}>
+                    {biggestPot > 0 ? `$${biggestPot.toLocaleString()}` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-xl p-3 flex flex-col items-center text-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
+                  <div className="text-base mb-1">📈</div>
+                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Win Rate</div>
+                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.emerald }}>
+                    {stats.handsPlayed > 0 ? `${winRate}%` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-xl p-3 flex flex-col items-center text-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
+                  <div className="text-base mb-1">⛓️</div>
+                  <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Streak</div>
+                  <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.orange }}>
+                    {streakInfo.streak > 0 ? `${streakInfo.streak} days` : 'Start'}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="rounded-xl p-3 flex flex-col items-center text-center"
-              style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.10) 0%, rgba(0,200,150,0.03) 100%)', border: '1px solid rgba(0,200,150,0.18)' }}>
-              <div className="text-base mb-1">📈</div>
-              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Win Rate</div>
-              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.emerald }}>
-                {stats.handsPlayed > 0 ? `${winRate}%` : '—'}
-              </div>
-            </div>
-            <div className="rounded-xl p-3 flex flex-col items-center text-center"
-              style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.03) 100%)', border: '1px solid rgba(255,107,0,0.18)' }}>
-              <div className="text-base mb-1">⛓️</div>
-              <div className="text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1">Streak</div>
-              <div className="text-sm font-bold font-mono tabular-nums" style={{ color: C.orange }}>
-                {streakInfo.streak > 0 ? `${streakInfo.streak} days` : 'Start'}
-              </div>
-            </div>
-          </div>
+            ) : null;
+          })()}
 
           {/* ── SECTION LABEL ─────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 px-1">
@@ -821,119 +831,55 @@ export default function Home() {
             <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(240,184,41,0.18), transparent)' }} />
           </div>
 
-          {/* ── BADUGI HERO CARD ──────────────────────────────────────────── */}
-          {(() => {
-            const mode  = MODES[0];
-            const tbl = getModeRealCount(mode.id);
-            return (
-              <button
-                onClick={() => navigateToMode(mode.id, mode.path)}
-                className="w-full text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.99] group home-hero-card"
-                style={{ background: mode.bg, border: `1px solid ${mode.border}` }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
-                data-testid={`button-mode-${mode.id}`}
-              >
-                <div className="absolute inset-0 pointer-events-none"
-                  style={{ background: `radial-gradient(ellipse at 80% 50%, ${mode.glow}0.16) 0%, transparent 65%)` }} />
-                <div className="absolute inset-0 anim-shimmer pointer-events-none opacity-30 rounded-2xl" />
-                <div className="relative p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold font-mono shrink-0"
-                      style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.28)`, color: mode.color }}>
-                      {mode.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-lg font-bold text-white/90 font-sans" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</span>
-                        <span className="text-[8px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                          style={{ color: mode.color, backgroundColor: `${mode.glow}0.12)`, border: `1px solid ${mode.glow}0.28)` }}>
-                          {mode.badge}
-                        </span>
-                      </div>
-                      <div className="text-[11px] font-mono mt-0.5" style={{ color: mode.color + 'cc' }}>{mode.tagline}</div>
-                      <p className="text-sm text-white/50 mt-1.5 leading-snug">{mode.description}</p>
-                      {stats.handsPlayed === 0 && (
-                        <p className="text-[10px] font-mono mt-1.5" style={{ color: mode.color + '80' }}>New here — tap Quick Play and you're at a table in seconds.</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      {tbl > 0 ? (
-                        <>
-                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />
-                          <span className="text-[10px] font-mono text-white/55">{tbl} active</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: mode.color + '40' }} />
-                          <span className="text-[10px] font-mono text-white/30">Be first in</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
-                        style={{ backgroundColor: mode.color, color: '#05050A', boxShadow: `0 2px 10px ${mode.color}66` }}>
-                        Quick Play →
-                      </div>
-                      <span className="text-[9px] font-mono text-white/25">Joins real players · bots fill if needed</span>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })()}
-
-          {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
-          <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
-
-          {/* ── 2-COLUMN GRID ─────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-2">
-            {MODES.slice(1).map(mode => {
+          {/* ── 2×2 GAME MODES GRID ───────────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-3">
+            {([...MODES] as Array<typeof MODES[number]>).map(mode => {
               const tbl = getModeRealCount(mode.id);
+              // TODO: wire up per-seat live player count when server exposes it
+              const cardSubtitle = tbl > 0 ? `${tbl} playing now` : 'Tap to play';
               return (
                 <button
                   key={mode.id}
                   onClick={() => navigateToMode(mode.id, mode.path)}
-                  className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group"
-                  style={{ background: mode.bg, border: `1px solid ${mode.border}` }}
+                  className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group flex flex-col"
+                  style={{ background: mode.bg, border: `1px solid ${mode.border}`, minHeight: '140px' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
                   data-testid={`button-mode-${mode.id}`}
                 >
-                  <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none"
-                    style={{ background: `radial-gradient(ellipse at top right, ${mode.glow}0.18) 0%, transparent 70%)` }} />
-                  <div className="relative p-3.5">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold font-mono text-sm"
-                        style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.25)`, color: mode.color }}>
+                  <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none"
+                    style={{ background: `radial-gradient(ellipse at top right, ${mode.glow}0.22) 0%, transparent 70%)` }} />
+                  <div className="relative p-3.5 flex flex-col flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold font-mono text-sm"
+                        style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.30)`, color: mode.color }}>
                         {mode.icon}
                       </div>
                       <div className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)`, border: `1px solid ${mode.glow}0.20)` }}>
-                        {mode.badge}
+                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)`, border: `1px solid ${mode.glow}0.22)` }}>
+                        {mode.difficulty}
                       </div>
                     </div>
-                    <div className="font-bold text-sm text-white/85 font-sans mb-0.5" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</div>
-                    <div className="text-[10px] font-mono leading-tight mb-2" style={{ color: mode.color + 'bb' }}>{mode.tagline}</div>
-                    <div className="flex items-center justify-between">
-                      {tbl > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: mode.color + '90' }} />
-                          <span className="text-[9px] font-mono text-white/40">{tbl} active</span>
-                        </div>
-                      ) : (
-                        <span className="text-[9px] font-mono text-white/20">Be first in</span>
-                      )}
-                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-lg"
-                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)` }}>Play →</span>
+                    <div className="font-bold text-sm text-white/90 font-sans mb-0.5" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</div>
+                    <div className="text-[10px] font-mono leading-tight" style={{ color: mode.color + 'bb' }}>{mode.tagline}</div>
+                    <div className="flex items-center justify-between mt-auto pt-2.5">
+                      <div className="flex items-center gap-1">
+                        {tbl > 0 && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />}
+                        <span className="text-[9px] font-mono" style={{ color: tbl > 0 ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.25)' }}>{cardSubtitle}</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-xl"
+                        style={{ color: '#05050A', backgroundColor: mode.color, boxShadow: `0 2px 8px ${mode.glow}0.40)` }}>
+                        Play →
+                      </span>
                     </div>
                   </div>
                 </button>
               );
             })}
           </div>
+
+          {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
+          <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
 
           {/* ── CREW INVITE (Multiplayer spotlight) ───────────────────────── */}
           <div className="w-full rounded-2xl p-4 relative overflow-hidden"
