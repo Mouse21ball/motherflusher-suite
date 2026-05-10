@@ -601,7 +601,7 @@ export default function Home() {
         <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
 
         {/* ── HERO SPACE — transparent window into fixed wallpaper ─────────── */}
-        <div className="relative w-full h-[40vh] sm:h-[45vh] flex flex-col max-w-lg">
+        <div className="relative w-full h-[50vh] sm:h-[55vh] flex flex-col max-w-lg">
 
           {/* Top floating nav bar */}
           <div className="flex items-center justify-between px-3 pt-3 z-20">
@@ -635,7 +635,7 @@ export default function Home() {
           <div className="flex-1" />
 
           {/* Quick Play CTA anchored to bottom of hero space */}
-          <div className="px-4 pb-2 z-20">
+          <div className="px-4 pb-4 z-20">
             <button
               onClick={() => navigateToMode('badugi', '/badugi')}
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-4 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.55)] hover:shadow-[0_0_36px_rgba(201,162,39,0.75)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
@@ -648,7 +648,7 @@ export default function Home() {
 
         </div>
 
-        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3 -mt-6 relative z-10">
+        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3 mt-2 relative z-10">
 
           {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 px-3 py-2.5 bg-black/45 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.5)] relative overflow-hidden">
