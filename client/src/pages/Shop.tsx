@@ -47,14 +47,13 @@ const SUBSCRIPTION_TIERS = [
     features: [
       '5,000 chips/month bonus',
       'Gold avatar frame',
-      '15 exclusive reactions',
       'Daily 1,000 chip bonus',
       'Streak protection (1x/week)',
       'XP boost: +25% per hand',
       'Priority table access',
     ],
-    cta: 'Upgrade to Gold',
-    ctaDisabled: false,
+    cta: 'AVAILABLE v1.1',
+    ctaDisabled: true,
   },
   {
     id: 'elite',
@@ -68,7 +67,6 @@ const SUBSCRIPTION_TIERS = [
     features: [
       '15,000 chips/month bonus',
       'Animated diamond frame',
-      'All 30 reactions + exclusives',
       'Daily 2,500 chip bonus',
       'Unlimited streak protection',
       'XP boost: +50% per hand',
@@ -76,8 +74,8 @@ const SUBSCRIPTION_TIERS = [
       'Custom nameplate color',
       'Early access to new modes',
     ],
-    cta: 'Go Diamond',
-    ctaDisabled: false,
+    cta: 'AVAILABLE v1.1',
+    ctaDisabled: true,
   },
 ];
 
@@ -89,14 +87,34 @@ const FALLBACK_BUNDLES = [
   { chips: 150000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳' },
 ];
 
-const AVATAR_FRAMES = [
-  { id: 'bronze_ring',   name: 'Bronze Ring',    price: '$0.99',  color: '#CD7F32', preview: '⭕', locked: false },
-  { id: 'gold_flames',   name: 'Gold Flames',    price: '$1.99',  color: '#C9A227', preview: '🔥', locked: false },
-  { id: 'diamond_pulse', name: 'Diamond Pulse',  price: '$2.99',  color: '#9B59B6', preview: '💜', locked: false },
-  { id: 'master_crown',  name: 'Master Crown',   price: 'Pro+',   color: '#E74C3C', preview: '👑', locked: true  },
-  { id: 'neon_glow',     name: 'Neon Glow',      price: '$1.99',  color: '#06B6D4', preview: '✨', locked: false },
-  { id: 'stealth_black', name: 'Stealth Black',  price: 'Elite',  color: '#374151', preview: '🌑', locked: true  },
+const MERCH_ITEMS = [
+  {
+    icon: '👕',
+    name: 'CHAIN GANG TEE',
+    sub: 'I PLAY CHAIN GANG POKER — animal crew print',
+    price: '$30',
+    originalPrice: null as string | null,
+    hot: false,
+  },
+  {
+    icon: '🧢',
+    name: 'CHAIN GANG SNAPBACK',
+    sub: 'Trucker mesh — premium logo patch',
+    price: '$25',
+    originalPrice: null as string | null,
+    hot: false,
+  },
+  {
+    icon: '🎁',
+    name: 'TEE + HAT BUNDLE',
+    sub: 'Save $10 — limited first drop',
+    price: '$45',
+    originalPrice: '$55',
+    hot: true,
+  },
 ];
+
+const MERCH_URL = 'https://chaingangpoker.com/shop';
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -112,10 +130,7 @@ export default function Shop() {
   const [products, setProducts] = useState<ChipProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
-  const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
-
-  // No Stripe redirect handling here — success/cancel go to /success and /cancel pages.
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -155,11 +170,6 @@ export default function Shop() {
       setToast({ type: 'error', msg: 'Network error. Please try again.' });
       setCheckingOut(null);
     }
-  }
-
-  function handleComingSoon(id: string) {
-    setComingSoon(id);
-    setTimeout(() => setComingSoon(null), 3000);
   }
 
   // Determine what to render: live Stripe products or fallback static list
@@ -224,15 +234,6 @@ export default function Shop() {
         </div>
       )}
 
-      {/* Coming-soon toast (subscriptions/frames) */}
-      {comingSoon && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-[#141417] border border-[#C9A227]/30 shadow-2xl">
-          <p className="text-sm font-semibold text-white/80 font-sans text-center">
-            Subscriptions launching soon! 🚀
-          </p>
-        </div>
-      )}
-
       <div className="flex-1 flex flex-col items-center px-4 py-5 gap-6 max-w-lg mx-auto w-full relative">
 
         {/* Current plan display */}
@@ -286,12 +287,10 @@ export default function Shop() {
                   onClick={() => {
                     if (bundle.isLive && bundle.productId) {
                       handleChipPurchase(bundle.productId);
-                    } else {
-                      handleComingSoon(`chips_${bundle.chips}`);
                     }
                   }}
-                  disabled={checkingOut === bundle.productId}
-                  className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group disabled:opacity-60 disabled:cursor-wait"
+                  disabled={checkingOut === bundle.productId || (!bundle.isLive)}
+                  className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group disabled:opacity-60 disabled:cursor-default"
                   data-testid={`button-bundle-${bundle.chips}`}
                 >
                   {bundle.badge && (
@@ -313,7 +312,9 @@ export default function Shop() {
                     ) : bundle.isLive ? (
                       <span className="text-[9px] font-mono text-green-400/50 uppercase tracking-widest">Buy ›</span>
                     ) : (
-                      <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Soon ›</span>
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#C9A227]/15 text-[#C9A227] border border-[#C9A227]/25">
+                        v1.1 LAUNCH
+                      </span>
                     )}
                   </div>
                 </button>
@@ -374,14 +375,8 @@ export default function Shop() {
                   ))}
                 </ul>
                 <button
-                  onClick={() => !tier.ctaDisabled && handleComingSoon(tier.id)}
                   disabled={tier.ctaDisabled}
-                  className={`w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 ${
-                    tier.ctaDisabled
-                      ? 'bg-white/[0.04] text-white/20 cursor-default border border-white/[0.06]'
-                      : 'text-[#0B0B0D] hover:opacity-90 active:scale-[0.98]'
-                  }`}
-                  style={!tier.ctaDisabled ? { backgroundColor: tier.color } : undefined}
+                  className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 bg-white/[0.04] text-white/20 cursor-default border border-white/[0.06]"
                   data-testid={`button-subscribe-${tier.id}`}
                 >
                   {tier.cta}
@@ -394,73 +389,57 @@ export default function Shop() {
         {/* ── Avatar frames ─────────────────────────────────────────────── */}
         <div className="w-full">
           <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">Avatar Frames</div>
-          <div className="grid grid-cols-3 gap-2">
-            {AVATAR_FRAMES.map(frame => (
-              <button
-                key={frame.id}
-                onClick={() => !frame.locked && handleComingSoon(frame.id)}
-                className={`rounded-2xl border p-3 flex flex-col items-center gap-1.5 transition-all duration-200 ${
-                  frame.locked
-                    ? 'opacity-50 cursor-not-allowed border-white/[0.04] bg-white/[0.01]'
-                    : 'hover:border-opacity-50 active:scale-[0.97] bg-[#141417]/80 border-white/[0.06] hover:border-white/[0.14]'
-                }`}
-                data-testid={`button-frame-${frame.id}`}
-              >
-                <div className="text-3xl leading-none">{frame.preview}</div>
-                <div className="text-[10px] font-sans text-white/55 text-center leading-tight">{frame.name}</div>
-                <div
-                  className="text-[9px] font-mono font-bold"
-                  style={{ color: frame.locked ? 'rgba(255,255,255,0.2)' : frame.color }}
-                >
-                  {frame.price}
-                </div>
-                {frame.locked && (
-                  <div className="text-[8px] font-mono text-white/20 uppercase tracking-widest">🔒 Locked</div>
-                )}
-              </button>
-            ))}
+          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6 text-center">
+            <div className="text-3xl mb-2">⛓️</div>
+            <h3 className="text-base font-bold text-white tracking-wider uppercase">Avatar Frames</h3>
+            <p className="text-xs text-white/50 font-mono mt-1">Coming with v1.1 — animated frames, exclusive cosmetics</p>
           </div>
         </div>
 
-        {/* ── Chain Gang Merch ──────────────────────────────────────────── */}
+        {/* ── Chain Gang Gear (merch) ────────────────────────────────────── */}
         <div className="w-full">
           <div className="flex items-center gap-3 mb-3">
             <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
             <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { icon: '🧥', name: 'Chain Gang Hoodie', sub: 'Heavyweight pullover · OG logo', price: '$55', hot: true  },
-              { icon: '👕', name: 'CGP OG Tee',         sub: '"Prison rules." — Unisex fit',   price: '$32', hot: false },
-              { icon: '🧢', name: 'Snapback Cap',        sub: 'Chain Gang logo · adjustable',  price: '$28', hot: false },
-              { icon: '🏀', name: 'Chain Gang Shorts',   sub: 'Court-ready. Mesh pockets.',    price: '$38', hot: true  },
-              { icon: '🧦', name: 'Stripe Crew Socks',   sub: 'Triple pack. Chain graphic.',   price: '$18', hot: false },
-              { icon: '🦺', name: 'Prison Greens Set',   sub: 'Jogger + hoodie · Limited',     price: '$85', hot: true  },
-            ].map(item => (
-              <button
+          <div className="flex flex-col gap-2">
+            {MERCH_ITEMS.map(item => (
+              <a
                 key={item.name}
-                onClick={() => handleComingSoon(item.name)}
-                className="rounded-2xl p-3.5 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.97] group"
-                style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }}
+                href={MERCH_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl p-4 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.98] flex items-center gap-4"
+                style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)', textDecoration: 'none' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.28)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
-                data-testid={`button-merch-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                data-testid={`link-merch-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
               >
                 {item.hot && (
-                  <div className="absolute top-2 right-2 text-[8px] font-mono font-bold bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                  <div className="absolute top-3 right-3 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500 text-white font-bold">
                     HOT
                   </div>
                 )}
-                <div className="text-2xl leading-none mb-2">{item.icon}</div>
-                <div className="text-sm font-bold text-white/75 font-sans leading-tight">{item.name}</div>
-                <div className="text-[10px] text-white/25 font-mono mt-0.5 leading-tight">{item.sub}</div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="text-sm font-bold font-mono" style={{ color: '#FF6B00' }}>{item.price}</div>
-                  <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Soon ›</div>
+                <div className="text-3xl leading-none shrink-0">{item.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-white/80 font-sans leading-tight">{item.name}</div>
+                  <div className="text-[10px] text-white/30 font-mono mt-0.5 leading-tight">{item.sub}</div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {item.originalPrice && (
+                      <span className="text-[11px] font-mono text-white/20 line-through">{item.originalPrice}</span>
+                    )}
+                    <span className="text-sm font-bold font-mono" style={{ color: '#FF6B00' }}>{item.price}</span>
+                  </div>
                 </div>
-              </button>
+                <div className="shrink-0 text-[11px] font-mono font-bold text-white/40 uppercase tracking-widest whitespace-nowrap">
+                  SHOP NOW →
+                </div>
+              </a>
             ))}
           </div>
+          <p className="text-[10px] text-white/40 font-mono text-center mt-4">
+            Physical merch ships from chaingangpoker.com — separate from in-app purchases
+          </p>
         </div>
 
         <p className="text-[11px] text-white/25 font-mono text-center leading-relaxed max-w-xs" data-testid="text-shop-disclaimer">
