@@ -7,21 +7,81 @@ export interface BetDecision {
   raiseAmount?: number;
 }
 
-// ── Personality types ────────────────────────────────────────────────────────
-// Each bot seat is assigned a stable archetype derived from its ID.
-// tight:      folds more, calls less, rarely bluffs
-// loose:      calls wider, bluffs more, lower fold threshold
-// aggressive: raises frequently, large sizing, high bluff rate
-// passive:    prefers checks and calls, avoids large raises
+// ── Bot tier system ───────────────────────────────────────────────────────────
+// Each bot is deterministically assigned a skill tier from its ID.
+// Distribution target: 40% Fish, 40% Casual, 20% Shark.
+export type BotTier = 'fish' | 'casual' | 'shark';
+
+// Deterministic tier assignment based on bot ID — same bot always gets same tier
+// across reconnects but varies per-bot across the table.
+export function botTier(botId: string): BotTier {
+  let h = 2166136261;
+  for (let i = 0; i < botId.length; i++) {
+    h ^= botId.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  const tierBucket = h % 100;
+  if (tierBucket < 40) return 'fish';
+  if (tierBucket < 80) return 'casual';
+  return 'shark';
+}
+
+// ── Personality traits ────────────────────────────────────────────────────────
+// Numeric traits replace the legacy BotPersonality string enum.
+// All values are deterministic per bot ID and scoped within [0, 1].
+export interface BotPersonalityTraits {
+  aggression:   number;  // 0 = passive, 1 = hyper-aggressive
+  looseness:    number;  // 0 = tight, 1 = plays any two cards
+  callStation:  number;  // 0 = disciplined, 1 = never folds to a bet
+  bluffer:      number;  // 0 = honest, 1 = bluffs constantly
+  tier:         BotTier;
+}
+
+// Legacy string type — kept for any residual imports; do not use in new code.
 export type BotPersonality = 'tight' | 'loose' | 'aggressive' | 'passive';
 
-export function botPersonality(botId: string): BotPersonality {
-  const sum = botId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const v = sum % 4;
-  if (v === 0) return 'tight';
-  if (v === 1) return 'aggressive';
-  if (v === 2) return 'loose';
-  return 'passive';
+export function botPersonality(botId: string): BotPersonalityTraits {
+  const tier = botTier(botId);
+
+  // Generate base traits using a deterministic hash (stable per bot ID)
+  let h = 5381;
+  for (let i = 0; i < botId.length; i++) {
+    h = ((h * 33) + botId.charCodeAt(i)) >>> 0;
+  }
+
+  // Decompose into four independent trait values in [0, 1]
+  const r1 = ((h >> 0)  & 0xFF) / 255;
+  const r2 = ((h >> 8)  & 0xFF) / 255;
+  const r3 = ((h >> 16) & 0xFF) / 255;
+  const r4 = ((h >> 24) & 0xFF) / 255;
+
+  let aggression:  number;
+  let looseness:   number;
+  let callStation: number;
+  let bluffer:     number;
+
+  if (tier === 'fish') {
+    // Fish: low aggression (rarely raises), wide range (plays weak hands),
+    // high call station (calls bets it should fold to), low bluffer
+    aggression  = 0.20 + r1 * 0.25;  // 0.20 – 0.45
+    looseness   = 0.65 + r2 * 0.30;  // 0.65 – 0.95
+    callStation = 0.65 + r3 * 0.30;  // 0.65 – 0.95
+    bluffer     = 0.05 + r4 * 0.10;  // 0.05 – 0.15
+  } else if (tier === 'casual') {
+    // Casual: solid TAG fundamentals, no advanced reads
+    aggression  = 0.45 + r1 * 0.20;  // 0.45 – 0.65
+    looseness   = 0.35 + r2 * 0.25;  // 0.35 – 0.60
+    callStation = 0.30 + r3 * 0.25;  // 0.30 – 0.55
+    bluffer     = 0.15 + r4 * 0.15;  // 0.15 – 0.30
+  } else {
+    // Shark: full strategic range with high variance
+    aggression  = 0.40 + r1 * 0.55;  // 0.40 – 0.95
+    looseness   = 0.20 + r2 * 0.55;  // 0.20 – 0.75
+    callStation = 0.15 + r3 * 0.45;  // 0.15 – 0.60
+    bluffer     = 0.20 + r4 * 0.40;  // 0.20 – 0.60
+  }
+
+  return { aggression, looseness, callStation, bluffer, tier };
 }
 
 interface DecideBetOptions {
@@ -36,7 +96,7 @@ interface DecideBetOptions {
   heroAggression?: number;    // 0..1 — recent hero raise-rate (0.3 = neutral)
   potControl?: boolean;       // medium-strength mode: smaller sizing, more checks
   bluffLine?: boolean;        // committed bluff this hand: continue pressure
-  personality?: BotPersonality;
+  personality?: BotPersonalityTraits;
   momentum?: number;          // positive = winning streak, negative = losing streak
   heroFoldsOften?: boolean;   // hero has folded to pressure ≥2× recently
   focusTarget?: boolean;      // bot is actively targeting / hunting the hero
@@ -64,23 +124,24 @@ function _decideBetRaw(
   const callAmount = currentBet - myBet;
   const passive    = options?.passiveExtra ?? 0;
 
-  // ── Personality modifiers ─────────────────────────────────────────────────
+  // ── Personality modifiers (numeric traits → decision adjustments) ─────────
   const pers = options?.personality;
-  const persRaiseAdj  = pers === 'aggressive' ?  0.12
-                      : pers === 'loose'      ?  0.05
-                      : pers === 'passive'    ? -0.12
-                      : pers === 'tight'      ? -0.07
-                      : 0;
-  const persCallAdj   = pers === 'tight'      ?  0.08
-                      : pers === 'loose'      ? -0.07
-                      : pers === 'passive'    ?  0.04
-                      : pers === 'aggressive' ? -0.02
-                      : 0;
-  const persBluffMult = pers === 'aggressive' ? 1.80
-                      : pers === 'loose'      ? 1.50
-                      : pers === 'tight'      ? 0.40
-                      : pers === 'passive'    ? 0.50
-                      : 1.0;
+
+  const aggression    = pers?.aggression   ?? 0.50;
+  const looseness     = pers?.looseness    ?? 0.45;
+  const callStation   = pers?.callStation  ?? 0.30;
+  const blufferTrait  = pers?.bluffer      ?? 0.09;
+
+  // persRaiseAdj: centered at 0.5 → roughly [-0.12, +0.12]
+  const persRaiseAdj  = (aggression - 0.5) * 0.24;
+  // persCallAdj: high callStation + high looseness both lower the call bar
+  const persCallAdj   = (0.5 - looseness) * 0.10 + (0.3 - callStation) * 0.08;
+  // persBluffMult: bluffer trait [0, 1] → multiplier [0.4, 2.0]
+  const persBluffMult = 0.4 + blufferTrait * 1.6;
+
+  // Style flags replacing old string-enum checks
+  const isPassiveStyle    = aggression < 0.45;
+  const isAggressiveStyle = aggression > 0.55;
 
   // ── Momentum modifiers ────────────────────────────────────────────────────
   const momentum     = options?.momentum ?? 0;
@@ -106,29 +167,22 @@ function _decideBetRaw(
   const aggHeroTighten = heroAgg > 0.65 ? 0.08 : 0;
 
   // ── Session-level read modifiers ──────────────────────────────────────────
-  // heroFoldsOften: hero folds to pressure ≥2× this session → lower bluff bar
   const foldBoostMult  = options?.heroFoldsOften ? 1.35 : 1.0;
-  // focusTarget: bot has decided to hunt this hero → extra aggression
   const focusAggBonus  = options?.focusTarget  ? 0.08 : 0;
   const focusGateDrop  = options?.focusTarget  ? 0.05 : 0;
-  // heroEscalating: hero raised in multiple rounds — personality determines response
-  const escalFold      = options?.heroEscalating && (pers === 'tight' || pers === 'passive')  ? 0.12 : 0;
-  const escalFire      = options?.heroEscalating && (pers === 'aggressive' || pers === 'loose') ? 0.08 : 0;
-  // rivalryMode: hero raised 3+ times — active rivalry, aggressive seats push back harder
-  const rivalryFire    = options?.rivalryMode && (pers === 'aggressive' || pers === 'loose') ? 0.06 : 0;
+  const escalFold      = options?.heroEscalating && isPassiveStyle     ? 0.12 : 0;
+  const escalFire      = options?.heroEscalating && isAggressiveStyle  ? 0.08 : 0;
+  const rivalryFire    = options?.rivalryMode    && isAggressiveStyle  ? 0.06 : 0;
   // stackMode: relative chip position vs table average
   const sm             = options?.stackMode ?? 'normal';
   const stackBullyGate = sm === 'bully'    ? -0.05 : 0;
   const stackBullyRaise= sm === 'bully'    ?  0.07 : 0;
   const stackSurvCall  = sm === 'survival' ?  0.08 : (sm === 'critical' ? 0.18 : 0);
   const stackSurvRaise = sm === 'survival' ? -0.10 : (sm === 'critical' ? -0.18 : 0);
-  // handVariance: per-hand ±0.08 shift to break structural repetition
   const hv             = options?.handVariance ?? 0;
-  // Bot vs bot awareness: avoid big stacks, apply pressure to short stacks
-  const bigStackCaution  = options?.facingBigStack    ? 0.08 : 0; // tighter calls
-  const bigStackGateUp   = options?.facingBigStack    ? 0.04 : 0; // harder to open-raise into big stack
-  const shortStackBonus  = options?.shortStackPresent ? 0.06 : 0; // extra aggBonus vs weak stacks
-  // tableDrift: per-seat permanent hot/cold bias
+  const bigStackCaution  = options?.facingBigStack    ? 0.08 : 0;
+  const bigStackGateUp   = options?.facingBigStack    ? 0.04 : 0;
+  const shortStackBonus  = options?.shortStackPresent ? 0.06 : 0;
   const drift            = options?.tableDrift ?? 0;
 
   // ── Scared money: high stack risk suppresses all bluffing ─────────────────
@@ -235,25 +289,29 @@ export function decideBet(
 
   // ── Raise cap (WSOP/social-poker style) ──────────────────────────────────
   // Hard ceiling on raises per betting round to prevent runaway re-raise spirals.
-  // Default 3 raises/round, 4 heads-up. When at cap, downgrade any raise to
-  // call (if facing a bet) or check (if first to act).
-  const raiseCap = options?.raiseCap ?? 3;
+  // Default 3 raises/round, 4 heads-up.
+  const raiseCap    = options?.raiseCap ?? 3;
   const raisesSoFar = options?.raisesThisRound ?? 0;
-  const atCap = raisesSoFar >= raiseCap;
+  const tier        = options?.personality?.tier;
+
+  // Tier-based effective raise cap: Fish ≤1, Casual ≤2, Shark = full cap
+  const effectiveRaiseCap = tier === 'fish'
+    ? Math.min(raiseCap, 1)
+    : tier === 'casual'
+      ? Math.min(raiseCap, 2)
+      : raiseCap;
+  const atCap = raisesSoFar >= effectiveRaiseCap;
 
   // ── Controlled chaos — combined <3% frequency, partitioned roll ───────────
   // Introduces rare unpredictable moments that remove the last traces of
   // mechanical predictability. Each branch is mutually exclusive.
   const chaosRoll = Math.random();
   if (chaosRoll < 0.010 && !atCap) {
-    // 1.0%: spontaneous aggression — raise regardless of hand strength
     const chaosSize = clampRaise(Math.floor(pot * 0.5) + callAmount, chips);
     return { action: 'raise', raiseAmount: chaosSize };
   } else if (chaosRoll < 0.022 && callAmount > 0) {
-    // 1.2%: unexpected call — call a bet we should fold
     return { action: 'call' };
   } else if (chaosRoll < 0.027 && chips > 200 && callAmount > 0 && !atCap) {
-    // 0.5%: loose all-in — only when meaningful chips remain
     return { action: 'raise', raiseAmount: chips };
   }
 
@@ -270,6 +328,23 @@ export function decideBet(
   if (atCap && raw.action === 'raise') {
     return callAmount === 0 ? { action: 'check' } : { action: 'call' };
   }
+
+  // === Tier-based action adjustments ==========================================
+  // Applied after all other logic; targets the normal (non-chaos) decision path.
+  if (tier === 'fish') {
+    // Fish downgrades raises to calls 70% of the time
+    if (raw.action === 'raise' && Math.random() > 0.30) {
+      return callAmount > 0 ? { action: 'call' } : { action: 'check' };
+    }
+    // Fish folds less — converts marginal folds to calls on tiny bets
+    if (raw.action === 'fold' && callAmount <= 4 && strength >= 0.20) {
+      return { action: 'call' };
+    }
+  }
+  // Casual: personality trait multipliers already encode TAG behavior — no
+  //         extra action overrides needed.
+  // Shark:  full strategic logic applies — no overrides.
+
   return raw;
 }
 
@@ -295,7 +370,6 @@ export function applyBetDecision(
   }
 
   if (decision.action === 'call') {
-    // Guard: chips must be >= 0 before computing pay to prevent negative pot.
     const availChips = Math.max(0, bot.chips);
     const pay = Math.min(callAmount, availChips);
     return {
