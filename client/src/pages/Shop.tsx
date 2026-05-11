@@ -95,6 +95,7 @@ const MERCH_ITEMS = [
     price: '$30',
     originalPrice: null as string | null,
     hot: false,
+    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Tee%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Tee%20(%2430).%0A%0ASize%3A%20%0AShipping%20address%3A%20%0AColor%20preference%3A%20",
   },
   {
     icon: '🧢',
@@ -103,6 +104,7 @@ const MERCH_ITEMS = [
     price: '$25',
     originalPrice: null as string | null,
     hot: false,
+    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Snapback%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Snapback%20(%2425).%0A%0ASize%3A%20%0AShipping%20address%3A%20%0AColor%20preference%3A%20",
   },
   {
     icon: '🎁',
@@ -111,10 +113,9 @@ const MERCH_ITEMS = [
     price: '$45',
     originalPrice: '$55',
     hot: true,
+    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Tee%20%2B%20Hat%20Bundle%20Order&body=I%27d%20like%20to%20order%20the%20Tee%20%2B%20Hat%20Bundle%20(%2445).%0A%0AT-Shirt%20size%3A%20%0AHat%20color%3A%20%0AShipping%20address%3A%20",
   },
 ];
-
-const MERCH_URL = 'https://chaingangpoker.com/shop';
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -406,9 +407,7 @@ export default function Shop() {
             {MERCH_ITEMS.map(item => (
               <a
                 key={item.name}
-                href={MERCH_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={item.href}
                 className="rounded-2xl p-4 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.98] flex items-center gap-4"
                 style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)', textDecoration: 'none' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.28)')}
@@ -432,13 +431,14 @@ export default function Shop() {
                   </div>
                 </div>
                 <div className="shrink-0 text-[11px] font-mono font-bold text-white/40 uppercase tracking-widest whitespace-nowrap">
-                  SHOP NOW →
+                  EMAIL TO ORDER →
                 </div>
               </a>
             ))}
           </div>
-          <p className="text-[10px] text-white/40 font-mono text-center mt-4">
-            Physical merch ships from chaingangpoker.com — separate from in-app purchases
+          <p className="text-[10px] text-white/40 font-mono text-center mt-4 leading-relaxed">
+            Physical merch fulfilled by DGM Entertainment via email order — separate from in-app purchases.<br />
+            Allow 3-5 business days for response and shipping coordination.
           </p>
         </div>
 
