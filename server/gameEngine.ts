@@ -111,10 +111,10 @@ const RECONNECT_TIMEOUT_MS = 90_000;
 function makeInitialPlayers(heroChips: number): Player[] {
   return [
     { id: 'p1', name: 'You',  presence: 'human',    chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p3', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p5', name: 'Open', presence: 'reserved', chips: 1000,      bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Open', presence: 'reserved', chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p3', name: 'Open', presence: 'reserved', chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Open', presence: 'reserved', chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p5', name: 'Open', presence: 'reserved', chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
   ];
 }
 
@@ -216,10 +216,10 @@ function makeInitialState(tableId: string): GameState {
     phase: 'WAITING',
     pot: 0,
     currentBet: 0,
-    minBet: 2,
+    minBet: 50,
     raisesThisRound: 0,
     activePlayerId: 'p1',
-    players: makeInitialPlayers(1000),
+    players: makeInitialPlayers(10000),
     communityCards: [],
     messages: [{ id: makeId(), text: 'Game ready. Press start.', time: Date.now() }],
     chatMessages: [],
@@ -378,18 +378,18 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
 
   // ── Stakes + pressure signals ─────────────────────────────────────────────
   const bankrollTier: 'LOW' | 'MID' | 'HIGH' =
-    currentChips < 300 ? 'LOW' : currentChips <= 1000 ? 'MID' : 'HIGH';
+    currentChips < 3000 ? 'LOW' : currentChips <= 10000 ? 'MID' : 'HIGH';
 
   const allChips = table.state.players
     .filter(p => p.chips > 0)
     .map(p => p.chips);
   const avgTableChips = allChips.length > 0
-    ? Math.round(allChips.reduce((a, b) => a + b, 0) / allChips.length) : 1000;
+    ? Math.round(allChips.reduce((a, b) => a + b, 0) / allChips.length) : 10000;
   const tableStakes: 'LOW' | 'MID' | 'HIGH' =
-    avgTableChips < 300 ? 'LOW' : avgTableChips <= 1000 ? 'MID' : 'HIGH';
+    avgTableChips < 3000 ? 'LOW' : avgTableChips <= 10000 ? 'MID' : 'HIGH';
 
-  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 300;
-  const lastStand  = currentChips < 150;
+  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 3000;
+  const lastStand  = currentChips < 1500;
 
   const protectingLead = netProfit > 0 && momentum !== 'down';
   const peakDrop       = Math.max(0, sessionHighProfit - netProfit);
@@ -749,7 +749,7 @@ function resetToAnte(table: AuthTable): void {
 
   let nextPlayers: Player[] = basePlayers.map(p => {
     const isBotBusted = p.presence === 'bot' && p.chips === 0;
-    const newChips = isBotBusted ? 1000 : p.chips;
+    const newChips = isBotBusted ? 10000 : p.chips;
     return {
       ...p,
       cards: [],
@@ -877,7 +877,8 @@ function scheduleNextBot(table: AuthTable): void {
   const existing = table.botTimers.get(botId);
   if (existing) clearTimeout(existing);
 
-  const thinkMs = (capturedPhase.startsWith('BET') ? 750 : 420) + Math.random() * 480;
+  const decisionType = capturedPhase.startsWith('BET') ? 'medium' as const : 'easy' as const;
+  const thinkMs      = getBotThinkDelay(botTier(botId), decisionType);
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);
@@ -1110,9 +1111,9 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
       // Auto-ante
       table.state = addMsg({
         ...s,
-        pot: s.pot + 1,
+        pot: s.pot + 25,
         players: s.players.map(p =>
-          p.id === seat ? { ...p, chips: p.chips - 1, hasActed: true, totalBet: (p.totalBet || 0) + 1 } : p
+          p.id === seat ? { ...p, chips: p.chips - 25, hasActed: true, totalBet: (p.totalBet || 0) + 25 } : p
         ),
         turnDeadline: null,
       }, `${player.name} timed out — auto-ante`);
@@ -1375,7 +1376,7 @@ export function addBadugiConnection(tableId: string, sessionId: string, ws: WebS
     // Capture BEFORE init so we can detect server-restart reconnects below.
     const hadSessionStats = table.sessionStats.has(seat);
     if (!hadSessionStats) {
-      const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 1000;
+      const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 10000;
       table.sessionStats.set(seat, {
         startChips: placeholder,
         handsPlayed: 0,
@@ -1698,13 +1699,13 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     if (action === 'ante' && s.phase === 'ANTE') {
       table.state = addMsg({
         ...s,
-        pot: s.pot + 1,
+        pot: s.pot + 25,
         players: s.players.map(p =>
           p.id === playerId
-            ? { ...p, chips: p.chips - 1, hasActed: true, totalBet: (p.totalBet || 0) + 1 }
+            ? { ...p, chips: p.chips - 25, hasActed: true, totalBet: (p.totalBet || 0) + 25 }
             : p
         ),
-      }, 'You paid $1 Ante');
+      }, 'You paid $25 Ante');
       engineLog('ACTION', tableId, { player: playerId, action: 'ante', accepted: true, pot: table.state.pot });
       table.actionLock = false;
       afterHumanAction(table);

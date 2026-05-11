@@ -368,6 +368,53 @@ function clampRaise(amount: number, chips: number): number {
   return Math.min(Math.max(amount, 2), chips);
 }
 
+// ── Bot decision timing ───────────────────────────────────────────────────────
+// Returns milliseconds to wait before broadcasting a bot action.
+// ~12% of easy/medium decisions are "snap" — instant call or obvious fold.
+// Hard decisions (raises, marginal calls) always use the full range.
+export function getBotThinkDelay(tier: BotTier, decisionType: 'easy' | 'medium' | 'hard'): number {
+  if (decisionType !== 'hard' && Math.random() < 0.12) {
+    return 300 + Math.floor(Math.random() * 400);
+  }
+  const baseRanges: Record<BotTier, Record<'easy' | 'medium' | 'hard', [number, number]>> = {
+    fish:   { easy: [800, 1500],  medium: [1500, 3000], hard: [2500, 4500] },
+    casual: { easy: [600, 1200],  medium: [1200, 2500], hard: [2000, 4000] },
+    shark:  { easy: [500, 1000],  medium: [1000, 2000], hard: [1800, 3500] },
+  };
+  const [min, max] = baseRanges[tier][decisionType];
+  return Math.floor(min + Math.random() * (max - min));
+}
+
+// ── Bot name pool ─────────────────────────────────────────────────────────────
+export const BOT_NAMES = [
+  'MikeFromVegas', 'ThunderLou', 'BigJ47', 'AceMurphy', 'DeuceMonk',
+  'KingstonRiley', 'PocketPair', 'CardShark99', 'BluffMaster', 'TexHoldEmJoe',
+  'StackChaserX', 'FoldKing', 'RaisingHellRay', 'ChipLeader22', 'AllInAlex',
+  'NoLimitNick', 'DonnyTheGreek', 'WildBillCody', 'PaulRiverside', 'JaceFromATL',
+  'SilverDollarSam', 'VegasVince', 'CallingStationCarl', 'TightTommy', 'LooseLarry',
+  'RoyalFlushRick', 'GamblerGus', 'PokerFacePete', 'MoneyMaverick', 'GrinderGreg',
+  'DeadMoneyDave', 'StackBuilder', 'PotControlPete', 'FloridaFrank', 'NightOwlNate',
+  'BackdoorBob', 'SteveSandbag', 'LimitLuke', 'CowboyCash', 'AceHighAaron',
+];
+
+export function getRandomBotName(takenNames: string[] = []): string {
+  const available = BOT_NAMES.filter(n => !takenNames.includes(n));
+  if (available.length === 0) return BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+// Deterministic per-table name: same seat on same table always gets the same name
+// across reconnects, but names differ across tables.
+export function getBotName(tableId: string, seatId: string): string {
+  const key = tableId + seatId;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return BOT_NAMES[h % BOT_NAMES.length];
+}
+
 export function applyBetDecision(
   decision: BetDecision,
   bot: { name: string; chips: number; bet: number; status: string; hasActed?: boolean },

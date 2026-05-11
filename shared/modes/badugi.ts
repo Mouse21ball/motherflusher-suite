@@ -218,7 +218,7 @@ export const BadugiMode: GameMode = {
 
       // ── Momentum (chip count vs 1000 baseline — no new state needed) ──────
       // Winning bots get slightly bolder; losing bots tighten up.
-      const momentum = bot.chips > 1080 ? 1 : bot.chips < 920 ? -1 : 0;
+      const momentum = bot.chips > 10800 ? 1 : bot.chips < 9200 ? -1 : 0;
 
       // ── Hero profiling — decayed window for light session carryover ─────────
       // Recent 5 messages weight 1.0; older 6–15 weight 0.5 — natural decay

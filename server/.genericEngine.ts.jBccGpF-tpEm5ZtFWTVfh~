@@ -398,22 +398,22 @@ function buildSessionStats(table: GenericTable, seatId: string): {
   // ── Stakes + pressure signals ─────────────────────────────────────────────
   // Bankroll tier: player's current chip balance relative to health thresholds.
   const bankrollTier: 'LOW' | 'MID' | 'HIGH' =
-    currentChips < 3000 ? 'LOW' : currentChips <= 10000 ? 'MID' : 'HIGH';
+    currentChips < 300 ? 'LOW' : currentChips <= 1000 ? 'MID' : 'HIGH';
 
   // Table stakes: average chip balance of all seated (non-bot) players.
   const humanChips = table.state.players
     .filter(p => p.presence === 'human' && p.chips > 0)
     .map(p => p.chips);
   const avgTableChips = humanChips.length > 0
-    ? Math.round(humanChips.reduce((a, b) => a + b, 0) / humanChips.length) : 10000;
+    ? Math.round(humanChips.reduce((a, b) => a + b, 0) / humanChips.length) : 1000;
   const tableStakes: 'LOW' | 'MID' | 'HIGH' =
-    avgTableChips < 3000 ? 'LOW' : avgTableChips <= 10000 ? 'MID' : 'HIGH';
+    avgTableChips < 300 ? 'LOW' : avgTableChips <= 1000 ? 'MID' : 'HIGH';
 
   // Loss pressure: net loss > 20% of start OR below LOW tier threshold.
-  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 3000;
+  const dangerZone = netProfit < -(startChips * 0.20) || currentChips < 300;
 
   // Last stand: chips are critically low — below hard floor.
-  const lastStand = currentChips < 1500;
+  const lastStand = currentChips < 150;
 
   // Win protection: player is profitable and not in a downswing.
   const protectingLead = netProfit > 0 && momentum !== 'down';
@@ -992,7 +992,7 @@ function resetToAnte(table: GenericTable): void {
     // Restock bots that busted (chips <= 0 catches both the normal all-in case
     // and any persisted negative-chip state from prior bugs).
     const isBotBusted = p.presence === 'bot' && p.chips <= 0;
-    const newChips = isBotBusted ? 10000 : Math.max(0, p.chips);
+    const newChips = isBotBusted ? 1000 : Math.max(0, p.chips);
     return {
       ...p,
       cards: [],
