@@ -373,13 +373,23 @@ function clampRaise(amount: number, chips: number): number {
 // ~12% of easy/medium decisions are "snap" — instant call or obvious fold.
 // Hard decisions (raises, marginal calls) always use the full range.
 export function getBotThinkDelay(tier: BotTier, decisionType: 'easy' | 'medium' | 'hard'): number {
+  // Snap decision — ~12% of non-hard decisions resolve instantly.
   if (decisionType !== 'hard' && Math.random() < 0.12) {
     return 300 + Math.floor(Math.random() * 400);
   }
+
+  // Deep tank — rare extended pause simulating a human agonizing over a tough spot.
+  // Sharks tank more than fish; only on medium/hard decisions.
+  const tankProb: Record<BotTier, number> = { fish: 0.04, casual: 0.08, shark: 0.14 };
+  if (decisionType !== 'easy' && Math.random() < tankProb[tier]) {
+    return 5000 + Math.floor(Math.random() * 4000); // 5 – 9 second tank
+  }
+
+  // Normal decision — wider min/max spreads mean same-tier bots feel different.
   const baseRanges: Record<BotTier, Record<'easy' | 'medium' | 'hard', [number, number]>> = {
-    fish:   { easy: [800, 1500],  medium: [1500, 3000], hard: [2500, 4500] },
-    casual: { easy: [600, 1200],  medium: [1200, 2500], hard: [2000, 4000] },
-    shark:  { easy: [500, 1000],  medium: [1000, 2000], hard: [1800, 3500] },
+    fish:   { easy: [600, 1800],  medium: [1200, 3500], hard: [2000, 5000] },
+    casual: { easy: [500, 1400],  medium: [1000, 2800], hard: [1800, 4200] },
+    shark:  { easy: [400, 1200],  medium: [800,  2300], hard: [1500, 3800] },
   };
   const [min, max] = baseRanges[tier][decisionType];
   return Math.floor(min + Math.random() * (max - min));
@@ -405,14 +415,19 @@ export function getRandomBotName(takenNames: string[] = []): string {
 
 // Deterministic per-table name: same seat on same table always gets the same name
 // across reconnects, but names differ across tables.
+// Uses (tableHash + seatOrdinal) so every seat at a given table lands on a
+// different index — no two bots at the same table can share a name.
 export function getBotName(tableId: string, seatId: string): string {
-  const key = tableId + seatId;
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = (h * 16777619) >>> 0;
+  // Hash the tableId to get a stable per-table base offset.
+  let tableHash = 2166136261;
+  for (let i = 0; i < tableId.length; i++) {
+    tableHash ^= tableId.charCodeAt(i);
+    tableHash = (tableHash * 16777619) >>> 0;
   }
-  return BOT_NAMES[h % BOT_NAMES.length];
+  // Extract the seat ordinal from the seatId (p1→1, p2→2, …).
+  const seatNum = parseInt(seatId.replace(/\D/g, ''), 10) || 0;
+  // Offset by seatNum — consecutive seats land on consecutive (unique) pool slots.
+  return BOT_NAMES[(tableHash + seatNum) % BOT_NAMES.length];
 }
 
 export function applyBetDecision(
