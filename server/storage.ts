@@ -185,7 +185,7 @@ export class MemStorage implements IStorage {
     const profile: PlayerProfile = {
       id,
       displayName: displayName ?? "Guest",
-      chipBalance: 1000,
+      chipBalance: 25000,
       activeTableId: null,
       activeSeatId: null,
       activeModeId: null,

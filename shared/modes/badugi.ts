@@ -89,9 +89,9 @@ export const BadugiMode: GameMode = {
     const bot = newPlayers[bIdx];
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 1), hasActed: true };
-      newPot += 1;
-      message = `${bot.name} paid $1 Ante`;
+      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
+      newPot += 25;
+      message = `${bot.name} paid $25 Ante`;
     } else if (state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3') {
       const cards = bot.cards;
       const evaluation = evaluateBadugi(cards);

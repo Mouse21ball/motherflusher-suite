@@ -146,9 +146,9 @@ export const SuitsPokerMode: GameMode = {
     const nextIdx = getNextActivePlayerIndex(players, botIdx, skipAllIn);
 
     if (phase === 'ANTE') {
-      const newPlayers = players.map(p => p.id === botId ? { ...p, chips: Math.max(0, p.chips - 1), hasActed: true } : p);
+      const newPlayers = players.map(p => p.id === botId ? { ...p, chips: Math.max(0, p.chips - 25), hasActed: true } : p);
       const roundOver = newPlayers.filter(p => p.status === 'active').every(p => p.hasActed);
-      return { stateUpdates: { pot: pot + 1, players: newPlayers }, message: `${bot.name} antes $1`, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
+      return { stateUpdates: { pot: pot + 25, players: newPlayers }, message: `${bot.name} antes $25`, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
     }
 
     if (phase === 'DRAW') {

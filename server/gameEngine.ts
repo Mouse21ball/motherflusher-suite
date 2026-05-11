@@ -13,6 +13,7 @@ import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { storage } from './storage';
+import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -101,8 +102,7 @@ const JOIN_WINDOW_MS = 30_000;
 // network blip, short enough to prevent ghost seats from blocking the table.
 const RECONNECT_TIMEOUT_MS = 90_000;
 
-// Bot names restored when reserved seats convert to bots.
-const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
+// Bot names: per-table, derived from tableId+seatId via getBotName().
 
 // ─── Initial table roster ─────────────────────────────────────────────────────
 // p4 is initial dealer → p1 (human) is always first-to-act in hand 1.
@@ -128,7 +128,7 @@ function convertReservedToBots(table: AuthTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
         : p
     ),
   };
@@ -150,7 +150,7 @@ function quickFillBots(table: AuthTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+      return { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) };
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -174,7 +174,7 @@ function convertOneReservedToBot(table: AuthTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
         : p
     ),
   };
@@ -912,7 +912,7 @@ function releaseSeat(table: AuthTable, seat: string): void {
         return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
       // Mid-hand: hand off to bot so the round completes cleanly.
-      return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+      return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
     }),
   };
 

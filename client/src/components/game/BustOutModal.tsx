@@ -136,7 +136,7 @@ export function BustOutModal({
             </button>
             <p className="text-center text-[10px] text-white/30 font-mono mb-3">Best value for new players</p>
             <div className="space-y-2">
-              <SecBtn label="Free Rebuy ($1,000)" onClick={onRebuy} testId="button-bust-rebuy" />
+              <SecBtn label="Free Rebuy ($5,000)" onClick={onRebuy} testId="button-bust-rebuy" />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
             </div>
           </>
@@ -154,7 +154,7 @@ export function BustOutModal({
               <span className="text-[11px] font-bold opacity-70 tracking-wide">+{dailyChips.toLocaleString()} chips waiting</span>
             </button>
             <div className="space-y-2">
-              <SecBtn label="Free Rebuy ($1,000)" onClick={onRebuy} testId="button-bust-rebuy" />
+              <SecBtn label="Free Rebuy ($5,000)" onClick={onRebuy} testId="button-bust-rebuy" />
               <SecBtn
                 label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
                 onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
@@ -225,7 +225,7 @@ export function BustOutModal({
               data-testid="button-bust-rebuy"
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-3 active:scale-[0.98]"
             >
-              REBUY $1,000
+              REBUY $5,000
             </button>
             <div className="space-y-2">
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />

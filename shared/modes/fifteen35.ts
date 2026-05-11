@@ -80,9 +80,9 @@ export const Fifteen35Mode: GameMode = {
     const isHitPhase = state.phase.startsWith('HIT_');
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 1), hasActed: true };
-      newPot += 1;
-      message = `${bot.name} paid $1 Ante`;
+      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
+      newPot += 25;
+      message = `${bot.name} paid $25 Ante`;
     } else if (isHitPhase) {
       if (bot.declaration === 'STAY' || bot.declaration === 'BUST') {
         newPlayers[bIdx] = { ...bot, hasActed: true };

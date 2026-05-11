@@ -61,22 +61,22 @@ export function botPersonality(botId: string): BotPersonalityTraits {
   let bluffer:     number;
 
   if (tier === 'fish') {
-    // Fish: low aggression (rarely raises), wide range (plays weak hands),
-    // high call station (calls bets it should fold to), low bluffer
-    aggression  = 0.20 + r1 * 0.25;  // 0.20 – 0.45
-    looseness   = 0.65 + r2 * 0.30;  // 0.65 – 0.95
+    // Fish: LOOSE not AGGRESSIVE — calls too much, rarely raises.
+    // High looseness, very low aggression, high call station.
+    aggression  = 0.10 + r1 * 0.15;  // 0.10 – 0.25
+    looseness   = 0.70 + r2 * 0.25;  // 0.70 – 0.95
     callStation = 0.65 + r3 * 0.30;  // 0.65 – 0.95
     bluffer     = 0.05 + r4 * 0.10;  // 0.05 – 0.15
   } else if (tier === 'casual') {
-    // Casual: solid TAG fundamentals, no advanced reads
-    aggression  = 0.45 + r1 * 0.20;  // 0.45 – 0.65
-    looseness   = 0.35 + r2 * 0.25;  // 0.35 – 0.60
+    // Casual: balanced — calls/folds in proportion, only raises occasionally
+    aggression  = 0.30 + r1 * 0.20;  // 0.30 – 0.50
+    looseness   = 0.40 + r2 * 0.25;  // 0.40 – 0.65
     callStation = 0.30 + r3 * 0.25;  // 0.30 – 0.55
     bluffer     = 0.15 + r4 * 0.15;  // 0.15 – 0.30
   } else {
-    // Shark: full strategic range with high variance
-    aggression  = 0.40 + r1 * 0.55;  // 0.40 – 0.95
-    looseness   = 0.20 + r2 * 0.55;  // 0.20 – 0.75
+    // Shark: aggressive strategic range — re-raises frequently, wide reads
+    aggression  = 0.45 + r1 * 0.30;  // 0.45 – 0.75
+    looseness   = 0.30 + r2 * 0.25;  // 0.30 – 0.55
     callStation = 0.15 + r3 * 0.45;  // 0.15 – 0.60
     bluffer     = 0.20 + r4 * 0.40;  // 0.20 – 0.60
   }
@@ -284,15 +284,31 @@ export function decideBet(
   chips: number,
   options?: DecideBetOptions
 ): BetDecision {
-  const callAmount = currentBet - myBet;
+  const callAmount  = currentBet - myBet;
+  const raisesSoFar = options?.raisesThisRound ?? 0;
+  const tier        = options?.personality?.tier;
+
+  // ── Fold bias: marginal hands fold more when facing heavy aggression ──────
+  // Fish 60%, Casual 50%, Shark 25% fold on borderline holdings after 2+ raises.
+  if (callAmount > 0 && raisesSoFar >= 2 && strength >= 0.30 && strength <= 0.55) {
+    const foldProb = tier === 'fish' ? 0.60 : tier === 'casual' ? 0.50 : 0.25;
+    if (Math.random() < foldProb) return { action: 'fold' };
+  }
+
   const raw = _decideBetRaw(strength, pot, currentBet, myBet, chips, options);
+
+  // ── Re-raise dampener: after any raise this round, bots are 75% less ─────
+  // likely to add another raise. Prevents runaway re-raise spirals.
+  if (raw.action === 'raise' && raisesSoFar >= 1) {
+    if (Math.random() > 0.25) {
+      return callAmount > 0 ? { action: 'call' } : { action: 'check' };
+    }
+  }
 
   // ── Raise cap (WSOP/social-poker style) ──────────────────────────────────
   // Hard ceiling on raises per betting round to prevent runaway re-raise spirals.
   // Default 3 raises/round, 4 heads-up.
   const raiseCap    = options?.raiseCap ?? 3;
-  const raisesSoFar = options?.raisesThisRound ?? 0;
-  const tier        = options?.personality?.tier;
 
   // Tier-based effective raise cap: Fish ≤1, Casual ≤2, Shark = full cap
   const effectiveRaiseCap = tier === 'fish'

@@ -13,13 +13,13 @@ export interface DailyRewardTier {
 }
 
 export const DAILY_REWARD_TIERS: DailyRewardTier[] = [
-  { day: 1, chips: 250,  xp: 25,  label: 'Day 1' },
-  { day: 2, chips: 350,  xp: 35,  label: 'Day 2' },
-  { day: 3, chips: 500,  xp: 50,  label: 'Day 3' },
-  { day: 4, chips: 750,  xp: 75,  label: 'Day 4' },
-  { day: 5, chips: 1000, xp: 100, label: 'Day 5' },
-  { day: 6, chips: 1500, xp: 125, label: 'Day 6' },
-  { day: 7, chips: 3000, xp: 250, label: 'Jackpot!', isJackpot: true },
+  { day: 1, chips: 1250,  xp: 25,  label: 'Day 1' },
+  { day: 2, chips: 1750,  xp: 35,  label: 'Day 2' },
+  { day: 3, chips: 2500,  xp: 50,  label: 'Day 3' },
+  { day: 4, chips: 3750,  xp: 75,  label: 'Day 4' },
+  { day: 5, chips: 5000,  xp: 100, label: 'Day 5' },
+  { day: 6, chips: 7500,  xp: 125, label: 'Day 6' },
+  { day: 7, chips: 15000, xp: 250, label: 'Jackpot!', isJackpot: true },
 ];
 
 export interface DailyRewardState {

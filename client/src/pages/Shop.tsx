@@ -84,10 +84,10 @@ const SUBSCRIPTION_TIERS = [
 
 // Fallback UI while Stripe products load or if Stripe isn't connected yet
 const FALLBACK_BUNDLES = [
-  { chips: 5000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙', img: '/chip-starter.png'    },
-  { chips: 15000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', img: '/chip-popular.png',    badge: 'Best Value' },
-  { chips: 50000,  unitAmount: 999,  name: 'High Roller',   icon: '💎', img: '/chip-highroller.png' },
-  { chips: 150000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳', img: '/chip-whale.png'      },
+  { chips: 25000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙', img: '/chip-starter.png'    },
+  { chips: 100000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', img: '/chip-popular.png',    badge: 'Best Value' },
+  { chips: 350000,  unitAmount: 999,  name: 'High Roller',   icon: '💎', img: '/chip-highroller.png' },
+  { chips: 1000000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳', img: '/chip-whale.png'      },
 ];
 
 const MERCH_ITEMS = [

@@ -88,7 +88,7 @@ interface HourlyState {
   lastClaimedAt: number | null;
 }
 
-const HOURLY_BASE_CHIPS = 150;
+const HOURLY_BASE_CHIPS = 500;
 
 function loadHourly(): HourlyState {
   try {

@@ -14,6 +14,7 @@ import {
   deletePersistedGenericTable,
 } from './tablePersistence';
 import { storage } from './storage';
+import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ function isPhaseRoundOver(state: GameState): boolean {
 // ─── Join window ──────────────────────────────────────────────────────────────
 const JOIN_WINDOW_MS = 30_000;
 const RECONNECT_TIMEOUT_MS = 90_000;
-const BOT_PLAYERS: Record<string, string> = { p2: 'Alice', p3: 'Bob', p4: 'Charlie', p5: 'Daisy' };
+// Bot names: per-table, derived from tableId+seatId via getBotName().
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ function convertReservedToBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
         : p
     ),
   };
@@ -165,7 +166,7 @@ function quickFillBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+      return { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) };
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -187,7 +188,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: BOT_PLAYERS[p.id] ?? p.id }
+        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
         : p
     ),
   };
@@ -1183,7 +1184,7 @@ function releaseSeat(table: GenericTable, seat: string): void {
       if (isBetweenHands) {
         return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
-      return { ...p, presence: 'bot' as const, name: BOT_PLAYERS[p.id] ?? p.id };
+      return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
     }),
   };
 
