@@ -26,6 +26,7 @@ const SUBSCRIPTION_TIERS = [
     color: '#C0C0C0',
     bg: 'rgba(192,192,192,0.06)',
     border: 'rgba(192,192,192,0.15)',
+    emblem: '/tier-bronze.png',
     features: [
       '1,000 starting chips per mode',
       'Standard avatar',
@@ -44,6 +45,7 @@ const SUBSCRIPTION_TIERS = [
     bg: 'rgba(201,162,39,0.08)',
     border: 'rgba(201,162,39,0.30)',
     badge: 'Most Popular',
+    emblem: '/tier-gold.png',
     features: [
       '5,000 chips/month bonus',
       'Gold avatar frame',
@@ -64,6 +66,7 @@ const SUBSCRIPTION_TIERS = [
     bg: 'rgba(155,89,182,0.08)',
     border: 'rgba(155,89,182,0.30)',
     badge: 'Best Value',
+    emblem: '/tier-diamond.png',
     features: [
       '15,000 chips/month bonus',
       'Animated diamond frame',
@@ -81,10 +84,10 @@ const SUBSCRIPTION_TIERS = [
 
 // Fallback UI while Stripe products load or if Stripe isn't connected yet
 const FALLBACK_BUNDLES = [
-  { chips: 5000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙' },
-  { chips: 15000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', badge: 'Best Value' },
-  { chips: 50000,  unitAmount: 999,  name: 'High Roller',   icon: '💎' },
-  { chips: 150000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳' },
+  { chips: 5000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙', img: '/chip-starter.png'    },
+  { chips: 15000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', img: '/chip-popular.png',    badge: 'Best Value' },
+  { chips: 50000,  unitAmount: 999,  name: 'High Roller',   icon: '💎', img: '/chip-highroller.png' },
+  { chips: 150000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳', img: '/chip-whale.png'      },
 ];
 
 const MERCH_ITEMS = [
@@ -180,6 +183,7 @@ export default function Shop() {
     unitAmount: number;
     name: string;
     icon?: string;
+    img?: string;
     badge?: string;
     isLive: boolean;
   }> = products.length > 0
@@ -299,7 +303,10 @@ export default function Shop() {
                       {bundle.badge}
                     </div>
                   )}
-                  <div className="text-2xl leading-none mb-1.5">{bundle.icon ?? '🪙'}</div>
+                  {bundle.img
+                    ? <img src={bundle.img} alt={bundle.name} className="w-16 h-16 object-contain mb-2" />
+                    : <div className="text-2xl leading-none mb-1.5">{bundle.icon ?? '🪙'}</div>
+                  }
                   <div className="font-bold font-mono text-white/80 tabular-nums text-sm">
                     {bundle.chips.toLocaleString()} chips
                   </div>
@@ -356,6 +363,7 @@ export default function Shop() {
                 )}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
+                    <img src={tier.emblem} alt={tier.name} className="w-12 h-12 object-contain mb-2" />
                     <div className="font-bold text-white/85 font-sans" style={{ color: tier.color }}>
                       {tier.name}
                     </div>
