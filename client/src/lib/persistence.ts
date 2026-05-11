@@ -108,13 +108,36 @@ export function setPlayerName(name: string): void {
 
 export function getChips(modeId: string): number {
   const map = readChipsMap();
-  return map[modeId] ?? DEFAULT_CHIPS;
+  return Math.max(0, map[modeId] ?? DEFAULT_CHIPS);
 }
 
 export function saveChips(modeId: string, chips: number): void {
   const map = readChipsMap();
-  map[modeId] = chips;
+  map[modeId] = Math.max(0, chips);
   safePersist(CHIPS_KEY, map);
+}
+
+// ─── Session start chips ──────────────────────────────────────────────────────
+// Captures the chip balance at the start of each calendar day so the home
+// screen can show "Session: +$X / -$X" rather than lifetime net.
+const SESSION_START_KEY = 'cgp_session_start';
+
+export function getSessionStartChips(): number | null {
+  try {
+    const raw = localStorage.getItem(SESSION_START_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { chips: number; date: string };
+    const today = new Date().toISOString().slice(0, 10);
+    if (parsed.date !== today) return null;
+    return parsed.chips;
+  } catch { return null; }
+}
+
+export function saveSessionStartChips(chips: number): void {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(SESSION_START_KEY, JSON.stringify({ chips, date }));
+  } catch {}
 }
 
 export function getAllChips(): Record<string, number> {

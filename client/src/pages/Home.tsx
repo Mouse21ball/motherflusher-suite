@@ -7,6 +7,8 @@ import {
   getAllChips,
   getHandHistory,
   getPlayerStats,
+  getSessionStartChips,
+  saveSessionStartChips,
 } from '@/lib/persistence';
 import {
   getProgression,
@@ -423,10 +425,25 @@ export default function Home() {
   const totalChips = Object.values(chipMap).reduce((a, b) => a + b, 0);
 
   // Use server-authoritative values when available; fall back to localStorage.
-  const displayChips   = serverProfile?.chipBalance    ?? totalChips;
-  const displayNet     = serverProfile?.lifetimeProfit ?? stats.totalChipChange;
+  const displayChips   = Math.max(0, serverProfile?.chipBalance ?? totalChips);
   const displayHands   = serverProfile?.handsPlayed    ?? stats.handsPlayed;
   const serverLevel    = serverProfile?.level          ?? levelInfo.level;
+
+  // ── Session P/L (today vs this-morning's bankroll) ────────────────────────
+  // Stored once per calendar day so players can see chips won/lost today.
+  const [sessionStart, setSessionStart] = useState<number>(() => {
+    return getSessionStartChips() ?? displayChips;
+  });
+  useEffect(() => {
+    const stored = getSessionStartChips();
+    if (stored === null) {
+      saveSessionStartChips(displayChips);
+      setSessionStart(displayChips);
+    } else {
+      setSessionStart(stored);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const sessionNet = displayChips - sessionStart;
 
   // Rank is derived from serverLevel so the badge text and rank color stay consistent.
   const rank = getRankForLevel(serverLevel);
@@ -672,9 +689,9 @@ export default function Home() {
               <div className="text-base font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">
                 ${displayChips.toLocaleString()}
               </div>
-              {displayHands > 0 && (
-                <div className={`text-[9px] font-mono tabular-nums ${displayNet >= 0 ? 'text-emerald-400/65' : 'text-red-400/60'}`} data-testid="text-lifetime-net">
-                  {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
+              {sessionNet !== 0 && (
+                <div className={`text-[9px] font-mono tabular-nums ${sessionNet > 0 ? 'text-emerald-400/65' : 'text-red-400/60'}`} data-testid="text-session-net">
+                  Session: {sessionNet > 0 ? '+' : '-'}${Math.abs(sessionNet).toLocaleString()}
                 </div>
               )}
             </div>
