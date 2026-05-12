@@ -34,10 +34,10 @@ function getArcPosition(index: number, total: number): string {
   if (total === 3) return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
     "absolute top-0 left-1/2 -translate-x-1/2 z-20",
     "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
-  return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
-    "absolute top-0 left-[22%] sm:left-[26%] -translate-x-1/2 z-20",
-    "absolute top-0 right-[22%] sm:right-[26%] translate-x-1/2 z-20",
-    "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
+  return (["absolute bottom-[8%] -left-10 sm:-left-6 z-20",
+    "absolute -top-2 left-[8%] sm:left-[12%] -translate-x-1/2 z-20",
+    "absolute -top-2 right-[8%] sm:right-[12%] translate-x-1/2 z-20",
+    "absolute bottom-[8%] -right-10 sm:-right-6 z-20"] as const)[index] ?? "hidden";
 }
 
 function getArcScale(index: number, total: number): string {
@@ -46,10 +46,10 @@ function getArcScale(index: number, total: number): string {
   if (total === 3) return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
     "scale-[0.62] sm:scale-[0.72] seat-depth-top",
     "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
-  return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
-    "scale-[0.60] sm:scale-[0.70] seat-depth-top",
-    "scale-[0.60] sm:scale-[0.70] seat-depth-top",
-    "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
+  return (["scale-[0.58] sm:scale-[0.68] seat-depth-side",
+    "scale-[0.55] sm:scale-[0.65] seat-depth-top",
+    "scale-[0.55] sm:scale-[0.65] seat-depth-top",
+    "scale-[0.58] sm:scale-[0.68] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
 }
 
 // ── Ring layout helpers (swing / Swing Poker) ────────────────────────────────
