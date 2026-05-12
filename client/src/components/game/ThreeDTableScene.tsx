@@ -34,12 +34,10 @@ function getArcPosition(index: number, total: number): string {
   if (total === 3) return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
     "absolute top-0 left-1/2 -translate-x-1/2 z-20",
     "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
-  // 4 opponents: left-mid, top-left, top-right, right-mid — mirrors 3-player side layout,
-  // avoids crowding the hero's bottom corners.
-  return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
+  return (["absolute bottom-[6%] -left-2 sm:left-2 z-20",
     "absolute top-0 left-[18%] sm:left-[22%] -translate-x-1/2 z-20",
     "absolute top-0 right-[18%] sm:right-[22%] translate-x-1/2 z-20",
-    "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
+    "absolute bottom-[6%] -right-2 sm:right-2 z-20"] as const)[index] ?? "hidden";
 }
 
 function getArcScale(index: number, total: number): string {
@@ -48,7 +46,6 @@ function getArcScale(index: number, total: number): string {
   if (total === 3) return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
     "scale-[0.62] sm:scale-[0.72] seat-depth-top",
     "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
-  // 4 opponents: side seats scale like 3-player sides; top seats scale like tops
   return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
     "scale-[0.60] sm:scale-[0.70] seat-depth-top",
     "scale-[0.60] sm:scale-[0.70] seat-depth-top",

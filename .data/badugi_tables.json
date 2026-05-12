@@ -20157,5 +20157,109 @@
     },
     "handId": 24,
     "savedAt": 1778542226469
+  },
+  "YSKKGL": {
+    "state": {
+      "tableId": "YSKKGL",
+      "phase": "ANTE",
+      "pot": 50,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 2475,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "CowboyCash",
+          "presence": "bot",
+          "chips": 8722,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "AceHighAaron",
+          "presence": "bot",
+          "chips": 8006,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "MikeFromVegas",
+          "presence": "bot",
+          "chips": 13571,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "ThunderLou",
+          "presence": "bot",
+          "chips": 9674,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "hpnd3maw",
+          "text": "New hand.",
+          "time": 1778557770359
+        },
+        {
+          "id": "oaeg457g",
+          "text": "MikeFromVegas paid $25 Ante",
+          "time": 1778557771371,
+          "isResolution": false
+        },
+        {
+          "id": "xtkuwdh3",
+          "text": "ThunderLou paid $25 Ante",
+          "time": 1778557772333,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1778557774338
   }
 }
