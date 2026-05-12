@@ -41,7 +41,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
   { label: 'LOW', value: 'LOW', className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-const panelClass = "w-full max-w-md mx-auto px-4 pt-3.5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] glass-panel rounded-t-2xl border-t border-white/[0.04] game-action-panel";
+const panelClass = "w-full max-w-md mx-auto px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] game-action-panel";
 
 function TurnCountdown({ deadline }: { deadline: number }) {
   const [now, setNow] = useState(() => Date.now());

@@ -19,7 +19,7 @@ const AVATAR_PALETTE = [
   { bg: '#2a0c1a', ring: '#be185d', text: '#f9a8d4' }, // pink
 ];
 
-function getAvatarStyle(name: string) {
+export function getAvatarStyle(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
   return AVATAR_PALETTE[h % AVATAR_PALETTE.length];

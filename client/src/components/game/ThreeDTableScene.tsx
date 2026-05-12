@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { GameState, ReactionEvent } from "@/lib/poker/types";
-import { PlayerSeat } from "./PlayerSeat";
+import { PlayerSeat, getAvatarStyle } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
@@ -726,35 +726,51 @@ export function ThreeDTableScene({
           </div>
         )}
 
-        {/* ── Hero seat ── */}
-        <div className="flex justify-center">
-          {me && (
-            <div className="flex flex-col items-center gap-2 w-full">
-              {showMadeStatus && heroMadeLabel && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] sm:text-[13px] font-mono font-bold tracking-wide border" data-testid="text-hero-made-status"
-                  style={heroIsMade
-                    ? { backgroundColor: 'rgba(0,200,150,0.22)', borderColor: 'rgba(0,220,165,0.70)', color: 'rgb(0,240,180)' }
-                    : { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.65)', color: 'rgb(254,150,150)' }}>
-                  {heroMadeLabel}
+        {/* ── Hero compact badge — cards live in HeroHandPanel below ── */}
+        {me && (() => {
+          const av = getAvatarStyle(me.name || 'X');
+          const isHeroActive = me.id === gameState.activePlayerId && !isShowdown;
+          return (
+            <div className="flex justify-center">
+              <div className={cn(
+                "relative flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border shadow-lg transition-all duration-200",
+                isHeroActive
+                  ? "border-[#C9A227]/80 bg-[#0e0e11] shadow-[0_0_20px_rgba(201,162,39,0.30)]"
+                  : "border-[#C9A227]/15 bg-[#09090c]/90 backdrop-blur-md"
+              )} data-testid="hero-compact-badge">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+                  style={{ background: av.bg, border: `2px solid ${isHeroActive ? '#C9A227' : av.ring}`, color: av.text }}
+                >
+                  {(me.name || '?')[0].toUpperCase()}
                 </div>
-              )}
-              <PlayerSeat
-                player={me}
-                seatNumber={0}
-                isActive={me.id === gameState.activePlayerId}
-                isSelf={true}
-                selectedCardIndices={selectedCardIndices}
-                onCardClick={onCardClick}
-                selectableCards={selectableCards}
-                showdownState={isShowdown}
-                showdownRevealPending={isShowdown && !revealedIdSet.has(me.id)}
-                heroCardClassName={heroCardClassName}
-                isStackLeader={stackLeaderId === me.id}
-                className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"
-              />
+                <div className="flex flex-col gap-0">
+                  <span className="text-sm font-semibold text-white/85 leading-tight">
+                    {me.name} <span className="text-[10px] font-mono text-white/35">(You)</span>
+                  </span>
+                  <span className="text-xs font-mono font-bold tabular-nums" style={{ color: '#C9A227' }}>${me.chips}</span>
+                  {/* Suits-specific qualifier inline */}
+                  {showMadeStatus && heroMadeLabel && (
+                    <span className="text-[10px] font-mono" style={{ color: heroIsMade ? 'rgba(0,220,165,0.75)' : 'rgba(248,113,113,0.65)' }}
+                      data-testid="text-hero-made-status">
+                      {heroMadeLabel}
+                    </span>
+                  )}
+                </div>
+                {me.isDealer && (
+                  <div className="w-5 h-5 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[9px] font-bold shrink-0">D</div>
+                )}
+                {isHeroActive && (
+                  <div className="flex items-center gap-[3px] ml-1" aria-label="Your turn">
+                    <span className="thinking-dot" />
+                    <span className="thinking-dot" />
+                    <span className="thinking-dot" />
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         <ResolutionOverlay
           messages={gameState.messages}
@@ -770,12 +786,6 @@ export function ThreeDTableScene({
             <div className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
               {lastResultEcho.text}
             </div>
-          </div>
-        )}
-
-        {onReact && (
-          <div className="w-full flex justify-center mt-1">
-            <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
           </div>
         )}
       </div>
@@ -880,22 +890,14 @@ export function ThreeDTableScene({
 
         </div>
 
-        {/* Opponent seats — positioned on the perspective wrapper, NOT inside the felt */}
+        {/* Opponent seats — compact chips for Phase A layout */}
         {opponents.map((player, i) => (
           <div key={player.id} className={`${getArcPosition(i, opponents.length)} ${getArcScale(i, opponents.length)} origin-center`}>
-            <PlayerSeat
+            <CompactOpponent
               player={player}
-              seatNumber={i + 1}
               isActive={player.id === gameState.activePlayerId}
-              isSelf={false}
-              showdownState={isShowdown}
-              showdownRevealPending={isShowdown && !revealedIdSet.has(player.id)}
-              sessionHandCount={handCount}
-              isStackLeader={stackLeaderId === player.id}
-              lastActionLabel={actionLabels[player.id]}
-              justActed={!!actionLabels[player.id]}
-              anyJustActed={anyJustActed}
-              hasActivePlayer={hasActivePlayer}
+              lastAction={actionLabels[player.id]}
+              isShowdown={isShowdown}
             />
             {/* 15/35: running total badge from visible (face-up) cards only */}
             {modeId === 'fifteen35' && player.cards.length > 0 && (
@@ -933,52 +935,50 @@ export function ThreeDTableScene({
         </div>
       )}
 
-      {/* Hero seat — prominent foreground, below the felt */}
-      <div className="w-full flex justify-center relative z-30 seat-depth-hero">
-        {me && (
-          <div className="flex flex-col items-center gap-2 w-full">
-            {showMadeStatus && heroMadeLabel && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] sm:text-[13px] font-mono font-bold tracking-wide border transition-all duration-300" data-testid="text-hero-made-status"
-                style={heroIsMade ? { backgroundColor: 'rgba(0,200,150,0.22)', borderColor: 'rgba(0,220,165,0.70)', color: 'rgb(0,240,180)', boxShadow: '0 0 14px rgba(0,200,150,0.35)' }
-                  : { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.65)', color: 'rgb(254,150,150)', boxShadow: '0 0 10px rgba(220,38,38,0.20)' }}>
-                {heroMadeLabel}
+      {/* Hero compact badge — cards live in HeroHandPanel below */}
+      {me && (() => {
+        const av = getAvatarStyle(me.name || 'X');
+        const isHeroActive = me.id === gameState.activePlayerId && !isShowdown;
+        return (
+          <div className="w-full flex justify-center relative z-30 mt-1 seat-depth-hero">
+            <div className={cn(
+              "relative flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border shadow-lg transition-all duration-200",
+              isHeroActive
+                ? "border-[#C9A227]/80 bg-[#0e0e11] shadow-[0_0_20px_rgba(201,162,39,0.30)]"
+                : "border-[#C9A227]/15 bg-[#09090c]/90 backdrop-blur-md"
+            )} data-testid="hero-compact-badge">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+                style={{ background: av.bg, border: `2px solid ${isHeroActive ? '#C9A227' : av.ring}`, color: av.text }}
+              >
+                {(me.name || '?')[0].toUpperCase()}
               </div>
-            )}
-            <PlayerSeat
-              player={me}
-              seatNumber={0}
-              isActive={me.id === gameState.activePlayerId}
-              isSelf={true}
-              selectedCardIndices={selectedCardIndices}
-              onCardClick={onCardClick}
-              selectableCards={selectableCards}
-              showdownState={isShowdown}
-              showdownRevealPending={isShowdown && !revealedIdSet.has(me.id)}
-              heroCardClassName={heroCardClassName}
-              isStackLeader={stackLeaderId === me.id}
-              className="bg-[#09090c]/90 p-3 sm:p-5 rounded-2xl shadow-2xl border border-[#C9A227]/12 backdrop-blur-md pb-4 sm:pb-6"
-            />
-            {/* 15/35: hero sees their own hidden card in the total */}
-            {modeId === 'fifteen35' && me.cards.length > 0 && (
-              <div className="flex justify-center mt-1">
-                <Fifteen35TotalBadge
-                  cards={me.cards}
-                  isSelf={true}
-                  isBust={me.declaration === 'BUST'}
-                  phase={gameState.phase}
-                />
+              <div className="flex flex-col gap-0">
+                <span className="text-sm font-semibold text-white/85 leading-tight">
+                  {me.name} <span className="text-[10px] font-mono text-white/35">(You)</span>
+                </span>
+                <span className="text-xs font-mono font-bold tabular-nums" style={{ color: '#C9A227' }}>${me.chips}</span>
+                {me.declaration && me.declaration !== 'FOLD' && (
+                  <span className="text-[10px] font-mono text-white/50 uppercase">{me.declaration}</span>
+                )}
               </div>
-            )}
+              {me.isDealer && (
+                <div className="w-5 h-5 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[9px] font-bold shrink-0">D</div>
+              )}
+              {isHeroActive && (
+                <div className="flex items-center gap-[3px] ml-1" aria-label="Your turn">
+                  <span className="thinking-dot" />
+                  <span className="thinking-dot" />
+                  <span className="thinking-dot" />
+                </div>
+              )}
+              {me.status === 'folded' && (
+                <span className="text-[9px] font-mono text-red-400/70 uppercase ml-1">Folded</span>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Reaction tray — below hero, floats travel upward */}
-      {onReact && (
-        <div className="w-full flex justify-center mt-2 relative z-30">
-          <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
-        </div>
-      )}
+        );
+      })()}
     </div>
     </div>
   );

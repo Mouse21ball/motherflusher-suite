@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
 import { FEATURES } from "@/lib/featureFlags";
-import { shareOrigin } from "@/lib/apiConfig";
 import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
 import { ThreeDTableScene } from "@/components/game/ThreeDTableScene";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
-import { GameHeader, MODE_INFO } from "@/components/game/GameHeader";
+import { GameStatusBar } from "@/components/game/GameStatusBar";
+import { HeroHandPanel } from "@/components/game/HeroHandPanel";
+import { ChatEmoteRow } from "@/components/game/ChatEmoteRow";
+import { MODE_INFO } from "@/components/game/GameHeader";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
 import { BustOutModal } from "@/components/game/BustOutModal";
@@ -24,54 +26,6 @@ import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
 import { qualifiesForSuits } from '@shared/modes/suitspoker';
-
-// ── Invite Banner ─────────────────────────────────────────────────────────────
-
-interface InviteBannerProps { tableId: string; modeId: string; humanCount?: number }
-
-function InviteBanner({ tableId, modeId, humanCount = 1 }: InviteBannerProps) {
-  const [copied, setCopied] = useState(false);
-  const url = `${shareOrigin()}/${modeId}?t=${tableId}`;
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
-  }, [url]);
-
-  return (
-    <div className="w-full px-3 pt-2 game-invite-bar">
-      <div
-        className="max-w-md mx-auto rounded-xl border px-3.5 py-2.5 flex items-center gap-3"
-        style={{ background: 'linear-gradient(135deg, rgba(0,200,150,0.07) 0%, rgba(0,200,150,0.03) 100%)', borderColor: 'rgba(0,200,150,0.22)' }}
-      >
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)] animate-pulse shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-white/25 mb-0.5">Play with friends</div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-bold text-white/85 text-sm tracking-widest" data-testid="text-table-code">{tableId}</span>
-            {humanCount >= 2
-              ? <span className="text-[10px] font-mono text-emerald-400/70 truncate">{humanCount} players · share link to fill table</span>
-              : <span className="text-[10px] font-mono text-emerald-400/55 truncate hidden sm:inline">· share link to join your table</span>
-            }
-          </div>
-        </div>
-        <button
-          onClick={handleCopy}
-          data-testid="button-copy-invite"
-          className={`shrink-0 text-[9px] font-mono uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all duration-200 font-bold ${
-            copied
-              ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/12'
-              : 'text-white/50 border-white/[0.10] hover:text-emerald-400 hover:border-emerald-500/35 hover:bg-emerald-500/[0.06]'
-          }`}
-        >
-          {copied ? '✓ Copied' : 'Copy Link'}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ── Unified game UI shell ─────────────────────────────────────────────────────
 
@@ -203,32 +157,48 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
   const handleSendMessage = (text: string) => handleAction('chat', text);
 
+  // Chat drawer external control
+  const [chatOpen, setChatOpen] = useState(false);
+
+  // Unread count — tracked here so ChatEmoteRow can show the badge
+  const [chatUnread, setChatUnread] = useState(0);
+  const prevChatLenRef = useRef(state.chatMessages.length);
+  useEffect(() => {
+    const newLen = state.chatMessages.length;
+    if (newLen > prevChatLenRef.current && !chatOpen) {
+      setChatUnread(prev => prev + newLen - prevChatLenRef.current);
+    }
+    prevChatLenRef.current = newLen;
+  }, [state.chatMessages.length, chatOpen]);
+  useEffect(() => { if (chatOpen) setChatUnread(0); }, [chatOpen]);
+
   const modeInfo = MODE_INFO[modeId];
   const modeIntro = (MODE_INTROS as Record<string, typeof MODE_INTROS[keyof typeof MODE_INTROS]>)[modeId];
+
+  const phaseHint = getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot });
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root" data-mode={modeId}>
       {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
 
-      {modeInfo && (
-        <GameHeader
-          mode={modeInfo}
-          modeId={modeId}
-          chips={me?.chips ?? 0}
-          phase={state.phase}
-          pot={state.pot}
-          onForfeit={() => { if (me) saveChips(modeId, me.chips); }}
-          sessionStats={isSpectator ? undefined : sessionStats}
-          tableId={tableId}
-        />
-      )}
+      {/* Fixed top status bar */}
+      <GameStatusBar
+        modeId={modeId}
+        gameState={state}
+        chips={me?.chips ?? 0}
+        phase={state.phase}
+        onForfeit={() => { if (me) saveChips(modeId, me.chips); }}
+        sessionStats={isSpectator ? undefined : sessionStats}
+        tableId={tableId}
+        humanCount={humanCount}
+      />
 
-      {isSpectator
-        ? <SpectatorBanner spectatorCount={state.spectatorCount} />
-        : tableId ? <InviteBanner tableId={tableId} modeId={modeId} humanCount={humanCount} /> : null
-      }
+      {/* Spectator banner */}
+      {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
 
+      {/* Join/presence notifications */}
       {showJoinConfirm && (
-        <div className="w-full px-3 flex justify-center" aria-live="polite">
+        <div className="w-full px-3 flex justify-center pt-14" aria-live="polite">
           <span className="text-[10px] font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
             ✓ Joined table
           </span>
@@ -236,7 +206,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       )}
 
       {joinFlashName && state.phase === 'WAITING' && (
-        <div className="w-full px-3 pt-1" aria-live="polite">
+        <div className="w-full px-3 pt-14" aria-live="polite">
           <div className="max-w-md mx-auto flex items-center justify-center gap-1.5">
             <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.75)' }} />
             <span className="text-[10px] font-mono" style={{ color: 'rgba(0,200,150,0.60)' }} data-testid="text-join-notification">
@@ -256,7 +226,10 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
-      <main className="flex-1 relative flex flex-col justify-center items-center overflow-hidden pb-72 game-main-area">
+      {/* ── Main content column ───────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-[280px] game-main-area overflow-x-hidden">
+
+        {/* Table 3D scene */}
         <ThreeDTableScene
           gameState={state}
           myId={isSpectator ? 'p1' : myId}
@@ -268,6 +241,36 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
         />
+
+        {/* Hero hand panel — 3-column card/info/qualifier strip */}
+        {!isSpectator && me && me.cards.length > 0 && (
+          <div className="mt-2 px-2">
+            <HeroHandPanel
+              player={me}
+              modeId={modeId}
+              phase={state.phase}
+              selectedCardIndices={selectedCardIndices}
+              onCardClick={handleCardClick}
+              selectableCards={isDrawPhase}
+              sessionNetProfit={sessionStats?.netProfit ?? 0}
+              isShowdown={state.phase === 'SHOWDOWN'}
+            />
+          </div>
+        )}
+
+        {/* Chat / emote / hint row */}
+        {!isSpectator && (
+          <div className="mt-2 px-2">
+            <ChatEmoteRow
+              onOpenChat={() => setChatOpen(true)}
+              onReact={(emoji) => handleAction('reaction', emoji)}
+              incomingReactions={state.liveReactions}
+              phaseHint={phaseHint}
+              chatUnread={chatUnread}
+            />
+          </div>
+        )}
+
       </main>
 
       {xpToast && xpToast.xpGained > 0 && (
@@ -281,9 +284,11 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         />
       )}
 
+      {/* ── Fixed action zone ─────────────────────────────────────────────── */}
       {!isSpectator && (
-        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-4 sm:pb-6 flex flex-col items-center justify-end">
-          <div className="pointer-events-auto w-full max-w-md px-2">
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
+          <div className="pointer-events-auto w-full max-w-md mx-auto px-2">
             <ActionControls
               phase={state.phase}
               currentBet={state.currentBet}
@@ -294,7 +299,6 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
               locked={actionLocked}
               selectedCardsCount={selectedCardIndices.length}
-              phaseHint={getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot })}
               openSeatsCount={openSeatsCount}
               humanCount={humanCount}
               declarationOptions={modeId === 'suitspoker' ? (() => {
@@ -311,7 +315,14 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         </div>
       )}
 
-      <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={handleSendMessage} />
+      {/* Chat drawer — externally controlled via chatOpen */}
+      <ChatBox
+        messages={state.chatMessages}
+        myId={myId}
+        onSendMessage={handleSendMessage}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+      />
 
       <BustOutModal
         open={showBustModal}
