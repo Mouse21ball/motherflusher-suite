@@ -1242,7 +1242,7 @@
   position: relative;
   background-color: #000;
   background-image:
-    linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%),
     url('/prison-bg.jpg');
   background-size: cover;
   background-position: center;
@@ -1269,7 +1269,7 @@
 
 .game-page-root[data-mode="fifteen35"] {
   background-image:
-    linear-gradient(180deg, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.30) 40%, rgba(0,0,0,0.72) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.20) 40%, rgba(0,0,0,0.52) 100%),
     url('/cgp-wallpaper-1535.png');
 }
 
@@ -1284,7 +1284,7 @@
 
 .game-page-root[data-mode="suitspoker"] {
   background-image:
-    linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.70) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.50) 100%),
     url('/cgp-wallpaper-luxury.png');
 }
 

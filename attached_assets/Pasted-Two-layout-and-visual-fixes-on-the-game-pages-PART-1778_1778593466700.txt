@@ -1,0 +1,63 @@
+Two layout and visual fixes on the game pages.
+
+═══════════════════════════════════════════════
+PART 1 — Diagnose chat bar / action button overlap
+═══════════════════════════════════════════════
+
+In the game page (likely client/src/components/game/UnifiedGamePage.tsx or similar), the chat/emote/message input bar is currently positioned such that when the user scrolls, it can render OVER the Stay/Draw action buttons at the bottom.
+
+Investigate first. Do NOT make changes yet. Report:
+
+1. Where is the chat input bar rendered? Which component? Which CSS/Tailwind classes control its position?
+2. Where are the Stay/Draw action buttons rendered? Which component?
+3. What is the z-index of each?
+4. Is the chat bar position: fixed, sticky, or static?
+5. Is the action button row position: fixed, sticky, or static?
+6. What is the parent overflow behavior?
+
+Then propose a fix that ensures:
+- Action buttons (Stay/Draw, Bet/Fold/Call/Raise, etc.) are ALWAYS visible and clickable, never covered
+- Chat/emote bar can scroll within its allowed area but does NOT overlap the action button row
+- A clear visual separator (border, shadow, gradient fade) between the chat area and the action button row
+
+Report findings and proposed fix. Wait for confirmation before applying.
+
+═══════════════════════════════════════════════
+PART 2 — Brighten game mode backgrounds
+═══════════════════════════════════════════════
+
+The mode-specific atmospheric backgrounds (Badugi speakeasy, Dead 7 dangerous room, 15/35 vintage casino, Suits & Poker chandelier room) are currently rendering too dark. The dark overlay gradient applied for text contrast is overwhelming the actual background imagery, making the prison/casino atmosphere disappear.
+
+Find the CSS or inline styles applying the dark overlay over the background images. Most likely in client/src/index.css or directly on the game page components.
+
+The current overlay is something like:
+linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.85) 100%)
+
+Lighten this overlay so the background imagery shows through clearly while still maintaining text contrast on UI cards. Target overlay:
+linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)
+
+This reduces the darkening by roughly half while still keeping enough contrast for the felt, player cards, and overlay text to remain readable.
+
+Apply this change to ALL FOUR mode backgrounds:
+- Badugi
+- Dead 7
+- 15/35
+- Suits & Poker
+
+If each mode has its own overlay value in different files, update each. If they share a common CSS variable or class, update that one source.
+
+═══════════════════════════════════════════════
+PART 3 — Verification
+═══════════════════════════════════════════════
+
+After PART 2 is applied:
+1. Run typecheck — must show zero errors
+2. The four mode backgrounds should now visibly show their atmospheric imagery behind the felt and UI
+3. Text and cards on top of the backgrounds should remain readable
+4. No visual elements (cards, pot, round indicator, hero hand) should be washed out or hard to read
+
+For PART 1, wait for my confirmation of the chat/button fix approach before applying.
+
+Report:
+- PART 1 findings and proposed fix (no code changes yet)
+- PART 2 changes made and which files were modified
