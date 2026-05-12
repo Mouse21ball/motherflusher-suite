@@ -52,7 +52,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Open chat"
-        className={`fixed bottom-[180px] sm:bottom-[160px] right-3 sm:right-4 z-40 p-2.5 sm:p-3 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center rounded-xl glass-panel text-white/60 hover:text-white/80 shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
+        className={`fixed bottom-[280px] sm:bottom-[240px] right-3 sm:right-4 z-40 p-2.5 sm:p-3 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center rounded-xl glass-panel text-white/60 hover:text-white/80 shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation ${isOpen ? 'hidden' : 'block'}`}
       >
         <MessageSquare className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -65,7 +65,7 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
       <div 
         role="dialog"
         aria-label="Table chat"
-        className={`fixed inset-y-0 right-0 z-50 w-80 sm:w-96 bg-[#0B0B0D]/98 border-l border-white/[0.06] backdrop-blur-xl shadow-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 bottom-[72px] sm:bottom-[60px] right-0 z-50 w-80 sm:w-96 bg-[#0B0B0D]/98 border-l border-white/[0.06] backdrop-blur-xl shadow-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06] bg-[#141417]/80">
           <h2 className="text-white/70 font-mono text-xs tracking-widest uppercase flex items-center gap-2.5 font-medium">
@@ -107,6 +107,8 @@ export function ChatBox({ messages, myId, onSendMessage }: ChatBoxProps) {
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        <div className="h-8 bg-gradient-to-t from-[#0B0B0D]/80 to-transparent pointer-events-none flex-shrink-0" />
 
         <form onSubmit={handleSubmit} className="p-3 border-t border-white/[0.06] bg-[#141417]/60">
           <div className="flex items-center gap-2 relative">
