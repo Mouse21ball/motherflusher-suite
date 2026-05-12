@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { GameState, ReactionEvent } from "@/lib/poker/types";
-import { PlayerSeat, getAvatarStyle } from "./PlayerSeat";
+import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
@@ -726,52 +726,6 @@ export function ThreeDTableScene({
           </div>
         )}
 
-        {/* ── Hero compact badge — cards live in HeroHandPanel below ── */}
-        {me && (() => {
-          const av = getAvatarStyle(me.name || 'X');
-          const isHeroActive = me.id === gameState.activePlayerId && !isShowdown;
-          return (
-            <div className="flex justify-center">
-              <div className={cn(
-                "relative flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border shadow-lg transition-all duration-200",
-                isHeroActive
-                  ? "border-[#C9A227]/80 bg-[#0e0e11] shadow-[0_0_20px_rgba(201,162,39,0.30)]"
-                  : "border-[#C9A227]/15 bg-[#09090c]/90 backdrop-blur-md"
-              )} data-testid="hero-compact-badge">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-                  style={{ background: av.bg, border: `2px solid ${isHeroActive ? '#C9A227' : av.ring}`, color: av.text }}
-                >
-                  {(me.name || '?')[0].toUpperCase()}
-                </div>
-                <div className="flex flex-col gap-0">
-                  <span className="text-sm font-semibold text-white/85 leading-tight">
-                    {me.name} <span className="text-[10px] font-mono text-white/35">(You)</span>
-                  </span>
-                  <span className="text-xs font-mono font-bold tabular-nums" style={{ color: '#C9A227' }}>${me.chips}</span>
-                  {/* Suits-specific qualifier inline */}
-                  {showMadeStatus && heroMadeLabel && (
-                    <span className="text-[10px] font-mono" style={{ color: heroIsMade ? 'rgba(0,220,165,0.75)' : 'rgba(248,113,113,0.65)' }}
-                      data-testid="text-hero-made-status">
-                      {heroMadeLabel}
-                    </span>
-                  )}
-                </div>
-                {me.isDealer && (
-                  <div className="w-5 h-5 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[9px] font-bold shrink-0">D</div>
-                )}
-                {isHeroActive && (
-                  <div className="flex items-center gap-[3px] ml-1" aria-label="Your turn">
-                    <span className="thinking-dot" />
-                    <span className="thinking-dot" />
-                    <span className="thinking-dot" />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
         <ResolutionOverlay
           messages={gameState.messages}
           phase={gameState.phase}
@@ -810,17 +764,17 @@ export function ThreeDTableScene({
       </div>
 
       {/* 3D perspective wrapper */}
-      <div className="relative table-3d-perspective pt-8 sm:pt-10 pb-4 sm:pb-6">
+      <div className="relative table-3d-perspective pt-6 sm:pt-8 pb-3 sm:pb-5 max-w-[92vw] mx-auto">
 
         {/* Felt surface — tilted for 3D depth */}
         <div
-          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[220px] sm:min-h-[280px] table-3d-tilt game-scene-arc-felt"
+          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[180px] sm:min-h-[220px] table-3d-tilt game-scene-arc-felt"
           style={{ filter: isShowdown ? 'brightness(0.92)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}
         >
           <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
 
           {/* Center content inside the tilted felt */}
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[220px] sm:min-h-[280px] px-4 sm:px-8 py-4 game-scene-arc-center">
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px] px-4 sm:px-8 py-4 game-scene-arc-center">
             <div className="flex flex-col items-center gap-3 my-auto table-3d-counter">
 
               {gameState.phase === 'WAITING' ? renderWaitingCenter() : isShowdown ? null : (
@@ -935,50 +889,6 @@ export function ThreeDTableScene({
         </div>
       )}
 
-      {/* Hero compact badge — cards live in HeroHandPanel below */}
-      {me && (() => {
-        const av = getAvatarStyle(me.name || 'X');
-        const isHeroActive = me.id === gameState.activePlayerId && !isShowdown;
-        return (
-          <div className="w-full flex justify-center relative z-30 mt-1 seat-depth-hero">
-            <div className={cn(
-              "relative flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border shadow-lg transition-all duration-200",
-              isHeroActive
-                ? "border-[#C9A227]/80 bg-[#0e0e11] shadow-[0_0_20px_rgba(201,162,39,0.30)]"
-                : "border-[#C9A227]/15 bg-[#09090c]/90 backdrop-blur-md"
-            )} data-testid="hero-compact-badge">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-                style={{ background: av.bg, border: `2px solid ${isHeroActive ? '#C9A227' : av.ring}`, color: av.text }}
-              >
-                {(me.name || '?')[0].toUpperCase()}
-              </div>
-              <div className="flex flex-col gap-0">
-                <span className="text-sm font-semibold text-white/85 leading-tight">
-                  {me.name} <span className="text-[10px] font-mono text-white/35">(You)</span>
-                </span>
-                <span className="text-xs font-mono font-bold tabular-nums" style={{ color: '#C9A227' }}>${me.chips}</span>
-                {me.declaration && me.declaration !== 'FOLD' && (
-                  <span className="text-[10px] font-mono text-white/50 uppercase">{me.declaration}</span>
-                )}
-              </div>
-              {me.isDealer && (
-                <div className="w-5 h-5 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[9px] font-bold shrink-0">D</div>
-              )}
-              {isHeroActive && (
-                <div className="flex items-center gap-[3px] ml-1" aria-label="Your turn">
-                  <span className="thinking-dot" />
-                  <span className="thinking-dot" />
-                  <span className="thinking-dot" />
-                </div>
-              )}
-              {me.status === 'folded' && (
-                <span className="text-[9px] font-mono text-red-400/70 uppercase ml-1">Folded</span>
-              )}
-            </div>
-          </div>
-        );
-      })()}
     </div>
     </div>
   );
