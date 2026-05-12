@@ -227,7 +227,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       )}
 
       {/* ── Main content column ───────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-[280px] game-main-area overflow-x-hidden">
+      <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-44 sm:pb-52 game-main-area overflow-x-hidden">
 
         {/* Table 3D scene */}
         <ThreeDTableScene

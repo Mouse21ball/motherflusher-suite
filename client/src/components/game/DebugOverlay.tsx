@@ -9,11 +9,27 @@ interface DebugOverlayProps {
 }
 
 export function DebugOverlay({ state, myId, lastWsAt, lastWsType }: DebugOverlayProps) {
+  const [enabled, setEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem('cgp_debug_overlay') === 'true'; } catch { return false; }
+  });
+
   const [now, setNow] = useState<number>(Date.now());
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
+
+  // Re-check localStorage on focus so toggling in console takes effect immediately
+  useEffect(() => {
+    const onFocus = () => {
+      try { setEnabled(localStorage.getItem('cgp_debug_overlay') === 'true'); } catch {}
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  if (!enabled) return null;
 
   const activePlayers = state.players.filter(p => p.status === 'active').length;
   const totalChips = state.players.reduce((s, p) => s + (p.chips ?? 0), 0);

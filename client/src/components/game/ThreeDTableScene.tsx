@@ -810,17 +810,17 @@ export function ThreeDTableScene({
       </div>
 
       {/* 3D perspective wrapper */}
-      <div className="relative table-3d-perspective pt-12 sm:pt-16 pb-6 sm:pb-8">
+      <div className="relative table-3d-perspective pt-8 sm:pt-10 pb-4 sm:pb-6">
 
         {/* Felt surface — tilted for 3D depth */}
         <div
-          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[340px] sm:min-h-[420px] table-3d-tilt game-scene-arc-felt"
+          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[220px] sm:min-h-[280px] table-3d-tilt game-scene-arc-felt"
           style={{ filter: isShowdown ? 'brightness(0.92)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}
         >
           <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
 
           {/* Center content inside the tilted felt */}
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[420px] px-4 sm:px-8 py-6 game-scene-arc-center">
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-[220px] sm:min-h-[280px] px-4 sm:px-8 py-4 game-scene-arc-center">
             <div className="flex flex-col items-center gap-3 my-auto table-3d-counter">
 
               {gameState.phase === 'WAITING' ? renderWaitingCenter() : isShowdown ? null : (

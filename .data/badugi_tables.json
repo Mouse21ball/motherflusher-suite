@@ -21775,5 +21775,109 @@
     },
     "handId": 0,
     "savedAt": 1778601865929
+  },
+  "MVZVRX": {
+    "state": {
+      "tableId": "MVZVRX",
+      "phase": "ANTE",
+      "pot": 50,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 392,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "GamblerGus",
+          "presence": "bot",
+          "chips": 10131,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "PokerFacePete",
+          "presence": "bot",
+          "chips": 12043,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "MoneyMaverick",
+          "presence": "bot",
+          "chips": 9515,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "GrinderGreg",
+          "presence": "bot",
+          "chips": 8286,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "hdbts4g1",
+          "text": "New hand.",
+          "time": 1778612012064
+        },
+        {
+          "id": "a1uzdwsb",
+          "text": "MoneyMaverick paid $25 Ante",
+          "time": 1778612012578,
+          "isResolution": false
+        },
+        {
+          "id": "jyr3q8fq",
+          "text": "GrinderGreg paid $25 Ante",
+          "time": 1778612013093,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1778612015098
   }
 }
