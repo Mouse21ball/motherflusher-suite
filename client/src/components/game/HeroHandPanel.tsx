@@ -4,6 +4,7 @@ import { evaluateBadugi } from "@/lib/poker/modes/badugi";
 import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
 import { evaluateSuitsScore, evaluatePokerHand } from "@shared/modes/suitspoker";
+import { getHeroAvatar } from "@shared/engine/avatarMap";
 import type { Player, GamePhase } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
 
@@ -68,19 +69,25 @@ function qualifierLabel(modeId: string) {
   return 'QUALIFIER';
 }
 
-// ── Card size helpers ────────────────────────────────────────────────────────
+// ── Card size helpers — UNO-style compression as hand grows ─────────────────
 
 function cardSizeClass(n: number) {
-  if (n <= 3) return 'w-14 h-[96px] sm:w-16 sm:h-[112px]';
-  if (n <= 5) return 'w-12 h-[84px] sm:w-14 sm:h-[96px]';
-  return 'w-10 h-[70px] sm:w-12 sm:h-[84px]';
+  if (n <= 2) return 'w-20 h-28 sm:w-24 sm:h-32';
+  if (n <= 3) return 'w-16 h-[104px] sm:w-20 sm:h-28';
+  if (n <= 5) return 'w-14 h-[96px] sm:w-16 sm:h-[104px]';
+  if (n <= 7) return 'w-[46px] h-[80px] sm:w-14 sm:h-[96px]';
+  return 'w-10 h-[68px] sm:w-[46px] sm:h-[80px]';
 }
 
 function cardOverlapClass(n: number) {
-  if (n <= 3) return '';
-  if (n <= 5) return '-ml-3';
-  return '-ml-4';
+  if (n <= 2) return '';
+  if (n <= 3) return '-ml-3';
+  if (n <= 5) return '-ml-5';
+  if (n <= 7) return '-ml-8';
+  return '-ml-10';
 }
+
+const MAX_VISIBLE_CARDS = 7;
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +131,7 @@ export function HeroHandPanel({
       <div className="rounded-2xl border border-white/[0.09] bg-[#0B0B0D]/95 backdrop-blur-md overflow-hidden">
         <div className="grid grid-cols-[auto_1fr_auto] gap-0 divide-x divide-white/[0.06]">
 
-          {/* ── Column 1: Cards ─────────────────────────────────────────── */}
+          {/* ── Column 1: Cards (UNO-compressed; clamps at 7+N badge) ──── */}
           <div className="px-3 py-3 flex flex-col items-center justify-center gap-2 min-w-[100px] sm:min-w-[120px]">
             {isDrawPhase && (
               <span className="text-[9px] font-mono uppercase tracking-widest text-[#C9A227]/55 mb-0.5">
@@ -132,7 +139,7 @@ export function HeroHandPanel({
               </span>
             )}
             <div className="flex items-center">
-              {cards.map((card, i) => {
+              {cards.slice(0, MAX_VISIBLE_CARDS).map((card, i) => {
                 const isSelected = selectedCardIndices.includes(i);
                 const canClick = selectableCards;
                 return (
@@ -164,11 +171,30 @@ export function HeroHandPanel({
                   </div>
                 );
               })}
+              {n > MAX_VISIBLE_CARDS && (
+                <div className={cn(
+                  "relative flex items-center justify-center rounded bg-white/10 border border-white/20 text-[10px] font-bold text-white/60 shrink-0",
+                  sizeClass,
+                  overlapClass,
+                )}>
+                  +{n - MAX_VISIBLE_CARDS}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ── Column 2: Player info ────────────────────────────────────── */}
+          {/* ── Column 2: Player info + cat avatar ───────────────────────── */}
           <div className="px-3 py-3 flex flex-col justify-center gap-1.5 min-w-0">
+            {/* Hero cat avatar */}
+            <div className="relative w-9 h-9 rounded-full overflow-hidden bg-black/60 shrink-0"
+              style={{ border: '1.5px solid rgba(201,162,39,0.35)' }}>
+              <img
+                src={getHeroAvatar()}
+                alt="You"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
             <div className="text-sm font-semibold text-white/85 truncate leading-none">
               {player.name}
             </div>

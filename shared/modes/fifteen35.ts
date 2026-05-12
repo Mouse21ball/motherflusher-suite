@@ -61,8 +61,8 @@ export const Fifteen35Mode: GameMode = {
     const freshDeck = [...deck];
     const newPlayers = players.map(p => {
       if (p.status !== 'active') return { ...p, cards: [] };
-      const card1 = { ...freshDeck.shift()!, isHidden: false };
-      const card2 = { ...freshDeck.shift()!, isHidden: p.id !== myId };
+      const card1 = { ...freshDeck.shift()!, isHidden: p.id !== myId };
+      const card2 = { ...freshDeck.shift()!, isHidden: false };
       return { ...p, cards: [card1, card2] };
     });
     return { players: newPlayers, communityCards: [], deck: freshDeck };

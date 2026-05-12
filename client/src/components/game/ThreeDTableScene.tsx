@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { GameState, ReactionEvent } from "@/lib/poker/types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
+import { getAvatarForSeat, getHeroAvatar } from "@shared/engine/avatarMap";
 import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
 import { ReactionBar } from "./ReactionBar";
@@ -173,21 +174,27 @@ function Fifteen35TotalBadge({ cards, isSelf, isBust, phase }: {
 
 // ── Suits & Poker compact opponent chip ───────────────────────────────────────
 
-function CompactOpponent({ player, isActive, lastAction, isShowdown }: {
+function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex = 1, modeId }: {
   player: import("@/lib/poker/types").Player;
   isActive: boolean;
   lastAction?: string;
   isShowdown: boolean;
+  seatIndex?: number;
+  modeId?: string;
 }) {
-  const isFolded   = player.status === 'folded';
-  const isBust     = player.declaration === 'BUST';
-  const isStay     = player.declaration === 'STAY';
-  const initial    = (player.name || '?')[0].toUpperCase();
+  const isFolded    = player.status === 'folded';
+  const isBust      = player.declaration === 'BUST';
+  const isStay      = player.declaration === 'STAY';
+  const avatarSrc   = getAvatarForSeat(seatIndex);
+  const isFifteen35 = modeId === 'fifteen35';
+
+  const totalCards = player.cards.length;
+  const cardFanML  = totalCards <= 3 ? -10 : totalCards <= 5 ? -14 : -18;
 
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl border transition-all duration-200 min-w-[48px]",
+        "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl border transition-all duration-200 min-w-[56px]",
         isActive
           ? "bg-[#C9A227]/10 border-[#C9A227]/35 shadow-[0_0_8px_rgba(201,162,39,0.18)]"
           : "border-white/[0.07] bg-white/[0.025]",
@@ -195,26 +202,58 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown }: {
       )}
       data-testid={`compact-opponent-${player.id}`}
     >
-      {/* Avatar initial */}
-      <div className={cn(
-        "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold",
-        isActive ? "bg-[#C9A227]/25 text-[#C9A227]" : "bg-white/10 text-white/50"
-      )}>
-        {initial}
+      {/* Animal avatar + seat-number badge */}
+      <div className="relative shrink-0">
+        <div className={cn(
+          "relative w-10 h-10 rounded-full overflow-hidden bg-black/50",
+          isActive && !isShowdown
+            ? "ring-2 ring-[#C9A227]/80 ring-offset-1 ring-offset-black"
+            : "ring-1 ring-white/15",
+        )}>
+          <img
+            src={avatarSrc}
+            alt={player.name}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+        <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black border border-white/25 flex items-center justify-center text-[7px] font-bold text-white/70 z-10">
+          {seatIndex}
+        </div>
       </div>
+
       {/* Name */}
-      <span className="text-[8px] font-mono text-white/55 truncate max-w-[52px]">{player.name}</span>
+      <span className="text-[8px] font-mono text-white/55 truncate max-w-[60px]">{player.name}</span>
       {/* Chips */}
       <span className="text-[9px] font-mono font-semibold text-[#C9A227]/80 tabular-nums">${player.chips}</span>
-      {/* Status label */}
-      {isBust   && <span className="text-[7px] font-mono text-red-400/80   bg-red-900/20   px-1 py-0.5 rounded" data-testid={`status-bust-${player.id}`}>BUST</span>}
-      {isStay && !isBust && <span className="text-[7px] font-mono text-emerald-400/70 bg-emerald-900/20 px-1 py-0.5 rounded">STAY</span>}
-      {isFolded && <span className="text-[7px] font-mono text-white/30     bg-white/[0.04] px-1 py-0.5 rounded">FOLD</span>}
-      {lastAction && !isFolded && !isBust && !isStay && (
-        <span className="text-[7px] font-mono text-white/40 max-w-[52px] truncate">{lastAction}</span>
+
+      {/* 15/35: card fan — card[0] face-down, card[1+] face-up */}
+      {isFifteen35 && totalCards > 0 && !isShowdown && (
+        <div className="flex items-end mt-0.5 overflow-visible">
+          {player.cards.map((card, i) => (
+            <div key={i} className="relative" style={{ marginLeft: i > 0 ? cardFanML : 0, zIndex: i }}>
+              <PlayingCard card={card} className="w-7 h-10" />
+            </div>
+          ))}
+        </div>
       )}
-      {/* At showdown only: show their actual hole cards */}
-      {isShowdown && player.cards.length > 0 && (
+
+      {/* Status labels */}
+      {isBust && (
+        <span className="text-[7px] font-mono text-red-400/80 bg-red-900/20 px-1 py-0.5 rounded" data-testid={`status-bust-${player.id}`}>BUST</span>
+      )}
+      {isStay && !isBust && (
+        <span className="text-[7px] font-mono text-emerald-400/70 bg-emerald-900/20 px-1 py-0.5 rounded">STAY</span>
+      )}
+      {isFolded && (
+        <span className="text-[7px] font-mono text-white/30 bg-white/[0.04] px-1 py-0.5 rounded">FOLD</span>
+      )}
+      {lastAction && !isFolded && !isBust && !isStay && (
+        <span className="text-[7px] font-mono text-white/40 max-w-[60px] truncate">{lastAction}</span>
+      )}
+
+      {/* Showdown: reveal all cards face-up */}
+      {isShowdown && totalCards > 0 && (
         <div className="flex gap-0.5 mt-0.5">
           {player.cards.map((c, i) => (
             <PlayingCard key={i} card={{ ...c, isHidden: false }} className="w-[22px] h-[31px]" />
@@ -706,6 +745,8 @@ export function ThreeDTableScene({
               isActive={player.id === gameState.activePlayerId}
               lastAction={actionLabels[player.id]}
               isShowdown={isShowdown}
+              seatIndex={opponents.findIndex(o => o.id === player.id) + 1}
+              modeId={modeId}
             />
           ))}
         </div>
@@ -852,6 +893,8 @@ export function ThreeDTableScene({
               isActive={player.id === gameState.activePlayerId}
               lastAction={actionLabels[player.id]}
               isShowdown={isShowdown}
+              seatIndex={i + 1}
+              modeId={modeId}
             />
             {/* 15/35: running total badge from visible (face-up) cards only */}
             {modeId === 'fifteen35' && player.cards.length > 0 && (
