@@ -25070,8 +25070,8 @@
   "fifteen35:CA224X": {
     "state": {
       "tableId": "CA224X",
-      "phase": "BET_4",
-      "pot": 641,
+      "phase": "BET_8",
+      "pot": 24095,
       "currentBet": 0,
       "minBet": 50,
       "raisesThisRound": 0,
@@ -25083,16 +25083,36 @@
           "presence": "bot",
           "chips": 0,
           "bet": 0,
-          "totalBet": 52,
+          "totalBet": 2845,
           "cards": [
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "8",
+              "isHidden": false
+            },
             {
               "suit": "diamonds",
               "rank": "10",
               "isHidden": false
             },
             {
+              "suit": "diamonds",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
               "suit": "spades",
-              "rank": "4",
+              "rank": "5",
               "isHidden": false
             }
           ],
@@ -25105,28 +25125,48 @@
           "id": "p2",
           "name": "BigJ47",
           "presence": "bot",
-          "chips": 21524,
+          "chips": 4197,
           "bet": 0,
-          "totalBet": 179,
+          "totalBet": 2845,
           "cards": [
             {
               "suit": "hearts",
-              "rank": "10",
+              "rank": "J",
               "isHidden": false
             },
             {
               "suit": "hearts",
-              "rank": "A",
+              "rank": "Q",
               "isHidden": false
             },
             {
               "suit": "diamonds",
-              "rank": "5",
+              "rank": "3",
               "isHidden": false
             },
             {
-              "suit": "diamonds",
-              "rank": "7",
+              "suit": "spades",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "4",
               "isHidden": false
             }
           ],
@@ -25139,23 +25179,48 @@
           "id": "p3",
           "name": "AceMurphy",
           "presence": "bot",
-          "chips": 15723,
+          "chips": 7155,
           "bet": 0,
-          "totalBet": 179,
+          "totalBet": 2845,
           "cards": [
             {
               "suit": "spades",
-              "rank": "9",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "10",
               "isHidden": false
             },
             {
               "suit": "hearts",
               "rank": "4",
               "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "J",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "9",
+              "isHidden": false
             }
           ],
           "status": "active",
-          "isDealer": true,
+          "isDealer": false,
           "declaration": "STAY",
           "hasActed": false
         },
@@ -25163,131 +25228,171 @@
           "id": "p4",
           "name": "DeuceMonk",
           "presence": "bot",
-          "chips": 11215,
+          "chips": 35990,
           "bet": 0,
-          "totalBet": 179,
+          "totalBet": 2845,
           "cards": [
+            {
+              "suit": "clubs",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "J",
+              "isHidden": false
+            },
             {
               "suit": "clubs",
               "rank": "6",
               "isHidden": false
             },
             {
-              "suit": "clubs",
-              "rank": "3",
-              "isHidden": false
-            },
-            {
-              "suit": "spades",
-              "rank": "3",
-              "isHidden": false
-            },
-            {
-              "suit": "clubs",
-              "rank": "9",
-              "isHidden": false
-            },
-            {
-              "suit": "clubs",
-              "rank": "4",
-              "isHidden": false
-            }
-          ],
-          "status": "active",
-          "isDealer": false,
-          "declaration": null,
-          "hasActed": true
-        },
-        {
-          "id": "p5",
-          "name": "KingstonRiley",
-          "presence": "bot",
-          "chips": 3594,
-          "bet": 0,
-          "totalBet": 52,
-          "cards": [
-            {
               "suit": "diamonds",
               "rank": "4",
               "isHidden": false
             },
             {
+              "suit": "diamonds",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
               "suit": "spades",
-              "rank": "5",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "A",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "KingstonRiley",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 0,
+          "totalBet": 2589,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "10",
               "isHidden": false
             },
             {
               "suit": "hearts",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
               "rank": "9",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "2",
               "isHidden": false
             }
           ],
-          "status": "folded",
+          "status": "active",
           "isDealer": false,
-          "declaration": null,
+          "declaration": "STAY",
           "hasActed": false
         }
       ],
       "communityCards": [],
       "messages": [
         {
-          "id": "2ai5augk",
-          "text": "DeuceMonk checked",
-          "time": 1778684327667,
-          "isResolution": false
-        },
-        {
-          "id": "1j45chpz",
+          "id": "1gm4w097",
           "text": "BigJ47 checked",
-          "time": 1778684330444,
+          "time": 1778684717649,
           "isResolution": false
         },
         {
-          "id": "o7z8jwzl",
+          "id": "pcdeut80",
           "text": "AceMurphy checked",
-          "time": 1778684332272,
+          "time": 1778684720212,
           "isResolution": false
         },
         {
-          "id": "k1pw9scp",
-          "text": "HIT 3",
-          "time": 1778684332623,
-          "isResolution": false
-        },
-        {
-          "id": "1ntpjfd9",
-          "text": "DeuceMonk hits",
-          "time": 1778684333754,
-          "isResolution": false
-        },
-        {
-          "id": "prtgg4bh",
-          "text": "ThunderLou stays",
-          "time": 1778684334297,
-          "isResolution": false
-        },
-        {
-          "id": "gujxlvkq",
-          "text": "BigJ47 stays",
-          "time": 1778684335165,
-          "isResolution": false
-        },
-        {
-          "id": "iua67ew8",
-          "text": "AceMurphy stays",
-          "time": 1778684336209,
-          "isResolution": false
-        },
-        {
-          "id": "xxv2hlsb",
-          "text": "BET 4",
-          "time": 1778684336560,
-          "isResolution": false
-        },
-        {
-          "id": "zuun3q2h",
+          "id": "89ofaetw",
           "text": "DeuceMonk checked",
-          "time": 1778684338588,
+          "time": 1778684721387,
+          "isResolution": false
+        },
+        {
+          "id": "n0hn8zz4",
+          "text": "HIT 7",
+          "time": 1778684721737,
+          "isResolution": false
+        },
+        {
+          "id": "cf3awsbe",
+          "text": "KingstonRiley stays",
+          "time": 1778684722667,
+          "isResolution": false
+        },
+        {
+          "id": "i2yk3592",
+          "text": "ThunderLou stays",
+          "time": 1778684723053,
+          "isResolution": false
+        },
+        {
+          "id": "ng0uowej",
+          "text": "BigJ47 stays",
+          "time": 1778684724256,
+          "isResolution": false
+        },
+        {
+          "id": "bacoambq",
+          "text": "AceMurphy stays",
+          "time": 1778684724931,
+          "isResolution": false
+        },
+        {
+          "id": "f55tv18u",
+          "text": "DeuceMonk hits",
+          "time": 1778684725282,
+          "isResolution": false
+        },
+        {
+          "id": "m7v67nck",
+          "text": "BET 8",
+          "time": 1778684725632,
           "isResolution": false
         }
       ],
@@ -25305,6 +25410,13 @@
           "senderName": "BigJ47",
           "text": "Eyes on the pot.",
           "time": 1778684143663
+        },
+        {
+          "id": "tjcugpns",
+          "senderId": "p1",
+          "senderName": "ThunderLou",
+          "text": "Ante up.",
+          "time": 1778684451201
         }
       ],
       "deck": [
@@ -25314,88 +25426,13 @@
           "isHidden": false
         },
         {
-          "suit": "clubs",
-          "rank": "7",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "3",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "A",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "10",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "K",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "Q",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "2",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "A",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "Q",
-          "isHidden": false
-        },
-        {
           "suit": "diamonds",
           "rank": "9",
           "isHidden": false
         },
         {
-          "suit": "clubs",
-          "rank": "Q",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
           "suit": "spades",
-          "rank": "6",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "7",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "6",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "J",
+          "rank": "9",
           "isHidden": false
         },
         {
@@ -25404,118 +25441,88 @@
           "isHidden": false
         },
         {
+          "suit": "clubs",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
           "suit": "spades",
           "rank": "Q",
           "isHidden": false
         },
         {
-          "suit": "clubs",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "J",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "K",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "6",
-          "isHidden": false
-        },
-        {
           "suit": "diamonds",
-          "rank": "K",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "J",
+          "rank": "Q",
           "isHidden": false
         },
         {
           "suit": "hearts",
           "rank": "2",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "K",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "7",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "A",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "3",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "5",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "2",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "2",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "5",
           "isHidden": false
         }
       ],
       "discardPile": [],
       "turnDeadline": null
     },
-    "handId": 10,
-    "savedAt": 1778684340592
+    "handId": 18,
+    "savedAt": 1778684727636
   },
   "suits_poker:QKMM4H": {
     "state": {
       "tableId": "QKMM4H",
       "phase": "BET_3",
-      "pot": 19007,
-      "currentBet": 6305,
+      "pot": 39791,
+      "currentBet": 10812,
       "minBet": 50,
-      "raisesThisRound": 3,
-      "activePlayerId": "p3",
+      "raisesThisRound": 1,
+      "activePlayerId": "p4",
       "players": [
         {
           "id": "p1",
           "name": "RoyalFlushRick",
           "presence": "bot",
-          "chips": 0,
-          "bet": 2274,
-          "totalBet": 2672,
+          "chips": 91682,
+          "bet": 10812,
+          "totalBet": 13805,
           "cards": [
             {
               "suit": "clubs",
-              "rank": "2",
+              "rank": "7",
               "isHidden": false
             },
             {
@@ -25524,19 +25531,19 @@
               "isHidden": false
             },
             {
-              "suit": "clubs",
+              "suit": "hearts",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
               "rank": "6",
               "isHidden": false
             },
             {
               "suit": "spades",
-              "rank": "5",
-              "isHidden": false
-            },
-            {
-              "suit": "spades",
               "rank": "A",
-              "isHidden": false
+              "isHidden": true
             }
           ],
           "status": "active",
@@ -25548,32 +25555,32 @@
           "id": "p2",
           "name": "GamblerGus",
           "presence": "bot",
-          "chips": 3297,
-          "bet": 6305,
-          "totalBet": 6703,
+          "chips": 0,
+          "bet": 7007,
+          "totalBet": 10000,
           "cards": [
             {
-              "suit": "clubs",
-              "rank": "7",
-              "isHidden": false
-            },
-            {
-              "suit": "spades",
-              "rank": "J",
+              "suit": "hearts",
+              "rank": "10",
               "isHidden": true
             },
             {
               "suit": "hearts",
-              "rank": "Q",
+              "rank": "7",
               "isHidden": false
             },
             {
               "suit": "clubs",
-              "rank": "9",
+              "rank": "10",
               "isHidden": false
             },
             {
-              "suit": "hearts",
+              "suit": "spades",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
               "rank": "5",
               "isHidden": true
             }
@@ -25587,33 +25594,72 @@
           "id": "p3",
           "name": "PokerFacePete",
           "presence": "bot",
-          "chips": 7096,
-          "bet": 2506,
-          "totalBet": 2904,
+          "chips": 0,
+          "bet": 7007,
+          "totalBet": 10000,
           "cards": [
             {
               "suit": "clubs",
-              "rank": "A",
+              "rank": "J",
               "isHidden": false
             },
             {
-              "suit": "clubs",
-              "rank": "3",
+              "suit": "diamonds",
+              "rank": "6",
               "isHidden": true
             },
             {
-              "suit": "clubs",
+              "suit": "diamonds",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "hearts",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "2",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "MoneyMaverick",
+          "presence": "bot",
+          "chips": 14192,
+          "bet": 0,
+          "totalBet": 2993,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "9",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
               "rank": "K",
               "isHidden": false
             },
             {
               "suit": "diamonds",
-              "rank": "10",
+              "rank": "A",
               "isHidden": false
             },
             {
-              "suit": "hearts",
-              "rank": "J",
+              "suit": "diamonds",
+              "rank": "3",
               "isHidden": true
             }
           ],
@@ -25623,128 +25669,222 @@
           "hasActed": false
         },
         {
-          "id": "p4",
-          "name": "MoneyMaverick",
+          "id": "p5",
+          "name": "GrinderGreg",
           "presence": "bot",
-          "chips": 3297,
-          "bet": 6305,
-          "totalBet": 6703,
+          "chips": 47007,
+          "bet": 0,
+          "totalBet": 2993,
           "cards": [
             {
-              "suit": "hearts",
-              "rank": "6",
+              "suit": "clubs",
+              "rank": "9",
               "isHidden": false
             },
             {
               "suit": "clubs",
-              "rank": "4",
-              "isHidden": true
-            },
-            {
-              "suit": "spades",
-              "rank": "6",
-              "isHidden": false
-            },
-            {
-              "suit": "diamonds",
               "rank": "8",
               "isHidden": false
             },
             {
+              "suit": "clubs",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
               "suit": "diamonds",
-              "rank": "9",
-              "isHidden": true
+              "rank": "Q",
+              "isHidden": false
             }
           ],
           "status": "active",
           "isDealer": true,
-          "declaration": null,
-          "hasActed": true
-        },
-        {
-          "id": "p5",
-          "name": "GrinderGreg",
-          "presence": "bot",
-          "chips": 9975,
-          "bet": 0,
-          "totalBet": 25,
-          "cards": [
-            {
-              "suit": "diamonds",
-              "rank": "A",
-              "isHidden": false
-            },
-            {
-              "suit": "hearts",
-              "rank": "7",
-              "isHidden": false
-            },
-            {
-              "suit": "clubs",
-              "rank": "10",
-              "isHidden": true
-            },
-            {
-              "suit": "diamonds",
-              "rank": "K",
-              "isHidden": true
-            },
-            {
-              "suit": "hearts",
-              "rank": "8",
-              "isHidden": false
-            }
-          ],
-          "status": "folded",
-          "isDealer": false,
           "declaration": null,
           "hasActed": false
         }
       ],
       "communityCards": [
         {
+          "suit": "diamonds",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
           "suit": "hearts",
-          "rank": "9",
+          "rank": "2",
           "isHidden": false
         },
         {
-          "suit": "diamonds",
-          "rank": "J",
+          "suit": "spades",
+          "rank": "5",
           "isHidden": false
         },
         {
-          "suit": "diamonds",
+          "suit": "clubs",
           "rank": "Q",
           "isHidden": false
         },
         {
           "suit": "hearts",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
           "rank": "K",
           "isHidden": false
         },
         {
           "suit": "hearts",
-          "rank": "3",
+          "rank": "J",
           "isHidden": false
         },
         {
-          "suit": "spades",
-          "rank": "Q",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "10",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
-          "rank": "2",
+          "suit": "clubs",
+          "rank": "A",
           "isHidden": false
         },
         {
           "suit": "hearts",
-          "rank": "10",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "4",
+          "isHidden": true
+        }
+      ],
+      "messages": [
+        {
+          "id": "fl4i3ep2",
+          "text": "RoyalFlushRick calls $2446",
+          "time": 1778684715337,
+          "isResolution": false
+        },
+        {
+          "id": "nlisn6pi",
+          "text": "GamblerGus calls $2015",
+          "time": 1778684715937,
+          "isResolution": false
+        },
+        {
+          "id": "c4md37yv",
+          "text": "PokerFacePete calls $2015",
+          "time": 1778684718008,
+          "isResolution": false
+        },
+        {
+          "id": "8yb0uhi8",
+          "text": "MoneyMaverick calls $2015",
+          "time": 1778684719151,
+          "isResolution": false
+        },
+        {
+          "id": "u6plwzci",
+          "text": "REVEAL LOWER CENTER",
+          "time": 1778684719502,
+          "isResolution": false
+        },
+        {
+          "id": "1x8k65yv",
+          "text": "Lower center cards revealed!",
+          "time": 1778684720502,
+          "isResolution": false
+        },
+        {
+          "id": "b2mb78w7",
+          "text": "BET 3",
+          "time": 1778684720502,
+          "isResolution": false
+        },
+        {
+          "id": "luk7anil",
+          "text": "RoyalFlushRick raises to $10812",
+          "time": 1778684723874,
+          "isResolution": false
+        },
+        {
+          "id": "50pjsvm9",
+          "text": "GamblerGus calls $10812",
+          "time": 1778684726411,
+          "isResolution": false
+        },
+        {
+          "id": "40nnxit0",
+          "text": "PokerFacePete calls $10812",
+          "time": 1778684729032,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "hs3nijmz",
+          "senderId": "p2",
+          "senderName": "GamblerGus",
+          "text": "Prison rules pay off.",
+          "time": 1778684356268
+        },
+        {
+          "id": "18hztrm4",
+          "senderId": "p5",
+          "senderName": "GrinderGreg",
+          "text": "That hurt. Moving on.",
+          "time": 1778684435636
+        },
+        {
+          "id": "0z4hf1vu",
+          "senderId": "p4",
+          "senderName": "MoneyMaverick",
+          "text": "Shake it off.",
+          "time": 1778684498751
+        },
+        {
+          "id": "9g6ump6d",
+          "senderId": "p4",
+          "senderName": "MoneyMaverick",
+          "text": "Shake it off.",
+          "time": 1778684552526
+        },
+        {
+          "id": "w630i4jh",
+          "senderId": "p5",
+          "senderName": "GrinderGreg",
+          "text": "Prison rules. No mercy.",
+          "time": 1778684612477
+        },
+        {
+          "id": "92ay3nvi",
+          "senderId": "p3",
+          "senderName": "PokerFacePete",
+          "text": "Variance is a beast.",
+          "time": 1778684673167
+        }
+      ],
+      "deck": [
+        {
+          "suit": "diamonds",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "3",
           "isHidden": false
         },
         {
@@ -25754,87 +25894,913 @@
         },
         {
           "suit": "clubs",
-          "rank": "Q",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "9",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "diamonds",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        }
+      ],
+      "turnDeadline": null
+    },
+    "handId": 14,
+    "savedAt": 1778684731036
+  },
+  "suits_poker:2XJ84Q": {
+    "state": {
+      "tableId": "2XJ84Q",
+      "phase": "BET_3",
+      "pot": 36440,
+      "currentBet": 12344,
+      "minBet": 50,
+      "raisesThisRound": 2,
+      "activePlayerId": "p4",
+      "players": [
+        {
+          "id": "p1",
+          "name": "FloridaFrank",
+          "presence": "bot",
+          "chips": 38861,
+          "bet": 12344,
+          "totalBet": 13786,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p2",
+          "name": "NightOwlNate",
+          "presence": "bot",
+          "chips": 0,
+          "bet": 8558,
+          "totalBet": 10000,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "J",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "10",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p3",
+          "name": "BackdoorBob",
+          "presence": "bot",
+          "chips": 49788,
+          "bet": 0,
+          "totalBet": 212,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "Q",
+              "isHidden": false
+            }
+          ],
+          "status": "folded",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "SteveSandbag",
+          "presence": "bot",
+          "chips": 3779,
+          "bet": 4779,
+          "totalBet": 6221,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "6",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "hearts",
+              "rank": "3",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "LimitLuke",
+          "presence": "bot",
+          "chips": 3779,
+          "bet": 4779,
+          "totalBet": 6221,
+          "cards": [
+            {
+              "suit": "diamonds",
+              "rank": "J",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "9",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "8",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "3",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [
+        {
+          "suit": "hearts",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "2",
           "isHidden": false
         },
         {
           "suit": "diamonds",
           "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "A",
           "isHidden": true
         }
       ],
       "messages": [
         {
-          "id": "pt048gp8",
-          "text": "MoneyMaverick calls $304",
-          "time": 1778684323018,
+          "id": "b2btbh85",
+          "text": "FloridaFrank calls $1021",
+          "time": 1778684707438,
           "isResolution": false
         },
         {
-          "id": "nf83mvrq",
+          "id": "d9vjs5cf",
+          "text": "NightOwlNate calls $1021",
+          "time": 1778684708013,
+          "isResolution": false
+        },
+        {
+          "id": "m55qml1p",
+          "text": "SteveSandbag calls $1021",
+          "time": 1778684708684,
+          "isResolution": false
+        },
+        {
+          "id": "96qbs1la",
           "text": "REVEAL LOWER CENTER",
-          "time": 1778684323369,
+          "time": 1778684709035,
           "isResolution": false
         },
         {
-          "id": "mm9h4src",
+          "id": "bk3qtwr3",
           "text": "Lower center cards revealed!",
-          "time": 1778684324370,
+          "time": 1778684710036,
           "isResolution": false
         },
         {
-          "id": "up6bh8nf",
+          "id": "z21w4hjo",
           "text": "BET 3",
-          "time": 1778684324370,
+          "time": 1778684710036,
           "isResolution": false
         },
         {
-          "id": "9hnn7wfb",
-          "text": "RoyalFlushRick raises to $1253",
-          "time": 1778684327391,
+          "id": "qo72wsdf",
+          "text": "SteveSandbag raises to $4779",
+          "time": 1778684711488,
           "isResolution": false
         },
         {
-          "id": "rnt5r42f",
-          "text": "GamblerGus raises to $2506",
-          "time": 1778684329936,
+          "id": "vnotzfnn",
+          "text": "LimitLuke calls $4779",
+          "time": 1778684712911,
           "isResolution": false
         },
         {
-          "id": "1n3o8r3w",
-          "text": "PokerFacePete calls $2506",
-          "time": 1778684331985,
+          "id": "xtk2wmmg",
+          "text": "FloridaFrank raises to $12344",
+          "time": 1778684718713,
           "isResolution": false
         },
         {
-          "id": "9bivf4aw",
-          "text": "MoneyMaverick raises to $6305",
-          "time": 1778684333748,
-          "isResolution": false
-        },
-        {
-          "id": "bekpfv2w",
-          "text": "RoyalFlushRick calls $5052",
-          "time": 1778684335854,
-          "isResolution": false
-        },
-        {
-          "id": "rkh5eydo",
-          "text": "GamblerGus calls $3799",
-          "time": 1778684341822,
+          "id": "ggf9ffny",
+          "text": "NightOwlNate calls $12344",
+          "time": 1778684719361,
           "isResolution": false
         }
       ],
-      "chatMessages": [],
+      "chatMessages": [
+        {
+          "id": "s42kpols",
+          "senderId": "p4",
+          "senderName": "SteveSandbag",
+          "text": "Prison rules pay off.",
+          "time": 1778684562486
+        },
+        {
+          "id": "qz386eqc",
+          "senderId": "p1",
+          "senderName": "FloridaFrank",
+          "text": "Easy money.",
+          "time": 1778684616716
+        },
+        {
+          "id": "mrqly8ix",
+          "senderId": "p1",
+          "senderName": "FloridaFrank",
+          "text": "Easy money.",
+          "time": 1778684662559
+        }
+      ],
       "deck": [
+        {
+          "suit": "spades",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "5",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "8",
+          "isHidden": false
+        }
+      ],
+      "turnDeadline": null
+    },
+    "handId": 8,
+    "savedAt": 1778684721366
+  },
+  "fifteen35:CKJC55": {
+    "state": {
+      "tableId": "CKJC55",
+      "phase": "BET_4",
+      "pot": 5991,
+      "currentBet": 1801,
+      "minBet": 50,
+      "raisesThisRound": 1,
+      "activePlayerId": "p2",
+      "players": [
+        {
+          "id": "p1",
+          "name": "WildBillCody",
+          "presence": "bot",
+          "chips": 7697,
+          "bet": 1801,
+          "totalBet": 2278,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "Q",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "J",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "6",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": "STAY",
+          "hasActed": true
+        },
+        {
+          "id": "p2",
+          "name": "PaulRiverside",
+          "presence": "bot",
+          "chips": 7119,
+          "bet": 0,
+          "totalBet": 477,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "7",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": "STAY",
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "JaceFromATL",
+          "presence": "bot",
+          "chips": 9523,
+          "bet": 0,
+          "totalBet": 477,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "K",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "7",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "SilverDollarSam",
+          "presence": "bot",
+          "chips": 13885,
+          "bet": 0,
+          "totalBet": 477,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "5",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "J",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "2",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "VegasVince",
+          "presence": "bot",
+          "chips": 13995,
+          "bet": 1801,
+          "totalBet": 2278,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "3",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": "STAY",
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "eauql6nm",
+          "text": "SilverDollarSam called $375",
+          "time": 1778684715867,
+          "isResolution": false
+        },
+        {
+          "id": "6y0ihsjm",
+          "text": "HIT 3",
+          "time": 1778684716218,
+          "isResolution": false
+        },
+        {
+          "id": "k6hx8auv",
+          "text": "VegasVince stays",
+          "time": 1778684717110,
+          "isResolution": false
+        },
+        {
+          "id": "unr13v40",
+          "text": "WildBillCody stays",
+          "time": 1778684718882,
+          "isResolution": false
+        },
+        {
+          "id": "983s0ymc",
+          "text": "PaulRiverside stays",
+          "time": 1778684719814,
+          "isResolution": false
+        },
+        {
+          "id": "abaarw1y",
+          "text": "JaceFromATL hits",
+          "time": 1778684720158,
+          "isResolution": false
+        },
+        {
+          "id": "vinope3b",
+          "text": "SilverDollarSam hits",
+          "time": 1778684720468,
+          "isResolution": false
+        },
+        {
+          "id": "luh0ty80",
+          "text": "BET 4",
+          "time": 1778684720819,
+          "isResolution": false
+        },
+        {
+          "id": "ysf0gase",
+          "text": "VegasVince raised to $1801",
+          "time": 1778684721449,
+          "isResolution": false
+        },
+        {
+          "id": "jg7p9f73",
+          "text": "WildBillCody called $1801",
+          "time": 1778684724801,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "r59oqsiw",
+          "senderId": "p1",
+          "senderName": "WildBillCody",
+          "text": "Easy money.",
+          "time": 1778684571270
+        },
+        {
+          "id": "pc6imw9v",
+          "senderId": "p4",
+          "senderName": "SilverDollarSam",
+          "text": "Read 'em and weep.",
+          "time": 1778684654693
+        }
+      ],
+      "deck": [
+        {
+          "suit": "diamonds",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "10",
+          "isHidden": false
+        },
         {
           "suit": "spades",
           "rank": "K",
           "isHidden": false
         },
         {
+          "suit": "hearts",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
           "suit": "diamonds",
-          "rank": "7",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "10",
           "isHidden": false
         },
         {
@@ -25844,38 +26810,6 @@
         },
         {
           "suit": "spades",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "8",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "4",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "9",
-          "isHidden": false
-        }
-      ],
-      "discardPile": [
-        {
-          "suit": "diamonds",
-          "rank": "6",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "2",
-          "isHidden": false
-        },
-        {
-          "suit": "diamonds",
           "rank": "5",
           "isHidden": false
         },
@@ -25883,31 +26817,12 @@
           "suit": "hearts",
           "rank": "4",
           "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "7",
-          "isHidden": false
-        },
-        {
-          "suit": "spades",
-          "rank": "3",
-          "isHidden": false
-        },
-        {
-          "suit": "clubs",
-          "rank": "5",
-          "isHidden": false
-        },
-        {
-          "suit": "hearts",
-          "rank": "2",
-          "isHidden": false
         }
       ],
+      "discardPile": [],
       "turnDeadline": null
     },
-    "handId": 2,
-    "savedAt": 1778684343827
+    "handId": 6,
+    "savedAt": 1778684726806
   }
 }
