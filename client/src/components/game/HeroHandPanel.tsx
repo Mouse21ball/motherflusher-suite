@@ -170,11 +170,12 @@ function CardFan({
 }
 
 function QualifierBlock({
-  qualifier, isShowdownPhase, player,
+  qualifier, isShowdownPhase, player, compact = false,
 }: {
   qualifier: ReturnType<typeof computeQualifier>;
   isShowdownPhase: boolean;
   player: Player;
+  compact?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1 min-w-0">
@@ -183,7 +184,8 @@ function QualifierBlock({
       </span>
       {qualifier.status ? (
         <span className={cn(
-          "text-xs sm:text-sm font-mono leading-tight break-words",
+          "font-mono leading-tight break-words",
+          compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm",
           qualifier.isMade ? "text-emerald-400/80" : "text-white/45",
         )}>
           {qualifier.status}
@@ -205,8 +207,8 @@ function QualifierBlock({
   );
 }
 
-function HeroAvatar({ size = 'md' }: { size?: 'sm' | 'md' }) {
-  const cls = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
+function HeroAvatar({ size = 'md' }: { size?: 'sm' | 'md' | '3col' }) {
+  const cls = size === 'sm' ? 'w-8 h-8' : size === '3col' ? 'w-12 h-12 sm:w-14 sm:h-14' : 'w-9 h-9';
   return (
     <div
       className={cn("relative rounded-full overflow-hidden bg-black/60 shrink-0", cls)}
@@ -339,17 +341,17 @@ export function HeroHandPanel({
             </div>
 
             {/* Column 2: Player avatar + name + chips + session */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-1.5 min-w-0 overflow-hidden">
-              <HeroAvatar size="md" />
-              <div className="text-sm sm:text-base font-semibold text-white/85 truncate leading-none">
+            <div className="px-3 py-3 pb-4 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
+              <HeroAvatar size="3col" />
+              <div className="text-xs sm:text-sm font-semibold text-white/85 truncate leading-none mt-0.5">
                 {player.name}
               </div>
-              <div className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none" style={{ color: '#C9A227' }}>
+              <div className="text-base sm:text-lg font-bold font-mono tabular-nums leading-none" style={{ color: '#C9A227' }}>
                 ${player.chips}
               </div>
               {sessionNetProfit !== 0 && (
                 <div className={cn(
-                  "text-xs font-mono tabular-nums leading-none",
+                  "text-[10px] sm:text-xs font-mono tabular-nums leading-none",
                   sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
                 )}>
                   {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
@@ -366,8 +368,8 @@ export function HeroHandPanel({
             </div>
 
             {/* Column 3: Qualifier / Total */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
-              <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} />
+            <div className="px-3 py-3 pb-4 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
+              <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} compact />
             </div>
 
           </div>
