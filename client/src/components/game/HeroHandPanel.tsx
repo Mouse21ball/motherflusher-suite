@@ -104,9 +104,25 @@ interface HeroHandPanelProps {
 
 // ── Shared sub-components ────────────────────────────────────────────────────
 
+function compactCardSizeClass(n: number) {
+  if (n <= 3) return 'w-12 h-[88px] sm:w-14 sm:h-[96px]';
+  if (n <= 5) return 'w-10 h-[72px] sm:w-12 sm:h-[84px]';
+  if (n <= 7) return 'w-9 h-[64px] sm:w-10 sm:h-[72px]';
+  return 'w-8 h-[56px] sm:w-9 sm:h-[64px]';
+}
+
+function compactCardOverlapClass(n: number) {
+  if (n <= 2) return '';
+  if (n <= 3) return '-ml-3';
+  if (n <= 5) return '-ml-5';
+  if (n <= 7) return '-ml-7';
+  return '-ml-8';
+}
+
 function CardFan({
   cards, n, sizeClass, overlapClass, selectedCardIndices,
   selectableCards, onCardClick, isShowdownPhase, isDrawPhase,
+  compact = false,
 }: {
   cards: Player['cards'];
   n: number;
@@ -117,7 +133,11 @@ function CardFan({
   onCardClick: (i: number) => void;
   isShowdownPhase: boolean;
   isDrawPhase: boolean;
+  compact?: boolean;
 }) {
+  const activeSizeClass  = compact ? compactCardSizeClass(n)  : sizeClass;
+  const activeOverlap    = compact ? compactCardOverlapClass(n) : overlapClass;
+
   return (
     <div className="flex flex-col items-center gap-2">
       {isDrawPhase && (
@@ -133,7 +153,7 @@ function CardFan({
               key={i}
               className={cn(
                 "relative transition-all duration-150 cursor-pointer",
-                i > 0 && overlapClass,
+                i > 0 && activeOverlap,
                 isSelected && "brightness-125",
               )}
               style={{ zIndex: isSelected ? 30 : i }}
@@ -141,7 +161,7 @@ function CardFan({
               data-testid={`card-hero-${i}`}
             >
               <div className={cn(
-                sizeClass,
+                activeSizeClass,
                 "relative transition-all duration-200",
                 isSelected && "-translate-y-2 scale-105",
                 isSelected && "ring-2 ring-[#C9A227]/80 rounded-sm shadow-[0_0_16px_rgba(201,162,39,0.45)]",
@@ -158,8 +178,8 @@ function CardFan({
         {n > MAX_VISIBLE_CARDS && (
           <div className={cn(
             "relative flex items-center justify-center rounded bg-white/10 border border-white/20 text-[10px] font-bold text-white/60 shrink-0",
-            sizeClass,
-            overlapClass,
+            activeSizeClass,
+            activeOverlap,
           )}>
             +{n - MAX_VISIBLE_CARDS}
           </div>
@@ -337,6 +357,7 @@ export function HeroHandPanel({
                 selectedCardIndices={selectedCardIndices}
                 selectableCards={selectableCards} onCardClick={onCardClick}
                 isShowdownPhase={isShowdownPhase} isDrawPhase={isDrawPhase}
+                compact
               />
             </div>
 
