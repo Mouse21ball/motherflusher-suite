@@ -286,9 +286,9 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
       {/* ── Fixed action zone ─────────────────────────────────────────────── */}
       {!isSpectator && (
-        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none"
+        <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
           style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
-          <div className="pointer-events-auto w-full max-w-md mx-auto px-2">
+          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
             <ActionControls
               phase={state.phase}
               currentBet={state.currentBet}
