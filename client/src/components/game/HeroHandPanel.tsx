@@ -69,8 +69,7 @@ function qualifierLabel(modeId: string) {
   return 'QUALIFIER';
 }
 
-// ── Card size helpers — UNO-style compression, simpler widths for 4+ ─────────
-// Part 2: simpler approach — reduce width for 4-5 and 6-7 card bands uniformly.
+// ── Card size helpers ─────────────────────────────────────────────────────────
 
 function cardSizeClass(n: number) {
   if (n <= 2) return 'w-20 h-28 sm:w-24 sm:h-32';
@@ -107,8 +106,7 @@ interface HeroHandPanelProps {
 
 function CardFan({
   cards, n, sizeClass, overlapClass, selectedCardIndices,
-  selectableCards, onCardClick, isShowdownPhase,
-  isDrawPhase,
+  selectableCards, onCardClick, isShowdownPhase, isDrawPhase,
 }: {
   cards: Player['cards'];
   n: number;
@@ -179,19 +177,19 @@ function QualifierBlock({
   player: Player;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[9px] font-mono uppercase tracking-widest text-white/30 leading-none">
+    <div className="flex flex-col gap-1 min-w-0">
+      <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-white/50 leading-none">
         {qualifier.label}
       </span>
       {qualifier.status ? (
         <span className={cn(
-          "text-[11px] font-mono leading-snug",
+          "text-xs sm:text-sm font-mono leading-tight break-words",
           qualifier.isMade ? "text-emerald-400/80" : "text-white/45",
         )}>
           {qualifier.status}
         </span>
       ) : (
-        <span className="text-[10px] font-mono text-white/20 leading-none">—</span>
+        <span className="text-xs font-mono text-white/20 leading-none">—</span>
       )}
       {isShowdownPhase && player.isWinner && (
         <span className="mt-1 text-[10px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
@@ -203,6 +201,22 @@ function QualifierBlock({
           ✗ Lost
         </span>
       )}
+    </div>
+  );
+}
+
+function HeroAvatar({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const cls = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
+  return (
+    <div
+      className={cn("relative rounded-full overflow-hidden bg-black/60 shrink-0", cls)}
+      style={{ border: '1.5px solid rgba(201,162,39,0.35)' }}
+    >
+      <img
+        src={getHeroAvatar()} alt="You"
+        className="w-full h-full object-cover"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      />
     </div>
   );
 }
@@ -243,7 +257,6 @@ export function HeroHandPanel({
   const sizeClass = cardSizeClass(n);
   const overlapClass = cardOverlapClass(n);
 
-  // Part 1: 2-column for badugi/dead7, 3-column for fifteen35/suitspoker
   const isTwoColumn = modeId === 'badugi' || modeId === 'dead7';
 
   if (!n) return null;
@@ -253,7 +266,6 @@ export function HeroHandPanel({
       className="relative z-30 mx-auto w-full max-w-md px-3"
       data-testid="panel-hero-hand"
     >
-      {/* Part 4: premium panel styling */}
       <div className="relative rounded-2xl border border-[#C9A227]/30 bg-gradient-to-br from-[#1a1a1f]/90 to-[#0a0a0e]/95 backdrop-blur-xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)]">
 
         {/* Gold accent line at top */}
@@ -264,7 +276,7 @@ export function HeroHandPanel({
           <div className="grid grid-cols-2 gap-0 divide-x divide-white/[0.06]">
 
             {/* Column 1: Cards */}
-            <div className="px-3 py-3 flex items-center justify-center">
+            <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
               <CardFan
                 cards={cards} n={n}
                 sizeClass={sizeClass} overlapClass={overlapClass}
@@ -274,45 +286,49 @@ export function HeroHandPanel({
               />
             </div>
 
-            {/* Column 2: Player info + Qualifier stacked */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-2 min-w-0">
+            {/* Column 2: Player info (top) + Qualifier (bottom), gold divider */}
+            <div className="px-3 py-3 flex flex-col justify-center gap-2 min-w-0 overflow-hidden">
 
-              {/* Top: avatar + name + chips */}
-              <div className="flex items-center gap-2">
-                <div className="relative w-8 h-8 rounded-full overflow-hidden bg-black/60 shrink-0"
-                  style={{ border: '1.5px solid rgba(201,162,39,0.35)' }}>
-                  <img
-                    src={getHeroAvatar()} alt="You"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  />
+              {/* Top half: avatar row + name + chips + session */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <HeroAvatar size="sm" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm sm:text-base font-semibold text-white/85 truncate leading-none">
+                      {player.name}
+                    </span>
+                    <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none mt-0.5" style={{ color: '#C9A227' }}>
+                      ${player.chips}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] font-semibold text-white/85 truncate leading-none">{player.name}</span>
-                  <span className="text-sm font-mono font-black tabular-nums leading-none mt-0.5" style={{ color: '#C9A227' }}>
-                    ${player.chips}
+                {sessionNetProfit !== 0 && (
+                  <span className={cn(
+                    "text-xs font-mono tabular-nums leading-none",
+                    sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
+                  )}>
+                    {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
                   </span>
-                </div>
+                )}
+                {player.declaration && player.declaration !== 'FOLD' && (
+                  <DeclarationBadge declaration={player.declaration} />
+                )}
               </div>
 
-              {/* Bottom: qualifier */}
-              <div className="border-t border-white/[0.06] pt-2">
-                <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} />
-              </div>
+              {/* Gold divider */}
+              <div className="border-t border-[#C9A227]/20" />
 
-              {/* Declaration badge if any */}
-              {player.declaration && player.declaration !== 'FOLD' && (
-                <DeclarationBadge declaration={player.declaration} />
-              )}
+              {/* Bottom half: qualifier */}
+              <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} />
+
             </div>
-
           </div>
         ) : (
           /* ── 3-column layout: 15/35 / Suits & Poker ───────────────────── */
-          <div className="grid grid-cols-[auto_1fr_auto] gap-0 divide-x divide-white/[0.06]">
+          <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-x-3 sm:gap-x-4 divide-x divide-white/[0.06]">
 
             {/* Column 1: Cards */}
-            <div className="px-3 py-3 flex items-center justify-center min-w-[100px] sm:min-w-[120px]">
+            <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
               <CardFan
                 cards={cards} n={n}
                 sizeClass={sizeClass} overlapClass={overlapClass}
@@ -322,26 +338,23 @@ export function HeroHandPanel({
               />
             </div>
 
-            {/* Column 2: Player avatar + chips + session */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-1.5 min-w-0">
-              <div className="relative w-9 h-9 rounded-full overflow-hidden bg-black/60 shrink-0"
-                style={{ border: '1.5px solid rgba(201,162,39,0.35)' }}>
-                <img
-                  src={getHeroAvatar()} alt="You"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                />
+            {/* Column 2: Player avatar + name + chips + session */}
+            <div className="px-3 py-3 flex flex-col justify-center gap-1.5 min-w-0 overflow-hidden">
+              <HeroAvatar size="md" />
+              <div className="text-sm sm:text-base font-semibold text-white/85 truncate leading-none">
+                {player.name}
               </div>
-              <div className="text-sm font-semibold text-white/85 truncate leading-none">{player.name}</div>
-              <div className="text-xl font-mono font-black tabular-nums leading-none" style={{ color: '#C9A227' }}>
+              <div className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none" style={{ color: '#C9A227' }}>
                 ${player.chips}
               </div>
-              <div className={cn(
-                "text-[11px] font-mono font-semibold tabular-nums leading-none",
-                sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
-              )}>
-                {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
-              </div>
+              {sessionNetProfit !== 0 && (
+                <div className={cn(
+                  "text-xs font-mono tabular-nums leading-none",
+                  sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
+                )}>
+                  {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
+                </div>
+              )}
               {player.bet > 0 && (
                 <div className="text-[10px] font-mono text-white/35 leading-none">
                   Bet <span className="text-white/55">${player.bet}</span>
@@ -353,7 +366,7 @@ export function HeroHandPanel({
             </div>
 
             {/* Column 3: Qualifier / Total */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-1 min-w-[90px] sm:min-w-[110px]">
+            <div className="px-3 py-3 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
               <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} />
             </div>
 

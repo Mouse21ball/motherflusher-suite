@@ -35,10 +35,10 @@ function getArcPosition(index: number, total: number): string {
   if (total === 3) return (["absolute top-[42%] -left-2 sm:left-2 -translate-y-1/2 z-20",
     "absolute top-0 left-1/2 -translate-x-1/2 z-20",
     "absolute top-[42%] -right-2 sm:right-2 -translate-y-1/2 z-20"] as const)[index] ?? "hidden";
-  return (["absolute bottom-[8%] -left-10 sm:-left-6 z-20",
-    "absolute -top-2 left-[8%] sm:left-[12%] -translate-x-1/2 z-20",
-    "absolute -top-2 right-[8%] sm:right-[12%] translate-x-1/2 z-20",
-    "absolute bottom-[8%] -right-10 sm:-right-6 z-20"] as const)[index] ?? "hidden";
+  return (["absolute bottom-[8%] -left-4 sm:-left-1 z-20",
+    "absolute -top-2 left-[10%] sm:left-[14%] -translate-x-1/2 z-20",
+    "absolute -top-2 right-[10%] sm:right-[14%] translate-x-1/2 z-20",
+    "absolute bottom-[8%] -right-4 sm:-right-1 z-20"] as const)[index] ?? "hidden";
 }
 
 function getArcScale(index: number, total: number): string {
@@ -205,7 +205,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
       {/* Animal avatar + seat-number badge */}
       <div className="relative shrink-0">
         <div className={cn(
-          "relative w-10 h-10 rounded-full overflow-hidden bg-black/50",
+          "relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-black/50",
           isActive && !isShowdown
             ? "ring-2 ring-[#C9A227]/80 ring-offset-1 ring-offset-black"
             : "ring-1 ring-white/15",
