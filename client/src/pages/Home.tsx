@@ -355,7 +355,7 @@ export default function Home() {
     : null;
   const sessionNetColor: string =
     sessionNet > 500  ? '#34d399'                    // bright emerald
-    : sessionNet < -500 ? 'rgba(248,113,113,0.70)'   // muted red 70% opacity
+    : sessionNet < -500 ? 'rgba(248,113,113,0.50)'   // muted red 50% opacity — must not dominate
     : 'rgba(255,255,255,0.35)';                       // muted gray for |net| < 500
 
   return (
@@ -463,25 +463,29 @@ export default function Home() {
         {/* ════════════════════════════════════════════════════════════════════
             1. HERO SECTION (~28vh phone, ~35vh tablet)
         ════════════════════════════════════════════════════════════════════ */}
-        <div className="relative w-full flex flex-col items-center justify-center h-[22vh] sm:h-[30vh] lg:h-[36vh] overflow-hidden">
+        {/* Hero — hard pixel height so mobile vh units can't misbehave */}
+        <div
+          className="relative w-full flex flex-col items-center justify-center shrink-0 overflow-hidden"
+          style={{ height: '192px' }}
+        >
           {/* Warm gold ceiling glow */}
           <div
             className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.18) 0%, transparent 70%)' }}
           />
-          {/* Chain logo — capped height so it never overflows hero on any phone */}
+          {/* Chain logo */}
           <img
             src="/hero-chain-logo.png"
             alt="Chain Gang Poker"
-            className="w-auto object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
-            style={{ maxWidth: '140px', maxHeight: '90px' }}
+            className="relative z-10 object-contain drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
+            style={{ height: '70px', width: 'auto', maxWidth: '140px' }}
           />
-          {/* Wordmark — capped height */}
+          {/* Wordmark */}
           <img
             src="/wordmark-cgp.png"
             alt="CHAIN GANG POKER"
-            className="mt-2 w-auto object-contain relative z-10 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
-            style={{ maxWidth: '260px', maxHeight: '38px' }}
+            className="relative z-10 object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
+            style={{ height: '60px', width: 'auto', maxWidth: '300px', marginTop: '8px' }}
           />
         </div>
 
@@ -600,7 +604,7 @@ export default function Home() {
               className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
               style={{
                 background: avatarColor + '28',
-                border: '2px solid rgba(201,162,39,0.38)',
+                border: '2px solid rgba(245,158,11,0.55)',
               }}
             >
               <span className="text-lg font-bold font-mono" style={{ color: '#F0B829' }}>{initials}</span>
@@ -654,7 +658,7 @@ export default function Home() {
               {sessionNetLabel !== null && (
                 <div
                   className="font-mono tabular-nums mt-0.5 leading-none"
-                  style={{ color: sessionNetColor, fontSize: '0.65rem' }}
+                  style={{ color: sessionNetColor, fontSize: '0.55rem', fontWeight: 400 }}
                   data-testid="text-session-net"
                 >
                   {sessionNetLabel}
