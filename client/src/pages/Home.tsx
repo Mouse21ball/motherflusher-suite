@@ -348,20 +348,15 @@ export default function Home() {
     clearNewAchievements();
   }, []);
 
-  // Session P/L display logic per spec
-  const SessionPnL = () => {
-    if (sessionNet === 0) return null;
-    const absNet = Math.abs(sessionNet);
-    const label  = `Session: ${sessionNet > 0 ? '+' : '-'}$${absNet.toLocaleString()}`;
-    let color = 'rgba(255,255,255,0.38)'; // < 500 → muted gray
-    if (sessionNet > 500)  color = '#34d399';               // bright green
-    if (sessionNet < -500) color = 'rgba(248,113,113,0.70)'; // muted red
-    return (
-      <div className="text-xs font-mono tabular-nums mt-0.5" style={{ color }} data-testid="text-session-net">
-        {label}
-      </div>
-    );
-  };
+  // Session P/L — computed once, used inline in JSX
+  const sessionNetAbs   = Math.abs(sessionNet);
+  const sessionNetLabel = sessionNet !== 0
+    ? `Session: ${sessionNet > 0 ? '+' : '-'}$${sessionNetAbs.toLocaleString()}`
+    : null;
+  const sessionNetColor: string =
+    sessionNet > 500  ? '#34d399'                    // bright emerald
+    : sessionNet < -500 ? 'rgba(248,113,113,0.70)'   // muted red 70% opacity
+    : 'rgba(255,255,255,0.35)';                       // muted gray for |net| < 500
 
   return (
     <div
@@ -377,7 +372,7 @@ export default function Home() {
 
       {/* ── Fixed top bar ────────────────────────────────────────────────────── */}
       <div
-        className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-3 gap-2.5"
+        className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-3"
         style={{
           background: 'rgba(0,0,0,0.42)',
           backdropFilter: 'blur(16px)',
@@ -385,17 +380,6 @@ export default function Home() {
           borderBottom: '1px solid rgba(245,158,11,0.18)',
         }}
       >
-        {/* Hamburger — visual only, no existing handler to wire */}
-        <button
-          className="w-10 h-10 flex flex-col items-center justify-center gap-[5px] rounded-lg shrink-0"
-          style={{ background: 'rgba(255,255,255,0.06)' }}
-          aria-label="Menu"
-        >
-          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
-          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
-          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
-        </button>
-
         {/* LIVE pill */}
         <div
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
@@ -433,7 +417,7 @@ export default function Home() {
           <button
             onClick={() => navigate('/profile')}
             className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-transform active:scale-90"
-            style={{ background: avatarColor + '50', border: `1px solid ${rank.color}70` }}
+            style={{ background: avatarColor + '50', border: '1px solid rgba(245,158,11,0.40)' }}
             data-testid="button-open-profile"
           >
             <span style={{ color: rank.color }}>{initials}</span>
@@ -479,23 +463,25 @@ export default function Home() {
         {/* ════════════════════════════════════════════════════════════════════
             1. HERO SECTION (~28vh phone, ~35vh tablet)
         ════════════════════════════════════════════════════════════════════ */}
-        <div className="relative w-full flex flex-col items-center justify-center h-[28vh] sm:h-[35vh] lg:h-[40vh]">
+        <div className="relative w-full flex flex-col items-center justify-center h-[22vh] sm:h-[30vh] lg:h-[36vh] overflow-hidden">
           {/* Warm gold ceiling glow */}
           <div
             className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.18) 0%, transparent 70%)' }}
           />
-          {/* Chain logo */}
+          {/* Chain logo — capped height so it never overflows hero on any phone */}
           <img
             src="/hero-chain-logo.png"
             alt="Chain Gang Poker"
-            className="w-[140px] sm:w-[200px] lg:w-[260px] object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
+            className="w-auto object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
+            style={{ maxWidth: '140px', maxHeight: '90px' }}
           />
-          {/* Wordmark */}
+          {/* Wordmark — capped height */}
           <img
             src="/wordmark-cgp.png"
             alt="CHAIN GANG POKER"
-            className="mt-3 sm:mt-4 w-[260px] sm:w-[340px] lg:w-[400px] object-contain relative z-10 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
+            className="mt-2 w-auto object-contain relative z-10 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
+            style={{ maxWidth: '260px', maxHeight: '38px' }}
           />
         </div>
 
@@ -532,12 +518,11 @@ export default function Home() {
                   }}
                   data-testid={`button-mode-${mode.id}`}
                 >
-                  {/* Radial glow */}
+                  {/* Radial glow — no filter blur to prevent compositing artifact on PNG edges */}
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      background: `radial-gradient(ellipse at 35% 35%, ${mode.color}59 0%, transparent 65%)`,
-                      filter: 'blur(24px)',
+                      background: `radial-gradient(ellipse 80% 70% at 30% 30%, ${mode.color}38 0%, ${mode.color}10 45%, transparent 70%)`,
                     }}
                   />
 
@@ -666,7 +651,15 @@ export default function Home() {
               >
                 ${displayChips.toLocaleString()}
               </div>
-              <SessionPnL />
+              {sessionNetLabel !== null && (
+                <div
+                  className="font-mono tabular-nums mt-0.5 leading-none"
+                  style={{ color: sessionNetColor, fontSize: '0.65rem' }}
+                  data-testid="text-session-net"
+                >
+                  {sessionNetLabel}
+                </div>
+              )}
             </div>
           </button>
 
