@@ -68,7 +68,6 @@ const MODES = [
     id: 'badugi',
     name: 'BADUGI',
     tagline: 'The OG draw game',
-    label: 'CLASSIC DRAW',
     path: '/badugi',
     color: '#10b981',
     icon: '/mode-icon-badugi.png',
@@ -77,7 +76,6 @@ const MODES = [
     id: 'dead7',
     name: 'DEAD 7',
     tagline: 'Snitches get stitches',
-    label: 'CUTTHROAT',
     path: '/dead7',
     color: '#ef4444',
     icon: '/mode-icon-dead7.png',
@@ -86,7 +84,6 @@ const MODES = [
     id: 'fifteen35',
     name: '15 / 35',
     tagline: 'Hit or go home',
-    label: 'EASY HUSTLE',
     path: '/fifteen35',
     color: '#f59e0b',
     icon: '/mode-icon-fifteen35.png',
@@ -95,7 +92,6 @@ const MODES = [
     id: 'suitspoker',
     name: 'SUITS & POKER',
     tagline: 'Two paths, one winner',
-    label: 'ADVANCED',
     path: '/suitspoker',
     color: '#3b82f6',
     icon: '/mode-icon-suits.png',
@@ -506,80 +502,57 @@ export default function Home() {
               </span>
             </div>
 
-            {/* Grid: 2×2 phone, 4×1 desktop */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Grid: 2×2 phone, 4×1 tablet+ — frameless floating tiles */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {MODES.map(mode => (
                 <button
                   key={mode.id}
                   onClick={() => navigateToMode(mode.id, mode.path)}
-                  className="relative rounded-2xl overflow-hidden p-4 sm:p-5 flex flex-col items-center transition-all duration-200 active:scale-[0.97]"
-                  style={{
-                    aspectRatio: '1 / 1.15',
-                    minHeight: '260px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${mode.color}66`,
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                  }}
+                  className="flex flex-col items-center transition-transform duration-150 active:scale-95"
                   data-testid={`button-mode-${mode.id}`}
                 >
-                  {/* Radial glow — centered behind icon, no filter blur */}
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: `radial-gradient(ellipse 85% 65% at 50% 40%, ${mode.color}59 0%, ${mode.color}18 50%, transparent 75%)`,
-                    }}
-                  />
-
-                  {/* Top-right pill label — absolute */}
-                  <div
-                    className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full"
-                    style={{
-                      background: mode.color + '1e',
-                      border: `1px solid ${mode.color}66`,
-                    }}
-                  >
-                    <span
-                      className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider"
-                      style={{ color: mode.color }}
-                    >
-                      {mode.label}
-                    </span>
-                  </div>
-
-                  {/* Icon — hero element, centered in upper portion */}
-                  <div className="flex-1 flex items-center justify-center relative z-10 w-full">
+                  {/* Glow halo + icon */}
+                  <div className="relative flex items-center justify-center">
+                    {/* Radial glow — 1.5× icon, bleeds beyond edges for atmosphere */}
+                    <div
+                      className="absolute rounded-full pointer-events-none w-[180px] h-[180px] md:w-[240px] md:h-[240px]"
+                      style={{
+                        background: `radial-gradient(ellipse at 50% 50%, ${mode.color}40 0%, ${mode.color}18 45%, transparent 70%)`,
+                      }}
+                    />
                     <img
                       src={mode.icon}
                       alt={mode.name}
-                      className="object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
-                      style={{ width: '140px', height: '140px' }}
+                      className="relative z-10 object-contain w-[120px] h-[120px] md:w-[160px] md:h-[160px]"
+                      style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }}
                     />
                   </div>
 
-                  {/* Bottom section — name, tagline, PLAY button */}
-                  <div className="w-full flex flex-col items-center gap-1 relative z-10">
-                    <div
-                      className="font-black text-white text-center leading-tight text-xl sm:text-2xl"
-                      data-testid={`text-mode-name-${mode.id}`}
-                    >
-                      {mode.name}
-                    </div>
-                    <div
-                      className="text-xs sm:text-sm text-center font-medium leading-snug"
-                      style={{ color: mode.color }}
-                    >
-                      {mode.tagline}
-                    </div>
-                    <div
-                      className="w-full mt-1.5 py-2 rounded-full text-sm font-bold text-white text-center"
-                      style={{
-                        backgroundColor: mode.color,
-                        boxShadow: `0 2px 14px ${mode.color}55`,
-                      }}
-                    >
-                      PLAY →
-                    </div>
+                  {/* Mode name */}
+                  <div
+                    className="mt-2 text-xl md:text-2xl font-black text-white text-center tracking-wide leading-tight"
+                    data-testid={`text-mode-name-${mode.id}`}
+                  >
+                    {mode.name}
+                  </div>
+
+                  {/* Tagline */}
+                  <div
+                    className="mt-0.5 text-xs md:text-sm font-medium text-center leading-snug"
+                    style={{ color: mode.color }}
+                  >
+                    {mode.tagline}
+                  </div>
+
+                  {/* PLAY pill — content-sized, not full-width */}
+                  <div
+                    className="mt-3 px-6 py-2 md:px-8 md:py-2.5 rounded-full text-sm md:text-base font-bold text-white"
+                    style={{
+                      backgroundColor: mode.color,
+                      boxShadow: `0 4px 16px ${mode.color}66`,
+                    }}
+                  >
+                    PLAY →
                   </div>
                 </button>
               ))}
