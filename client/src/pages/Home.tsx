@@ -19,7 +19,7 @@ import {
   ACHIEVEMENT_MAP,
   type Achievement,
 } from '@/lib/progression';
-import { getRecentTable, generateTableCode, getSessionResult, getStreakLabel } from '@/lib/tableSession';
+import { generateTableCode } from '@/lib/tableSession';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -27,7 +27,6 @@ import {
 import {
   isHourlyReady,
   shouldShowStarterPack,
-  getVipTier,
 } from '@/lib/retention';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
@@ -35,114 +34,88 @@ import { StarterPackModal } from '@/components/StarterPackModal';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 
-// ─── Chain Gang Poker · Color tokens ─────────────────────────────────────────
-// Prison-authentic aesthetic: chain silver, fire orange, gold, money green.
-// Psychology: darkness = power, orange = urgency/danger, gold = winning.
+// ── Tier badge asset map ───────────────────────────────────────────────────────
 
-const C = {
-  gold:    '#F0B829',
-  orange:  '#FF6B00',
-  emerald: '#00C896',
-  purple:  '#9B5DE5',
-  silver:  '#A0A0B8',
-  red:     '#DC2626',
-  pink:    '#FF1493',
-  bg:      '#05050A',
-} as const;
+function getTierBadgeAsset(tierName: string): string {
+  const map: Record<string, string> = {
+    'Bronze':   '/tier-bronze.png',
+    'Silver':   '/tier-silver.png',
+    'Gold':     '/tier-gold.png',
+    'Platinum': '/tier-platinum.png',
+    'Diamond':  '/tier-diamond.png',
+    'Master':   '/tier-master.png',
+  };
+  return map[tierName] ?? '/tier-bronze.png';
+}
 
-// ─── Mode definitions ─────────────────────────────────────────────────────────
+// ── Time until next daily ration ─────────────────────────────────────────────
+
+function getTimeUntilMidnight(): string {
+  const now      = new Date();
+  const midnight = new Date(now);
+  midnight.setDate(midnight.getDate() + 1);
+  midnight.setHours(0, 0, 0, 0);
+  const msLeft  = midnight.getTime() - now.getTime();
+  const h       = Math.floor(msLeft / (1000 * 60 * 60));
+  const m       = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// ── Mode definitions ──────────────────────────────────────────────────────────
 
 const MODES = [
   {
     id: 'badugi',
-    name: 'Badugi',
+    name: 'BADUGI',
     tagline: 'The OG draw game',
-    description: 'The classic. Build the perfect 4-suit hand across three draws. Up to 5 players — invite your crew.',
     path: '/badugi',
-    icon: '♦',
-    color: '#00C896',
-    glow: 'rgba(0,200,150,',
-    bg: 'linear-gradient(135deg, rgba(0,200,150,0.12) 0%, rgba(0,200,150,0.03) 100%)',
-    border: 'rgba(0,200,150,0.22)',
-    borderHover: 'rgba(0,200,150,0.55)',
-    isMultiplayer: true,
-    isHero: true,
-    badge: '⛓️ Live · Up to 5',
-    badgeColor: 'rgba(0,200,150,',
-    difficulty: 'Classic Draw',
+    color: '#10b981',
+    icon: '/mode-icon-badugi.png',
+    subtitle: '/subtitle-badugi.png',
   },
   {
     id: 'dead7',
-    name: 'Dead 7',
+    name: 'DEAD 7',
     tagline: 'Snitches get stitches',
-    description: '7s are dead — the snitch card busts you on the spot. Flush scoops. No mercy.',
     path: '/dead7',
-    icon: '💀',
-    color: '#F03A2F',
-    glow: 'rgba(240,58,47,',
-    bg: 'linear-gradient(135deg, rgba(240,58,47,0.12) 0%, rgba(240,58,47,0.03) 100%)',
-    border: 'rgba(240,58,47,0.22)',
-    borderHover: 'rgba(240,58,47,0.55)',
-    isMultiplayer: true,
-    isHero: false,
-    badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(240,58,47,',
-    difficulty: 'Cutthroat',
+    color: '#ef4444',
+    icon: '/mode-icon-dead7.png',
+    subtitle: '/subtitle-dead7.png',
   },
   {
     id: 'fifteen35',
     name: '15 / 35',
     tagline: 'Hit or go home',
-    description: 'Chase 15 or 35 exactly. Go over and you bust — just like crossing the wrong line.',
     path: '/fifteen35',
-    icon: '15',
-    color: '#F59E0B',
-    glow: 'rgba(245,158,11,',
-    bg: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.03) 100%)',
-    border: 'rgba(245,158,11,0.22)',
-    borderHover: 'rgba(245,158,11,0.55)',
-    isMultiplayer: true,
-    isHero: false,
-    badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(245,158,11,',
-    difficulty: 'Easy Hustle',
+    color: '#f59e0b',
+    icon: '/mode-icon-fifteen35.png',
+    subtitle: '/subtitle-fifteen35.png',
   },
   {
     id: 'suitspoker',
-    name: 'Suits & Poker',
+    name: 'SUITS & POKER',
     tagline: 'Two paths, one winner',
-    description: 'Fork the board. Pick Poker, Suits, or Swing both to scoop the whole pot.',
     path: '/suitspoker',
-    icon: '♠',
-    color: '#3B82F6',
-    glow: 'rgba(59,130,246,',
-    bg: 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.03) 100%)',
-    border: 'rgba(59,130,246,0.22)',
-    borderHover: 'rgba(59,130,246,0.55)',
-    isMultiplayer: true,
-    isHero: false,
-    badge: '⛓️ Up to 5',
-    badgeColor: 'rgba(59,130,246,',
-    difficulty: 'Advanced',
+    color: '#3b82f6',
+    icon: '/mode-icon-suits.png',
+    subtitle: '/subtitle-suits.png',
   },
 ] as const;
 
-// ─── Live table browser ────────────────────────────────────────────────────────
-// Polls /api/tables every 8s. Only renders when at least one human-occupied table
-// exists across any mode. Badugi tables appear first (hero priority).
+// ── Live table browser ────────────────────────────────────────────────────────
 
 interface LiveTableEntry {
-  tableId: string;
-  modeId: string;
+  tableId:    string;
+  modeId:     string;
   humanCount: number;
-  phase: string;
+  phase:      string;
 }
 
 const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string }> = {
-  badugi:      { name: 'Badugi',         abbrev: 'B',  color: '#00C896', path: '/badugi'    },
-  dead7:       { name: 'Dead 7',         abbrev: 'D7', color: '#F03A2F', path: '/dead7'     },
-  fifteen35:   { name: '15/35',          abbrev: '15', color: '#F59E0B', path: '/fifteen35' },
-  suits_poker: { name: 'Suits & Poker',  abbrev: 'SP', color: '#3B82F6', path: '/suitspoker'},
+  badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi'     },
+  dead7:       { name: 'Dead 7',        abbrev: 'D7', color: '#ef4444', path: '/dead7'      },
+  fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35'  },
+  suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker' },
 };
 
 function phaseLabel(phase: string): string {
@@ -156,9 +129,9 @@ function phaseLabel(phase: string): string {
   return 'In Play';
 }
 
-function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, tableId: string) => void; serverChips?: number }) {
+function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: string) => void }) {
   const [tables, setTables] = useState<LiveTableEntry[]>([]);
-  const [ready, setReady] = useState(false);
+  const [ready,  setReady]  = useState(false);
 
   const fetchTables = useCallback(async () => {
     try {
@@ -177,240 +150,88 @@ function LiveTablesSection({ onJoin, serverChips }: { onJoin: (modeId: string, t
   if (!ready) return null;
 
   const hasActive = tables.length > 0;
-  const visible = tables.slice(0, 6);
-  const overflow = tables.length - visible.length;
-
-  /* Rejoin row — check if the player's last table is still live */
-  const recent = getRecentTable();
-  const rejoinEntry = recent ? tables.find(t => t.tableId === recent.tableId) ?? null : null;
 
   return (
-    <div
-      className="w-full rounded-2xl overflow-hidden"
-      style={{
-        backgroundColor: '#0A0A0F',
-        border: hasActive ? '1px solid rgba(0,200,150,0.18)' : '1px solid rgba(255,255,255,0.06)',
-        boxShadow: hasActive ? '0 0 0 1px rgba(0,200,150,0.06) inset' : 'none',
-      }}
-      data-testid="section-live-tables"
-    >
-      {/* Section header */}
-      <div
-        className="px-4 py-3 flex items-center gap-2.5 border-b"
-        style={{ borderColor: hasActive ? 'rgba(0,200,150,0.10)' : 'rgba(255,255,255,0.05)' }}
-      >
+    <div className="flex flex-col gap-2.5" data-testid="section-live-tables">
+      {/* Header row */}
+      <div className="flex items-center gap-2">
         <div
           className="w-2 h-2 rounded-full shrink-0"
           style={{
-            backgroundColor: hasActive ? '#00C896' : '#333',
-            boxShadow: hasActive ? '0 0 6px #00C896' : 'none',
+            backgroundColor: hasActive ? '#10b981' : '#444',
+            boxShadow: hasActive ? '0 0 6px #10b981' : 'none',
             animation: hasActive ? 'pulse 2s infinite' : 'none',
           }}
         />
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-bold text-white/88 font-sans">Live Tables</span>
-          <span className="ml-2 text-[10px] font-mono text-white/30">
-            {hasActive ? 'Real players — join any game in progress' : 'Join or start a game to appear here'}
-          </span>
-        </div>
-        {hasActive && (
-          <span
-            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full tabular-nums"
-            style={{ backgroundColor: 'rgba(0,200,150,0.12)', color: '#00C896', border: '1px solid rgba(0,200,150,0.25)' }}
-          >
-            {tables.length} open
-          </span>
-        )}
+        <span className="text-sm font-bold text-white/90 tracking-wide font-sans">LIVE TABLES</span>
+        <span className="text-[10px] font-mono text-white/30 ml-0.5">Join a game in progress</span>
+        <div className="flex-1" />
       </div>
-
-      {/* Rejoin row — pinned at top when the player's last table is still live */}
-      {rejoinEntry && (() => {
-        const info = LIVE_MODE_INFO[rejoinEntry.modeId] ?? { name: rejoinEntry.modeId, color: '#C9A227', path: '/' };
-        const sessionResult = getSessionResult();
-        const sessionDelta = sessionResult && Math.abs(sessionResult.delta) >= 10 ? sessionResult.delta : null;
-        const streakLabel = getStreakLabel();
-        return (
-          <div
-            className="px-4 py-3 flex items-center gap-3 border-b"
-            style={{ borderColor: 'rgba(201,162,39,0.14)', background: 'rgba(201,162,39,0.04)' }}
-            data-testid="row-rejoin-table"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: '#C9A227', boxShadow: '0 0 5px rgba(201,162,39,0.7)' }} />
-                <span className="text-[11px] font-mono font-bold" style={{ color: 'rgba(201,162,39,0.85)' }}>Your table is still live</span>
-                <span className="font-mono text-[10px]" style={{ color: info.color + 'bb' }}>{info.name} · {rejoinEntry.tableId}</span>
-              </div>
-              {(sessionDelta !== null || streakLabel) && (
-                <p className="text-[9px] font-mono mt-0.5 tracking-wide pl-3.5" style={{
-                  color: sessionDelta !== null
-                    ? (sessionDelta > 0 ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)')
-                    : 'rgba(255,255,255,0.30)'
-                }} data-testid="text-session-pnl">
-                  {sessionDelta !== null && (
-                    sessionDelta > 0 ? `Up $${sessionDelta} this run` : `Down $${Math.abs(sessionDelta)} this run`
-                  )}
-                  {sessionDelta !== null && streakLabel && (
-                    <span style={{ color: 'rgba(255,255,255,0.22)', marginLeft: '0.45em' }}>· {streakLabel}</span>
-                  )}
-                  {sessionDelta === null && streakLabel}
-                </p>
-              )}
-            </div>
-            {serverChips != null && (
-              <div className="flex flex-col items-end gap-0.5 shrink-0">
-                <div className="text-[8px] font-mono text-white/20 uppercase tracking-widest">Bank</div>
-                <div className="text-sm font-bold font-mono tabular-nums" style={{ color: '#C9A227' }} data-testid="text-rejoin-chips">${serverChips.toLocaleString()}</div>
-              </div>
-            )}
-            <button
-              onClick={() => onJoin(rejoinEntry.modeId, rejoinEntry.tableId)}
-              className="shrink-0 text-[11px] font-mono font-bold px-3.5 py-1.5 rounded-lg transition-all duration-200 hover:opacity-85 active:scale-95"
-              style={{ color: '#05050A', backgroundColor: 'rgba(201,162,39,0.82)', border: '1px solid rgba(201,162,39,0.55)', boxShadow: '0 2px 8px rgba(201,162,39,0.25)' }}
-              data-testid="button-rejoin-table"
-            >
-              Back In →
-            </button>
-          </div>
-        );
-      })()}
-
-      {/* Last session recall — only when no live rejoin entry */}
-      {!rejoinEntry && (() => {
-        const sr = getSessionResult();
-        if (!sr || !sr.ts) return null;
-        const ageMs = Date.now() - sr.ts;
-        if (ageMs > 48 * 60 * 60 * 1000) return null; // hide after 48h
-        const resultColor =
-          sr.result === 'WINNING SESSION' ? 'rgba(52,211,153,0.78)'
-          : sr.result === 'LOSING SESSION' ? 'rgba(248,113,113,0.75)'
-          : 'rgba(255,255,255,0.32)';
-        const deltaText = sr.delta === 0 ? null : sr.delta > 0 ? `+$${sr.delta}` : `-$${Math.abs(sr.delta)}`;
-        return (
-          <div
-            className="px-4 py-2.5 flex items-center gap-3 border-b"
-            style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}
-            data-testid="row-last-session"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/25">Last Session</span>
-                <span className="font-mono text-[10px] font-bold" style={{ color: resultColor }} data-testid="text-last-session-result">{sr.result}</span>
-                {deltaText && (
-                  <span className="font-mono text-[9px]" style={{ color: resultColor, opacity: 0.65 }} data-testid="text-last-session-delta">{deltaText}</span>
-                )}
-              </div>
-              {sr.hands > 0 && (
-                <p className="text-[9px] font-mono text-white/20 mt-0.5 pl-0" data-testid="text-last-session-hands">{sr.hands} hands played</p>
-              )}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Empty state */}
       {!hasActive && (
-        <div className="px-4 py-6 flex flex-col items-center gap-1.5 text-center">
-          <span className="text-sm font-mono text-white/55">Be the first to open a table</span>
-          <span className="text-[11px] font-mono text-white/35">Tables appear here instantly — others can join yours.</span>
-        </div>
+        <p className="text-center text-xs font-mono text-white/30 py-2">
+          No tables open. Start one from a mode above.
+        </p>
       )}
 
-      {/* Table rows */}
+      {/* Horizontal scroll row */}
       {hasActive && (
-        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-          {visible.map(table => {
-            const info = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/' };
-            const isWaiting = table.phase === 'WAITING';
+        <div
+          className="flex gap-2 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+        >
+          {tables.slice(0, 8).map(table => {
+            const info    = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/' };
+            const isOpen  = table.phase === 'WAITING';
             return (
-              <div
+              <button
                 key={`${table.modeId}-${table.tableId}`}
-                className="px-4 py-3 flex items-center gap-3"
-                style={isWaiting ? { backgroundColor: 'rgba(0,200,150,0.03)' } : undefined}
+                onClick={() => onJoin(table.modeId, table.tableId)}
+                className="flex-shrink-0 flex flex-col gap-1.5 rounded-xl p-3 border text-left transition-all active:scale-[0.96]"
+                style={{ minWidth: '110px', background: info.color + '12', borderColor: info.color + '40' }}
+                data-testid={`button-join-table-${table.tableId}`}
               >
-                {/* Mode color badge */}
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-mono font-bold shrink-0"
-                  style={{ backgroundColor: info.color + '18', border: `1px solid ${info.color}35`, color: info.color }}
+                <div className="flex items-center gap-1.5">
+                  {isOpen && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: info.color }} />}
+                  <span className="text-[11px] font-bold leading-none" style={{ color: info.color }}>{info.name}</span>
+                </div>
+                <span
+                  className="font-mono font-bold text-[11px] tracking-widest leading-none"
+                  style={{ color: info.color + 'bb' }}
+                  data-testid={`text-live-table-code-${table.tableId}`}
                 >
-                  {info.abbrev}
-                </div>
-
-                {/* Mode name + table code — visible on all screen sizes */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-bold text-white/75 font-sans">{info.name}</span>
-                    {isWaiting && (
-                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,200,150,0.12)', color: '#00C896' }}>
-                        Open
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[9px] font-mono text-white/25">Code:</span>
-                    <span
-                      className="font-mono font-bold text-[11px] tracking-widest"
-                      style={{ color: info.color + 'bb' }}
-                      data-testid={`text-live-table-code-${table.tableId}`}
-                    >
-                      {table.tableId}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Player count + phase */}
-                <div className="flex flex-col items-end gap-0.5 shrink-0">
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: info.color + '90' }} />
-                    <span className="text-xs font-mono font-bold tabular-nums" style={{ color: info.color + 'bb' }}>
-                      {table.humanCount} / 5
-                    </span>
-                  </div>
+                  {table.tableId}
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono font-bold tabular-nums" style={{ color: info.color + 'cc' }}>
+                    {table.humanCount}/5
+                  </span>
                   <span className="text-[9px] font-mono text-white/30">{phaseLabel(table.phase)}</span>
                 </div>
-
-                {/* Join button — deliberate sizing for easy tap */}
-                <button
-                  onClick={() => onJoin(table.modeId, table.tableId)}
-                  className="shrink-0 text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-2 rounded-xl border transition-all duration-150 active:scale-[0.97]"
-                  style={{
-                    backgroundColor: info.color + '18',
-                    borderColor: info.color + '55',
-                    color: info.color,
-                    minWidth: '72px',
-                  }}
-                  data-testid={`button-join-table-${table.tableId}`}
-                >
-                  Join Table
-                </button>
-              </div>
+              </button>
             );
           })}
-
-          {overflow > 0 && (
-            <div className="px-4 py-2 text-center">
-              <span className="text-[9px] font-mono text-white/25">+{overflow} more table{overflow !== 1 ? 's' : ''}</span>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 }
 
+// ── XP sync ───────────────────────────────────────────────────────────────────
 
 function syncXPFromHistory(): void {
   const history = getHandHistory();
   initProgressionBaseline(history.length);
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ── Home ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [, navigate] = useLocation();
 
-  const identity   = ensurePlayerIdentity();
-  const initials   = getAvatarInitials(identity.name);
+  const identity    = ensurePlayerIdentity();
+  const initials    = getAvatarInitials(identity.name);
   const avatarColor = getAvatarColor(identity.avatarSeed);
 
   useEffect(() => { syncXPFromHistory(); }, []);
@@ -424,16 +245,11 @@ export default function Home() {
   const stats      = getPlayerStats();
   const totalChips = Object.values(chipMap).reduce((a, b) => a + b, 0);
 
-  // Use server-authoritative values when available; fall back to localStorage.
-  const displayChips   = Math.max(0, serverProfile?.chipBalance ?? totalChips);
-  const displayHands   = serverProfile?.handsPlayed    ?? stats.handsPlayed;
-  const serverLevel    = serverProfile?.level          ?? levelInfo.level;
+  const displayChips = Math.max(0, serverProfile?.chipBalance ?? totalChips);
+  const serverLevel  = serverProfile?.level ?? levelInfo.level;
 
-  // ── Session P/L (today vs this-morning's bankroll) ────────────────────────
-  // Stored once per calendar day so players can see chips won/lost today.
-  const [sessionStart, setSessionStart] = useState<number>(() => {
-    return getSessionStartChips() ?? displayChips;
-  });
+  // Session P/L
+  const [sessionStart, setSessionStart] = useState<number>(() => getSessionStartChips() ?? displayChips);
   useEffect(() => {
     const stored = getSessionStartChips();
     if (stored === null) {
@@ -445,18 +261,18 @@ export default function Home() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const sessionNet = displayChips - sessionStart;
 
-  // Rank is derived from serverLevel so the badge text and rank color stay consistent.
-  const rank = getRankForLevel(serverLevel);
+  const rank       = getRankForLevel(serverLevel);
+  const progressPct = Math.round(levelInfo.progress * 100);
 
-  const [dailyOpen,   setDailyOpen]   = useState(false);
-  const [hourlyOpen,  setHourlyOpen]  = useState(false);
-  const [starterOpen, setStarterOpen] = useState(false);
-  const [rewardReady,      setRewardReady]      = useState(isRewardAvailable);
-  const [hourlyReady,      setHourlyReady]      = useState(isHourlyReady);
-  const [starterAvailable, setStarterAvailable] = useState(shouldShowStarterPack);
+  const [dailyOpen,        setDailyOpen]        = useState(false);
+  const [hourlyOpen,       setHourlyOpen]        = useState(false);
+  const [starterOpen,      setStarterOpen]       = useState(false);
+  const [rewardReady,      setRewardReady]       = useState(isRewardAvailable);
+  const [hourlyReady,      setHourlyReady]       = useState(isHourlyReady);
+  const [starterAvailable, setStarterAvailable]  = useState(shouldShowStarterPack);
   const streakInfo = getStreakInfo();
-  const vip = getVipTier(serverLevel);
 
+  // Live tables (for LIVE pill count in top bar, 30s poll)
   const [liveTables, setLiveTables] = useState<LiveTableEntry[]>([]);
   useEffect(() => {
     const fetchLive = async () => {
@@ -469,19 +285,14 @@ export default function Home() {
     const id = setInterval(fetchLive, 30000);
     return () => clearInterval(id);
   }, []);
-
   const realPlayerCount = liveTables.reduce((sum, t) => sum + (t.humanCount ?? 0), 0);
-  const getModeRealCount = (modeId: string): number => {
-    const engineId = modeId === 'suitspoker' ? 'suits_poker' : modeId;
-    return liveTables.filter(t => t.modeId === engineId).length;
-  };
 
   const [newAchievements, setNewAchievements] = useState<Achievement[]>(() => {
     const p = getProgression();
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
-  // Auto-show starter pack once for very new players (< 5 hands played)
+  // Auto-show starter pack for very new players
   useEffect(() => {
     if (shouldShowStarterPack() && stats.handsPlayed < 5) {
       const timer = setTimeout(() => setStarterOpen(true), 1800);
@@ -511,94 +322,145 @@ export default function Home() {
     navigate(`${info.path}?t=${tableId}`);
   }, [navigate]);
 
-  // Maps the MODES id (client) → engine modeId (server) for table lookup.
   const MODE_ENGINE_ID: Record<string, string> = {
     badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
     suitspoker: 'suits_poker',
   };
 
-  // Quick Play routing: joins an existing WAITING table with other humans if one
-  // exists, otherwise creates a new table with 3 instant bots + 1 open seat so
-  // the player starts immediately instead of waiting for the staged bot timer.
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
     try {
       const engineModeId = MODE_ENGINE_ID[modeId] ?? modeId;
       const res = await fetch(apiUrl('/api/tables'));
       if (res.ok) {
-        const liveTables: LiveTableEntry[] = await res.json();
-        // Sort descending by humanCount so the first match is always the table
-        // with the most real players already seated — keeps players together.
-        const joinable = liveTables
+        const all: LiveTableEntry[] = await res.json();
+        const joinable = all
           .filter(t => t.modeId === engineModeId && t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < 5)
           .sort((a, b) => b.humanCount - a.humanCount)[0];
-        if (joinable) {
-          navigate(`${path}?t=${joinable.tableId}`);
-          return;
-        }
+        if (joinable) { navigate(`${path}?t=${joinable.tableId}`); return; }
       }
     } catch {}
-    // No joinable table found — create a new Quick Play table.
-    // ?qp=1 tells the server to immediately fill 3 bots, leaving 1 open seat.
     const newCode = generateTableCode();
     navigate(`${path}?t=${newCode}&qp=1`);
-  }, [navigate]);
+  }, [navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismissAchievement = useCallback((id: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== id));
     clearNewAchievements();
   }, []);
 
-  const progressPct  = Math.round(levelInfo.progress * 100);
-  const totalNet     = stats.totalChipChange;
-
-  const hour     = new Date().getHours();
-  const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
-
-  const biggestPot = getProgression().biggestPot ?? 0;
-  const winRate = stats.handsPlayed > 0 ? Math.round((stats.wins / stats.handsPlayed) * 100) : 0;
+  // Session P/L display logic per spec
+  const SessionPnL = () => {
+    if (sessionNet === 0) return null;
+    const absNet = Math.abs(sessionNet);
+    const label  = `Session: ${sessionNet > 0 ? '+' : '-'}$${absNet.toLocaleString()}`;
+    let color = 'rgba(255,255,255,0.38)'; // < 500 → muted gray
+    if (sessionNet > 500)  color = '#34d399';               // bright green
+    if (sessionNet < -500) color = 'rgba(248,113,113,0.70)'; // muted red
+    return (
+      <div className="text-xs font-mono tabular-nums mt-0.5" style={{ color }} data-testid="text-session-net">
+        {label}
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden" style={{ backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 50%, rgba(10,10,14,0.85) 100%), url('/home-hero.jpg')", backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
+    <div
+      className="min-h-[100dvh] flex flex-col relative overflow-x-hidden"
+      style={{
+        backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.45) 50%, rgba(5,5,10,0.80) 100%), url('/prison-bg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
 
-      {/* ── Deep multi-layer ambience ─────────────────────────────────────── */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        {/* Primary warm ceiling — gold depth anchor */}
-        <div className="absolute -top-52 left-1/2 -translate-x-1/2 w-[940px] h-[640px] rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.22) 0%, rgba(240,184,41,0.06) 44%, transparent 70%)' }} />
-        {/* Right mid: emerald depth plane */}
-        <div className="absolute top-[26%] -right-40 w-[440px] h-[440px] rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.11) 0%, transparent 70%)' }} />
-        {/* Bottom left: orange ember warmth */}
-        <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(255,107,0,0.07) 0%, transparent 70%)' }} />
-        {/* Center anchor: subtle glow behind game card area */}
-        <div className="absolute top-[46%] left-1/2 -translate-x-1/2 w-[520px] h-[320px] rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(0,200,150,0.05) 0%, transparent 70%)' }} />
-        {/* Bottom vignette: grounds the page */}
-        <div className="absolute bottom-0 inset-x-0 h-52"
-          style={{ background: 'linear-gradient(to top, rgba(5,5,10,0.65) 0%, transparent 100%)' }} />
+      {/* ── Fixed top bar ────────────────────────────────────────────────────── */}
+      <div
+        className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-3 gap-2.5"
+        style={{
+          background: 'rgba(0,0,0,0.42)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(245,158,11,0.18)',
+        }}
+      >
+        {/* Hamburger — visual only, no existing handler to wire */}
+        <button
+          className="w-10 h-10 flex flex-col items-center justify-center gap-[5px] rounded-lg shrink-0"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+          aria-label="Menu"
+        >
+          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
+          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
+          <span className="w-5 h-[1.5px] bg-white/60 rounded-full" />
+        </button>
+
+        {/* LIVE pill */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(255,255,255,0.10)' }}
+        >
+          <div
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: '#10b981', boxShadow: '0 0 5px #10b981', animation: 'pulse 2s infinite' }}
+          />
+          <span className="text-[10px] font-mono text-white/75 tracking-wider" data-testid="text-live-count">
+            {realPlayerCount > 0 ? `Live · ${realPlayerCount}` : 'Live'}
+          </span>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right icon buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => navigate('/leaderboard')}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-90"
+            style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(201,162,39,0.22)' }}
+            data-testid="link-leaderboard-header"
+          >
+            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-5 h-5 object-contain" />
+          </button>
+          <button
+            onClick={() => navigate('/shop')}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-90"
+            style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(201,162,39,0.22)' }}
+            data-testid="link-shop-header"
+          >
+            <img src="/dock-shop.png" alt="Shop" className="w-5 h-5 object-contain" />
+          </button>
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-transform active:scale-90"
+            style={{ background: avatarColor + '50', border: `1px solid ${rank.color}70` }}
+            data-testid="button-open-profile"
+          >
+            <span style={{ color: rank.color }}>{initials}</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── Achievement toasts ─────────────────────────────────────────────── */}
+      {/* ── Achievement toasts (fixed top-right) ─────────────────────────────── */}
       {newAchievements.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
+        <div className="fixed top-16 right-3 z-50 flex flex-col gap-2 max-w-[280px]">
           {newAchievements.map(ach => (
             <button
               key={ach.id}
               onClick={() => dismissAchievement(ach.id)}
-              className="flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl text-left animate-slide-in-right w-full"
-              style={{ backgroundColor: '#13131A', borderColor: `${C.gold}45` }}
+              className="flex items-center gap-3 rounded-2xl border px-3 py-2.5 shadow-2xl text-left w-full"
+              style={{ background: 'rgba(10,10,16,0.94)', backdropFilter: 'blur(16px)', borderColor: 'rgba(201,162,39,0.30)' }}
               data-testid={`toast-achievement-${ach.id}`}
             >
-              <span className="text-2xl leading-none shrink-0">{ach.icon}</span>
+              <span className="text-xl leading-none shrink-0">{ach.icon}</span>
               <div className="flex-1 min-w-0">
-                <div className="text-[9px] font-mono uppercase tracking-widest mb-0.5" style={{ color: `${C.gold}90` }}>
+                <div className="text-[8px] font-mono uppercase tracking-widest mb-0.5" style={{ color: 'rgba(201,162,39,0.75)' }}>
                   Achievement Unlocked
                 </div>
-                <div className="text-sm font-bold text-white/85 font-sans truncate">{ach.name}</div>
-                <div className="text-[10px] text-white/35 truncate">{ach.description}</div>
+                <div className="text-xs font-bold text-white/90 font-sans truncate">{ach.name}</div>
+                <div className="text-[9px] text-white/30 truncate">{ach.description}</div>
               </div>
-              <div className="text-[10px] font-mono font-bold shrink-0" style={{ color: C.emerald }}>
+              <div className="text-[10px] font-mono font-bold shrink-0 text-emerald-400">
                 +{ach.xpReward} XP
               </div>
             </button>
@@ -606,369 +468,428 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── Modals (logic unchanged) ──────────────────────────────────────────── */}
       <DailyRewardModal open={dailyOpen}   onClose={handleDailyClose}   />
       <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} />
 
-      <div className="flex-1 flex flex-col items-center relative">
-        {/* Ambient atmosphere orbs — fixed-position, pointer-events-none */}
-        <div className="lobby-orb-gold" style={{ top: '-60px', left: '-80px' }} aria-hidden="true" />
-        <div className="lobby-orb-emerald" style={{ top: '30vh', right: '-60px' }} aria-hidden="true" />
-        <div className="lobby-orb-pink" style={{ top: '62vh', left: '-40px' }} aria-hidden="true" />
-        <div className="lobby-orb-gold" style={{ bottom: '40px', right: '8vw', width: '200px', height: '200px', opacity: 0.7 }} aria-hidden="true" />
+      {/* ── Main scrollable content ───────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center pt-14 pb-24">
 
-        {/* ── HERO SPACE — transparent window into fixed wallpaper ─────────── */}
-        <div className="relative w-full h-[50vh] sm:h-[55vh] flex flex-col max-w-lg">
-
-          {/* Top floating nav bar */}
-          <div className="flex items-center justify-between px-3 pt-3 z-20">
-            <div className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.emerald }} />
-              <span className="text-[9px] font-mono text-white/70 tracking-wider uppercase" data-testid="text-live-count">
-                {realPlayerCount > 0 ? `${realPlayerCount} live` : 'Live'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate('/leaderboard')}
-                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
-                data-testid="link-leaderboard-header"
-              >🏆</button>
-              <button
-                onClick={() => navigate('/shop')}
-                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-sm active:scale-95 transition-transform"
-                data-testid="link-shop-header"
-              >🛍️</button>
-              <button
-                onClick={() => navigate('/profile')}
-                className="w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center text-xs font-bold font-mono text-white active:scale-95 transition-transform"
-                style={{ backgroundColor: avatarColor + '80', borderColor: rank.color + '90' }}
-                data-testid="button-open-profile"
-              >{initials}</button>
-            </div>
-          </div>
-
-          {/* Spacer — lets the chain hex art breathe */}
-          <div className="flex-1" />
-
-          {/* Quick Play CTA anchored to bottom of hero space */}
-          <div className="px-4 pb-4 z-20">
-            <button
-              onClick={() => navigateToMode('badugi', '/badugi')}
-              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] rounded-2xl py-4 font-black text-xl tracking-wider uppercase border border-[#D4B44A]/60 shadow-[0_0_24px_rgba(201,162,39,0.55)] hover:shadow-[0_0_36px_rgba(201,162,39,0.75)] transition-all flex flex-col items-center gap-0.5 active:scale-[0.98]"
-              data-testid="button-quick-play-hero"
-            >
-              <span>QUICK PLAY →</span>
-              <span className="text-[9px] font-mono tracking-[0.18em] opacity-70 normal-case">Auto-fills with bots</span>
-            </button>
-          </div>
-
+        {/* ════════════════════════════════════════════════════════════════════
+            1. HERO SECTION (~28vh phone, ~35vh tablet)
+        ════════════════════════════════════════════════════════════════════ */}
+        <div className="relative w-full flex flex-col items-center justify-center h-[28vh] sm:h-[35vh] lg:h-[40vh]">
+          {/* Warm gold ceiling glow */}
+          <div
+            className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.18) 0%, transparent 70%)' }}
+          />
+          {/* Chain logo */}
+          <img
+            src="/hero-chain-logo.png"
+            alt="Chain Gang Poker"
+            className="w-[140px] sm:w-[200px] lg:w-[260px] object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
+          />
+          {/* Wordmark */}
+          <img
+            src="/wordmark-cgp.png"
+            alt="CHAIN GANG POKER"
+            className="mt-3 sm:mt-4 w-[260px] sm:w-[340px] lg:w-[400px] object-contain relative z-10 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
+          />
         </div>
 
-        <div className="w-full max-w-lg px-4 pb-10 flex flex-col gap-3 mt-2 relative z-10">
+        {/* ════════════════════════════════════════════════════════════════════
+            CONTENT STACK — max-w-lg, horizontal padding
+        ════════════════════════════════════════════════════════════════════ */}
+        <div className="w-full max-w-lg px-3 sm:px-4 flex flex-col gap-4 mt-2">
 
-          {/* ── PLAYER CARD ───────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-3 py-2.5 bg-black/45 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-xl opacity-30" />
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold font-mono text-white shrink-0 relative"
-              style={{ backgroundColor: avatarColor + '30', border: `1.5px solid ${rank.color}65` }}>
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0 relative">
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/90 font-semibold text-sm truncate font-sans" data-testid="text-player-name">{identity.name}</span>
-                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0"
-                  style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
-                  data-testid="badge-rank-home">Lv {serverLevel}</span>
-              </div>
-              <div className="text-[9px] font-mono text-white/35 uppercase tracking-wider mt-0.5">
-                {rank.name} · {levelInfo.xpIntoLevel}/{levelInfo.xpNeeded} XP
-              </div>
-            </div>
-            <div className="text-right shrink-0 relative">
-              <div className="text-base font-bold font-mono tabular-nums" style={{ color: C.gold }} data-testid="text-bankroll">
-                ${displayChips.toLocaleString()}
-              </div>
-              {sessionNet !== 0 && (
-                <div className={`text-[9px] font-mono tabular-nums ${sessionNet > 0 ? 'text-emerald-400/65' : 'text-red-400/60'}`} data-testid="text-session-net">
-                  Session: {sessionNet > 0 ? '+' : '-'}${Math.abs(sessionNet).toLocaleString()}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── DAILY BONUS ───────────────────────────────────────────────── */}
-          {rewardReady ? (
-            <button
-              onClick={() => setDailyOpen(true)}
-              className="w-full rounded-2xl px-4 py-4 flex items-center gap-3.5 transition-all duration-200 active:scale-[0.99] group relative overflow-hidden bg-orange-950/50 backdrop-blur-md border border-orange-500/30"
-              data-testid="button-claim-daily-home"
-            >
-              <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-2xl opacity-50" />
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 anim-float-coin relative"
-                style={{ backgroundColor: 'rgba(255,107,0,0.12)', border: '1px solid rgba(255,107,0,0.25)' }}>
-                🎁
-              </div>
-              <div className="flex-1 text-left relative">
-                <div className="text-sm font-bold font-sans" style={{ color: C.orange }}>Daily Ration Ready</div>
-                <div className="text-[11px] text-white/45 font-mono mt-0.5">
-                  {streakInfo.streak > 0 ? `Day ${streakInfo.dayInCycle} · ` : 'Start your run · '}
-                  <span style={{ color: C.emerald }} className="font-bold">+${streakInfo.nextReward.chips.toLocaleString()} chips</span>
-                  {streakInfo.streak > 0 && <span className="ml-1">🔥 {streakInfo.streak}</span>}
-                </div>
-              </div>
-              <div className="text-xl relative" style={{ color: C.orange }}>›</div>
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs bg-[#1a1208]/60 backdrop-blur-xl border border-[#C9A227]/25">
-              <span style={{ color: C.gold }}>{streakInfo.streak > 0 ? '🔥' : '⏰'}</span>
-              <span className="text-white/70 flex-1 font-sans">
-                {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak` : 'Daily Ration'}
-              </span>
-              <span className="font-mono text-[10px]" style={{ color: `${C.gold}90` }}>
-                Tomorrow: +${(streakInfo.nextReward?.chips ?? 250).toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          {/* ── RETENTION STRIP ──────────────────────────────────────────── */}
-          <div className={`grid gap-1.5 ${starterAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            {/* Hourly Bonus */}
-            <button
-              onClick={() => setHourlyOpen(true)}
-              className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border active:scale-[0.97] transition-transform relative"
-              style={{ borderColor: hourlyReady ? 'rgba(240,184,41,0.40)' : 'rgba(255,255,255,0.10)' }}
-              data-testid="button-hourly-home"
-            >
-              {hourlyReady && (
-                <span
-                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#05050A]"
-                  style={{ backgroundColor: C.pink }}
-                />
-              )}
-              <div className="text-sm leading-none">{hourlyReady ? '⚡' : '⏰'}</div>
-              <div className="text-[10px] font-bold font-sans uppercase tracking-wider" style={{ color: hourlyReady ? C.gold : 'rgba(255,255,255,0.40)' }}>
-                {hourlyReady ? 'Claim' : 'Hourly'}
-              </div>
-            </button>
-
-            {/* Starter Kit — only if unclaimed */}
-            {starterAvailable && (
-              <button
-                onClick={() => setStarterOpen(true)}
-                className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border border-[#F0B829]/30 active:scale-[0.97] transition-transform relative"
-                data-testid="button-starter-home"
+          {/* ── 2. GAME MODE GRID ──────────────────────────────────────────── */}
+          <div>
+            {/* Section label */}
+            <div className="flex items-center justify-center mb-3">
+              <span
+                className="text-[10px] font-mono uppercase tracking-[0.25em]"
+                style={{ color: 'rgba(240,184,41,0.40)' }}
               >
-                <span
-                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#05050A]"
-                  style={{ backgroundColor: C.pink }}
-                />
-                <div className="text-sm leading-none">🎁</div>
-                <div className="text-[10px] font-bold font-sans uppercase tracking-wider" style={{ color: C.gold }}>Starter</div>
-              </button>
-            )}
+                ⛓ The Games
+              </span>
+            </div>
 
-            {/* Bonus Center */}
-            <button
-              onClick={() => navigate('/bonus')}
-              className="rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-center gap-0.5 bg-black/40 backdrop-blur-md border border-white/10 active:scale-[0.97] transition-transform"
-              data-testid="link-bonus-center-home"
-            >
-              <div className="text-sm leading-none">⚡</div>
-              <div className="text-[10px] font-bold font-sans uppercase tracking-wider text-white/40">Bonuses</div>
-            </button>
-          </div>
-
-          {/* ── STATS TILES — per-tile visibility, no empty placeholders ────── */}
-          {(() => {
-            const showBestWin = biggestPot > 0;
-            const showWinRate = stats.handsPlayed > 0;
-            const showStreak  = streakInfo.streak > 1;
-            const count = [showBestWin, showWinRate, showStreak].filter(Boolean).length;
-            if (count === 0) return null;
-            const colClass = count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-2' : 'grid-cols-3';
-            return (
-              <div className={`grid ${colClass} gap-2`}>
-                {showBestWin && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#F0B829]/15">
-                    <div className="text-sm mb-0.5">🏆</div>
-                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Best Win</div>
-                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.gold }}>${biggestPot.toLocaleString()}</div>
-                  </div>
-                )}
-                {showWinRate && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#00C896]/15">
-                    <div className="text-sm mb-0.5">📈</div>
-                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Win Rate</div>
-                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.emerald }}>{winRate}%</div>
-                  </div>
-                )}
-                {showStreak && (
-                  <div className="rounded-xl p-2.5 flex flex-col items-center text-center bg-black/40 backdrop-blur-md border border-[#FF6B00]/15">
-                    <div className="text-sm mb-0.5">⛓️</div>
-                    <div className="text-[8px] font-mono text-white/25 uppercase tracking-widest mb-0.5">Streak</div>
-                    <div className="text-xs font-bold font-mono tabular-nums" style={{ color: C.orange }}>{streakInfo.streak} days</div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* ── SECTION LABEL ─────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-1">
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(240,184,41,0.18))' }} />
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">⛓️ The Games</span>
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(240,184,41,0.18), transparent)' }} />
-          </div>
-
-          {/* ── 2×2 GAME MODES GRID ───────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            {([...MODES] as Array<typeof MODES[number]>).map(mode => {
-              const tbl = getModeRealCount(mode.id);
-              // TODO: wire up per-seat live player count when server exposes it
-              const cardSubtitle = tbl > 0 ? `${tbl} playing now` : 'Tap to play';
-              return (
+            {/* Grid: 2×2 phone, 4×1 desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+              {MODES.map(mode => (
                 <button
                   key={mode.id}
                   onClick={() => navigateToMode(mode.id, mode.path)}
-                  className="text-left rounded-2xl relative overflow-hidden transition-all duration-200 active:scale-[0.98] group flex flex-col backdrop-blur-md"
-                  style={{ background: mode.bg, border: `1px solid ${mode.border}`, minHeight: '120px' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = mode.borderHover)}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = mode.border)}
+                  className="relative rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col text-left transition-all duration-200 active:scale-[0.97]"
+                  style={{
+                    aspectRatio: '1 / 1.1',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${mode.color}66`,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                  }}
                   data-testid={`button-mode-${mode.id}`}
                 >
-                  <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none"
-                    style={{ background: `radial-gradient(ellipse at top right, ${mode.glow}0.22) 0%, transparent 70%)` }} />
-                  <div className="relative p-3 flex flex-col flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold font-mono text-sm"
-                        style={{ backgroundColor: `${mode.glow}0.15)`, border: `1px solid ${mode.glow}0.30)`, color: mode.color }}>
-                        {mode.icon}
+                  {/* Radial glow */}
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background: `radial-gradient(ellipse at 35% 35%, ${mode.color}59 0%, transparent 65%)`,
+                      filter: 'blur(24px)',
+                    }}
+                  />
+
+                  {/* Top row: icon + subtitle */}
+                  <div className="flex items-start justify-between relative z-10">
+                    <img
+                      src={mode.icon}
+                      alt={mode.name}
+                      className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 object-contain"
+                    />
+                    <img
+                      src={mode.subtitle}
+                      alt=""
+                      className="max-w-[80px] sm:max-w-[90px] h-auto object-contain mt-1"
+                      aria-hidden="true"
+                    />
+                  </div>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Bottom row: name + tagline + play button */}
+                  <div className="flex items-end justify-between gap-1.5 relative z-10">
+                    <div className="min-w-0">
+                      <div
+                        className="font-black text-white leading-none text-base sm:text-xl lg:text-2xl"
+                        data-testid={`text-mode-name-${mode.id}`}
+                      >
+                        {mode.name}
                       </div>
-                      <div className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ color: mode.color, backgroundColor: `${mode.glow}0.10)`, border: `1px solid ${mode.glow}0.22)` }}>
-                        {mode.difficulty}
+                      <div className="text-[9px] sm:text-xs mt-0.5 leading-tight" style={{ color: mode.color }}>
+                        {mode.tagline}
                       </div>
                     </div>
-                    <div className="font-bold text-sm text-white/90 font-sans mb-0.5" data-testid={`text-mode-name-${mode.id}`}>{mode.name}</div>
-                    <div className="text-[10px] font-mono leading-tight" style={{ color: mode.color + 'bb' }}>{mode.tagline}</div>
-                    <div className="flex items-center justify-between mt-auto pt-2.5">
-                      <div className="flex items-center gap-1">
-                        {tbl > 0 && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: mode.color }} />}
-                        <span className="text-[9px] font-mono" style={{ color: tbl > 0 ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.25)' }}>{cardSubtitle}</span>
-                      </div>
-                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-xl"
-                        style={{ color: '#05050A', backgroundColor: mode.color, boxShadow: `0 2px 8px ${mode.glow}0.40)` }}>
-                        Play →
-                      </span>
+                    <div
+                      className="shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white whitespace-nowrap"
+                      style={{ backgroundColor: mode.color, boxShadow: `0 2px 12px ${mode.color}55` }}
+                    >
+                      PLAY →
                     </div>
                   </div>
                 </button>
-              );
-            })}
-          </div>
-
-          {/* ── MORE DIVIDER ──────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">More</span>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-
-          {/* ── LIVE TABLES BROWSER ───────────────────────────────────────── */}
-          <div className="rounded-2xl bg-black/45 backdrop-blur-xl border border-white/10 overflow-hidden">
-            <LiveTablesSection onJoin={handleJoinTable} serverChips={serverProfile?.chipBalance} />
-          </div>
-
-          {/* ── CREW INVITE (Multiplayer spotlight) ───────────────────────── */}
-          <div className="w-full rounded-2xl p-4 relative overflow-hidden bg-emerald-950/35 backdrop-blur-xl border border-emerald-500/20">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-widest text-white/25 mb-1">⛓️ Crew Mode</div>
-                <p className="text-xs text-white/55 leading-relaxed">
-                  Open a public Badugi table or share a private code with your crew.
-                </p>
-              </div>
-              <div className="text-2xl shrink-0">⛓️</div>
+              ))}
             </div>
-            <div className="mt-3 flex gap-2">
-              <div className="flex-1 flex flex-col gap-0.5">
+          </div>
+
+          {/* ── 3. LIVE TABLES ─────────────────────────────────────────────── */}
+          <div
+            className="rounded-2xl p-3 sm:p-4"
+            style={{
+              background: 'rgba(0,0,0,0.40)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <LiveTablesSection onJoin={handleJoinTable} />
+          </div>
+
+          {/* ── 4. PLAYER PROFILE STRIP ────────────────────────────────────── */}
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-full flex items-center gap-3 rounded-2xl p-3 sm:p-3.5 transition-all active:scale-[0.98]"
+            style={{
+              background: 'rgba(0,0,0,0.42)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(245,158,11,0.20)',
+              minHeight: '80px',
+            }}
+            data-testid="button-profile-strip"
+          >
+            {/* Avatar */}
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
+              style={{
+                background: avatarColor + '28',
+                border: '2px solid rgba(201,162,39,0.38)',
+              }}
+            >
+              <span className="text-lg font-bold font-mono" style={{ color: '#F0B829' }}>{initials}</span>
+            </div>
+
+            {/* Middle: name + tier + level + xp bar */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className="font-bold text-white text-sm sm:text-base truncate leading-none"
+                  data-testid="text-player-name"
+                >
+                  {identity.name}
+                </span>
+                <img
+                  src={getTierBadgeAsset(rank.name)}
+                  alt={rank.name}
+                  className="h-5 w-auto shrink-0 object-contain"
+                  data-testid="badge-rank-home"
+                />
+              </div>
+              <div
+                className="text-[10px] sm:text-xs font-mono mt-1 leading-none"
+                style={{ color: 'rgba(201,162,39,0.65)' }}
+              >
+                Level {serverLevel} · {levelInfo.xpIntoLevel}/{levelInfo.xpNeeded} XP
+              </div>
+              {/* XP progress bar */}
+              <div
+                className="h-[3px] rounded-full mt-1.5 overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: 'linear-gradient(90deg, #C9A227, #F0B829)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Right: chips + session P/L */}
+            <div className="text-right shrink-0">
+              <div
+                className="text-lg sm:text-xl font-bold font-mono tabular-nums text-emerald-400 leading-none"
+                data-testid="text-bankroll"
+              >
+                ${displayChips.toLocaleString()}
+              </div>
+              <SessionPnL />
+            </div>
+          </button>
+
+          {/* ── 5. STREAK / BONUS CONSOLIDATED CARD ───────────────────────── */}
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(120,53,15,0.38) 0%, rgba(0,0,0,0.42) 100%)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(245,158,11,0.28)',
+            }}
+          >
+            {/* Top row: streak + next reward amount */}
+            <div className="flex items-center gap-2">
+              <span className="text-lg leading-none">🔥</span>
+              <span className="font-bold text-white text-sm">
+                {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak` : 'Daily Streak'}
+              </span>
+              <div className="flex-1" />
+              <span className="text-sm font-mono font-bold" style={{ color: '#F0B829' }}>
+                Next: +${(streakInfo.nextReward?.chips ?? 1250).toLocaleString()}
+              </span>
+            </div>
+
+            {/* Middle: claim CTA or countdown */}
+            <div className="mt-3">
+              {rewardReady ? (
+                <button
+                  onClick={() => setDailyOpen(true)}
+                  className="w-full py-3 rounded-xl font-black text-sm text-black tracking-wider transition-all active:scale-[0.98]"
+                  style={{
+                    background: 'linear-gradient(135deg, #F0B829, #C9A227)',
+                    boxShadow: '0 4px 18px rgba(240,184,41,0.38)',
+                  }}
+                  data-testid="button-claim-daily-home"
+                >
+                  ⚡ CLAIM DAILY RATION
+                </button>
+              ) : (
+                <div
+                  className="text-center text-xs font-mono py-2"
+                  style={{ color: 'rgba(255,255,255,0.32)' }}
+                >
+                  Next ration in {getTimeUntilMidnight()}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom row: secondary buttons */}
+            <div className={`grid gap-2 mt-2 ${starterAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <button
+                onClick={() => setHourlyOpen(true)}
+                className="py-2.5 rounded-xl text-[11px] font-bold border transition-all active:scale-[0.97]"
+                style={{
+                  background: hourlyReady ? 'rgba(245,158,11,0.14)' : 'rgba(255,255,255,0.05)',
+                  borderColor: hourlyReady ? 'rgba(245,158,11,0.40)' : 'rgba(255,255,255,0.12)',
+                  color: hourlyReady ? '#F0B829' : 'rgba(255,255,255,0.40)',
+                }}
+                data-testid="button-hourly-home"
+              >
+                ⚡ Hourly Bonus
+              </button>
+              <button
+                onClick={() => navigate('/bonus')}
+                className="py-2.5 rounded-xl text-[11px] font-bold border border-white/12 transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)' }}
+                data-testid="link-bonus-center-home"
+              >
+                ⚡ All Bonuses
+              </button>
+              {starterAvailable && (
+                <button
+                  onClick={() => setStarterOpen(true)}
+                  className="py-2.5 rounded-xl text-[11px] font-bold border transition-all active:scale-[0.97]"
+                  style={{
+                    background: 'rgba(245,158,11,0.14)',
+                    borderColor: 'rgba(245,158,11,0.40)',
+                    color: '#F0B829',
+                  }}
+                  data-testid="button-starter-home"
+                >
+                  🆕 Starter Kit
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── 6. CREW MODE CARD ──────────────────────────────────────────── */}
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(6,78,59,0.38) 0%, rgba(0,0,0,0.42) 100%)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(16,185,129,0.28)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-base leading-none">⛓</span>
+              <span
+                className="text-[10px] font-mono uppercase tracking-[0.2em] font-bold"
+                style={{ color: 'rgba(201,162,39,0.75)' }}
+              >
+                Crew Mode
+              </span>
+            </div>
+            <p className="text-xs text-white/45 leading-relaxed mb-3">
+              Open a public Badugi table or share a private code with your crew.
+            </p>
+
+            {/* Buttons */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="flex flex-col gap-1">
                 <button
                   onClick={() => navigate('/badugi')}
-                  className="w-full h-10 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
-                  style={{ backgroundColor: C.emerald, color: '#05050A', boxShadow: `0 2px 12px ${C.emerald}70` }}
+                  className="w-full h-11 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: '#05050A',
+                    boxShadow: '0 2px 12px rgba(16,185,129,0.40)',
+                  }}
                   data-testid="button-create-table"
                 >
                   Open a Table
                 </button>
-                <span className="text-[9px] font-mono text-white/25 text-center">Public · listed · anyone can join</span>
+                <span className="text-[9px] font-mono text-white/22 text-center">Public · anyone can join</span>
               </div>
-              <div className="flex-1 flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 <button
                   onClick={() => { const code = generateTableCode(); navigate(`/badugi?t=${code}&private=1`); }}
-                  className="w-full h-10 rounded-xl text-sm font-bold border transition-all duration-200 active:scale-[0.98]"
-                  style={{ backgroundColor: 'rgba(155,93,229,0.07)', border: '1px solid rgba(155,93,229,0.22)', color: C.purple }}
+                  className="w-full h-11 rounded-xl text-sm font-bold border transition-all active:scale-[0.97]"
+                  style={{
+                    background: 'rgba(109,40,217,0.18)',
+                    border: '1px solid rgba(139,92,246,0.35)',
+                    color: '#a78bfa',
+                  }}
                   data-testid="button-private-table"
                 >
                   Private Table
                 </button>
-                <span className="text-[9px] font-mono text-white/25 text-center">Code-only · not listed</span>
+                <span className="text-[9px] font-mono text-white/22 text-center">Code-only · not listed</span>
               </div>
             </div>
           </div>
 
-          {/* ── STATS STRIP ───────────────────────────────────────────────── */}
-          {stats.handsPlayed > 0 && (
-            <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4 bg-black/40 backdrop-blur-md border border-white/[0.06]">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                {[
-                  { label: 'Hands', value: String(stats.handsPlayed), color: 'text-white/55' },
-                  { label: 'Wins',  value: String(stats.wins),  color: 'text-emerald-400/65' },
-                  { label: 'Net',   value: `${totalNet >= 0 ? '+' : ''}$${totalNet}`, color: totalNet >= 0 ? 'text-emerald-400/65' : 'text-red-400/55' },
-                ].map((stat, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    {i > 0 && <div className="w-px h-5 bg-white/[0.05]" />}
-                    <div className="text-center">
-                      <div className="text-[9px] font-mono text-white/20 uppercase tracking-widest">{stat.label}</div>
-                      <div className={`text-sm font-bold font-mono tabular-nums ${stat.color}`}>{stat.value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => navigate('/profile')}
-                className="text-[10px] font-mono uppercase tracking-widest shrink-0"
-                style={{ color: `${C.gold}70` }}
-                data-testid="link-profile-strip"
-              >
-                Stats ›
-              </button>
-            </div>
-          )}
-
-          {/* ── BOTTOM NAV ────────────────────────────────────────────────── */}
-          <div className="flex flex-wrap justify-around items-center gap-y-2 px-2 py-3 bg-black/30 backdrop-blur-md border-t border-white/5 rounded-2xl">
-            {[
-              { label: '🏆 Leaderboard', path: '/leaderboard', color: C.gold,    id: 'link-leaderboard-footer' },
-              { label: '🛍️ Shop & Merch', path: '/shop',        color: C.orange,  id: 'link-shop-footer'        },
-              { label: '👤 Profile',     path: '/profile',     color: C.silver,  id: 'link-profile-footer'     },
-            ].map(item => (
-              <button key={item.path} onClick={() => navigate(item.path)}
-                className="px-3 py-1.5 rounded-xl text-[10px] font-mono transition-all hover:bg-white/[0.04]"
-                style={{ color: item.color }}
-                data-testid={item.id}>
-                {item.label}
-              </button>
-            ))}
-            <a href="/terms" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-terms">Terms</a>
-            <a href="/privacy" className="px-3 py-1.5 text-[10px] font-mono text-white/12 hover:text-white/30 transition-colors" data-testid="link-privacy">Privacy</a>
-          </div>
-          <p className="text-center text-[10px] font-mono pb-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.12)' }} data-testid="text-home-chips-disclaimer">
-            Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn.
+          {/* ── 7. FOOTER FINE PRINT ──────────────────────────────────────── */}
+          <p
+            className="text-center text-[9px] sm:text-[10px] font-mono py-2 tracking-wider"
+            style={{ color: 'rgba(255,255,255,0.15)' }}
+            data-testid="text-home-chips-disclaimer"
+          >
+            VIRTUAL CHIPS · FOR ENTERTAINMENT ONLY · NO CASH VALUE
           </p>
 
         </div>
       </div>
+
+      {/* ── Fixed bottom dock ─────────────────────────────────────────────────── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 h-[76px] flex items-center"
+        style={{
+          background: 'rgba(0,0,0,0.72)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(245,158,11,0.18)',
+        }}
+      >
+        <div className="w-full max-w-lg mx-auto grid grid-cols-4 h-full">
+
+          {/* Leaderboard */}
+          <button
+            onClick={() => navigate('/leaderboard')}
+            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            data-testid="link-leaderboard-footer"
+          >
+            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-8 h-8 object-contain" />
+            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Leaderboard</span>
+          </button>
+
+          {/* Shop */}
+          <button
+            onClick={() => navigate('/shop')}
+            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            data-testid="link-shop-footer"
+          >
+            <img src="/dock-shop.png" alt="Shop" className="w-8 h-8 object-contain" />
+            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
+          </button>
+
+          {/* Home (elevated) */}
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90 -translate-y-1"
+            data-testid="link-home-dock"
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                border: '1px solid rgba(240,184,41,0.55)',
+                boxShadow: '0 0 16px rgba(240,184,41,0.30), 0 0 6px rgba(240,184,41,0.15)',
+                background: 'rgba(240,184,41,0.10)',
+              }}
+            >
+              <img src="/dock-home.png" alt="Home" className="w-6 h-6 object-contain" />
+            </div>
+            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.90)' }}>Home</span>
+          </button>
+
+          {/* Profile */}
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            data-testid="link-profile-footer"
+          >
+            <img src="/dock-profile.png" alt="Profile" className="w-8 h-8 object-contain" />
+            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Profile</span>
+          </button>
+
+        </div>
+      </div>
+
     </div>
   );
 }
