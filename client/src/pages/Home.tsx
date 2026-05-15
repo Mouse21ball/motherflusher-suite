@@ -648,7 +648,7 @@ export default function Home() {
               </div>
               {sessionNetLabel !== null && (
                 <div
-                  className="font-mono tabular-nums mt-0.5 leading-none"
+                  className="font-mono tabular-nums mt-0.5 leading-none font-normal text-[0.55rem]"
                   style={{ color: sessionNetColor, fontSize: '0.55rem', fontWeight: 400 }}
                   data-testid="text-session-net"
                 >
