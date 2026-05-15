@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
+import { track } from '@/lib/analytics';
 import {
   getProgression, getLevelInfo, getRankForLevel, getUnlockedAchievements,
   ACHIEVEMENTS, ACHIEVEMENT_MAP, type Achievement,
@@ -404,6 +405,26 @@ export default function Profile() {
 
       {/* ── Legal / account management footer ─────────────────────────── */}
       <div className="w-full max-w-lg mx-auto px-4 pb-8 mt-2 space-y-3">
+        {/* Send Feedback */}
+        <a
+          href="https://forms.gle/Vh6Uut9bB6neHA3J8"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="link-profile-feedback"
+          onClick={() => track({ name: 'feedback_link_clicked', location: 'profile_menu' })}
+          className="flex items-center justify-between w-full px-4 py-3 rounded-xl transition-colors"
+          style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-base leading-none">💬</span>
+            <div>
+              <div className="text-[13px] font-medium text-white/70">Send Feedback</div>
+              <div className="text-[10px] font-mono text-white/30 mt-0.5">Report a bug or suggest a feature</div>
+            </div>
+          </div>
+          <span className="text-white/20 text-sm">›</span>
+        </a>
+
         {/* Terms & Privacy links */}
         <div className="flex items-center justify-center gap-4">
           <a href="/terms" className="text-[10px] font-mono text-white/20 hover:text-white/45 transition-colors" data-testid="link-profile-terms">

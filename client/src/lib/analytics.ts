@@ -66,7 +66,8 @@ export type AnalyticsEvent =
   | { name: 'crew_table_opened';    mode: 'badugi' }
   | { name: 'crew_private_created'; mode: 'badugi' }
   | { name: 'bust_modal_shown';     mode: string }
-  | { name: 'bonus_page_visited' };
+  | { name: 'bonus_page_visited' }
+  | { name: 'feedback_link_clicked'; location: 'home_footer' | 'profile_menu' };
 
 export function track(event: AnalyticsEvent): void {
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;

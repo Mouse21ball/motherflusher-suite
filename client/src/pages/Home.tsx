@@ -803,9 +803,24 @@ export default function Home() {
           </div>
 
           {/* ── 7. FOOTER FINE PRINT ──────────────────────────────────────── */}
+          <div className="flex items-center justify-center gap-3 py-1">
+            <a href="/terms" className="text-[9px] sm:text-[10px] font-mono tracking-wider hover:text-white/35 transition-colors" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-terms">Terms</a>
+            <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
+            <a href="/privacy" className="text-[9px] sm:text-[10px] font-mono tracking-wider hover:text-white/35 transition-colors" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
+            <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
+            <a
+              href="https://forms.gle/Vh6Uut9bB6neHA3J8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[9px] sm:text-[10px] font-mono tracking-wider hover:text-white/35 transition-colors"
+              style={{ color: 'rgba(255,255,255,0.15)' }}
+              data-testid="link-home-footer-feedback"
+              onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}
+            >Feedback</a>
+          </div>
           <p
-            className="text-center text-[9px] sm:text-[10px] font-mono py-2 tracking-wider"
-            style={{ color: 'rgba(255,255,255,0.15)' }}
+            className="text-center text-[9px] sm:text-[10px] font-mono py-1 tracking-wider"
+            style={{ color: 'rgba(255,255,255,0.10)' }}
             data-testid="text-home-chips-disclaimer"
           >
             VIRTUAL CHIPS · FOR ENTERTAINMENT ONLY · NO CASH VALUE
