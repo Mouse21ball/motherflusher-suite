@@ -28,7 +28,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection title="Virtual Chips & No Purchases">
-        Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app contains no in-app purchases at this time. No payment data of any kind is collected or stored.
+        Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. This app does not currently offer in-app purchases. Future versions may offer optional virtual chip bundles via Google Play Billing. If introduced, all payment information will be handled by Google Play and will never be collected or stored by Chain Gang Poker or DGM Entertainment.
       </LegalSection>
 
       <LegalSection title="How We Use Your Data">
@@ -44,7 +44,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection title="Children">
-        This app requires users to be 13 years of age or older. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided personal information, please contact us at support@dgmentertainment.com and we will remove it promptly.
+        This app requires users to be 17 years of age or older. We do not knowingly collect personal information from anyone under 17. If you believe someone under 17 has provided personal information, please contact us at support@dgmentertainment.com and we will remove it promptly.
       </LegalSection>
 
       <LegalSection title="Security">

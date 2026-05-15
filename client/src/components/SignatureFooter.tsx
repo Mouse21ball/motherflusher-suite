@@ -58,7 +58,7 @@ export function SignatureFooter({ showLinks = true }: SignatureFooterProps) {
       {/* Copyright */}
       <p className="text-[9px] font-mono text-center" style={{ color: "rgba(255,255,255,0.13)" }}>
         © 2026 DGM Entertainment LLC. All rights reserved.{"\n"}
-        Virtual chips only · No cash value · 13+
+        Virtual chips only · No cash value · 17+
       </p>
     </div>
   );

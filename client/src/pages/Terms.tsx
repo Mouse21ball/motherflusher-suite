@@ -18,7 +18,7 @@ export default function Terms() {
       </LegalSection>
 
       <LegalSection title="Age Requirement">
-        You must be 13 years of age or older to use this app. By using Chain Gang Poker, you confirm that you meet this age requirement. If you are under 13, you may not use this app.
+        You must be 17 years of age or older to use this app. By using Chain Gang Poker, you confirm that you meet this age requirement. If you are under 17, you may not use this app.
       </LegalSection>
 
       <LegalSection title="Guest & Account Play">

@@ -82,7 +82,7 @@ export function LegalPageLayout({
             />
 
             <p className="font-mono mt-2" style={{ fontSize: "10px", color: "rgba(255,255,255,0.22)" }}>
-              Chain Gang Poker · DGM Entertainment · Last updated April 2026
+              Chain Gang Poker · DGM Entertainment · Last updated May 2026
             </p>
           </div>
 
