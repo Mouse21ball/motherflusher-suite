@@ -7,6 +7,7 @@ import { WinCelebration } from "./WinCelebration";
 import { ReactionBar } from "./ReactionBar";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
+import { track, getModeFromPath } from "@/lib/analytics";
 
 interface GameTableProps {
   gameState: GameState;
@@ -102,6 +103,21 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
       celebFiredRef.current = false;
     }
   }, [gameState.phase, gameState.players, gameState.pot, gameState.minBet, myId]);
+
+  // hand_played: fires once when phase transitions INTO SHOWDOWN (outcome is known)
+  const handPlayedFiredRef = useRef(false);
+  useEffect(() => {
+    if (gameState.phase === 'SHOWDOWN' && !handPlayedFiredRef.current) {
+      handPlayedFiredRef.current = true;
+      const hero = gameState.players.find(p => p.id === myId);
+      const outcome: 'win' | 'loss' | 'fold' =
+        hero?.isWinner ? 'win' : hero?.status === 'folded' ? 'fold' : 'loss';
+      track({ name: 'hand_played', mode: getModeFromPath(), outcome });
+    }
+    if (gameState.phase !== 'SHOWDOWN') {
+      handPlayedFiredRef.current = false;
+    }
+  }, [gameState.phase, gameState.players, myId]);
 
   // Scoop detection for the particle burst intensity (more particles + ring effect)
   const heroAtShowdown = gameState.players.find(p => p.id === myId);

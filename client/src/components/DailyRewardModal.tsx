@@ -4,6 +4,7 @@ import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getVipTier, DISCLAIMER } from '@/lib/retention';
 import { apiUrl } from '@/lib/apiConfig';
+import { track } from '@/lib/analytics';
 
 interface DailyRewardModalProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
     if (animating || claimed) return;
     setAnimating(true);
     const reward = claimDailyReward();
+    track({ name: 'daily_ration_claimed', streak_day: streakInfo.streak, chips_awarded: reward.chips });
 
     // Apply chips across all modes (localStorage — immediate display)
     const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];

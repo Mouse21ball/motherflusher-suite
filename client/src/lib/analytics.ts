@@ -3,9 +3,6 @@ import { apiUrl } from './apiConfig';
 
 const SESSION_START_KEY = "poker_table_session_start";
 
-// Returns the stable canonical player ID from the unified identity.
-// Replaces the old standalone `poker_table_analytics_id` key.
-// The identity is created on first call and persisted in localStorage.
 function getPlayerId(): string {
   return ensurePlayerIdentity().id;
 }
@@ -48,4 +45,47 @@ export function initAnalytics(): void {
       trackSessionEnd();
     }
   });
+}
+
+// ── GA4 Custom Event Wrapper ──────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  }
+}
+
+export type AnalyticsEvent =
+  | { name: 'age_gate_accepted' }
+  | { name: 'mode_started';         mode: 'badugi' | 'dead7' | 'fifteen35' | 'suits' }
+  | { name: 'hand_played';          mode: string; outcome: 'win' | 'loss' | 'fold' }
+  | { name: 'daily_ration_claimed'; streak_day: number; chips_awarded: number }
+  | { name: 'hourly_bonus_claimed'; chips_awarded: number }
+  | { name: 'account_created';      from: 'guest' | 'fresh' }
+  | { name: 'crew_table_opened';    mode: 'badugi' }
+  | { name: 'crew_private_created'; mode: 'badugi' }
+  | { name: 'bust_modal_shown';     mode: string }
+  | { name: 'bonus_page_visited' };
+
+export function track(event: AnalyticsEvent): void {
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+  const { name, ...params } = event as { name: string } & Record<string, unknown>;
+  window.gtag('event', name, params);
+}
+
+export function setUserId(userId: string | null): void {
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+  if (userId) {
+    window.gtag('config', 'G-6FFDK5JX95', { user_id: userId });
+  }
+}
+
+export function getModeFromPath(): string {
+  const p = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (p.startsWith('/badugi'))     return 'badugi';
+  if (p.startsWith('/dead7'))      return 'dead7';
+  if (p.startsWith('/fifteen35'))  return 'fifteen35';
+  if (p.startsWith('/suitspoker')) return 'suits';
+  return 'unknown';
 }

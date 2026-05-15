@@ -33,6 +33,7 @@ import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
+import { track } from '@/lib/analytics';
 
 // ── Tier badge asset map ───────────────────────────────────────────────────────
 
@@ -324,6 +325,10 @@ export default function Home() {
   };
 
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
+    const modeMap: Record<string, 'badugi' | 'dead7' | 'fifteen35' | 'suits'> = {
+      badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35', suitspoker: 'suits',
+    };
+    if (modeMap[modeId]) track({ name: 'mode_started', mode: modeMap[modeId] });
     try {
       const engineModeId = MODE_ENGINE_ID[modeId] ?? modeId;
       const res = await fetch(apiUrl('/api/tables'));
@@ -766,7 +771,7 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-2.5">
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => navigate('/badugi')}
+                  onClick={() => { track({ name: 'crew_table_opened', mode: 'badugi' }); navigate('/badugi'); }}
                   className="w-full h-11 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
                   style={{
                     backgroundColor: '#10b981',
@@ -781,7 +786,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => { const code = generateTableCode(); navigate(`/badugi?t=${code}&private=1`); }}
+                  onClick={() => { track({ name: 'crew_private_created', mode: 'badugi' }); const code = generateTableCode(); navigate(`/badugi?t=${code}&private=1`); }}
                   className="w-full h-11 rounded-xl text-sm font-bold border transition-all active:scale-[0.97]"
                   style={{
                     background: 'rgba(109,40,217,0.18)',

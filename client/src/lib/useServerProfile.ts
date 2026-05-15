@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
+import { setUserId } from './analytics';
 
 export interface ServerProfile {
   profileId:      string;
@@ -43,7 +44,10 @@ export function useServerProfile(): UseServerProfileResult {
         return r.json() as Promise<ServerProfile>;
       })
       .then(data => {
-        if (!cancelled) setProfile(data);
+        if (!cancelled) {
+          setProfile(data);
+          if (data.hasAuth) setUserId(data.profileId);
+        }
       })
       .catch(() => {
         // Silently fail — callers fall back to localStorage

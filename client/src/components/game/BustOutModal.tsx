@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { isRewardAvailable, getTodayReward } from "@/lib/dailyReward";
+import { track, getModeFromPath } from "@/lib/analytics";
 
 interface BustOutModalProps {
   open: boolean;
@@ -38,6 +39,12 @@ export function BustOutModal({
   onWatchAd,
   onStarterPack,
 }: BustOutModalProps) {
+
+  // ── Track bust modal shown ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    track({ name: 'bust_modal_shown', mode: getModeFromPath() });
+  }, [open]);
 
   // ── Block Android back button / browser back while modal is open ──────────
   useEffect(() => {

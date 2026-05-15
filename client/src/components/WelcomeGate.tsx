@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
 import { BrandBackground } from "./BrandBackground";
+import { track, setUserId } from "@/lib/analytics";
 
 const AGE_KEY = 'cgp_age_17_confirmed';
 
@@ -26,7 +27,7 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
 
   if (!ageOk && !onLegalPage) {
     return (
-      <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); }} />
+      <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); track({ name: 'age_gate_accepted' }); }} />
     );
   }
   if (onLegalPage) return <>{children}</>;
@@ -250,6 +251,8 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         id: data.profileId, name: data.displayName,
         avatarSeed: data.profileId.slice(0, 8), createdAt: guest.createdAt,
       });
+      track({ name: 'account_created', from: 'guest' });
+      setUserId(data.profileId);
       onComplete(data.displayName);
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }

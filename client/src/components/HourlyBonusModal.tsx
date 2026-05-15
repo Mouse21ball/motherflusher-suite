@@ -6,6 +6,7 @@ import {
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getLevelInfo, getProgression } from '@/lib/progression';
 import { apiUrl } from '@/lib/apiConfig';
+import { track } from '@/lib/analytics';
 
 interface HourlyBonusModalProps {
   open: boolean;
@@ -59,6 +60,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
     if (animating || claimed || !ready) return;
     setAnimating(true);
     const earned = claimHourlyBonus(level);
+    track({ name: 'hourly_bonus_claimed', chips_awarded: earned });
     for (const modeId of MODES) {
       saveChips(modeId, getChips(modeId) + earned);
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { track } from '@/lib/analytics';
 import { useLocation } from 'wouter';
 import {
   isHourlyReady, getHourlyCountdown, getHourlyBonusChips,
@@ -57,6 +58,8 @@ export default function BonusCenter() {
   const [countdown,   setCountdown]   = useState(() => getHourlyCountdown());
 
   const streakInfo = getStreakInfo();
+
+  useEffect(() => { track({ name: 'bonus_page_visited' }); }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
