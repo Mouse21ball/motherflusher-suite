@@ -3,7 +3,7 @@ import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity 
 import { apiUrl } from "@/lib/apiConfig";
 import { BrandBackground } from "./BrandBackground";
 
-const AGE_KEY = 'cgp_age_confirmed';
+const AGE_KEY = 'cgp_age_17_confirmed';
 
 function getAgeConfirmed(): boolean {
   try { return localStorage.getItem(AGE_KEY) === '1'; } catch { return false; }
@@ -100,7 +100,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
               style={{ color: 'rgba(255,255,255,0.38)' }}
               data-testid="text-age-gate-body"
             >
-              You must be 13 or older to use this app.
+              You must be 17 or older to use this app.
             </p>
           </div>
 
@@ -132,7 +132,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
             }}
             data-testid="button-age-confirm"
           >
-            I am 13 or older — Continue
+            I am 17 or older — Continue
           </button>
 
           {/* Legal links footer */}
@@ -354,7 +354,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
               {' · '}
               <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
-              {' · '}13+
+              {' · '}17+
             </p>
           </div>
         )}
@@ -509,7 +509,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               <a href="/terms" className="underline hover:text-white/50 transition-colors">Terms</a>
               {' & '}
               <a href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</a>.
-              {' '}Virtual chips only · No cash value · 13+
+              {' '}Virtual chips only · No cash value · 17+
             </p>
           </form>
         )}
