@@ -14,6 +14,7 @@ import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
 import { evaluateSuitsScore, evaluatePokerHand } from '@shared/modes/suitspoker';
 import { cn } from "@/lib/utils";
+import { Fifteen35TableScene } from "./Fifteen35TableScene";
 
 interface ThreeDTableSceneProps {
   gameState: GameState;
@@ -319,8 +320,9 @@ export function ThreeDTableScene({
   selectedCardIndices, onCardClick, selectableCards,
   heroCardClassName, onReact, incomingReactions,
 }: ThreeDTableSceneProps) {
-  const isRingLayout = modeId === 'swing';
-  const isDrawModeFull = ['badugi', 'dead7', 'fifteen35', 'suitspoker'].includes(modeId);
+  const isRingLayout   = modeId === 'swing';
+  const isFifteen35    = modeId === 'fifteen35';
+  const isDrawModeFull = ['badugi', 'dead7', 'suitspoker'].includes(modeId);
   const isSuitsPoker   = modeId === 'suitspoker';
   const isShowdown     = gameState.phase === 'SHOWDOWN';
 
@@ -789,7 +791,25 @@ export function ThreeDTableScene({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ARC LAYOUT (badugi / dead7 / fifteen35)
+  // FIFTEEN35 — dedicated chain-ring scene (completely self-contained)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (isFifteen35) {
+    return (
+      <Fifteen35TableScene
+        gameState={gameState}
+        myId={myId}
+        selectedCardIndices={selectedCardIndices}
+        onCardClick={onCardClick}
+        selectableCards={selectableCards}
+        heroCardClassName={heroCardClassName}
+        onReact={onReact}
+        incomingReactions={incomingReactions}
+      />
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ARC LAYOUT (badugi / dead7)
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="game-scene-scaler">
