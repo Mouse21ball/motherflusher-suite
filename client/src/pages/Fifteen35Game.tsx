@@ -71,7 +71,11 @@ function getStatusChip(player: Player, total: number | null): ChipSpec | null {
   if (total >= 28) {
     return { label: 'DANGER', bg: 'rgba(120,40,0,0.40)', border: 'rgba(249,115,22,0.40)', color: '#FB923C' };
   }
-  return { label: 'PRESSING', bg: 'rgba(12,40,65,0.35)', border: 'rgba(56,189,248,0.25)', color: 'rgba(125,211,252,0.70)' };
+  // Distinguish pressing-low (<13) from mid-range (16–27)
+  if (total < 13) {
+    return { label: 'PRESSING LOW', bg: 'rgba(12,40,65,0.35)', border: 'rgba(56,189,248,0.25)', color: 'rgba(125,211,252,0.70)' };
+  }
+  return { label: 'PRESSING', bg: 'rgba(40,20,65,0.35)', border: 'rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.65)' };
 }
 
 // ── Table-ID (read ?t= or generate) ──────────────────────────────────────────
@@ -190,7 +194,7 @@ function F35StatusBar({
       <div className="flex-1 flex items-center justify-center gap-0">
         <StatBlk label="ANTES" value={`$${ante}`} />
         <div className="w-px h-6 mx-3" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <StatBlk label="PLAYERS" value={`${humanCount}/${totalSeats}`} />
+        <StatBlk label="PLAYERS" value={`${totalSeats}/${totalSeats}`} />
         <div className="w-px h-6 mx-3" style={{ background: 'rgba(255,255,255,0.07)' }} />
         <StatBlk label="POT" value={pot > 0 ? `$${pot.toLocaleString()}` : '—'} gold={pot > 0} />
       </div>
@@ -368,18 +372,19 @@ function F35OpponentRow({
         )}
       </div>
 
-      {/* Cards */}
-      <div className="flex items-center gap-0.5 flex-shrink-0" style={{ minWidth: 56 }}>
+      {/* Cards — fanned with slight overlap so 7 cards stay within row */}
+      <div className="flex items-center flex-shrink-0" style={{ minWidth: 32 }}>
         {inPlay && player.cards.length > 0 ? (
           player.cards.map((card, i) => (
-            <PlayingCard
-              key={i}
-              card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
-              className="w-[20px] h-[28px]"
-            />
+            <div key={i} style={{ marginLeft: i === 0 ? 0 : -10, zIndex: i }}>
+              <PlayingCard
+                card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
+                className="w-9 h-[52px] sm:w-9 sm:h-[52px]"
+              />
+            </div>
           ))
         ) : (
-          <div className="w-[20px] h-[28px] rounded border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }} />
+          <div className="w-9 h-[52px] rounded border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }} />
         )}
       </div>
 
@@ -523,7 +528,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
             <PlayingCard
               key={i}
               card={isShowdown ? { ...c, isHidden: false } : c}
-              className="w-[44px] h-[62px] shadow-md"
+              className="w-12 h-16 sm:w-12 sm:h-16 shadow-md"
             />
           ))}
         </div>
@@ -979,7 +984,7 @@ export default function Fifteen35Game() {
 
   return (
     <div
-      className="min-h-[100dvh] overflow-hidden flex flex-col"
+      className="h-[100dvh] overflow-hidden flex flex-col"
       data-mode="fifteen35"
       style={{
         background: '#0D0D0F',
@@ -1002,7 +1007,7 @@ export default function Fifteen35Game() {
       {/* ── Scrollable content ────────────────────────────────────────────── */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ paddingTop: 48, paddingBottom: 290 }}
+        style={{ paddingTop: 60, paddingBottom: 440 }}
       >
         {/* Dark overlay for readability */}
         <div style={{ minHeight: '100%', background: 'rgba(8,8,12,0.72)' }}>
