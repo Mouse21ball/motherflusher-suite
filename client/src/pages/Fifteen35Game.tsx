@@ -412,22 +412,8 @@ function F35OpponentRow({
         <div className="flex-shrink-0 rounded" style={{ width: 34, height: 22, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }} />
       )}
 
-      {/* Status chip */}
-      <div className="flex-1 flex justify-end min-w-0">
-        {chip && (
-          <span
-            style={{
-              fontFamily: 'monospace', fontSize: 7, fontWeight: 700,
-              letterSpacing: '0.12em', textTransform: 'uppercase',
-              padding: '2px 6px', borderRadius: 4,
-              background: chip.bg, border: `1px solid ${chip.border}`, color: chip.color,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {chip.label}
-          </span>
-        )}
-      </div>
+      {/* Status chip intentionally omitted — qualification state is private */}
+      <div className="flex-1" />
     </div>
   );
 }
@@ -479,12 +465,6 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
           <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: '#C9A227', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             ${player.chips.toLocaleString()}
           </span>
-          {inPlay && (
-            <div className="flex gap-1 mt-0.5">
-              <NeedsChip label="13–15" on={isLowMade} />
-              <NeedsChip label="33–35" on={isHighMade} />
-            </div>
-          )}
           {player.declaration === 'STAY' && !isBust && (
             <span
               className="self-start mt-0.5 rounded"
