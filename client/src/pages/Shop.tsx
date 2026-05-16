@@ -24,8 +24,8 @@ const SUBSCRIPTION_TIERS = [
   {
     id: 'pro',
     name: 'Gold Pro',
-    price: '$4.99',
-    period: 'per month',
+    price: '',
+    period: '',
     color: '#C9A227',
     bg: 'rgba(201,162,39,0.08)',
     border: 'rgba(201,162,39,0.30)',
@@ -45,8 +45,8 @@ const SUBSCRIPTION_TIERS = [
   {
     id: 'elite',
     name: 'Diamond Elite',
-    price: '$9.99',
-    period: 'per month',
+    price: '',
+    period: '',
     color: '#9B59B6',
     bg: 'rgba(155,89,182,0.08)',
     border: 'rgba(155,89,182,0.30)',
@@ -184,7 +184,7 @@ export default function Shop() {
                     </div>
                     <div className="flex items-baseline gap-1 mt-0.5">
                       <span className="text-xl font-bold font-mono text-white/90">{tier.price}</span>
-                      {tier.period !== 'forever' && (
+                      {tier.period && tier.period !== 'forever' && (
                         <span className="text-[10px] text-white/30 font-mono">/ {tier.period}</span>
                       )}
                     </div>
