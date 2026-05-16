@@ -621,14 +621,36 @@ function advanceToNextPhase(table: GenericTable): void {
   const isRevealPhase  = nextPhase.startsWith('REVEAL_');
   const skipAllIn      = !isDeclare && !isDrawRound;
 
-  const dealerIdx   = getDealerIndex(state.players);
-  const firstActIdx = getNextActivePlayerIndex(state.players, dealerIdx, skipAllIn);
+  const dealerIdx = getDealerIndex(state.players);
+  let firstActIdx = getNextActivePlayerIndex(state.players, dealerIdx, skipAllIn);
 
-  const nextPlayers: Player[] = state.players.map(p => ({
+  let nextPlayers: Player[] = state.players.map(p => ({
     ...p,
     hasActed: false,
     bet: (isBetRound || isDrawRound) ? 0 : p.bet,
   }));
+
+  // ── HIT-phase continuity fix ──────────────────────────────────────────────
+  // A player who declared STAY in a prior HIT round must not act again in
+  // subsequent HIT rounds. Preserving hasActed=true for them keeps the round-
+  // over check (isPhaseRoundOver) and all next-player calculations consistent:
+  // they are skipped everywhere that looks for `!p.hasActed`.
+  if (nextPhase.startsWith('HIT_')) {
+    nextPlayers = nextPlayers.map(p =>
+      (p.status === 'active' && p.declaration === 'STAY') ? { ...p, hasActed: true } : p
+    );
+    // If the first-actor slot landed on a player who already has hasActed=true,
+    // re-scan forward to the first seat that still needs to act.
+    if (nextPlayers[firstActIdx]?.hasActed) {
+      for (let i = 1; i < nextPlayers.length; i++) {
+        const idx = (firstActIdx + i) % nextPlayers.length;
+        if (nextPlayers[idx].status === 'active' && !nextPlayers[idx].hasActed) {
+          firstActIdx = idx;
+          break;
+        }
+      }
+    }
+  }
 
   const prevPhase = state.phase;
   table.state = addMsg({
@@ -1295,7 +1317,8 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
     }, wasRaise ? 500 : 350);
   } else {
     const s = table.state;
-    const isDrawPhase    = s.phase.startsWith('DRAW') || s.phase.startsWith('HIT_');
+    const isHitPhase     = s.phase.startsWith('HIT_');
+    const isDrawPhase    = s.phase.startsWith('DRAW') || isHitPhase;
     const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
     const skipAllIn      = !isDrawPhase && !isDeclarePhase;
     const myIdx   = s.players.findIndex(p => p.id === s.activePlayerId);
@@ -1306,6 +1329,19 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
       for (let i = 1; i <= s.players.length; i++) {
         const idx = (myIdx + i) % s.players.length;
         if (s.players[idx].status === 'active' && !s.players[idx].hasActed) { nextIdx = idx; break; }
+      }
+    } else if (isHitPhase) {
+      // HIT phases: skip players who already declared STAY — they don't act again.
+      // The advanceToNextPhase HIT-continuity fix sets hasActed=true for STAY players,
+      // so checking both `!p.hasActed` and `declaration !== 'STAY'` is belt-and-suspenders.
+      nextIdx = myIdx;
+      for (let i = 1; i <= s.players.length; i++) {
+        const idx = (myIdx + i) % s.players.length;
+        const p = s.players[idx];
+        if (p.status === 'active' && !p.hasActed && p.declaration !== 'STAY') {
+          nextIdx = idx;
+          break;
+        }
       }
     } else {
       nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);

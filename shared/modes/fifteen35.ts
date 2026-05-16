@@ -171,7 +171,8 @@ export const Fifteen35Mode: GameMode = {
       let nextIdx = (bIdx + 1) % newPlayers.length, count = 0;
       while (count < newPlayers.length) {
         const p = newPlayers[nextIdx];
-        if (isHitPhase) { if (p.status === 'active' && !p.hasActed) break; }
+        // HIT phases: also skip players who declared STAY — they don't act again.
+        if (isHitPhase) { if (p.status === 'active' && !p.hasActed && p.declaration !== 'STAY') break; }
         else { if (p.status === 'active' && p.chips > 0 && (!p.hasActed || p.bet < newCurrentBet)) break; }
         nextIdx = (nextIdx + 1) % newPlayers.length; count++;
       }
@@ -208,11 +209,25 @@ export const Fifteen35Mode: GameMode = {
     const messages: string[] = [];
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
 
+    // ── Diagnostic: hand totals entering showdown ─────────────────────────────
+    console.log('[CGP][15/35][SHOWDOWN] pot=$' + pot + ' active=' + activePlayers.length);
+    for (const p of finalPlayers) {
+      const { total } = bestTotal(p.cards);
+      const qualifier = qualifiesLow(total) ? 'LOW' : qualifiesHigh(total) ? 'HIGH' : isBust(total) ? 'BUST' : 'NONE';
+      console.log(`[CGP][15/35][SHOWDOWN]   ${p.id}(${p.name}) status=${p.status} total=${total} qual=${qualifier} chips=${p.chips} totalBet=${p.totalBet ?? 0}`);
+    }
+
     let sidePots = computeSidePots(finalPlayers);
     if (sidePots.length === 0 && pot > 0) {
       sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
     }
     const totalAwardable = totalSidePotAmount(sidePots);
+
+    // ── Diagnostic: side pot breakdown ───────────────────────────────────────
+    console.log(`[CGP][15/35][SHOWDOWN] sidePots=${sidePots.length} totalAwardable=$${totalAwardable}`);
+    sidePots.forEach((sp, i) => {
+      console.log(`[CGP][15/35][SHOWDOWN]   pot[${i}] $${sp.amount} eligible=[${sp.eligibleIds.join(',')}]`);
+    });
 
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
@@ -220,10 +235,12 @@ export const Fifteen35Mode: GameMode = {
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
       finalPlayers[idx].chips += award;
       finalPlayers[idx].isWinner = true;
+      console.log(`[CGP][15/35][SHOWDOWN] sole-survivor ${sole.id}(${sole.name}) wins $${award}`);
       messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
       return { players: finalPlayers, pot: totalAwardable - award, messages };
     }
     if (activePlayers.length === 0) {
+      console.log(`[CGP][15/35][SHOWDOWN] no active players — $${totalAwardable} rolls over`);
       messages.push(`No active players. $${totalAwardable} rolls over!`);
       return { players: finalPlayers, pot: totalAwardable, messages };
     }
@@ -246,6 +263,14 @@ export const Fifteen35Mode: GameMode = {
     };
 
     const resolution = resolveSplitPots(sidePots, finalPlayers, { findHigh, findLow });
+
+    // ── Diagnostic: resolution output ────────────────────────────────────────
+    console.log(`[CGP][15/35][SHOWDOWN] hadAnyWinner=${resolution.hadAnyWinner} rolledOver=$${resolution.rolledOver}`);
+    console.log(`[CGP][15/35][SHOWDOWN] highWinners=[${[...resolution.highWinnerIds].join(',')}] lowWinners=[${[...resolution.lowWinnerIds].join(',')}]`);
+    for (const [id, delta] of Object.entries(resolution.deltas)) {
+      const p = finalPlayers.find(fp => fp.id === id);
+      console.log(`[CGP][15/35][SHOWDOWN]   delta ${id}(${p?.name ?? '?'}) +$${delta}`);
+    }
 
     if (!resolution.hadAnyWinner) {
       messages.push(`No qualifying hands. $${resolution.rolledOver} rolls over!`);
