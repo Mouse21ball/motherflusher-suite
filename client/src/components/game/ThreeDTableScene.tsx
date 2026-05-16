@@ -819,43 +819,73 @@ export function ThreeDTableScene({
             <div className="flex flex-col items-center gap-3 my-auto table-3d-counter">
 
               {gameState.phase === 'WAITING' ? renderWaitingCenter() : isShowdown ? null : (
-                <div className="flex flex-col items-center gap-2 anim-slide-up">
-                  {/* Big phase header — prominent during draw phases */}
-                  {isDrawPhase ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="text-white/90 font-bold tracking-widest uppercase text-[13px] sm:text-[16px]"
-                        style={{ fontFamily: "'Oswald', 'Inter', sans-serif", letterSpacing: '0.18em', textShadow: '0 0 24px rgba(201,162,39,0.35)' }}
-                        data-testid="text-phase">
-                        DRAW &mdash; ROUND {drawNumber}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3].map(d => (
-                          <div key={d} className={cn(
-                            "w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 transition-all",
-                            d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
-                            d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] shadow-[0_0_12px_rgba(201,162,39,0.60)]" :
-                            "bg-white/[0.06] border-white/15 text-white/30"
-                          )}>{d}</div>
-                        ))}
-                      </div>
+                modeId === 'fifteen35' ? (
+                  /* ── 15/35 prison brand center ─────────────────────────── */
+                  <div className="flex flex-col items-center gap-1 anim-slide-up select-none">
+                    <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 'clamp(24px,5.2vw,38px)', fontWeight: 900, letterSpacing: '0.05em', color: '#C9A227', textShadow: '0 0 28px rgba(201,162,39,0.55), 0 2px 6px rgba(0,0,0,0.95)', lineHeight: 1 }}>
+                      15/35
                     </div>
-                  ) : (
-                    <div className="text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.22em] uppercase font-medium" data-testid="text-phase">
+                    <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(6.5px,1.4vw,9px)', fontWeight: 600, letterSpacing: '0.28em', color: 'rgba(201,162,39,0.50)', textTransform: 'uppercase' }}>
+                      HIT · STAY · SURVIVE
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 'clamp(5px,1.0vw,6.5px)', letterSpacing: '0.32em', color: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', marginTop: '1px' }}>
+                      CHAIN GANG POKER
+                    </div>
+                    <div style={{ width: '30px', height: '1px', background: 'linear-gradient(90deg,transparent,rgba(201,162,39,0.40),transparent)', margin: '5px 0' }} />
+                    <div className="text-[9px] font-mono tracking-[0.22em] uppercase" style={{ color: 'rgba(255,255,255,0.28)' }} data-testid="text-phase">
                       {getPhaseLabel(gameState.phase)}
                     </div>
-                  )}
-                  {handCount > 1 && !isDrawPhase && (
-                    <div className="text-[9px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
-                      Hand {handCount}
+                    {handCount > 1 && (
+                      <div className="text-[8px] font-mono tracking-widest uppercase mt-0.5" style={{ color: 'rgba(201,162,39,0.30)' }}>
+                        Hand {handCount}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 mt-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
+                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                        {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
+                      </span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
-                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
-                    <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
-                      {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
-                    </span>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 anim-slide-up">
+                    {/* Big phase header — prominent during draw phases */}
+                    {isDrawPhase ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="text-white/90 font-bold tracking-widest uppercase text-[13px] sm:text-[16px]"
+                          style={{ fontFamily: "'Oswald', 'Inter', sans-serif", letterSpacing: '0.18em', textShadow: '0 0 24px rgba(201,162,39,0.35)' }}
+                          data-testid="text-phase">
+                          DRAW &mdash; ROUND {drawNumber}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3].map(d => (
+                            <div key={d} className={cn(
+                              "w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 transition-all",
+                              d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
+                              d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] shadow-[0_0_12px_rgba(201,162,39,0.60)]" :
+                              "bg-white/[0.06] border-white/15 text-white/30"
+                            )}>{d}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.22em] uppercase font-medium" data-testid="text-phase">
+                        {getPhaseLabel(gameState.phase)}
+                      </div>
+                    )}
+                    {handCount > 1 && !isDrawPhase && (
+                      <div className="text-[9px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
+                        Hand {handCount}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
+                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                        {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
+                      </span>
+                    </div>
+                  </div>
+                )
               )}
 
               {/* Draw round tracker shown only for non-draw phases with a draw number (edge case) */}

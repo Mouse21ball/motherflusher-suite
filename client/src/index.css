@@ -1283,6 +1283,36 @@
   );
 }
 
+/* ── 15/35 prison table: dark steel-railed felt ──────────────────────────── */
+.game-page-root[data-mode="fifteen35"] .game-table-felt {
+  background:
+    radial-gradient(ellipse 46% 40% at 50% 40%, rgba(28,55,32,0.72) 0%, transparent 100%),
+    radial-gradient(ellipse 78% 68% at 50% 40%, rgba(18,38,22,0.60) 0%, transparent 100%),
+    radial-gradient(ellipse at 50% 28%, #101a11 0%, #0a120b 28%, #060c07 52%, #020402 100%);
+  box-shadow:
+    inset 0 -3px 0 rgba(140,150,160,0.55),
+    inset 0 5px 22px rgba(0,0,0,0.92),
+    inset 0 0 0 2px rgba(130,140,152,0.45),
+    inset 0 0 0 4px rgba(120,132,144,0.12),
+    inset 0 0 28px rgba(80,95,110,0.06),
+    inset 0      0  148px rgba(0,0,0,0.95),
+    inset 100px  0  108px rgba(0,0,0,0.65),
+    inset -100px 0  108px rgba(0,0,0,0.65),
+    inset 0   80px  108px rgba(0,0,0,0.58),
+    inset 0  -40px   64px rgba(0,0,0,0.38),
+    0 0 0 4px #242628,
+    0 0 0 7px #0e0f10,
+    0 0 24px rgba(80,90,100,0.20),
+    0 0 56px rgba(60,70,80,0.10),
+    0 20px 60px rgba(0,0,0,0.94),
+    0 32px 80px rgba(0,0,0,0.60);
+}
+
+.game-page-root[data-mode="fifteen35"] .game-table-felt::before {
+  background: radial-gradient(ellipse 56% 48% at 50% 42%, rgba(28,58,32,0.20) 0%, transparent 68%);
+  animation: none;
+}
+
 .game-page-root[data-mode="suitspoker"] {
   background-image:
     linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.50) 100%),
