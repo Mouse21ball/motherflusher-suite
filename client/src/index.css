@@ -360,13 +360,6 @@
     drop-shadow(0 2px 4px rgba(0,0,0,0.40));
 }
 
-/* ── Session P/L — home screen profile strip de-emphasis guarantee ──────── */
-/* Belt-and-suspenders: survives any cascade issue, CSP, or Tailwind miss.  */
-/* Color is intentionally NOT set here — it is data-driven via React style. */
-[data-testid="text-session-net"] {
-  font-size: 8.8px !important;
-  font-weight: 400 !important;
-}
 
 /* ── Hero card hover lift — physical card pickup feel ──────────────────── */
 .hero-card-item {

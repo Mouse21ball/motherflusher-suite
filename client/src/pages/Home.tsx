@@ -7,8 +7,6 @@ import {
   getAllChips,
   getHandHistory,
   getPlayerStats,
-  getSessionStartChips,
-  saveSessionStartChips,
 } from '@/lib/persistence';
 import {
   getProgression,
@@ -245,19 +243,6 @@ export default function Home() {
   const displayChips = Math.max(0, serverProfile?.chipBalance ?? totalChips);
   const serverLevel  = serverProfile?.level ?? levelInfo.level;
 
-  // Session P/L
-  const [sessionStart, setSessionStart] = useState<number>(() => getSessionStartChips() ?? displayChips);
-  useEffect(() => {
-    const stored = getSessionStartChips();
-    if (stored === null) {
-      saveSessionStartChips(displayChips);
-      setSessionStart(displayChips);
-    } else {
-      setSessionStart(stored);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const sessionNet = displayChips - sessionStart;
-
   const rank       = getRankForLevel(serverLevel);
   const progressPct = Math.round(levelInfo.progress * 100);
 
@@ -348,16 +333,6 @@ export default function Home() {
     setNewAchievements(prev => prev.filter(a => a.id !== id));
     clearNewAchievements();
   }, []);
-
-  // Session P/L — computed once, used inline in JSX
-  const sessionNetAbs   = Math.abs(sessionNet);
-  const sessionNetLabel = sessionNet !== 0
-    ? `Session: ${sessionNet > 0 ? '+' : '-'}$${sessionNetAbs.toLocaleString()}`
-    : null;
-  const sessionNetColor: string =
-    sessionNet > 500  ? '#34d399'                    // bright emerald
-    : sessionNet < -500 ? 'rgba(248,113,113,0.50)'   // muted red 50% opacity — must not dominate
-    : 'rgba(255,255,255,0.35)';                       // muted gray for |net| < 500
 
   return (
     <div
@@ -638,7 +613,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right: chips + session P/L */}
+            {/* Right: chips balance */}
             <div className="text-right shrink-0">
               <div
                 className="text-lg sm:text-xl font-bold font-mono tabular-nums text-emerald-400 leading-none"
@@ -646,15 +621,6 @@ export default function Home() {
               >
                 ${displayChips.toLocaleString()}
               </div>
-              {sessionNetLabel !== null && (
-                <div
-                  className="font-mono tabular-nums mt-0.5 leading-none font-normal text-[0.55rem]"
-                  style={{ color: sessionNetColor, fontSize: '0.55rem', fontWeight: 400 }}
-                  data-testid="text-session-net"
-                >
-                  {sessionNetLabel}
-                </div>
-              )}
             </div>
           </button>
 
