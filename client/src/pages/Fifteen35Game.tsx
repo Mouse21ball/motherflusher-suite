@@ -175,7 +175,7 @@ function F35StatusBar({
 }) {
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 gap-2"
+      className="flex-shrink-0 flex items-center px-3 gap-2 w-full z-10"
       style={{ height: 48, background: 'rgba(9,9,12,0.97)', borderBottom: '1px solid rgba(201,162,39,0.16)' }}
     >
       {/* Menu / chat icon */}
@@ -372,21 +372,26 @@ function F35OpponentRow({
         )}
       </div>
 
-      {/* Cards — fanned with slight overlap so 7 cards stay within row */}
-      <div className="flex items-center flex-shrink-0" style={{ minWidth: 32 }}>
-        {inPlay && player.cards.length > 0 ? (
-          player.cards.map((card, i) => (
-            <div key={i} style={{ marginLeft: i === 0 ? 0 : -10, zIndex: i }}>
-              <PlayingCard
-                card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
-                className="w-9 h-[52px] sm:w-9 sm:h-[52px]"
-              />
-            </div>
-          ))
-        ) : (
-          <div className="w-9 h-[52px] rounded border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }} />
-        )}
-      </div>
+      {/* Cards — zoom-scaled by count so all cards stay readable with no overlap */}
+      {(() => {
+        const n = (inPlay && player.cards.length > 0) ? player.cards.length : 1;
+        const zoom = n <= 2 ? 1 : n === 3 ? 0.78 : n === 4 ? 0.65 : n === 5 ? 0.56 : 0.50;
+        return (
+          <div className="flex items-center gap-0.5 flex-shrink-0" style={{ zoom }}>
+            {inPlay && player.cards.length > 0 ? (
+              player.cards.map((card, i) => (
+                <PlayingCard
+                  key={i}
+                  card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
+                  className="w-9 h-[52px] sm:w-9 sm:h-[52px]"
+                />
+              ))
+            ) : (
+              <div className="w-9 h-[52px] rounded border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }} />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Total box */}
       {inPlay ? (
@@ -521,18 +526,22 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
         )}
       </div>
 
-      {/* Hero cards */}
-      {inPlay && player.cards.length > 0 && (
-        <div className="flex gap-1.5 mt-2.5 justify-center flex-wrap">
-          {player.cards.map((c, i) => (
-            <PlayingCard
-              key={i}
-              card={isShowdown ? { ...c, isHidden: false } : c}
-              className="w-12 h-16 sm:w-12 sm:h-16 shadow-md"
-            />
-          ))}
-        </div>
-      )}
+      {/* Hero cards — zoom-scaled by count, no overlap, always readable */}
+      {inPlay && player.cards.length > 0 && (() => {
+        const n = player.cards.length;
+        const zoom = n <= 2 ? 1 : n === 3 ? 0.88 : n === 4 ? 0.76 : n === 5 ? 0.66 : n === 6 ? 0.58 : 0.52;
+        return (
+          <div className="flex gap-1.5 mt-2.5 justify-center" style={{ zoom }}>
+            {player.cards.map((c, i) => (
+              <PlayingCard
+                key={i}
+                card={isShowdown ? { ...c, isHidden: false } : c}
+                className="w-12 h-16 sm:w-12 sm:h-16 shadow-md"
+              />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1007,7 +1016,7 @@ export default function Fifteen35Game() {
       {/* ── Scrollable content ────────────────────────────────────────────── */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ paddingTop: 60, paddingBottom: 440 }}
+        style={{ paddingBottom: 440 }}
       >
         {/* Dark overlay for readability */}
         <div style={{ minHeight: '100%', background: 'rgba(8,8,12,0.72)' }}>
