@@ -22,8 +22,6 @@ import Profile from "@/pages/Profile";
 import Leaderboard from "@/pages/Leaderboard";
 import Shop from "@/pages/Shop";
 import BonusCenter from "@/pages/BonusCenter";
-import CheckoutSuccess from "@/pages/CheckoutSuccess";
-import CheckoutCancel from "@/pages/CheckoutCancel";
 
 function Router() {
   return (
@@ -42,8 +40,6 @@ function Router() {
         <Route path="/admin" component={Admin}/>
         <Route path="/terms" component={Terms}/>
         <Route path="/privacy" component={Privacy}/>
-        <Route path="/success" component={CheckoutSuccess}/>
-        <Route path="/cancel" component={CheckoutCancel}/>
         <Route component={NotFound} />
       </Switch>
     </ErrorBoundary>

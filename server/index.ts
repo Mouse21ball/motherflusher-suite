@@ -21,44 +21,7 @@ process.once('SIGINT',  () => onShutdown('SIGINT'));
 const app = express();
 const httpServer = createServer(app);
 
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
-
-// ── Stripe webhook — MUST be registered BEFORE express.json() ────────────────
-// express.raw() keeps the body as a Buffer; express.json() would destroy it.
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    if (!sig) {
-      res.status(400).json({ error: 'Missing stripe-signature header' });
-      return;
-    }
-    try {
-      const { WebhookHandlers } = await import('./webhookHandlers');
-      await WebhookHandlers.processWebhook(
-        req.body as Buffer,
-        Array.isArray(sig) ? sig[0] : sig,
-      );
-      res.status(200).json({ received: true });
-    } catch (err: any) {
-      console.error('[stripe] webhook error:', err.message);
-      res.status(400).json({ error: 'Webhook processing error' });
-    }
-  },
-);
-
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+app.use(express.json());
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.text({ type: "text/plain" }));
@@ -101,28 +64,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // ── Stripe init: run migrations + set up managed webhook ─────────────────
-  // Non-fatal — server starts cleanly even if Stripe is not yet connected.
-  try {
-    const { runMigrations } = await import('stripe-replit-sync');
-    const { getStripeSync } = await import('./stripeClient');
-    const databaseUrl = process.env.DATABASE_URL;
-    if (databaseUrl) {
-      await runMigrations({ databaseUrl });
-      const stripeSync = await getStripeSync();
-      const domain = process.env.REPLIT_DOMAINS?.split(',')[0];
-      if (domain) {
-        await stripeSync.findOrCreateManagedWebhook(`https://${domain}/api/stripe/webhook`);
-      }
-      stripeSync.syncBackfill().catch((e: any) =>
-        console.warn('[stripe] backfill warning:', e.message)
-      );
-      log('Stripe initialised', 'stripe');
-    }
-  } catch (e: any) {
-    console.warn('[stripe] init skipped (not connected yet):', e.message);
-  }
-
   initEngine();              // restore persisted Badugi tables before WS server opens
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   initRooms(httpServer);

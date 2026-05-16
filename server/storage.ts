@@ -2,7 +2,7 @@ import {
   type User, type InsertUser,
   type InsertAnalyticsEvent, type AnalyticsEvent,
   type PlayerProfile,
-  analyticsEvents, playerProfiles, chipPurchases,
+  analyticsEvents, playerProfiles,
 } from "@shared/schema";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -41,12 +41,7 @@ export interface IStorage {
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   deletePlayer(id: string): Promise<void>;
-  // ── Stripe / chip purchases ────────────────────────────────────────────────
-  getPlayerStripeCustomerId(id: string): Promise<string | null>;
-  setPlayerStripeCustomerId(id: string, customerId: string): Promise<void>;
   addChipsToPlayer(id: string, chips: number): Promise<void>;
-  hasProcessedCheckout(sessionId: string): Promise<boolean>;
-  recordChipPurchase(playerId: string, sessionId: string, chips: number, amountCents: number): Promise<void>;
 }
 
 export interface DailyStats {
@@ -194,7 +189,6 @@ export class MemStorage implements IStorage {
       lifetimeProfit: 0,
       email: null,
       passwordHash: null,
-      stripeCustomerId: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -275,22 +269,6 @@ export class MemStorage implements IStorage {
     await db.delete(playerProfiles).where(eq(playerProfiles.id, id));
   }
 
-  async getPlayerStripeCustomerId(id: string): Promise<string | null> {
-    const rows = await db
-      .select({ stripeCustomerId: playerProfiles.stripeCustomerId })
-      .from(playerProfiles)
-      .where(eq(playerProfiles.id, id))
-      .limit(1);
-    return rows[0]?.stripeCustomerId ?? null;
-  }
-
-  async setPlayerStripeCustomerId(id: string, customerId: string): Promise<void> {
-    await db
-      .update(playerProfiles)
-      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
-      .where(eq(playerProfiles.id, id));
-  }
-
   async addChipsToPlayer(id: string, chips: number): Promise<void> {
     await db
       .update(playerProfiles)
@@ -301,28 +279,6 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
-  async hasProcessedCheckout(sessionId: string): Promise<boolean> {
-    const rows = await db
-      .select({ id: chipPurchases.id })
-      .from(chipPurchases)
-      .where(eq(chipPurchases.stripeSessionId, sessionId))
-      .limit(1);
-    return rows.length > 0;
-  }
-
-  async recordChipPurchase(
-    playerId: string,
-    sessionId: string,
-    chips: number,
-    amountCents: number,
-  ): Promise<void> {
-    await db.insert(chipPurchases).values({
-      playerId,
-      stripeSessionId: sessionId,
-      chipsGranted: chips,
-      amountCents,
-    });
-  }
 }
 
 export const storage = new MemStorage();

@@ -1,21 +1,6 @@
-import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
-
-// ─── Premium Shop ─────────────────────────────────────────────────────────────
-// Virtual chips only — play money, no cash value, no withdrawals.
-
-interface ChipProduct {
-  id: string;
-  name: string;
-  description: string;
-  priceId: string;
-  unitAmount: number;
-  chips: number;
-  icon?: string;
-  badge?: string;
-}
 
 const SUBSCRIPTION_TIERS = [
   {
@@ -82,14 +67,6 @@ const SUBSCRIPTION_TIERS = [
   },
 ];
 
-// Fallback UI while Stripe products load or if Stripe isn't connected yet
-const FALLBACK_BUNDLES = [
-  { chips: 25000,   unitAmount: 199,  name: 'Starter Pack', icon: '🪙', img: '/chip-starter.png'    },
-  { chips: 100000,  unitAmount: 499,  name: 'Popular Pack',  icon: '💰', img: '/chip-popular.png',    badge: 'Best Value' },
-  { chips: 350000,  unitAmount: 999,  name: 'High Roller',   icon: '💎', img: '/chip-highroller.png' },
-  { chips: 1000000, unitAmount: 1999, name: 'Whale Pack',    icon: '🐳', img: '/chip-whale.png'      },
-];
-
 const MERCH_ITEMS = [
   {
     icon: '👕',
@@ -120,83 +97,12 @@ const MERCH_ITEMS = [
   },
 ];
 
-function formatPrice(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 export default function Shop() {
   const [, navigate] = useLocation();
   const identity = ensurePlayerIdentity();
   const progression = getProgression();
   const levelInfo = getLevelInfo(progression.xp);
   const rank = getRankForLevel(levelInfo.level);
-
-  const [products, setProducts] = useState<ChipProduct[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [checkingOut, setCheckingOut] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
-
-  // Auto-dismiss toast
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  // Fetch real Stripe products
-  useEffect(() => {
-    let alive = true;
-    fetch('/api/chips/products')
-      .then(r => r.json())
-      .then(data => { if (alive) setProducts(data.products ?? []); })
-      .catch(() => { if (alive) setProducts([]); })
-      .finally(() => { if (alive) setLoadingProducts(false); });
-    return () => { alive = false; };
-  }, []);
-
-  async function handleChipPurchase(productId: string) {
-    if (checkingOut) return;
-    setCheckingOut(productId);
-    try {
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, userId: identity.id }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setToast({ type: 'error', msg: data.error || 'Checkout failed. Try again.' });
-        setCheckingOut(null);
-      }
-    } catch {
-      setToast({ type: 'error', msg: 'Network error. Please try again.' });
-      setCheckingOut(null);
-    }
-  }
-
-  // Determine what to render: live Stripe products or fallback static list
-  const displayBundles: Array<{
-    productId?: string;
-    chips: number;
-    unitAmount: number;
-    name: string;
-    icon?: string;
-    img?: string;
-    badge?: string;
-    isLive: boolean;
-  }> = products.length > 0
-    ? products.map(p => ({
-        productId: p.id,
-        chips: p.chips,
-        unitAmount: p.unitAmount,
-        name: p.name,
-        icon: p.icon,
-        badge: p.badge,
-        isLive: true,
-      }))
-    : FALLBACK_BUNDLES.map(b => ({ ...b, isLive: false }));
 
   return (
     <div className="min-h-[100dvh] bg-[#070709] flex flex-col">
@@ -224,21 +130,6 @@ export default function Shop() {
         <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Shop</span>
       </header>
 
-      {/* Toast notifications */}
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl border transition-all ${
-          toast.type === 'success'
-            ? 'bg-[#0d1a12] border-[#2dbd6e]/40'
-            : toast.type === 'error'
-              ? 'bg-[#1a0d0d] border-red-500/30'
-              : 'bg-[#141417] border-white/10'
-        }`}
-          data-testid="toast-shop"
-        >
-          <p className="text-sm font-semibold text-white/85 font-sans text-center">{toast.msg}</p>
-        </div>
-      )}
-
       <div className="flex-1 flex flex-col items-center px-4 py-5 gap-6 max-w-lg mx-auto w-full relative">
 
         {/* Current plan display */}
@@ -264,82 +155,6 @@ export default function Shop() {
               {progression.xp.toLocaleString()}
             </div>
           </div>
-        </div>
-
-        {/* ── Chip Bundles ──────────────────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
-              Chip Bundles
-            </div>
-            <span className="text-[9px] font-mono text-white/12 normal-case">(play money only · no cash value)</span>
-            {!loadingProducts && products.length > 0 && (
-              <span className="ml-auto text-[8px] font-mono text-green-400/60 uppercase tracking-widest">● Live</span>
-            )}
-          </div>
-
-          {loadingProducts ? (
-            <div className="grid grid-cols-2 gap-2">
-              {[0,1,2,3].map(i => (
-                <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] h-28 animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {displayBundles.map(bundle => (
-                <button
-                  key={bundle.productId ?? bundle.chips}
-                  onClick={() => {
-                    if (bundle.isLive && bundle.productId) {
-                      handleChipPurchase(bundle.productId);
-                    }
-                  }}
-                  disabled={checkingOut === bundle.productId || (!bundle.isLive)}
-                  className="rounded-2xl bg-[#141417]/80 border border-white/[0.06] hover:border-white/[0.12] p-3.5 text-left transition-all duration-200 active:scale-[0.98] relative group disabled:opacity-60 disabled:cursor-default"
-                  data-testid={`button-bundle-${bundle.chips}`}
-                >
-                  {bundle.badge && (
-                    <div className="absolute -top-2 right-2 text-[8px] font-mono font-bold bg-[#C9A227] text-[#0B0B0D] px-1.5 py-0.5 rounded-full uppercase tracking-widest">
-                      {bundle.badge}
-                    </div>
-                  )}
-                  {bundle.img
-                    ? <img src={bundle.img} alt={bundle.name} className="w-16 h-16 object-contain mb-2" />
-                    : <div className="text-2xl leading-none mb-1.5">{bundle.icon ?? '🪙'}</div>
-                  }
-                  <div className="font-bold font-mono text-white/80 tabular-nums text-sm">
-                    {bundle.chips.toLocaleString()} chips
-                  </div>
-                  <div className="text-[10px] text-white/35 font-sans mt-0.5">{bundle.name}</div>
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="text-[#C9A227] font-bold font-mono text-sm">
-                      {formatPrice(bundle.unitAmount)}
-                    </div>
-                    {checkingOut === bundle.productId ? (
-                      <span className="text-[9px] font-mono text-white/30 uppercase tracking-widest">Loading…</span>
-                    ) : bundle.isLive ? (
-                      <span className="text-[9px] font-mono text-green-400/50 uppercase tracking-widest">Buy ›</span>
-                    ) : (
-                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#C9A227]/15 text-[#C9A227] border border-[#C9A227]/25">
-                        v1.1 LAUNCH
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Test-mode badge */}
-          {!loadingProducts && products.length > 0 && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/5 border border-amber-500/15"
-              data-testid="badge-test-mode">
-              <span className="text-amber-400/70 text-[10px]">🧪</span>
-              <span className="text-[10px] font-mono text-amber-400/60">
-                Test mode — use card <strong className="font-bold">4242 4242 4242 4242</strong>, any future date, any CVC
-              </span>
-            </div>
-          )}
         </div>
 
         {/* ── Subscription tiers ──────────────────────────────────────────── */}

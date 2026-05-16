@@ -16,7 +16,6 @@ export const playerProfiles = pgTable("player_profiles", {
   lifetimeProfit:   integer("lifetime_profit").notNull().default(0),
   email:            text("email").unique(),
   passwordHash:     text("password_hash"),
-  stripeCustomerId: text("stripe_customer_id"),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
   updatedAt:        timestamp("updated_at").defaultNow().notNull(),
 });
@@ -28,21 +27,6 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
 export type PlayerProfile = typeof playerProfiles.$inferSelect;
-
-// ─── Chip Purchases ───────────────────────────────────────────────────────────
-// One row per completed Stripe checkout session — used for idempotency.
-export const chipPurchases = pgTable("chip_purchases", {
-  id:              serial("id").primaryKey(),
-  playerId:        text("player_id").notNull(),
-  stripeSessionId: text("stripe_session_id").notNull().unique(),
-  chipsGranted:    integer("chips_granted").notNull(),
-  amountCents:     integer("amount_cents").notNull(),
-  createdAt:       timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertChipPurchaseSchema = createInsertSchema(chipPurchases).omit({ id: true, createdAt: true });
-export type InsertChipPurchase = z.infer<typeof insertChipPurchaseSchema>;
-export type ChipPurchase = typeof chipPurchases.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {
