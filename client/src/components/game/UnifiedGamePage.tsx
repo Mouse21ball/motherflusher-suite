@@ -57,9 +57,14 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   /* P2 — Bust-out modal: shown when hero stack is 0 outside of a hand
    *      (waiting/showdown). Suppressed during active play so it doesn't
    *      interrupt resolution animations or all-in showdowns. The user
-   *      can rebuy, spectate the rest of the table, or leave. */
+   *      can rebuy, spectate the rest of the table, or leave.
+   *
+   *      IMPORTANT: an all-in player has chips=0 but status='active' — they
+   *      are still contesting the pot and must NOT be flagged as busted.
+   *      Only flag bust when the player is no longer actively playing
+   *      (sitting_out, folded, or absent). */
   const [bustDismissed, setBustDismissed] = useState(false);
-  const heroBust = !!me && me.chips <= 0 && !isSpectator;
+  const heroBust = !!me && me.chips <= 0 && !isSpectator && me.status !== 'active';
   const bustEligiblePhase = me?.status === 'sitting_out' || state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
   const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
   // Reset dismissal once chips return.
