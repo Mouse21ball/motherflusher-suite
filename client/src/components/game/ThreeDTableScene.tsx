@@ -827,12 +827,15 @@ export function ThreeDTableScene({
       {/* 3D perspective wrapper */}
       <div className="relative table-3d-perspective pt-6 sm:pt-8 pb-3 sm:pb-5 max-w-[92vw] mx-auto">
 
-        {/* Felt surface — tilted for 3D depth */}
+        {/* Felt surface — tilted for 3D depth (suppressed for dead7) */}
         <div
-          className="relative w-full table-perspective-oval game-table-felt game-table-felt-3d overflow-visible min-h-[180px] sm:min-h-[220px] table-3d-tilt game-scene-arc-felt"
+          className={cn(
+            "relative w-full table-perspective-oval overflow-visible min-h-[180px] sm:min-h-[220px] table-3d-tilt",
+            modeId !== 'dead7' && "game-table-felt game-table-felt-3d game-scene-arc-felt"
+          )}
           style={{ filter: isShowdown ? 'brightness(0.92)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}
         >
-          <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />
+          {modeId !== 'dead7' && <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />}
 
           {/* Center content inside the tilted felt */}
           <div className="relative z-10 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px] px-4 sm:px-8 py-4 game-scene-arc-center">
