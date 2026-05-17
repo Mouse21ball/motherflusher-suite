@@ -23925,5 +23925,96 @@
     },
     "handId": 30,
     "savedAt": 1778685412224
+  },
+  "55YWZR": {
+    "state": {
+      "tableId": "55YWZR",
+      "phase": "WAITING",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 29300,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "BluffMaster",
+          "presence": "bot",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "TexHoldEmJoe",
+          "presence": "bot",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "7y7h0a6q",
+          "text": "Game ready. Press start.",
+          "time": 1778977720176
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 0,
+    "savedAt": 1778977729215
   }
 }

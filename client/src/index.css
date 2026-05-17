@@ -162,6 +162,27 @@
   height: 13px;
 }
 
+/* ── 15/35 compact card overrides (scoped — no effect on other modes) ────── */
+/* Corner rank: 10px keeps top + bottom corners from overlapping on h-[52px]  */
+[data-mode="fifteen35"] .card-rank-text {
+  font-size: 10px;
+}
+@media (min-width: 640px) {
+  [data-mode="fifteen35"] .card-rank-text {
+    font-size: 10px;
+  }
+}
+/* Corner suit: scale down to match the smaller rank text */
+[data-mode="fifteen35"] .card-corner-suit {
+  width: 9px;
+  height: 9px;
+}
+/* Center pip: remove blur filter so small SVGs render crisp */
+[data-mode="fifteen35"] .card-center-pip {
+  filter: none;
+  opacity: 1;
+}
+
 /* ── DECK THEMES ─────────────────────────────────────────────────────────── */
 
 /* Classic (default) — branded card-back image with gold border */
