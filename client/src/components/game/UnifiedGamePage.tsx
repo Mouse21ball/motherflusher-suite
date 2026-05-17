@@ -263,18 +263,6 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           </div>
         )}
 
-        {/* Chat / emote / hint row */}
-        {!isSpectator && (
-          <div className="mt-2 px-2">
-            <ChatEmoteRow
-              onOpenChat={() => setChatOpen(true)}
-              onReact={(emoji) => handleAction('reaction', emoji)}
-              incomingReactions={state.liveReactions}
-              phaseHint={phaseHint}
-              chatUnread={chatUnread}
-            />
-          </div>
-        )}
 
       </main>
 
