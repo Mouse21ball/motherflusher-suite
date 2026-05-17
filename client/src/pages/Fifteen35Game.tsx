@@ -256,16 +256,16 @@ function F35Title({ phase }: { phase: string }) {
       >
         15/35
       </div>
-      <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(8px,2.2vw,11px)', fontWeight: 600, letterSpacing: '0.26em', color: 'rgba(201,162,39,0.48)', textTransform: 'uppercase', marginTop: 4 }}>
+      <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(8px,2.2vw,11px)', fontWeight: 700, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.92)', textTransform: 'uppercase', marginTop: 4, textShadow: '0 1px 6px rgba(0,0,0,0.90), 0 0 14px rgba(0,0,0,0.70)' }}>
         MAKE 13–15 OR 33–35
       </div>
-      <div style={{ fontFamily: 'monospace', fontSize: 'clamp(6px,1.5vw,8px)', letterSpacing: '0.16em', color: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', marginTop: 2 }}>
+      <div style={{ fontFamily: 'monospace', fontSize: 'clamp(7px,1.8vw,9px)', letterSpacing: '0.16em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', marginTop: 2, textShadow: '0 1px 5px rgba(0,0,0,0.95)' }}>
         BEAT WHOEVER ENDS UP YOUR WAY
       </div>
       <div
         data-testid="text-phase"
         className="mt-2 rounded px-3 py-0.5"
-        style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.14)' }}
       >
         {phaseLabel}
       </div>
@@ -285,29 +285,29 @@ function F35RulePanel() {
   return (
     <div
       className="mx-3 rounded-lg overflow-hidden"
-      style={{ background: 'rgba(9,9,13,0.88)', border: '1px solid rgba(201,162,39,0.20)' }}
+      style={{ background: 'rgba(4,4,8,0.96)', border: '1px solid rgba(212,168,58,0.28)' }}
     >
       <div className="px-3 pt-2.5 pb-1.5">
-        <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.26em', color: 'rgba(201,162,39,0.78)', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.96)', textTransform: 'uppercase' }}>
           THE RULE
         </div>
       </div>
       <div className="px-3 pb-2.5 flex flex-col gap-[6px]">
         {RULES.map((r, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span style={{ fontSize: 9, color: 'rgba(201,162,39,0.52)', width: 10, textAlign: 'center', flexShrink: 0 }}>{r.icon}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.42)', letterSpacing: '0.06em' }}>{r.text}</span>
+            <span style={{ fontSize: 9, color: 'rgba(232,199,102,0.80)', width: 10, textAlign: 'center', flexShrink: 0 }}>{r.icon}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.06em' }}>{r.text}</span>
           </div>
         ))}
       </div>
       <div
         className="px-3 py-1.5 flex items-center gap-1.5"
-        style={{ borderTop: '1px solid rgba(201,162,39,0.09)', background: 'rgba(201,162,39,0.025)' }}
+        style={{ borderTop: '1px solid rgba(201,162,39,0.18)', background: 'rgba(201,162,39,0.06)' }}
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(201,162,39,0.42)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
         </svg>
-        <span style={{ fontFamily: 'monospace', fontSize: 7.5, letterSpacing: '0.26em', color: 'rgba(201,162,39,0.36)', textTransform: 'uppercase' }}>GUARD IS WATCHING</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 7.5, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.78)', textTransform: 'uppercase' }}>GUARD IS WATCHING</span>
       </div>
     </div>
   );
@@ -1021,20 +1021,6 @@ export default function Fifteen35Game() {
             }}
           />
 
-          {/* Chains — decorative top-edge accent */}
-          <img
-            src="/assets/ui/chains.png"
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: 'absolute', top: 0, left: 0, right: 0,
-              width: '100%', height: 'auto',
-              opacity: 0.22,
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-          />
-
           {/* Title */}
           <F35Title phase={state.phase} />
 
@@ -1048,7 +1034,7 @@ export default function Fifteen35Game() {
             <div key={msg.id} className="mx-3 mb-2">
               <p
                 className="text-center rounded-full"
-                style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.38)', background: 'rgba(0,0,0,0.60)', border: '1px solid rgba(255,255,255,0.05)', padding: '4px 14px' }}
+                style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.82)', background: 'rgba(0,0,0,0.80)', border: '1px solid rgba(255,255,255,0.12)', padding: '4px 14px' }}
                 data-testid="text-game-message"
               >
                 {msg.text}
@@ -1064,7 +1050,7 @@ export default function Fifteen35Game() {
             {opponents.length === 0 ? (
               <div
                 className="flex items-center justify-center"
-                style={{ height: 56, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.18)' }}
+                style={{ height: 56, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)' }}
               >
                 Waiting for players…
               </div>
@@ -1101,10 +1087,26 @@ export default function Fifteen35Game() {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 flex flex-col"
         style={{
+          position: 'relative',
           background: 'linear-gradient(to top, rgba(4,4,7,0.99) 82%, rgba(4,4,7,0) 100%)',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         }}
       >
+        {/* Chains — decorative background behind hero section */}
+        <img
+          src="/assets/ui/chains.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center top',
+            opacity: 0.28,
+            pointerEvents: 'none',
+            userSelect: 'none',
+            zIndex: 0,
+          }}
+        />
         {/* Hero strip */}
         {me && (
           <F35HeroStrip
