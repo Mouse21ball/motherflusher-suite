@@ -26,15 +26,16 @@ interface BadugiTableProps {
 
 // Scale per seat position — back/top seats are smaller (farther), side seats larger (closer).
 // Hero is full-scale (front row).
+// Badugi/Dead7: no felt surface, so opponents are bumped up ~20% for readability.
 function getOpponentDepth(index: number, total: number): string {
-  if (total === 1) return "scale-[0.68] sm:scale-[0.78]";
-  if (total === 2) return "scale-[0.70] sm:scale-[0.80]";
+  if (total === 1) return "scale-[0.84] sm:scale-[0.96]";
+  if (total === 2) return "scale-[0.85] sm:scale-[0.97]";
   if (total === 3) {
     // side seats slightly bigger than back center
-    return (["scale-[0.73] sm:scale-[0.83]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.73] sm:scale-[0.83]"] as const)[index] ?? "scale-[0.70] sm:scale-[0.80]";
+    return (["scale-[0.88] sm:scale-[0.99]", "scale-[0.82] sm:scale-[0.93]", "scale-[0.88] sm:scale-[0.99]"] as const)[index] ?? "scale-[0.85] sm:scale-[0.96]";
   }
   // 4 opponents: sides larger, top two smaller (farther)
-  return (["scale-[0.74] sm:scale-[0.84]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.67] sm:scale-[0.77]", "scale-[0.74] sm:scale-[0.84]"] as const)[index] ?? "scale-[0.70] sm:scale-[0.80]";
+  return (["scale-[0.88] sm:scale-[0.99]", "scale-[0.81] sm:scale-[0.92]", "scale-[0.81] sm:scale-[0.92]", "scale-[0.88] sm:scale-[0.99]"] as const)[index] ?? "scale-[0.85] sm:scale-[0.96]";
 }
 
 // Positions opponents in an arc across the top half of the oval.

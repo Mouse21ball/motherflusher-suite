@@ -42,12 +42,26 @@ function getArcPosition(index: number, total: number): string {
     "absolute bottom-[8%] -right-4 sm:-right-1 z-20"] as const)[index] ?? "hidden";
 }
 
-function getArcScale(index: number, total: number): string {
-  if (total === 1) return "scale-[0.62] sm:scale-[0.72] seat-depth-top";
-  if (total === 2) return "scale-[0.64] sm:scale-[0.74] seat-depth-top";
-  if (total === 3) return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
-    "scale-[0.62] sm:scale-[0.72] seat-depth-top",
-    "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
+function getArcScale(index: number, total: number, modeId?: string): string {
+  const isDead7 = modeId === 'dead7';
+  if (total === 1) return isDead7
+    ? "scale-[0.80] sm:scale-[0.92] seat-depth-top"
+    : "scale-[0.62] sm:scale-[0.72] seat-depth-top";
+  if (total === 2) return isDead7
+    ? "scale-[0.80] sm:scale-[0.92] seat-depth-top"
+    : "scale-[0.64] sm:scale-[0.74] seat-depth-top";
+  if (total === 3) {
+    if (isDead7) return (["scale-[0.82] sm:scale-[0.94] seat-depth-side",
+      "scale-[0.78] sm:scale-[0.90] seat-depth-top",
+      "scale-[0.82] sm:scale-[0.94] seat-depth-side"] as const)[index] ?? "scale-[0.80]";
+    return (["scale-[0.66] sm:scale-[0.76] seat-depth-side",
+      "scale-[0.62] sm:scale-[0.72] seat-depth-top",
+      "scale-[0.66] sm:scale-[0.76] seat-depth-side"] as const)[index] ?? "scale-[0.64]";
+  }
+  if (isDead7) return (["scale-[0.76] sm:scale-[0.88] seat-depth-side",
+    "scale-[0.72] sm:scale-[0.84] seat-depth-top",
+    "scale-[0.72] sm:scale-[0.84] seat-depth-top",
+    "scale-[0.76] sm:scale-[0.88] seat-depth-side"] as const)[index] ?? "scale-[0.78]";
   return (["scale-[0.58] sm:scale-[0.68] seat-depth-side",
     "scale-[0.55] sm:scale-[0.65] seat-depth-top",
     "scale-[0.55] sm:scale-[0.65] seat-depth-top",
@@ -933,7 +947,7 @@ export function ThreeDTableScene({
 
         {/* Opponent seats — compact chips for Phase A layout */}
         {opponents.map((player, i) => (
-          <div key={player.id} className={`${getArcPosition(i, opponents.length)} ${getArcScale(i, opponents.length)} origin-center`}>
+          <div key={player.id} className={`${getArcPosition(i, opponents.length)} ${getArcScale(i, opponents.length, modeId)} origin-center`}>
             <CompactOpponent
               player={player}
               isActive={player.id === gameState.activePlayerId}
