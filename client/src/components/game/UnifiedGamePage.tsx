@@ -196,6 +196,8 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         sessionStats={isSpectator ? undefined : sessionStats}
         tableId={tableId}
         humanCount={humanCount}
+        onOpenChat={!isSpectator ? () => setChatOpen(true) : undefined}
+        chatUnread={chatUnread}
       />
 
       {/* Spectator banner */}

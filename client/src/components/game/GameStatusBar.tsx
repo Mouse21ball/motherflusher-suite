@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { Menu, Camera, Home, BookOpen } from "lucide-react";
+import { Menu, Camera, Home, BookOpen, MessageSquare } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -32,6 +32,8 @@ interface GameStatusBarProps {
   sessionStats?: GameSessionStats;
   tableId?: string;
   humanCount?: number;
+  onOpenChat?: () => void;
+  chatUnread?: number;
 }
 
 function PillGroup({ label, value, valueClass = '' }: { label: string; value: string; valueClass?: string }) {
@@ -43,7 +45,7 @@ function PillGroup({ label, value, valueClass = '' }: { label: string; value: st
   );
 }
 
-export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sessionStats, tableId, humanCount = 1 }: GameStatusBarProps) {
+export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -96,15 +98,32 @@ export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sess
           <PillGroup label="POT" value={`$${pot}`} valueClass="text-sm font-bold text-[#C9A227]" />
         </div>
 
-        {/* Right — snapshot */}
-        <button
-          onClick={() => console.log('TODO: snapshot feature')}
-          aria-label="Snapshot"
-          className="w-9 h-9 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-all touch-manipulation shrink-0"
-          data-testid="button-snapshot"
-        >
-          <Camera className="w-4 h-4" />
-        </button>
+        {/* Right — chat + snapshot */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {onOpenChat && (
+            <button
+              onClick={onOpenChat}
+              aria-label="Open chat"
+              className="relative w-9 h-9 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-all touch-manipulation"
+              data-testid="button-open-chat"
+            >
+              <MessageSquare className="w-4 h-4" />
+              {chatUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#C9A227] text-[#0B0B0D] text-[9px] font-bold flex items-center justify-center leading-none pointer-events-none">
+                  {chatUnread > 9 ? '9+' : chatUnread}
+                </span>
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => console.log('TODO: snapshot feature')}
+            aria-label="Snapshot"
+            className="w-9 h-9 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-all touch-manipulation"
+            data-testid="button-snapshot"
+          >
+            <Camera className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       {/* Hamburger drawer */}
