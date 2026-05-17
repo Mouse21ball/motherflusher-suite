@@ -1349,6 +1349,15 @@
   );
 }
 
+/* ── Dead 7 background ───────────────────────────────────────────────────── */
+.game-page-root[data-mode="dead7"] {
+  background-image: url('/assets/backgrounds/dead7board.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
 /* Main content sits above the fixed background layers */
 .game-main-area {
   position: relative;
