@@ -1013,9 +1013,9 @@ export default function Fifteen35Game() {
             aria-hidden="true"
             style={{
               position: 'absolute', top: 36, left: '50%', transform: 'translateX(-50%)',
-              height: 320, width: 'auto',
-              opacity: 0.07,
-              filter: 'sepia(0.25) saturate(0.4)',
+              height: 340, width: 'auto',
+              opacity: 0.40,
+              filter: 'sepia(0.15) saturate(0.85)',
               pointerEvents: 'none',
               userSelect: 'none',
             }}
