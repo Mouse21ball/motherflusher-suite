@@ -438,7 +438,23 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
   const totalColor = isBust ? '#F87171' : (isLowMade || isHighMade) ? '#6EE7B7' : isDanger ? '#FB923C' : 'rgba(255,255,255,0.88)';
 
   return (
-    <div style={{ borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)' }}>
+    <div style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)', overflow: 'hidden' }}>
+      {/* Chains — decorative background scoped to hero strip only */}
+      <img
+        src="/assets/ui/chains.png"
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: 'center top',
+          opacity: 0.22,
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}
+      />
+      {/* Hero content — layered above chains */}
+      <div style={{ position: 'relative' }}>
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div
@@ -527,6 +543,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }
@@ -1087,26 +1104,10 @@ export default function Fifteen35Game() {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 flex flex-col"
         style={{
-          position: 'relative',
           background: 'linear-gradient(to top, rgba(4,4,7,0.99) 82%, rgba(4,4,7,0) 100%)',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         }}
       >
-        {/* Chains — decorative background behind hero section */}
-        <img
-          src="/assets/ui/chains.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            width: '100%', height: '100%',
-            objectFit: 'cover', objectPosition: 'center top',
-            opacity: 0.28,
-            pointerEvents: 'none',
-            userSelect: 'none',
-            zIndex: 0,
-          }}
-        />
         {/* Hero strip */}
         {me && (
           <F35HeroStrip
