@@ -6,10 +6,11 @@
 // UnifiedGamePage and ThreeDTableScene.  Other modes (Badugi, Dead 7, Suits)
 // continue to use UnifiedGamePage unchanged — this file is the only change.
 //
-// Image asset slots (drop real art in later; CSS fallback keeps layout intact):
-//   /assets/1535/bg-cellblock.jpg      — full-bleed background
-//   /assets/1535/avatar-placeholder.png — per-seat avatar fallback
-//   /assets/1535/btn-plate.png          — button texture (unused by default)
+// Image assets (client/public/assets/, referenced via public URL strings):
+//   /assets/backgrounds/bg-cellblock.jpg  — full-bleed background
+//   /assets/characters/guard.png          — guard centerpiece + avatar fallback
+//   /assets/ui/btn-plate-glow.png         — button plate texture (gold + red buttons)
+//   /assets/ui/chains.png                 — decorative top-edge accent
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useLocation } from "wouter";
@@ -106,22 +107,26 @@ type BtnVariant = 'gold' | 'red' | 'neutral';
 
 const BTN_STYLES: Record<BtnVariant, CSSProperties> = {
   gold: {
-    background: 'linear-gradient(180deg,#221C00 0%,#140F00 100%)',
-    border: '1px solid rgba(201,162,39,0.52)',
-    color: '#C9A227',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(201,162,39,0.10)',
+    backgroundImage: "url('/assets/ui/btn-plate-glow.png'), linear-gradient(180deg,#3A2800 0%,#1C1100 100%)",
+    backgroundSize: 'cover, cover',
+    backgroundPosition: 'center, center',
+    border: '1px solid rgba(232,199,102,0.68)',
+    color: '#E8C766',
+    boxShadow: '0 3px 16px rgba(0,0,0,0.75), 0 0 20px rgba(212,168,58,0.28), inset 0 1px 0 rgba(232,199,102,0.22)',
   },
   red: {
-    background: 'linear-gradient(180deg,#1E0606 0%,#110202 100%)',
-    border: '1px solid rgba(220,38,38,0.42)',
-    color: '#F87171',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(220,38,38,0.08)',
+    backgroundImage: "url('/assets/ui/btn-plate-glow.png'), linear-gradient(180deg,#3A0808 0%,#1A0202 100%)",
+    backgroundSize: 'cover, cover',
+    backgroundPosition: 'center, center',
+    border: '1px solid rgba(220,38,38,0.65)',
+    color: '#FC8181',
+    boxShadow: '0 3px 16px rgba(0,0,0,0.75), 0 0 16px rgba(200,30,30,0.32), inset 0 1px 0 rgba(220,38,38,0.12)',
   },
   neutral: {
-    background: 'linear-gradient(180deg,#1C1C20 0%,#111116 100%)',
-    border: '1px solid rgba(255,255,255,0.13)',
-    color: 'rgba(255,255,255,0.68)',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)',
+    background: 'linear-gradient(180deg,#2A2A30 0%,#141418 100%)',
+    border: '1px solid rgba(255,255,255,0.16)',
+    color: 'rgba(220,220,230,0.78)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)',
   },
 };
 
@@ -176,7 +181,7 @@ function F35StatusBar({
   return (
     <div
       className="flex-shrink-0 flex items-center px-3 gap-2 w-full z-10"
-      style={{ height: 48, background: 'rgba(9,9,12,0.97)', borderBottom: '1px solid rgba(201,162,39,0.16)' }}
+      style={{ height: 48, background: 'rgba(7,7,10,0.98)', borderBottom: '1px solid rgba(212,168,58,0.32)' }}
     >
       {/* Menu / chat icon */}
       <button
@@ -245,8 +250,8 @@ function F35Title({ phase }: { phase: string }) {
           fontFamily: "'Oswald','Impact','Anton',sans-serif",
           fontSize: 'clamp(44px,13vw,68px)', fontWeight: 900,
           letterSpacing: '0.04em', lineHeight: 1,
-          color: '#C9A227',
-          textShadow: '0 0 40px rgba(201,162,39,0.32), 0 4px 14px rgba(0,0,0,0.95), 2px 2px 0 rgba(0,0,0,0.75)',
+          color: '#E8C766',
+          textShadow: '0 0 48px rgba(232,199,102,0.45), 0 0 12px rgba(212,168,58,0.30), 0 4px 16px rgba(0,0,0,0.98), 2px 2px 0 rgba(0,0,0,0.80)',
         }}
       >
         15/35
@@ -327,9 +332,9 @@ function F35OpponentRow({
     <div
       className="flex items-center gap-2.5 px-3 py-2 transition-opacity"
       style={{
-        opacity: isFolded ? 0.35 : 1,
-        background: isActive ? 'rgba(201,162,39,0.04)' : 'transparent',
-        borderLeft: `2px solid ${isActive ? 'rgba(201,162,39,0.52)' : 'transparent'}`,
+        opacity: isFolded ? 0.32 : 1,
+        background: isActive ? 'rgba(212,168,58,0.07)' : 'transparent',
+        borderLeft: `3px solid ${isActive ? 'rgba(232,199,102,0.72)' : 'transparent'}`,
       }}
       data-testid={`fifteen35-seat-${player.id}`}
     >
@@ -338,8 +343,8 @@ function F35OpponentRow({
         className="relative flex-shrink-0 rounded-full overflow-hidden"
         style={{
           width: 40, height: 40,
-          border: `2px solid ${isActive ? 'rgba(201,162,39,0.78)' : 'rgba(255,255,255,0.10)'}`,
-          boxShadow: isActive ? '0 0 10px rgba(201,162,39,0.38)' : 'none',
+          border: `2px solid ${isActive ? 'rgba(232,199,102,0.88)' : 'rgba(255,255,255,0.12)'}`,
+          boxShadow: isActive ? '0 0 14px rgba(232,199,102,0.42)' : 'none',
           background: '#18181C',
         }}
       >
@@ -349,7 +354,7 @@ function F35OpponentRow({
           className="w-full h-full object-cover"
           onError={e => {
             const img = e.currentTarget as HTMLImageElement;
-            img.src = '/assets/1535/avatar-placeholder.png';
+            img.src = '/assets/characters/guard.png';
             img.onerror = null;
           }}
         />
@@ -364,7 +369,7 @@ function F35OpponentRow({
       {/* Name + chips */}
       <div className="flex flex-col justify-center min-w-0 flex-shrink-0" style={{ width: 74 }}>
         <span className="truncate" style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.68)', lineHeight: 1.2 }}>{player.name}</span>
-        <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'rgba(201,162,39,0.82)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#D4A83A', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
           ${player.chips.toLocaleString()}
         </span>
         {lastAction && !isFolded && (
@@ -433,15 +438,15 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
   const totalColor = isBust ? '#F87171' : (isLowMade || isHighMade) ? '#6EE7B7' : isDanger ? '#FB923C' : 'rgba(255,255,255,0.88)';
 
   return (
-    <div style={{ borderTop: '1px solid rgba(201,162,39,0.14)', background: 'rgba(8,8,11,0.97)', padding: '10px 12px 8px' }}>
+    <div style={{ borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)' }}>
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div
           className="relative flex-shrink-0 rounded-full overflow-hidden"
           style={{
             width: 54, height: 54,
-            border: '2px solid rgba(201,162,39,0.52)',
-            boxShadow: '0 0 16px rgba(201,162,39,0.22)',
+            border: '2px solid rgba(232,199,102,0.65)',
+            boxShadow: '0 0 20px rgba(212,168,58,0.32)',
             background: '#18181C',
           }}
         >
@@ -451,7 +456,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
             className="w-full h-full object-cover"
             onError={e => {
               const img = e.currentTarget as HTMLImageElement;
-              img.src = '/assets/1535/avatar-placeholder.png';
+              img.src = '/assets/characters/guard.png';
               img.onerror = null;
             }}
           />
@@ -462,7 +467,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
           <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.90)', lineHeight: 1 }}>
             {player.name}
           </span>
-          <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: '#C9A227', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: '#E8C766', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             ${player.chips.toLocaleString()}
           </span>
           {player.declaration === 'STAY' && !isBust && (
@@ -977,7 +982,7 @@ export default function Fifteen35Game() {
       data-mode="fifteen35"
       style={{
         background: '#0D0D0F',
-        backgroundImage: "url('/assets/1535/bg-cellblock.jpg')",
+        backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')",
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundAttachment: 'fixed',
@@ -999,7 +1004,36 @@ export default function Fifteen35Game() {
         style={{ paddingBottom: 440 }}
       >
         {/* Dark overlay for readability */}
-        <div style={{ minHeight: '100%', background: 'rgba(8,8,12,0.72)' }}>
+        <div style={{ position: 'relative', minHeight: '100%', background: 'rgba(5,5,9,0.80)', overflow: 'hidden' }}>
+
+          {/* Guard — atmospheric centerpiece behind all content */}
+          <img
+            src="/assets/characters/guard.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute', top: 36, left: '50%', transform: 'translateX(-50%)',
+              height: 320, width: 'auto',
+              opacity: 0.07,
+              filter: 'sepia(0.25) saturate(0.4)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          />
+
+          {/* Chains — decorative top-edge accent */}
+          <img
+            src="/assets/ui/chains.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
+              width: '100%', height: 'auto',
+              opacity: 0.22,
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          />
 
           {/* Title */}
           <F35Title phase={state.phase} />
@@ -1025,7 +1059,7 @@ export default function Fifteen35Game() {
           {/* Opponent rows */}
           <div
             className="mx-3 rounded-lg overflow-hidden"
-            style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(10,10,14,0.82)' }}
+            style={{ border: '1px solid rgba(212,168,58,0.22)', background: 'rgba(5,5,9,0.94)' }}
           >
             {opponents.length === 0 ? (
               <div
@@ -1037,7 +1071,7 @@ export default function Fifteen35Game() {
             ) : opponents.map((player, i) => (
               <div
                 key={player.id}
-                style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+                style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
               >
                 <F35OpponentRow
                   player={player}
@@ -1067,7 +1101,7 @@ export default function Fifteen35Game() {
       <div
         className="fixed bottom-0 left-0 right-0 z-40 flex flex-col"
         style={{
-          background: 'linear-gradient(to top, #080809 88%, rgba(8,8,9,0) 100%)',
+          background: 'linear-gradient(to top, rgba(4,4,7,0.99) 82%, rgba(4,4,7,0) 100%)',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         }}
       >
