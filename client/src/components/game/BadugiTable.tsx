@@ -482,13 +482,6 @@ export function BadugiTable({
         )}
       </div>
 
-      {/* Reaction tray — centered below hero seat, floats travel upward into felt */}
-      {onReact && (
-        <div className="w-full flex justify-center mt-2 relative z-30">
-          <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
-        </div>
-      )}
-
       <ResolutionOverlay
         messages={gameState.messages}
         phase={gameState.phase}

@@ -280,15 +280,6 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
           />
         )}
 
-        {/* Reaction tray — anchored to the table felt bottom center, floats travel into table space */}
-        {onReact && (
-          <div className="absolute bottom-[7%] left-1/2 -translate-x-1/2 z-30">
-            <ReactionBar
-              onReact={onReact}
-              incomingReactions={incomingReactions}
-            />
-          </div>
-        )}
 
 
         {Array.from({ length: 5 }).map((_, i) => {

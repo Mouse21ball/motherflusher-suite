@@ -670,13 +670,6 @@ export function ThreeDTableScene({
           {/* Win celebration */}
           {showCelebration && <WinCelebration isScoop={isScoop} onDone={() => setShowCelebration(false)} />}
 
-          {/* Reaction tray */}
-          {onReact && (
-            <div className="absolute bottom-[7%] left-1/2 -translate-x-1/2 z-30">
-              <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
-            </div>
-          )}
-
           {/* All 5 seats */}
           {Array.from({ length: 5 }).map((_, i) => {
             const player = orderedPlayers[i];
@@ -831,11 +824,11 @@ export function ThreeDTableScene({
         <div
           className={cn(
             "relative w-full table-perspective-oval overflow-visible min-h-[180px] sm:min-h-[220px] table-3d-tilt",
-            modeId !== 'dead7' && "game-table-felt game-table-felt-3d game-scene-arc-felt"
+            modeId !== 'dead7' && modeId !== 'badugi' && "game-table-felt game-table-felt-3d game-scene-arc-felt"
           )}
           style={{ filter: isShowdown ? 'brightness(0.92)' : 'brightness(1)', transition: 'filter 500ms ease-in-out' }}
         >
-          {modeId !== 'dead7' && <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />}
+          {modeId !== 'dead7' && modeId !== 'badugi' && <div className="absolute inset-0 felt-overlay mix-blend-overlay pointer-events-none rounded-[76px] sm:rounded-[116px]" />}
 
           {/* Center content inside the tilted felt */}
           <div className="relative z-10 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px] px-4 sm:px-8 py-4 game-scene-arc-center">

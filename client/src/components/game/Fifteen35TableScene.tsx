@@ -629,13 +629,6 @@ export function Fifteen35TableScene({
           </div>
         )}
 
-        {/* Reaction bar */}
-        {onReact && (
-          <div className="w-full flex justify-center mt-1">
-            <ReactionBar onReact={onReact} incomingReactions={incomingReactions} />
-          </div>
-        )}
-
         {showCelebration && (
           <WinCelebration isScoop={false} onDone={() => setShowCelebration(false)} />
         )}
