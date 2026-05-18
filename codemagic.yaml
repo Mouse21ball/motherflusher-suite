@@ -1,0 +1,24 @@
+workflows:
+  android-debug:
+    name: Chain Gang Poker — Android Debug APK
+    instance_type: linux_x2
+    environment:
+      java: 17
+      node: 20
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Capacitor sync Android
+        script: npx cap sync android
+
+      - name: Make Gradle wrapper executable
+        script: chmod +x android/gradlew
+
+      - name: Assemble debug APK
+        script: cd android && ./gradlew assembleDebug --no-daemon
+    artifacts:
+      - android/app/build/outputs/apk/debug/app-debug.apk
