@@ -1,7 +1,7 @@
 workflows:
   android-debug:
     name: Chain Gang Poker — Android Debug APK
-    instance_type: linux_x2
+    instance_type: linux
     environment:
       java: 17
       node: 20
