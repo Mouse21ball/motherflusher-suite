@@ -27,9 +27,6 @@ allprojects {
 }
 
 // ── Fix: duplicate kotlin-stdlib classes (jdk7/jdk8 merged into stdlib in Kotlin 1.8+) ──
-// Forces all subprojects to resolve to a single consistent Kotlin stdlib version,
-// preventing transitive dependencies from pulling in the old split artifacts alongside
-// the new merged ones.
 subprojects {
     configurations.all {
         resolutionStrategy.eachDependency { DependencyResolveDetails details ->
@@ -37,6 +34,28 @@ subprojects {
                     && details.requested.name.startsWith('kotlin-stdlib')) {
                 details.useVersion rootProject.ext.kotlin_version
                 details.because 'Unify all kotlin-stdlib variants to eliminate duplicate class errors'
+            }
+        }
+    }
+}
+
+// ── Fix: force Java 17 on every subproject (app, capacitor-android, plugins) ──
+// Uses afterEvaluate so this runs after each module's own build.gradle has been
+// parsed — meaning it overrides any VERSION_21 set by npm-installed modules like
+// capacitor-android, which cannot be edited directly without being overwritten.
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
             }
         }
     }
