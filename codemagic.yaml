@@ -9,7 +9,7 @@ workflows:
         # Find it in Replit → Deployments tab (looks like https://yourapp.replit.app)
         # This URL is baked into the APK at build time so the app can reach
         # the multiplayer server from a real device.
-        VITE_API_BASE_URL: https://YOUR-DEPLOYED-APP.replit.app
+        VITE_API_BASE_URL: https://chaing-gang-poker.replit.app
     scripts:
       - name: Install npm dependencies
         script: npm ci
