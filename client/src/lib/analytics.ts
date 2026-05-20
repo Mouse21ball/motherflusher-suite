@@ -64,7 +64,7 @@ export type AnalyticsEvent =
   | { name: 'hourly_bonus_claimed'; chips_awarded: number }
   | { name: 'account_created';      from: 'guest' | 'fresh' }
   | { name: 'crew_table_opened';    mode: 'badugi' }
-  | { name: 'crew_private_created'; mode: 'badugi' }
+  | { name: 'crew_private_created'; mode: string }
   | { name: 'bust_modal_shown';     mode: string }
   | { name: 'bonus_page_visited' }
   | { name: 'feedback_link_clicked'; location: 'home_footer' | 'profile_menu' };

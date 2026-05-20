@@ -139,11 +139,14 @@ function convertReservedToBots(table: AuthTable): void {
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: AuthTable): void {
+  if (!table.botsEnabled) return;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return;
   const humanCount = table.state.players.filter(p => p.presence === 'human').length;
+  const botCount   = table.state.players.filter(p => p.presence === 'bot').length;
   const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
-  const toFill     = reserved.slice(0, maxBots);
+  const allowedBots = Math.min(maxBots, Math.max(0, table.maxPlayers - humanCount - botCount));
+  const toFill     = reserved.slice(0, allowedBots);
   if (toFill.length === 0) return;
   const fillIds = new Set(toFill.map(p => p.id));
   table.state = {
@@ -160,12 +163,14 @@ function quickFillBots(table: AuthTable): void {
 // Used by staged fill — does NOT close the join window, leaving later
 // stages and human claims still valid.
 // Bot ceiling: 1 human → max 2 bots; 2 humans → max 1 bot; 3+ humans → 0 bots.
-// Keeps seats open so real players can always find a table with room.
+// Also respects botsEnabled and maxPlayers from host settings.
 function convertOneReservedToBot(table: AuthTable): boolean {
+  if (!table.botsEnabled) return false;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
   const humanCount = table.state.players.filter(p => p.presence === 'human').length;
   const botCount   = table.state.players.filter(p => p.presence === 'bot').length;
+  if (humanCount + botCount >= table.maxPlayers) return false;
   const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
   if (botCount >= maxBots) return false;
   const first = reserved[0];
@@ -193,7 +198,7 @@ function convertOneReservedToBot(table: AuthTable): boolean {
 function scheduleStagedBotFill(tableId: string, capturedJoinWindowEndsAt: number): void {
   setTimeout(() => {
     const t = tables.get(tableId);
-    if (!t || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
+    if (!t || !t.botsEnabled || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
     if (convertOneReservedToBot(t)) broadcastState(t);
 
     setTimeout(() => {
@@ -304,6 +309,9 @@ interface AuthTable {
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
   isPrivate: boolean;
+  // Host-configurable settings (stored at creation, respected by all bot/seat logic)
+  maxPlayers: number;   // 2-5: how many human seats are open
+  botsEnabled: boolean; // false = no bots ever fill empty seats
   // Turn-timer support: monotonic generation counter + active handle.
   // Increments whenever armTurnTimer or clearTurnTimer is called so that
   // a late-firing timeout can detect it is stale and abort cleanly.
@@ -320,11 +328,14 @@ function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
   const existing = table.sessionToSeat.get(sessionId);
   if (existing && SEAT_ORDER.includes(existing as SeatId)) return existing as SeatId;
 
+  // Enforce host-configured maxPlayers — don't seat more humans than allowed.
+  if (table.humanSeats.size >= table.maxPlayers) return null;
+
   // New session: first seat with no live connection.
   for (const seat of SEAT_ORDER) {
     if (!table.connections.has(seat)) return seat;
   }
-  return null; // table full (>4 humans)
+  return null; // table fully occupied
 }
 
 // ─── Session stats helper ─────────────────────────────────────────────────────
@@ -1200,6 +1211,8 @@ export function initEngine(): void {
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
+      maxPlayers: 5,
+      botsEnabled: true,
       turnTimerGen: 0,
       turnTimer: null,
     });
@@ -1227,8 +1240,15 @@ export function getActiveBadugiTables(): { tableId: string; humanCount: number; 
   return result;
 }
 
-export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quickPlay = false): AuthTable {
+export function getOrCreateBadugiTable(
+  tableId: string,
+  isPrivate = false,
+  quickPlay = false,
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+): AuthTable {
   if (!tables.has(tableId)) {
+    const maxPlayers  = options.maxPlayers  ?? 5;
+    const botsEnabled = options.botsEnabled ?? !isPrivate;
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     const table: AuthTable = {
       tableId,
@@ -1247,12 +1267,14 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
       disconnectTimers: new Map(),
       joinWindowEndsAt,
       isPrivate,
+      maxPlayers,
+      botsEnabled,
       turnTimerGen: 0,
       turnTimer: null,
     };
     tables.set(tableId, table);
-    engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
-    if (!isPrivate && !quickPlay) {
+    engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
+    if (!isPrivate && !quickPlay && botsEnabled) {
       scheduleStagedBotFill(tableId, joinWindowEndsAt);
     }
   }
@@ -1263,9 +1285,18 @@ export function getOrCreateBadugiTable(tableId: string, isPrivate = false, quick
 // badugi:init message (seat + current state in one frame so the client
 // never processes a snapshot before it knows its own seat).
 // Returns the assigned seat id, or null if the table is full.
-export function addBadugiConnection(tableId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false, identityId?: string): string | null {
+export function addBadugiConnection(
+  tableId: string,
+  sessionId: string,
+  ws: WebSocket,
+  playerName?: string,
+  isPrivate = false,
+  quickPlay = false,
+  identityId?: string,
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+): string | null {
   const isNew = !tables.has(tableId);
-  const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay);
+  const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay, options);
   if (isNew && quickPlay) {
     quickFillBots(table);
   }
@@ -1843,6 +1874,20 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     console.error('[badugi:ERROR] action error:', err);
     table.actionLock = false;
   }
+}
+
+export function getBadugiTablePhase(tableId: string): string | null {
+  return tables.get(tableId)?.state.phase ?? null;
+}
+
+export function updateBadugiTableSettings(
+  tableId: string,
+  settings: { maxPlayers?: number; botsEnabled?: boolean }
+): void {
+  const table = tables.get(tableId);
+  if (!table) return;
+  if (settings.maxPlayers  !== undefined) table.maxPlayers  = settings.maxPlayers;
+  if (settings.botsEnabled !== undefined) table.botsEnabled = settings.botsEnabled;
 }
 
 export function destroyBadugiTable(tableId: string): void {

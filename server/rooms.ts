@@ -3,12 +3,12 @@
 //   1. Presence-only rooms: server knows who is seated, game runs client-side.
 //   2. Authoritative rooms: server owns game state (feature-flagged per mode).
 //
-// Authoritative Badugi is enabled when either:
-//   a) FEATURES.SERVER_AUTHORITATIVE_BADUGI = true  (code-level broad rollout), OR
-//   b) BADUGI_ALPHA_ENABLED=true  in the environment  (zero-code alpha testing)
-//
-// To enable for controlled alpha without changing any source file:
-//   BADUGI_ALPHA_ENABLED=true npm run dev
+// Host authority layer:
+//   • The first human to join a room becomes the host.
+//   • Host can kick players and adjust settings before the first hand.
+//   • If the host disconnects, host status transfers to the longest-seated human.
+//   • Settings (maxPlayers, botsEnabled) are read from the routes TableRecord on
+//     first join and enforced for that table's lifetime.
 
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
@@ -17,15 +17,19 @@ import {
   addBadugiConnection,
   removeBadugiConnection,
   handleBadugiAction,
+  getBadugiTablePhase,
+  updateBadugiTableSettings,
 } from './gameEngine';
 import {
   addGenericConnection,
   removeGenericConnection,
   handleGenericAction,
+  getGenericTablePhase,
+  updateGenericTableSettings,
 } from './genericEngine';
+import { getTableRecord, updateTableRecord } from './routes';
 
 // ─── Rollout gate ─────────────────────────────────────────────────────────────
-// Evaluated once per process start. Changing BADUGI_ALPHA_ENABLED requires restart.
 
 const SERVER_BADUGI_ON: boolean =
   FEATURES.SERVER_AUTHORITATIVE_BADUGI ||
@@ -60,6 +64,11 @@ interface Room {
   createdAt: number;
   seats: Map<string, SeatClaim>;
   connections: Map<string, WebSocket>;
+  // Host authority
+  hostId: string | null;
+  maxPlayers: number;
+  botsEnabled: boolean;
+  isInviteOnly: boolean;
 }
 
 // ─── Client message types ─────────────────────────────────────────────────────
@@ -69,15 +78,25 @@ type ClientMessage =
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
-  | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown };
+  | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown }
+  | { type: 'host:kick';     tableId: string; playerId: string; targetPlayerId: string }
+  | { type: 'host:settings'; tableId: string; playerId: string; maxPlayers?: number; botsEnabled?: boolean; isInviteOnly?: boolean };
 
-// ─── Server broadcast payload ─────────────────────────────────────────────────
+// ─── Server broadcast payloads ────────────────────────────────────────────────
 
 interface RoomUpdate {
   type: 'room_update';
   tableId: string;
   humanCount: number;
   seats: Omit<SeatClaim, 'joinedAt'>[];
+  hostId: string | null;
+}
+
+interface HostUpdate {
+  type: 'host_update';
+  hostId: string | null;
+  hostName: string | null;
+  tableSettings: { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean };
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -86,9 +105,17 @@ const rooms = new Map<string, Room>();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getOrCreateRoom(tableId: string, modeId: string): Room {
+function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Room {
   if (!rooms.has(tableId)) {
     const isAuthoritative = SERVER_BADUGI_ON && modeId === 'badugi';
+
+    // Read host settings from the routes TableRecord if available
+    const record = getTableRecord(tableId);
+    const maxPlayers  = record?.maxPlayers  ?? 5;
+    const botsEnabled = record?.botsEnabled ?? true;
+    const isInviteOnly = record?.isInviteOnly ?? false;
+    const hostId = playerId ?? record?.hostId ?? null;
+
     rooms.set(tableId, {
       tableId,
       modeId,
@@ -96,9 +123,29 @@ function getOrCreateRoom(tableId: string, modeId: string): Room {
       createdAt: Date.now(),
       seats: new Map(),
       connections: new Map(),
+      hostId,
+      maxPlayers,
+      botsEnabled,
+      isInviteOnly,
     });
   }
   return rooms.get(tableId)!;
+}
+
+function buildHostUpdate(room: Room): HostUpdate {
+  const hostName = room.hostId
+    ? (Array.from(room.seats.values()).find(s => s.playerId === room.hostId)?.name ?? null)
+    : null;
+  return {
+    type: 'host_update',
+    hostId: room.hostId,
+    hostName,
+    tableSettings: {
+      maxPlayers:  room.maxPlayers,
+      botsEnabled: room.botsEnabled,
+      isInviteOnly: room.isInviteOnly,
+    },
+  };
 }
 
 function broadcastRoomState(room: Room): void {
@@ -107,6 +154,7 @@ function broadcastRoomState(room: Room): void {
     tableId: room.tableId,
     humanCount: room.connections.size,
     seats: Array.from(room.seats.values()).map(({ seatId, playerId, name }) => ({ seatId, playerId, name })),
+    hostId: room.hostId,
   };
   const msg = JSON.stringify(payload);
   for (const ws of room.connections.values()) {
@@ -114,9 +162,36 @@ function broadcastRoomState(room: Room): void {
   }
 }
 
+function broadcastHostUpdate(room: Room): void {
+  const msg = JSON.stringify(buildHostUpdate(room));
+  for (const ws of room.connections.values()) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+  }
+}
+
+function sendHostUpdateTo(ws: WebSocket, room: Room): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(buildHostUpdate(room)));
+  }
+}
+
+function migrateHost(room: Room): void {
+  // Find the longest-seated connected human (smallest joinedAt, still connected)
+  let oldest: SeatClaim | null = null;
+  for (const claim of room.seats.values()) {
+    if (claim.playerId === room.hostId) continue;
+    if (!room.connections.has(claim.playerId)) continue;
+    if (!oldest || claim.joinedAt < oldest.joinedAt) oldest = claim;
+  }
+  room.hostId = oldest?.playerId ?? null;
+  broadcastHostUpdate(room);
+}
+
 function releasePlayer(playerId: string, tableId: string, intentional = false): void {
   const room = rooms.get(tableId);
   if (!room) return;
+
+  const wasHost = room.hostId === playerId;
 
   room.connections.delete(playerId);
 
@@ -135,6 +210,8 @@ function releasePlayer(playerId: string, tableId: string, intentional = false): 
       if (rooms.get(tableId)?.connections.size === 0) rooms.delete(tableId);
     }, 5 * 60 * 1000);
   } else {
+    // If host left, migrate to oldest remaining human
+    if (wasHost) migrateHost(room);
     broadcastRoomState(room);
   }
 }
@@ -183,23 +260,29 @@ export function initRooms(httpServer: Server): WebSocketServer {
         roomId   = tableId;
         playerId = pid;
 
-        const room = getOrCreateRoom(tableId, modeId || 'unknown');
+        const isNewRoom = !rooms.has(tableId);
+        const room = getOrCreateRoom(tableId, modeId || 'unknown', isNewRoom ? pid : undefined);
         room.connections.set(pid, ws);
+
+        // Set host: first human to join owns the room
+        if (isNewRoom || !room.hostId) {
+          room.hostId = pid;
+        }
 
         if (seatId) {
           room.seats.set(seatId, { seatId, playerId: pid, name: name || 'Player', joinedAt: Date.now() });
         }
 
-        // If authoritative Badugi, register with game engine.
-        // Engine assigns a seat (p1-p4) and sends a badugi:init message that
-        // bundles the seat assignment and the masked snapshot atomically.
-        // identityId is the stable player UUID from localStorage, used for chip persistence.
+        const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled };
+
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId);
+          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId);
+          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions);
         }
 
+        // Send host/settings context to the joining player after engine init
+        sendHostUpdateTo(ws, room);
         broadcastRoomState(room);
         return;
       }
@@ -207,7 +290,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── leave ────────────────────────────────────────────────────────────────
       if (msg.type === 'leave') {
         const { tableId, playerId: pid } = msg;
-        if (tableId && pid) releasePlayer(pid, tableId, true /* intentional */);
+        if (tableId && pid) releasePlayer(pid, tableId, true);
         roomId   = null;
         playerId = null;
         return;
@@ -216,6 +299,66 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── ping ─────────────────────────────────────────────────────────────────
       if (msg.type === 'ping') {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pong' }));
+        return;
+      }
+
+      // ── host:kick ────────────────────────────────────────────────────────────
+      if (msg.type === 'host:kick') {
+        const { tableId, playerId: senderPid, targetPlayerId } = msg;
+        const room = rooms.get(tableId);
+        if (!room) return;
+        // Only the host can kick
+        if (room.hostId !== senderPid) return;
+        // Can't kick yourself
+        if (targetPlayerId === senderPid) return;
+
+        const targetWs = room.connections.get(targetPlayerId);
+        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+          try { targetWs.send(JSON.stringify({ type: 'host_kicked', reason: 'kicked by host' })); } catch {}
+          targetWs.close();
+        }
+        // releasePlayer is called via the ws.on('close') handler of the target
+        return;
+      }
+
+      // ── host:settings ─────────────────────────────────────────────────────────
+      if (msg.type === 'host:settings') {
+        const { tableId, playerId: senderPid, maxPlayers, botsEnabled, isInviteOnly } = msg;
+        const room = rooms.get(tableId);
+        if (!room) return;
+        // Only the host can change settings
+        if (room.hostId !== senderPid) return;
+
+        // Settings lock: cannot change after first hand starts
+        const phase = room.isAuthoritative
+          ? getBadugiTablePhase(tableId)
+          : getGenericTablePhase(room.modeId, tableId);
+        if (phase && phase !== 'WAITING') {
+          // Game already started — silently reject
+          return;
+        }
+
+        // Apply updates
+        if (maxPlayers  !== undefined) room.maxPlayers  = maxPlayers;
+        if (botsEnabled !== undefined) room.botsEnabled = botsEnabled;
+        if (isInviteOnly !== undefined) room.isInviteOnly = isInviteOnly;
+
+        // Persist to routes registry
+        updateTableRecord(tableId, {
+          ...(maxPlayers  !== undefined ? { maxPlayers }  : {}),
+          ...(botsEnabled !== undefined ? { botsEnabled } : {}),
+          ...(isInviteOnly !== undefined ? { isInviteOnly } : {}),
+        });
+
+        // Push to engine
+        if (room.isAuthoritative) {
+          updateBadugiTableSettings(tableId, { maxPlayers, botsEnabled });
+        } else {
+          updateGenericTableSettings(tableId, room.modeId, { maxPlayers, botsEnabled });
+        }
+
+        // Broadcast updated settings to all players
+        broadcastHostUpdate(room);
         return;
       }
 

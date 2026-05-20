@@ -14,11 +14,16 @@ import { sql as drizzleSql } from "drizzle-orm";
 // Future: migrate to DB-backed storage when persistent lobbies are needed.
 
 interface TableRecord {
-  tableId: string;
-  modeId: string;
-  createdBy: string;
-  createdAt: number;
+  tableId:     string;
+  modeId:      string;
+  createdBy:   string;
+  createdAt:   number;
   playerCount: number;
+  // Host-configurable settings (set at creation, locked after first hand)
+  maxPlayers:  number;   // 2-5 seats available to humans
+  botsEnabled: boolean;  // false = no bots ever, even if seats are empty
+  isInviteOnly: boolean; // true = invite code required; false = appears in public list
+  hostId:      string;   // session/identity id of creator (for authority checks)
 }
 
 const tables = new Map<string, TableRecord>();
@@ -33,6 +38,23 @@ function pruneExpiredTables(): void {
   }
 }
 
+// ─── Exported helpers for rooms.ts ────────────────────────────────────────────
+
+export function getTableRecord(tableId: string): TableRecord | null {
+  pruneExpiredTables();
+  return tables.get(tableId.toUpperCase()) ?? null;
+}
+
+export function updateTableRecord(
+  tableId: string,
+  updates: Partial<Pick<TableRecord, 'maxPlayers' | 'botsEnabled' | 'isInviteOnly'>>
+): boolean {
+  const record = tables.get(tableId.toUpperCase());
+  if (!record) return false;
+  Object.assign(record, updates);
+  return true;
+}
+
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const trackEventSchema = z.object({
@@ -43,9 +65,13 @@ const trackEventSchema = z.object({
 });
 
 const createTableSchema = z.object({
-  tableId: z.string().length(6).regex(/^[A-Z0-9]+$/),
-  modeId: z.string().min(1),
-  createdBy: z.string().min(1),
+  tableId:     z.string().length(6).regex(/^[A-Z0-9]+$/),
+  modeId:      z.string().min(1),
+  createdBy:   z.string().min(1),
+  maxPlayers:  z.number().int().min(2).max(5).default(5),
+  botsEnabled: z.boolean().default(true),
+  isInviteOnly: z.boolean().default(true),
+  hostId:      z.string().min(1).optional(),
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -123,14 +149,25 @@ export async function registerRoutes(
       }
 
       const record: TableRecord = {
-        tableId: code,
-        modeId: parsed.modeId,
-        createdBy: parsed.createdBy,
-        createdAt: Date.now(),
+        tableId:     code,
+        modeId:      parsed.modeId,
+        createdBy:   parsed.createdBy,
+        createdAt:   Date.now(),
         playerCount: 1,
+        maxPlayers:  parsed.maxPlayers,
+        botsEnabled: parsed.botsEnabled,
+        isInviteOnly: parsed.isInviteOnly,
+        hostId:      parsed.hostId ?? parsed.createdBy,
       };
       tables.set(code, record);
-      res.status(201).json({ tableId: code, modeId: record.modeId, createdAt: record.createdAt });
+      res.status(201).json({
+        tableId:     code,
+        modeId:      record.modeId,
+        createdAt:   record.createdAt,
+        maxPlayers:  record.maxPlayers,
+        botsEnabled: record.botsEnabled,
+        isInviteOnly: record.isInviteOnly,
+      });
     } catch (err: any) {
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid table data" });

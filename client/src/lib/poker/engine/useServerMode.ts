@@ -95,6 +95,11 @@ export function useServerMode(tableId: string, modeId: string) {
   const [myId, setMyId] = useState<string>('p1');
   const [role, setRole] = useState<'player' | 'spectator'>('player');
   const myIdRef    = useRef<string>('p1');
+
+  // Host authority state
+  const [hostId, setHostId] = useState<string | null>(null);
+  const [tableSettings, setTableSettings] = useState<{ maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean }>({ maxPlayers: 5, botsEnabled: true, isInviteOnly: false });
+  const [kickedByHost, setKickedByHost] = useState(false);
   const wsRef      = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
   const reconnRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -226,6 +231,22 @@ export function useServerMode(tableId: string, modeId: string) {
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
+
+          // host_update: host identity or settings changed
+          if (msg.type === 'host_update') {
+            setHostId((msg.hostId as string | null) ?? null);
+            if (msg.tableSettings) {
+              setTableSettings(msg.tableSettings as { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean });
+            }
+            return;
+          }
+
+          // host_kicked: this player was removed by the host
+          if (msg.type === 'host_kicked') {
+            setKickedByHost(true);
+            return;
+          }
+
           // Unhandled types — log so we can spot missing handlers.
           console.warn('[WS IN] unhandled message type', msg.type);
         } catch (err) {
@@ -280,5 +301,14 @@ export function useServerMode(tableId: string, modeId: string) {
     ws.send(JSON.stringify(outgoing));
   }, []);
 
-  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType };
+  const sendHostAction = useCallback((
+    type: 'host:kick' | 'host:settings',
+    payload: Record<string, unknown>
+  ) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type, tableId: tableIdRef.current, playerId: myIdRef.current, ...payload }));
+  }, []);
+
+  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost };
 }

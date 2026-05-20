@@ -155,11 +155,14 @@ function convertReservedToBots(table: GenericTable): void {
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: GenericTable): void {
+  if (!table.botsEnabled) return;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return;
   const humanCount = table.state.players.filter(p => p.presence === 'human').length;
+  const botCount   = table.state.players.filter(p => p.presence === 'bot').length;
   const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
-  const toFill     = reserved.slice(0, maxBots);
+  const allowedBots = Math.min(maxBots, Math.max(0, table.maxPlayers - humanCount - botCount));
+  const toFill     = reserved.slice(0, allowedBots);
   if (toFill.length === 0) return;
   const fillIds = new Set(toFill.map(p => p.id));
   table.state = {
@@ -174,12 +177,14 @@ function quickFillBots(table: GenericTable): void {
 
 // Convert exactly ONE reserved seat (lowest id) to a bot.
 // Bot ceiling: 1 human → max 2 bots; 2 humans → max 1 bot; 3+ humans → 0 bots.
-// Keeps seats open so real players can always find a table with room.
+// Also respects botsEnabled and maxPlayers from host settings.
 function convertOneReservedToBot(table: GenericTable): boolean {
+  if (!table.botsEnabled) return false;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
   const humanCount = table.state.players.filter(p => p.presence === 'human').length;
   const botCount   = table.state.players.filter(p => p.presence === 'bot').length;
+  if (humanCount + botCount >= table.maxPlayers) return false;
   const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
   if (botCount >= maxBots) return false;
   const first = reserved[0];
@@ -198,7 +203,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
 function scheduleStagedBotFill(key: string, tableId: string, capturedJoinWindowEndsAt: number): void {
   setTimeout(() => {
     const t = tables.get(key);
-    if (!t || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
+    if (!t || !t.botsEnabled || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
     if (convertOneReservedToBot(t)) broadcastState(t);
 
     setTimeout(() => {
@@ -310,6 +315,9 @@ interface GenericTable {
   joinWindowEndsAt: number;
   // Private tables are excluded from the live table listing and never auto-fill bots.
   isPrivate: boolean;
+  // Host-configurable settings
+  maxPlayers: number;   // 2-5: how many human seats are open
+  botsEnabled: boolean; // false = no bots ever fill empty seats
   // Per-seat chip balance at the START of the current hand (for profit delta calculation).
   // Initialized when player first loads chips from DB; updated after each hand sync.
   chipsAtHandStart: Map<string, number>;
@@ -337,6 +345,8 @@ function tableKey(modeId: string, tableId: string): string {
 function assignSeat(table: GenericTable, sessionId: string): SeatId | null {
   const existing = table.sessionToSeat.get(sessionId);
   if (existing && SEAT_ORDER.includes(existing as SeatId)) return existing as SeatId;
+  // Enforce host-configured maxPlayers
+  if (table.humanSeats.size >= table.maxPlayers) return null;
   for (const seat of SEAT_ORDER) {
     if (!table.connections.has(seat)) return seat;
   }
@@ -1355,12 +1365,20 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
 
 // ─── Get or create table ─────────────────────────────────────────────────────
 
-function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, quickPlay = false): GenericTable | null {
+function getOrCreateTable(
+  modeId: string,
+  tableId: string,
+  isPrivate = false,
+  quickPlay = false,
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+): GenericTable | null {
   const mode = MODE_REGISTRY[modeId];
   if (!mode) return null;
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
+    const maxPlayers  = options.maxPlayers  ?? 5;
+    const botsEnabled = options.botsEnabled ?? !isPrivate;
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     tables.set(key, {
       tableId,
@@ -1380,11 +1398,13 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt,
       isPrivate,
+      maxPlayers,
+      botsEnabled,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
     });
-    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay });
-    if (!isPrivate && !quickPlay) {
+    engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
+    if (!isPrivate && !quickPlay && botsEnabled) {
       scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
     }
   }
@@ -1393,10 +1413,20 @@ function getOrCreateTable(modeId: string, tableId: string, isPrivate = false, qu
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function addGenericConnection(tableId: string, modeId: string, sessionId: string, ws: WebSocket, playerName?: string, isPrivate = false, quickPlay = false, identityId?: string): string | null {
+export function addGenericConnection(
+  tableId: string,
+  modeId: string,
+  sessionId: string,
+  ws: WebSocket,
+  playerName?: string,
+  isPrivate = false,
+  quickPlay = false,
+  identityId?: string,
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+): string | null {
   const key = tableKey(modeId, tableId);
   const isNew = !tables.has(key);
-  const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay);
+  const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay, options);
   if (!table) {
     try { ws.send(JSON.stringify({ type: 'mode:error', reason: 'unknown-mode' })); } catch {}
     return null;
@@ -2080,6 +2110,21 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
   }
 }
 
+export function getGenericTablePhase(modeId: string, tableId: string): string | null {
+  return tables.get(tableKey(modeId, tableId))?.state.phase ?? null;
+}
+
+export function updateGenericTableSettings(
+  tableId: string,
+  modeId: string,
+  settings: { maxPlayers?: number; botsEnabled?: boolean }
+): void {
+  const table = tables.get(tableKey(modeId, tableId));
+  if (!table) return;
+  if (settings.maxPlayers  !== undefined) table.maxPlayers  = settings.maxPlayers;
+  if (settings.botsEnabled !== undefined) table.botsEnabled = settings.botsEnabled;
+}
+
 export function getActiveGenericTables(): { tableId: string; modeId: string; humanCount: number; phase: string }[] {
   const result: { tableId: string; modeId: string; humanCount: number; phase: string }[] = [];
   for (const [, table] of Array.from(tables.entries())) {
@@ -2120,6 +2165,8 @@ export function initGenericEngine(): void {
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt: 0, // join window closed for restored tables
       isPrivate: false,
+      maxPlayers: 5,
+      botsEnabled: true,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
     });

@@ -8,10 +8,14 @@ const SESSION_KEY = 'poker_table_session';
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
 
 export interface TableSession {
-  tableId: string;   // 6-character alphanumeric code, e.g. "X7K2MQ"
-  modeId: string;    // which game mode this table is for
-  createdAt: number; // unix ms
-  createdBy: string; // PlayerIdentity.id of creator
+  tableId:     string;   // 6-character alphanumeric code, e.g. "X7K2MQ"
+  modeId:      string;   // which game mode this table is for
+  createdAt:   number;   // unix ms
+  createdBy:   string;   // PlayerIdentity.id of creator
+  // Host-configurable settings (optional — default to server defaults if omitted)
+  maxPlayers?:  number;
+  botsEnabled?: boolean;
+  isInviteOnly?: boolean;
 }
 
 // ─── Code generation ──────────────────────────────────────────────────────────
@@ -171,9 +175,12 @@ export async function registerTable(session: TableSession): Promise<{ ok: boolea
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tableId: session.tableId,
-        modeId: session.modeId,
-        createdBy: session.createdBy,
+        tableId:     session.tableId,
+        modeId:      session.modeId,
+        createdBy:   session.createdBy,
+        ...(session.maxPlayers  !== undefined ? { maxPlayers:  session.maxPlayers  } : {}),
+        ...(session.botsEnabled !== undefined ? { botsEnabled: session.botsEnabled } : {}),
+        ...(session.isInviteOnly !== undefined ? { isInviteOnly: session.isInviteOnly } : {}),
       }),
     });
     return { ok: res.ok };

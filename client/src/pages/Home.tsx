@@ -18,6 +18,7 @@ import {
   type Achievement,
 } from '@/lib/progression';
 import { generateTableCode } from '@/lib/tableSession';
+import { PrivateTableSetup } from '@/components/PrivateTableSetup';
 import {
   isRewardAvailable,
   getStreakInfo,
@@ -224,6 +225,7 @@ function syncXPFromHistory(): void {
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const [showPrivateSetup, setShowPrivateSetup] = useState(false);
 
   const identity    = ensurePlayerIdentity();
   const initials    = getAvatarInitials(identity.name);
@@ -335,6 +337,7 @@ export default function Home() {
   }, []);
 
   return (
+    <>
     <div
       className="min-h-[100dvh] flex flex-col relative overflow-x-hidden"
       style={{
@@ -752,7 +755,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => { track({ name: 'crew_private_created', mode: 'badugi' }); const code = generateTableCode(); navigate(`/badugi?t=${code}&private=1`); }}
+                  onClick={() => setShowPrivateSetup(true)}
                   className="w-full h-11 rounded-xl text-sm font-bold border transition-all active:scale-[0.97]"
                   style={{
                     background: 'rgba(109,40,217,0.18)',
@@ -761,9 +764,9 @@ export default function Home() {
                   }}
                   data-testid="button-private-table"
                 >
-                  Private Table
+                  ⛓ Host a Table
                 </button>
-                <span className="text-[9px] font-mono text-white/22 text-center">Code-only · not listed</span>
+                <span className="text-[9px] font-mono text-white/22 text-center">Pick mode, max players & more</span>
               </div>
             </div>
           </div>
@@ -860,5 +863,8 @@ export default function Home() {
       </div>
 
     </div>
+
+    <PrivateTableSetup open={showPrivateSetup} onClose={() => setShowPrivateSetup(false)} />
+    </>
   );
 }

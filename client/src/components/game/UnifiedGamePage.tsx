@@ -3,6 +3,8 @@ import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
 import { FEATURES } from "@/lib/featureFlags";
 import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
+import { HostControls } from "@/components/HostControls";
+import type { TableSettings } from "@/components/HostControls";
 import { ThreeDTableScene } from "@/components/game/ThreeDTableScene";
 import { ActionControls } from "@/components/game/Controls";
 import { ChatBox } from "@/components/game/ChatBox";
@@ -39,6 +41,11 @@ interface UnifiedGameUIProps {
   sessionStats?: GameSessionStats;
   lastWsAt?: number | null;
   lastWsType?: string | null;
+  // Host authority
+  hostId?: string | null;
+  tableSettings?: TableSettings;
+  sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
+  kickedByHost?: boolean;
 }
 
 const SUITSPOKER_DECLARATION_OPTIONS = [
@@ -47,9 +54,14 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
   { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType }: UnifiedGameUIProps) {
+function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [, navigate] = useLocation();
+
+  // Navigate home if host kicked this player
+  useEffect(() => {
+    if (kickedByHost) navigate('/');
+  }, [kickedByHost, navigate]);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
@@ -233,6 +245,27 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
+      {/* Host controls — shown when there is a known host (private or any table with host set) */}
+      {hostId && tableId && tableSettings && sendHostAction && (
+        <div className="fixed top-12 sm:top-14 right-3 z-30">
+          <HostControls
+            myId={myId}
+            hostId={hostId}
+            tableCode={tableId}
+            tableSettings={tableSettings}
+            players={state.players
+              .filter(p => p.presence === 'human')
+              .map(p => ({ id: p.id, name: p.name }))}
+            onKick={targetPlayerId =>
+              sendHostAction('host:kick', { targetPlayerId })
+            }
+            onSettings={settings =>
+              sendHostAction('host:settings', settings as Record<string, unknown>)
+            }
+          />
+        </div>
+      )}
+
       {/* ── Main content column ───────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-x-hidden">
 
@@ -352,8 +385,8 @@ function useTableId(modeId: string) {
 function BadugiServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType } = useServerBadugi(tableId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost } = useServerBadugi(tableId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
 // Server engine modeId mapping (UI modeId → server engine modeId)
@@ -367,8 +400,8 @@ function GenericServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType } = useServerMode(tableId, engineId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost } = useServerMode(tableId, engineId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
