@@ -6,6 +6,7 @@ import { initRooms } from "./rooms";
 import { initEngine } from "./gameEngine";
 import { initGenericEngine } from "./genericEngine";
 import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
+import { startGuestResetJob } from "./guestReset";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -67,6 +68,7 @@ app.use((req, res, next) => {
   initEngine();              // restore persisted Badugi tables before WS server opens
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   initRooms(httpServer);
+  startGuestResetJob();      // hourly guest-account 24h reset
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

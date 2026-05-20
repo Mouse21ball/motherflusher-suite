@@ -7,7 +7,7 @@ import {
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, sql, and, gte, desc } from "drizzle-orm";
+import { eq, sql, and, or, gte, isNull, lt, desc } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -42,6 +42,13 @@ export interface IStorage {
   clearPlayerActiveTable(id: string): Promise<void>;
   deletePlayer(id: string): Promise<void>;
   addChipsToPlayer(id: string, chips: number): Promise<void>;
+  // ── Avatar & customisation ─────────────────────────────────────────────────
+  updatePlayerAvatar(id: string, avatarId: string | null): Promise<void>;
+  // ── Display name change (90-day cooldown) ──────────────────────────────────
+  updatePlayerDisplayName(id: string, name: string): Promise<void>;
+  // ── Guest reset job ────────────────────────────────────────────────────────
+  getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]>;
+  resetGuestAccount(id: string): Promise<void>;
 }
 
 export interface DailyStats {
@@ -189,6 +196,9 @@ export class MemStorage implements IStorage {
       lifetimeProfit: 0,
       email: null,
       passwordHash: null,
+      avatarId: null,
+      lastNameChangeAt: null,
+      lastResetAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -222,13 +232,8 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
-  // Atomically write the canonical chip balance + optional hand stats.
-  // Called at: (a) end of every hand, (b) disconnect/leave.
-  // Safe to call multiple times — last write wins (idempotent per hand end).
-  // deltaChips: signed chip delta for this hand (positive=won, negative=lost).
   async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void> {
     if (handResult) {
-      // Use SQL increments so concurrent calls don't clobber each other
       await db
         .update(playerProfiles)
         .set({
@@ -279,6 +284,78 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
+  // ── Avatar ─────────────────────────────────────────────────────────────────
+
+  async updatePlayerAvatar(id: string, avatarId: string | null): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ avatarId, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  // ── Display name change ────────────────────────────────────────────────────
+
+  async updatePlayerDisplayName(id: string, name: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ displayName: name, lastNameChangeAt: new Date(), updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  // ── Guest reset helpers ────────────────────────────────────────────────────
+
+  // Returns guest accounts whose reference timestamp (lastResetAt ?? createdAt)
+  // is older than the provided cutoff date.
+  // ONLY returns rows where BOTH email AND passwordHash are NULL.
+  async getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]> {
+    const rows = await db
+      .select()
+      .from(playerProfiles)
+      .where(
+        and(
+          isNull(playerProfiles.email),
+          isNull(playerProfiles.passwordHash),
+          or(
+            // Never been reset: use createdAt
+            and(
+              isNull(playerProfiles.lastResetAt),
+              lt(playerProfiles.createdAt, cutoff)
+            ),
+            // Previously reset: use lastResetAt
+            lt(playerProfiles.lastResetAt, cutoff)
+          )
+        )
+      );
+    return rows;
+  }
+
+  // Resets a guest account to default state.
+  // NEVER call this for accounts with email or passwordHash — callers must guard.
+  async resetGuestAccount(id: string): Promise<void> {
+    const now = new Date();
+    await db
+      .update(playerProfiles)
+      .set({
+        chipBalance:    25000,
+        handsPlayed:    0,
+        handsWon:       0,
+        lifetimeProfit: 0,
+        avatarId:       null,
+        activeTableId:  null,
+        activeSeatId:   null,
+        activeModeId:   null,
+        lastResetAt:    now,
+        updatedAt:      now,
+      })
+      .where(
+        and(
+          eq(playerProfiles.id, id),
+          // Triple-safety: even in the DB query, enforce guest-only write
+          isNull(playerProfiles.email),
+          isNull(playerProfiles.passwordHash)
+        )
+      );
+  }
 }
 
 export const storage = new MemStorage();

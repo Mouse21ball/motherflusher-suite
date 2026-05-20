@@ -400,19 +400,91 @@ export async function registerRoutes(
         return;
       }
       const level = Math.floor(profile.handsPlayed / 50);
+      const isGuest = !profile.email && !profile.passwordHash;
+      // Compute when this guest account will next be reset (null for auth accounts)
+      const resetRef = profile.lastResetAt ?? profile.createdAt;
+      const nextResetAt = isGuest
+        ? new Date(resetRef.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        : null;
       res.json({
-        profileId:      profile.id,
-        displayName:    profile.displayName,
-        chipBalance:    profile.chipBalance,
-        handsPlayed:    profile.handsPlayed,
-        lifetimeProfit: profile.lifetimeProfit,
-        email:          profile.email ?? null,
-        hasAuth:        !!profile.passwordHash,
+        profileId:        profile.id,
+        displayName:      profile.displayName,
+        chipBalance:      profile.chipBalance,
+        handsPlayed:      profile.handsPlayed,
+        lifetimeProfit:   profile.lifetimeProfit,
+        email:            profile.email ?? null,
+        hasAuth:          !!profile.passwordHash,
         level,
+        avatarId:         profile.avatarId ?? null,
+        lastNameChangeAt: profile.lastNameChangeAt?.toISOString() ?? null,
+        nextResetAt,
       });
     } catch (err) {
       console.error("Auth me error:", err);
       res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // PUT /api/players/:id/avatar
+  // Saves the player's selected avatar preset. avatarId=null clears to initials default.
+  app.put("/api/players/:id/avatar", async (req, res) => {
+    try {
+      const avatarSchema = z.object({ avatarId: z.string().nullable() });
+      const { avatarId } = avatarSchema.parse(req.body);
+      const profile = await storage.getPlayerProfile(req.params.id);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      await storage.updatePlayerAvatar(req.params.id, avatarId);
+      res.json({ avatarId });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid avatar data" });
+      } else {
+        console.error("Avatar update error:", err);
+        res.status(500).json({ error: "Failed to update avatar" });
+      }
+    }
+  });
+
+  // PUT /api/players/:id/name
+  // Changes the display name. Server-enforced 90-day cooldown applies to ALL accounts.
+  const NAME_CHANGE_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
+
+  app.put("/api/players/:id/name", async (req, res) => {
+    try {
+      const nameSchema = z.object({
+        name: z.string().min(1).max(32).trim(),
+      });
+      const { name } = nameSchema.parse(req.body);
+      const profile = await storage.getPlayerProfile(req.params.id);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      // Enforce cooldown
+      if (profile.lastNameChangeAt) {
+        const elapsed = Date.now() - profile.lastNameChangeAt.getTime();
+        if (elapsed < NAME_CHANGE_COOLDOWN_MS) {
+          const remainingMs = NAME_CHANGE_COOLDOWN_MS - elapsed;
+          const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+          res.status(429).json({
+            error: `Name change on cooldown. Try again in ${remainingDays} day${remainingDays === 1 ? "" : "s"}.`,
+            remainingMs,
+          });
+          return;
+        }
+      }
+      await storage.updatePlayerDisplayName(req.params.id, name);
+      res.json({ displayName: name, lastNameChangeAt: new Date().toISOString() });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: err.issues[0]?.message ?? "Invalid name" });
+      } else {
+        console.error("Name change error:", err);
+        res.status(500).json({ error: "Failed to update name" });
+      }
     }
   });
 

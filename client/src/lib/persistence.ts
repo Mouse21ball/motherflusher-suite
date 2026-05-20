@@ -27,10 +27,11 @@ export interface HandRecord {
 // The `id` field is the canonical player identifier — used by analytics,
 // table sessions, and future server-side player records.
 export interface PlayerIdentity {
-  id: string;         // stable UUID — canonical across all sessions
-  name: string;       // display name
-  avatarSeed: string; // deterministic seed for avatar initials / color generation
-  createdAt: number;  // unix ms — when identity was first created
+  id: string;          // stable UUID — canonical across all sessions
+  name: string;        // display name
+  avatarSeed: string;  // deterministic seed for avatar initials / color generation
+  createdAt: number;   // unix ms — when identity was first created
+  avatarId?: string | null; // selected avatar preset; null/undefined → use initials
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
