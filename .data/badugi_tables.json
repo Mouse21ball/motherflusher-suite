@@ -24885,5 +24885,419 @@
     },
     "handId": 0,
     "savedAt": 1779292960278
+  },
+  "BK6SJH": {
+    "state": {
+      "tableId": "BK6SJH",
+      "phase": "BET_1",
+      "pot": 439,
+      "currentBet": 78,
+      "minBet": 50,
+      "raisesThisRound": 1,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "FloridaFrank",
+          "presence": "bot",
+          "chips": 27600,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "A",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "7",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "K",
+              "isHidden": true
+            },
+            {
+              "suit": "hearts",
+              "rank": "9",
+              "isHidden": true
+            }
+          ],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "NightOwlNate",
+          "presence": "bot",
+          "chips": 14585,
+          "bet": 78,
+          "totalBet": 103,
+          "cards": [
+            {
+              "suit": "spades",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "10",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "clubs",
+              "rank": "Q",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p3",
+          "name": "BackdoorBob",
+          "presence": "bot",
+          "chips": 9565,
+          "bet": 78,
+          "totalBet": 103,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "2",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "10",
+              "isHidden": false
+            },
+            {
+              "suit": "hearts",
+              "rank": "5",
+              "isHidden": true
+            },
+            {
+              "suit": "spades",
+              "rank": "7",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "SteveSandbag",
+          "presence": "bot",
+          "chips": 4908,
+          "bet": 78,
+          "totalBet": 103,
+          "cards": [
+            {
+              "suit": "hearts",
+              "rank": "2",
+              "isHidden": true
+            },
+            {
+              "suit": "diamonds",
+              "rank": "2",
+              "isHidden": true
+            },
+            {
+              "suit": "clubs",
+              "rank": "4",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "A",
+              "isHidden": false
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "LimitLuke",
+          "presence": "bot",
+          "chips": 8403,
+          "bet": 78,
+          "totalBet": 103,
+          "cards": [
+            {
+              "suit": "clubs",
+              "rank": "3",
+              "isHidden": false
+            },
+            {
+              "suit": "spades",
+              "rank": "6",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "8",
+              "isHidden": false
+            },
+            {
+              "suit": "diamonds",
+              "rank": "5",
+              "isHidden": true
+            }
+          ],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "od2a0ylk",
+          "text": "NightOwlNate discarded 1 card",
+          "time": 1779318446103,
+          "isResolution": false
+        },
+        {
+          "id": "i9oktm2m",
+          "text": "BackdoorBob discarded 1 card",
+          "time": 1779318447502,
+          "isResolution": false
+        },
+        {
+          "id": "t6hcdqcp",
+          "text": "SteveSandbag discarded 2 cards",
+          "time": 1779318448603,
+          "isResolution": false
+        },
+        {
+          "id": "ojzcg2t0",
+          "text": "LimitLuke discarded 1 card",
+          "time": 1779318449769,
+          "isResolution": false
+        },
+        {
+          "id": "3xmbzwht",
+          "text": "FloridaFrank discarded 2 cards",
+          "time": 1779318450567,
+          "isResolution": false
+        },
+        {
+          "id": "phixvloc",
+          "text": "BET 1",
+          "time": 1779318450918,
+          "isResolution": false
+        },
+        {
+          "id": "rjd08dj9",
+          "text": "NightOwlNate raised to $78",
+          "time": 1779318452090,
+          "isResolution": false
+        },
+        {
+          "id": "524wyfsd",
+          "text": "BackdoorBob called $78",
+          "time": 1779318454020,
+          "isResolution": false
+        },
+        {
+          "id": "ruldr7xc",
+          "text": "SteveSandbag called $78",
+          "time": 1779318455776,
+          "isResolution": false
+        },
+        {
+          "id": "0wc4k2w6",
+          "text": "LimitLuke called $78",
+          "time": 1779318456457,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [
+        {
+          "suit": "diamonds",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "A",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "K",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "10",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "Q",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "4",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "7",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "6",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "2",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "K",
+          "isHidden": false
+        }
+      ],
+      "discardPile": [
+        {
+          "suit": "diamonds",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "9",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "5",
+          "isHidden": false
+        },
+        {
+          "suit": "spades",
+          "rank": "J",
+          "isHidden": false
+        },
+        {
+          "suit": "hearts",
+          "rank": "3",
+          "isHidden": false
+        },
+        {
+          "suit": "clubs",
+          "rank": "8",
+          "isHidden": false
+        },
+        {
+          "suit": "diamonds",
+          "rank": "7",
+          "isHidden": false
+        }
+      ],
+      "turnDeadline": null
+    },
+    "handId": 16,
+    "savedAt": 1779318457883
   }
 }

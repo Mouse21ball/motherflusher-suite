@@ -46,6 +46,8 @@ interface PlayerSeatProps {
   hasActivePlayer?: boolean;
   /** True during the showdown stagger window before this seat is dramatically revealed */
   showdownRevealPending?: boolean;
+  /** Badugi/Dead7: render opponent at ~35% larger scale for mobile readability */
+  enlarged?: boolean;
 }
 
 const visibleCardValue = (rank: string): number => {
@@ -54,11 +56,82 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending, enlarged }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const [showWinEffect, setShowWinEffect] = useState(false);
   const selfWonRef = useRef(false);
+
+  // ── Draw animation: track card content changes for throw + deal-in ──────────
+  // Fires for hero only (face-up cards). Opponent cards are hidden so content
+  // changes are not observable and not animated.
+  const prevDrawCardsRef = useRef<CardType[]>([]);
+  interface ThrowSlot { card: CardType; rot: number; xPx: number; staggerMs: number; }
+  const [throwSlots, setThrowSlots] = useState<Record<number, ThrowSlot>>({});
+  const [slotDealKeys, setSlotDealKeys] = useState<number[]>([]);
+  const discardOrderMapRef = useRef<Record<number, number>>({});
+
+  const cardsKey = (player?.cards ?? [])
+    .map(c => `${c.rank ?? ''}${c.suit ?? ''}${c.isHidden ? 'H' : ''}`)
+    .join('|');
+
+  useEffect(() => {
+    if (!isSelf) return; // only animate hero's draw
+    const prev = prevDrawCardsRef.current;
+    const curr = player?.cards ?? [];
+
+    if (prev.length > 0 && curr.length === prev.length) {
+      const changes: Array<{ idx: number; oldCard: CardType }> = [];
+      for (let i = 0; i < curr.length; i++) {
+        const p = prev[i];
+        const c = curr[i];
+        if (p && c && !c.isHidden && !p.isHidden &&
+            (p.rank !== c.rank || p.suit !== c.suit)) {
+          changes.push({ idx: i, oldCard: prev[i] });
+        }
+      }
+
+      if (changes.length > 0) {
+        // Record discard order for staggered deal-in
+        discardOrderMapRef.current = {};
+        changes.forEach((ch, order) => { discardOrderMapRef.current[ch.idx] = order; });
+
+        // Build throw slots from old card data
+        const slots: Record<number, ThrowSlot> = {};
+        changes.forEach((ch, order) => {
+          const half = curr.length / 2;
+          const dir = ch.idx < half ? -1 : 1;
+          // Deterministic rotation so multi-card throws look natural, not robotic
+          const rot = dir * (16 + ((ch.idx * 13 + order * 7) % 11));
+          slots[ch.idx] = { card: ch.oldCard, rot, xPx: dir * 75, staggerMs: order * 65 };
+        });
+        setThrowSlots(slots);
+
+        // After throw completes: clear overlays, trigger staggered deal-in
+        const throwDuration = 270 + (changes.length - 1) * 65;
+        const timer = setTimeout(() => {
+          setThrowSlots({});
+          changes.forEach((ch, order) => {
+            const go = () => setSlotDealKeys(prev => {
+              const next = [...prev];
+              while (next.length <= ch.idx) next.push(0);
+              next[ch.idx] = (next[ch.idx] ?? 0) + 1;
+              return next;
+            });
+            if (order === 0) go();
+            else setTimeout(go, order * 70);
+          });
+          sfx.cardDeal();
+        }, throwDuration);
+
+        prevDrawCardsRef.current = [...curr];
+        return () => clearTimeout(timer);
+      }
+    }
+
+    prevDrawCardsRef.current = [...curr];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardsKey]);
 
   /* ── Turn onset pulse — fires once when this seat becomes active ─────── */
   const [turnOnsetKey, setTurnOnsetKey] = useState(0);
@@ -198,6 +271,11 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const n = player.cards.length;
           const center = (n - 1) / 2;
           const offset = idx - center;
+          const throwData = throwSlots[idx];
+          const dealKey = slotDealKeys[idx] ?? 0;
+          const dealInDelay = dealKey > 0
+            ? `${(discardOrderMapRef.current[idx] ?? 0) * 70}ms`
+            : `${idx * 0.06}s`;
 
           const marginLeft = idx === 0 ? 0 : (isSelf ? -20 : -22);
           const rotDeg = isSelf ? 0 : offset * 10;
@@ -207,34 +285,54 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const scaleVal = isSelected ? 1.03 : 1;
 
           return (
-            <div 
+            <div
               key={idx}
-              className={cn("relative anim-card-deal", isSelf && selectableCards && !isSelected ? "hero-card-item" : undefined)}
-              style={{ 
+              className={cn("relative", isSelf && selectableCards && !isSelected ? "hero-card-item" : undefined)}
+              style={{
                 marginLeft: `${marginLeft}px`,
                 transform: `rotate(${rotDeg}deg) translateY(${arcY + liftY}px) scale(${scaleVal})`,
                 zIndex: isSelected ? 40 : 10 + idx,
-                animationDelay: `${idx * 0.06}s`,
                 transition: isSelf ? 'transform 260ms cubic-bezier(0.22,1,0.36,1), box-shadow 260ms ease' : 'transform 120ms ease, box-shadow 120ms ease',
                 transformOrigin: 'bottom center',
               }}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (canSelect && onCardClick) {
-                  onCardClick(idx);
-                }
+                if (canSelect && onCardClick) onCardClick(idx);
               }}
             >
-              <PlayingCard 
-                card={card} 
-                selectable={canSelect}
-                selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
-                isSelfHidden={isSelf && card.isHidden}
-                className={isSelf
-                  ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]")
-                  : undefined}
-              />
+              {/* Throw overlay — old card flying out during a draw */}
+              {throwData && (
+                <div
+                  className="absolute inset-0 anim-card-throw-out pointer-events-none"
+                  style={{
+                    '--throw-rot': `${throwData.rot}deg`,
+                    '--throw-x': `${throwData.xPx}px`,
+                    animationDelay: `${throwData.staggerMs}ms`,
+                    zIndex: 60,
+                  } as React.CSSProperties}
+                >
+                  <PlayingCard
+                    card={throwData.card}
+                    isSelfHidden={isSelf && throwData.card.isHidden}
+                    className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]") : undefined}
+                  />
+                </div>
+              )}
+              {/* Real card — invisible during throw, then flies in from deck */}
+              <div
+                key={`inner-${idx}-${dealKey}-${dealAnimKey}`}
+                className={cn(dealKey > 0 ? "anim-card-deal-from-deck" : "anim-card-deal")}
+                style={{ visibility: throwData ? 'hidden' : 'visible', animationDelay: dealInDelay }}
+              >
+                <PlayingCard
+                  card={card}
+                  selectable={canSelect}
+                  selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
+                  isSelfHidden={isSelf && card.isHidden}
+                  className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]") : undefined}
+                />
+              </div>
             </div>
           );
         })}
@@ -265,7 +363,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       <div
         key={isActive ? `active-${turnOnsetKey}` : 'idle'}
         className={cn(
-        "relative w-full min-w-[100px] rounded-xl p-2 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
+        cn("relative w-full rounded-xl p-2 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
+          !isSelf && enlarged ? "min-w-[124px]" : "min-w-[100px]"),
         chipFlash && isSelf && selfWonRef.current && "brightness-[1.04]",
         isSelf ? "bg-[#0e0e11]" : "bg-[#09090c]",
         isActive && !showdownState
@@ -292,7 +391,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             const av = getAvatarStyle(player.name || 'X');
             const isIdleOpponent = !isSelf && !isActive && !showdownState && player.status !== 'folded';
             return (
-              <div className={cn("player-avatar-circle", isSelf && "is-self", isIdleOpponent && "anim-avatar-idle")}
+              <div className={cn("player-avatar-circle", isSelf && "is-self", !isSelf && enlarged && "is-enlarged", isIdleOpponent && "anim-avatar-idle")}
                 style={{ background: av.bg, border: `2px solid ${isActive && !showdownState ? '#C9A227' : av.ring}` }}
               >
                 {/* Timer ring when active */}
@@ -310,7 +409,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             {/* Name + badges */}
             <div className="flex items-center gap-1">
               <div className={cn(
-                "text-sm truncate font-sans leading-tight",
+                !isSelf && enlarged ? "text-[15px] truncate font-sans leading-tight" : "text-sm truncate font-sans leading-tight",
                 isSelf ? "font-semibold text-white/90"
                   : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
                   : player.presence === 'human' ? "font-semibold text-white/85"
@@ -327,7 +426,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
             {/* Chips */}
             <div className={cn(
-              "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
+              !isSelf && enlarged ? "chip-amount-text text-[13px] flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5" : "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
               sessionDelta > 75
                 ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
                 : sessionDelta < -75
