@@ -180,14 +180,36 @@ export async function registerRoutes(
 
   // GET /api/tables — list ALL active tables across every mode, human players only.
   // Merges the Badugi engine and the generic engine into one sorted list.
-  // Badugi tables come first (hero mode); others sorted by humanCount desc.
+  // Includes maxPlayers and isInviteOnly so the client can render "X/Y" counts
+  // and filter out invite-only tables from the public lobby.
   app.get("/api/tables", (_req, res) => {
     pruneExpiredTables();
     const badugi = getActiveBadugiTables()
       .filter(t => t.humanCount > 0)
-      .map(t => ({ tableId: t.tableId, modeId: "badugi", humanCount: t.humanCount, phase: t.phase }));
+      .map(t => {
+        const rec = tables.get(t.tableId);
+        return {
+          tableId:      t.tableId,
+          modeId:       "badugi",
+          humanCount:   t.humanCount,
+          phase:        t.phase,
+          maxPlayers:   rec?.maxPlayers  ?? 5,
+          isInviteOnly: rec?.isInviteOnly ?? false,
+        };
+      });
     const generic = getActiveGenericTables()
-      .filter(t => t.humanCount > 0);
+      .filter(t => t.humanCount > 0)
+      .map(t => {
+        const rec = tables.get(t.tableId);
+        return {
+          tableId:      t.tableId,
+          modeId:       t.modeId,
+          humanCount:   t.humanCount,
+          phase:        t.phase,
+          maxPlayers:   rec?.maxPlayers  ?? 5,
+          isInviteOnly: rec?.isInviteOnly ?? false,
+        };
+      });
     const all = [
       ...badugi,
       ...generic.sort((a, b) => b.humanCount - a.humanCount),

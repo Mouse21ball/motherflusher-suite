@@ -503,16 +503,16 @@
 }
 
 .player-avatar-circle.is-self {
-  width: 42px;
-  height: 42px;
-  font-size: 16px;
+  width: 54px;
+  height: 54px;
+  font-size: 18px;
 }
 
-/* Badugi/Dead7 opponent pods — enlarged variant (~35% larger than base) */
+/* Badugi/Dead7 opponent pods — enlarged variant (~35%+25% larger than base) */
 .player-avatar-circle.is-enlarged {
-  width: 38px;
-  height: 38px;
-  font-size: 15px;
+  width: 48px;
+  height: 48px;
+  font-size: 19px;
 }
 
 /* ── Chip amount — Oswald display font for impact ────────────────────────── */

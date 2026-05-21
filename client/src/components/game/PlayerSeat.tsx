@@ -364,7 +364,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         key={isActive ? `active-${turnOnsetKey}` : 'idle'}
         className={cn(
         cn("relative w-full rounded-xl p-2 border shadow-lg z-20 flex flex-col items-center transition-all duration-200",
-          !isSelf && enlarged ? "min-w-[124px]" : "min-w-[100px]"),
+          !isSelf && enlarged ? "min-w-[155px]" : "min-w-[100px]"),
         chipFlash && isSelf && selfWonRef.current && "brightness-[1.04]",
         isSelf ? "bg-[#0e0e11]" : "bg-[#09090c]",
         isActive && !showdownState
@@ -409,7 +409,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             {/* Name + badges */}
             <div className="flex items-center gap-1">
               <div className={cn(
-                !isSelf && enlarged ? "text-[15px] truncate font-sans leading-tight" : "text-sm truncate font-sans leading-tight",
+                !isSelf && enlarged ? "text-[19px] truncate font-sans leading-tight" : "text-sm truncate font-sans leading-tight",
                 isSelf ? "font-semibold text-white/90"
                   : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
                   : player.presence === 'human' ? "font-semibold text-white/85"
@@ -426,7 +426,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             </div>
             {/* Chips */}
             <div className={cn(
-              !isSelf && enlarged ? "chip-amount-text text-[13px] flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5" : "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
+              !isSelf && enlarged ? "chip-amount-text text-[16px] flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5" : "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
               sessionDelta > 75
                 ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
                 : sessionDelta < -75

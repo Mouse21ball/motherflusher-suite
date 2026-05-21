@@ -101,17 +101,19 @@ const MODES = [
 // ── Live table browser ────────────────────────────────────────────────────────
 
 interface LiveTableEntry {
-  tableId:    string;
-  modeId:     string;
-  humanCount: number;
-  phase:      string;
+  tableId:     string;
+  modeId:      string;
+  humanCount:  number;
+  phase:       string;
+  maxPlayers:  number;
+  isInviteOnly: boolean;
 }
 
-const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string }> = {
-  badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi'     },
-  dead7:       { name: 'Dead 7',        abbrev: 'D7', color: '#ef4444', path: '/dead7'      },
-  fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35'  },
-  suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker' },
+const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string; icon: string; stakes: string }> = {
+  badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi',     icon: '/mode-icon-badugi.png',    stakes: '$25 ante' },
+  dead7:       { name: 'Dead 7',        abbrev: 'D7', color: '#ef4444', path: '/dead7',      icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
+  fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35',  icon: '/mode-icon-fifteen35.png', stakes: '$50 ante' },
+  suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker', icon: '/mode-icon-suits.png',     stakes: '$50 ante' },
 };
 
 function phaseLabel(phase: string): string {
@@ -125,9 +127,18 @@ function phaseLabel(phase: string): string {
   return 'In Play';
 }
 
+const LIVE_TABS = [
+  { id: 'all',        label: 'All'   },
+  { id: 'badugi',     label: 'Badugi' },
+  { id: 'dead7',      label: 'Dead 7' },
+  { id: 'fifteen35',  label: '15/35'  },
+  { id: 'suits_poker',label: 'Suits'  },
+] as const;
+
 function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: string) => void }) {
-  const [tables, setTables] = useState<LiveTableEntry[]>([]);
-  const [ready,  setReady]  = useState(false);
+  const [tables,    setTables]    = useState<LiveTableEntry[]>([]);
+  const [ready,     setReady]     = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('all');
 
   const fetchTables = useCallback(async () => {
     try {
@@ -145,7 +156,16 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
 
   if (!ready) return null;
 
-  const hasActive = tables.length > 0;
+  const publicTables = tables
+    .filter(t => !t.isInviteOnly)
+    .sort((a, b) => b.humanCount - a.humanCount);
+
+  const filteredTables = activeTab === 'all'
+    ? publicTables
+    : publicTables.filter(t => t.modeId === activeTab);
+
+  const tabHasActive = (id: string) =>
+    id === 'all' ? publicTables.length > 0 : publicTables.some(t => t.modeId === id);
 
   return (
     <div className="flex flex-col gap-2.5" data-testid="section-live-tables">
@@ -154,56 +174,147 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
         <div
           className="w-2 h-2 rounded-full shrink-0"
           style={{
-            backgroundColor: hasActive ? '#10b981' : '#444',
-            boxShadow: hasActive ? '0 0 6px #10b981' : 'none',
-            animation: hasActive ? 'pulse 2s infinite' : 'none',
+            backgroundColor: publicTables.length > 0 ? '#10b981' : '#444',
+            boxShadow:        publicTables.length > 0 ? '0 0 6px #10b981' : 'none',
+            animation:        publicTables.length > 0 ? 'pulse 2s infinite' : 'none',
           }}
         />
         <span className="text-sm font-bold text-white/90 tracking-wide font-sans">LIVE TABLES</span>
         <span className="text-[10px] font-mono text-white/30 ml-0.5">Join a game in progress</span>
         <div className="flex-1" />
+        {publicTables.length > 0 && (
+          <span className="text-[10px] font-mono text-white/35 tabular-nums">
+            {publicTables.length} open
+          </span>
+        )}
+      </div>
+
+      {/* Mode filter tabs */}
+      <div
+        className="flex gap-1.5 overflow-x-auto pb-0.5"
+        style={{ scrollbarWidth: 'none' } as React.CSSProperties}
+      >
+        {LIVE_TABS.map(tab => {
+          const active     = activeTab === tab.id;
+          const modeColor  = tab.id === 'all' ? '#C9A227' : (LIVE_MODE_INFO[tab.id]?.color ?? '#C9A227');
+          const hasEntries = tabHasActive(tab.id);
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              data-testid={`tab-live-${tab.id}`}
+              className="shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider transition-all active:scale-95"
+              style={{
+                background:  active ? modeColor + '22' : 'rgba(255,255,255,0.04)',
+                border:      `1px solid ${active ? modeColor + '55' : 'rgba(255,255,255,0.08)'}`,
+                color:       active ? modeColor : 'rgba(255,255,255,0.35)',
+              }}
+            >
+              {tab.label}
+              {hasEntries && (
+                <span
+                  className="w-1 h-1 rounded-full"
+                  style={{ background: active ? modeColor : '#10b981' }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Empty state */}
-      {!hasActive && (
+      {filteredTables.length === 0 && (
         <p className="text-center text-xs font-mono text-white/30 py-2">
-          No tables open. Start one from a mode above.
+          {activeTab === 'all'
+            ? 'No public tables open. Start one above.'
+            : `No ${LIVE_MODE_INFO[activeTab]?.name ?? activeTab} tables open.`}
         </p>
       )}
 
-      {/* Horizontal scroll row */}
-      {hasActive && (
-        <div
-          className="flex gap-2 overflow-x-auto pb-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-        >
-          {tables.slice(0, 8).map(table => {
-            const info    = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/' };
-            const isOpen  = table.phase === 'WAITING';
+      {/* Table list */}
+      {filteredTables.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {filteredTables.slice(0, 8).map(table => {
+            const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '?', color: '#A0A0B8', path: '/', icon: '', stakes: '' };
+            const isFull = table.humanCount >= table.maxPlayers;
+            const isOpen = table.phase === 'WAITING';
             return (
               <button
                 key={`${table.modeId}-${table.tableId}`}
-                onClick={() => onJoin(table.modeId, table.tableId)}
-                className="flex-shrink-0 flex flex-col gap-1.5 rounded-xl p-3 border text-left transition-all active:scale-[0.96]"
-                style={{ minWidth: '110px', background: info.color + '12', borderColor: info.color + '40' }}
+                onClick={() => !isFull && onJoin(table.modeId, table.tableId)}
+                disabled={isFull}
                 data-testid={`button-join-table-${table.tableId}`}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 border text-left transition-all active:scale-[0.98]"
+                style={{
+                  background:   isFull ? 'rgba(255,255,255,0.03)' : info.color + '0e',
+                  borderColor:  isFull ? 'rgba(255,255,255,0.06)' : info.color + '35',
+                  opacity:      isFull ? 0.55 : 1,
+                  cursor:       isFull ? 'default' : 'pointer',
+                }}
               >
-                <div className="flex items-center gap-1.5">
-                  {isOpen && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: info.color }} />}
-                  <span className="text-[11px] font-bold leading-none" style={{ color: info.color }}>{info.name}</span>
+                {/* Mode icon badge */}
+                {info.icon && (
+                  <img
+                    src={info.icon}
+                    alt={info.name}
+                    className="w-8 h-8 object-contain shrink-0"
+                    style={{ filter: `drop-shadow(0 0 4px ${info.color}55)` }}
+                  />
+                )}
+
+                {/* Text info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 leading-none mb-1">
+                    <span className="text-[12px] font-bold" style={{ color: info.color }}>
+                      {info.name}
+                    </span>
+                    <span
+                      className="font-mono text-[9px] text-white/25 tracking-widest"
+                      data-testid={`text-live-table-code-${table.tableId}`}
+                    >
+                      {table.tableId}
+                    </span>
+                    {isOpen && (
+                      <span
+                        className="text-[8px] font-bold font-mono uppercase px-1 py-px rounded"
+                        style={{ background: info.color + '22', color: info.color }}
+                      >
+                        OPEN
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 leading-none">
+                    <span
+                      className="text-[10px] font-mono tabular-nums"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                      data-testid={`text-live-players-${table.tableId}`}
+                    >
+                      {table.humanCount}/{table.maxPlayers} players
+                    </span>
+                    <span className="text-white/20 text-[9px]">·</span>
+                    <span className="text-[10px] font-mono text-white/35">
+                      {phaseLabel(table.phase)}
+                    </span>
+                    {info.stakes && (
+                      <>
+                        <span className="text-white/20 text-[9px]">·</span>
+                        <span className="text-[10px] font-mono" style={{ color: 'rgba(201,162,39,0.50)' }}>
+                          {info.stakes}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <span
-                  className="font-mono font-bold text-[11px] tracking-widest leading-none"
-                  style={{ color: info.color + 'bb' }}
-                  data-testid={`text-live-table-code-${table.tableId}`}
+
+                {/* Join / Full pill */}
+                <div
+                  className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono uppercase"
+                  style={{
+                    background: isFull ? 'rgba(255,255,255,0.05)' : info.color + '22',
+                    color:      isFull ? 'rgba(255,255,255,0.28)' : info.color,
+                  }}
                 >
-                  {table.tableId}
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-mono font-bold tabular-nums" style={{ color: info.color + 'cc' }}>
-                    {table.humanCount}/5
-                  </span>
-                  <span className="text-[9px] font-mono text-white/30">{phaseLabel(table.phase)}</span>
+                  {isFull ? 'FULL' : 'JOIN'}
                 </div>
               </button>
             );
@@ -225,7 +336,8 @@ function syncXPFromHistory(): void {
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [showPrivateSetup, setShowPrivateSetup] = useState(false);
+  const [showPrivateSetup,  setShowPrivateSetup]  = useState(false);
+  const [showOpenTableModal, setShowOpenTableModal] = useState(false);
 
   const identity    = ensurePlayerIdentity();
   const initials    = getAvatarInitials(identity.name);
@@ -322,7 +434,7 @@ export default function Home() {
       if (res.ok) {
         const all: LiveTableEntry[] = await res.json();
         const joinable = all
-          .filter(t => t.modeId === engineModeId && t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < 5)
+          .filter(t => t.modeId === engineModeId && t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < (t.maxPlayers ?? 5) && !t.isInviteOnly)
           .sort((a, b) => b.humanCount - a.humanCount)[0];
         if (joinable) { navigate(`${path}?t=${joinable.tableId}`); return; }
       }
@@ -733,14 +845,14 @@ export default function Home() {
               </span>
             </div>
             <p className="text-xs text-white/45 leading-relaxed mb-3">
-              Open a public Badugi table or share a private code with your crew.
+              Open a public table in any mode, or share a private code with your crew.
             </p>
 
             {/* Buttons */}
             <div className="grid grid-cols-2 gap-2.5">
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => { track({ name: 'crew_table_opened', mode: 'badugi' }); navigate('/badugi'); }}
+                  onClick={() => setShowOpenTableModal(true)}
                   className="w-full h-11 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
                   style={{
                     backgroundColor: '#10b981',
@@ -751,7 +863,7 @@ export default function Home() {
                 >
                   Open a Table
                 </button>
-                <span className="text-[9px] font-mono text-white/22 text-center">Public · anyone can join</span>
+                <span className="text-[9px] font-mono text-white/22 text-center">Public · pick any mode</span>
               </div>
               <div className="flex flex-col gap-1">
                 <button
@@ -865,6 +977,94 @@ export default function Home() {
     </div>
 
     <PrivateTableSetup open={showPrivateSetup} onClose={() => setShowPrivateSetup(false)} />
+
+    {/* ── Open Table Mode Picker ────────────────────────────────────────────── */}
+    {showOpenTableModal && (
+      <div
+        className="fixed inset-0 z-[100] flex items-end justify-center"
+        style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+        onClick={() => setShowOpenTableModal(false)}
+      >
+        <div
+          className="w-full max-w-lg rounded-t-2xl p-5 pb-8"
+          style={{
+            background: 'linear-gradient(180deg, #111116 0%, #0d0d11 100%)',
+            border: '1px solid rgba(245,158,11,0.18)',
+            borderBottom: 'none',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Drag handle */}
+          <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+
+          {/* Title */}
+          <div className="text-center mb-5">
+            <h2
+              className="text-base font-black tracking-[0.12em] text-white"
+              style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif' }}
+            >
+              OPEN A TABLE
+            </h2>
+            <p className="text-[11px] font-mono text-white/40 mt-1">
+              Pick a mode — a public table opens instantly
+            </p>
+          </div>
+
+          {/* Mode grid */}
+          <div className="grid grid-cols-4 gap-2 mb-5">
+            {MODES.map(mode => (
+              <button
+                key={mode.id}
+                data-testid={`button-open-table-mode-${mode.id}`}
+                className="flex flex-col items-center active:scale-95 transition-transform"
+                style={{
+                  background:   'linear-gradient(180deg, rgba(40,28,8,0.85) 0%, rgba(20,12,2,0.92) 100%)',
+                  border:       '1px solid rgba(80,55,15,0.45)',
+                  borderRadius: 6,
+                  padding:      '8px 4px 7px',
+                  cursor:       'pointer',
+                }}
+                onClick={() => {
+                  setShowOpenTableModal(false);
+                  track({ name: 'crew_table_opened', mode: mode.id as 'badugi' });
+                  navigateToMode(mode.id, mode.path);
+                }}
+              >
+                <img
+                  src={mode.icon}
+                  alt={mode.name}
+                  style={{ width: 40, height: 40, objectFit: 'contain', filter: 'brightness(0.95)' }}
+                />
+                <span
+                  style={{
+                    fontFamily:    'Impact, "Arial Narrow Bold", Arial, sans-serif',
+                    fontSize:      '0.52rem',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color:         'rgba(210,165,55,0.90)',
+                    marginTop:     4,
+                    textAlign:     'center',
+                    lineHeight:    1.2,
+                  }}
+                >
+                  {mode.name}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Cancel */}
+          <button
+            className="w-full py-2.5 rounded-xl text-xs font-bold border border-white/10 text-white/38 transition-all active:scale-[0.98]"
+            style={{ background: 'rgba(255,255,255,0.04)' }}
+            onClick={() => setShowOpenTableModal(false)}
+            data-testid="button-open-table-cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
     </>
   );
 }
