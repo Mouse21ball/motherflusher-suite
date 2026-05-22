@@ -24,6 +24,7 @@ import { getContextualHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
+import { useServerProfile } from "@/lib/useServerProfile";
 import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
@@ -57,6 +58,7 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
 function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [, navigate] = useLocation();
+  const { profile: serverProfile } = useServerProfile();
 
   // Navigate home if host kicked this player
   useEffect(() => {
@@ -203,6 +205,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         modeId={modeId}
         gameState={state}
         chips={me?.chips ?? 0}
+        stripes={serverProfile?.stripes ?? 0}
         phase={state.phase}
         onForfeit={() => { if (me) saveChips(modeId, me.chips); }}
         sessionStats={isSpectator ? undefined : sessionStats}

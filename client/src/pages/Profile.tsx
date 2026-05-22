@@ -584,6 +584,26 @@ export default function Profile() {
           ))}
         </div>
 
+        {/* ── Stripes balance ──────────────────────────────────────────────── */}
+        <div
+          className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5"
+          style={{ background: 'rgba(16,8,26,0.80)', border: '1px solid rgba(168,85,247,0.18)' }}
+        >
+          <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 20, height: 20, flexShrink: 0 }} />
+          <div className="flex flex-col gap-0">
+            <div className="text-[8px] font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.50)' }}>STRIPES</div>
+            <div
+              className="text-sm font-bold font-mono tabular-nums leading-tight"
+              style={{ color: '#a855f7' }}
+              data-testid="stat-stripes"
+            >
+              {(serverProfile?.stripes ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="flex-1" />
+          <div className="text-[8px] font-mono uppercase tracking-widest text-right" style={{ color: 'rgba(168,85,247,0.30)' }}>Premium Currency</div>
+        </div>
+
         {/* ── Tab toggle ──────────────────────────────────────────────────── */}
         <div
           className="w-full flex rounded-xl p-0.5 gap-0.5"

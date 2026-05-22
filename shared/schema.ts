@@ -8,6 +8,7 @@ export const playerProfiles = pgTable("player_profiles", {
   id:                 text("id").primaryKey(),
   displayName:        text("display_name").notNull().default("Guest"),
   chipBalance:        integer("chip_balance").notNull().default(1000),
+  stripes:            integer("stripes").notNull().default(0),
   activeTableId:      text("active_table_id"),
   activeSeatId:       text("active_seat_id"),
   activeModeId:       text("active_mode_id"),
@@ -35,6 +36,18 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
 export type PlayerProfile = typeof playerProfiles.$inferSelect;
+
+// ─── Stripe Transactions (audit log) ─────────────────────────────────────────
+export const stripeTransactions = pgTable("stripe_transactions", {
+  id:           serial("id").primaryKey(),
+  playerId:     text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  amount:       integer("amount").notNull(),
+  reason:       text("reason").notNull(),
+  balanceAfter: integer("balance_after").notNull(),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+});
+
+export type StripeTransaction = typeof stripeTransactions.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

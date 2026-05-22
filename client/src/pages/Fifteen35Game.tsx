@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useLocation } from "wouter";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
+import { useServerProfile } from "@/lib/useServerProfile";
 import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
@@ -173,9 +174,9 @@ function MetalBtn({
 
 // ── Top status bar ────────────────────────────────────────────────────────────
 function F35StatusBar({
-  ante, humanCount, totalSeats, pot, onChat, onLeave,
+  ante, humanCount, totalSeats, pot, stripes, onChat, onLeave,
 }: {
-  ante: number; humanCount: number; totalSeats: number; pot: number;
+  ante: number; humanCount: number; totalSeats: number; pot: number; stripes?: number;
   onChat: () => void; onLeave: () => void;
 }) {
   return (
@@ -203,6 +204,20 @@ function F35StatusBar({
         <div className="w-px h-6 mx-3" style={{ background: 'rgba(255,255,255,0.07)' }} />
         <StatBlk label="POT" value={pot > 0 ? `$${pot.toLocaleString()}` : '—'} gold={pot > 0} />
       </div>
+
+      {/* Stripes badge */}
+      {stripes !== undefined && (
+        <div
+          className="flex-shrink-0 flex items-center gap-0.5"
+          style={{ padding: '3px 7px', borderRadius: 7, background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.22)' }}
+          data-testid="display-stripes-f35"
+        >
+          <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#a855f7', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+            {stripes.toLocaleString()}
+          </span>
+        </div>
+      )}
 
       {/* Leave icon */}
       <button
@@ -858,6 +873,7 @@ export default function Fifteen35Game() {
   }, [tableId]);
 
   const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'fifteen35');
+  const { profile: serverProfile } = useServerProfile();
 
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, '15/35');
@@ -1011,6 +1027,7 @@ export default function Fifteen35Game() {
         humanCount={humanCount}
         totalSeats={totalSeats}
         pot={state.pot}
+        stripes={serverProfile?.stripes ?? 0}
         onChat={() => setChatOpen(true)}
         onLeave={() => { if (me) saveChips('fifteen35', me.chips); navigate('/'); }}
       />

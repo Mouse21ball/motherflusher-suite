@@ -27,6 +27,7 @@ interface GameStatusBarProps {
   modeId: string;
   gameState: GameState;
   chips: number;
+  stripes?: number;
   phase: GamePhase;
   onForfeit?: () => void;
   sessionStats?: GameSessionStats;
@@ -45,7 +46,7 @@ function PillGroup({ label, value, valueClass = '' }: { label: string; value: st
   );
 }
 
-export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
+export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -98,8 +99,20 @@ export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sess
           <PillGroup label="POT" value={`$${pot}`} valueClass="text-sm font-bold text-[#C9A227]" />
         </div>
 
-        {/* Right — chat + snapshot */}
+        {/* Right — stripes + chat + snapshot */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {stripes !== undefined && (
+            <div
+              className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg shrink-0"
+              style={{ background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.22)' }}
+              data-testid="display-stripes-topbar"
+            >
+              <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
+              <span className="text-[9px] font-mono tabular-nums leading-none" style={{ color: '#a855f7' }}>
+                {stripes.toLocaleString()}
+              </span>
+            </div>
+          )}
           {onOpenChat && (
             <button
               onClick={onOpenChat}
@@ -146,14 +159,23 @@ export function GameStatusBar({ modeId, gameState, chips, phase, onForfeit, sess
                 </div>
               )}
 
-              {/* Chip stack + session */}
+              {/* Chip stack + session + stripes */}
               <div className="flex flex-col gap-0.5 pb-4 border-b border-white/[0.06]">
                 <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">Your Stack</span>
-                <span className="text-xl font-mono font-bold text-[#C9A227] tabular-nums">${chips}</span>
+                <span className="text-xl font-mono font-bold text-[#C9A227] tabular-nums">${chips.toLocaleString()}</span>
                 {sessionStats && (
                   <span className={`text-[11px] font-mono font-semibold tabular-nums ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}>
                     {sessionStats.netProfit >= 0 ? '+' : ''}${sessionStats.netProfit} this session
                   </span>
+                )}
+                {stripes !== undefined && (
+                  <div className="flex items-center gap-1.5 mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,85,247,0.12)' }}>
+                    <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 13, height: 13 }} />
+                    <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.45)' }}>Stripes</span>
+                    <span className="text-sm font-mono font-semibold tabular-nums ml-auto" style={{ color: '#a855f7' }}>
+                      {stripes.toLocaleString()}
+                    </span>
+                  </div>
                 )}
               </div>
 

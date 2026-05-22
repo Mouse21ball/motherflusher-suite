@@ -728,13 +728,23 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right: chips balance */}
+            {/* Right: chips balance + stripes */}
             <div className="text-right shrink-0">
               <div
                 className="text-lg sm:text-xl font-bold font-mono tabular-nums text-emerald-400 leading-none"
                 data-testid="text-bankroll"
               >
                 ${displayChips.toLocaleString()}
+              </div>
+              <div className="flex items-center justify-end gap-1 mt-0.5">
+                <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 11, height: 11 }} />
+                <span
+                  className="text-[11px] font-mono tabular-nums leading-none"
+                  style={{ color: '#a855f7' }}
+                  data-testid="text-stripes-lobby"
+                >
+                  {(serverProfile?.stripes ?? 0).toLocaleString()}
+                </span>
               </div>
             </div>
           </button>

@@ -15,6 +15,7 @@ export interface ServerProfile {
   profileId:        string;
   displayName:      string;
   chipBalance:      number;
+  stripes:          number;
   handsPlayed:      number;
   lifetimeProfit:   number;
   level:            number;

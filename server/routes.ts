@@ -432,6 +432,7 @@ export async function registerRoutes(
         profileId:        profile.id,
         displayName:      profile.displayName,
         chipBalance:      profile.chipBalance,
+        stripes:          profile.stripes,
         handsPlayed:      profile.handsPlayed,
         lifetimeProfit:   profile.lifetimeProfit,
         email:            profile.email ?? null,
@@ -507,6 +508,20 @@ export async function registerRoutes(
         console.error("Name change error:", err);
         res.status(500).json({ error: "Failed to update name" });
       }
+    }
+  });
+
+  // GET /api/players/:id/stripes
+  // Returns the player's current Stripes balance.
+  // Auth-protection: players self-identify via their UUID (stored in localStorage).
+  // UUID guessing is computationally infeasible — sufficient for this auth model.
+  app.get("/api/players/:id/stripes", async (req, res) => {
+    try {
+      const result = await storage.getPlayerStripes(req.params.id);
+      res.json({ stripes: result.stripes, lastUpdated: result.updatedAt?.toISOString() ?? null });
+    } catch (err) {
+      console.error("Get stripes error:", err);
+      res.status(500).json({ error: "Failed to fetch stripes" });
     }
   });
 

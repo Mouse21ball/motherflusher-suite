@@ -2,7 +2,7 @@ import {
   type User, type InsertUser,
   type InsertAnalyticsEvent, type AnalyticsEvent,
   type PlayerProfile,
-  analyticsEvents, playerProfiles,
+  analyticsEvents, playerProfiles, stripeTransactions,
 } from "@shared/schema";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -49,6 +49,10 @@ export interface IStorage {
   // ── Guest reset job ────────────────────────────────────────────────────────
   getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]>;
   resetGuestAccount(id: string): Promise<void>;
+  // ── Stripes ────────────────────────────────────────────────────────────────
+  getPlayerStripes(id: string): Promise<{ stripes: number; updatedAt: Date | null }>;
+  creditStripes(playerId: string, amount: number, reason: string): Promise<number>;
+  debitStripes(playerId: string, amount: number, reason: string): Promise<boolean>;
 }
 
 export interface DailyStats {
@@ -188,6 +192,7 @@ export class MemStorage implements IStorage {
       id,
       displayName: displayName ?? "Guest",
       chipBalance: 25000,
+      stripes: 0,
       activeTableId: null,
       activeSeatId: null,
       activeModeId: null,
@@ -355,6 +360,63 @@ export class MemStorage implements IStorage {
           isNull(playerProfiles.passwordHash)
         )
       );
+  }
+  // ── Stripes ────────────────────────────────────────────────────────────────
+
+  async getPlayerStripes(id: string): Promise<{ stripes: number; updatedAt: Date | null }> {
+    const rows = await db
+      .select({ stripes: playerProfiles.stripes, updatedAt: playerProfiles.updatedAt })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    if (!rows[0]) return { stripes: 0, updatedAt: null };
+    return { stripes: rows[0].stripes, updatedAt: rows[0].updatedAt };
+  }
+
+  async creditStripes(playerId: string, amount: number, reason: string): Promise<number> {
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!rows[0]) throw new Error(`Player ${playerId} not found`);
+      const newBalance = rows[0].stripes + amount;
+      await tx
+        .update(playerProfiles)
+        .set({ stripes: newBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await tx.insert(stripeTransactions).values({
+        playerId,
+        amount,
+        reason,
+        balanceAfter: newBalance,
+      });
+      return newBalance;
+    });
+  }
+
+  async debitStripes(playerId: string, amount: number, reason: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!rows[0] || rows[0].stripes < amount) return false;
+      const newBalance = rows[0].stripes - amount;
+      await tx
+        .update(playerProfiles)
+        .set({ stripes: newBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await tx.insert(stripeTransactions).values({
+        playerId,
+        amount: -amount,
+        reason,
+        balanceAfter: newBalance,
+      });
+      return true;
+    });
   }
 }
 
