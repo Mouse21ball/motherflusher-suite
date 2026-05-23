@@ -28,10 +28,12 @@ import {
   shouldShowStarterPack,
 } from '@/lib/retention';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
+import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
 
 // ── Tier badge asset map ───────────────────────────────────────────────────────
@@ -348,7 +350,7 @@ export default function Home() {
   const [progression, setProgression] = useState(() => getProgression());
   const levelInfo = getLevelInfo(progression.xp);
 
-  const { profile: serverProfile } = useServerProfile();
+  const { profile: serverProfile, refetch } = useServerProfile();
 
   const chipMap    = getAllChips();
   const stats      = getPlayerStats();
@@ -361,6 +363,9 @@ export default function Home() {
   const progressPct = Math.round(levelInfo.progress * 100);
 
   const [dailyOpen,        setDailyOpen]        = useState(false);
+  const [dailyBonusCalOpen, setDailyBonusCalOpen] = useState(false);
+  const [serverBonusCanClaim, setServerBonusCanClaim] = useState<boolean | null>(null);
+  const [serverBonusStreakDay, setServerBonusStreakDay] = useState(1);
   const [hourlyOpen,       setHourlyOpen]        = useState(false);
   const [starterOpen,      setStarterOpen]       = useState(false);
   const [rewardReady,      setRewardReady]       = useState(isRewardAvailable);
@@ -395,6 +400,38 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch server-authoritative daily bonus status on mount
+  useEffect(() => {
+    const identity = ensurePlayerIdentity();
+    apiFetch(apiUrl(`/api/players/${identity.id}/daily-bonus/status`))
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { canClaim: boolean; currentStreakDay: number } | null) => {
+        if (data) {
+          setServerBonusCanClaim(data.canClaim);
+          setServerBonusStreakDay(data.currentStreakDay);
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDailyBonusClaimed = useCallback(
+    (_chips: number, _stripes: number, newChipBalance: number, newStripesBalance: number) => {
+      setServerBonusCanClaim(false);
+      // Trigger server profile refetch so header balances update
+      refetch();
+      // Also update localStorage chips so game modes see the new balance
+      const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
+      for (const modeId of modes) {
+        try {
+          const key = `pt_chips_${modeId}`;
+          localStorage.setItem(key, String(newChipBalance));
+        } catch {}
+      }
+      void newStripesBalance; // balance visible via server profile
+    },
+    [refetch],
+  );
 
   const handleDailyClose = useCallback(() => {
     setDailyOpen(false);
@@ -543,8 +580,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Modals (logic unchanged) ──────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────────────── */}
       <DailyRewardModal open={dailyOpen}   onClose={handleDailyClose}   />
+      <DailyBonusCalendarModal
+        open={dailyBonusCalOpen}
+        onClose={() => setDailyBonusCalOpen(false)}
+        onClaimed={handleDailyBonusClaimed}
+      />
       <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} />
 
@@ -756,26 +798,71 @@ export default function Home() {
               background: 'linear-gradient(135deg, rgba(120,53,15,0.38) 0%, rgba(0,0,0,0.42) 100%)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(245,158,11,0.28)',
+              border: serverBonusCanClaim
+                ? '1px solid rgba(240,184,41,0.55)'
+                : '1px solid rgba(245,158,11,0.28)',
+              boxShadow: serverBonusCanClaim
+                ? '0 0 18px rgba(240,184,41,0.12)'
+                : 'none',
             }}
           >
-            {/* Top row: streak + next reward amount */}
+            {/* Top row: streak day + indicator */}
             <div className="flex items-center gap-2">
               <span className="text-lg leading-none">🔥</span>
               <span className="font-bold text-white text-sm">
-                {streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak` : 'Daily Streak'}
+                {serverBonusCanClaim !== null
+                  ? `Day ${serverBonusStreakDay} Ready`
+                  : streakInfo.streak > 0
+                    ? `${streakInfo.streak}-Day Streak`
+                    : 'Daily Streak'}
               </span>
               <div className="flex-1" />
-              <span className="text-sm font-mono font-bold" style={{ color: '#F0B829' }}>
-                Next: +${(streakInfo.nextReward?.chips ?? 1250).toLocaleString()}
-              </span>
+              {serverBonusCanClaim === null && (
+                <span className="text-sm font-mono font-bold" style={{ color: '#F0B829' }}>
+                  Next: +${(streakInfo.nextReward?.chips ?? 500).toLocaleString()}
+                </span>
+              )}
+              {serverBonusCanClaim === true && (
+                <span
+                  className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse"
+                  style={{ background: 'rgba(240,184,41,0.18)', color: '#F0B829', border: '1px solid rgba(240,184,41,0.35)' }}
+                >
+                  READY
+                </span>
+              )}
             </div>
 
             {/* Middle: claim CTA or countdown */}
             <div className="mt-3">
-              {rewardReady ? (
+              {serverBonusCanClaim === true ? (
                 <button
-                  onClick={() => setDailyOpen(true)}
+                  onClick={() => setDailyBonusCalOpen(true)}
+                  className="w-full py-3 rounded-xl font-black text-sm text-black tracking-wider transition-all active:scale-[0.98]"
+                  style={{
+                    background: 'linear-gradient(135deg, #F0B829, #C9A227)',
+                    boxShadow: '0 4px 22px rgba(240,184,41,0.45)',
+                    animation: 'pulse 2s ease-in-out infinite',
+                  }}
+                  data-testid="button-claim-daily-home"
+                >
+                  🎁 CLAIM DAILY BONUS
+                </button>
+              ) : serverBonusCanClaim === false ? (
+                <button
+                  onClick={() => setDailyBonusCalOpen(true)}
+                  className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all active:scale-[0.98]"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: 'rgba(255,255,255,0.45)',
+                  }}
+                  data-testid="button-view-daily-streak"
+                >
+                  📅 View Streak Calendar · Next in {getTimeUntilMidnight()}
+                </button>
+              ) : rewardReady ? (
+                <button
+                  onClick={() => setDailyBonusCalOpen(true)}
                   className="w-full py-3 rounded-xl font-black text-sm text-black tracking-wider transition-all active:scale-[0.98]"
                   style={{
                     background: 'linear-gradient(135deg, #F0B829, #C9A227)',
@@ -783,15 +870,21 @@ export default function Home() {
                   }}
                   data-testid="button-claim-daily-home"
                 >
-                  ⚡ CLAIM DAILY RATION
+                  ⚡ CLAIM DAILY BONUS
                 </button>
               ) : (
-                <div
-                  className="text-center text-xs font-mono py-2"
-                  style={{ color: 'rgba(255,255,255,0.32)' }}
+                <button
+                  onClick={() => setDailyBonusCalOpen(true)}
+                  className="w-full py-2.5 rounded-xl font-semibold text-xs transition-all active:scale-[0.98]"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: 'rgba(255,255,255,0.45)',
+                  }}
+                  data-testid="button-view-daily-streak"
                 >
-                  Next ration in {getTimeUntilMidnight()}
-                </div>
+                  📅 View Streak Calendar · Next in {getTimeUntilMidnight()}
+                </button>
               )}
             </div>
 

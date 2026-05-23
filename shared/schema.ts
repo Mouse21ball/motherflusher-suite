@@ -23,15 +23,22 @@ export const playerProfiles = pgTable("player_profiles", {
   lastNameChangeAt:   timestamp("last_name_change_at"),     // null → never changed
   // ── Guest reset tracking ────────────────────────────────────────────────────
   lastResetAt:        timestamp("last_reset_at"),           // null → never reset
+  // ── Daily bonus streak tracking ─────────────────────────────────────────────
+  lastBonusClaimedAt: timestamp("last_bonus_claimed_at"),   // null → never claimed
+  bonusStreakDay:     integer("bonus_streak_day").notNull().default(1),
+  totalBonusClaims:  integer("total_bonus_claims").notNull().default(0),
   createdAt:          timestamp("created_at").defaultNow().notNull(),
   updatedAt:          timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
-  lastNameChangeAt: true,
-  lastResetAt: true,
-  createdAt: true,
-  updatedAt: true,
+  lastNameChangeAt:   true,
+  lastResetAt:        true,
+  lastBonusClaimedAt: true,
+  bonusStreakDay:     true,
+  totalBonusClaims:  true,
+  createdAt:          true,
+  updatedAt:          true,
 });
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
@@ -86,6 +93,26 @@ export const insertPurchaseTransactionSchema = createInsertSchema(purchaseTransa
 
 export type InsertPurchaseTransaction = z.infer<typeof insertPurchaseTransactionSchema>;
 export type PurchaseTransaction = typeof purchaseTransactions.$inferSelect;
+
+// ─── Daily Bonus Claims (audit log) ──────────────────────────────────────────
+// One row per successful daily bonus claim.
+// streak_day: 1-7 (which day in the cycle was claimed)
+export const dailyBonusClaims = pgTable("daily_bonus_claims", {
+  id:             text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  claimedAt:      timestamp("claimed_at").defaultNow().notNull(),
+  streakDay:      integer("streak_day").notNull(),
+  chipsGranted:   integer("chips_granted").notNull(),
+  stripesGranted: integer("stripes_granted").notNull().default(0),
+});
+
+export const insertDailyBonusClaimSchema = createInsertSchema(dailyBonusClaims).omit({
+  id: true,
+  claimedAt: true,
+});
+
+export type InsertDailyBonusClaim = z.infer<typeof insertDailyBonusClaimSchema>;
+export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

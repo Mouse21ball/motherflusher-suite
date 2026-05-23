@@ -5,6 +5,7 @@ import {
   type Session,
   type PurchaseTransaction,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
+  dailyBonusClaims,
 } from "@shared/schema";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -55,6 +56,9 @@ export interface IStorage {
   getPlayerStripes(id: string): Promise<{ stripes: number; updatedAt: Date | null }>;
   creditStripes(playerId: string, amount: number, reason: string): Promise<number>;
   debitStripes(playerId: string, amount: number, reason: string): Promise<boolean>;
+  // ── Daily bonus ────────────────────────────────────────────────────────────
+  getDailyBonusStatus(playerId: string): Promise<DailyBonusStatus>;
+  claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult>;
   // ── Sessions ───────────────────────────────────────────────────────────────
   createSession(playerId: string, expiresAt: Date): Promise<string>;
   getSession(token: string): Promise<Session | undefined>;
@@ -80,6 +84,23 @@ export interface IStorage {
   debitStripesForRefund(playerId: string, amount: number, purchaseTransactionId: string): Promise<void>;
 }
 
+// ─── Daily bonus types ────────────────────────────────────────────────────────
+export interface DailyBonusStatus {
+  canClaim:             boolean;
+  currentStreakDay:     number; // day to claim (canClaim=true) or day already claimed (canClaim=false)
+  nextClaimAvailableAt: Date;
+  todaysReward:         { chips: number; stripes: number };
+}
+
+export interface DailyBonusClaimResult {
+  chipsGranted:         number;
+  stripesGranted:       number;
+  newStreakDay:         number;
+  nextClaimAvailableAt: Date;
+  newChipBalance:       number;
+  newStripesBalance:    number;
+}
+
 export interface DailyStats {
   date: string;
   uniquePlayers: number;
@@ -87,6 +108,40 @@ export interface DailyStats {
   avgSessionMs: number;
   modeBreakdown: Record<string, number>;
   returningPlayers: number;
+}
+
+// ─── Daily bonus helpers (module-scope so class methods can reference them) ────
+
+const DAILY_BONUS_SCHEDULE = [
+  { day: 1, chips: 500,   stripes: 0  },
+  { day: 2, chips: 750,   stripes: 0  },
+  { day: 3, chips: 1_000, stripes: 0  },
+  { day: 4, chips: 1_500, stripes: 0  },
+  { day: 5, chips: 2_000, stripes: 5  },
+  { day: 6, chips: 3_000, stripes: 0  },
+  { day: 7, chips: 5_000, stripes: 15 },
+] as const;
+
+function utcDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function tomorrowUtcMidnight(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+}
+
+function bonusCanClaimToday(lastBonusClaimedAt: Date | null): boolean {
+  if (!lastBonusClaimedAt) return true;
+  return utcDateStr(lastBonusClaimedAt) < utcDateStr(new Date());
+}
+
+function computeNextStreakDay(lastBonusClaimedAt: Date | null, currentStreakDay: number): number {
+  if (!lastBonusClaimedAt) return 1;
+  const lastDate  = utcDateStr(lastBonusClaimedAt);
+  const yesterday = utcDateStr(new Date(Date.now() - 86_400_000));
+  if (lastDate === yesterday) return currentStreakDay >= 7 ? 1 : currentStreakDay + 1;
+  return 1;
 }
 
 export class MemStorage implements IStorage {
@@ -228,7 +283,10 @@ export class MemStorage implements IStorage {
       passwordHash: null,
       avatarId: null,
       lastNameChangeAt: null,
-      lastResetAt: null,
+      lastResetAt:        null,
+      lastBonusClaimedAt: null,
+      bonusStreakDay:     1,
+      totalBonusClaims:  0,
       createdAt: now,
       updatedAt: now,
     };
@@ -549,6 +607,105 @@ export class MemStorage implements IStorage {
         .update(purchaseTransactions)
         .set({ verificationStatus: "refunded" })
         .where(eq(purchaseTransactions.id, purchaseTransactionId));
+    });
+  }
+
+  // ── Daily bonus ─────────────────────────────────────────────────────────────
+
+  async getDailyBonusStatus(playerId: string): Promise<DailyBonusStatus> {
+    const rows = await db
+      .select({
+        lastBonusClaimedAt: playerProfiles.lastBonusClaimedAt,
+        bonusStreakDay:     playerProfiles.bonusStreakDay,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+
+    if (!rows[0]) throw new Error(`Player ${playerId} not found`);
+    const { lastBonusClaimedAt, bonusStreakDay } = rows[0];
+
+    const canClaim  = bonusCanClaimToday(lastBonusClaimedAt);
+    const displayDay = canClaim
+      ? computeNextStreakDay(lastBonusClaimedAt, bonusStreakDay)
+      : bonusStreakDay;
+    const rewardDay  = displayDay;
+    const reward     = DAILY_BONUS_SCHEDULE[rewardDay - 1];
+
+    return {
+      canClaim,
+      currentStreakDay:     displayDay,
+      nextClaimAvailableAt: tomorrowUtcMidnight(),
+      todaysReward:         { chips: reward.chips, stripes: reward.stripes },
+    };
+  }
+
+  async claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult> {
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({
+          chipBalance:        playerProfiles.chipBalance,
+          stripes:            playerProfiles.stripes,
+          lastBonusClaimedAt: playerProfiles.lastBonusClaimedAt,
+          bonusStreakDay:     playerProfiles.bonusStreakDay,
+          totalBonusClaims:  playerProfiles.totalBonusClaims,
+        })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+
+      if (!rows[0]) throw Object.assign(new Error(`Player ${playerId} not found`), { code: "NOT_FOUND" });
+      const player = rows[0];
+
+      // Idempotency — reject if already claimed today
+      const today = utcDateStr(new Date());
+      if (player.lastBonusClaimedAt && utcDateStr(player.lastBonusClaimedAt) === today) {
+        throw Object.assign(new Error("Already claimed today"), { code: "ALREADY_CLAIMED" });
+      }
+
+      const newStreakDay      = computeNextStreakDay(player.lastBonusClaimedAt, player.bonusStreakDay);
+      const reward            = DAILY_BONUS_SCHEDULE[newStreakDay - 1];
+      const now               = new Date();
+      const newChipBalance    = player.chipBalance + reward.chips;
+      const newStripesBalance = player.stripes + reward.stripes;
+
+      await tx
+        .update(playerProfiles)
+        .set({
+          chipBalance:        newChipBalance,
+          stripes:            newStripesBalance,
+          lastBonusClaimedAt: now,
+          bonusStreakDay:     newStreakDay,
+          totalBonusClaims:  player.totalBonusClaims + 1,
+          updatedAt:          now,
+        })
+        .where(eq(playerProfiles.id, playerId));
+
+      if (reward.stripes > 0) {
+        await tx.insert(stripeTransactions).values({
+          playerId,
+          amount:       reward.stripes,
+          reason:       `daily_bonus:day_${newStreakDay}`,
+          balanceAfter: newStripesBalance,
+        });
+      }
+
+      await tx.insert(dailyBonusClaims).values({
+        playerId,
+        claimedAt:      now,
+        streakDay:      newStreakDay,
+        chipsGranted:   reward.chips,
+        stripesGranted: reward.stripes,
+      });
+
+      return {
+        chipsGranted:         reward.chips,
+        stripesGranted:       reward.stripes,
+        newStreakDay,
+        nextClaimAvailableAt: tomorrowUtcMidnight(),
+        newChipBalance,
+        newStripesBalance,
+      };
     });
   }
 }

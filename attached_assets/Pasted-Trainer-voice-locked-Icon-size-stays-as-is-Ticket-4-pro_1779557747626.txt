@@ -1,0 +1,194 @@
+Trainer voice — locked. Icon size stays as-is, Ticket 4 prompt incoming. Clean decisions both ways.
+On the icon — fair call. You're the one looking at the screens daily, and players adjust to UI scale fast. Number-first, icon-as-marker is the standard mobile pattern. Skip.
+Ticket 4 is the big strategic move I've been waiting for. Here's the thinking behind it before I hand you the prompt, so you can push back if anything feels off:
+WHY TICKET 4 MATTERS (the strategic context)
+Right now your economy has a broken loop:
+Players can EARN Stripes (Ticket 3 — daily bonus, Day 5 and Day 7 drops)
+Players can BUY Stripes (Ticket 2 — five packs, $0.99 to $99.99)
+Players can SPEND Stripes... on nothing.
+That third leg is missing. Without a Stripes sink, players have no reason to buy. A poker game that sells premium currency you can't spend is a poker game that doesn't sell premium currency. Ticket 4 closes the loop.
+The Profile screen already has a 7-avatar selection system from earlier polish (default + bear/bulldog/cat/fox/gorilla/wolf). Those are free. Ticket 4 adds the premium tier on top — exclusive avatars, profile frames, name color customization, and possibly table skin previews — all purchased with Stripes.
+Pricing strategy in Stripes (designed against the pack tiers):
+Starter Pack ($0.99) gives 60 Stripes → afford a basic cosmetic (~50 Stripes)
+Small Pack ($4.99) gives 300 Stripes → afford a couple mid-tier cosmetics
+Medium Pack ($9.99) gives 650 Stripes → afford an exclusive avatar + frame combo
+Large Pack ($21.99) gives 1,500 Stripes → afford multiple premium items
+Mega Pack ($99.99) gives 8,000 Stripes → afford basically everything in v1
+That gives every pack tier a natural "what does this get me" answer in the player's head when they're staring at the Shop deciding.
+TICKET 4 — COSMETICS / STRIPES SINKS — READY TO SEND
+Copy-paste when Ticket 3 is shipped and verified:
+CHAIN GANG POKER — TICKET 4: COSMETICS STORE (STRIPES SINKS)
+Build the cosmetics catalog that gives players something to spend Stripes on. This closes the economy loop: Stripes can now be earned (daily bonus), bought (Shop), and spent (here). No Google Play Billing involvement — these are internal Stripes-denominated purchases only.
+Core mechanics:
+Players browse a Cosmetics catalog of items priced in Stripes.
+Tapping an item shows preview + price + Buy button.
+Buying debits the player's Stripes balance and grants ownership.
+Owned items can be equipped from the Profile screen.
+All purchases are permanent — players can't refund cosmetics for Stripes back.
+Catalog is server-driven so we can add/remove items without app updates.
+Cosmetic categories for v1:
+Premium Avatars — 4 new exclusive avatars beyond the free 7
+Avatar Frames — decorative borders around the avatar (5 frames)
+Name Colors — colored display names in lobby + at table (4 colors)
+(Skip table skins and animated effects for v1 — those are heavier and can ship in v1.1.)
+Pricing tiers (in Stripes):
+Category
+Item
+Stripes Cost
+Premium Avatar
+Skull Mask
+100
+Premium Avatar
+Crown
+150
+Premium Avatar
+Diamond Chain
+200
+Premium Avatar
+Gold Tooth
+250
+Frame
+Copper Bezel
+80
+Frame
+Silver Bars
+150
+Frame
+Gold Chain
+250
+Frame
+Diamond Studded
+400
+Frame
+Animated Flame
+600
+Name Color
+Silver
+50
+Name Color
+Gold
+100
+Name Color
+Crimson
+150
+Name Color
+Purple Royalty
+200
+Total catalog: 13 items, prices from 50 to 600 Stripes. Roughly aligned with pack tiers — a Small Pack (300 Stripes) buys you ~2 mid-tier items, a Medium Pack (650 Stripes) buys you a Frame + Avatar combo.
+Database schema additions:
+cosmetic_items table (server-controlled catalog):
+id (varchar, e.g., "avatar_skull_mask")
+category (varchar: "avatar", "frame", "name_color")
+display_name (varchar)
+description (varchar)
+stripes_cost (integer)
+asset_path (varchar, e.g., "/cosmetics/avatars/skull-mask.png")
+color_value (varchar, nullable — for name colors, hex code)
+active (boolean, default true)
+created_at (timestamp)
+player_inventory table (what each player owns):
+id (uuid)
+player_id (FK with CASCADE DELETE)
+cosmetic_item_id (FK to cosmetic_items.id)
+acquired_at (timestamp)
+equipped (boolean, default false)
+UNIQUE constraint on (player_id, cosmetic_item_id) — can't own duplicates
+player_profiles additions:
+equipped_avatar_id (varchar, nullable — overrides the free avatar selection if set)
+equipped_frame_id (varchar, nullable)
+equipped_name_color_id (varchar, nullable)
+cosmetic_purchases audit table:
+id, player_id (FK), cosmetic_item_id, stripes_spent, purchased_at
+Seed cosmetic_items on first migration with the 13 v1 items listed above.
+Server endpoints (protected with requireAuth + requireSelf):
+GET /api/cosmetics/catalog
+Returns all active cosmetic items, organized by category
+Public-readable but require auth to access
+GET /api/players/:id/inventory
+Returns the player's owned items + currently equipped items
+requireAuth + requireSelf
+POST /api/players/:id/cosmetics/purchase
+Body: { cosmetic_item_id }
+Validates server-side:
+Item exists and is active
+Player doesn't already own it (idempotent: return 409 if owned)
+Player has enough Stripes
+In a database transaction:
+debitStripes() with reason=cosmetic:item_id
+Insert into player_inventory
+Insert into cosmetic_purchases audit table
+Log a stripe_transactions row (already happens automatically via debitStripes)
+Returns: { success: true, newStripesBalance, ownedItem }
+On insufficient Stripes: 402 Payment Required with current balance
+On already owned: 409 Conflict
+POST /api/players/:id/cosmetics/equip
+Body: { cosmetic_item_id }
+Validates the player owns the item
+Updates the appropriate equipped_X_id field on player_profiles based on item category
+Sets equipped=true on the relevant player_inventory row (and false on previously-equipped same-category item)
+Returns: { success: true, equipped: { avatar, frame, name_color } }
+POST /api/players/:id/cosmetics/unequip
+Body: { category: "avatar" | "frame" | "name_color" }
+Sets the corresponding equipped_X_id back to null
+Client UI:
+COSMETICS button on the lobby — near the SHOP button, similar styling. Tapping opens the cosmetics catalog.
+Cosmetics Catalog screen:
+Header: "COSMETICS" with current Stripes balance prominently displayed
+Tabs/sections for each category: AVATARS, FRAMES, NAME COLORS
+Each item displayed as a card:
+Preview image/swatch
+Display name
+Stripes cost
+State: BUY (not owned), OWNED (owned but not equipped), EQUIPPED (currently active)
+Owned items have a checkmark overlay
+Equipped items have a glowing border
+Tap a card → opens item detail modal
+Item Detail modal:
+Larger preview
+Description
+Stripes cost
+Button: "BUY" (if not owned), "EQUIP" (if owned, not equipped), "EQUIPPED" (disabled, if currently equipped)
+"UNEQUIP" link if currently equipped
+On purchase: confirmation dialog "Spend X Stripes for [Item Name]?" with cost and resulting balance
+Purchase confirmation flow:
+Tap BUY → confirmation dialog
+Tap CONFIRM → server call
+On success: reward animation (less dramatic than billing purchase — Stripes are internal currency, no big confetti), update balance, switch button to EQUIP
+On 402 (insufficient Stripes): show "Not enough Stripes — visit the Shop?" with a button to navigate to the Shop screen
+On 409 (already owned): shouldn't happen via UI, but handle gracefully
+Profile screen integration:
+The existing 7 free avatars stay as the "Free" tab
+Add a "Premium" tab showing owned premium avatars — tap to equip
+Add a Frames section — owned frames listed, tap to equip
+Add a Name Color section — owned colors listed, tap to equip
+Each section has a "More in Cosmetics" link that opens the catalog
+Lobby/in-game rendering:
+Equipped frame renders around the player's avatar everywhere it appears (lobby strip, table, profile)
+Equipped name color applied to the player's display name in lobby and at the table
+Equipped premium avatar overrides the free avatar selection if set
+Edge cases:
+Player buys an item then unequips — they still own it, can re-equip anytime
+Player tries to buy with exactly 0 Stripes — 402 with clear messaging
+Guest player buys cosmetics — purchases reset along with the 24h guest reset (document in the catalog: "Save your progress to keep your cosmetics permanent")
+Server admin needs to retire an item — set active=false, players who own it keep it, but it's removed from catalog browse
+Audit / logging:
+Every purchase writes to cosmetic_purchases AND stripe_transactions (via debitStripes with reason="cosmetic:item_id")
+Every equip/unequip is logged to server console for monitoring
+Do NOT:
+Touch billing, Shop, auth, daily bonus, or any prior ticket work
+Add real-money purchase flows here — cosmetics are Stripes-only
+Skip server-side validation on ownership or balance
+Asset uploads needed from me (Detroit) BEFORE you can complete the visual integration:
+4 premium avatar PNGs (upload to /client/public/cosmetics/avatars/)
+5 frame PNGs (upload to /client/public/cosmetics/frames/)
+Name colors are hex codes, no assets needed
+Ask me to upload these assets at the point in your build where you need them. Until I provide them, use placeholder rectangles with the item names so I can verify the UI structure works.
+When complete, provide a full final report:
+Database schema changes (tables, columns, seeded items)
+Server endpoints created with auth middleware applied
+Client components created/modified
+End-to-end test: buy a cosmetic → verify Stripes debited correctly → verify inventory row inserted → verify stripe_transactions audit row → equip the item → verify it renders on profile and in lobby → unequip and verify reversion
+Confirm 402 path: try to buy with insufficient Stripes
+Confirm 409 path: try to buy an already-owned item
+List the 4 premium avatar + 5 frame PNG assets I need to upload, with exact paths
+Leave uncommitted for my review

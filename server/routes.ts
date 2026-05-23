@@ -564,6 +564,45 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/players/:id/daily-bonus/status
+  // Returns claim availability, current streak day, today's reward, and next claim time.
+  app.get("/api/players/:id/daily-bonus/status", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+      const status = await storage.getDailyBonusStatus(id);
+      res.json(status);
+    } catch (err) {
+      console.error("[daily-bonus] status error:", err);
+      res.status(500).json({ error: "Failed to fetch daily bonus status" });
+    }
+  });
+
+  // POST /api/players/:id/daily-bonus/claim
+  // Atomically credits chips + Stripes, writes audit row, updates streak.
+  // 409 if already claimed today. Server validates — never trusts client.
+  app.post("/api/players/:id/daily-bonus/claim", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+      const result = await storage.claimDailyBonus(id);
+      console.log(
+        `[daily-bonus] claimed player=${id} day=${result.newStreakDay}`,
+        `chips=+${result.chipsGranted} stripes=+${result.stripesGranted}`,
+      );
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      if (err?.code === "ALREADY_CLAIMED") {
+        res.status(409).json({ error: "Already claimed today", code: "ALREADY_CLAIMED" });
+        return;
+      }
+      console.error("[daily-bonus] claim error:", err);
+      res.status(500).json({ error: "Failed to claim daily bonus" });
+    }
+  });
+
   // ── Real-player priority join ──────────────────────────────────────────────
   // GET /api/tables/mode/:modeId/join
   // Returns the best existing public table for a mode (most humans, at least 1 open seat),
