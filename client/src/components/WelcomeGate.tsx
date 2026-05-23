@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
+import { setSessionToken } from "@/lib/session";
 import { BrandBackground } from "./BrandBackground";
 import { track, setUserId } from "@/lib/analytics";
 
@@ -224,6 +225,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         id: data.profileId, name: data.displayName,
         avatarSeed: data.profileId.slice(0, 8), createdAt: Date.now(),
       });
+      if (data.sessionToken) setSessionToken(data.sessionToken);
       onComplete(data.displayName);
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
@@ -251,6 +253,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         id: data.profileId, name: data.displayName,
         avatarSeed: data.profileId.slice(0, 8), createdAt: guest.createdAt,
       });
+      if (data.sessionToken) setSessionToken(data.sessionToken);
       track({ name: 'account_created', from: 'guest' });
       setUserId(data.profileId);
       onComplete(data.displayName);

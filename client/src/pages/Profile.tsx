@@ -19,6 +19,7 @@ import {
 import { useServerProfile } from '@/lib/useServerProfile';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ export default function Profile() {
     if (isGuest) { clearAllLocalData(); window.location.href = '/'; return; }
     try {
       const { apiUrl } = await import('@/lib/apiConfig');
-      const res = await fetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
+      const res = await apiFetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         if (res.status !== 404) { setDeleteError(d.error ?? 'Deletion failed.'); setDeleteBusy(false); return; }
@@ -174,7 +175,7 @@ export default function Profile() {
   const handleSelectAvatar = useCallback(async (avatarId: AvatarOptionId) => {
     setAvatarSaving(true);
     try {
-      await fetch(apiUrl(`/api/players/${identity.id}/avatar`), {
+      await apiFetch(apiUrl(`/api/players/${identity.id}/avatar`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avatarId }),
@@ -213,7 +214,7 @@ export default function Profile() {
     setNameChangeBusy(true);
     setNameChangeError(null);
     try {
-      const res = await fetch(apiUrl(`/api/players/${identity.id}/name`), {
+      const res = await apiFetch(apiUrl(`/api/players/${identity.id}/name`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),

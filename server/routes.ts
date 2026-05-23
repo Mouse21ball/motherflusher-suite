@@ -6,6 +6,8 @@ import { getActiveBadugiTables } from "./gameEngine";
 import { getActiveGenericTables } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
+import { requireAuth, requireSelf } from "./middleware/auth";
+import { STRIPES_PACKS, verifyGooglePlayPurchase, acknowledgeGooglePlayPurchase } from "./billing";
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -276,9 +278,9 @@ export async function registerRoutes(
 
   // GET /api/players/:id/reconnect — check if player has an active table
   // Returns { tableId, seatId, modeId } if present, else { tableId: null }.
-  app.get("/api/players/:id/reconnect", async (req, res) => {
+  app.get("/api/players/:id/reconnect", requireAuth, requireSelf, async (req, res) => {
     try {
-      const profile = await storage.getPlayerProfile(req.params.id);
+      const profile = await storage.getPlayerProfile(req.params.id as string);
       if (!profile) {
         res.json({ tableId: null });
         return;
@@ -297,7 +299,7 @@ export async function registerRoutes(
 
   // DELETE /api/players/:id — permanently delete a player account and all data.
   // App Store requirement: users must be able to delete their own account from within the app.
-  app.delete("/api/players/:id", async (req, res) => {
+  app.delete("/api/players/:id", requireAuth, requireSelf, async (req, res) => {
     try {
       const { id } = req.params;
       if (!id || typeof id !== 'string') {
@@ -356,6 +358,8 @@ export async function registerRoutes(
       await storage.setPlayerAuth(profile.id, parsed.email, hash);
 
       const level = Math.floor(profile.handsPlayed / 50);
+      const regExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const sessionToken = await storage.createSession(profile.id, regExpiresAt);
       res.status(201).json({
         profileId:    profile.id,
         displayName:  profile.displayName,
@@ -363,6 +367,7 @@ export async function registerRoutes(
         handsPlayed:  profile.handsPlayed,
         lifetimeProfit: profile.lifetimeProfit,
         level,
+        sessionToken,
       });
     } catch (err: any) {
       if (err?.name === "ZodError") {
@@ -394,6 +399,8 @@ export async function registerRoutes(
       }
 
       const level = Math.floor(profile.handsPlayed / 50);
+      const loginExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const sessionToken = await storage.createSession(profile.id, loginExpiresAt);
       res.json({
         profileId:      profile.id,
         displayName:    profile.displayName,
@@ -401,6 +408,7 @@ export async function registerRoutes(
         handsPlayed:    profile.handsPlayed,
         lifetimeProfit: profile.lifetimeProfit,
         level,
+        sessionToken,
       });
     } catch (err: any) {
       if (err?.name === "ZodError") {
@@ -428,6 +436,9 @@ export async function registerRoutes(
       const nextResetAt = isGuest
         ? new Date(resetRef.getTime() + 24 * 60 * 60 * 1000).toISOString()
         : null;
+      // Issue session token (7 days guests, 30 days registered)
+      const meTtlMs = isGuest ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+      const sessionToken = await storage.createSession(profile.id, new Date(Date.now() + meTtlMs));
       res.json({
         profileId:        profile.id,
         displayName:      profile.displayName,
@@ -441,6 +452,7 @@ export async function registerRoutes(
         avatarId:         profile.avatarId ?? null,
         lastNameChangeAt: profile.lastNameChangeAt?.toISOString() ?? null,
         nextResetAt,
+        sessionToken,
       });
     } catch (err) {
       console.error("Auth me error:", err);
@@ -450,16 +462,16 @@ export async function registerRoutes(
 
   // PUT /api/players/:id/avatar
   // Saves the player's selected avatar preset. avatarId=null clears to initials default.
-  app.put("/api/players/:id/avatar", async (req, res) => {
+  app.put("/api/players/:id/avatar", requireAuth, requireSelf, async (req, res) => {
     try {
       const avatarSchema = z.object({ avatarId: z.string().nullable() });
       const { avatarId } = avatarSchema.parse(req.body);
-      const profile = await storage.getPlayerProfile(req.params.id);
+      const profile = await storage.getPlayerProfile(req.params.id as string);
       if (!profile) {
         res.status(404).json({ error: "Player not found" });
         return;
       }
-      await storage.updatePlayerAvatar(req.params.id, avatarId);
+      await storage.updatePlayerAvatar(req.params.id as string, avatarId);
       res.json({ avatarId });
     } catch (err: any) {
       if (err?.name === "ZodError") {
@@ -475,13 +487,13 @@ export async function registerRoutes(
   // Changes the display name. Server-enforced 90-day cooldown applies to ALL accounts.
   const NAME_CHANGE_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
 
-  app.put("/api/players/:id/name", async (req, res) => {
+  app.put("/api/players/:id/name", requireAuth, requireSelf, async (req, res) => {
     try {
       const nameSchema = z.object({
         name: z.string().min(1).max(32).trim(),
       });
       const { name } = nameSchema.parse(req.body);
-      const profile = await storage.getPlayerProfile(req.params.id);
+      const profile = await storage.getPlayerProfile(req.params.id as string);
       if (!profile) {
         res.status(404).json({ error: "Player not found" });
         return;
@@ -499,7 +511,7 @@ export async function registerRoutes(
           return;
         }
       }
-      await storage.updatePlayerDisplayName(req.params.id, name);
+      await storage.updatePlayerDisplayName(req.params.id as string, name);
       res.json({ displayName: name, lastNameChangeAt: new Date().toISOString() });
     } catch (err: any) {
       if (err?.name === "ZodError") {
@@ -515,9 +527,9 @@ export async function registerRoutes(
   // Returns the player's current Stripes balance.
   // Auth-protection: players self-identify via their UUID (stored in localStorage).
   // UUID guessing is computationally infeasible — sufficient for this auth model.
-  app.get("/api/players/:id/stripes", async (req, res) => {
+  app.get("/api/players/:id/stripes", requireAuth, requireSelf, async (req, res) => {
     try {
-      const result = await storage.getPlayerStripes(req.params.id);
+      const result = await storage.getPlayerStripes(req.params.id as string);
       res.json({ stripes: result.stripes, lastUpdated: result.updatedAt?.toISOString() ?? null });
     } catch (err) {
       console.error("Get stripes error:", err);
@@ -529,9 +541,9 @@ export async function registerRoutes(
   // Credits virtual chips from in-app bonuses (daily reward, hourly bonus, starter pack)
   // directly to the DB bankroll. Fire-and-forget safe — client already updates local state.
   // Max 100,000 chips per call guards against accidental over-grant.
-  app.post("/api/players/:id/bonus-chips", async (req, res) => {
+  app.post("/api/players/:id/bonus-chips", requireAuth, requireSelf, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const bonusSchema = z.object({ chips: z.number().int().positive().max(100000) });
       const { chips } = bonusSchema.parse(req.body);
       const profile = await storage.getPlayerProfile(id);
@@ -581,6 +593,160 @@ export async function registerRoutes(
       res.json({ tableId: tables[0].tableId, humanCount: tables[0].humanCount });
     } else {
       res.json({ tableId: null });
+    }
+  });
+
+  // POST /api/auth/logout — invalidate the current session token
+  app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    try {
+      const token = req.headers["x-session-token"] as string;
+      await storage.invalidateSession(token);
+      res.json({ loggedOut: true });
+    } catch (err) {
+      console.error("Logout error:", err);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
+  // POST /api/billing/verify-purchase
+  // Called by the native client after Google Play returns a purchase token.
+  // Performs server-side verification via Play Developer API, credits Stripes,
+  // and records the transaction for audit + refund handling.
+  app.post("/api/billing/verify-purchase", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId:     z.string().min(1),
+        purchaseToken: z.string().min(1),
+      });
+      const { productId, purchaseToken } = schema.parse(req.body);
+
+      const pack = STRIPES_PACKS[productId];
+      if (!pack) {
+        res.status(400).json({ error: `Unknown product: ${productId}` });
+        return;
+      }
+
+      const playerId = req.sessionPlayerId!;
+
+      // Idempotency guard — reject duplicate tokens
+      const existing = await storage.getPurchaseTransactionByToken(purchaseToken);
+      if (existing) {
+        if (existing.verificationStatus === "verified") {
+          res.json({
+            stripesGranted: existing.stripesGranted,
+            orderId:        existing.googleOrderId ?? "",
+            idempotent:     true,
+          });
+          return;
+        }
+        if (existing.verificationStatus === "pending") {
+          res.status(409).json({ error: "Purchase is still being processed. Please wait." });
+          return;
+        }
+        res.status(409).json({ error: "Purchase token already used or rejected." });
+        return;
+      }
+
+      // Create pending transaction record first (for audit trail)
+      const txn = await storage.createPurchaseTransaction({
+        playerId,
+        productId,
+        stripesGranted:     pack.stripes,
+        priceUsdCents:      pack.priceCents,
+        purchaseToken,
+        verificationStatus: "pending",
+      });
+
+      // Server-side Google Play verification
+      let purchaseData;
+      try {
+        purchaseData = await verifyGooglePlayPurchase(productId, purchaseToken);
+      } catch (verifyErr: any) {
+        console.error(`[billing] Verification failed: ${verifyErr.message}`);
+        await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+        res.status(402).json({ error: `Purchase verification failed: ${verifyErr.message}` });
+        return;
+      }
+
+      if (purchaseData.purchaseState !== 0) {
+        const state = purchaseData.purchaseState === 1 ? "canceled" : "pending";
+        await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+        res.status(402).json({ error: `Purchase is ${state} — not completed.` });
+        return;
+      }
+
+      // Credit Stripes (atomic via stripe_transactions audit table)
+      await storage.creditStripes(playerId, pack.stripes, `purchase:${productId}`);
+
+      // Mark verified with Google's orderId
+      await storage.updatePurchaseTransactionStatus(
+        txn.id,
+        "verified",
+        purchaseData.orderId,
+        new Date(),
+      );
+
+      // Acknowledge (consume) so Google allows re-purchase and doesn't auto-refund
+      try {
+        await acknowledgeGooglePlayPurchase(productId, purchaseToken);
+      } catch (ackErr: any) {
+        // Non-fatal: Google auto-refunds after 3 days if not consumed. Log for manual action.
+        console.error(`[billing] Acknowledge failed (manual action needed): ${ackErr.message}`);
+      }
+
+      console.log(
+        `[billing] SUCCESS: player=${playerId} product=${productId} ` +
+        `stripes=${pack.stripes} order=${purchaseData.orderId}`,
+      );
+
+      res.json({
+        stripesGranted: pack.stripes,
+        orderId:        purchaseData.orderId,
+      });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid purchase data" });
+      } else {
+        console.error("[billing] verify-purchase error:", err);
+        res.status(500).json({ error: "Purchase processing failed" });
+      }
+    }
+  });
+
+  // POST /api/billing/refund-webhook
+  // Receives Google Play Real-Time Developer Notifications (RTDN) via Pub/Sub.
+  // Configure in Play Console → Monetize → Subscriptions & in-app products → Notifications.
+  // The Pub/Sub push subscription must point to this URL.
+  app.post("/api/billing/refund-webhook", async (req, res) => {
+    try {
+      const message = req.body?.message;
+      if (!message?.data) {
+        res.status(400).json({ error: "Missing Pub/Sub message data" });
+        return;
+      }
+
+      const raw = Buffer.from(message.data, "base64").toString("utf-8");
+      const notification = JSON.parse(raw);
+      console.log("[billing] RTDN webhook received:", JSON.stringify(notification));
+
+      // Handle voided purchase (refund / chargeback)
+      const voidedPurchase = notification?.voidedPurchaseNotification;
+      if (voidedPurchase?.purchaseToken) {
+        const txn = await storage.getPurchaseTransactionByToken(voidedPurchase.purchaseToken);
+        if (txn && txn.verificationStatus === "verified") {
+          await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
+          console.log(
+            `[billing] Refund processed: player=${txn.playerId} ` +
+            `product=${txn.productId} stripes=${txn.stripesGranted}`,
+          );
+        }
+      }
+
+      // Always ACK the Pub/Sub message to prevent re-delivery
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[billing] refund-webhook error:", err);
+      res.status(500).json({ error: "Webhook processing failed" });
     }
   });
 

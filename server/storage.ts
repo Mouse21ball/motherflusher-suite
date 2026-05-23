@@ -2,12 +2,14 @@ import {
   type User, type InsertUser,
   type InsertAnalyticsEvent, type AnalyticsEvent,
   type PlayerProfile,
-  analyticsEvents, playerProfiles, stripeTransactions,
+  type Session,
+  type PurchaseTransaction,
+  analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
 } from "@shared/schema";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, sql, and, or, gte, isNull, lt, desc } from "drizzle-orm";
+import { eq, sql, and, or, gte, isNull, lt, gt, desc } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -53,6 +55,29 @@ export interface IStorage {
   getPlayerStripes(id: string): Promise<{ stripes: number; updatedAt: Date | null }>;
   creditStripes(playerId: string, amount: number, reason: string): Promise<number>;
   debitStripes(playerId: string, amount: number, reason: string): Promise<boolean>;
+  // ── Sessions ───────────────────────────────────────────────────────────────
+  createSession(playerId: string, expiresAt: Date): Promise<string>;
+  getSession(token: string): Promise<Session | undefined>;
+  invalidateSession(token: string): Promise<void>;
+  cleanExpiredSessions(): Promise<void>;
+  // ── Purchase transactions ──────────────────────────────────────────────────
+  createPurchaseTransaction(data: {
+    playerId:           string;
+    productId:          string;
+    stripesGranted:     number;
+    priceUsdCents:      number;
+    purchaseToken:      string;
+    verificationStatus?: string;
+    googleOrderId?:     string;
+  }): Promise<PurchaseTransaction>;
+  getPurchaseTransactionByToken(token: string): Promise<PurchaseTransaction | undefined>;
+  updatePurchaseTransactionStatus(
+    id:            string,
+    status:        string,
+    googleOrderId?: string,
+    verifiedAt?:   Date,
+  ): Promise<void>;
+  debitStripesForRefund(playerId: string, amount: number, purchaseTransactionId: string): Promise<void>;
 }
 
 export interface DailyStats {
@@ -309,9 +334,6 @@ export class MemStorage implements IStorage {
 
   // ── Guest reset helpers ────────────────────────────────────────────────────
 
-  // Returns guest accounts whose reference timestamp (lastResetAt ?? createdAt)
-  // is older than the provided cutoff date.
-  // ONLY returns rows where BOTH email AND passwordHash are NULL.
   async getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]> {
     const rows = await db
       .select()
@@ -321,12 +343,10 @@ export class MemStorage implements IStorage {
           isNull(playerProfiles.email),
           isNull(playerProfiles.passwordHash),
           or(
-            // Never been reset: use createdAt
             and(
               isNull(playerProfiles.lastResetAt),
               lt(playerProfiles.createdAt, cutoff)
             ),
-            // Previously reset: use lastResetAt
             lt(playerProfiles.lastResetAt, cutoff)
           )
         )
@@ -334,8 +354,6 @@ export class MemStorage implements IStorage {
     return rows;
   }
 
-  // Resets a guest account to default state.
-  // NEVER call this for accounts with email or passwordHash — callers must guard.
   async resetGuestAccount(id: string): Promise<void> {
     const now = new Date();
     await db
@@ -355,12 +373,12 @@ export class MemStorage implements IStorage {
       .where(
         and(
           eq(playerProfiles.id, id),
-          // Triple-safety: even in the DB query, enforce guest-only write
           isNull(playerProfiles.email),
           isNull(playerProfiles.passwordHash)
         )
       );
   }
+
   // ── Stripes ────────────────────────────────────────────────────────────────
 
   async getPlayerStripes(id: string): Promise<{ stripes: number; updatedAt: Date | null }> {
@@ -416,6 +434,121 @@ export class MemStorage implements IStorage {
         balanceAfter: newBalance,
       });
       return true;
+    });
+  }
+
+  // ── Sessions ───────────────────────────────────────────────────────────────
+
+  async createSession(playerId: string, expiresAt: Date): Promise<string> {
+    const token = randomBytes(32).toString("hex");
+    await db.insert(sessions).values({ token, playerId, expiresAt });
+    return token;
+  }
+
+  async getSession(token: string): Promise<Session | undefined> {
+    const rows = await db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.token, token),
+          gt(sessions.expiresAt, new Date()),
+        )
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  async invalidateSession(token: string): Promise<void> {
+    await db.delete(sessions).where(eq(sessions.token, token));
+  }
+
+  async cleanExpiredSessions(): Promise<void> {
+    await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
+  }
+
+  // ── Purchase transactions ──────────────────────────────────────────────────
+
+  async createPurchaseTransaction(data: {
+    playerId:            string;
+    productId:           string;
+    stripesGranted:      number;
+    priceUsdCents:       number;
+    purchaseToken:       string;
+    verificationStatus?: string;
+    googleOrderId?:      string;
+  }): Promise<PurchaseTransaction> {
+    const id = randomUUID();
+    const row = {
+      id,
+      playerId:           data.playerId,
+      productId:          data.productId,
+      stripesGranted:     data.stripesGranted,
+      priceUsdCents:      data.priceUsdCents,
+      purchaseToken:      data.purchaseToken,
+      verificationStatus: data.verificationStatus ?? "pending",
+      googleOrderId:      data.googleOrderId ?? null,
+      createdAt:          new Date(),
+      verifiedAt:         null,
+    };
+    await db.insert(purchaseTransactions).values(row);
+    return row;
+  }
+
+  async getPurchaseTransactionByToken(token: string): Promise<PurchaseTransaction | undefined> {
+    const rows = await db
+      .select()
+      .from(purchaseTransactions)
+      .where(eq(purchaseTransactions.purchaseToken, token))
+      .limit(1);
+    return rows[0];
+  }
+
+  async updatePurchaseTransactionStatus(
+    id:             string,
+    status:         string,
+    googleOrderId?: string,
+    verifiedAt?:    Date,
+  ): Promise<void> {
+    await db
+      .update(purchaseTransactions)
+      .set({
+        verificationStatus: status,
+        ...(googleOrderId !== undefined ? { googleOrderId } : {}),
+        ...(verifiedAt    !== undefined ? { verifiedAt    } : {}),
+      })
+      .where(eq(purchaseTransactions.id, id));
+  }
+
+  async debitStripesForRefund(
+    playerId:               string,
+    amount:                 number,
+    purchaseTransactionId:  string,
+  ): Promise<void> {
+    // Best-effort debit — clamp to zero if the player has already spent their Stripes.
+    await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!rows[0]) return;
+      const debit    = Math.min(amount, rows[0].stripes);
+      const newBal   = rows[0].stripes - debit;
+      await tx
+        .update(playerProfiles)
+        .set({ stripes: newBal, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await tx.insert(stripeTransactions).values({
+        playerId,
+        amount:       -debit,
+        reason:       `refund:${purchaseTransactionId}`,
+        balanceAfter: newBal,
+      });
+      await tx
+        .update(purchaseTransactions)
+        .set({ verificationStatus: "refunded" })
+        .where(eq(purchaseTransactions.id, purchaseTransactionId));
     });
   }
 }

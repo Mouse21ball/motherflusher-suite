@@ -1,0 +1,59 @@
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+// requireAuth   — validates X-Session-Token header, attaches sessionPlayerId
+// requireSelf   — ensures the token's player matches :id in the URL (403 otherwise)
+// logAuthFailure — writes a timestamped warning for every rejected request
+
+import type { Request, Response, NextFunction, RequestHandler } from "express";
+import { storage } from "../storage";
+
+// Extend Express Request to carry the validated player ID
+declare global {
+  namespace Express {
+    interface Request {
+      sessionPlayerId?: string;
+    }
+  }
+}
+
+export function logAuthFailure(req: Request, reason: string): void {
+  const header = req.headers["x-session-token"];
+  const token  = Array.isArray(header) ? header[0] : header;
+  console.warn(
+    `[AUTH FAIL] ${new Date().toISOString()} ` +
+    `method=${req.method} path=${req.path} ` +
+    `reason=${reason} ip=${req.ip ?? "unknown"} ` +
+    `attempted_id=${req.params?.id ?? "n/a"} ` +
+    `token_prefix=${token?.slice(0, 8) ?? "none"}`
+  );
+}
+
+export const requireAuth: RequestHandler = async (req, res, next) => {
+  const raw   = req.headers["x-session-token"];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+
+  if (!token || token.trim() === "") {
+    logAuthFailure(req, "missing_token");
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const session = await storage.getSession(token);
+  if (!session) {
+    logAuthFailure(req, "invalid_or_expired_token");
+    res.status(401).json({ error: "Session expired — please re-open the app" });
+    return;
+  }
+
+  req.sessionPlayerId = session.playerId;
+  next();
+};
+
+export const requireSelf: RequestHandler = (req, res, next) => {
+  const targetId = req.params.id;
+  if (!targetId || req.sessionPlayerId !== targetId) {
+    logAuthFailure(req, "cross_player_access");
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  next();
+};

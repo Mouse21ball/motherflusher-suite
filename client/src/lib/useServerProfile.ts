@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
+import { apiFetch, setSessionToken } from './session';
 import { setUserId } from './analytics';
 
 export interface ServerProfile {
@@ -25,6 +26,7 @@ export interface ServerProfile {
   avatarId:         string | null;  // null → show initials
   lastNameChangeAt: string | null;  // ISO string; null → never changed
   nextResetAt:      string | null;  // ISO string; null → auth account (no reset)
+  sessionToken?:    string;         // issued by server on every /me call
 }
 
 interface UseServerProfileResult {
@@ -43,13 +45,14 @@ export function useServerProfile(): UseServerProfileResult {
     const identity = ensurePlayerIdentity();
 
     setLoading(true);
-    fetch(apiUrl(`/api/auth/me/${identity.id}`))
+    apiFetch(apiUrl(`/api/auth/me/${identity.id}`))
       .then(r => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json() as Promise<ServerProfile>;
       })
       .then(data => {
         if (!cancelled) {
+          if (data.sessionToken) setSessionToken(data.sessionToken);
           setProfile(data);
           if (data.hasAuth) setUserId(data.profileId);
         }

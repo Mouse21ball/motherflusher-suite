@@ -37,6 +37,19 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
 export type PlayerProfile = typeof playerProfiles.$inferSelect;
 
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+// Server-issued session tokens. One per active login.
+// Token is a 64-char hex string (32 random bytes).
+// expiresAt: 30 days for registered accounts, 7 days for guests.
+export const sessions = pgTable("sessions", {
+  token:     text("token").primaryKey(),
+  playerId:  text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Session = typeof sessions.$inferSelect;
+
 // ─── Stripe Transactions (audit log) ─────────────────────────────────────────
 export const stripeTransactions = pgTable("stripe_transactions", {
   id:           serial("id").primaryKey(),
@@ -48,6 +61,31 @@ export const stripeTransactions = pgTable("stripe_transactions", {
 });
 
 export type StripeTransaction = typeof stripeTransactions.$inferSelect;
+
+// ─── Purchase Transactions (real-money billing) ───────────────────────────────
+// Written on every Google Play purchase attempt; verificationStatus tracks flow.
+// purchase_token is UNIQUE — duplicate tokens are rejected (idempotency).
+export const purchaseTransactions = pgTable("purchase_transactions", {
+  id:                 text("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId:           text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  productId:          text("product_id").notNull(),
+  stripesGranted:     integer("stripes_granted").notNull(),
+  priceUsdCents:      integer("price_usd_cents").notNull(),
+  purchaseToken:      text("purchase_token").notNull().unique(),
+  verificationStatus: text("verification_status").notNull().default("pending"),
+  googleOrderId:      text("google_order_id"),
+  createdAt:          timestamp("created_at").defaultNow().notNull(),
+  verifiedAt:         timestamp("verified_at"),
+});
+
+export const insertPurchaseTransactionSchema = createInsertSchema(purchaseTransactions).omit({
+  id: true,
+  createdAt: true,
+  verifiedAt: true,
+});
+
+export type InsertPurchaseTransaction = z.infer<typeof insertPurchaseTransactionSchema>;
+export type PurchaseTransaction = typeof purchaseTransactions.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

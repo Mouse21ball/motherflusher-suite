@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { savePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
+import { setSessionToken } from '@/lib/session';
 
 interface AuthModalProps {
   open:         boolean;
@@ -51,6 +52,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
         avatarSeed: data.profileId.slice(0, 8),
         createdAt:  Date.now(),
       });
+      if (data.sessionToken) setSessionToken(data.sessionToken);
       onSuccess(data.displayName);
     } catch {
       setError('Could not reach the server. Check your connection.');
@@ -95,6 +97,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
         avatarSeed: data.profileId.slice(0, 8),
         createdAt:  guestIdentity.createdAt,
       });
+      if (data.sessionToken) setSessionToken(data.sessionToken);
       onSuccess(data.displayName);
     } catch {
       setError('Could not reach the server. Check your connection.');

@@ -6,6 +6,7 @@ import {
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getLevelInfo, getProgression } from '@/lib/progression';
 import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
 
 interface HourlyBonusModalProps {
@@ -67,7 +68,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
 
     // Persist to DB so balance survives refresh/login on any device
     const identity = ensurePlayerIdentity();
-    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chips: earned }),

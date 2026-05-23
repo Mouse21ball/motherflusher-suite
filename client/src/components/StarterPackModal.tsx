@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { claimStarterPack, isStarterPackClaimed, STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 
 interface StarterPackModalProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
 
     // Persist to DB so balance survives refresh/login on any device
     const identity = ensurePlayerIdentity();
-    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chips }),

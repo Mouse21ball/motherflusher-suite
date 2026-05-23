@@ -4,6 +4,7 @@ import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getVipTier, DISCLAIMER } from '@/lib/retention';
 import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
 
 interface DailyRewardModalProps {
@@ -46,7 +47,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
 
     // Persist to DB so balance survives refresh/login on any device
     const identity = ensurePlayerIdentity();
-    fetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
+    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chips: reward.chips }),

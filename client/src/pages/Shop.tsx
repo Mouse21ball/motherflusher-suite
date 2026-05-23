@@ -1,6 +1,52 @@
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
+import { useServerProfile } from '@/lib/useServerProfile';
+import { billing } from '@/lib/billing';
+
+const STRIPES_PACKS = [
+  {
+    id:       'stripes_starter_99',
+    name:     'Starter Pack',
+    stripes:  60,
+    price:    '$0.99',
+    badge:    null as string | null,
+    featured: false,
+  },
+  {
+    id:       'stripes_small_499',
+    name:     'Small Pack',
+    stripes:  300,
+    price:    '$4.99',
+    badge:    null as string | null,
+    featured: false,
+  },
+  {
+    id:       'stripes_medium_999',
+    name:     'Medium Pack',
+    stripes:  650,
+    price:    '$9.99',
+    badge:    'BEST STARTER',
+    featured: false,
+  },
+  {
+    id:       'stripes_large_2199',
+    name:     'Large Pack',
+    stripes:  1500,
+    price:    '$21.99',
+    badge:    'BEST VALUE',
+    featured: true,
+  },
+  {
+    id:       'stripes_mega_9999',
+    name:     'Mega Pack',
+    stripes:  8000,
+    price:    '$99.99',
+    badge:    'WHALE PACK',
+    featured: false,
+  },
+] as const;
 
 const SUBSCRIPTION_TIERS = [
   {
@@ -103,6 +149,24 @@ export default function Shop() {
   const progression = getProgression();
   const levelInfo = getLevelInfo(progression.xp);
   const rank = getRankForLevel(levelInfo.level);
+  const { profile: serverProfile, refetch } = useServerProfile();
+
+  const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
+  const [purchaseMsg, setPurchaseMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handlePurchase = async (productId: string, stripesCount: number) => {
+    setPurchaseBusy(productId);
+    setPurchaseMsg(null);
+    try {
+      const result = await billing.purchase(productId);
+      setPurchaseMsg({ type: 'success', text: `+${result.stripesGranted} Stripes added to your account!` });
+      refetch();
+    } catch (err: any) {
+      setPurchaseMsg({ type: 'error', text: err.message ?? 'Purchase failed. Please try again.' });
+    } finally {
+      setPurchaseBusy(null);
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] bg-[#070709] flex flex-col">
@@ -155,6 +219,104 @@ export default function Shop() {
               {progression.xp.toLocaleString()}
             </div>
           </div>
+        </div>
+
+        {/* ── Stripes Shop ────────────────────────────────────────────────── */}
+        <div className="w-full">
+          <div className="flex items-center gap-2 mb-3">
+            <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-4 h-4 opacity-70" />
+            <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest">Stripes Shop</span>
+            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.3), transparent)' }} />
+          </div>
+
+          {/* Current balance */}
+          <div
+            className="w-full rounded-xl px-4 py-3 mb-3 flex items-center justify-between border"
+            style={{ backgroundColor: 'rgba(168,85,247,0.07)', borderColor: 'rgba(168,85,247,0.2)' }}
+          >
+            <div className="flex items-center gap-2">
+              <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-5 h-5 opacity-80" />
+              <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest">Your Stripes</span>
+            </div>
+            <span className="text-lg font-bold font-mono tabular-nums" style={{ color: '#a855f7' }} data-testid="text-stripes-balance">
+              {(serverProfile?.stripes ?? 0).toLocaleString()}
+            </span>
+          </div>
+
+          {/* Purchase result message */}
+          {purchaseMsg && (
+            <div
+              className={`w-full rounded-xl px-4 py-3 mb-3 text-center text-sm font-mono border ${
+                purchaseMsg.type === 'success'
+                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                  : 'text-red-400 border-red-500/30 bg-red-500/10'
+              }`}
+            >
+              {purchaseMsg.text}
+            </div>
+          )}
+
+          {/* Pack grid — 2 columns */}
+          <div className="grid grid-cols-2 gap-2">
+            {STRIPES_PACKS.map(pack => (
+              <div
+                key={pack.id}
+                className="relative rounded-2xl border p-3 flex flex-col gap-2"
+                style={{
+                  backgroundColor: pack.featured ? 'rgba(168,85,247,0.10)' : 'rgba(255,255,255,0.03)',
+                  borderColor:     pack.featured ? 'rgba(168,85,247,0.45)' : 'rgba(255,255,255,0.08)',
+                  boxShadow:       pack.featured ? '0 0 18px rgba(168,85,247,0.18)' : 'none',
+                }}
+                data-testid={`pack-${pack.id}`}
+              >
+                {/* Badge */}
+                {pack.badge && (
+                  <div
+                    className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest whitespace-nowrap"
+                    style={{
+                      backgroundColor: pack.featured ? '#a855f7' : 'rgba(168,85,247,0.25)',
+                      color:           pack.featured ? '#fff'      : '#c084fc',
+                      border:          pack.featured ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(168,85,247,0.4)',
+                    }}
+                  >
+                    {pack.badge}
+                  </div>
+                )}
+
+                {/* Pack name */}
+                <div className="text-[10px] font-mono text-white/35 uppercase tracking-widest mt-1">{pack.name}</div>
+
+                {/* Stripes count */}
+                <div className="flex items-center gap-1.5">
+                  <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-4 h-4 opacity-70 shrink-0" />
+                  <span className="text-xl font-bold font-mono tabular-nums" style={{ color: '#c084fc' }}>
+                    {pack.stripes.toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Buy button */}
+                <button
+                  onClick={() => handlePurchase(pack.id, pack.stripes)}
+                  disabled={purchaseBusy !== null}
+                  className="w-full mt-auto rounded-xl py-2 text-[11px] font-mono font-bold uppercase tracking-widest transition-all"
+                  style={{
+                    backgroundColor: pack.featured ? '#a855f7'                       : 'rgba(168,85,247,0.15)',
+                    color:           pack.featured ? '#fff'                           : '#c084fc',
+                    opacity:         purchaseBusy !== null ? 0.6                      : 1,
+                    border:          pack.featured ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(168,85,247,0.3)',
+                  }}
+                  data-testid={`button-buy-${pack.id}`}
+                >
+                  {purchaseBusy === pack.id ? '...' : pack.price}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Compliance note */}
+          <p className="text-[9px] font-mono text-white/15 text-center mt-3 leading-relaxed">
+            Stripes are virtual currency for cosmetic features only. No real-world value. Purchases processed via Google Play.
+          </p>
         </div>
 
         {/* ── Subscription tiers ──────────────────────────────────────────── */}
