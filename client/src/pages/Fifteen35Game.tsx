@@ -212,7 +212,7 @@ function F35StatusBar({
           style={{ padding: '3px 7px', borderRadius: 7, background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.22)' }}
           data-testid="display-stripes-f35"
         >
-          <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
+          <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
           <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#a855f7', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             {stripes.toLocaleString()}
           </span>

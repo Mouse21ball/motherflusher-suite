@@ -737,7 +737,7 @@ export default function Home() {
                 ${displayChips.toLocaleString()}
               </div>
               <div className="flex items-center justify-end gap-1 mt-0.5">
-                <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 11, height: 11 }} />
+                <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 11, height: 11 }} />
                 <span
                   className="text-[11px] font-mono tabular-nums leading-none"
                   style={{ color: '#a855f7' }}

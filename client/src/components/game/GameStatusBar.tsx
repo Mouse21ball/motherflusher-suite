@@ -107,7 +107,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               style={{ background: 'rgba(168,85,247,0.10)', border: '1px solid rgba(168,85,247,0.22)' }}
               data-testid="display-stripes-topbar"
             >
-              <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
+              <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
               <span className="text-[9px] font-mono tabular-nums leading-none" style={{ color: '#a855f7' }}>
                 {stripes.toLocaleString()}
               </span>
@@ -170,7 +170,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
                 )}
                 {stripes !== undefined && (
                   <div className="flex items-center gap-1.5 mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,85,247,0.12)' }}>
-                    <img src="/stripes-icon.svg" alt="" aria-hidden="true" style={{ width: 13, height: 13 }} />
+                    <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 13, height: 13 }} />
                     <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.45)' }}>Stripes</span>
                     <span className="text-sm font-mono font-semibold tabular-nums ml-auto" style={{ color: '#a855f7' }}>
                       {stripes.toLocaleString()}
