@@ -580,7 +580,7 @@ export default function Profile() {
               >
                 {value}
               </div>
-              <div style={{ fontSize: '0.85rem', lineHeight: 1, marginTop: 1 }}>{icon}</div>
+              <div style={{ fontSize: '1.4rem', lineHeight: 1, marginTop: 2 }}>{icon}</div>
             </div>
           ))}
         </div>
@@ -590,7 +590,7 @@ export default function Profile() {
           className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5"
           style={{ background: 'rgba(16,8,26,0.80)', border: '1px solid rgba(168,85,247,0.18)' }}
         >
-          <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 20, height: 20, flexShrink: 0 }} />
+          <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 30, height: 30, flexShrink: 0 }} />
           <div className="flex flex-col gap-0">
             <div className="text-[8px] font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.50)' }}>STRIPES</div>
             <div

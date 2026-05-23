@@ -224,7 +224,7 @@ export default function Shop() {
         {/* ── Stripes Shop ────────────────────────────────────────────────── */}
         <div className="w-full">
           <div className="flex items-center gap-2 mb-3">
-            <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-4 h-4 opacity-70" />
+            <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-6 h-6 opacity-70" />
             <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest">Stripes Shop</span>
             <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.3), transparent)' }} />
           </div>
@@ -235,7 +235,7 @@ export default function Shop() {
             style={{ backgroundColor: 'rgba(168,85,247,0.07)', borderColor: 'rgba(168,85,247,0.2)' }}
           >
             <div className="flex items-center gap-2">
-              <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-5 h-5 opacity-80" />
+              <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-8 h-8 opacity-80" />
               <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest">Your Stripes</span>
             </div>
             <span className="text-lg font-bold font-mono tabular-nums" style={{ color: '#a855f7' }} data-testid="text-stripes-balance">
@@ -288,7 +288,7 @@ export default function Shop() {
 
                 {/* Stripes count */}
                 <div className="flex items-center gap-1.5">
-                  <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-4 h-4 opacity-70 shrink-0" />
+                  <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-7 h-7 opacity-70 shrink-0" />
                   <span className="text-xl font-bold font-mono tabular-nums" style={{ color: '#c084fc' }}>
                     {pack.stripes.toLocaleString()}
                   </span>
