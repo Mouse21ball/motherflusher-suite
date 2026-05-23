@@ -171,6 +171,21 @@ export default function Profile() {
   // ── Avatar picker ──────────────────────────────────────────────────────────
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [avatarSaving,     setAvatarSaving]     = useState(false);
+  const [avatarPickerTab,  setAvatarPickerTab]  = useState<'free' | 'premium'>('free');
+
+  // ── Cosmetics inventory (loaded for premium avatar display) ────────────────
+  const [cosInventory, setCosInventory] = useState<{ id: string; category: string; displayName: string; assetPath: string; colorValue: string | null }[]>([]);
+  const [cosEquipped,  setCosEquipped]  = useState<{ avatarId: string | null; frameId: string | null; nameColorId: string | null }>({ avatarId: null, frameId: null, nameColorId: null });
+
+  useEffect(() => {
+    apiFetch(apiUrl(`/api/players/${identity.id}/inventory`))
+      .then(r => r.ok ? r.json() : null)
+      .then((d: any) => {
+        if (d?.items) setCosInventory(d.items);
+        if (d?.equipped) setCosEquipped(d.equipped);
+      })
+      .catch(() => {});
+  }, [identity.id]);
 
   const handleSelectAvatar = useCallback(async (avatarId: AvatarOptionId) => {
     setAvatarSaving(true);
@@ -439,6 +454,55 @@ export default function Profile() {
             </div>
           </div>
         </CopperBezel>
+
+        {/* ── Equipped Cosmetics card ──────────────────────────────────────── */}
+        <div
+          className="w-full px-4 py-3 rounded-xl flex items-center gap-3"
+          style={{ background: '#1c1910', border: '1px solid rgba(201,162,39,0.18)' }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(201,162,39,0.08)', border: '1px solid rgba(201,162,39,0.18)', color: 'rgba(201,162,39,0.75)', fontSize: '0.85rem' }}
+          >
+            ◆
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Equipped Cosmetics
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              {cosEquipped.frameId ? (
+                <span className="text-[10px] font-mono" style={{ color: 'rgba(201,162,39,0.75)' }}>
+                  🖼 {cosInventory.find(i => i.id === cosEquipped.frameId)?.displayName ?? cosEquipped.frameId.replace('frame_','').replace(/_/g,' ')}
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.20)' }}>No frame</span>
+              )}
+              {cosEquipped.nameColorId && (() => {
+                const item = cosInventory.find(i => i.id === cosEquipped.nameColorId);
+                return (
+                  <span className="text-[10px] font-mono flex items-center gap-1">
+                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: item?.colorValue ?? '#fff' }} />
+                    <span style={{ color: item?.colorValue ?? 'rgba(255,255,255,0.50)' }}>{item?.displayName ?? 'Color'}</span>
+                  </span>
+                );
+              })()}
+              {cosEquipped.avatarId && (
+                <span className="text-[10px] font-mono" style={{ color: 'rgba(180,130,40,0.65)' }}>
+                  👑 {cosInventory.find(i => i.id === cosEquipped.avatarId)?.displayName ?? 'Premium Avatar'}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => { window.location.href = '/cosmetics'; }}
+            className="text-[9px] font-mono uppercase tracking-widest shrink-0 transition-colors"
+            style={{ color: 'rgba(201,162,39,0.55)', background: 'none', border: 'none', cursor: 'pointer' }}
+            data-testid="link-cosmetics-from-profile"
+          >
+            Store →
+          </button>
+        </div>
 
         {/* ── Account status card ─────────────────────────────────────────── */}
         {serverProfile?.hasAuth ? (
@@ -896,88 +960,139 @@ export default function Profile() {
             className="w-full max-w-sm rounded-2xl overflow-hidden"
             style={{ background: '#1c1910', border: '1px solid rgba(180,130,40,0.25)' }}
           >
+            {/* Header */}
             <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-              <span
-                style={{
-                  fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-                  fontSize: '0.75rem',
-                  letterSpacing: '0.18em',
-                  color: 'rgba(200,150,40,0.80)',
-                  textTransform: 'uppercase',
-                }}
-              >
+              <span style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: '0.75rem', letterSpacing: '0.18em', color: 'rgba(200,150,40,0.80)', textTransform: 'uppercase' }}>
                 Choose Avatar
               </span>
               <button
-                onClick={() => setAvatarPickerOpen(false)}
+                onClick={() => { setAvatarPickerOpen(false); setAvatarPickerTab('free'); }}
                 style={{ color: 'rgba(180,130,40,0.40)', fontSize: '1.2rem', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 ×
               </button>
             </div>
-            <div className="grid grid-cols-4 gap-3 px-5 pb-5">
-              {AVATAR_OPTIONS.map(opt => {
-                const isSelected = currentAvatarId === opt.id;
-                return (
-                  <button
-                    key={String(opt.id)}
-                    onClick={() => void handleSelectAvatar(opt.id)}
-                    disabled={avatarSaving}
-                    data-testid={`button-avatar-option-${opt.id ?? 'default'}`}
-                    className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
-                  >
-                    <div
-                      style={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 12,
-                        background: isSelected ? 'rgba(180,130,40,0.25)' : 'rgba(255,255,255,0.04)',
-                        border: isSelected
-                          ? '2px solid rgba(200,150,40,0.75)'
-                          : '1px solid rgba(180,130,40,0.18)',
-                        boxShadow: isSelected ? '0 0 10px rgba(200,140,20,0.35)' : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        position: 'relative',
-                      }}
-                    >
-                      {opt.src ? (
-                        <img src={opt.src} alt={opt.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <span className="font-bold font-mono text-lg" style={{ color: avatarColor }}>
-                          {initials}
-                        </span>
-                      )}
-                      {isSelected && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            bottom: 2,
-                            right: 2,
-                            width: 16,
-                            height: 16,
-                            borderRadius: '50%',
-                            background: 'rgba(200,150,40,0.90)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.5rem',
-                            color: '#0c0b08',
-                          }}
-                        >
-                          ✓
-                        </div>
-                      )}
-                    </div>
-                    <span style={{ fontSize: '0.45rem', color: 'rgba(180,130,40,0.50)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      {opt.label}
-                    </span>
-                  </button>
-                );
-              })}
+
+            {/* Tabs */}
+            <div className="flex mx-5 mb-3 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(180,130,40,0.18)' }}>
+              {(['free', 'premium'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setAvatarPickerTab(tab)}
+                  className="flex-1 py-1.5 text-[9px] font-mono uppercase tracking-wider transition-colors"
+                  data-testid={`button-avatar-tab-${tab}`}
+                  style={{
+                    background: avatarPickerTab === tab ? 'rgba(180,130,40,0.18)' : 'transparent',
+                    color: avatarPickerTab === tab ? 'rgba(220,170,50,0.90)' : 'rgba(255,255,255,0.28)',
+                    borderRight: tab === 'free' ? '1px solid rgba(180,130,40,0.18)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tab === 'free' ? 'Free' : '◆ Premium'}
+                </button>
+              ))}
             </div>
+
+            {/* Free tab: standard AVATAR_OPTIONS grid */}
+            {avatarPickerTab === 'free' && (
+              <div className="grid grid-cols-4 gap-3 px-5 pb-5">
+                {AVATAR_OPTIONS.map(opt => {
+                  const isSelected = currentAvatarId === opt.id && !cosEquipped.avatarId;
+                  return (
+                    <button
+                      key={String(opt.id)}
+                      onClick={() => void handleSelectAvatar(opt.id)}
+                      disabled={avatarSaving}
+                      data-testid={`button-avatar-option-${opt.id ?? 'default'}`}
+                      className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                    >
+                      <div style={{ width: 60, height: 60, borderRadius: 12, background: isSelected ? 'rgba(180,130,40,0.25)' : 'rgba(255,255,255,0.04)', border: isSelected ? '2px solid rgba(200,150,40,0.75)' : '1px solid rgba(180,130,40,0.18)', boxShadow: isSelected ? '0 0 10px rgba(200,140,20,0.35)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                        {opt.src ? (
+                          <img src={opt.src} alt={opt.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span className="font-bold font-mono text-lg" style={{ color: avatarColor }}>{initials}</span>
+                        )}
+                        {isSelected && (
+                          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 16, height: 16, borderRadius: '50%', background: 'rgba(200,150,40,0.90)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', color: '#0c0b08' }}>✓</div>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.45rem', color: 'rgba(180,130,40,0.50)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Premium tab: owned premium avatars */}
+            {avatarPickerTab === 'premium' && (() => {
+              const premiumAvatars = cosInventory.filter(i => i.category === 'avatar');
+              return (
+                <div className="px-5 pb-5">
+                  {premiumAvatars.length === 0 ? (
+                    <div className="py-6 flex flex-col items-center gap-3">
+                      <span style={{ fontSize: '2rem' }}>👑</span>
+                      <p className="text-[10px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        No premium avatars owned yet.<br />Spend Stripes in the Cosmetics Store.
+                      </p>
+                      <button
+                        onClick={() => { setAvatarPickerOpen(false); window.location.href = '/cosmetics'; }}
+                        className="text-[9px] font-mono uppercase tracking-wider px-4 py-1.5 rounded-lg transition-colors"
+                        style={{ background: 'rgba(201,162,39,0.12)', border: '1px solid rgba(201,162,39,0.35)', color: 'rgba(201,162,39,0.85)', cursor: 'pointer' }}
+                        data-testid="button-avatar-cosmetics-store"
+                      >
+                        ◆ Open Cosmetics Store
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        {premiumAvatars.map(item => {
+                          const isEquipped = cosEquipped.avatarId === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={async () => {
+                                if (isEquipped) return;
+                                try {
+                                  await apiFetch(apiUrl(`/api/players/${identity.id}/cosmetics/equip`), {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ cosmetic_item_id: item.id }),
+                                  });
+                                  setCosEquipped(e => ({ ...e, avatarId: item.id }));
+                                  refetch();
+                                } catch {}
+                              }}
+                              data-testid={`button-premium-avatar-${item.id}`}
+                              className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                            >
+                              <div style={{ width: 72, height: 72, borderRadius: 12, background: isEquipped ? 'rgba(201,162,39,0.20)' : 'rgba(255,255,255,0.04)', border: isEquipped ? '2px solid rgba(201,162,39,0.75)' : '1px solid rgba(201,162,39,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', position: 'relative', overflow: 'hidden' }}>
+                                {item.assetPath ? (
+                                  <img src={item.assetPath} alt={item.displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  <span>👑</span>
+                                )}
+                                {isEquipped && (
+                                  <div style={{ position: 'absolute', bottom: 2, right: 2, width: 16, height: 16, borderRadius: '50%', background: 'rgba(201,162,39,0.90)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', color: '#0c0b08' }}>✓</div>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.45rem', color: 'rgba(201,162,39,0.55)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.displayName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => { setAvatarPickerOpen(false); window.location.href = '/cosmetics'; }}
+                        className="w-full text-[9px] font-mono uppercase tracking-wider py-1.5 rounded-lg"
+                        style={{ background: 'rgba(201,162,39,0.08)', border: '1px solid rgba(201,162,39,0.20)', color: 'rgba(201,162,39,0.55)', cursor: 'pointer' }}
+                      >
+                        ◆ More in Cosmetics Store
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

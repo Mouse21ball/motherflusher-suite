@@ -449,8 +449,11 @@ export async function registerRoutes(
         email:            profile.email ?? null,
         hasAuth:          !!profile.passwordHash,
         level,
-        avatarId:         profile.avatarId ?? null,
-        lastNameChangeAt: profile.lastNameChangeAt?.toISOString() ?? null,
+        avatarId:            profile.avatarId ?? null,
+        equippedAvatarId:    profile.equippedAvatarId    ?? null,
+        equippedFrameId:     profile.equippedFrameId     ?? null,
+        equippedNameColorId: profile.equippedNameColorId ?? null,
+        lastNameChangeAt:    profile.lastNameChangeAt?.toISOString() ?? null,
         nextResetAt,
         sessionToken,
       });
@@ -644,6 +647,74 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Logout error:", err);
       res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
+  // ── Cosmetics ────────────────────────────────────────────────────────────────
+
+  // GET /api/cosmetics/catalog
+  // Returns all active cosmetic items, grouped by category.
+  app.get("/api/cosmetics/catalog", async (_req, res) => {
+    try {
+      const items = await storage.getCosmeticCatalog();
+      const grouped = { avatar: items.filter(i => i.category === 'avatar'), frame: items.filter(i => i.category === 'frame'), name_color: items.filter(i => i.category === 'name_color') };
+      res.json({ items, grouped });
+    } catch (err) {
+      console.error("[cosmetics] catalog error:", err);
+      res.status(500).json({ error: "Failed to load catalog" });
+    }
+  });
+
+  // GET /api/players/:id/inventory
+  app.get("/api/players/:id/inventory", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const result = await storage.getPlayerInventory(req.params.id as string);
+      res.json(result);
+    } catch (err) {
+      console.error("[cosmetics] inventory error:", err);
+      res.status(500).json({ error: "Failed to load inventory" });
+    }
+  });
+
+  // POST /api/players/:id/cosmetics/purchase
+  app.post("/api/players/:id/cosmetics/purchase", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const { cosmetic_item_id } = z.object({ cosmetic_item_id: z.string().min(1) }).parse(req.body);
+      const result = await storage.purchaseCosmetic(req.params.id as string, cosmetic_item_id);
+      res.json({ success: true, newStripesBalance: result.newStripesBalance, ownedItem: result.item });
+    } catch (err: any) {
+      if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid request" }); return; }
+      if (err?.code === "ALREADY_OWNED")          { res.status(409).json({ error: "Already owned", code: "ALREADY_OWNED" }); return; }
+      if (err?.code === "INSUFFICIENT_STRIPES")   { res.status(402).json({ error: "Insufficient Stripes", code: "INSUFFICIENT_STRIPES", balance: err.balance }); return; }
+      if (err?.code === "NOT_FOUND")              { res.status(404).json({ error: "Item not found" }); return; }
+      console.error("[cosmetics] purchase error:", err);
+      res.status(500).json({ error: "Purchase failed" });
+    }
+  });
+
+  // POST /api/players/:id/cosmetics/equip
+  app.post("/api/players/:id/cosmetics/equip", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const { cosmetic_item_id } = z.object({ cosmetic_item_id: z.string().min(1) }).parse(req.body);
+      const result = await storage.equipCosmetic(req.params.id as string, cosmetic_item_id);
+      res.json({ success: true, equipped: result.equipped });
+    } catch (err: any) {
+      if (err?.code === "NOT_OWNED") { res.status(403).json({ error: "Item not owned" }); return; }
+      console.error("[cosmetics] equip error:", err);
+      res.status(500).json({ error: "Equip failed" });
+    }
+  });
+
+  // POST /api/players/:id/cosmetics/unequip
+  app.post("/api/players/:id/cosmetics/unequip", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const { category } = z.object({ category: z.enum(["avatar", "frame", "name_color"]) }).parse(req.body);
+      await storage.unequipCosmetic(req.params.id as string, category);
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid category" }); return; }
+      console.error("[cosmetics] unequip error:", err);
+      res.status(500).json({ error: "Unequip failed" });
     }
   });
 

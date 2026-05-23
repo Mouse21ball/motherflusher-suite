@@ -1,53 +1,57 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // ─── Player Profiles ──────────────────────────────────────────────────────────
 export const playerProfiles = pgTable("player_profiles", {
-  id:                 text("id").primaryKey(),
-  displayName:        text("display_name").notNull().default("Guest"),
-  chipBalance:        integer("chip_balance").notNull().default(1000),
-  stripes:            integer("stripes").notNull().default(0),
-  activeTableId:      text("active_table_id"),
-  activeSeatId:       text("active_seat_id"),
-  activeModeId:       text("active_mode_id"),
-  handsPlayed:        integer("hands_played").notNull().default(0),
-  handsWon:           integer("hands_won").notNull().default(0),
-  lifetimeProfit:     integer("lifetime_profit").notNull().default(0),
-  email:              text("email").unique(),
-  passwordHash:       text("password_hash"),
+  id:                   text("id").primaryKey(),
+  displayName:          text("display_name").notNull().default("Guest"),
+  chipBalance:          integer("chip_balance").notNull().default(1000),
+  stripes:              integer("stripes").notNull().default(0),
+  activeTableId:        text("active_table_id"),
+  activeSeatId:         text("active_seat_id"),
+  activeModeId:         text("active_mode_id"),
+  handsPlayed:          integer("hands_played").notNull().default(0),
+  handsWon:             integer("hands_won").notNull().default(0),
+  lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
+  email:                text("email").unique(),
+  passwordHash:         text("password_hash"),
   // ── Avatar & customisation ──────────────────────────────────────────────────
-  avatarId:           text("avatar_id"),                    // null → use initials
+  avatarId:             text("avatar_id"),                    // null → use initials
+  // ── Equipped cosmetics ──────────────────────────────────────────────────────
+  equippedAvatarId:     text("equipped_avatar_id"),           // premium avatar override
+  equippedFrameId:      text("equipped_frame_id"),            // decorative border
+  equippedNameColorId:  text("equipped_name_color_id"),       // colored display name
   // ── Name change cooldown (90 days) ─────────────────────────────────────────
-  lastNameChangeAt:   timestamp("last_name_change_at"),     // null → never changed
+  lastNameChangeAt:     timestamp("last_name_change_at"),     // null → never changed
   // ── Guest reset tracking ────────────────────────────────────────────────────
-  lastResetAt:        timestamp("last_reset_at"),           // null → never reset
+  lastResetAt:          timestamp("last_reset_at"),           // null → never reset
   // ── Daily bonus streak tracking ─────────────────────────────────────────────
-  lastBonusClaimedAt: timestamp("last_bonus_claimed_at"),   // null → never claimed
-  bonusStreakDay:     integer("bonus_streak_day").notNull().default(1),
-  totalBonusClaims:  integer("total_bonus_claims").notNull().default(0),
-  createdAt:          timestamp("created_at").defaultNow().notNull(),
-  updatedAt:          timestamp("updated_at").defaultNow().notNull(),
+  lastBonusClaimedAt:   timestamp("last_bonus_claimed_at"),   // null → never claimed
+  bonusStreakDay:       integer("bonus_streak_day").notNull().default(1),
+  totalBonusClaims:    integer("total_bonus_claims").notNull().default(0),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+  updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
-  lastNameChangeAt:   true,
-  lastResetAt:        true,
-  lastBonusClaimedAt: true,
-  bonusStreakDay:     true,
-  totalBonusClaims:  true,
-  createdAt:          true,
-  updatedAt:          true,
+  lastNameChangeAt:    true,
+  lastResetAt:         true,
+  lastBonusClaimedAt:  true,
+  bonusStreakDay:      true,
+  totalBonusClaims:   true,
+  equippedAvatarId:    true,
+  equippedFrameId:     true,
+  equippedNameColorId: true,
+  createdAt:           true,
+  updatedAt:           true,
 });
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
 export type PlayerProfile = typeof playerProfiles.$inferSelect;
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────
-// Server-issued session tokens. One per active login.
-// Token is a 64-char hex string (32 random bytes).
-// expiresAt: 30 days for registered accounts, 7 days for guests.
 export const sessions = pgTable("sessions", {
   token:     text("token").primaryKey(),
   playerId:  text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
@@ -70,8 +74,6 @@ export const stripeTransactions = pgTable("stripe_transactions", {
 export type StripeTransaction = typeof stripeTransactions.$inferSelect;
 
 // ─── Purchase Transactions (real-money billing) ───────────────────────────────
-// Written on every Google Play purchase attempt; verificationStatus tracks flow.
-// purchase_token is UNIQUE — duplicate tokens are rejected (idempotency).
 export const purchaseTransactions = pgTable("purchase_transactions", {
   id:                 text("id").primaryKey().default(sql`gen_random_uuid()`),
   playerId:           text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
@@ -95,8 +97,6 @@ export type InsertPurchaseTransaction = z.infer<typeof insertPurchaseTransaction
 export type PurchaseTransaction = typeof purchaseTransactions.$inferSelect;
 
 // ─── Daily Bonus Claims (audit log) ──────────────────────────────────────────
-// One row per successful daily bonus claim.
-// streak_day: 1-7 (which day in the cycle was claimed)
 export const dailyBonusClaims = pgTable("daily_bonus_claims", {
   id:             text("id").primaryKey().default(sql`gen_random_uuid()::text`),
   playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
@@ -113,6 +113,44 @@ export const insertDailyBonusClaimSchema = createInsertSchema(dailyBonusClaims).
 
 export type InsertDailyBonusClaim = z.infer<typeof insertDailyBonusClaimSchema>;
 export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
+
+// ─── Cosmetic Items (server-controlled catalog) ───────────────────────────────
+export const cosmeticItems = pgTable("cosmetic_items", {
+  id:          varchar("id", { length: 64 }).primaryKey(),
+  category:    varchar("category", { length: 32 }).notNull(),
+  displayName: varchar("display_name", { length: 128 }).notNull(),
+  description: varchar("description", { length: 512 }).notNull(),
+  stripesCost: integer("stripes_cost").notNull(),
+  assetPath:   varchar("asset_path", { length: 256 }).notNull(),
+  colorValue:  varchar("color_value", { length: 16 }),
+  active:      boolean("active").notNull().default(true),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+});
+
+export type CosmeticItem = typeof cosmeticItems.$inferSelect;
+
+// ─── Player Inventory (owned cosmetics) ──────────────────────────────────────
+// UNIQUE (player_id, cosmetic_item_id) enforced at DB level in migration.
+export const playerInventory = pgTable("player_inventory", {
+  id:             text("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  cosmeticItemId: varchar("cosmetic_item_id", { length: 64 }).notNull().references(() => cosmeticItems.id),
+  acquiredAt:     timestamp("acquired_at").defaultNow().notNull(),
+  equipped:       boolean("equipped").notNull().default(false),
+});
+
+export type PlayerInventoryRow = typeof playerInventory.$inferSelect;
+
+// ─── Cosmetic Purchases (audit log) ──────────────────────────────────────────
+export const cosmeticPurchases = pgTable("cosmetic_purchases", {
+  id:             text("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  cosmeticItemId: varchar("cosmetic_item_id", { length: 64 }).notNull().references(() => cosmeticItems.id),
+  stripesSpent:   integer("stripes_spent").notNull(),
+  purchasedAt:    timestamp("purchased_at").defaultNow().notNull(),
+});
+
+export type CosmeticPurchase = typeof cosmeticPurchases.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

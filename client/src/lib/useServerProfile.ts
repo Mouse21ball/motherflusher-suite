@@ -1,7 +1,8 @@
 // ─── useServerProfile ─────────────────────────────────────────────────────────
 // Fetches the canonical player profile from the server on mount.
 // Returns server-authoritative fields: chipBalance, lifetimeProfit,
-// handsPlayed, displayName, email, hasAuth, level, avatarId, cooldowns.
+// handsPlayed, displayName, email, hasAuth, level, avatarId, cooldowns,
+// and equipped cosmetics (equippedAvatarId, equippedFrameId, equippedNameColorId).
 //
 // Falls back silently to `null` values so callers can always fall back to
 // localStorage stats when the fetch is loading or fails (e.g. offline).
@@ -13,20 +14,24 @@ import { apiFetch, setSessionToken } from './session';
 import { setUserId } from './analytics';
 
 export interface ServerProfile {
-  profileId:        string;
-  displayName:      string;
-  chipBalance:      number;
-  stripes:          number;
-  handsPlayed:      number;
-  lifetimeProfit:   number;
-  level:            number;
-  hasAuth:          boolean;
-  email:            string | null;
-  // ── New fields ─────────────────────────────────────────────────────────────
-  avatarId:         string | null;  // null → show initials
-  lastNameChangeAt: string | null;  // ISO string; null → never changed
-  nextResetAt:      string | null;  // ISO string; null → auth account (no reset)
-  sessionToken?:    string;         // issued by server on every /me call
+  profileId:            string;
+  displayName:          string;
+  chipBalance:          number;
+  stripes:              number;
+  handsPlayed:          number;
+  lifetimeProfit:       number;
+  level:                number;
+  hasAuth:              boolean;
+  email:                string | null;
+  // ── Avatar & customisation ─────────────────────────────────────────────────
+  avatarId:             string | null;  // null → show initials
+  equippedAvatarId:     string | null;  // premium avatar override
+  equippedFrameId:      string | null;  // decorative frame
+  equippedNameColorId:  string | null;  // colored display name
+  // ── Cooldowns ─────────────────────────────────────────────────────────────
+  lastNameChangeAt:     string | null;  // ISO string; null → never changed
+  nextResetAt:          string | null;  // ISO string; null → auth account (no reset)
+  sessionToken?:        string;         // issued by server on every /me call
 }
 
 interface UseServerProfileResult {

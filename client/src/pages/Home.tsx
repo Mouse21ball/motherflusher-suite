@@ -543,6 +543,15 @@ export default function Home() {
             <img src="/dock-shop.png" alt="Shop" className="w-5 h-5 object-contain" />
           </button>
           <button
+            onClick={() => navigate('/cosmetics')}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-90"
+            style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(201,162,39,0.22)', fontSize: '1rem' }}
+            data-testid="link-cosmetics-header"
+            title="Cosmetics"
+          >
+            ◆
+          </button>
+          <button
             onClick={() => navigate('/profile')}
             className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-transform active:scale-90"
             style={{ background: avatarColor + '50', border: '1px solid rgba(245,158,11,0.40)' }}
@@ -1023,7 +1032,7 @@ export default function Home() {
           borderTop: '1px solid rgba(245,158,11,0.18)',
         }}
       >
-        <div className="w-full max-w-lg mx-auto grid grid-cols-4 h-full">
+        <div className="w-full max-w-lg mx-auto grid grid-cols-5 h-full">
 
           {/* Leaderboard */}
           <button
@@ -1031,8 +1040,8 @@ export default function Home() {
             className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-leaderboard-footer"
           >
-            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-8 h-8 object-contain" />
-            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Leaderboard</span>
+            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-7 h-7 object-contain" />
+            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Ranks</span>
           </button>
 
           {/* Shop */}
@@ -1041,8 +1050,18 @@ export default function Home() {
             className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-shop-footer"
           >
-            <img src="/dock-shop.png" alt="Shop" className="w-8 h-8 object-contain" />
-            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
+            <img src="/dock-shop.png" alt="Shop" className="w-7 h-7 object-contain" />
+            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
+          </button>
+
+          {/* Cosmetics */}
+          <button
+            onClick={() => navigate('/cosmetics')}
+            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            data-testid="link-cosmetics-footer"
+          >
+            <span className="w-7 h-7 flex items-center justify-center text-lg" style={{ color: 'rgba(201,162,39,0.75)' }}>◆</span>
+            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Style</span>
           </button>
 
           {/* Home (elevated) */}

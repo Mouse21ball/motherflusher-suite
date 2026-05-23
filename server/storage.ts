@@ -4,8 +4,9 @@ import {
   type PlayerProfile,
   type Session,
   type PurchaseTransaction,
+  type CosmeticItem,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
-  dailyBonusClaims,
+  dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
 } from "@shared/schema";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -82,6 +83,12 @@ export interface IStorage {
     verifiedAt?:   Date,
   ): Promise<void>;
   debitStripesForRefund(playerId: string, amount: number, purchaseTransactionId: string): Promise<void>;
+  // ── Cosmetics ──────────────────────────────────────────────────────────────
+  getCosmeticCatalog(): Promise<CosmeticItem[]>;
+  getPlayerInventory(playerId: string): Promise<PlayerInventoryResult>;
+  purchaseCosmetic(playerId: string, cosmeticItemId: string): Promise<PurchaseCosmeticResult>;
+  equipCosmetic(playerId: string, cosmeticItemId: string): Promise<EquipResult>;
+  unequipCosmetic(playerId: string, category: string): Promise<void>;
 }
 
 // ─── Daily bonus types ────────────────────────────────────────────────────────
@@ -108,6 +115,34 @@ export interface DailyStats {
   avgSessionMs: number;
   modeBreakdown: Record<string, number>;
   returningPlayers: number;
+}
+
+// ─── Cosmetics types ──────────────────────────────────────────────────────────
+export interface CosmeticInventoryItem extends CosmeticItem {
+  acquiredAt:          Date;
+  equippedInInventory: boolean;
+}
+
+export interface PlayerInventoryResult {
+  items: CosmeticInventoryItem[];
+  equipped: {
+    avatarId:    string | null;
+    frameId:     string | null;
+    nameColorId: string | null;
+  };
+}
+
+export interface PurchaseCosmeticResult {
+  newStripesBalance: number;
+  item:              CosmeticItem;
+}
+
+export interface EquipResult {
+  equipped: {
+    avatarId:    string | null;
+    frameId:     string | null;
+    nameColorId: string | null;
+  };
 }
 
 // ─── Daily bonus helpers (module-scope so class methods can reference them) ────
@@ -281,12 +316,15 @@ export class MemStorage implements IStorage {
       lifetimeProfit: 0,
       email: null,
       passwordHash: null,
-      avatarId: null,
-      lastNameChangeAt: null,
-      lastResetAt:        null,
-      lastBonusClaimedAt: null,
-      bonusStreakDay:     1,
-      totalBonusClaims:  0,
+      avatarId:            null,
+      equippedAvatarId:    null,
+      equippedFrameId:     null,
+      equippedNameColorId: null,
+      lastNameChangeAt:    null,
+      lastResetAt:         null,
+      lastBonusClaimedAt:  null,
+      bonusStreakDay:      1,
+      totalBonusClaims:   0,
       createdAt: now,
       updatedAt: now,
     };
@@ -706,6 +744,213 @@ export class MemStorage implements IStorage {
         newChipBalance,
         newStripesBalance,
       };
+    });
+  }
+
+  // ── Cosmetics ──────────────────────────────────────────────────────────────
+
+  async getCosmeticCatalog(): Promise<CosmeticItem[]> {
+    return await db
+      .select()
+      .from(cosmeticItems)
+      .where(eq(cosmeticItems.active, true))
+      .orderBy(cosmeticItems.stripesCost);
+  }
+
+  async getPlayerInventory(playerId: string): Promise<PlayerInventoryResult> {
+    const rows = await db
+      .select({
+        id:                  cosmeticItems.id,
+        category:            cosmeticItems.category,
+        displayName:         cosmeticItems.displayName,
+        description:         cosmeticItems.description,
+        stripesCost:         cosmeticItems.stripesCost,
+        assetPath:           cosmeticItems.assetPath,
+        colorValue:          cosmeticItems.colorValue,
+        active:              cosmeticItems.active,
+        createdAt:           cosmeticItems.createdAt,
+        acquiredAt:          playerInventory.acquiredAt,
+        equippedInInventory: playerInventory.equipped,
+      })
+      .from(playerInventory)
+      .innerJoin(cosmeticItems, eq(playerInventory.cosmeticItemId, cosmeticItems.id))
+      .where(eq(playerInventory.playerId, playerId));
+
+    const profileRows = await db
+      .select({
+        equippedAvatarId:    playerProfiles.equippedAvatarId,
+        equippedFrameId:     playerProfiles.equippedFrameId,
+        equippedNameColorId: playerProfiles.equippedNameColorId,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+
+    const p = profileRows[0] ?? { equippedAvatarId: null, equippedFrameId: null, equippedNameColorId: null };
+    return {
+      items: rows.map(r => ({
+        ...r,
+        acquiredAt:          r.acquiredAt,
+        equippedInInventory: r.equippedInInventory,
+      })),
+      equipped: {
+        avatarId:    p.equippedAvatarId,
+        frameId:     p.equippedFrameId,
+        nameColorId: p.equippedNameColorId,
+      },
+    };
+  }
+
+  async purchaseCosmetic(playerId: string, cosmeticItemId: string): Promise<PurchaseCosmeticResult> {
+    return await db.transaction(async (tx) => {
+      // Item must exist and be active
+      const itemRows = await tx
+        .select()
+        .from(cosmeticItems)
+        .where(and(eq(cosmeticItems.id, cosmeticItemId), eq(cosmeticItems.active, true)))
+        .limit(1);
+      if (!itemRows[0]) throw Object.assign(new Error('Item not found'), { code: 'NOT_FOUND' });
+      const item = itemRows[0];
+
+      // Idempotency — reject if already owned
+      const existingRows = await tx
+        .select({ id: playerInventory.id })
+        .from(playerInventory)
+        .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, cosmeticItemId)))
+        .limit(1);
+      if (existingRows[0]) throw Object.assign(new Error('Already owned'), { code: 'ALREADY_OWNED' });
+
+      // Check balance
+      const profileRows = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!profileRows[0]) throw Object.assign(new Error('Player not found'), { code: 'NOT_FOUND' });
+      if (profileRows[0].stripes < item.stripesCost) {
+        throw Object.assign(new Error('Insufficient Stripes'), { code: 'INSUFFICIENT_STRIPES', balance: profileRows[0].stripes });
+      }
+
+      const newBalance = profileRows[0].stripes - item.stripesCost;
+
+      // Debit
+      await tx.update(playerProfiles)
+        .set({ stripes: newBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+
+      // Stripe audit
+      await tx.insert(stripeTransactions).values({
+        playerId,
+        amount:       -item.stripesCost,
+        reason:       `cosmetic:${cosmeticItemId}`,
+        balanceAfter: newBalance,
+      });
+
+      // Grant item
+      await tx.insert(playerInventory).values({
+        id:             randomUUID(),
+        playerId,
+        cosmeticItemId,
+        equipped:       false,
+      });
+
+      // Purchase audit
+      await tx.insert(cosmeticPurchases).values({
+        id:             randomUUID(),
+        playerId,
+        cosmeticItemId,
+        stripesSpent:   item.stripesCost,
+      });
+
+      return { newStripesBalance: newBalance, item };
+    });
+  }
+
+  async equipCosmetic(playerId: string, cosmeticItemId: string): Promise<EquipResult> {
+    return await db.transaction(async (tx) => {
+      // Verify ownership + get category
+      const ownedRows = await tx
+        .select({ category: cosmeticItems.category })
+        .from(playerInventory)
+        .innerJoin(cosmeticItems, eq(playerInventory.cosmeticItemId, cosmeticItems.id))
+        .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, cosmeticItemId)))
+        .limit(1);
+      if (!ownedRows[0]) throw Object.assign(new Error('Item not owned'), { code: 'NOT_OWNED' });
+      const category = ownedRows[0].category;
+
+      // Unequip previous item in same category
+      const prevEquipped = await tx
+        .select({ cosmeticItemId: playerInventory.cosmeticItemId })
+        .from(playerInventory)
+        .innerJoin(cosmeticItems, eq(playerInventory.cosmeticItemId, cosmeticItems.id))
+        .where(and(
+          eq(playerInventory.playerId, playerId),
+          eq(cosmeticItems.category, category),
+          eq(playerInventory.equipped, true),
+        ));
+      for (const prev of prevEquipped) {
+        await tx.update(playerInventory)
+          .set({ equipped: false })
+          .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, prev.cosmeticItemId)));
+      }
+
+      // Equip this item
+      await tx.update(playerInventory)
+        .set({ equipped: true })
+        .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, cosmeticItemId)));
+
+      // Update player_profiles equipped slot
+      const profileUpdate =
+        category === 'avatar'     ? { equippedAvatarId:    cosmeticItemId } :
+        category === 'frame'      ? { equippedFrameId:     cosmeticItemId } :
+                                    { equippedNameColorId: cosmeticItemId };
+      await tx.update(playerProfiles)
+        .set({ ...profileUpdate, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+
+      // Read back equipped state
+      const profileRows = await tx
+        .select({
+          equippedAvatarId:    playerProfiles.equippedAvatarId,
+          equippedFrameId:     playerProfiles.equippedFrameId,
+          equippedNameColorId: playerProfiles.equippedNameColorId,
+        })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      const p = profileRows[0] ?? { equippedAvatarId: null, equippedFrameId: null, equippedNameColorId: null };
+      console.log(`[cosmetics] equip player=${playerId} item=${cosmeticItemId} category=${category}`);
+      return { equipped: { avatarId: p.equippedAvatarId, frameId: p.equippedFrameId, nameColorId: p.equippedNameColorId } };
+    });
+  }
+
+  async unequipCosmetic(playerId: string, category: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Clear inventory equipped flags for this category
+      const equipped = await tx
+        .select({ cosmeticItemId: playerInventory.cosmeticItemId })
+        .from(playerInventory)
+        .innerJoin(cosmeticItems, eq(playerInventory.cosmeticItemId, cosmeticItems.id))
+        .where(and(
+          eq(playerInventory.playerId, playerId),
+          eq(cosmeticItems.category, category),
+          eq(playerInventory.equipped, true),
+        ));
+      for (const item of equipped) {
+        await tx.update(playerInventory)
+          .set({ equipped: false })
+          .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, item.cosmeticItemId)));
+      }
+
+      // Clear player_profiles slot
+      const profileUpdate =
+        category === 'avatar'     ? { equippedAvatarId:    null } :
+        category === 'frame'      ? { equippedFrameId:     null } :
+                                    { equippedNameColorId: null };
+      await tx.update(playerProfiles)
+        .set({ ...profileUpdate, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      console.log(`[cosmetics] unequip player=${playerId} category=${category}`);
     });
   }
 }
