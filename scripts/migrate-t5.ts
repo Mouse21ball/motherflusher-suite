@@ -8,7 +8,8 @@
  *   2. Makes cosmetic_items.stripes_cost nullable (subscription-exclusive items have null)
  *   3. Creates subscriptions table
  *   4. Creates subscription_events table
- *   5. Seeds 5 subscription-exclusive cosmetic items
+ *   5. Seeds 2 subscription-exclusive frame items (frames only — badges and Diamond
+ *      background are client-rendered tier assets, not catalog entries)
  *   6. Creates index on subscriptions.purchase_token (already UNIQUE, but explicit)
  */
 
@@ -90,8 +91,11 @@ async function run() {
     `);
 
     // ── 5. Seed subscription-exclusive cosmetic items ─────────────────────────
-    // category = 'subscription_exclusive' → blocked from normal Stripes purchase
-    console.log("5. Seeding subscription-exclusive cosmetic items…");
+    // Only the 2 frames live in cosmetic_items (so the server can auto-equip /
+    // restore them).  Badges and the Diamond background are tier-rendering assets
+    // loaded directly by the client from active_subscription_tier — they are NOT
+    // catalog entries and must NOT be seeded here.
+    console.log("5. Seeding subscription-exclusive frame items…");
 
     const subItems = [
       {
@@ -107,27 +111,6 @@ async function run() {
         displayName: "Diamond Elite Frame",
         description: "Exclusive animated diamond border. Auto-equipped while Diamond Elite subscription is active.",
         assetPath: "/cosmetics/frames/frame-diamond-animated.png",
-      },
-      {
-        id: "badge_gold_pro",
-        category: "subscription_exclusive",
-        displayName: "Gold Pro Badge",
-        description: "GOLD PRO badge displayed next to player name in lobby and at table.",
-        assetPath: "/cosmetics/badges/badge-gold-pro.png",
-      },
-      {
-        id: "badge_diamond_elite",
-        category: "subscription_exclusive",
-        displayName: "Diamond Elite Badge",
-        description: "DIAMOND ELITE badge displayed next to player name in lobby and at table.",
-        assetPath: "/cosmetics/badges/badge-diamond-elite.png",
-      },
-      {
-        id: "table_skin_diamond",
-        category: "subscription_exclusive",
-        displayName: "Diamond Table Skin",
-        description: "Exclusive Diamond Elite table skin applied when hosting or seated at a table.",
-        assetPath: "/cosmetics/table-skins/skin-diamond.png",
       },
     ];
 
