@@ -1535,7 +1535,10 @@ export async function registerRoutes(
         : extendGenericTurnTimer(tId, mode_id, playerId, 20_000);
 
       if (!result.success) {
-        res.status(409).json({ error: result.reason ?? 'timer_extend_failed', message: 'Could not extend timer.' });
+        // 403 for seat/turn-ownership guards; 409 for genuine timer conflicts
+        const reason = result.reason ?? 'timer_extend_failed';
+        const is403 = reason === 'player_not_at_table' || reason === 'not_your_turn' || reason === 'table_not_found';
+        res.status(is403 ? 403 : 409).json({ error: reason, message: 'Could not extend timer.' });
         return;
       }
 

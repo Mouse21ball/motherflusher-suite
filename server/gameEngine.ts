@@ -1063,6 +1063,7 @@ function armTurnTimerBadugi(table: AuthTable): void {
   const seatAtArm = activeSeat.id;
 
   table.state = { ...table.state, turnDeadline: deadline };
+  broadcastState(table); // push deadline to clients immediately
 
   table.turnTimer = setTimeout(() => {
     table.turnTimer = null;
