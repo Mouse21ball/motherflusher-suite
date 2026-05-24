@@ -55,6 +55,49 @@ const FRAME_COLORS: Record<string, { border: string; glow: string }> = {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ItemPreview({ item, size = 64 }: { item: CatalogItem; size?: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (item.category === 'name_color') {
+    const color = item.colorValue ?? '#fff';
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: 12,
+        background: 'rgba(0,0,0,0.35)',
+        border: `2px solid ${color}44`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 2,
+      }}>
+        <span style={{
+          color, fontWeight: 900, fontSize: size * 0.22,
+          fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+          letterSpacing: '0.06em', textShadow: `0 0 8px ${color}88`,
+        }}>
+          PLAYER
+        </span>
+        <div style={{ width: size * 0.55, height: 2, borderRadius: 1, background: color, opacity: 0.7 }} />
+      </div>
+    );
+  }
+
+  if (item.assetPath && !imgFailed) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: 12,
+        background: 'rgba(0,0,0,0.30)',
+        overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <img
+          src={item.assetPath}
+          alt={item.displayName}
+          onError={() => setImgFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, display: 'block' }}
+        />
+      </div>
+    );
+  }
+
   if (item.category === 'avatar') {
     const emoji = AVATAR_PLACEHOLDERS[item.id] ?? '?';
     return (
@@ -65,47 +108,25 @@ function ItemPreview({ item, size = 64 }: { item: CatalogItem; size?: number }) 
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: size * 0.5,
       }}>
-        {/* Show real asset if uploaded, else emoji */}
         <span>{emoji}</span>
       </div>
     );
   }
-  if (item.category === 'frame') {
-    const fc = FRAME_COLORS[item.id] ?? { border: '#888', glow: 'rgba(136,136,136,0.4)' };
-    const padding = Math.max(3, Math.floor(size * 0.06));
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: 12,
-        border: `${padding}px solid ${fc.border}`,
-        boxShadow: `0 0 ${size * 0.2}px ${fc.glow}`,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: size * 0.28, color: fc.border, fontWeight: 700,
-        fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-        letterSpacing: '0.05em',
-      }}>
-        FRAME
-      </div>
-    );
-  }
-  // name_color
-  const color = item.colorValue ?? '#fff';
+
+  const fc = FRAME_COLORS[item.id] ?? { border: '#888', glow: 'rgba(136,136,136,0.4)' };
+  const padding = Math.max(3, Math.floor(size * 0.06));
   return (
     <div style={{
       width: size, height: size, borderRadius: 12,
-      background: 'rgba(0,0,0,0.35)',
-      border: `2px solid ${color}44`,
+      border: `${padding}px solid ${fc.border}`,
+      boxShadow: `0 0 ${size * 0.2}px ${fc.glow}`,
+      background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexDirection: 'column', gap: 2,
+      fontSize: size * 0.28, color: fc.border, fontWeight: 700,
+      fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+      letterSpacing: '0.05em',
     }}>
-      <span style={{
-        color, fontWeight: 900, fontSize: size * 0.22,
-        fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-        letterSpacing: '0.06em', textShadow: `0 0 8px ${color}88`,
-      }}>
-        PLAYER
-      </span>
-      <div style={{ width: size * 0.55, height: 2, borderRadius: 1, background: color, opacity: 0.7 }} />
+      FRAME
     </div>
   );
 }
