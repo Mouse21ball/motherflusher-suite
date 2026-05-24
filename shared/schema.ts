@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -31,21 +31,28 @@ export const playerProfiles = pgTable("player_profiles", {
   lastBonusClaimedAt:   timestamp("last_bonus_claimed_at"),   // null → never claimed
   bonusStreakDay:       integer("bonus_streak_day").notNull().default(1),
   totalBonusClaims:    integer("total_bonus_claims").notNull().default(0),
+  // ── Subscription tier (denormalized for fast lookups) ──────────────────────
+  activeSubscriptionTier:          text("active_subscription_tier"),          // null | "gold_pro" | "diamond_elite"
+  subscriptionExpiresAt:           timestamp("subscription_expires_at"),      // null if no active sub
+  subscriptionLastStripesGrantAt:  timestamp("subscription_last_stripes_grant_at"), // last monthly Stripes drop
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit({
-  lastNameChangeAt:    true,
-  lastResetAt:         true,
-  lastBonusClaimedAt:  true,
-  bonusStreakDay:      true,
-  totalBonusClaims:   true,
-  equippedAvatarId:    true,
-  equippedFrameId:     true,
-  equippedNameColorId: true,
-  createdAt:           true,
-  updatedAt:           true,
+  lastNameChangeAt:               true,
+  lastResetAt:                    true,
+  lastBonusClaimedAt:             true,
+  bonusStreakDay:                 true,
+  totalBonusClaims:              true,
+  equippedAvatarId:               true,
+  equippedFrameId:                true,
+  equippedNameColorId:            true,
+  activeSubscriptionTier:         true,
+  subscriptionExpiresAt:          true,
+  subscriptionLastStripesGrantAt: true,
+  createdAt:                      true,
+  updatedAt:                      true,
 });
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
@@ -120,7 +127,7 @@ export const cosmeticItems = pgTable("cosmetic_items", {
   category:    varchar("category", { length: 32 }).notNull(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
   description: varchar("description", { length: 512 }).notNull(),
-  stripesCost: integer("stripes_cost").notNull(),
+  stripesCost: integer("stripes_cost"),   // null = subscription_exclusive (not directly purchasable)
   assetPath:   varchar("asset_path", { length: 256 }).notNull(),
   colorValue:  varchar("color_value", { length: 16 }),
   active:      boolean("active").notNull().default(true),
@@ -151,6 +158,49 @@ export const cosmeticPurchases = pgTable("cosmetic_purchases", {
 });
 
 export type CosmeticPurchase = typeof cosmeticPurchases.$inferSelect;
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+// One row per active/historical subscription purchase token.
+export const subscriptions = pgTable("subscriptions", {
+  id:                         text("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId:                   text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  tier:                       varchar("tier", { length: 32 }).notNull(),           // "gold_pro" | "diamond_elite"
+  billingPeriod:              varchar("billing_period", { length: 16 }).notNull(), // "monthly" | "yearly"
+  productId:                  varchar("product_id", { length: 64 }).notNull(),     // Play Console product ID
+  purchaseToken:              text("purchase_token").notNull().unique(),
+  status:                     varchar("status", { length: 32 }).notNull().default("active"),
+  // ^ "active" | "in_grace_period" | "on_hold" | "paused" | "canceled" | "expired"
+  expiresAt:                  timestamp("expires_at"),
+  autoRenewing:               boolean("auto_renewing").notNull().default(true),
+  startedAt:                  timestamp("started_at").notNull().defaultNow(),
+  lastVerifiedAt:             timestamp("last_verified_at").notNull().defaultNow(),
+  canceledAt:                 timestamp("canceled_at"),
+  previousFrameId:            text("previous_frame_id"),   // frame to restore on expiry
+  stripesGrantedCurrentCycle: integer("stripes_granted_current_cycle").notNull().default(0),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  startedAt: true,
+  lastVerifiedAt: true,
+});
+
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+
+// ─── Subscription Events (audit log) ─────────────────────────────────────────
+export const subscriptionEvents = pgTable("subscription_events", {
+  id:             text("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  subscriptionId: text("subscription_id").references(() => subscriptions.id, { onDelete: "set null" }),
+  eventType:      varchar("event_type", { length: 32 }).notNull(),
+  // ^ "purchased" | "renewed" | "canceled" | "grace_period_entered" |
+  //   "on_hold" | "recovered" | "expired" | "refunded" | "stripes_granted"
+  eventData:      jsonb("event_data"),
+  occurredAt:     timestamp("occurred_at").notNull().defaultNow(),
+});
+
+export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

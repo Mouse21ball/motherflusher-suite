@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { billing } from '@/lib/billing';
+import { billing, type ActiveSubscription } from '@/lib/billing';
 
 const STRIPES_PACKS = [
   {
@@ -48,71 +48,6 @@ const STRIPES_PACKS = [
   },
 ] as const;
 
-const SUBSCRIPTION_TIERS = [
-  {
-    id: 'basic',
-    name: 'Chip Player',
-    price: 'Free',
-    period: 'forever',
-    color: '#C0C0C0',
-    bg: 'rgba(192,192,192,0.06)',
-    border: 'rgba(192,192,192,0.15)',
-    emblem: '/tier-bronze.png',
-    features: [
-      '1,000 starting chips per mode',
-      'Standard avatar',
-      '5 reaction emotes',
-      'Daily 250 chip bonus',
-    ],
-    cta: 'Current Plan',
-    ctaDisabled: true,
-  },
-  {
-    id: 'pro',
-    name: 'Gold Pro',
-    price: '',
-    period: '',
-    color: '#C9A227',
-    bg: 'rgba(201,162,39,0.08)',
-    border: 'rgba(201,162,39,0.30)',
-    badge: 'Most Popular',
-    emblem: '/tier-gold.png',
-    features: [
-      '5,000 chips/month bonus',
-      'Gold avatar frame',
-      'Daily 1,000 chip bonus',
-      'Streak protection (1x/week)',
-      'XP boost: +25% per hand',
-      'Priority table access',
-    ],
-    cta: 'AVAILABLE v1.1',
-    ctaDisabled: true,
-  },
-  {
-    id: 'elite',
-    name: 'Diamond Elite',
-    price: '',
-    period: '',
-    color: '#9B59B6',
-    bg: 'rgba(155,89,182,0.08)',
-    border: 'rgba(155,89,182,0.30)',
-    badge: 'Best Value',
-    emblem: '/tier-diamond.png',
-    features: [
-      '15,000 chips/month bonus',
-      'Animated diamond frame',
-      'Daily 2,500 chip bonus',
-      'Unlimited streak protection',
-      'XP boost: +50% per hand',
-      'Exclusive Diamond table skin',
-      'Custom nameplate color',
-      'Early access to new modes',
-    ],
-    cta: 'AVAILABLE v1.1',
-    ctaDisabled: true,
-  },
-];
-
 const MERCH_ITEMS = [
   {
     icon: '👕',
@@ -128,313 +63,565 @@ const MERCH_ITEMS = [
     name: 'CHAIN GANG SNAPBACK',
     sub: 'Trucker mesh — premium logo patch',
     price: '$25',
-    originalPrice: null as string | null,
-    hot: false,
-    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Snapback%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Snapback%20(%2425).%0A%0ASize%3A%20%0AShipping%20address%3A%20%0AColor%20preference%3A%20",
+    originalPrice: null,
+    hot: true,
+    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Snapback%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Snapback%20(%2425).%0A%0ASize%3A%20%0AShipping%20address%3A%20",
   },
   {
-    icon: '🎁',
-    name: 'TEE + HAT BUNDLE',
-    sub: 'Save $10 — limited first drop',
-    price: '$45',
-    originalPrice: '$55',
-    hot: true,
-    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Tee%20%2B%20Hat%20Bundle%20Order&body=I%27d%20like%20to%20order%20the%20Tee%20%2B%20Hat%20Bundle%20(%2445).%0A%0AT-Shirt%20size%3A%20%0AHat%20color%3A%20%0AShipping%20address%3A%20",
+    icon: '🃏',
+    name: 'CHAIN GANG PLAYING CARDS',
+    sub: 'Full custom deck — chain gang artwork',
+    price: '$18',
+    originalPrice: null,
+    hot: false,
+    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Playing%20Cards%20Order&body=I%27d%20like%20to%20order%20Chain%20Gang%20Playing%20Cards%20(%2418).%0A%0AQuantity%3A%20%0AShipping%20address%3A%20",
+  },
+];
+
+// ─── Subscription tier definitions ───────────────────────────────────────────
+
+interface TierDef {
+  id:           'basic' | 'pro' | 'elite';
+  name:         string;
+  tier:         null | 'gold_pro' | 'diamond_elite';
+  color:        string;
+  bg:           string;
+  border:       string;
+  emblem:       string;
+  badge?:       string;
+  features:     string[];
+  monthlyPrice: string;
+  yearlyPrice:  string;
+  yearlySavings: string;
+  monthlyProductId: string | null;
+  yearlyProductId:  string | null;
+}
+
+const TIER_DEFS: TierDef[] = [
+  {
+    id: 'basic', name: 'Chip Player', tier: null,
+    color: '#C0C0C0', bg: 'rgba(192,192,192,0.06)', border: 'rgba(192,192,192,0.15)',
+    emblem: '/tier-bronze.png',
+    features: [
+      '1,000 starting chips per mode',
+      'Standard avatar',
+      '5 reaction emotes',
+      'Daily 250 chip bonus',
+    ],
+    monthlyPrice: 'Free', yearlyPrice: 'Free', yearlySavings: '',
+    monthlyProductId: null, yearlyProductId: null,
+  },
+  {
+    id: 'pro', name: 'Gold Pro', tier: 'gold_pro',
+    color: '#C9A227', bg: 'rgba(201,162,39,0.08)', border: 'rgba(201,162,39,0.30)',
+    emblem: '/tier-gold.png', badge: 'Most Popular',
+    features: [
+      'Exclusive Gold avatar frame',
+      'Daily +1,000 chip bonus',
+      'Monthly 100◆ Stripes grant',
+      'XP boost: +25% per hand',
+      'Priority table queue',
+      'GOLD PRO badge at table',
+    ],
+    monthlyPrice: '$9.99/mo', yearlyPrice: '$99.99/yr',
+    yearlySavings: 'Save 17% ($8.33/mo)',
+    monthlyProductId: 'sub_gold_pro_monthly',
+    yearlyProductId:  'sub_gold_pro_yearly',
+  },
+  {
+    id: 'elite', name: 'Diamond Elite', tier: 'diamond_elite',
+    color: '#9B59B6', bg: 'rgba(155,89,182,0.08)', border: 'rgba(155,89,182,0.30)',
+    emblem: '/tier-diamond.png', badge: 'BEST VALUE',
+    features: [
+      'All Gold Pro benefits',
+      'Exclusive animated Diamond frame',
+      'Daily +2,500 chip bonus',
+      'Monthly 300◆ Stripes grant',
+      'XP boost: +50% per hand',
+      'Exclusive Diamond table skin',
+      'DIAMOND ELITE badge at table',
+    ],
+    monthlyPrice: '$19.99/mo', yearlyPrice: '$199.99/yr',
+    yearlySavings: 'Save 17% ($16.67/mo)',
+    monthlyProductId: 'sub_diamond_elite_monthly',
+    yearlyProductId:  'sub_diamond_elite_yearly',
   },
 ];
 
 export default function Shop() {
-  const [, navigate] = useLocation();
-  const identity = ensurePlayerIdentity();
-  const progression = getProgression();
-  const levelInfo = getLevelInfo(progression.xp);
-  const rank = getRankForLevel(levelInfo.level);
-  const { profile: serverProfile, refetch } = useServerProfile();
+  const [, navigate]       = useLocation();
+  const { profile, refetch } = useServerProfile();
 
+  // ── Stripes purchase state ───────────────────────────────────────────────
   const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
-  const [purchaseMsg, setPurchaseMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [purchaseMsg,  setPurchaseMsg]  = useState<string | null>(null);
 
-  const handlePurchase = async (productId: string, stripesCount: number) => {
+  // ── Subscription state ───────────────────────────────────────────────────
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [subStatus,     setSubStatus]     = useState<ActiveSubscription | null>(null);
+  const [subBusy,       setSubBusy]       = useState<string | null>(null);
+  const [subMsg,        setSubMsg]        = useState<string | null>(null);
+
+  // Fetch current subscription on mount
+  useEffect(() => {
+    billing.getActiveSubscription().then(setSubStatus).catch(() => {});
+  }, []);
+
+  const identity   = ensurePlayerIdentity();
+  const prog       = getProgression();
+  const levelInfo  = getLevelInfo(prog.xp);
+  const rank       = getRankForLevel(levelInfo.level);
+  const initials   = getAvatarInitials(profile?.displayName ?? identity.name);
+  const avatarColor = getAvatarColor(identity.id);
+
+  // ── Stripes purchase handler ─────────────────────────────────────────────
+  async function handlePurchase(productId: string) {
     setPurchaseBusy(productId);
     setPurchaseMsg(null);
     try {
       const result = await billing.purchase(productId);
-      setPurchaseMsg({ type: 'success', text: `+${result.stripesGranted} Stripes added to your account!` });
+      setPurchaseMsg(`✓ ${result.stripesGranted}◆ Stripes added!`);
       refetch();
     } catch (err: any) {
-      setPurchaseMsg({ type: 'error', text: err.message ?? 'Purchase failed. Please try again.' });
+      setPurchaseMsg(err.message ?? 'Purchase failed');
     } finally {
       setPurchaseBusy(null);
     }
-  };
+  }
+
+  // ── Subscription purchase handler ────────────────────────────────────────
+  async function handleSubscribe(tier: TierDef) {
+    const productId = billingPeriod === 'monthly'
+      ? tier.monthlyProductId
+      : tier.yearlyProductId;
+    if (!productId) return;
+
+    setSubBusy(tier.id);
+    setSubMsg(null);
+    try {
+      const result = await billing.launchSubscriptionPurchase(productId);
+      setSubMsg(`✓ ${tier.name} activated! ${result.stripesGranted}◆ granted.`);
+      const updated = await billing.getActiveSubscription();
+      setSubStatus(updated);
+      refetch();
+    } catch (err: any) {
+      setSubMsg(err.message ?? 'Subscription failed');
+    } finally {
+      setSubBusy(null);
+    }
+  }
+
+  function handleManageSubscription() {
+    billing.openSubscriptionManagement();
+  }
+
+  // ── Subscription card state helpers ──────────────────────────────────────
+  function getCardState(tier: TierDef): 'current' | 'active' | 'grace' | 'hold' | 'upgrade' | 'downgrade' | 'locked' {
+    if (tier.tier === null) {
+      return !subStatus?.active ? 'current' : 'locked';
+    }
+    if (!subStatus) return 'locked';
+    if (subStatus.tier === tier.tier) {
+      if (subStatus.status === 'in_grace_period') return 'grace';
+      if (subStatus.status === 'on_hold') return 'hold';
+      return 'active';
+    }
+    if (subStatus.active) {
+      const activeIsDiamond = subStatus.tier === 'diamond_elite';
+      const thisIsDiamond   = tier.tier === 'diamond_elite';
+      return (activeIsDiamond && !thisIsDiamond) ? 'downgrade' : 'upgrade';
+    }
+    return 'locked';
+  }
+
+  function formatExpiry(iso: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
 
   return (
-    <div className="min-h-[100dvh] bg-[#070709] flex flex-col">
-      {/* Ambient glow */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[500px] rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.12) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full"
-          style={{ background: 'radial-gradient(ellipse, rgba(155,93,229,0.08) 0%, transparent 70%)' }} />
-      </div>
-
-      {/* Header */}
-      <header
-        className="sticky top-0 z-40 w-full px-4 py-3 flex items-center gap-3 border-b"
-        style={{ backgroundColor: 'rgba(7,7,9,0.92)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.06)' }}
-      >
+    <div
+      className="min-h-screen text-white flex flex-col items-center"
+      style={{ background: 'linear-gradient(180deg, #0B0B0D 0%, #111115 100%)' }}
+    >
+      {/* ── Header ── */}
+      <div className="w-full max-w-md px-4 pt-10 pb-4">
         <button
           onClick={() => navigate('/')}
-          className="text-[10px] font-mono text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
-          data-testid="link-back-home"
+          className="text-white/30 text-sm font-mono mb-6 flex items-center gap-1 hover:text-white/60 transition-colors"
+          data-testid="button-back-shop"
         >
-          ‹ Lobby
+          ← BACK
         </button>
-        <span className="text-white/10">·</span>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Shop</span>
-      </header>
 
-      <div className="flex-1 flex flex-col items-center px-4 py-5 gap-6 max-w-lg mx-auto w-full relative">
-
-        {/* Current plan display */}
-        <div
-          className="w-full rounded-2xl p-4 border flex items-center gap-4"
-          style={{ backgroundColor: rank.bg, borderColor: rank.border }}
-        >
+        {/* Player profile summary */}
+        <div className="flex items-center gap-3 mb-6">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg font-mono text-white shrink-0"
-            style={{ backgroundColor: getAvatarColor(identity.avatarSeed) + '22', border: `1.5px solid ${rank.color}40` }}
+            className="w-12 h-12 rounded-full flex items-center justify-center text-base font-black"
+            style={{ background: avatarColor }}
           >
-            {getAvatarInitials(identity.name)}
+            {initials}
           </div>
-          <div className="flex-1">
-            <div className="font-bold text-white/85 font-sans">{identity.name}</div>
-            <div className="text-[10px] font-mono mt-0.5" style={{ color: rank.color }}>
-              Level {levelInfo.level} · {rank.name} · Free Plan
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-white text-sm truncate">
+              {profile?.displayName ?? identity.name}
+            </div>
+            <div className="text-[10px] font-mono text-white/30 uppercase tracking-widest">
+              Lv.{levelInfo.level} · {rank.name}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">XP</div>
-            <div className="text-sm font-bold font-mono text-white/70 tabular-nums">
-              {progression.xp.toLocaleString()}
+            <div className="text-[10px] font-mono text-white/30 uppercase">Balance</div>
+            <div className="text-base font-bold font-mono text-white/85">
+              {(profile?.stripes ?? 0).toLocaleString()}◆
             </div>
           </div>
         </div>
 
-        {/* ── Stripes Shop ────────────────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="flex items-center gap-2 mb-3">
-            <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-6 h-6 opacity-70" />
-            <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest">Stripes Shop</span>
-            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.3), transparent)' }} />
-          </div>
+        <h1
+          className="text-2xl font-black uppercase tracking-widest mb-1"
+          style={{ color: '#FF6B00' }}
+        >
+          ⛓️ Shop
+        </h1>
+        <p className="text-[11px] font-mono text-white/30 mb-6">
+          Premium currency · cosmetics · gear
+        </p>
 
-          {/* Current balance */}
-          <div
-            className="w-full rounded-xl px-4 py-3 mb-3 flex items-center justify-between border"
-            style={{ backgroundColor: 'rgba(168,85,247,0.07)', borderColor: 'rgba(168,85,247,0.2)' }}
-          >
-            <div className="flex items-center gap-2">
-              <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-8 h-8 opacity-80" />
-              <span className="text-[11px] font-mono text-white/40 uppercase tracking-widest">Your Stripes</span>
+        <div className="flex flex-col gap-8">
+
+          {/* ── Stripes packs ──────────────────────────────────────────────── */}
+          <div className="w-full">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">
+              Buy Stripes ◆
             </div>
-            <span className="text-lg font-bold font-mono tabular-nums" style={{ color: '#a855f7' }} data-testid="text-stripes-balance">
-              {(serverProfile?.stripes ?? 0).toLocaleString()}
-            </span>
-          </div>
-
-          {/* Purchase result message */}
-          {purchaseMsg && (
-            <div
-              className={`w-full rounded-xl px-4 py-3 mb-3 text-center text-sm font-mono border ${
-                purchaseMsg.type === 'success'
-                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                  : 'text-red-400 border-red-500/30 bg-red-500/10'
-              }`}
-            >
-              {purchaseMsg.text}
-            </div>
-          )}
-
-          {/* Pack grid — 2 columns */}
-          <div className="grid grid-cols-2 gap-2">
-            {STRIPES_PACKS.map(pack => (
+            {purchaseMsg && (
               <div
-                key={pack.id}
-                className="relative rounded-2xl border p-3 flex flex-col gap-2"
+                className="text-xs font-mono text-center mb-3 py-2 px-3 rounded-xl"
                 style={{
-                  backgroundColor: pack.featured ? 'rgba(168,85,247,0.10)' : 'rgba(255,255,255,0.03)',
-                  borderColor:     pack.featured ? 'rgba(168,85,247,0.45)' : 'rgba(255,255,255,0.08)',
-                  boxShadow:       pack.featured ? '0 0 18px rgba(168,85,247,0.18)' : 'none',
+                  background: purchaseMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                  color: purchaseMsg.startsWith('✓') ? '#4ade80' : '#f87171',
                 }}
-                data-testid={`pack-${pack.id}`}
               >
-                {/* Badge */}
-                {pack.badge && (
-                  <div
-                    className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest whitespace-nowrap"
-                    style={{
-                      backgroundColor: pack.featured ? '#a855f7' : 'rgba(168,85,247,0.25)',
-                      color:           pack.featured ? '#fff'      : '#c084fc',
-                      border:          pack.featured ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(168,85,247,0.4)',
-                    }}
-                  >
-                    {pack.badge}
-                  </div>
-                )}
-
-                {/* Pack name */}
-                <div className="text-[10px] font-mono text-white/35 uppercase tracking-widest mt-1">{pack.name}</div>
-
-                {/* Stripes count */}
-                <div className="flex items-center gap-1.5">
-                  <img src="/stripes-icon.png" alt="" aria-hidden="true" className="w-7 h-7 opacity-70 shrink-0" />
-                  <span className="text-xl font-bold font-mono tabular-nums" style={{ color: '#c084fc' }}>
-                    {pack.stripes.toLocaleString()}
-                  </span>
-                </div>
-
-                {/* Buy button */}
-                <button
-                  onClick={() => handlePurchase(pack.id, pack.stripes)}
-                  disabled={purchaseBusy !== null}
-                  className="w-full mt-auto rounded-xl py-2 text-[11px] font-mono font-bold uppercase tracking-widest transition-all"
-                  style={{
-                    backgroundColor: pack.featured ? '#a855f7'                       : 'rgba(168,85,247,0.15)',
-                    color:           pack.featured ? '#fff'                           : '#c084fc',
-                    opacity:         purchaseBusy !== null ? 0.6                      : 1,
-                    border:          pack.featured ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(168,85,247,0.3)',
-                  }}
-                  data-testid={`button-buy-${pack.id}`}
-                >
-                  {purchaseBusy === pack.id ? '...' : pack.price}
-                </button>
+                {purchaseMsg}
               </div>
-            ))}
+            )}
+            <div className="flex flex-col gap-2">
+              {STRIPES_PACKS.map(pack => (
+                <div
+                  key={pack.id}
+                  className={`w-full rounded-2xl border p-3.5 flex items-center justify-between gap-3 relative ${
+                    pack.featured
+                      ? 'border-[rgba(255,107,0,0.35)] bg-[rgba(255,107,0,0.06)]'
+                      : 'border-white/[0.08] bg-white/[0.02]'
+                  }`}
+                  data-testid={`pack-${pack.id}`}
+                >
+                  {pack.badge && (
+                    <div
+                      className="absolute -top-2.5 right-4 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"
+                      style={{ backgroundColor: pack.featured ? '#FF6B00' : '#C9A227', color: '#0B0B0D' }}
+                    >
+                      {pack.badge}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-bold text-white/85">{pack.name}</div>
+                    <div
+                      className="text-lg font-black font-mono"
+                      style={{ color: '#C9A227' }}
+                    >
+                      {pack.stripes}◆
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handlePurchase(pack.id)}
+                    disabled={!!purchaseBusy}
+                    className="h-9 px-5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 shrink-0"
+                    style={{
+                      background: purchaseBusy === pack.id ? 'rgba(255,107,0,0.3)' : '#FF6B00',
+                      color: '#fff',
+                      opacity: purchaseBusy && purchaseBusy !== pack.id ? 0.4 : 1,
+                    }}
+                    data-testid={`button-buy-${pack.id}`}
+                  >
+                    {purchaseBusy === pack.id ? '...' : pack.price}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[9px] font-mono text-white/15 text-center mt-3 leading-relaxed">
+              Stripes are virtual currency for cosmetic features only. No real-world value. Purchases processed via Google Play.
+            </p>
           </div>
 
-          {/* Compliance note */}
-          <p className="text-[9px] font-mono text-white/15 text-center mt-3 leading-relaxed">
-            Stripes are virtual currency for cosmetic features only. No real-world value. Purchases processed via Google Play.
-          </p>
-        </div>
+          {/* ── Subscription tiers ──────────────────────────────────────────── */}
+          <div className="w-full">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">
+              Subscription Plans
+            </div>
 
-        {/* ── Subscription tiers ──────────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">Subscription Plans</div>
-          <div className="flex flex-col gap-2.5">
-            {SUBSCRIPTION_TIERS.map(tier => (
+            {/* Billing period toggle (only shown for paid tiers) */}
+            <div className="flex gap-0 mb-4 rounded-xl overflow-hidden border border-white/10 w-fit mx-auto">
+              {(['monthly', 'yearly'] as const).map(period => (
+                <button
+                  key={period}
+                  onClick={() => setBillingPeriod(period)}
+                  className="px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200"
+                  style={{
+                    background: billingPeriod === period ? 'rgba(255,107,0,0.15)' : 'transparent',
+                    color:      billingPeriod === period ? '#FF6B00' : 'rgba(255,255,255,0.3)',
+                  }}
+                  data-testid={`button-billing-${period}`}
+                >
+                  {period === 'monthly' ? 'Monthly' : 'Yearly'}
+                </button>
+              ))}
+            </div>
+
+            {subMsg && (
               <div
-                key={tier.id}
-                className="w-full rounded-2xl border p-4 relative"
-                style={{ backgroundColor: tier.bg, borderColor: tier.border }}
-                data-testid={`tier-${tier.id}`}
+                className="text-xs font-mono text-center mb-3 py-2 px-3 rounded-xl"
+                style={{
+                  background: subMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                  color: subMsg.startsWith('✓') ? '#4ade80' : '#f87171',
+                }}
               >
-                {tier.badge && (
+                {subMsg}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2.5">
+              {TIER_DEFS.map(tier => {
+                const cardState = getCardState(tier);
+                const isActive  = cardState === 'active';
+                const isGrace   = cardState === 'grace';
+                const isHold    = cardState === 'hold';
+                const price     = tier.tier === null
+                  ? 'Free'
+                  : billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice;
+
+                return (
                   <div
-                    className="absolute -top-2.5 right-4 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"
-                    style={{ backgroundColor: tier.color, color: '#0B0B0D' }}
+                    key={tier.id}
+                    className="w-full rounded-2xl border p-4 relative"
+                    style={{ backgroundColor: tier.bg, borderColor: tier.border }}
+                    data-testid={`tier-${tier.id}`}
                   >
-                    {tier.badge}
-                  </div>
-                )}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <img src={tier.emblem} alt={tier.name} className="w-12 h-12 object-contain mb-2" />
-                    <div className="font-bold text-white/85 font-sans" style={{ color: tier.color }}>
-                      {tier.name}
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-xl font-bold font-mono text-white/90">{tier.price}</span>
-                      {tier.period && tier.period !== 'forever' && (
-                        <span className="text-[10px] text-white/30 font-mono">/ {tier.period}</span>
+                    {/* BEST VALUE badge */}
+                    {tier.badge && !isActive && (
+                      <div
+                        className="absolute -top-2.5 right-4 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"
+                        style={{ backgroundColor: tier.color, color: '#0B0B0D' }}
+                      >
+                        {tier.badge}
+                      </div>
+                    )}
+
+                    {/* ACTIVE badge */}
+                    {(isActive || isGrace || isHold) && (
+                      <div
+                        className="absolute -top-2.5 right-4 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"
+                        style={{
+                          backgroundColor: isGrace ? '#f59e0b' : isHold ? '#ef4444' : '#22c55e',
+                          color: '#0B0B0D',
+                        }}
+                      >
+                        {isGrace ? 'GRACE PERIOD' : isHold ? 'PAYMENT HOLD' : 'ACTIVE'}
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <img src={tier.emblem} alt={tier.name} className="w-12 h-12 object-contain mb-2" />
+                        <div className="font-bold font-sans" style={{ color: tier.color }}>
+                          {tier.name}
+                        </div>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-xl font-bold font-mono text-white/90">{price}</span>
+                        </div>
+                        {tier.tier && billingPeriod === 'yearly' && tier.yearlySavings && (
+                          <div
+                            className="text-[9px] font-mono mt-0.5 font-bold"
+                            style={{ color: tier.color }}
+                          >
+                            {tier.yearlySavings}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expiry + manage button for active tier */}
+                      {(isActive || isGrace || isHold) && (
+                        <div className="text-right shrink-0">
+                          {subStatus?.expiresAt && tier.tier !== null && (
+                            <div className="text-[9px] font-mono text-white/30 mb-1">
+                              {subStatus.autoRenewing ? 'Renews' : 'Expires'}{'\n'}
+                              {formatExpiry(subStatus.expiresAt)}
+                            </div>
+                          )}
+                          {tier.tier !== null && (
+                            <button
+                              onClick={handleManageSubscription}
+                              className="text-[10px] font-mono font-bold px-3 py-1.5 rounded-lg border"
+                              style={{ borderColor: tier.color, color: tier.color }}
+                              data-testid={`button-manage-${tier.id}`}
+                            >
+                              MANAGE
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
-                </div>
-                <ul className="space-y-1.5 mb-3">
-                  {tier.features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-xs text-white/50">
-                      <span style={{ color: tier.color }} className="shrink-0">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  disabled={tier.ctaDisabled}
-                  className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200 bg-white/[0.04] text-white/20 cursor-default border border-white/[0.06]"
-                  data-testid={`button-subscribe-${tier.id}`}
-                >
-                  {tier.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* ── Avatar frames ─────────────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">Avatar Frames</div>
-          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6 text-center">
-            <div className="text-3xl mb-2">⛓️</div>
-            <h3 className="text-base font-bold text-white tracking-wider uppercase">Avatar Frames</h3>
-            <p className="text-xs text-white/50 font-mono mt-1">Coming with v1.1 — animated frames, exclusive cosmetics</p>
-          </div>
-        </div>
-
-        {/* ── Chain Gang Gear (merch) ────────────────────────────────────── */}
-        <div className="w-full">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
-            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {MERCH_ITEMS.map(item => (
-              <a
-                key={item.name}
-                href={item.href}
-                className="rounded-2xl p-4 text-left relative overflow-hidden transition-all duration-200 active:scale-[0.98] flex items-center gap-4"
-                style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,107,0,0.28)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
-                data-testid={`link-merch-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-              >
-                {item.hot && (
-                  <div className="absolute top-3 right-3 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500 text-white font-bold">
-                    HOT
-                  </div>
-                )}
-                <div className="text-3xl leading-none shrink-0">{item.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-white/80 font-sans leading-tight">{item.name}</div>
-                  <div className="text-[10px] text-white/30 font-mono mt-0.5 leading-tight">{item.sub}</div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {item.originalPrice && (
-                      <span className="text-[11px] font-mono text-white/20 line-through">{item.originalPrice}</span>
+                    {/* Grace period warning */}
+                    {isGrace && (
+                      <div className="mb-3 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono text-amber-400">
+                        ⚠ Payment issue — update payment in Play Store within 3 days to keep benefits.
+                      </div>
                     )}
-                    <span className="text-sm font-bold font-mono" style={{ color: '#FF6B00' }}>{item.price}</span>
+
+                    {/* Account hold warning */}
+                    {isHold && (
+                      <div className="mb-3 py-2 px-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[10px] font-mono text-red-400">
+                        ⛔ Benefits paused — update payment method in Play Store to restore access.
+                      </div>
+                    )}
+
+                    <ul className="space-y-1.5 mb-3">
+                      {tier.features.map((f, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs text-white/50">
+                          <span style={{ color: tier.color }} className="shrink-0">✓</span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CTA button */}
+                    {tier.tier === null ? (
+                      <button
+                        disabled
+                        className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider bg-white/[0.04] text-white/20 cursor-default border border-white/[0.06]"
+                        data-testid={`button-subscribe-${tier.id}`}
+                      >
+                        {'Current Plan'}
+                      </button>
+                    ) : isActive ? (
+                      <button
+                        onClick={handleManageSubscription}
+                        className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider border transition-all duration-200"
+                        style={{ borderColor: tier.color, color: tier.color, background: 'transparent' }}
+                        data-testid={`button-subscribe-${tier.id}`}
+                      >
+                        Manage Subscription
+                      </button>
+                    ) : isGrace || isHold ? (
+                      <button
+                        onClick={handleManageSubscription}
+                        className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200"
+                        style={{ background: isGrace ? '#f59e0b' : '#ef4444', color: '#fff' }}
+                        data-testid={`button-subscribe-${tier.id}`}
+                      >
+                        {isGrace ? 'Fix Payment' : 'Update Payment'}
+                      </button>
+                    ) : cardState === 'upgrade' || cardState === 'downgrade' ? (
+                      <button
+                        onClick={() => handleSubscribe(tier)}
+                        disabled={!!subBusy}
+                        className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200"
+                        style={{
+                          background: subBusy === tier.id ? 'rgba(155,89,182,0.3)' : tier.color,
+                          color: '#fff',
+                          opacity: subBusy && subBusy !== tier.id ? 0.4 : 1,
+                        }}
+                        data-testid={`button-subscribe-${tier.id}`}
+                      >
+                        {subBusy === tier.id ? '...' : cardState === 'upgrade' ? 'Upgrade' : 'Downgrade'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSubscribe(tier)}
+                        disabled={!!subBusy}
+                        className="w-full h-10 rounded-xl text-sm font-bold uppercase tracking-wider transition-all duration-200"
+                        style={{
+                          background: subBusy === tier.id
+                            ? `rgba(${tier.id === 'pro' ? '201,162,39' : '155,89,182'},0.3)`
+                            : tier.color,
+                          color: '#0B0B0D',
+                          opacity: subBusy && subBusy !== tier.id ? 0.4 : 1,
+                        }}
+                        data-testid={`button-subscribe-${tier.id}`}
+                      >
+                        {subBusy === tier.id
+                          ? '...'
+                          : `Subscribe — ${billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice}`}
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div className="shrink-0 text-[11px] font-mono font-bold text-white/40 uppercase tracking-widest whitespace-nowrap">
-                  EMAIL TO ORDER →
-                </div>
-              </a>
-            ))}
+                );
+              })}
+            </div>
+
+            <p className="text-[9px] font-mono text-white/15 text-center mt-3 leading-relaxed">
+              Subscriptions auto-renew. Cancel anytime via Google Play. Virtual chips and Stripes have no real-world value.
+            </p>
           </div>
-          <p className="text-[10px] text-white/40 font-mono text-center mt-4 leading-relaxed">
-            Physical merch fulfilled by DGM Entertainment via email order — separate from in-app purchases.<br />
-            Allow 3-5 business days for response and shipping coordination.
-          </p>
+
+          {/* ── Avatar frames placeholder ─────────────────────────────────── */}
+          <div className="w-full">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-3">Avatar Frames</div>
+            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6 text-center">
+              <div className="text-3xl mb-2">⛓️</div>
+              <h3 className="text-base font-bold text-white tracking-wider uppercase">Avatar Frames</h3>
+              <p className="text-xs text-white/50 font-mono mt-1">Coming with v1.1 — animated frames, exclusive cosmetics</p>
+            </div>
+          </div>
+
+          {/* ── Chain Gang Gear (merch) ────────────────────────────────────── */}
+          <div className="w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="text-[10px] font-mono text-white/25 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {MERCH_ITEMS.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.href}
+                  className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 flex items-center justify-between gap-3 hover:border-white/20 transition-colors"
+                  data-testid={`merch-item-${i}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">{item.icon}</div>
+                    <div>
+                      <div className="text-sm font-bold text-white/85 flex items-center gap-2">
+                        {item.name}
+                        {item.hot && (
+                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 uppercase">
+                            HOT
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] font-mono text-white/30 mt-0.5">{item.sub}</div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-bold font-mono text-white/85">{item.price}</div>
+                    {item.originalPrice && (
+                      <div className="text-[10px] font-mono text-white/25 line-through">{item.originalPrice}</div>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+            <p className="text-[9px] font-mono text-white/15 text-center mt-3">
+              Order via email. Ships worldwide.
+            </p>
+          </div>
+
         </div>
 
-        <p className="text-[11px] text-white/25 font-mono text-center leading-relaxed max-w-xs" data-testid="text-shop-disclaimer">
-          Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn. No real-money gambling.
-        </p>
-        <div className="flex items-center justify-center gap-3 pb-2">
-          <a href="/terms" className="text-[9px] font-mono text-white/15 hover:text-white/35 transition-colors">Terms</a>
-          <span className="text-white/10 text-[9px]">·</span>
-          <a href="/privacy" className="text-[9px] font-mono text-white/15 hover:text-white/35 transition-colors">Privacy</a>
-        </div>
+        <div className="h-24" />
       </div>
     </div>
   );

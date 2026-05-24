@@ -7,7 +7,20 @@ import { getActiveGenericTables } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { requireAuth, requireSelf } from "./middleware/auth";
-import { STRIPES_PACKS, verifyGooglePlayPurchase, acknowledgeGooglePlayPurchase } from "./billing";
+import {
+  STRIPES_PACKS,
+  SUBSCRIPTION_PRODUCTS,
+  verifyGooglePlayPurchase,
+  acknowledgeGooglePlayPurchase,
+  processSubscriptionPurchase,
+  handleSubscriptionRenewal,
+  handleSubscriptionCancellation,
+  handleSubscriptionExpiration,
+  handleSubscriptionGracePeriod,
+  handleSubscriptionOnHold,
+  handleSubscriptionRecovered,
+  handleSubscriptionRefund,
+} from "./billing";
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -456,6 +469,8 @@ export async function registerRoutes(
         lastNameChangeAt:    profile.lastNameChangeAt?.toISOString() ?? null,
         nextResetAt,
         sessionToken,
+        activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
+        subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
       });
     } catch (err) {
       console.error("Auth me error:", err);
@@ -591,11 +606,31 @@ export async function registerRoutes(
       const profile = await storage.getPlayerProfile(id);
       if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
       const result = await storage.claimDailyBonus(id);
+
+      // ── Subscription chip bonus (credited on top of base daily bonus) ──────
+      const tier = profile.activeSubscriptionTier;
+      const subBonusChips =
+        tier === "diamond_elite" ? 2500 :
+        tier === "gold_pro"      ? 1000 : 0;
+
+      if (subBonusChips > 0) {
+        await storage.addChipsToPlayer(id, subBonusChips);
+        console.log(
+          `[daily-bonus] sub bonus player=${id} tier=${tier} chips=+${subBonusChips}`,
+        );
+      }
+
       console.log(
         `[daily-bonus] claimed player=${id} day=${result.newStreakDay}`,
         `chips=+${result.chipsGranted} stripes=+${result.stripesGranted}`,
+        tier ? `sub_bonus=+${subBonusChips}` : "",
       );
-      res.json({ success: true, ...result });
+      res.json({
+        success: true,
+        ...result,
+        subBonusChips,
+        newChipBalance: result.newChipBalance + subBonusChips,
+      });
     } catch (err: any) {
       if (err?.code === "ALREADY_CLAIMED") {
         res.status(409).json({ error: "Already claimed today", code: "ALREADY_CLAIMED" });
@@ -857,6 +892,182 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("[billing] refund-webhook error:", err);
       res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // ── Subscription endpoints ──────────────────────────────────────────────────
+
+  // POST /api/billing/verify-subscription
+  // Called by native client after Google Play subscription flow completes.
+  // Verifies token, activates subscription, credits initial Stripes, equips frame.
+  app.post("/api/billing/verify-subscription", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId:     z.string().min(1),
+        purchaseToken: z.string().min(1),
+      });
+      const { productId, purchaseToken } = schema.parse(req.body);
+
+      if (!SUBSCRIPTION_PRODUCTS[productId]) {
+        res.status(400).json({ error: `Unknown subscription product: ${productId}` });
+        return;
+      }
+
+      const playerId = req.sessionPlayerId!;
+      const result = await processSubscriptionPurchase(playerId, productId, purchaseToken);
+
+      res.json({
+        success:        true,
+        idempotent:     result.idempotent,
+        tier:           result.tier,
+        expiresAt:      result.expiresAt.toISOString(),
+        stripesGranted: result.stripesGranted,
+      });
+    } catch (err: any) {
+      if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid request" }); return; }
+      console.error("[billing:sub] verify-subscription error:", err);
+      res.status(500).json({ error: err.message ?? "Subscription activation failed" });
+    }
+  });
+
+  // POST /api/billing/subscription-webhook
+  // Google Real-Time Developer Notifications (RTDN) via Cloud Pub/Sub.
+  // Push subscription must point to this URL.
+  // Handles all subscription lifecycle events.
+  app.post("/api/billing/subscription-webhook", async (req, res) => {
+    try {
+      const message = req.body?.message;
+      if (!message?.data) {
+        res.status(400).json({ error: "Missing Pub/Sub message data" });
+        return;
+      }
+
+      const raw = Buffer.from(message.data, "base64").toString("utf-8");
+      const notification = JSON.parse(raw);
+      console.log("[billing:sub] RTDN received:", JSON.stringify(notification));
+
+      const subNotif = notification?.subscriptionNotification;
+      if (subNotif?.purchaseToken) {
+        const { purchaseToken, notificationType } = subNotif;
+        // notificationType values from Google:
+        // 1=RECOVERED 2=RENEWED 3=CANCELED 4=PURCHASED 5=ON_HOLD
+        // 6=IN_GRACE_PERIOD 7=RESTARTED 12=EXPIRED 13=REVOKED (refund)
+        switch (notificationType) {
+          case 1:  await handleSubscriptionRecovered(purchaseToken);  break;
+          case 2:  await handleSubscriptionRenewal(purchaseToken);    break;
+          case 3:  await handleSubscriptionCancellation(purchaseToken); break;
+          case 4:
+            console.log("[billing:sub] PURCHASED notification — handled by verify-subscription endpoint");
+            break;
+          case 5:  await handleSubscriptionOnHold(purchaseToken);     break;
+          case 6:  await handleSubscriptionGracePeriod(purchaseToken); break;
+          case 7:  await handleSubscriptionRecovered(purchaseToken);  break;
+          case 12: await handleSubscriptionExpiration(purchaseToken); break;
+          case 13: await handleSubscriptionRefund(purchaseToken);     break;
+          default:
+            console.log(`[billing:sub] Unknown notificationType: ${notificationType}`);
+        }
+      }
+
+      // Also handle voided purchases (consumable refunds) in the same webhook
+      const voidedPurchase = notification?.voidedPurchaseNotification;
+      if (voidedPurchase?.purchaseToken) {
+        const txn = await storage.getPurchaseTransactionByToken(voidedPurchase.purchaseToken);
+        if (txn && txn.verificationStatus === "verified") {
+          await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
+          console.log(`[billing] consumable refund: player=${txn.playerId} stripes=-${txn.stripesGranted}`);
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[billing:sub] subscription-webhook error:", err);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // GET /api/players/:id/subscription
+  // Returns current subscription state for badge rendering + UI unlock state.
+  app.get("/api/players/:id/subscription", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const sub = await storage.getPlayerActiveSubscription(req.params.id as string);
+      if (!sub) {
+        res.json({ active: false, tier: null, status: null, expiresAt: null, autoRenewing: null });
+        return;
+      }
+      res.json({
+        active:       sub.status === "active" || sub.status === "in_grace_period",
+        tier:         sub.tier,
+        status:       sub.status,
+        expiresAt:    sub.expiresAt?.toISOString() ?? null,
+        autoRenewing: sub.autoRenewing,
+        productId:    sub.productId,
+        billingPeriod: sub.billingPeriod,
+      });
+    } catch (err) {
+      console.error("[billing:sub] subscription fetch error:", err);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // POST /api/players/:id/subscription/cancel
+  // We cannot cancel directly from the app — this returns the Play Store deep link
+  // for the player to manage their subscription themselves.
+  app.post("/api/players/:id/subscription/cancel", requireAuth, requireSelf, async (req, res) => {
+    const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.chaingangpoker";
+    const deepLink = `https://play.google.com/store/account/subscriptions?sku=&package=${packageName}`;
+    res.json({ deepLink, message: "Open Play Store to manage or cancel your subscription." });
+  });
+
+  // ── Test-mode simulation endpoints (BILLING_TEST_MODE=true only) ────────────
+
+  const TEST_MODE = process.env.BILLING_TEST_MODE === "true";
+
+  // POST /api/billing/test/simulate-renewal
+  app.post("/api/billing/test/simulate-renewal", async (req, res) => {
+    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    try {
+      const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
+      await handleSubscriptionRenewal(purchaseToken);
+      res.json({ success: true, event: "renewal" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/billing/test/simulate-expiration
+  app.post("/api/billing/test/simulate-expiration", async (req, res) => {
+    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    try {
+      const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
+      await handleSubscriptionExpiration(purchaseToken);
+      res.json({ success: true, event: "expiration" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/billing/test/simulate-cancellation
+  app.post("/api/billing/test/simulate-cancellation", async (req, res) => {
+    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    try {
+      const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
+      await handleSubscriptionCancellation(purchaseToken);
+      res.json({ success: true, event: "cancellation" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/billing/test/simulate-refund
+  app.post("/api/billing/test/simulate-refund", async (req, res) => {
+    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    try {
+      const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
+      await handleSubscriptionRefund(purchaseToken);
+      res.json({ success: true, event: "refund" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

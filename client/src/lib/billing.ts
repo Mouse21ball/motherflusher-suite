@@ -6,18 +6,23 @@
 //   npm install cordova-plugin-purchase
 //   npx cap sync android
 //   In android/app/build.gradle: add Google Play Billing library dependency
-//   In Play Console: register the 5 consumable product IDs below
+//   In Play Console: register the 5 consumable + 4 subscription product IDs
 //   Set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON + GOOGLE_PLAY_PACKAGE_NAME on server
 //
-// The purchase flow:
+// The consumable purchase flow:
 //   1. billing.initialize() — connect to Play Billing, load product prices
 //   2. billing.purchase(productId) — launch native payment sheet
 //   3. On success → server verifies token → grants Stripes → billing.finish()
+//
+// The subscription purchase flow:
+//   1. billing.launchSubscriptionPurchase(productId) — launch native sheet
+//   2. On success → server verifies token via verify-subscription → activates tier
 
 import { apiUrl } from "./apiConfig";
 import { getSessionToken } from "./session";
+import { ensurePlayerIdentity } from "./persistence";
 
-// ─── Product catalog (must match Play Console exactly) ────────────────────────
+// ─── Consumable product catalog ───────────────────────────────────────────────
 export const STRIPES_PRODUCT_IDS = [
   "stripes_starter_99",
   "stripes_small_499",
@@ -28,11 +33,23 @@ export const STRIPES_PRODUCT_IDS = [
 
 export type StripesProductId = typeof STRIPES_PRODUCT_IDS[number];
 
+// ─── Subscription product catalog ────────────────────────────────────────────
+export const SUBSCRIPTION_PRODUCT_IDS = [
+  "sub_gold_pro_monthly",
+  "sub_gold_pro_yearly",
+  "sub_diamond_elite_monthly",
+  "sub_diamond_elite_yearly",
+] as const;
+
+export type SubscriptionProductId = typeof SUBSCRIPTION_PRODUCT_IDS[number];
+
+export type SubscriptionTier = "gold_pro" | "diamond_elite";
+
 export interface ProductInfo {
   id:           string;
   title:        string;
   description:  string;
-  price:        string;  // formatted local currency, e.g. "$0.99"
+  price:        string;  // formatted local currency, e.g. "$9.99"
   priceMicros:  number;
 }
 
@@ -43,12 +60,34 @@ export interface PurchaseResult {
   stripesGranted: number;
 }
 
+export interface SubscriptionResult {
+  productId:      string;
+  purchaseToken:  string;
+  tier:           SubscriptionTier;
+  expiresAt:      string;     // ISO string
+  stripesGranted: number;
+  idempotent:     boolean;
+}
+
+export interface ActiveSubscription {
+  active:       boolean;
+  tier:         SubscriptionTier | null;
+  status:       string | null;  // "active" | "in_grace_period" | "canceled" | "on_hold" | "expired"
+  expiresAt:    string | null;  // ISO string
+  autoRenewing: boolean | null;
+  productId:    string | null;
+  billingPeriod: "monthly" | "yearly" | null;
+}
+
 // ─── BillingPlugin interface ──────────────────────────────────────────────────
 export interface BillingPlugin {
   initialize(): Promise<void>;
   getProducts(): ProductInfo[];
   purchase(productId: string): Promise<PurchaseResult>;
   restorePurchases(): Promise<void>;
+  launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult>;
+  getActiveSubscription(): Promise<ActiveSubscription>;
+  openSubscriptionManagement(): void;
 }
 
 // ─── CdvPurchase type stubs (plugin injects at runtime) ──────────────────────
@@ -65,7 +104,7 @@ declare global {
           finished(cb: (t: CdvTransaction) => void): void;
         };
       };
-      ProductType: { CONSUMABLE: string };
+      ProductType: { CONSUMABLE: string; PAID_SUBSCRIPTION: string };
       Platform:    { GOOGLE_PLAY: string };
     };
   }
@@ -89,7 +128,7 @@ class NativeBillingPlugin implements BillingPlugin {
 
     const { store, ProductType, Platform } = cdv;
 
-    // Register all consumable Stripes products
+    // Register consumable Stripes products
     store.register(
       STRIPES_PRODUCT_IDS.map(id => ({
         id,
@@ -98,11 +137,20 @@ class NativeBillingPlugin implements BillingPlugin {
       }))
     );
 
+    // Register subscription products
+    store.register(
+      SUBSCRIPTION_PRODUCT_IDS.map(id => ({
+        id,
+        type:     ProductType.PAID_SUBSCRIPTION,
+        platform: Platform.GOOGLE_PLAY,
+      }))
+    );
+
     await store.initialize([Platform.GOOGLE_PLAY]);
     this.initialized = true;
 
     // Collect product info for UI price display
-    this.products = STRIPES_PRODUCT_IDS.map(id => {
+    this.products = [...STRIPES_PRODUCT_IDS, ...SUBSCRIPTION_PRODUCT_IDS].map(id => {
       const p = store.get(id) as any;
       return {
         id,
@@ -130,7 +178,6 @@ class NativeBillingPlugin implements BillingPlugin {
       throw new Error(`Purchase failed: ${result.message ?? result.code}`);
     }
 
-    // Wait for the approved callback (Google confirms payment)
     return new Promise<PurchaseResult>((resolve, reject) => {
       cdv.store.when().approved(async (transaction: CdvTransaction) => {
         const tProductId = transaction.products[0]?.id;
@@ -139,11 +186,10 @@ class NativeBillingPlugin implements BillingPlugin {
         const purchaseToken = transaction.purchaseToken ?? transaction.transactionId ?? "";
 
         try {
-          // Server-side verification — MUST succeed before granting Stripes
           const resp = await fetch(apiUrl("/api/billing/verify-purchase"), {
             method: "POST",
             headers: {
-              "Content-Type":   "application/json",
+              "Content-Type":    "application/json",
               "X-Session-Token": getSessionToken() ?? "",
             },
             body: JSON.stringify({ productId, purchaseToken }),
@@ -151,20 +197,18 @@ class NativeBillingPlugin implements BillingPlugin {
 
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            transaction.finish(); // must finish even on failure to avoid stuck state
+            transaction.finish();
             reject(new Error(err.error ?? `Verification failed: ${resp.status}`));
             return;
           }
 
           const data = await resp.json() as { stripesGranted: number; orderId: string };
-
-          // Tell Google the purchase was processed (consumable → re-purchasable)
           transaction.finish();
 
           resolve({
             productId,
             purchaseToken,
-            orderId:       data.orderId,
+            orderId:        data.orderId,
             stripesGranted: data.stripesGranted,
           });
         } catch (err: any) {
@@ -175,13 +219,84 @@ class NativeBillingPlugin implements BillingPlugin {
     });
   }
 
+  async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
+    const cdv = window.CdvPurchase;
+    if (!cdv || !this.initialized) throw new Error("Billing not initialized");
+
+    const product = cdv.store.get(productId);
+    if (!product) throw new Error(`Subscription product not found: ${productId}`);
+
+    const result = await cdv.store.order(product);
+    if (result.isError) {
+      throw new Error(`Subscription purchase failed: ${result.message ?? result.code}`);
+    }
+
+    return new Promise<SubscriptionResult>((resolve, reject) => {
+      cdv.store.when().approved(async (transaction: CdvTransaction) => {
+        const tProductId = transaction.products[0]?.id;
+        if (tProductId !== productId) return;
+
+        const purchaseToken = transaction.purchaseToken ?? transaction.transactionId ?? "";
+
+        try {
+          const resp = await fetch(apiUrl("/api/billing/verify-subscription"), {
+            method: "POST",
+            headers: {
+              "Content-Type":    "application/json",
+              "X-Session-Token": getSessionToken() ?? "",
+            },
+            body: JSON.stringify({ productId, purchaseToken }),
+          });
+
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            transaction.finish();
+            reject(new Error(err.error ?? `Subscription verification failed: ${resp.status}`));
+            return;
+          }
+
+          const data = await resp.json() as SubscriptionResult;
+          // Note: subscriptions are NOT consumed/finished — they are managed by Google
+          // transaction.finish() should NOT be called for subscriptions in most flows
+
+          resolve({
+            productId,
+            purchaseToken,
+            tier:           data.tier,
+            expiresAt:      data.expiresAt,
+            stripesGranted: data.stripesGranted,
+            idempotent:     data.idempotent,
+          });
+        } catch (err: any) {
+          reject(err);
+        }
+      });
+    });
+  }
+
+  async getActiveSubscription(): Promise<ActiveSubscription> {
+    const identity = ensurePlayerIdentity();
+    const resp = await fetch(apiUrl(`/api/players/${identity.id}/subscription`), {
+      headers: { "X-Session-Token": getSessionToken() ?? "" },
+    });
+    if (!resp.ok) return { active: false, tier: null, status: null, expiresAt: null, autoRenewing: null, productId: null, billingPeriod: null };
+    return resp.json();
+  }
+
+  openSubscriptionManagement(): void {
+    const pkg = "com.dgmentertainment.chaingangpoker";
+    const url = `https://play.google.com/store/account/subscriptions?package=${pkg}`;
+    window.open(url, "_blank");
+  }
+
   async restorePurchases(): Promise<void> {
-    // Consumables are not restorable — no-op
     console.log("[billing] Consumables cannot be restored");
   }
 }
 
 // ─── Web stub ─────────────────────────────────────────────────────────────────
+// Used in browser/development. Subscriptions call the server directly with
+// test_ tokens when BILLING_TEST_MODE=true is set on the server.
 class WebBillingStub implements BillingPlugin {
   async initialize(): Promise<void> {
     console.log("[billing] Web stub initialized — no native billing available");
@@ -193,6 +308,42 @@ class WebBillingStub implements BillingPlugin {
 
   async purchase(_productId: string): Promise<PurchaseResult> {
     throw new Error("In-app purchases require the native Android build. Open the app from the Play Store.");
+  }
+
+  async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
+    // In web/dev mode, use a test token so the server's TEST_MODE can handle it
+    const testToken = `test_${productId}_${Date.now()}`;
+    const resp = await fetch(apiUrl("/api/billing/verify-subscription"), {
+      method: "POST",
+      headers: {
+        "Content-Type":    "application/json",
+        "X-Session-Token": getSessionToken() ?? "",
+      },
+      body: JSON.stringify({ productId, purchaseToken: testToken }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error ?? `Subscription failed: ${resp.status}`);
+    }
+    return resp.json();
+  }
+
+  async getActiveSubscription(): Promise<ActiveSubscription> {
+    const identity = ensurePlayerIdentity();
+    try {
+      const resp = await fetch(apiUrl(`/api/players/${identity.id}/subscription`), {
+        headers: { "X-Session-Token": getSessionToken() ?? "" },
+      });
+      if (!resp.ok) return { active: false, tier: null, status: null, expiresAt: null, autoRenewing: null, productId: null, billingPeriod: null };
+      return resp.json();
+    } catch {
+      return { active: false, tier: null, status: null, expiresAt: null, autoRenewing: null, productId: null, billingPeriod: null };
+    }
+  }
+
+  openSubscriptionManagement(): void {
+    const pkg = "com.dgmentertainment.chaingangpoker";
+    window.open(`https://play.google.com/store/account/subscriptions?package=${pkg}`, "_blank");
   }
 
   async restorePurchases(): Promise<void> {

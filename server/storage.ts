@@ -5,9 +5,12 @@ import {
   type Session,
   type PurchaseTransaction,
   type CosmeticItem,
+  type Subscription,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
+  subscriptions, subscriptionEvents,
 } from "@shared/schema";
+import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
@@ -89,6 +92,37 @@ export interface IStorage {
   purchaseCosmetic(playerId: string, cosmeticItemId: string): Promise<PurchaseCosmeticResult>;
   equipCosmetic(playerId: string, cosmeticItemId: string): Promise<EquipResult>;
   unequipCosmetic(playerId: string, category: string): Promise<void>;
+  // ── Subscriptions ──────────────────────────────────────────────────────────
+  getSubscriptionByToken(purchaseToken: string): Promise<Subscription | undefined>;
+  getPlayerActiveSubscription(playerId: string): Promise<Subscription | undefined>;
+  upsertSubscription(data: {
+    playerId:                   string;
+    tier:                       string;
+    billingPeriod:              string;
+    productId:                  string;
+    purchaseToken:              string;
+    status:                     string;
+    expiresAt:                  Date;
+    autoRenewing:               boolean;
+    previousFrameId:            string | null;
+    stripesGrantedCurrentCycle: number;
+  }): Promise<Subscription>;
+  updateSubscriptionOnRenewal(id: string, newExpiry: Date, stripesGranted: number): Promise<void>;
+  updateSubscriptionStatus(id: string, status: string, extra: {
+    autoRenewing?: boolean;
+    canceledAt?: Date;
+  }): Promise<void>;
+  setPlayerSubscriptionTier(playerId: string, tier: SubscriptionTier, expiresAt: Date): Promise<void>;
+  clearPlayerSubscriptionTier(playerId: string): Promise<void>;
+  updateSubscriptionLastStripesGrant(playerId: string): Promise<void>;
+  forceEquipFrame(playerId: string, frameId: string): Promise<void>;
+  restorePreviousFrame(playerId: string, previousFrameId: string | null): Promise<void>;
+  logSubscriptionEvent(data: {
+    playerId:       string;
+    subscriptionId: string;
+    eventType:      string;
+    eventData?:     Record<string, unknown>;
+  }): Promise<void>;
 }
 
 // ─── Daily bonus types ────────────────────────────────────────────────────────
@@ -325,6 +359,9 @@ export class MemStorage implements IStorage {
       lastBonusClaimedAt:  null,
       bonusStreakDay:      1,
       totalBonusClaims:   0,
+      activeSubscriptionTier:         null,
+      subscriptionExpiresAt:          null,
+      subscriptionLastStripesGrantAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -750,11 +787,15 @@ export class MemStorage implements IStorage {
   // ── Cosmetics ──────────────────────────────────────────────────────────────
 
   async getCosmeticCatalog(): Promise<CosmeticItem[]> {
+    // Exclude subscription_exclusive items from the public catalog
+    // (they are granted automatically, not purchased with Stripes)
     return await db
       .select()
       .from(cosmeticItems)
-      .where(eq(cosmeticItems.active, true))
-      .orderBy(cosmeticItems.stripesCost);
+      .where(and(
+        eq(cosmeticItems.active, true),
+        sql`${cosmeticItems.category} != 'subscription_exclusive'`,
+      ));
   }
 
   async getPlayerInventory(playerId: string): Promise<PlayerInventoryResult> {
@@ -819,6 +860,11 @@ export class MemStorage implements IStorage {
         .where(and(eq(playerInventory.playerId, playerId), eq(playerInventory.cosmeticItemId, cosmeticItemId)))
         .limit(1);
       if (existingRows[0]) throw Object.assign(new Error('Already owned'), { code: 'ALREADY_OWNED' });
+
+      // Block subscription-exclusive items from direct purchase
+      if (item.category === 'subscription_exclusive' || item.stripesCost === null) {
+        throw Object.assign(new Error('Item is not purchasable'), { code: 'NOT_PURCHASABLE' });
+      }
 
       // Check balance
       const profileRows = await tx
@@ -951,6 +997,147 @@ export class MemStorage implements IStorage {
         .set({ ...profileUpdate, updatedAt: new Date() })
         .where(eq(playerProfiles.id, playerId));
       console.log(`[cosmetics] unequip player=${playerId} category=${category}`);
+    });
+  }
+
+  // ── Subscription methods ────────────────────────────────────────────────────
+
+  async getSubscriptionByToken(purchaseToken: string): Promise<Subscription | undefined> {
+    const rows = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.purchaseToken, purchaseToken))
+      .limit(1);
+    return rows[0];
+  }
+
+  async getPlayerActiveSubscription(playerId: string): Promise<Subscription | undefined> {
+    const rows = await db
+      .select()
+      .from(subscriptions)
+      .where(and(
+        eq(subscriptions.playerId, playerId),
+        sql`${subscriptions.status} IN ('active','in_grace_period','canceled')`,
+      ))
+      .orderBy(desc(subscriptions.startedAt))
+      .limit(1);
+    return rows[0];
+  }
+
+  async upsertSubscription(data: {
+    playerId:                   string;
+    tier:                       string;
+    billingPeriod:              string;
+    productId:                  string;
+    purchaseToken:              string;
+    status:                     string;
+    expiresAt:                  Date;
+    autoRenewing:               boolean;
+    previousFrameId:            string | null;
+    stripesGrantedCurrentCycle: number;
+  }): Promise<Subscription> {
+    const id = randomUUID();
+    const now = new Date();
+    await db.insert(subscriptions).values({
+      id,
+      playerId:                   data.playerId,
+      tier:                       data.tier,
+      billingPeriod:              data.billingPeriod,
+      productId:                  data.productId,
+      purchaseToken:              data.purchaseToken,
+      status:                     data.status,
+      expiresAt:                  data.expiresAt,
+      autoRenewing:               data.autoRenewing,
+      startedAt:                  now,
+      lastVerifiedAt:             now,
+      previousFrameId:            data.previousFrameId,
+      stripesGrantedCurrentCycle: data.stripesGrantedCurrentCycle,
+    });
+    const rows = await db.select().from(subscriptions).where(eq(subscriptions.id, id)).limit(1);
+    return rows[0];
+  }
+
+  async updateSubscriptionOnRenewal(id: string, newExpiry: Date, stripesGranted: number): Promise<void> {
+    await db.update(subscriptions)
+      .set({
+        expiresAt:                  newExpiry,
+        status:                     "active",
+        lastVerifiedAt:             new Date(),
+        stripesGrantedCurrentCycle: stripesGranted,
+      })
+      .where(eq(subscriptions.id, id));
+  }
+
+  async updateSubscriptionStatus(id: string, status: string, extra: {
+    autoRenewing?: boolean;
+    canceledAt?: Date;
+  }): Promise<void> {
+    await db.update(subscriptions)
+      .set({
+        status,
+        lastVerifiedAt: new Date(),
+        ...(extra.autoRenewing !== undefined ? { autoRenewing: extra.autoRenewing } : {}),
+        ...(extra.canceledAt ? { canceledAt: extra.canceledAt } : {}),
+      })
+      .where(eq(subscriptions.id, id));
+  }
+
+  async setPlayerSubscriptionTier(playerId: string, tier: SubscriptionTier, expiresAt: Date): Promise<void> {
+    await db.update(playerProfiles)
+      .set({
+        activeSubscriptionTier: tier,
+        subscriptionExpiresAt:  expiresAt,
+        updatedAt:              new Date(),
+      })
+      .where(eq(playerProfiles.id, playerId));
+  }
+
+  async clearPlayerSubscriptionTier(playerId: string): Promise<void> {
+    await db.update(playerProfiles)
+      .set({
+        activeSubscriptionTier: null,
+        subscriptionExpiresAt:  null,
+        updatedAt:              new Date(),
+      })
+      .where(eq(playerProfiles.id, playerId));
+  }
+
+  async updateSubscriptionLastStripesGrant(playerId: string): Promise<void> {
+    await db.update(playerProfiles)
+      .set({ subscriptionLastStripesGrantAt: new Date(), updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+  }
+
+  async forceEquipFrame(playerId: string, frameId: string): Promise<void> {
+    // Directly update player_profiles.equipped_frame_id
+    // This bypasses the normal equip flow (no inventory ownership check)
+    // because subscription frames are not in the player's purchasable inventory.
+    await db.update(playerProfiles)
+      .set({ equippedFrameId: frameId, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+    console.log(`[sub] force-equipped frame ${frameId} for player=${playerId}`);
+  }
+
+  async restorePreviousFrame(playerId: string, previousFrameId: string | null): Promise<void> {
+    await db.update(playerProfiles)
+      .set({ equippedFrameId: previousFrameId ?? null, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+    console.log(`[sub] restored frame ${previousFrameId ?? 'none'} for player=${playerId}`);
+  }
+
+  async logSubscriptionEvent(data: {
+    playerId:       string;
+    subscriptionId: string;
+    eventType:      string;
+    eventData?:     Record<string, unknown>;
+  }): Promise<void> {
+    await db.insert(subscriptionEvents).values({
+      id:             randomUUID(),
+      playerId:       data.playerId,
+      subscriptionId: data.subscriptionId,
+      eventType:      data.eventType,
+      eventData:      data.eventData ?? {},
+      occurredAt:     new Date(),
     });
   }
 }

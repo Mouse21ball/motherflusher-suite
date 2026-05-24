@@ -179,7 +179,7 @@ export interface XPResult {
   newLevel: number;
 }
 
-export function awardHandXP(result: HandResult): XPResult {
+export function awardHandXP(result: HandResult, subscriptionTier?: string | null): XPResult {
   const state = load();
   const oldLevel = getLevelInfo(state.xp).level;
   let xpGained = 10; // base per hand
@@ -209,6 +209,13 @@ export function awardHandXP(result: HandResult): XPResult {
     state.badugisWon++;
   }
 
+  // ── Subscription XP boost (applied to hand XP, not achievement XP) ────────
+  if (subscriptionTier === "diamond_elite") {
+    xpGained = Math.round(xpGained * 1.5);
+  } else if (subscriptionTier === "gold_pro") {
+    xpGained = Math.round(xpGained * 1.25);
+  }
+
   state.xp += xpGained;
 
   const newlyUnlocked = checkAchievements(state);
@@ -217,7 +224,7 @@ export function awardHandXP(result: HandResult): XPResult {
     state.newAchievements.push(id);
     const ach = ACHIEVEMENT_MAP.get(id);
     if (ach) {
-      state.xp += ach.xpReward;
+      state.xp += ach.xpReward;     // achievement XP not boosted
       xpGained += ach.xpReward;
     }
   }

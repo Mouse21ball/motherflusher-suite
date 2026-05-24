@@ -32,6 +32,9 @@ export interface ServerProfile {
   lastNameChangeAt:     string | null;  // ISO string; null → never changed
   nextResetAt:          string | null;  // ISO string; null → auth account (no reset)
   sessionToken?:        string;         // issued by server on every /me call
+  // ── Subscription ───────────────────────────────────────────────────────────
+  activeSubscriptionTier:  string | null;  // "gold_pro" | "diamond_elite" | null
+  subscriptionExpiresAt:   string | null;  // ISO string
 }
 
 interface UseServerProfileResult {
