@@ -35,6 +35,8 @@ export const playerProfiles = pgTable("player_profiles", {
   activeSubscriptionTier:          text("active_subscription_tier"),          // null | "gold_pro" | "diamond_elite"
   subscriptionExpiresAt:           timestamp("subscription_expires_at"),      // null if no active sub
   subscriptionLastStripesGrantAt:  timestamp("subscription_last_stripes_grant_at"), // last monthly Stripes drop
+  // ── Crew (denormalized for fast lookup; source of truth is crew_members) ──
+  currentCrewId:        text("current_crew_id"),                             // null if not in a Crew
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -51,6 +53,7 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   activeSubscriptionTier:         true,
   subscriptionExpiresAt:          true,
   subscriptionLastStripesGrantAt: true,
+  currentCrewId:                  true,
   createdAt:                      true,
   updatedAt:                      true,
 });
@@ -201,6 +204,58 @@ export const subscriptionEvents = pgTable("subscription_events", {
 });
 
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
+
+// ─── Crews ────────────────────────────────────────────────────────────────────
+export const crews = pgTable("crews", {
+  id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  name:        varchar("name", { length: 30 }).notNull(),
+  description: varchar("description", { length: 200 }),
+  inviteCode:  varchar("invite_code", { length: 6 }).notNull().unique(),
+  captainId:   text("captain_id").notNull().references(() => playerProfiles.id),
+  memberCount: integer("member_count").notNull().default(1),
+  disbandedAt: timestamp("disbanded_at"),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+});
+
+export type Crew = typeof crews.$inferSelect;
+
+// ─── Crew Members ─────────────────────────────────────────────────────────────
+// UNIQUE (crew_id, player_id) and UNIQUE (player_id) enforced at DB level (migration).
+export const crewMembers = pgTable("crew_members", {
+  id:            text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  crewId:        text("crew_id").notNull().references(() => crews.id, { onDelete: "cascade" }),
+  playerId:      text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  role:          varchar("role", { length: 16 }).notNull().default("member"), // "captain" | "member"
+  joinedAt:      timestamp("joined_at").notNull().defaultNow(),
+  totalChipsWon: integer("total_chips_won").notNull().default(0),
+});
+
+export type CrewMember = typeof crewMembers.$inferSelect;
+
+// ─── Crew Chat Messages ───────────────────────────────────────────────────────
+export const crewChatMessages = pgTable("crew_chat_messages", {
+  id:        text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  crewId:    text("crew_id").notNull().references(() => crews.id, { onDelete: "cascade" }),
+  playerId:  text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  message:   varchar("message", { length: 500 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type CrewChatMessage = typeof crewChatMessages.$inferSelect;
+
+// ─── Crew Events (audit log) ──────────────────────────────────────────────────
+export const crewEvents = pgTable("crew_events", {
+  id:         text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  crewId:     text("crew_id").notNull().references(() => crews.id, { onDelete: "cascade" }),
+  playerId:   text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  eventType:  varchar("event_type", { length: 32 }).notNull(),
+  // ^ "created" | "joined" | "left" | "kicked" | "captain_transferred" |
+  //   "disbanded" | "renamed" | "invite_regenerated" | "stripes_paid"
+  eventData:  jsonb("event_data"),
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+});
+
+export type CrewEvent = typeof crewEvents.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

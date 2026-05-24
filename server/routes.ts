@@ -7,6 +7,7 @@ import { getActiveGenericTables } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { requireAuth, requireSelf } from "./middleware/auth";
+import { generateUniqueInviteCode, containsProfanity, checkChatRateLimit, validateCrewName } from "./crews";
 import {
   STRIPES_PACKS,
   SUBSCRIPTION_PRODUCTS,
@@ -1073,6 +1074,305 @@ export async function registerRoutes(
       await handleSubscriptionRefund(purchaseToken);
       res.json({ success: true, event: "refund" });
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Crews ──────────────────────────────────────────────────────────────────
+
+  // Helper: check if caller is a member of the crew, return member role.
+  async function requireCrewMember(
+    crewId: string, playerId: string,
+  ): Promise<{ role: string } | null> {
+    const crew = await storage.getCrewById(crewId);
+    if (!crew || crew.disbandedAt) return null;
+    const m = crew.members.find(x => x.playerId === playerId);
+    return m ? { role: m.role } : null;
+  }
+
+  // GET /api/crews/preview/:code  — unauthenticated, returns name+memberCount
+  app.get("/api/crews/preview/:code", async (req, res) => {
+    try {
+      const code = ((req.params.code ?? "") as string).toUpperCase().slice(0, 6);
+      const crew = await storage.getCrewByInviteCode(code);
+      if (!crew) { res.status(404).json({ error: "Invalid invite code." }); return; }
+      res.json({ id: crew.id, name: crew.name, memberCount: crew.memberCount });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/create
+  app.post("/api/crews/create", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const { name, description } = z.object({
+        name:        z.string().min(3).max(30),
+        description: z.string().max(200).optional(),
+      }).parse(req.body);
+
+      const nameErr = validateCrewName(name);
+      if (nameErr) { res.status(422).json({ error: nameErr }); return; }
+
+      // Check player not already in a crew
+      const existing = await storage.getPlayerCurrentCrew(playerId);
+      if (existing) { res.status(409).json({ error: "You are already in a Crew. Leave first." }); return; }
+
+      // Check Stripes
+      const { stripes } = await storage.getPlayerStripes(playerId);
+      if (stripes < 500) { res.status(402).json({ error: "Insufficient Stripes. Need 500◆ to create a Crew." }); return; }
+
+      // Check name uniqueness (case-insensitive)
+      // The DB unique index on LOWER(name) enforces this — we catch the error.
+      const inviteCode = await generateUniqueInviteCode();
+
+      // Transaction: debit Stripes + create crew
+      const ok = await storage.debitStripes(playerId, 500, "crew:create");
+      if (!ok) { res.status(402).json({ error: "Insufficient Stripes." }); return; }
+
+      let crew;
+      try {
+        crew = await storage.createCrewTx({ playerId, name: name.trim(), description, inviteCode });
+      } catch (txErr: any) {
+        // Refund if crew creation failed
+        await storage.creditStripes(playerId, 500, "crew:create:refund");
+        if (txErr.message?.includes("unique") || txErr.code === "23505") {
+          res.status(409).json({ error: "A Crew with that name already exists." }); return;
+        }
+        throw txErr;
+      }
+
+      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "created" });
+      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "stripes_paid", eventData: { amount: 500 } });
+      console.log(`[crews] ${playerId} created Crew "${crew.name}" (${crew.id})`);
+
+      res.json({ crew_id: crew.id, invite_code: crew.inviteCode, name: crew.name, member_count: 1 });
+    } catch (err: any) {
+      if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/join
+  app.post("/api/crews/join", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const { invite_code } = z.object({ invite_code: z.string().length(6) }).parse(req.body);
+
+      const existing = await storage.getPlayerCurrentCrew(playerId);
+      if (existing) { res.status(409).json({ error: "You are already in a Crew. Leave first." }); return; }
+
+      const crew = await storage.getCrewByInviteCode(invite_code.toUpperCase());
+      if (!crew) { res.status(404).json({ error: "Invalid invite code." }); return; }
+      if (crew.disbandedAt) { res.status(404).json({ error: "This Crew has been disbanded." }); return; }
+      if (crew.memberCount >= 25) { res.status(409).json({ error: "This Crew is full (25/25)." }); return; }
+
+      const { stripes } = await storage.getPlayerStripes(playerId);
+      if (stripes < 50) { res.status(402).json({ error: "Insufficient Stripes. Need 50◆ to join a Crew." }); return; }
+
+      const ok = await storage.debitStripes(playerId, 50, "crew:join");
+      if (!ok) { res.status(402).json({ error: "Insufficient Stripes." }); return; }
+
+      try {
+        await storage.joinCrewTx({ playerId, crewId: crew.id });
+      } catch (txErr: any) {
+        await storage.creditStripes(playerId, 50, "crew:join:refund");
+        throw txErr;
+      }
+
+      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "joined" });
+      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "stripes_paid", eventData: { amount: 50 } });
+      console.log(`[crews] ${playerId} joined Crew "${crew.name}" (${crew.id})`);
+
+      res.json({ crew_id: crew.id, name: crew.name, member_count: crew.memberCount + 1, role: "member" });
+    } catch (err: any) {
+      if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/crews/:crew_id
+  app.get("/api/crews/:crew_id", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.crew_id as string;
+      const crew     = await storage.getCrewById(crewId, playerId);
+      if (!crew) { res.status(404).json({ error: "Crew not found." }); return; }
+      const isMember = crew.members.some(m => m.playerId === playerId);
+      if (!isMember) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+      res.json({ crew });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/players/:id/crew
+  app.get("/api/players/:id/crew", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const playerId = req.params.id as string;
+      const crew     = await storage.getPlayerCurrentCrew(playerId);
+      res.json({ crew: crew ?? null });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:crew_id/leave
+  app.post("/api/crews/:crew_id/leave", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.crew_id as string;
+
+      const mem = await requireCrewMember(crewId, playerId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+
+      const { newCaptainId, disbanded } = await storage.leaveCrewTx({ playerId, crewId });
+
+      if (disbanded) {
+        await storage.logCrewEvent({ crewId, playerId, eventType: "disbanded" });
+        console.log(`[crews] ${playerId} left + disbanded Crew ${crewId}`);
+      } else {
+        await storage.logCrewEvent({ crewId, playerId, eventType: "left" });
+        if (newCaptainId) {
+          await storage.logCrewEvent({ crewId, playerId, eventType: "captain_transferred", eventData: { new_captain_id: newCaptainId } });
+        }
+        console.log(`[crews] ${playerId} left Crew ${crewId}${newCaptainId ? `, new captain=${newCaptainId}` : ""}`);
+      }
+
+      res.json({ success: true, new_captain_id: newCaptainId ?? null, disbanded });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:crew_id/kick
+  app.post("/api/crews/:crew_id/kick", requireAuth, async (req, res) => {
+    try {
+      const captainId  = req.sessionPlayerId!;
+      const crewId     = req.params.crew_id as string;
+      const { player_id: targetId } = z.object({ player_id: z.string() }).parse(req.body);
+
+      const mem = await requireCrewMember(crewId, captainId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can kick members." }); return; }
+      if (targetId === captainId) { res.status(422).json({ error: "Cannot kick yourself. Use leave instead." }); return; }
+
+      const targetMem = await requireCrewMember(crewId, targetId);
+      if (!targetMem) { res.status(404).json({ error: "Player is not in this Crew." }); return; }
+
+      await storage.kickMemberTx({ crewId, targetPlayerId: targetId });
+      await storage.logCrewEvent({ crewId, playerId: captainId, eventType: "kicked", eventData: { kicked_player_id: targetId } });
+      console.log(`[crews] captain=${captainId} kicked ${targetId} from Crew ${crewId}`);
+
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:crew_id/rename
+  app.post("/api/crews/:crew_id/rename", requireAuth, async (req, res) => {
+    try {
+      const captainId = req.sessionPlayerId!;
+      const crewId    = req.params.crew_id as string;
+      const { name, description } = z.object({
+        name:        z.string().min(3).max(30).optional(),
+        description: z.string().max(200).nullable().optional(),
+      }).parse(req.body);
+
+      const mem = await requireCrewMember(crewId, captainId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can rename the Crew." }); return; }
+
+      if (name) {
+        const nameErr = validateCrewName(name);
+        if (nameErr) { res.status(422).json({ error: nameErr }); return; }
+      }
+
+      try {
+        await storage.renameCrewTx({ crewId, name: name?.trim(), description });
+      } catch (txErr: any) {
+        if (txErr.message?.includes("unique") || txErr.code === "23505") {
+          res.status(409).json({ error: "A Crew with that name already exists." }); return;
+        }
+        throw txErr;
+      }
+
+      await storage.logCrewEvent({ crewId, playerId: captainId, eventType: "renamed", eventData: { name, description } });
+      console.log(`[crews] captain=${captainId} renamed Crew ${crewId} → "${name}"`);
+
+      res.json({ success: true, name, description });
+    } catch (err: any) {
+      if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:crew_id/regenerate-invite
+  app.post("/api/crews/:crew_id/regenerate-invite", requireAuth, async (req, res) => {
+    try {
+      const captainId = req.sessionPlayerId!;
+      const crewId    = req.params.crew_id as string;
+
+      const mem = await requireCrewMember(crewId, captainId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can regenerate the invite code." }); return; }
+
+      const inviteCode = await generateUniqueInviteCode();
+      await storage.regenerateCrewInviteTx({ crewId, inviteCode });
+      await storage.logCrewEvent({ crewId, playerId: captainId, eventType: "invite_regenerated", eventData: { new_code: inviteCode } });
+      console.log(`[crews] captain=${captainId} regenerated invite for Crew ${crewId}: ${inviteCode}`);
+
+      res.json({ invite_code: inviteCode });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/crews/:crew_id/chat?before=ISO&limit=50
+  app.get("/api/crews/:crew_id/chat", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.crew_id as string;
+
+      const mem = await requireCrewMember(crewId, playerId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+
+      const beforeRaw = req.query.before as string | undefined;
+      const limit     = Math.min(parseInt((req.query.limit as string) ?? "50", 10) || 50, 100);
+      const before    = beforeRaw ? new Date(beforeRaw) : undefined;
+
+      const messages = await storage.getChatMessages(crewId, before, limit);
+      res.json({ messages });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:crew_id/chat
+  app.post("/api/crews/:crew_id/chat", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.crew_id as string;
+
+      const mem = await requireCrewMember(crewId, playerId);
+      if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
+
+      const { message } = z.object({ message: z.string().min(1).max(500) }).parse(req.body);
+
+      if (containsProfanity(message)) {
+        res.status(422).json({ error: "Message blocked — please keep it clean." }); return;
+      }
+
+      if (!checkChatRateLimit(playerId)) {
+        res.status(429).json({ error: "Too many messages — slow down." }); return;
+      }
+
+      const { id, createdAt } = await storage.sendChatMessage(crewId, playerId, message);
+      res.json({ id, created_at: createdAt });
+    } catch (err: any) {
+      if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
       res.status(500).json({ error: err.message });
     }
   });

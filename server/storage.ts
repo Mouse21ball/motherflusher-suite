@@ -6,9 +6,11 @@ import {
   type PurchaseTransaction,
   type CosmeticItem,
   type Subscription,
+  type Crew,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
+  crews, crewMembers, crewChatMessages, crewEvents,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -123,6 +125,54 @@ export interface IStorage {
     eventType:      string;
     eventData?:     Record<string, unknown>;
   }): Promise<void>;
+  // ── Crews ───────────────────────────────────────────────────────────────────
+  getCrewById(crewId: string, requesterId?: string): Promise<CrewDetail | undefined>;
+  getCrewByInviteCode(code: string): Promise<Crew | undefined>;
+  getPlayerCurrentCrew(playerId: string): Promise<CrewDetail | null>;
+  createCrewTx(data: { playerId: string; name: string; description?: string; inviteCode: string }): Promise<Crew>;
+  joinCrewTx(data: { playerId: string; crewId: string }): Promise<void>;
+  leaveCrewTx(data: { playerId: string; crewId: string }): Promise<{ newCaptainId?: string; disbanded: boolean }>;
+  kickMemberTx(data: { crewId: string; targetPlayerId: string }): Promise<void>;
+  renameCrewTx(data: { crewId: string; name?: string; description?: string | null }): Promise<void>;
+  regenerateCrewInviteTx(data: { crewId: string; inviteCode: string }): Promise<void>;
+  getChatMessages(crewId: string, before?: Date, limit?: number): Promise<CrewChatRow[]>;
+  sendChatMessage(crewId: string, playerId: string, message: string): Promise<{ id: string; createdAt: Date }>;
+  incrementCrewMemberChipsWon(playerId: string, chipsWon: number): Promise<void>;
+  logCrewEvent(data: { crewId: string; playerId: string; eventType: string; eventData?: Record<string, unknown> }): Promise<void>;
+}
+
+// ─── Crew types ──────────────────────────────────────────────────────────────
+export interface CrewMemberRow {
+  id:             string;
+  playerId:       string;
+  displayName:    string;
+  avatarId:       string | null;
+  equippedFrameId:string | null;
+  role:           string;
+  joinedAt:       Date;
+  totalChipsWon:  number;
+}
+
+export interface CrewDetail {
+  id:          string;
+  name:        string;
+  description: string | null;
+  inviteCode:  string;
+  captainId:   string;
+  memberCount: number;
+  createdAt:   Date;
+  disbandedAt: Date | null;
+  members:     CrewMemberRow[];
+}
+
+export interface CrewChatRow {
+  id:          string;
+  playerId:    string;
+  playerName:  string;
+  avatarId:    string | null;
+  role:        string;
+  message:     string;
+  createdAt:   Date;
 }
 
 // ─── Daily bonus types ────────────────────────────────────────────────────────
@@ -362,6 +412,7 @@ export class MemStorage implements IStorage {
       activeSubscriptionTier:         null,
       subscriptionExpiresAt:          null,
       subscriptionLastStripesGrantAt: null,
+      currentCrewId:                  null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1138,6 +1189,287 @@ export class MemStorage implements IStorage {
       eventType:      data.eventType,
       eventData:      data.eventData ?? {},
       occurredAt:     new Date(),
+    });
+  }
+
+  // ── Crews ────────────────────────────────────────────────────────────────────
+
+  async getCrewById(crewId: string, _requesterId?: string): Promise<CrewDetail | undefined> {
+    const [crew] = await db.select().from(crews).where(eq(crews.id, crewId));
+    if (!crew) return undefined;
+
+    const rows = await db
+      .select({
+        id:             crewMembers.id,
+        playerId:       crewMembers.playerId,
+        displayName:    playerProfiles.displayName,
+        avatarId:       playerProfiles.avatarId,
+        equippedFrameId:playerProfiles.equippedFrameId,
+        role:           crewMembers.role,
+        joinedAt:       crewMembers.joinedAt,
+        totalChipsWon:  crewMembers.totalChipsWon,
+      })
+      .from(crewMembers)
+      .innerJoin(playerProfiles, eq(crewMembers.playerId, playerProfiles.id))
+      .where(eq(crewMembers.crewId, crewId))
+      .orderBy(desc(crewMembers.totalChipsWon));
+
+    return {
+      id:          crew.id,
+      name:        crew.name,
+      description: crew.description ?? null,
+      inviteCode:  crew.inviteCode,
+      captainId:   crew.captainId,
+      memberCount: crew.memberCount,
+      createdAt:   crew.createdAt,
+      disbandedAt: crew.disbandedAt ?? null,
+      members:     rows.map(r => ({
+        id:              r.id,
+        playerId:        r.playerId,
+        displayName:     r.displayName,
+        avatarId:        r.avatarId ?? null,
+        equippedFrameId: r.equippedFrameId ?? null,
+        role:            r.role,
+        joinedAt:        r.joinedAt!,
+        totalChipsWon:   r.totalChipsWon,
+      })),
+    };
+  }
+
+  async getCrewByInviteCode(code: string): Promise<Crew | undefined> {
+    const [crew] = await db
+      .select()
+      .from(crews)
+      .where(and(eq(crews.inviteCode, code.toUpperCase()), isNull(crews.disbandedAt)));
+    return crew;
+  }
+
+  async getPlayerCurrentCrew(playerId: string): Promise<CrewDetail | null> {
+    const [profile] = await db
+      .select({ currentCrewId: playerProfiles.currentCrewId })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId));
+    if (!profile?.currentCrewId) return null;
+    return (await this.getCrewById(profile.currentCrewId)) ?? null;
+  }
+
+  async createCrewTx(data: {
+    playerId: string; name: string; description?: string; inviteCode: string;
+  }): Promise<Crew> {
+    return db.transaction(async tx => {
+      const crewId = randomUUID();
+      const now    = new Date();
+
+      const [crew] = await tx.insert(crews).values({
+        id:          crewId,
+        name:        data.name,
+        description: data.description ?? null,
+        inviteCode:  data.inviteCode,
+        captainId:   data.playerId,
+        memberCount: 1,
+        createdAt:   now,
+      }).returning();
+
+      await tx.insert(crewMembers).values({
+        id:       randomUUID(),
+        crewId,
+        playerId: data.playerId,
+        role:     "captain",
+        joinedAt: now,
+        totalChipsWon: 0,
+      });
+
+      await tx.update(playerProfiles)
+        .set({ currentCrewId: crewId, updatedAt: now })
+        .where(eq(playerProfiles.id, data.playerId));
+
+      return crew;
+    });
+  }
+
+  async joinCrewTx(data: { playerId: string; crewId: string }): Promise<void> {
+    await db.transaction(async tx => {
+      const now = new Date();
+
+      await tx.insert(crewMembers).values({
+        id:       randomUUID(),
+        crewId:   data.crewId,
+        playerId: data.playerId,
+        role:     "member",
+        joinedAt: now,
+        totalChipsWon: 0,
+      });
+
+      await tx.update(crews)
+        .set({ memberCount: sql`${crews.memberCount} + 1` })
+        .where(eq(crews.id, data.crewId));
+
+      await tx.update(playerProfiles)
+        .set({ currentCrewId: data.crewId, updatedAt: now })
+        .where(eq(playerProfiles.id, data.playerId));
+    });
+  }
+
+  async leaveCrewTx(data: { playerId: string; crewId: string }): Promise<{ newCaptainId?: string; disbanded: boolean }> {
+    return db.transaction(async tx => {
+      const now = new Date();
+
+      const [member] = await tx
+        .select()
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, data.crewId), eq(crewMembers.playerId, data.playerId)));
+      if (!member) throw new Error("Not a member of this Crew.");
+
+      const [crew] = await tx.select().from(crews).where(eq(crews.id, data.crewId));
+      if (!crew) throw new Error("Crew not found.");
+
+      const allMembers = await tx
+        .select()
+        .from(crewMembers)
+        .where(eq(crewMembers.crewId, data.crewId));
+
+      const others = allMembers.filter(m => m.playerId !== data.playerId);
+
+      let newCaptainId: string | undefined;
+      let disbanded = false;
+
+      if (member.role === "captain") {
+        if (others.length === 0) {
+          // Last member — disband
+          await tx.update(crews)
+            .set({ disbandedAt: now })
+            .where(eq(crews.id, data.crewId));
+          disbanded = true;
+        } else {
+          // Promote longest-tenured member
+          const nextCaptain = others
+            .filter(m => m.role === "member")
+            .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0))[0]
+            ?? others[0];
+
+          await tx.update(crewMembers)
+            .set({ role: "captain" })
+            .where(and(eq(crewMembers.crewId, data.crewId), eq(crewMembers.playerId, nextCaptain.playerId)));
+
+          await tx.update(crews)
+            .set({ captainId: nextCaptain.playerId })
+            .where(eq(crews.id, data.crewId));
+
+          newCaptainId = nextCaptain.playerId;
+        }
+      }
+
+      // Delete leaving member row and decrement count
+      await tx.delete(crewMembers)
+        .where(and(eq(crewMembers.crewId, data.crewId), eq(crewMembers.playerId, data.playerId)));
+
+      if (!disbanded) {
+        await tx.update(crews)
+          .set({ memberCount: sql`${crews.memberCount} - 1` })
+          .where(eq(crews.id, data.crewId));
+      }
+
+      await tx.update(playerProfiles)
+        .set({ currentCrewId: null, updatedAt: now })
+        .where(eq(playerProfiles.id, data.playerId));
+
+      return { newCaptainId, disbanded };
+    });
+  }
+
+  async kickMemberTx(data: { crewId: string; targetPlayerId: string }): Promise<void> {
+    await db.transaction(async tx => {
+      const now = new Date();
+
+      await tx.delete(crewMembers)
+        .where(and(eq(crewMembers.crewId, data.crewId), eq(crewMembers.playerId, data.targetPlayerId)));
+
+      await tx.update(crews)
+        .set({ memberCount: sql`${crews.memberCount} - 1` })
+        .where(eq(crews.id, data.crewId));
+
+      await tx.update(playerProfiles)
+        .set({ currentCrewId: null, updatedAt: now })
+        .where(eq(playerProfiles.id, data.targetPlayerId));
+    });
+  }
+
+  async renameCrewTx(data: { crewId: string; name?: string; description?: string | null }): Promise<void> {
+    const updates: Record<string, unknown> = {};
+    if (data.name        !== undefined) updates.name        = data.name;
+    if (data.description !== undefined) updates.description = data.description;
+    if (Object.keys(updates).length === 0) return;
+    await db.update(crews).set(updates as any).where(eq(crews.id, data.crewId));
+  }
+
+  async regenerateCrewInviteTx(data: { crewId: string; inviteCode: string }): Promise<void> {
+    await db.update(crews)
+      .set({ inviteCode: data.inviteCode })
+      .where(eq(crews.id, data.crewId));
+  }
+
+  async getChatMessages(crewId: string, before?: Date, limit = 50): Promise<CrewChatRow[]> {
+    const cond = before
+      ? and(eq(crewChatMessages.crewId, crewId), lt(crewChatMessages.createdAt, before))
+      : eq(crewChatMessages.crewId, crewId);
+
+    const rows = await db
+      .select({
+        id:          crewChatMessages.id,
+        playerId:    crewChatMessages.playerId,
+        playerName:  playerProfiles.displayName,
+        avatarId:    playerProfiles.avatarId,
+        message:     crewChatMessages.message,
+        createdAt:   crewChatMessages.createdAt,
+      })
+      .from(crewChatMessages)
+      .innerJoin(playerProfiles, eq(crewChatMessages.playerId, playerProfiles.id))
+      .where(cond)
+      .orderBy(desc(crewChatMessages.createdAt))
+      .limit(limit);
+
+    // Also look up member role for each message author
+    const memberRows = await db
+      .select({ playerId: crewMembers.playerId, role: crewMembers.role })
+      .from(crewMembers)
+      .where(eq(crewMembers.crewId, crewId));
+    const roleMap = new Map(memberRows.map(r => [r.playerId, r.role]));
+
+    return rows.reverse().map(r => ({
+      id:         r.id,
+      playerId:   r.playerId,
+      playerName: r.playerName,
+      avatarId:   r.avatarId ?? null,
+      role:       roleMap.get(r.playerId) ?? "member",
+      message:    r.message,
+      createdAt:  r.createdAt!,
+    }));
+  }
+
+  async sendChatMessage(crewId: string, playerId: string, message: string): Promise<{ id: string; createdAt: Date }> {
+    const id  = randomUUID();
+    const now = new Date();
+    await db.insert(crewChatMessages).values({ id, crewId, playerId, message, createdAt: now });
+    return { id, createdAt: now };
+  }
+
+  async incrementCrewMemberChipsWon(playerId: string, chipsWon: number): Promise<void> {
+    if (chipsWon <= 0) return;
+    await db.update(crewMembers)
+      .set({ totalChipsWon: sql`${crewMembers.totalChipsWon} + ${chipsWon}` })
+      .where(eq(crewMembers.playerId, playerId));
+  }
+
+  async logCrewEvent(data: {
+    crewId: string; playerId: string; eventType: string; eventData?: Record<string, unknown>;
+  }): Promise<void> {
+    await db.insert(crewEvents).values({
+      id:         randomUUID(),
+      crewId:     data.crewId,
+      playerId:   data.playerId,
+      eventType:  data.eventType,
+      eventData:  data.eventData ?? {},
+      occurredAt: new Date(),
     });
   }
 }

@@ -24,6 +24,7 @@ import Leaderboard from "@/pages/Leaderboard";
 import Shop from "@/pages/Shop";
 import BonusCenter from "@/pages/BonusCenter";
 import CosmeticsStore from "@/pages/CosmeticsStore";
+import Crews from "@/pages/Crews";
 
 // ── Diamond Elite background manager ─────────────────────────────────────────
 // Adds/removes the `diamond-elite-bg` body class based on active subscription.
@@ -47,6 +48,7 @@ function Router() {
         <Route path="/leaderboard" component={Leaderboard}/>
         <Route path="/shop" component={Shop}/>
         <Route path="/cosmetics" component={CosmeticsStore}/>
+        <Route path="/crews" component={Crews}/>
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/dead7" component={Dead7Game}/>

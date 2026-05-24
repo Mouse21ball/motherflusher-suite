@@ -1050,65 +1050,75 @@ export default function Home() {
           borderTop: '1px solid rgba(245,158,11,0.18)',
         }}
       >
-        <div className="w-full max-w-lg mx-auto grid grid-cols-5 h-full">
+        <div className="w-full max-w-lg mx-auto grid grid-cols-6 h-full">
 
           {/* Leaderboard */}
           <button
             onClick={() => navigate('/leaderboard')}
-            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-leaderboard-footer"
           >
-            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-7 h-7 object-contain" />
-            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Ranks</span>
+            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-6 h-6 object-contain" />
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Ranks</span>
           </button>
 
           {/* Shop */}
           <button
             onClick={() => navigate('/shop')}
-            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-shop-footer"
           >
-            <img src="/dock-shop.png" alt="Shop" className="w-7 h-7 object-contain" />
-            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
+            <img src="/dock-shop.png" alt="Shop" className="w-6 h-6 object-contain" />
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
           </button>
 
           {/* Cosmetics */}
           <button
             onClick={() => navigate('/cosmetics')}
-            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-cosmetics-footer"
           >
-            <span className="w-7 h-7 flex items-center justify-center text-lg" style={{ color: 'rgba(201,162,39,0.75)' }}>◆</span>
-            <span className="text-[7px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Style</span>
+            <span className="w-6 h-6 flex items-center justify-center text-base" style={{ color: 'rgba(201,162,39,0.75)' }}>◆</span>
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Style</span>
           </button>
 
           {/* Home (elevated) */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90 -translate-y-1"
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90 -translate-y-1"
             data-testid="link-home-dock"
           >
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{
                 border: '1px solid rgba(240,184,41,0.55)',
                 boxShadow: '0 0 16px rgba(240,184,41,0.30), 0 0 6px rgba(240,184,41,0.15)',
                 background: 'rgba(240,184,41,0.10)',
               }}
             >
-              <img src="/dock-home.png" alt="Home" className="w-6 h-6 object-contain" />
+              <img src="/dock-home.png" alt="Home" className="w-5 h-5 object-contain" />
             </div>
-            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.90)' }}>Home</span>
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.90)' }}>Home</span>
+          </button>
+
+          {/* Crews */}
+          <button
+            onClick={() => navigate('/crews')}
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90"
+            data-testid="link-crews-footer"
+          >
+            <span className="w-6 h-6 flex items-center justify-center text-base" style={{ color: 'rgba(201,162,39,0.75)' }}>⛓</span>
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Crews</span>
           </button>
 
           {/* Profile */}
           <button
             onClick={() => navigate('/profile')}
-            className="flex flex-col items-center justify-center gap-1 h-full min-h-[44px] transition-all active:scale-90"
+            className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90"
             data-testid="link-profile-footer"
           >
-            <img src="/dock-profile.png" alt="Profile" className="w-8 h-8 object-contain" />
-            <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Profile</span>
+            <img src="/dock-profile.png" alt="Profile" className="w-7 h-7 object-contain" />
+            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Profile</span>
           </button>
 
         </div>
