@@ -624,7 +624,7 @@ export default function Profile() {
                 background: 'rgba(15,10,25,0.65)',
                 border: '1px solid rgba(255,215,0,0.20)',
                 borderRadius: 12, padding: '12px 4px',
-                minHeight: 130,
+                minHeight: 170,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}
               data-testid="stat-hands"
@@ -633,7 +633,7 @@ export default function Profile() {
               <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {displayHands}
               </div>
-              <img src="/profile/icons/stat-icon-hands.png" alt="" aria-hidden style={{ width: 44, height: 44, objectFit: 'contain', marginTop: 'auto' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-hands.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* WIN% */}
@@ -642,7 +642,7 @@ export default function Profile() {
                 background: 'rgba(15,10,25,0.65)',
                 border: '1px solid rgba(255,215,0,0.20)',
                 borderRadius: 12, padding: '12px 4px',
-                minHeight: 130,
+                minHeight: 170,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}
               data-testid="stat-win%"
@@ -651,7 +651,7 @@ export default function Profile() {
               <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {stats.winRate}%
               </div>
-              <img src="/profile/icons/stat-icon-winrate.png" alt="" aria-hidden style={{ width: 44, height: 44, objectFit: 'contain', marginTop: 'auto' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-winrate.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* NET */}
@@ -660,7 +660,7 @@ export default function Profile() {
                 background: 'rgba(15,10,25,0.65)',
                 border: '1px solid rgba(255,215,0,0.20)',
                 borderRadius: 12, padding: '12px 4px',
-                minHeight: 130,
+                minHeight: 170,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}
               data-testid="stat-net"
@@ -672,7 +672,7 @@ export default function Profile() {
               }}>
                 {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
               </div>
-              <img src="/profile/icons/stat-icon-net.png" alt="" aria-hidden style={{ width: 44, height: 44, objectFit: 'contain', marginTop: 'auto' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-net.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* CHIPS */}
@@ -681,7 +681,7 @@ export default function Profile() {
                 background: 'rgba(15,10,25,0.65)',
                 border: '1px solid rgba(255,215,0,0.20)',
                 borderRadius: 12, padding: '12px 4px',
-                minHeight: 130,
+                minHeight: 170,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}
               data-testid="stat-chips"
@@ -690,7 +690,7 @@ export default function Profile() {
               <div style={{ fontSize: 16, fontWeight: 900, color: '#FFD700', fontFamily: 'monospace', lineHeight: 1.1, textAlign: 'center' }}>
                 ${displayChips.toLocaleString()}
               </div>
-              <img src="/profile/icons/stat-icon-chips.png" alt="" aria-hidden style={{ width: 44, height: 44, objectFit: 'contain', marginTop: 'auto' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-chips.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* STRIPES — purple tint */}
@@ -699,7 +699,7 @@ export default function Profile() {
                 background: 'rgba(40,20,60,0.65)',
                 border: '1px solid rgba(181,123,232,0.30)',
                 borderRadius: 12, padding: '12px 4px',
-                minHeight: 130,
+                minHeight: 170,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}
               data-testid="stat-stripes"
@@ -708,7 +708,7 @@ export default function Profile() {
               <div style={{ fontSize: 26, fontWeight: 900, color: '#B57BE8', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
-              <img src="/profile/icons/stat-icon-stripes.png" alt="" aria-hidden style={{ width: 44, height: 44, objectFit: 'contain', marginTop: 'auto' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-stripes.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
           </div>
 

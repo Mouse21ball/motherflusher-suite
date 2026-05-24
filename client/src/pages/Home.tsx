@@ -608,26 +608,26 @@ export default function Home() {
         {/* Hero — hard pixel height so mobile vh units can't misbehave */}
         <div
           className="relative w-full flex flex-col items-center justify-center shrink-0 overflow-hidden"
-          style={{ height: '192px' }}
+          style={{ height: '248px' }}
         >
           {/* Warm gold ceiling glow */}
           <div
             className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(ellipse, rgba(240,184,41,0.18) 0%, transparent 70%)' }}
           />
-          {/* Chain logo */}
+          {/* Chain logo — scaled 1.8× (70 → 126px) */}
           <img
             src="/hero-chain-logo.png"
             alt="Chain Gang Poker"
             className="relative z-10 object-contain drop-shadow-[0_4px_24px_rgba(201,162,39,0.55)]"
-            style={{ height: '70px', width: 'auto', maxWidth: '140px' }}
+            style={{ height: '126px', width: 'auto', maxWidth: '252px' }}
           />
-          {/* Wordmark */}
+          {/* Wordmark — scaled 1.6× (60 → 96px), target 62vw wide on mobile */}
           <img
             src="/wordmark-cgp.png"
             alt="CHAIN GANG POKER"
             className="relative z-10 object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
-            style={{ height: '60px', width: 'auto', maxWidth: '300px', marginTop: '8px' }}
+            style={{ height: '96px', width: 'auto', maxWidth: '62vw', marginTop: '4px' }}
           />
         </div>
 
