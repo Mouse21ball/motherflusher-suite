@@ -44,6 +44,7 @@ export interface Player {
   hasActed?: boolean;
   isWinner?: boolean;
   isLoser?: boolean;
+  subscriptionTier?: string | null;
   score?: {
     high?: string;
     low?: string;

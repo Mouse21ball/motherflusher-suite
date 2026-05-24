@@ -74,7 +74,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string }
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }

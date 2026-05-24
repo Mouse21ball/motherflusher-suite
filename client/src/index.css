@@ -96,6 +96,17 @@
   }
 }
 
+/* ── Diamond Elite exclusive app-wide background ──────────────────────────── */
+/* Applied to menu screens (lobby, shop, profile, etc.) via JS body class.    */
+/* Game table screens sit inside their own full-viewport containers so the    */
+/* body background is not visible during active play.                          */
+body.diamond-elite-bg {
+  background-image: url('/cosmetics/backgrounds/bg-diamond.png');
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
+}
+
 /* ── Playing cards ──────────────────────────────────────────────────────────── */
 
 .playing-card-front {

@@ -649,10 +649,16 @@ export async function registerRoutes(
   app.get("/api/tables/mode/:modeId/join", (req, res) => {
     const { modeId } = req.params;
     const MAX_SEATS = 5;
+    // Subscribers (gold_pro / diamond_elite) get priority access: they can join
+    // tables with only 1 seat remaining, while free players cannot (that seat is
+    // effectively reserved for subscribers, functioning as a priority queue).
+    const subTier = (req.query.subTier as string | undefined) ?? '';
+    const isSubscriber = subTier === 'gold_pro' || subTier === 'diamond_elite';
+    const maxHumanThreshold = isSubscriber ? MAX_SEATS : MAX_SEATS - 1;
 
     if (modeId === "badugi") {
       const tables = getActiveBadugiTables()
-        .filter(t => t.humanCount > 0 && t.humanCount < MAX_SEATS)
+        .filter(t => t.humanCount > 0 && t.humanCount < maxHumanThreshold)
         .sort((a, b) => b.humanCount - a.humanCount);
       if (tables.length > 0) {
         res.json({ tableId: tables[0].tableId, humanCount: tables[0].humanCount });
@@ -663,7 +669,7 @@ export async function registerRoutes(
     }
 
     const tables = getActiveGenericTables()
-      .filter(t => t.modeId === modeId && t.humanCount > 0 && t.humanCount < MAX_SEATS)
+      .filter(t => t.modeId === modeId && t.humanCount > 0 && t.humanCount < maxHumanThreshold)
       .sort((a, b) => b.humanCount - a.humanCount);
 
     if (tables.length > 0) {

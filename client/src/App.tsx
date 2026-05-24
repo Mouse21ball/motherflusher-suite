@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WelcomeGate } from "@/components/WelcomeGate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { BetaFooter } from "@/components/BetaFooter";
 import NotFound from "@/pages/not-found";
@@ -23,6 +24,19 @@ import Leaderboard from "@/pages/Leaderboard";
 import Shop from "@/pages/Shop";
 import BonusCenter from "@/pages/BonusCenter";
 import CosmeticsStore from "@/pages/CosmeticsStore";
+
+// ── Diamond Elite background manager ─────────────────────────────────────────
+// Adds/removes the `diamond-elite-bg` body class based on active subscription.
+// Must live inside QueryClientProvider so useServerProfile can fetch.
+function DiamondBackground() {
+  const { profile } = useServerProfile();
+  useEffect(() => {
+    const isDiamond = profile?.activeSubscriptionTier === 'diamond_elite';
+    document.body.classList.toggle('diamond-elite-bg', isDiamond);
+    return () => { document.body.classList.remove('diamond-elite-bg'); };
+  }, [profile?.activeSubscriptionTier]);
+  return null;
+}
 
 function Router() {
   return (
@@ -59,6 +73,7 @@ function App() {
         <Toaster />
         {/* Screen-edge vignette — always on top, no pointer events */}
         <div className="cgp-vignette" aria-hidden="true" />
+        <DiamondBackground />
         <WelcomeGate>
           <Router />
           <BetaFooter />

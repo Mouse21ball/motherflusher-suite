@@ -757,6 +757,24 @@ export default function Home() {
                   className="h-5 w-auto shrink-0 object-contain"
                   data-testid="badge-rank-home"
                 />
+                {serverProfile?.activeSubscriptionTier === 'gold_pro' && (
+                  <img
+                    src="/cosmetics/badges/badge-gold-pro.png"
+                    alt="GOLD PRO"
+                    className="h-5 w-auto shrink-0 object-contain"
+                    data-testid="badge-sub-gold-pro"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+                {serverProfile?.activeSubscriptionTier === 'diamond_elite' && (
+                  <img
+                    src="/cosmetics/badges/badge-diamond-elite.png"
+                    alt="DIAMOND ELITE"
+                    className="h-5 w-auto shrink-0 object-contain"
+                    data-testid="badge-sub-diamond-elite"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
               </div>
               <div
                 className="text-[10px] sm:text-xs font-mono mt-1 leading-none"

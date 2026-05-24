@@ -237,8 +237,18 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
         </div>
       </div>
 
-      {/* Name */}
-      <span className="text-[8px] font-mono text-white/55 truncate max-w-[60px]">{player.name}</span>
+      {/* Name + subscription badge */}
+      <div className="flex items-center gap-0.5">
+        <span className="text-[8px] font-mono text-white/55 truncate max-w-[52px]">{player.name}</span>
+        {player.subscriptionTier === 'gold_pro' && (
+          <img src="/cosmetics/badges/badge-gold-pro.png" alt="G" className="h-3 w-auto shrink-0"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        )}
+        {player.subscriptionTier === 'diamond_elite' && (
+          <img src="/cosmetics/badges/badge-diamond-elite.png" alt="D" className="h-3 w-auto shrink-0"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        )}
+      </div>
       {/* Chips */}
       <span className="text-[9px] font-mono font-semibold text-[#C9A227]/80 tabular-nums">${player.chips}</span>
 

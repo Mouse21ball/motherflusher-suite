@@ -1572,7 +1572,7 @@ export function addGenericConnection(
           t.state = {
             ...t.state,
             players: t.state.players.map(pp =>
-              pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
+              pp.id === seat ? { ...pp, chips: profile.chipBalance, subscriptionTier: profile.activeSubscriptionTier ?? null } : pp
             ),
           };
           t.chipsAtHandStart.set(seat, profile.chipBalance);
