@@ -337,7 +337,7 @@ export default function Shop() {
     <div
       className="min-h-screen text-white"
       style={{
-        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
+        backgroundImage: "url('/cosmetics/backgrounds/shop-bg.png')",
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',
