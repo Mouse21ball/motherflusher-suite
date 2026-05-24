@@ -320,9 +320,22 @@ export default function CosmeticsStore() {
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{ background: '#0c0b08', fontFamily: 'system-ui, sans-serif' }}
+      className="min-h-screen"
+      style={{
+        fontFamily: 'system-ui, sans-serif',
+        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 30%',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        position: 'relative',
+      }}
     >
+      {/* ── Dark overlay for readability ──────────────────────────────────── */}
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.55)', zIndex: 0, pointerEvents: 'none' }} />
+
+      {/* ── Content sits above overlay ────────────────────────────────────── */}
+      <div className="min-h-screen flex flex-col" style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── Toast ─────────────────────────────────────────────────────────── */}
       {toast && (
@@ -376,7 +389,11 @@ export default function CosmeticsStore() {
         <div
           data-testid="text-stripes-balance"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-          style={{ background: 'rgba(201,162,39,0.10)', border: '1px solid rgba(201,162,39,0.25)' }}
+          style={{
+            background: 'rgba(201,162,39,0.15)',
+            border: '1px solid rgba(255,215,0,0.50)',
+            boxShadow: '0 0 12px rgba(255, 215, 0, 0.40)',
+          }}
         >
           <span style={{ fontSize: '0.85rem' }}>◆</span>
           <span style={{ color: 'rgba(201,162,39,0.95)', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -409,10 +426,11 @@ export default function CosmeticsStore() {
             data-testid={`tab-cosmetics-${t.id}`}
             className="flex-1 py-2 rounded-t-xl text-xs font-mono uppercase tracking-wider transition-all"
             style={{
-              background: tab === t.id ? 'rgba(201,162,39,0.12)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${tab === t.id ? 'rgba(201,162,39,0.30)' : 'rgba(255,255,255,0.06)'}`,
-              borderBottom: tab === t.id ? '1px solid rgba(201,162,39,0.12)' : '1px solid rgba(255,255,255,0.06)',
-              color: tab === t.id ? 'rgba(201,162,39,0.95)' : 'rgba(255,255,255,0.35)',
+              background: tab === t.id ? 'rgba(201,162,39,0.18)' : 'rgba(0,0,0,0.40)',
+              border: `1px solid ${tab === t.id ? 'rgba(255,215,0,0.45)' : 'rgba(255,255,255,0.10)'}`,
+              borderBottom: tab === t.id ? '2px solid #FFD700' : '1px solid rgba(255,255,255,0.06)',
+              color: tab === t.id ? '#FFD700' : 'rgba(255,255,255,0.50)',
+              boxShadow: tab === t.id ? '0 2px 14px rgba(255,215,0,0.22), inset 0 1px 0 rgba(255,215,0,0.08)' : 'none',
             }}
           >
             {t.label}
@@ -445,11 +463,16 @@ export default function CosmeticsStore() {
                   data-testid={`card-cosmetic-${item.id}`}
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl text-left transition-all active:scale-95"
                   style={{
-                    background: isEquippedItem ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
+                    background: isEquippedItem ? 'rgba(15,40,20,0.80)' : 'rgba(15,10,25,0.75)',
                     border: isEquippedItem
-                      ? '1px solid rgba(74,222,128,0.35)'
-                      : '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: isEquippedItem ? '0 0 16px rgba(74,222,128,0.10)' : 'none',
+                      ? '1px solid rgba(74,222,128,0.40)'
+                      : '1px solid rgba(255,215,0,0.25)',
+                    borderRadius: 16,
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    boxShadow: isEquippedItem
+                      ? '0 4px 20px rgba(0,0,0,0.60), 0 0 16px rgba(74,222,128,0.12)'
+                      : '0 4px 20px rgba(0,0,0,0.60)',
                   }}
                 >
                   <div className="relative">
@@ -499,7 +522,7 @@ export default function CosmeticsStore() {
         >
           <div
             className="w-full max-w-sm rounded-2xl overflow-hidden"
-            style={{ background: '#1a1810', border: '1px solid rgba(201,162,39,0.22)', margin: '0 16px 16px' }}
+            style={{ background: 'rgba(15,10,25,0.94)', border: '1px solid rgba(255,215,0,0.30)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', margin: '0 16px 16px' }}
           >
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -626,7 +649,7 @@ export default function CosmeticsStore() {
         >
           <div
             className="w-full max-w-sm rounded-2xl overflow-hidden"
-            style={{ background: '#1a1810', border: '1px solid rgba(201,162,39,0.30)' }}
+            style={{ background: 'rgba(15,10,25,0.96)', border: '1px solid rgba(255,215,0,0.35)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
           >
             <div className="px-6 pt-6 pb-2 text-center">
               <div style={{ fontSize: '2rem', marginBottom: 8 }}>◆</div>
@@ -669,6 +692,7 @@ export default function CosmeticsStore() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
