@@ -406,7 +406,7 @@ export default function CosmeticsStore() {
       {isGuest && (
         <div
           className="mx-4 mt-3 px-4 py-2.5 rounded-xl text-xs"
-          style={{ background: 'rgba(201,162,39,0.07)', border: '1px solid rgba(201,162,39,0.18)', color: 'rgba(201,162,39,0.70)' }}
+          style={{ background: 'rgba(201,162,39,0.04)', border: '1px solid rgba(201,162,39,0.12)', color: 'rgba(201,162,39,0.80)' }}
         >
           💡 Save your progress — link an account to keep your cosmetics permanently.
         </div>
@@ -463,16 +463,12 @@ export default function CosmeticsStore() {
                   data-testid={`card-cosmetic-${item.id}`}
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl text-left transition-all active:scale-95"
                   style={{
-                    background: isEquippedItem ? 'rgba(15,40,20,0.80)' : 'rgba(15,10,25,0.75)',
-                    border: isEquippedItem
-                      ? '1px solid rgba(74,222,128,0.40)'
-                      : '1px solid rgba(255,215,0,0.25)',
+                    background: isEquippedItem ? 'rgba(15,40,20,0.30)' : 'rgba(15,10,25,0.25)',
+                    border: isEquippedItem ? '1px solid rgba(74,222,128,0.35)' : 'none',
                     borderRadius: 16,
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
                     boxShadow: isEquippedItem
-                      ? '0 4px 20px rgba(0,0,0,0.60), 0 0 16px rgba(74,222,128,0.12)'
-                      : '0 4px 20px rgba(0,0,0,0.60)',
+                      ? '0 2px 8px rgba(0,0,0,0.30), 0 0 12px rgba(74,222,128,0.10)'
+                      : '0 2px 8px rgba(0,0,0,0.30)',
                   }}
                 >
                   <div className="relative">
