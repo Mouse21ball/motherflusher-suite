@@ -2,8 +2,20 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, hashPassword, verifyPassword } from "./storage";
 import { z } from "zod";
-import { getActiveBadugiTables } from "./gameEngine";
-import { getActiveGenericTables } from "./genericEngine";
+import {
+  getActiveBadugiTables,
+  getBadugiTableMinBet,
+  extendBadugiTurnTimer,
+  getBadugiTimeBankSessionUsed,
+  incrementBadugiTimeBankSessionUsed,
+} from "./gameEngine";
+import {
+  getActiveGenericTables,
+  getGenericTableMinBet,
+  extendGenericTurnTimer,
+  getGenericTimeBankSessionUsed,
+  incrementGenericTimeBankSessionUsed,
+} from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { requireAuth, requireSelf } from "./middleware/auth";
@@ -1373,6 +1385,204 @@ export async function registerRoutes(
       res.json({ id, created_at: createdAt });
     } catch (err: any) {
       if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Ticket-7: Buy-in Slider ───────────────────────────────────────────────
+
+  // POST /api/tables/:table_id/join — validate buy-in range and debit chips.
+  // Called by client BEFORE opening the WebSocket join. WS join then uses the
+  // buyinChips value it already passed; DB balance is already deducted here.
+  app.post("/api/tables/:table_id/join", requireAuth, async (req, res) => {
+    try {
+      const tableId  = (req.params.table_id as string).toUpperCase();
+      const playerId = req.sessionPlayerId!;
+      const { buyin_chips, mode_id } = z.object({
+        buyin_chips: z.number().int().positive(),
+        mode_id:     z.string().min(1),
+      }).parse(req.body);
+
+      // Lookup minBet from live engine (default 50 if table not yet created)
+      const minBet = (mode_id === 'badugi'
+        ? getBadugiTableMinBet(tableId)
+        : getGenericTableMinBet(tableId, mode_id)) ?? 50;
+
+      const minBuyin = minBet * 20;
+      const maxBuyin = minBet * 200;
+
+      if (buyin_chips < minBuyin || buyin_chips > maxBuyin) {
+        res.status(400).json({
+          error: `Buy-in must be between ${minBuyin.toLocaleString()} and ${maxBuyin.toLocaleString()} chips (20–200 BB)`,
+          min_buyin: minBuyin,
+          max_buyin: maxBuyin,
+        });
+        return;
+      }
+
+      const ok = await storage.debitChipsForBuyin(playerId, buyin_chips);
+      if (!ok) {
+        res.status(402).json({ error: 'Insufficient chips for requested buy-in', min_buyin: minBuyin, max_buyin: maxBuyin });
+        return;
+      }
+
+      res.json({ success: true, buyin_chips, min_buyin: minBuyin, max_buyin: maxBuyin });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/tables/:table_id/rebuy — validate rebuy range (does NOT debit; chips come from seatBankroll).
+  app.post("/api/tables/:table_id/rebuy", requireAuth, async (req, res) => {
+    try {
+      const tableId  = (req.params.table_id as string).toUpperCase();
+      const playerId = req.sessionPlayerId!;
+      const { current_stack, rebuy_chips, mode_id } = z.object({
+        current_stack: z.number().int().nonnegative(),
+        rebuy_chips:   z.number().int().positive(),
+        mode_id:       z.string().min(1),
+      }).parse(req.body);
+
+      const minBet = (mode_id === 'badugi'
+        ? getBadugiTableMinBet(tableId)
+        : getGenericTableMinBet(tableId, mode_id)) ?? 50;
+
+      const maxBuyin = minBet * 200;
+      const wouldBeStack = current_stack + rebuy_chips;
+
+      if (wouldBeStack > maxBuyin) {
+        res.status(400).json({
+          error: `Rebuy would exceed the ${maxBuyin.toLocaleString()}-chip cap (200 BB). Max rebuy: ${(maxBuyin - current_stack).toLocaleString()} chips`,
+          max_rebuy: Math.max(0, maxBuyin - current_stack),
+        });
+        return;
+      }
+
+      // Chips come from in-memory seatBankroll — no DB debit here. Just validate OK.
+      res.json({ success: true, rebuy_chips, would_be_stack: wouldBeStack });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Ticket-7: Time Bank ───────────────────────────────────────────────────
+
+  // GET /api/players/:id/time-bank/status
+  app.get("/api/players/:id/time-bank/status", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const playerId = req.params.id as string;
+      const status   = await storage.getTimeBankStatus(playerId);
+      res.json({
+        free_remaining: status.freeRemaining,
+        purchased:      status.purchased,
+        tier:           status.tier,
+        // Convenience: can use time bank if any bucket has uses
+        has_uses: status.freeRemaining > 0 || status.purchased > 0 || !!status.tier,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/players/:id/time-bank/use
+  app.post("/api/players/:id/time-bank/use", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const playerId = req.params.id as string;
+      const { table_id, mode_id } = z.object({
+        table_id: z.string().min(1),
+        mode_id:  z.string().min(1),
+      }).parse(req.body);
+
+      const tId = table_id.toUpperCase();
+
+      // Determine which bucket to consume (priority: diamond_elite > gold_pro > purchased > free)
+      const status = await storage.getTimeBankStatus(playerId);
+      const tier   = status.tier;
+
+      let source: 'free' | 'subscription' | 'purchased';
+      if (tier === 'diamond_elite') {
+        // Unlimited subscription uses — only rate-limit (1/turn) applies
+        source = 'subscription';
+      } else if (tier === 'gold_pro') {
+        // 1 use per session for gold_pro
+        const sessionUsed = mode_id === 'badugi'
+          ? getBadugiTimeBankSessionUsed(tId, playerId)
+          : getGenericTimeBankSessionUsed(tId, mode_id, playerId);
+        if (sessionUsed < 1) {
+          source = 'subscription';
+        } else if (status.purchased > 0) {
+          source = 'purchased';
+        } else if (status.freeRemaining > 0) {
+          source = 'free';
+        } else {
+          res.status(402).json({ error: 'no_uses_available', message: 'No time bank uses remaining.' });
+          return;
+        }
+      } else if (status.purchased > 0) {
+        source = 'purchased';
+      } else if (status.freeRemaining > 0) {
+        source = 'free';
+      } else {
+        res.status(402).json({ error: 'no_uses_available', message: 'No time bank uses remaining. Purchase more in the shop.' });
+        return;
+      }
+
+      // Extend the turn timer (20 s = 20_000 ms)
+      const result = mode_id === 'badugi'
+        ? extendBadugiTurnTimer(tId, playerId, 20_000)
+        : extendGenericTurnTimer(tId, mode_id, playerId, 20_000);
+
+      if (!result.success) {
+        res.status(409).json({ error: result.reason ?? 'timer_extend_failed', message: 'Could not extend timer.' });
+        return;
+      }
+
+      // Deduct from the selected bucket + log event
+      await storage.consumeTimeBankSlot(playerId, source, tId);
+
+      // Increment in-memory session counter for subscription uses
+      if (source === 'subscription') {
+        if (mode_id === 'badugi') incrementBadugiTimeBankSessionUsed(tId, playerId);
+        else incrementGenericTimeBankSessionUsed(tId, mode_id, playerId);
+      }
+
+      res.json({
+        success:           true,
+        timer_added_seconds: 20,
+        new_timer_expires_at: result.newDeadline,
+        source,
+      });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/players/:id/time-bank/purchase — buy uses with Stripes (25 Stripes each)
+  app.post("/api/players/:id/time-bank/purchase", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const playerId = req.params.id as string;
+      const { quantity } = z.object({
+        quantity: z.number().int().min(1).max(50),
+      }).parse(req.body);
+
+      const result = await storage.purchaseTimeBankUses(playerId, quantity);
+      if (!result.success) {
+        res.status(402).json({ error: 'insufficient_stripes', message: `Need ${quantity * 25} Stripes for ${quantity} use(s).` });
+        return;
+      }
+
+      res.json({
+        success:           true,
+        quantity_purchased: quantity,
+        stripes_spent:     quantity * 25,
+        new_stripes:       result.newStripes,
+        new_purchased_uses: result.newPurchasedUses,
+      });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid request.' }); return; }
       res.status(500).json({ error: err.message });
     }
   });

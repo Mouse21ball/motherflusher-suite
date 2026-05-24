@@ -3,6 +3,7 @@ import { GamePhase, Declaration } from "@/lib/poker/types";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { sfx } from "@/lib/sounds";
+import { TimeBankButton } from "./TimeBankButton";
 
 interface DeclarationOption {
   label: string;
@@ -33,6 +34,10 @@ interface ActionControlsProps {
   /** Server-set deadline (epoch ms) for the active player's action. When set
    *  and it's the hero's turn, a countdown is rendered (P4). */
   turnDeadline?: number | null;
+  /** Ticket-7: Time Bank props — optional; renders +20s button when provided. */
+  playerId?: string;
+  tableId?: string;
+  modeId?: string;
 }
 
 const defaultDeclarationOptions: DeclarationOption[] = [
@@ -74,7 +79,7 @@ function TurnCountdown({ deadline }: { deadline: number }) {
   );
 }
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked, myDeclaration, turnDeadline }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked, myDeclaration, turnDeadline, playerId, tableId, modeId }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
 
@@ -305,6 +310,17 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     </div>
   ) : null;
 
+  const timeBankEl = (playerId && tableId && modeId && isMyTurn && turnDeadline) ? (
+    <TimeBankButton
+      key={`tb-${phase}`}
+      playerId={playerId}
+      tableId={tableId}
+      modeId={modeId}
+      isMyTurn={isMyTurn}
+      timerRemainingMs={turnDeadline ? Math.max(0, turnDeadline - Date.now()) : 0}
+    />
+  ) : null;
+
   const isHitPhase = phase.startsWith('HIT_');
   if (isHitPhase) {
     // P6: hide Hit if hero has stayed or busted on a prior round (server also rejects).
@@ -312,6 +328,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return (
       <div key={phase} className={`${panelClass} anim-decision-ready text-center`}>
         {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
+        {timeBankEl}
         {hintEl}
         <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">
           {hideHit ? 'Standing — Fold or Wait' : 'Hit, Stay, or Fold'}
@@ -474,6 +491,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       </div>
 
       {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
+      {timeBankEl}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button

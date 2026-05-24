@@ -317,6 +317,11 @@ interface AuthTable {
   // a late-firing timeout can detect it is stale and abort cleanly.
   turnTimerGen: number;
   turnTimer: ReturnType<typeof setTimeout> | null;
+  // ── Buy-in Slider ─────────────────────────────────────────────────────────
+  seatBankroll: Map<string, number>;
+  // ── Time Bank ─────────────────────────────────────────────────────────────
+  seatTimeBankSessionUsed: Map<string, number>;
+  seatTimeBankLastTurnKey: Map<string, string>;
 }
 
 const tables = new Map<string, AuthTable>();
@@ -845,7 +850,8 @@ function resetToAnte(table: AuthTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
+    storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
   }
 
   table.state = {
@@ -1215,6 +1221,9 @@ export function initEngine(): void {
       botsEnabled: true,
       turnTimerGen: 0,
       turnTimer: null,
+      seatBankroll: new Map(),
+      seatTimeBankSessionUsed: new Map(),
+      seatTimeBankLastTurnKey: new Map(),
     });
     engineLog('TABLE_CREATE', tableId, { source: 'restore', phase: state.phase, handId });
   }
@@ -1271,6 +1280,9 @@ export function getOrCreateBadugiTable(
       botsEnabled,
       turnTimerGen: 0,
       turnTimer: null,
+      seatBankroll: new Map(),
+      seatTimeBankSessionUsed: new Map(),
+      seatTimeBankLastTurnKey: new Map(),
     };
     tables.set(tableId, table);
     engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
@@ -1293,7 +1305,8 @@ export function addBadugiConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {},
+  buyinChips?: number
 ): string | null {
   const isNew = !tables.has(tableId);
   const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay, options);
@@ -1435,15 +1448,28 @@ export function addBadugiConnection(
         // between hands so live table chips are never clobbered mid-hand.
         const isBetweenHands = t.state.phase === 'WAITING' || t.state.phase === 'ANTE';
         if (wasReserved || isBetweenHands) {
+          // ── Buy-in Slider ───────────────────────────────────────────────
+          const minBet   = t.state.minBet;
+          const minBuyin = minBet * 20;
+          const maxBuyin = minBet * 200;
+          let effectiveStack: number;
+          if (buyinChips != null && wasReserved) {
+            const clamped = Math.max(minBuyin, Math.min(maxBuyin, Math.floor(buyinChips)));
+            effectiveStack = Math.min(clamped, profile.chipBalance);
+            t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
+          } else {
+            effectiveStack = profile.chipBalance;
+            t.seatBankroll.set(seat, 0);
+          }
           t.state = {
             ...t.state,
             players: t.state.players.map(pp =>
-              pp.id === seat ? { ...pp, chips: profile.chipBalance } : pp
+              pp.id === seat ? { ...pp, chips: effectiveStack } : pp
             ),
           };
-          t.chipsAtHandStart.set(seat, profile.chipBalance);
+          t.chipsAtHandStart.set(seat, effectiveStack);
           t.sessionStats.set(seat, {
-            startChips: profile.chipBalance,
+            startChips: effectiveStack,
             handsPlayed: 0,
             biggestPotWon: 0,
             winStreak: 0,
@@ -1520,7 +1546,8 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       // handId increment), so equality means hand-end already wrote for this hand.
       const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
       if (lastSynced !== table.handId) {
-        storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+        const bankrollAtDisc = table.seatBankroll.get(seat) ?? 0;
+        storage.syncPlayerChips(identityId, bankrollAtDisc + player.chips).catch(() => {});
       }
     }
 
@@ -1531,6 +1558,9 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       table.lastChipSyncHand.delete(seat);
       table.sessionStats.delete(seat);
       table.chipsAtHandStart.delete(seat);
+      table.seatBankroll.delete(seat);
+      table.seatTimeBankSessionUsed.delete(seat);
+      table.seatTimeBankLastTurnKey.delete(seat);
     }
   }
 
@@ -1565,6 +1595,9 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
         t.lastChipSyncHand.delete(seat);
         t.sessionStats.delete(seat);
         t.chipsAtHandStart.delete(seat);
+        t.seatBankroll.delete(seat);
+        t.seatTimeBankSessionUsed.delete(seat);
+        t.seatTimeBankLastTurnKey.delete(seat);
         storage.clearPlayerActiveTable(id).catch(() => {});
       }
       releaseSeat(t, seat);
@@ -1878,6 +1911,77 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
 export function getBadugiTablePhase(tableId: string): string | null {
   return tables.get(tableId)?.state.phase ?? null;
+}
+
+// ─── Ticket-7 Public Exports ──────────────────────────────────────────────────
+
+export function getBadugiTableMinBet(tableId: string): number | null {
+  const t = tables.get(tableId);
+  return t ? t.state.minBet : null;
+}
+
+export function extendBadugiTurnTimer(
+  tableId: string,
+  identityId: string,
+  extraMs: number,
+): { success: boolean; newDeadline?: number; reason?: string } {
+  const t = tables.get(tableId);
+  if (!t) return { success: false, reason: 'table_not_found' };
+  const s = t.state;
+  if (!BADUGI_INTERACTIVE_PHASES.has(s.phase)) return { success: false, reason: 'not_interactive_phase' };
+  if (!s.turnDeadline || s.turnDeadline <= Date.now()) return { success: false, reason: 'timer_not_active' };
+
+  let foundSeat: string | null = null;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) { foundSeat = seat; break; }
+  }
+  if (!foundSeat) return { success: false, reason: 'player_not_at_table' };
+  if (s.activePlayerId !== foundSeat) return { success: false, reason: 'not_your_turn' };
+
+  const turnKey = `${t.handId}:${s.phase}:${foundSeat}`;
+  if (t.seatTimeBankLastTurnKey.get(foundSeat) === turnKey) {
+    return { success: false, reason: 'already_used_this_turn' };
+  }
+  t.seatTimeBankLastTurnKey.set(foundSeat, turnKey);
+
+  const newDeadline = s.turnDeadline + extraMs;
+  t.state = { ...s, turnDeadline: newDeadline };
+
+  // Clear existing timer then arm new one with remaining ms
+  if (t.turnTimer) { clearTimeout(t.turnTimer); t.turnTimer = null; }
+  t.turnTimerGen++;
+  const genAtArm  = t.turnTimerGen;
+  const seatAtArm = foundSeat;
+  const remaining = newDeadline - Date.now();
+  t.turnTimer = setTimeout(() => {
+    t.turnTimer = null;
+    if (t.turnTimerGen !== genAtArm) return;
+    if (t.state.activePlayerId !== seatAtArm) return;
+    autoActOnTimeoutBadugi(t, seatAtArm);
+  }, Math.max(0, remaining));
+
+  broadcastState(t);
+  return { success: true, newDeadline };
+}
+
+export function getBadugiTimeBankSessionUsed(tableId: string, identityId: string): number {
+  const t = tables.get(tableId);
+  if (!t) return 0;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) return t.seatTimeBankSessionUsed.get(seat) ?? 0;
+  }
+  return 0;
+}
+
+export function incrementBadugiTimeBankSessionUsed(tableId: string, identityId: string): void {
+  const t = tables.get(tableId);
+  if (!t) return;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) {
+      t.seatTimeBankSessionUsed.set(seat, (t.seatTimeBankSessionUsed.get(seat) ?? 0) + 1);
+      return;
+    }
+  }
 }
 
 export function updateBadugiTableSettings(

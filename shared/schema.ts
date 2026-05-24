@@ -37,6 +37,9 @@ export const playerProfiles = pgTable("player_profiles", {
   subscriptionLastStripesGrantAt:  timestamp("subscription_last_stripes_grant_at"), // last monthly Stripes drop
   // ── Crew (denormalized for fast lookup; source of truth is crew_members) ──
   currentCrewId:        text("current_crew_id"),                             // null if not in a Crew
+  // ── Time Bank ───────────────────────────────────────────────────────────────
+  timeBankFreeUsesRemaining: integer("time_bank_free_uses_remaining").notNull().default(2),
+  timeBankPurchasedUses:     integer("time_bank_purchased_uses").notNull().default(0),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -54,6 +57,8 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   subscriptionExpiresAt:          true,
   subscriptionLastStripesGrantAt: true,
   currentCrewId:                  true,
+  timeBankFreeUsesRemaining:      true,
+  timeBankPurchasedUses:          true,
   createdAt:                      true,
   updatedAt:                      true,
 });
@@ -256,6 +261,19 @@ export const crewEvents = pgTable("crew_events", {
 });
 
 export type CrewEvent = typeof crewEvents.$inferSelect;
+
+// ─── Time Bank Events (audit log) ────────────────────────────────────────────
+export const timeBankEvents = pgTable("time_bank_events", {
+  id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  playerId:    text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  eventType:   varchar("event_type", { length: 32 }).notNull(),
+  // ^ "used_free" | "used_subscription" | "used_purchased" | "purchased"
+  tableId:     text("table_id"),      // null for non-table events (purchases)
+  stripesCost: integer("stripes_cost"), // null unless eventType === "purchased"
+  occurredAt:  timestamp("occurred_at").notNull().defaultNow(),
+});
+
+export type TimeBankEvent = typeof timeBankEvents.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

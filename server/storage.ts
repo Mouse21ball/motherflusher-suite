@@ -11,6 +11,7 @@ import {
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents,
+  timeBankEvents,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -139,6 +140,11 @@ export interface IStorage {
   sendChatMessage(crewId: string, playerId: string, message: string): Promise<{ id: string; createdAt: Date }>;
   incrementCrewMemberChipsWon(playerId: string, chipsWon: number): Promise<void>;
   logCrewEvent(data: { crewId: string; playerId: string; eventType: string; eventData?: Record<string, unknown> }): Promise<void>;
+  // ── Time Bank ───────────────────────────────────────────────────────────────
+  debitChipsForBuyin(playerId: string, amount: number): Promise<boolean>;
+  getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }>;
+  consumeTimeBankSlot(playerId: string, source: 'free' | 'subscription' | 'purchased', tableId?: string): Promise<void>;
+  purchaseTimeBankUses(playerId: string, quantity: number): Promise<{ success: boolean; newStripes: number; newPurchasedUses: number }>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -413,6 +419,8 @@ export class MemStorage implements IStorage {
       subscriptionExpiresAt:          null,
       subscriptionLastStripesGrantAt: null,
       currentCrewId:                  null,
+      timeBankFreeUsesRemaining:      2,
+      timeBankPurchasedUses:          0,
       createdAt: now,
       updatedAt: now,
     };
@@ -1470,6 +1478,106 @@ export class MemStorage implements IStorage {
       eventType:  data.eventType,
       eventData:  data.eventData ?? {},
       occurredAt: new Date(),
+    });
+  }
+
+  // ── Time Bank ───────────────────────────────────────────────────────────────
+
+  async debitChipsForBuyin(playerId: string, amount: number): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!rows[0] || rows[0].chipBalance < amount) return false;
+      await tx
+        .update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      return true;
+    });
+  }
+
+  async getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }> {
+    const rows = await db
+      .select({
+        freeRemaining: playerProfiles.timeBankFreeUsesRemaining,
+        purchased: playerProfiles.timeBankPurchasedUses,
+        tier: playerProfiles.activeSubscriptionTier,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+    if (!rows[0]) return { freeRemaining: 0, purchased: 0, tier: null };
+    return {
+      freeRemaining: rows[0].freeRemaining,
+      purchased:     rows[0].purchased,
+      tier:          rows[0].tier ?? null,
+    };
+  }
+
+  async consumeTimeBankSlot(
+    playerId: string,
+    source: 'free' | 'subscription' | 'purchased',
+    tableId?: string,
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      if (source === 'free') {
+        await tx
+          .update(playerProfiles)
+          .set({
+            timeBankFreeUsesRemaining: sql`GREATEST(0, ${playerProfiles.timeBankFreeUsesRemaining} - 1)`,
+            updatedAt: new Date(),
+          })
+          .where(eq(playerProfiles.id, playerId));
+      } else if (source === 'purchased') {
+        await tx
+          .update(playerProfiles)
+          .set({
+            timeBankPurchasedUses: sql`GREATEST(0, ${playerProfiles.timeBankPurchasedUses} - 1)`,
+            updatedAt: new Date(),
+          })
+          .where(eq(playerProfiles.id, playerId));
+      }
+      const eventType =
+        source === 'free'         ? 'used_free' :
+        source === 'purchased'    ? 'used_purchased' :
+                                    'used_subscription';
+      await tx.insert(timeBankEvents).values({ playerId, eventType, tableId });
+    });
+  }
+
+  async purchaseTimeBankUses(
+    playerId: string,
+    quantity: number,
+  ): Promise<{ success: boolean; newStripes: number; newPurchasedUses: number }> {
+    const cost = quantity * 25;
+    return await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({
+          stripes:   playerProfiles.stripes,
+          purchased: playerProfiles.timeBankPurchasedUses,
+        })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!rows[0] || rows[0].stripes < cost) {
+        return { success: false, newStripes: rows[0]?.stripes ?? 0, newPurchasedUses: rows[0]?.purchased ?? 0 };
+      }
+      const newStripes       = rows[0].stripes   - cost;
+      const newPurchasedUses = rows[0].purchased + quantity;
+      await tx
+        .update(playerProfiles)
+        .set({ stripes: newStripes, timeBankPurchasedUses: newPurchasedUses, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await tx.insert(stripeTransactions).values({
+        playerId, amount: -cost, reason: 'time_bank:purchase', balanceAfter: newStripes,
+      });
+      await tx.insert(timeBankEvents).values({
+        playerId, eventType: 'purchased', stripesCost: cost,
+      });
+      return { success: true, newStripes, newPurchasedUses };
     });
   }
 }

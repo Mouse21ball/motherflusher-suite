@@ -1,18 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { isRewardAvailable, getTodayReward } from "@/lib/dailyReward";
 import { track, getModeFromPath } from "@/lib/analytics";
+import { BuyInSlider } from "./BuyInSlider";
 
 interface BustOutModalProps {
   open: boolean;
   lifetimeBusts: number;
   sessionBusts: number;
   hasNeverPurchased: boolean;
-  onRebuy: () => void;
+  onRebuy: (amount?: number) => void;
   onLeaveTable: () => void;
   onSpectate: () => void;
   onClaimDailyBonus: () => void;
   onWatchAd?: () => void;
   onStarterPack?: () => void;
+  /** Ticket-7: buy-in slider for rebuy. If provided, shows slider instead of fixed rebuy. */
+  tableId?: string;
+  modeId?: string;
+  bankrollAvailable?: number;
+  bigBlind?: number;
 }
 
 // ── Triage tiers ─────────────────────────────────────────────────────────────
@@ -38,7 +44,12 @@ export function BustOutModal({
   onClaimDailyBonus,
   onWatchAd,
   onStarterPack,
+  tableId,
+  modeId,
+  bankrollAvailable,
+  bigBlind,
 }: BustOutModalProps) {
+  const [showRebuySlider, setShowRebuySlider] = useState(false);
 
   // ── Track bust modal shown ────────────────────────────────────────────────
   useEffect(() => {
@@ -109,6 +120,33 @@ export function BustOutModal({
     </button>
   );
 
+  // ── Rebuy section: slider when table context available, fallback button ────
+  const RebuyBtn = ({ testId }: { testId: string }) => {
+    const hasSlider = !!(tableId && modeId && bankrollAvailable != null);
+    if (hasSlider && showRebuySlider) {
+      return (
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-2">
+          <BuyInSlider
+            tableId={tableId!}
+            modeId={modeId!}
+            chipBalance={bankrollAvailable!}
+            currentStack={0}
+            bigBlind={bigBlind ?? 50}
+            onConfirm={(amount) => { setShowRebuySlider(false); onRebuy(amount); }}
+            onCancel={() => setShowRebuySlider(false)}
+          />
+        </div>
+      );
+    }
+    return (
+      <SecBtn
+        label={hasSlider ? "Rebuy (choose amount)" : "Free Rebuy ($5,000)"}
+        onClick={() => hasSlider ? setShowRebuySlider(true) : onRebuy()}
+        testId={testId}
+      />
+    );
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
@@ -143,7 +181,7 @@ export function BustOutModal({
             </button>
             <p className="text-center text-[10px] text-white/30 font-mono mb-3">Best value for new players</p>
             <div className="space-y-2">
-              <SecBtn label="Free Rebuy ($5,000)" onClick={onRebuy} testId="button-bust-rebuy" />
+              <RebuyBtn testId="button-bust-rebuy" />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
             </div>
           </>
@@ -161,7 +199,7 @@ export function BustOutModal({
               <span className="text-[11px] font-bold opacity-70 tracking-wide">+{dailyChips.toLocaleString()} chips waiting</span>
             </button>
             <div className="space-y-2">
-              <SecBtn label="Free Rebuy ($5,000)" onClick={onRebuy} testId="button-bust-rebuy" />
+              <RebuyBtn testId="button-bust-rebuy" />
               <SecBtn
                 label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
                 onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
@@ -227,13 +265,27 @@ export function BustOutModal({
         {/* ── TIER 5: Default — plain rebuy ── */}
         {tier === 5 && (
           <>
-            <button
-              onClick={onRebuy}
-              data-testid="button-bust-rebuy"
-              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-3 active:scale-[0.98]"
-            >
-              REBUY $5,000
-            </button>
+            {showRebuySlider && tableId && modeId && bankrollAvailable != null ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-3">
+                <BuyInSlider
+                  tableId={tableId}
+                  modeId={modeId}
+                  chipBalance={bankrollAvailable}
+                  currentStack={0}
+                  bigBlind={bigBlind ?? 50}
+                  onConfirm={(amount) => { setShowRebuySlider(false); onRebuy(amount); }}
+                  onCancel={() => setShowRebuySlider(false)}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => tableId && modeId && bankrollAvailable != null ? setShowRebuySlider(true) : onRebuy()}
+                data-testid="button-bust-rebuy"
+                className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-3 active:scale-[0.98]"
+              >
+                {tableId && modeId ? 'REBUY (CHOOSE AMOUNT)' : 'REBUY $5,000'}
+              </button>
+            )}
             <div className="space-y-2">
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />

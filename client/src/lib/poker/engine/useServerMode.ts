@@ -79,7 +79,7 @@ const DEFAULT_SESSION_STATS: SessionStats = {
   shouldContinueSignal: false,
 };
 
-export function useServerMode(tableId: string, modeId: string) {
+export function useServerMode(tableId: string, modeId: string, buyinChips?: number) {
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
@@ -161,6 +161,7 @@ export function useServerMode(tableId: string, modeId: string) {
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),
           ...(_isPrivate ? { isPrivate: true } : {}),
+          ...(buyinChips != null ? { buyinChips } : {}),
         }));
       };
 

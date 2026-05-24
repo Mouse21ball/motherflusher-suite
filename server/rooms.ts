@@ -74,7 +74,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number }
   | { type: 'leave';         tableId: string; playerId: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
@@ -276,9 +276,9 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled };
 
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions);
+          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions);
+          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
         }
 
         // Send host/settings context to the joining player after engine init

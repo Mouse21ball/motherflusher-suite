@@ -323,6 +323,15 @@ interface GenericTable {
   chipsAtHandStart: Map<string, number>;
   // Per-seat session stats (in-memory, this table session only).
   sessionStats: Map<string, SessionStat>;
+  // ── Buy-in Slider ─────────────────────────────────────────────────────────
+  // Chips held outside the table (DB balance minus buyinChips). Always added
+  // back to player.chips in syncPlayerChips calls so the DB total stays right.
+  seatBankroll: Map<string, number>;
+  // ── Time Bank ─────────────────────────────────────────────────────────────
+  // Number of subscription time-bank uses consumed this session (gold_pro cap = 1).
+  seatTimeBankSessionUsed: Map<string, number>;
+  // Rate-limit key: "${handId}:${phase}:${seat}" — only 1 extension per turn.
+  seatTimeBankLastTurnKey: Map<string, string>;
   // P4: Single per-table turn timer. Armed when active player is human and
   // the phase is interactive; cleared when the player acts or the phase
   // advances. Auto-acts (check/fold/stay) on expiry.
@@ -1109,7 +1118,8 @@ function resetToAnte(table: GenericTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
+    storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
 
     // Crew chip-win tracking: accumulate only genuine gameplay wins (not bonuses).
     if (isWinner && deltaChips > 0) {
@@ -1407,6 +1417,9 @@ function getOrCreateTable(
       botsEnabled,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
+      seatBankroll: new Map(),
+      seatTimeBankSessionUsed: new Map(),
+      seatTimeBankLastTurnKey: new Map(),
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
     if (!isPrivate && !quickPlay && botsEnabled) {
@@ -1427,7 +1440,8 @@ export function addGenericConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean } = {},
+  buyinChips?: number
 ): string | null {
   const key = tableKey(modeId, tableId);
   const isNew = !tables.has(key);
@@ -1574,15 +1588,30 @@ export function addGenericConnection(
         // between hands so live table chips are never clobbered mid-hand.
         const isBetweenHands = t.state.phase === 'WAITING' || t.state.phase === 'ANTE';
         if (wasReserved || isBetweenHands) {
+          // ── Buy-in Slider: determine effective table stack ──────────────
+          const minBet = t.state.minBet;
+          const minBuyin = minBet * 20;
+          const maxBuyin = minBet * 200;
+          let effectiveStack: number;
+          if (buyinChips != null && wasReserved) {
+            // Clamp to valid range, cap at available balance
+            const clamped = Math.max(minBuyin, Math.min(maxBuyin, Math.floor(buyinChips)));
+            effectiveStack = Math.min(clamped, profile.chipBalance);
+            t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
+          } else {
+            // No partial buy-in: full balance at table, bankroll = 0
+            effectiveStack = profile.chipBalance;
+            t.seatBankroll.set(seat, 0);
+          }
           t.state = {
             ...t.state,
             players: t.state.players.map(pp =>
-              pp.id === seat ? { ...pp, chips: profile.chipBalance, subscriptionTier: profile.activeSubscriptionTier ?? null } : pp
+              pp.id === seat ? { ...pp, chips: effectiveStack, subscriptionTier: profile.activeSubscriptionTier ?? null } : pp
             ),
           };
-          t.chipsAtHandStart.set(seat, profile.chipBalance);
+          t.chipsAtHandStart.set(seat, effectiveStack);
           t.sessionStats.set(seat, {
-            startChips: profile.chipBalance,
+            startChips: effectiveStack,
             handsPlayed: 0,
             biggestPotWon: 0,
             winStreak: 0,
@@ -1659,7 +1688,8 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
       if (player) {
         const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
         if (lastSynced !== table.handId) {
-          storage.syncPlayerChips(identityId, player.chips).catch(() => {});
+          const bankrollAtDisc = table.seatBankroll.get(seat) ?? 0;
+          storage.syncPlayerChips(identityId, bankrollAtDisc + player.chips).catch(() => {});
         }
       }
 
@@ -1669,6 +1699,9 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         table.lastChipSyncHand.delete(seat);
         table.sessionStats.delete(seat);
         table.chipsAtHandStart.delete(seat);
+        table.seatBankroll.delete(seat);
+        table.seatTimeBankSessionUsed.delete(seat);
+        table.seatTimeBankLastTurnKey.delete(seat);
       }
     }
 
@@ -1689,6 +1722,9 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
           t.lastChipSyncHand.delete(seat);
           t.sessionStats.delete(seat);
           t.chipsAtHandStart.delete(seat);
+          t.seatBankroll.delete(seat);
+          t.seatTimeBankSessionUsed.delete(seat);
+          t.seatTimeBankLastTurnKey.delete(seat);
           storage.clearPlayerActiveTable(id).catch(() => {});
         }
         releaseSeat(t, seat);
@@ -1780,18 +1816,44 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       return;
     }
 
-    // ── rebuy: restore chips to 1000 when player is broke ────────────────────
+    // ── rebuy: pull chips from seatBankroll to table stack ───────────────────
     if (action === 'rebuy') {
       const playerIdx = s.players.findIndex(p => p.id === playerId);
       if (playerIdx === -1) { table.actionLock = false; return; }
       const player = s.players[playerIdx];
-      if (player.chips > 0) { table.actionLock = false; return; } // only if truly broke
+      const minBet  = s.minBet;
+      const maxBuyin = minBet * 200;
+      const bankroll = table.seatBankroll.get(playerId) ?? 0;
+
+      // Determine requested amount from payload (slider-based rebuy).
+      const requestedAmount =
+        typeof payload === 'number' ? Math.floor(payload) :
+        (payload && typeof payload === 'object' && 'amount' in payload)
+          ? Math.floor((payload as { amount: number }).amount) : null;
+
+      if (requestedAmount != null) {
+        // New slider-based rebuy: can rebuy whenever stack < 200BB
+        if (requestedAmount <= 0) { table.actionLock = false; return; }
+        if (player.chips + requestedAmount > maxBuyin) { table.actionLock = false; return; }
+        if (bankroll < requestedAmount) { table.actionLock = false; return; }
+        table.seatBankroll.set(playerId, bankroll - requestedAmount);
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p => p.id === playerId ? { ...p, chips: p.chips + requestedAmount } : p),
+        }, `${player.name} rebuys ${requestedAmount.toLocaleString()} chips`);
+        table.actionLock = false;
+        broadcastState(table);
+        return;
+      }
+
+      // Legacy rebuy (no amount): only when broke, restore from bankroll or fallback 1000
+      if (player.chips > 0) { table.actionLock = false; return; }
+      const legacyAmt = bankroll > 0 ? Math.min(minBet * 100, bankroll) : 1000;
+      if (bankroll > 0) table.seatBankroll.set(playerId, bankroll - legacyAmt);
       table.state = addMsg({
         ...s,
-        players: s.players.map(p =>
-          p.id === playerId ? { ...p, chips: 1000 } : p
-        ),
-      }, `${player.name} rebuys $1000`);
+        players: s.players.map(p => p.id === playerId ? { ...p, chips: legacyAmt } : p),
+      }, `${player.name} rebuys ${legacyAmt.toLocaleString()} chips`);
       table.actionLock = false;
       broadcastState(table);
       return;
@@ -2140,6 +2202,94 @@ export function getActiveGenericTables(): { tableId: string; modeId: string; hum
   return result;
 }
 
+// ─── Ticket-7 Public Exports ──────────────────────────────────────────────────
+
+/** Returns the big-blind (= minBet) for the given generic table. */
+export function getGenericTableMinBet(tableId: string, modeId: string): number | null {
+  const t = tables.get(tableKey(modeId, tableId));
+  return t ? t.state.minBet : null;
+}
+
+/**
+ * Extends the turn timer for the active player by extraMs milliseconds.
+ * Enforces: player must be active, it must be an interactive phase,
+ * timer must be running, and only 1 extension per turn per player.
+ */
+export function extendGenericTurnTimer(
+  tableId: string,
+  modeId: string,
+  identityId: string,
+  extraMs: number,
+): { success: boolean; newDeadline?: number; reason?: string } {
+  const t = tables.get(tableKey(modeId, tableId));
+  if (!t) return { success: false, reason: 'table_not_found' };
+  const s = t.state;
+  if (!INTERACTIVE_PHASES.has(s.phase)) return { success: false, reason: 'not_interactive_phase' };
+  if (!s.turnDeadline || s.turnDeadline <= Date.now()) return { success: false, reason: 'timer_not_active' };
+
+  // Find seat by identityId
+  let foundSeat: string | null = null;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) { foundSeat = seat; break; }
+  }
+  if (!foundSeat) return { success: false, reason: 'player_not_at_table' };
+  if (s.activePlayerId !== foundSeat) return { success: false, reason: 'not_your_turn' };
+
+  // Rate limit: 1 time bank extension per turn
+  const turnKey = `${t.handId}:${s.phase}:${foundSeat}`;
+  if (t.seatTimeBankLastTurnKey.get(foundSeat) === turnKey) {
+    return { success: false, reason: 'already_used_this_turn' };
+  }
+  t.seatTimeBankLastTurnKey.set(foundSeat, turnKey);
+
+  // Extend deadline and re-arm timer
+  const newDeadline = s.turnDeadline + extraMs;
+  t.state = { ...s, turnDeadline: newDeadline };
+
+  if (t.turnTimer) { clearTimeout(t.turnTimer); t.turnTimer = null; }
+  t.turnTimerGen = (t.turnTimerGen ?? 0) + 1;
+  const genAtArm   = t.turnTimerGen;
+  const handAtArm  = t.handId;
+  const phaseAtArm = s.phase;
+  const seatAtArm  = foundSeat;
+  const remaining  = newDeadline - Date.now();
+  const fire = () => {
+    if (t.turnTimerGen !== genAtArm) return;
+    if (t.handId !== handAtArm) return;
+    if (t.state.phase !== phaseAtArm) return;
+    if (t.state.activePlayerId !== seatAtArm) return;
+    const cur = t.state.players.find(p => p.id === seatAtArm);
+    if (!cur || cur.status !== 'active' || cur.hasActed) return;
+    if (t.actionLock) { t.turnTimer = setTimeout(fire, 100); return; }
+    autoActOnTimeout(t, seatAtArm);
+  };
+  t.turnTimer = setTimeout(fire, Math.max(0, remaining));
+  broadcastState(t);
+  return { success: true, newDeadline };
+}
+
+/** Returns subscription time-bank uses consumed this session for a player. */
+export function getGenericTimeBankSessionUsed(tableId: string, modeId: string, identityId: string): number {
+  const t = tables.get(tableKey(modeId, tableId));
+  if (!t) return 0;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) return t.seatTimeBankSessionUsed.get(seat) ?? 0;
+  }
+  return 0;
+}
+
+/** Increments subscription time-bank use counter for a player (called after successful use). */
+export function incrementGenericTimeBankSessionUsed(tableId: string, modeId: string, identityId: string): void {
+  const t = tables.get(tableKey(modeId, tableId));
+  if (!t) return;
+  for (const [seat, id] of t.seatToIdentityId.entries()) {
+    if (id === identityId) {
+      t.seatTimeBankSessionUsed.set(seat, (t.seatTimeBankSessionUsed.get(seat) ?? 0) + 1);
+      return;
+    }
+  }
+}
+
 // ─── Startup restore ──────────────────────────────────────────────────────────
 // Called once at server startup. Restores all generic mode tables (Dead7,
 // Fifteen35, SuitsPoker) from disk so active players reconnecting
@@ -2174,6 +2324,9 @@ export function initGenericEngine(): void {
       botsEnabled: true,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
+      seatBankroll: new Map(),
+      seatTimeBankSessionUsed: new Map(),
+      seatTimeBankLastTurnKey: new Map(),
     });
     engineLog('TABLE_CREATE', key, { source: 'restore', mode: modeId, phase: state.phase, handId });
   }
