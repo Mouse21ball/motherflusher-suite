@@ -13,6 +13,7 @@ import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { apiUrl, wsUrl } from '../../apiConfig';
+import { getSessionToken } from '../../session';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
 
@@ -126,7 +127,8 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const url = wsUrl();
+      const token    = getSessionToken();
+      const url      = wsUrl(token);
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
@@ -245,6 +247,14 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
           // host_kicked: this player was removed by the host
           if (msg.type === 'host_kicked') {
             setKickedByHost(true);
+            return;
+          }
+
+          // session_expired: server closed the connection because the session token expired.
+          // Stop reconnecting — the user must re-authenticate.
+          if (msg.type === 'session_expired') {
+            mountedRef.current = false;
+            ws.close();
             return;
           }
 

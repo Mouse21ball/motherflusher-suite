@@ -15,17 +15,25 @@ export function apiUrl(path: string): string {
   return `${_base}${path}`;
 }
 
-/** WebSocket URL for the real-time server connection. */
-export function wsUrl(): string {
+/** WebSocket URL for the real-time server connection.
+ *  Pass the session token to append it as ?token= so the server can
+ *  authenticate the connection at the HTTP upgrade step. */
+export function wsUrl(token?: string | null): string {
+  let base: string;
   if (_base) {
     try {
       const u = new URL(_base);
       const proto = u.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${proto}//${u.host}/ws`;
-    } catch {}
+      base = `${proto}//${u.host}/ws`;
+    } catch {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      base = `${proto}//${window.location.host}/ws`;
+    }
+  } else {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    base = `${proto}//${window.location.host}/ws`;
   }
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}/ws`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
 /** Origin for shareable invite links.

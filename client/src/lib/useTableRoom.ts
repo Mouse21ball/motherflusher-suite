@@ -6,6 +6,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ensurePlayerIdentity } from './persistence';
+import { getSessionToken } from './session';
 import { wsUrl } from './apiConfig';
 
 export interface RoomSeat {
@@ -38,8 +39,9 @@ export function useTableRoom({ tableId, modeId, seatId = 'p1', onRoomUpdate }: U
     function connect() {
       if (!mountedRef.current) return;
 
+      const token = getSessionToken();
       const identity = ensurePlayerIdentity();
-      const url = wsUrl();
+      const url = wsUrl(token);
 
       let ws: WebSocket;
       try {
@@ -64,10 +66,16 @@ export function useTableRoom({ tableId, modeId, seatId = 'p1', onRoomUpdate }: U
       };
 
       ws.onmessage = (event: MessageEvent) => {
-        if (!onRoomUpdate) return;
         try {
           const msg = JSON.parse(event.data as string);
-          if (msg.type === 'room_update') {
+          if (msg.type === 'session_expired') {
+            // Server closed this connection because the session token expired.
+            // Stop reconnecting — the user must re-authenticate.
+            mountedRef.current = false;
+            ws.close();
+            return;
+          }
+          if (msg.type === 'room_update' && onRoomUpdate) {
             onRoomUpdate({
               tableId: msg.tableId as string,
               humanCount: msg.humanCount as number,

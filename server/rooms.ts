@@ -12,7 +12,9 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
+import type { IncomingMessage } from 'http';
 import { FEATURES } from '../shared/featureFlags';
+import { storage } from './storage';
 import {
   addBadugiConnection,
   removeBadugiConnection,
@@ -227,20 +229,86 @@ function pruneRooms(): void {
   }
 }
 
+// ─── Authenticated WebSocket type ────────────────────────────────────────────
+
+interface AuthenticatedWs extends WebSocket {
+  authenticatedPlayerId: string;
+  sessionExpiresAt: Date;
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initRooms(httpServer: Server): WebSocketServer {
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: '/ws',
+    // ── Handshake authentication ──────────────────────────────────────────────
+    // Every WS connection must supply a valid session token as ?token= in the URL.
+    // The token is verified against the database before the HTTP 101 upgrade is
+    // sent. Connections without a valid token are rejected at the TCP level —
+    // no game messages are ever processed.
+    verifyClient: (
+      info: { req: IncomingMessage; origin: string; secure: boolean },
+      done: (result: boolean, code?: number, message?: string) => void,
+    ) => {
+      const urlStr = info.req.url ?? '/';
+      const qs     = urlStr.includes('?') ? urlStr.split('?')[1] : '';
+      const token  = new URLSearchParams(qs).get('token');
+      const ip     = info.req.socket?.remoteAddress ?? 'unknown';
+      const at     = new Date().toISOString();
+
+      if (!token) {
+        console.warn(`[WS AUTH] ${at} ip=${ip} reason=missing_token — rejected`);
+        done(false, 401, 'Unauthorized');
+        return;
+      }
+
+      storage.getSession(token)
+        .then(session => {
+          if (!session) {
+            console.warn(`[WS AUTH] ${at} ip=${ip} reason=invalid_or_expired_token — rejected`);
+            done(false, 401, 'Unauthorized');
+            return;
+          }
+          // Attach authenticated identity to request for use in connection handler
+          (info.req as any).authenticatedPlayerId = session.playerId;
+          (info.req as any).sessionExpiresAt      = session.expiresAt;
+          done(true);
+        })
+        .catch(err => {
+          console.error(`[WS AUTH] ${at} ip=${ip} reason=session_lookup_error msg=${(err as Error).message}`);
+          done(false, 500, 'Internal Error');
+        });
+    },
+  });
 
   setInterval(pruneRooms, 60 * 60 * 1000);
 
-  wss.on('connection', (ws: WebSocket) => {
-    let roomId: string | null = null;
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    const authWs = ws as AuthenticatedWs;
+    authWs.authenticatedPlayerId = (req as any).authenticatedPlayerId as string;
+    authWs.sessionExpiresAt      = (req as any).sessionExpiresAt      as Date;
+    const remoteIp = req.socket?.remoteAddress ?? 'unknown';
+
+    let roomId:   string | null = null;
     let playerId: string | null = null;
 
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
     }, 25000);
+
+    // ── Session expiration check ─────────────────────────────────────────────
+    // Fires every 60 s. If the session has expired mid-game, the server sends
+    // a session_expired event and closes the connection gracefully.
+    const sessionCheckTimer = setInterval(() => {
+      if (new Date() > authWs.sessionExpiresAt) {
+        console.log(`[WS AUTH] Session expired: player=${authWs.authenticatedPlayerId} — closing connection`);
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ type: 'session_expired' })); } catch {}
+        }
+        ws.close();
+      }
+    }, 60_000);
 
     ws.on('message', (data: Buffer) => {
       let msg: ClientMessage;
@@ -254,6 +322,20 @@ export function initRooms(httpServer: Server): WebSocketServer {
       if (msg.type === 'join') {
         const { tableId, modeId, playerId: pid, name, seatId, isPrivate, quickPlay, identityId } = msg;
         if (!tableId || !pid) return;
+
+        // ── Identity verification ──────────────────────────────────────────────
+        // useServerGame / useServerMode send playerId=sessionUUID and identityId=profileId.
+        // useTableRoom sends playerId=profileId with no identityId field.
+        // In both patterns the resolved profile identity must match the authenticated session.
+        const claimedIdentity = identityId ?? pid;
+        if (claimedIdentity !== authWs.authenticatedPlayerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `claimed_identity=${claimedIdentity} msg=join ip=${remoteIp} — REJECTED (identity mismatch)`,
+          );
+          ws.close();
+          return;
+        }
 
         if (roomId && playerId) releasePlayer(playerId, roomId);
 
@@ -290,6 +372,14 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── leave ────────────────────────────────────────────────────────────────
       if (msg.type === 'leave') {
         const { tableId, playerId: pid } = msg;
+        // Authorization: claimed pid must match what this connection registered at join
+        if (pid !== playerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `session_pid=${playerId} claimed_pid=${pid} msg=leave ip=${remoteIp} — REJECTED`,
+          );
+          return;
+        }
         if (tableId && pid) releasePlayer(pid, tableId, true);
         roomId   = null;
         playerId = null;
@@ -305,6 +395,14 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── host:kick ────────────────────────────────────────────────────────────
       if (msg.type === 'host:kick') {
         const { tableId, playerId: senderPid, targetPlayerId } = msg;
+        // Authorization: sender must be the connection's registered session pid
+        if (senderPid !== playerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `session_pid=${playerId} claimed_pid=${senderPid} msg=host:kick ip=${remoteIp} — REJECTED`,
+          );
+          return;
+        }
         const room = rooms.get(tableId);
         if (!room) return;
         // Only the host can kick
@@ -324,6 +422,14 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── host:settings ─────────────────────────────────────────────────────────
       if (msg.type === 'host:settings') {
         const { tableId, playerId: senderPid, maxPlayers, botsEnabled, isInviteOnly } = msg;
+        // Authorization: sender must be the connection's registered session pid
+        if (senderPid !== playerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `session_pid=${playerId} claimed_pid=${senderPid} msg=host:settings ip=${remoteIp} — REJECTED`,
+          );
+          return;
+        }
         const room = rooms.get(tableId);
         if (!room) return;
         // Only the host can change settings
@@ -364,20 +470,44 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
       // ── badugi:action (authoritative mode only) ────────────────────────────
       if (msg.type === 'badugi:action') {
-        console.log('[CGP][server] ← badugi:action', { tableId: msg.tableId, playerId: msg.playerId, action: msg.action, gateOn: SERVER_BADUGI_ON });
-        if (!SERVER_BADUGI_ON) { console.warn('[CGP][server] badugi:action DROPPED — gate off'); return; }
         const { tableId, playerId: pid, action, payload } = msg;
-        if (!tableId || !pid || !action) { console.warn('[CGP][server] badugi:action DROPPED — missing field', { tableId, pid, action }); return; }
+        if (!tableId || !pid || !action) {
+          console.warn('[CGP][server] badugi:action DROPPED — missing field', { tableId, pid, action });
+          return;
+        }
+        // Authorization: claimed pid must match what this connection registered at join
+        if (pid !== playerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `session_pid=${playerId} claimed_pid=${pid} action=${action} msg=badugi:action ` +
+            `ip=${remoteIp} — REJECTED (pid mismatch)`,
+          );
+          return;
+        }
+        console.log('[CGP][server] ← badugi:action', { tableId, playerId: pid, action, gateOn: SERVER_BADUGI_ON });
+        if (!SERVER_BADUGI_ON) { console.warn('[CGP][server] badugi:action DROPPED — gate off'); return; }
         handleBadugiAction(tableId, pid, action, payload);
         return;
       }
 
       // ── mode:action (generic authoritative modes) ───────────────────────────
       if (msg.type === 'mode:action') {
-        console.log('[CGP][server] ← mode:action', { tableId: msg.tableId, modeId: msg.modeId, playerId: msg.playerId, action: msg.action, gateOn: SERVER_MODES_ON });
-        if (!SERVER_MODES_ON) { console.warn('[CGP][server] mode:action DROPPED — gate off'); return; }
         const { tableId, playerId: pid, action, payload } = msg;
-        if (!tableId || !pid || !action) { console.warn('[CGP][server] mode:action DROPPED — missing field', { tableId, pid, action }); return; }
+        if (!tableId || !pid || !action) {
+          console.warn('[CGP][server] mode:action DROPPED — missing field', { tableId, pid, action });
+          return;
+        }
+        // Authorization: claimed pid must match what this connection registered at join
+        if (pid !== playerId) {
+          console.warn(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `session_pid=${playerId} claimed_pid=${pid} action=${action} msg=mode:action ` +
+            `ip=${remoteIp} — REJECTED (pid mismatch)`,
+          );
+          return;
+        }
+        console.log('[CGP][server] ← mode:action', { tableId, modeId: msg.modeId, playerId: pid, action, gateOn: SERVER_MODES_ON });
+        if (!SERVER_MODES_ON) { console.warn('[CGP][server] mode:action DROPPED — gate off'); return; }
         handleGenericAction(tableId, pid, action, payload);
         return;
       }
@@ -385,6 +515,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
     ws.on('close', () => {
       clearInterval(pingTimer);
+      clearInterval(sessionCheckTimer);
       if (roomId && playerId) releasePlayer(playerId, roomId);
     });
 

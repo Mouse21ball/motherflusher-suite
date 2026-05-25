@@ -16,6 +16,7 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 import { apiUrl, wsUrl } from '../../apiConfig';
+import { getSessionToken } from '../../session';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
 // Persisted in sessionStorage so a page refresh on the same tab gets the same
@@ -125,7 +126,8 @@ export function useServerBadugi(tableId: string) {
     function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const url      = wsUrl();
+      const token    = getSessionToken();
+      const url      = wsUrl(token);
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;
@@ -237,6 +239,14 @@ export function useServerBadugi(tableId: string) {
           // host_kicked: this player was removed by the host
           if (msg.type === 'host_kicked') {
             setKickedByHost(true);
+            return;
+          }
+
+          // session_expired: server closed the connection because the session token expired.
+          // Stop reconnecting — the user must re-authenticate.
+          if (msg.type === 'session_expired') {
+            mountedRef.current = false;
+            ws.close();
             return;
           }
 
