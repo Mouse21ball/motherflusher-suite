@@ -19,6 +19,10 @@ import {
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
 import { requireAuth, requireSelf } from "./middleware/auth";
+import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
+
+const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
+const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, containsProfanity, checkChatRateLimit, validateCrewName } from "./crews";
 import {
   STRIPES_PACKS,
@@ -881,7 +885,8 @@ export async function registerRoutes(
   // Receives Google Play Real-Time Developer Notifications (RTDN) via Pub/Sub.
   // Configure in Play Console → Monetize → Subscriptions & in-app products → Notifications.
   // The Pub/Sub push subscription must point to this URL.
-  app.post("/api/billing/refund-webhook", async (req, res) => {
+  // JWT signature is verified by verifyRefundWebhook before the handler runs.
+  app.post("/api/billing/refund-webhook", verifyRefundWebhook, async (req, res) => {
     try {
       const message = req.body?.message;
       if (!message?.data) {
@@ -891,17 +896,26 @@ export async function registerRoutes(
 
       const raw = Buffer.from(message.data, "base64").toString("utf-8");
       const notification = JSON.parse(raw);
-      console.log("[billing] RTDN webhook received:", JSON.stringify(notification));
 
       // Handle voided purchase (refund / chargeback)
       const voidedPurchase = notification?.voidedPurchaseNotification;
       if (voidedPurchase?.purchaseToken) {
-        const txn = await storage.getPurchaseTransactionByToken(voidedPurchase.purchaseToken);
+        const token = voidedPurchase.purchaseToken as string;
+        // Look up the player via the purchase_transaction row — never trust
+        // a player ID from the webhook body itself.
+        const txn = await storage.getPurchaseTransactionByToken(token);
         if (txn && txn.verificationStatus === "verified") {
           await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
           console.log(
-            `[billing] Refund processed: player=${txn.playerId} ` +
-            `product=${txn.productId} stripes=${txn.stripesGranted}`,
+            `[billing] refund-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `action=debit_stripes amount=${txn.stripesGranted} at=${new Date().toISOString()}`
+          );
+        } else {
+          console.log(
+            `[billing] refund-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} action=no_op ` +
+            `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${new Date().toISOString()}`
           );
         }
       }
@@ -909,7 +923,7 @@ export async function registerRoutes(
       // Always ACK the Pub/Sub message to prevent re-delivery
       res.status(200).json({ received: true });
     } catch (err: any) {
-      console.error("[billing] refund-webhook error:", err);
+      console.error("[billing] refund-webhook error:", err.message);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -953,7 +967,8 @@ export async function registerRoutes(
   // Google Real-Time Developer Notifications (RTDN) via Cloud Pub/Sub.
   // Push subscription must point to this URL.
   // Handles all subscription lifecycle events.
-  app.post("/api/billing/subscription-webhook", async (req, res) => {
+  // JWT signature is verified by verifySubscriptionWebhook before the handler runs.
+  app.post("/api/billing/subscription-webhook", verifySubscriptionWebhook, async (req, res) => {
     try {
       const message = req.body?.message;
       if (!message?.data) {
@@ -963,44 +978,84 @@ export async function registerRoutes(
 
       const raw = Buffer.from(message.data, "base64").toString("utf-8");
       const notification = JSON.parse(raw);
-      console.log("[billing:sub] RTDN received:", JSON.stringify(notification));
 
       const subNotif = notification?.subscriptionNotification;
       if (subNotif?.purchaseToken) {
         const { purchaseToken, notificationType } = subNotif;
+        const tokenTail = (purchaseToken as string).slice(-8);
+        const at = new Date().toISOString();
         // notificationType values from Google:
         // 1=RECOVERED 2=RENEWED 3=CANCELED 4=PURCHASED 5=ON_HOLD
         // 6=IN_GRACE_PERIOD 7=RESTARTED 12=EXPIRED 13=REVOKED (refund)
+        //
+        // Player identity is resolved inside each handler by looking up the
+        // subscription row via purchaseToken — not from the webhook body.
         switch (notificationType) {
-          case 1:  await handleSubscriptionRecovered(purchaseToken);  break;
-          case 2:  await handleSubscriptionRenewal(purchaseToken);    break;
-          case 3:  await handleSubscriptionCancellation(purchaseToken); break;
-          case 4:
-            console.log("[billing:sub] PURCHASED notification — handled by verify-subscription endpoint");
+          case 1:
+            console.log(`[billing:sub] subscription-webhook: event=RECOVERED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRecovered(purchaseToken);
             break;
-          case 5:  await handleSubscriptionOnHold(purchaseToken);     break;
-          case 6:  await handleSubscriptionGracePeriod(purchaseToken); break;
-          case 7:  await handleSubscriptionRecovered(purchaseToken);  break;
-          case 12: await handleSubscriptionExpiration(purchaseToken); break;
-          case 13: await handleSubscriptionRefund(purchaseToken);     break;
+          case 2:
+            console.log(`[billing:sub] subscription-webhook: event=RENEWED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRenewal(purchaseToken);
+            break;
+          case 3:
+            console.log(`[billing:sub] subscription-webhook: event=CANCELED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionCancellation(purchaseToken);
+            break;
+          case 4:
+            console.log(`[billing:sub] subscription-webhook: event=PURCHASED token=...${tokenTail} at=${at} action=no_op (handled by verify-subscription)`);
+            break;
+          case 5:
+            console.log(`[billing:sub] subscription-webhook: event=ON_HOLD token=...${tokenTail} at=${at}`);
+            await handleSubscriptionOnHold(purchaseToken);
+            break;
+          case 6:
+            console.log(`[billing:sub] subscription-webhook: event=IN_GRACE_PERIOD token=...${tokenTail} at=${at}`);
+            await handleSubscriptionGracePeriod(purchaseToken);
+            break;
+          case 7:
+            console.log(`[billing:sub] subscription-webhook: event=RESTARTED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRecovered(purchaseToken);
+            break;
+          case 12:
+            console.log(`[billing:sub] subscription-webhook: event=EXPIRED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionExpiration(purchaseToken);
+            break;
+          case 13:
+            console.log(`[billing:sub] subscription-webhook: event=REVOKED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRefund(purchaseToken);
+            break;
           default:
-            console.log(`[billing:sub] Unknown notificationType: ${notificationType}`);
+            console.log(`[billing:sub] subscription-webhook: event=UNKNOWN(${notificationType}) token=...${tokenTail} at=${at}`);
         }
       }
 
-      // Also handle voided purchases (consumable refunds) in the same webhook
+      // Also handle voided purchases (consumable refunds) in the same webhook.
+      // Player identity resolved from purchase_transaction table, not the body.
       const voidedPurchase = notification?.voidedPurchaseNotification;
       if (voidedPurchase?.purchaseToken) {
-        const txn = await storage.getPurchaseTransactionByToken(voidedPurchase.purchaseToken);
+        const token = voidedPurchase.purchaseToken as string;
+        const txn = await storage.getPurchaseTransactionByToken(token);
         if (txn && txn.verificationStatus === "verified") {
           await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
-          console.log(`[billing] consumable refund: player=${txn.playerId} stripes=-${txn.stripesGranted}`);
+          console.log(
+            `[billing:sub] subscription-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `action=debit_stripes amount=${txn.stripesGranted} at=${new Date().toISOString()}`
+          );
+        } else {
+          console.log(
+            `[billing:sub] subscription-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} action=no_op ` +
+            `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${new Date().toISOString()}`
+          );
         }
       }
 
       res.status(200).json({ received: true });
     } catch (err: any) {
-      console.error("[billing:sub] subscription-webhook error:", err);
+      console.error("[billing:sub] subscription-webhook error:", err.message);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
