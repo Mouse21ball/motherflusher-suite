@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/apiConfig";
+import { AuthModal } from "@/components/AuthModal";
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 function getAuth() {
@@ -71,6 +72,7 @@ export default function CrewsPage() {
   const [showJoin, setShowJoin]           = useState(false);
   const [leaveTarget, setLeaveTarget]     = useState<CrewDetail | null>(null);
   const [kickTarget, setKickTarget]       = useState<CrewMember | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const loadCrew = useCallback(async () => {
     if (!playerId) return;
@@ -84,11 +86,114 @@ export default function CrewsPage() {
 
   useEffect(() => { loadCrew(); }, [loadCrew]);
 
+  function goBack() {
+    if (window.history.length > 1) window.history.back();
+    else navigate("/");
+  }
+
   if (!playerId) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ color: "#f0b829" }}>
-        <p>Sign in to access Crews.</p>
-      </div>
+      <>
+        <div
+          className="min-h-screen flex flex-col"
+          style={{
+            backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed",
+          }}
+        >
+          {/* Dark overlay */}
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(5,4,10,0.82)" }} />
+
+          {/* Header */}
+          <div
+            className="relative z-10 flex items-center px-4 py-4"
+            style={{ borderBottom: "1px solid rgba(240,184,41,0.18)" }}
+          >
+            <button
+              onClick={goBack}
+              data-testid="btn-crews-back"
+              className="flex items-center justify-center transition-all active:scale-90"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                border: "2px solid rgba(240,184,41,0.6)",
+                background: "rgba(240,184,41,0.08)",
+                color: "#f0b829",
+                fontSize: 20,
+                lineHeight: 1,
+                flexShrink: 0,
+              }}
+            >
+              ‹
+            </button>
+            <h1
+              className="flex-1 text-center font-mono font-bold tracking-[0.22em] text-base"
+              style={{ color: "#f0b829", textShadow: "0 0 18px rgba(240,184,41,0.4)" }}
+            >
+              CREWS
+            </h1>
+            {/* Spacer to balance the back button */}
+            <div style={{ width: 40 }} />
+          </div>
+
+          {/* Body */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-6 px-8 text-center">
+            <p
+              className="font-mono text-base"
+              data-testid="crews-guest-message"
+              style={{ color: "rgba(240,184,41,0.85)" }}
+            >
+              Sign in to access Crews.
+            </p>
+
+            {/* SIGN IN */}
+            <button
+              onClick={() => setShowAuthModal(true)}
+              data-testid="btn-crews-sign-in"
+              className="w-full max-w-xs font-mono font-bold tracking-widest transition-all active:scale-95"
+              style={{
+                background: "linear-gradient(135deg, #FFD700, #DAA520)",
+                color: "#0a0805",
+                padding: "14px 32px",
+                borderRadius: 10,
+                fontSize: 15,
+                border: "none",
+              }}
+            >
+              SIGN IN
+            </button>
+
+            {/* Back to Lobby */}
+            <button
+              onClick={() => navigate("/")}
+              data-testid="btn-crews-lobby"
+              className="w-full max-w-xs font-mono font-bold tracking-widest transition-all active:scale-95"
+              style={{
+                background: "transparent",
+                color: "#f0b829",
+                padding: "14px 32px",
+                borderRadius: 10,
+                fontSize: 15,
+                border: "1.5px solid #f0b829",
+              }}
+            >
+              Back to Lobby
+            </button>
+          </div>
+        </div>
+
+        {showAuthModal && (
+          <AuthModal
+            open={showAuthModal}
+            defaultTab="login"
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={() => setShowAuthModal(false)}
+          />
+        )}
+      </>
     );
   }
 
