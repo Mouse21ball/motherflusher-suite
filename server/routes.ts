@@ -1044,7 +1044,10 @@ export async function registerRoutes(
 
   // POST /api/billing/test/simulate-renewal
   app.post("/api/billing/test/simulate-renewal", async (req, res) => {
-    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    const testSecret = process.env.BILLING_TEST_SECRET;
+    if (!TEST_MODE || !testSecret || req.headers["x-test-secret"] !== testSecret) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
     try {
       const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
       await handleSubscriptionRenewal(purchaseToken);
@@ -1056,7 +1059,10 @@ export async function registerRoutes(
 
   // POST /api/billing/test/simulate-expiration
   app.post("/api/billing/test/simulate-expiration", async (req, res) => {
-    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    const testSecret = process.env.BILLING_TEST_SECRET;
+    if (!TEST_MODE || !testSecret || req.headers["x-test-secret"] !== testSecret) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
     try {
       const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
       await handleSubscriptionExpiration(purchaseToken);
@@ -1068,7 +1074,10 @@ export async function registerRoutes(
 
   // POST /api/billing/test/simulate-cancellation
   app.post("/api/billing/test/simulate-cancellation", async (req, res) => {
-    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    const testSecret = process.env.BILLING_TEST_SECRET;
+    if (!TEST_MODE || !testSecret || req.headers["x-test-secret"] !== testSecret) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
     try {
       const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
       await handleSubscriptionCancellation(purchaseToken);
@@ -1080,7 +1089,10 @@ export async function registerRoutes(
 
   // POST /api/billing/test/simulate-refund
   app.post("/api/billing/test/simulate-refund", async (req, res) => {
-    if (!TEST_MODE) { res.status(404).json({ error: "Not found" }); return; }
+    const testSecret = process.env.BILLING_TEST_SECRET;
+    if (!TEST_MODE || !testSecret || req.headers["x-test-secret"] !== testSecret) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
     try {
       const { purchaseToken } = z.object({ purchaseToken: z.string() }).parse(req.body);
       await handleSubscriptionRefund(purchaseToken);

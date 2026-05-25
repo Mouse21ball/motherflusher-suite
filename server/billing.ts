@@ -65,6 +65,7 @@ export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
 
 const PACKAGE_NAME = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.chaingangpoker";
 const TEST_MODE    = process.env.BILLING_TEST_MODE === "true";
+console.log(`[billing] BILLING_TEST_MODE = ${TEST_MODE}`);
 
 export interface GooglePurchaseData {
   purchaseState:    number;   // 0 = purchased, 1 = canceled, 2 = pending
@@ -97,11 +98,8 @@ export async function verifyGooglePlayPurchase(
     `token=${purchaseToken.slice(0, 16)}… testMode=${TEST_MODE}`
   );
 
-  if (TEST_MODE) {
-    if (!purchaseToken.startsWith("test_")) {
-      throw new Error("BILLING_TEST_MODE: token must start with 'test_'");
-    }
-    console.log(`[billing] TEST_MODE: accepted ${productId}`);
+  if (TEST_MODE && purchaseToken.startsWith("test_")) {
+    console.log(`[billing] TEST_MODE: accepted test token for ${productId}`);
     return {
       purchaseState:    0,
       orderId:          `test_order_${Date.now()}`,
@@ -157,14 +155,11 @@ export async function verifyGooglePlaySubscription(
     `token=${purchaseToken.slice(0, 16)}… testMode=${TEST_MODE}`
   );
 
-  if (TEST_MODE) {
-    if (!purchaseToken.startsWith("test_")) {
-      throw new Error("BILLING_TEST_MODE: subscription token must start with 'test_'");
-    }
+  if (TEST_MODE && purchaseToken.startsWith("test_")) {
     const isYearly     = productId.includes("yearly");
     const periodMs     = isYearly ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     const expiryMillis = Date.now() + periodMs;
-    console.log(`[billing:sub] TEST_MODE: accepted subscription ${productId}`);
+    console.log(`[billing:sub] TEST_MODE: accepted test subscription token for ${productId}`);
     return {
       startTimeMillis:  String(Date.now()),
       expiryTimeMillis: String(expiryMillis),
