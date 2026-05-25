@@ -23,6 +23,10 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     // Use hardware back button to navigate within the app (not exit).
     captureInput: true,
+    // Prevent Chrome DevTools from attaching to the WebView in production.
+    // Without this, even with ProGuard on the native side, the entire JS layer
+    // is inspectable via chrome://inspect on a connected developer machine.
+    webContentsDebuggingEnabled: false,
   },
 
   ios: {

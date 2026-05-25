@@ -23,7 +23,7 @@ workflows:
       - name: Make Gradle wrapper executable
         script: chmod +x android/gradlew
 
-      - name: Assemble debug APK
-        script: cd android && ./gradlew assembleDebug --no-daemon
+      - name: Assemble release APK
+        script: cd android && ./gradlew assembleRelease --no-daemon
     artifacts:
-      - android/app/build/outputs/apk/debug/app-debug.apk
+      - android/app/build/outputs/apk/release/app-release-unsigned.apk

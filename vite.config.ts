@@ -43,6 +43,16 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  esbuild: {
+    // In production builds, drop debugger statements and treat these
+    // console methods as pure (no side-effects) so R8/tree-shaking removes
+    // them.  console.error and console.warn are intentionally preserved for
+    // crash reporting visibility.
+    drop: process.env.NODE_ENV === "production" ? ["debugger"] : [],
+    pure: process.env.NODE_ENV === "production"
+      ? ["console.log", "console.debug", "console.info"]
+      : [],
+  },
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
