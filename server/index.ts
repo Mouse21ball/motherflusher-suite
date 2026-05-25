@@ -38,6 +38,34 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// ─── Response-body redaction ──────────────────────────────────────────────────
+// Redacts known-sensitive keys from a response body before it reaches the log.
+// Deep-clones the object so the actual HTTP response is never altered.
+const REDACTED_KEYS = new Set([
+  'sessionToken', 'token', 'password', 'passwordHash', 'hashedPassword',
+  'refreshToken', 'accessToken', 'idToken', 'googlePlayServiceAccount',
+  'serviceAccountKey',
+]);
+const SENSITIVE_KEY_PATTERN = /secret|private[_\-]?key/i;
+
+function shouldRedactKey(key: string): boolean {
+  return REDACTED_KEYS.has(key) || SENSITIVE_KEY_PATTERN.test(key);
+}
+
+function redactSensitive(obj: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (shouldRedactKey(k)) {
+      out[k] = '[REDACTED]';
+    } else if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      out[k] = redactSensitive(v as Record<string, any>);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -54,7 +82,8 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const safe = redactSensitive(capturedJsonResponse);
+        logLine += ` :: ${JSON.stringify(safe)}`;
       }
 
       log(logLine);

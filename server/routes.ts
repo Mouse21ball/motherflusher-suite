@@ -291,15 +291,35 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/players/:id — fetch existing player profile
-  app.get("/api/players/:id", async (req, res) => {
+  // GET /api/players/:id — fetch player profile (authentication required)
+  // Never exposes passwordHash. Email and other self-only fields are only
+  // returned when the authenticated session belongs to the requested player.
+  app.get("/api/players/:id", requireAuth, async (req, res) => {
     try {
-      const profile = await storage.getPlayerProfile(req.params.id);
+      const profile = await storage.getPlayerProfile(req.params.id as string);
       if (!profile) {
         res.status(404).json({ error: "Player not found" });
         return;
       }
-      res.json(profile);
+      const isSelf = req.sessionPlayerId === profile.id;
+      res.json({
+        id:                  profile.id,
+        displayName:         profile.displayName,
+        chipBalance:         profile.chipBalance,
+        stripes:             profile.stripes,
+        handsPlayed:         profile.handsPlayed,
+        lifetimeProfit:      profile.lifetimeProfit,
+        avatarId:            profile.avatarId            ?? null,
+        equippedAvatarId:    profile.equippedAvatarId    ?? null,
+        equippedFrameId:     profile.equippedFrameId     ?? null,
+        equippedNameColorId: profile.equippedNameColorId ?? null,
+        activeSubscriptionTier: profile.activeSubscriptionTier ?? null,
+        ...(isSelf ? {
+          email:                 profile.email                          ?? null,
+          lastNameChangeAt:      profile.lastNameChangeAt?.toISOString() ?? null,
+          subscriptionExpiresAt: profile.subscriptionExpiresAt?.toISOString() ?? null,
+        } : {}),
+      });
     } catch (err) {
       console.error("Player fetch error:", err);
       res.status(500).json({ error: "Failed to fetch player" });
@@ -450,23 +470,25 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/auth/me/:profileId
-  // Returns current profile data for a given identity (used on app load to refresh state).
-  app.get("/api/auth/me/:profileId", async (req, res) => {
+  // GET /api/auth/me
+  // Returns the current player profile for the authenticated session.
+  // The player ID is resolved server-side from the X-Session-Token header —
+  // never from a URL parameter or request body.
+  // Also refreshes the session token TTL on every successful call.
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
     try {
-      const profile = await storage.getPlayerProfile(req.params.profileId);
+      const profile = await storage.getPlayerProfile(req.sessionPlayerId!);
       if (!profile) {
         res.status(404).json({ error: "Profile not found" });
         return;
       }
       const level = Math.floor(profile.handsPlayed / 50);
       const isGuest = !profile.email && !profile.passwordHash;
-      // Compute when this guest account will next be reset (null for auth accounts)
       const resetRef = profile.lastResetAt ?? profile.createdAt;
       const nextResetAt = isGuest
         ? new Date(resetRef.getTime() + 24 * 60 * 60 * 1000).toISOString()
         : null;
-      // Issue session token (7 days guests, 30 days registered)
+      // Refresh session token TTL (7 days guests, 30 days registered)
       const meTtlMs = isGuest ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
       const sessionToken = await storage.createSession(profile.id, new Date(Date.now() + meTtlMs));
       res.json({
@@ -479,7 +501,7 @@ export async function registerRoutes(
         email:            profile.email ?? null,
         hasAuth:          !!profile.passwordHash,
         level,
-        avatarId:            profile.avatarId ?? null,
+        avatarId:            profile.avatarId            ?? null,
         equippedAvatarId:    profile.equippedAvatarId    ?? null,
         equippedFrameId:     profile.equippedFrameId     ?? null,
         equippedNameColorId: profile.equippedNameColorId ?? null,
@@ -492,6 +514,69 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Auth me error:", err);
       res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // POST /api/auth/guest-init
+  // Bootstrap endpoint for new guest players who have no session token yet.
+  // Accepts { profileId, displayName? } in the request body (never in the URL).
+  // Creates the server-side profile if it doesn't exist yet, then issues a
+  // short-lived (7-day) session token — but ONLY for accounts that have no
+  // email/password credentials. Callers with registered accounts must use
+  // POST /api/auth/login instead.
+  // This endpoint intentionally has no requireAuth so brand-new guests can
+  // bootstrap their first session. UUID entropy (122 bits) prevents brute-force.
+  app.post("/api/auth/guest-init", async (req, res) => {
+    try {
+      const guestInitSchema = z.object({
+        profileId:   z.string().uuid(),
+        displayName: z.string().max(32).optional(),
+      });
+      const { profileId, displayName } = guestInitSchema.parse(req.body);
+
+      // getOrCreatePlayer ensures the profile row exists before issuing a token.
+      const profile = await storage.getOrCreatePlayer(profileId, displayName ?? "Player");
+
+      // Refuse to issue a guest token if this account has email/password auth.
+      // Those accounts must go through POST /api/auth/login.
+      if (profile.email || profile.passwordHash) {
+        res.status(403).json({ error: "Account has credentials — use /api/auth/login" });
+        return;
+      }
+
+      const level = Math.floor(profile.handsPlayed / 50);
+      const resetRef = profile.lastResetAt ?? profile.createdAt;
+      const nextResetAt = new Date(resetRef.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const sessionToken = await storage.createSession(profile.id, expiresAt);
+
+      res.json({
+        profileId:        profile.id,
+        displayName:      profile.displayName,
+        chipBalance:      profile.chipBalance,
+        stripes:          profile.stripes,
+        handsPlayed:      profile.handsPlayed,
+        lifetimeProfit:   profile.lifetimeProfit,
+        email:            null,
+        hasAuth:          false,
+        level,
+        avatarId:            profile.avatarId            ?? null,
+        equippedAvatarId:    profile.equippedAvatarId    ?? null,
+        equippedFrameId:     profile.equippedFrameId     ?? null,
+        equippedNameColorId: profile.equippedNameColorId ?? null,
+        lastNameChangeAt:    profile.lastNameChangeAt?.toISOString() ?? null,
+        nextResetAt,
+        sessionToken,
+        activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
+        subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
+      });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid request" });
+      } else {
+        console.error("Guest init error:", err);
+        res.status(500).json({ error: "Failed to initialize guest session" });
+      }
     }
   });
 

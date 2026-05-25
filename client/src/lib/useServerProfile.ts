@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react';
 import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
-import { apiFetch, setSessionToken } from './session';
+import { apiFetch, getSessionToken, setSessionToken } from './session';
 import { setUserId } from './analytics';
 
 export interface ServerProfile {
@@ -53,11 +53,39 @@ export function useServerProfile(): UseServerProfileResult {
     const identity = ensurePlayerIdentity();
 
     setLoading(true);
-    apiFetch(apiUrl(`/api/auth/me/${identity.id}`))
-      .then(r => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json() as Promise<ServerProfile>;
-      })
+
+    // ── Profile fetch strategy ─────────────────────────────────────────────────
+    // 1. Returning users (have a token): GET /api/auth/me — token in header,
+    //    player ID resolved server-side. Returns full profile + refreshed token.
+    // 2. New guests (no token yet): fall back to POST /api/auth/guest-init,
+    //    which creates the server-side profile and issues a first session token.
+    //    This also fixes the Ticket C bootstrap: new guests must have a token
+    //    before they can open a WebSocket connection.
+
+    const fetchProfile = async (): Promise<ServerProfile> => {
+      const existingToken = getSessionToken();
+
+      if (existingToken) {
+        // Fast path: authenticated refresh
+        const r = await apiFetch(apiUrl('/api/auth/me'));
+        if (r.ok) return r.json() as Promise<ServerProfile>;
+        // 401 means the token expired — fall through to guest-init below
+        if (r.status !== 401) throw new Error(`${r.status}`);
+      }
+
+      // Bootstrap path: no token or token expired — initialize as guest.
+      // apiFetch attaches X-Session-Token automatically, but guest-init
+      // doesn't require one (and will ignore it if present).
+      const r = await fetch(apiUrl('/api/auth/guest-init'), {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ profileId: identity.id, displayName: identity.name }),
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json() as Promise<ServerProfile>;
+    };
+
+    fetchProfile()
       .then(data => {
         if (!cancelled) {
           if (data.sessionToken) setSessionToken(data.sessionToken);
