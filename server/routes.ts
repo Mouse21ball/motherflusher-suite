@@ -1,6 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, hashPassword, verifyPassword } from "./storage";
+import {
+  loginRateLimit,
+  registrationRateLimit,
+  dailyBonusRateLimit,
+  purchaseVerificationRateLimit,
+} from "./middleware/rateLimits";
 import { z } from "zod";
 import {
   getActiveBadugiTables,
@@ -391,7 +397,7 @@ export async function registerRoutes(
   // POST /api/auth/register
   // Links email+password credentials to an existing guest profile.
   // Returns the profile so the client can confirm identity.
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", registrationRateLimit, async (req, res) => {
     try {
       const parsed = registerSchema.parse(req.body);
 
@@ -432,7 +438,7 @@ export async function registerRoutes(
   // POST /api/auth/login
   // Verifies credentials and returns the canonical profile.
   // Client should adopt the returned profileId as their localStorage identity UUID.
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", ...loginRateLimit, async (req, res) => {
     try {
       const parsed = loginSchema.parse(req.body);
 
@@ -526,7 +532,7 @@ export async function registerRoutes(
   // POST /api/auth/login instead.
   // This endpoint intentionally has no requireAuth so brand-new guests can
   // bootstrap their first session. UUID entropy (122 bits) prevents brute-force.
-  app.post("/api/auth/guest-init", async (req, res) => {
+  app.post("/api/auth/guest-init", registrationRateLimit, async (req, res) => {
     try {
       const guestInitSchema = z.object({
         profileId:   z.string().uuid(),
@@ -702,7 +708,7 @@ export async function registerRoutes(
   // POST /api/players/:id/daily-bonus/claim
   // Atomically credits chips + Stripes, writes audit row, updates streak.
   // 409 if already claimed today. Server validates — never trusts client.
-  app.post("/api/players/:id/daily-bonus/claim", requireAuth, requireSelf, async (req, res) => {
+  app.post("/api/players/:id/daily-bonus/claim", dailyBonusRateLimit, requireAuth, requireSelf, async (req, res) => {
     try {
       const id = req.params.id as string;
       const profile = await storage.getPlayerProfile(id);
@@ -865,7 +871,7 @@ export async function registerRoutes(
   // Called by the native client after Google Play returns a purchase token.
   // Performs server-side verification via Play Developer API, credits Stripes,
   // and records the transaction for audit + refund handling.
-  app.post("/api/billing/verify-purchase", requireAuth, async (req, res) => {
+  app.post("/api/billing/verify-purchase", ...purchaseVerificationRateLimit, requireAuth, async (req, res) => {
     try {
       const schema = z.object({
         productId:     z.string().min(1),
@@ -1018,7 +1024,7 @@ export async function registerRoutes(
   // POST /api/billing/verify-subscription
   // Called by native client after Google Play subscription flow completes.
   // Verifies token, activates subscription, credits initial Stripes, equips frame.
-  app.post("/api/billing/verify-subscription", requireAuth, async (req, res) => {
+  app.post("/api/billing/verify-subscription", ...purchaseVerificationRateLimit, requireAuth, async (req, res) => {
     try {
       const schema = z.object({
         productId:     z.string().min(1),

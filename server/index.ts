@@ -7,6 +7,7 @@ import { initEngine } from "./gameEngine";
 import { initGenericEngine } from "./genericEngine";
 import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
 import { startGuestResetJob } from "./guestReset";
+import { generalApiRateLimit } from "./middleware/rateLimits";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -21,6 +22,11 @@ process.once('SIGINT',  () => onShutdown('SIGINT'));
 
 const app = express();
 const httpServer = createServer(app);
+
+// Trust the first hop proxy (Replit's load balancer) so req.ip resolves to the
+// real client IP, not the proxy's IP.  Without this every request looks like it
+// comes from the same address and rate limiting becomes useless.
+app.set('trust proxy', 1);
 
 app.use(express.json());
 
@@ -98,6 +104,13 @@ app.use((req, res, next) => {
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   initRooms(httpServer);
   startGuestResetJob();      // hourly guest-account 24h reset
+
+  // General API safety-net limiter — applied AFTER the logging middleware so
+  // that requests are logged before being rejected, and BEFORE route definitions
+  // so every uncategorized endpoint inherits this floor.  Simulation endpoints
+  // (/api/billing/test/*) are skipped — they're X-Test-Secret gated already.
+  app.use(generalApiRateLimit);
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
