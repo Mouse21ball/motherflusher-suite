@@ -7,11 +7,13 @@ import {
   type CosmeticItem,
   type Subscription,
   type Crew,
+  type ChipTxReason,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents,
   timeBankEvents,
+  chipTransactions,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -51,7 +53,9 @@ export interface IStorage {
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   deletePlayer(id: string): Promise<void>;
-  addChipsToPlayer(id: string, chips: number): Promise<void>;
+  addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
+  recordChipTransaction(params: { playerId: string; beforeBalance: number; amountChange: number; afterBalance: number; reason: ChipTxReason; source: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
+  verifyPlayerBalanceConsistency(playerId: string): Promise<{ consistent: boolean; currentBalance: number; computedBalance: number; drift: number }>;
   // ── Avatar & customisation ─────────────────────────────────────────────────
   updatePlayerAvatar(id: string, avatarId: string | null): Promise<void>;
   // ── Display name change (90-day cooldown) ──────────────────────────────────
@@ -369,6 +373,38 @@ export class MemStorage implements IStorage {
     });
   }
 
+  // ── Private chip ledger helper ─────────────────────────────────────────────
+  // Insert one immutable row into chip_transactions inside an existing
+  // Drizzle transaction context.  `tx` is typed `any` to avoid Drizzle's
+  // verbose internal generic — it is ALWAYS a real `db.transaction` callback
+  // argument; never called outside a transaction.
+  private async _insertChipLedger(
+    tx: any,
+    params: {
+      playerId:      string;
+      beforeBalance: number;
+      amountChange:  number;
+      afterBalance:  number;
+      reason:        ChipTxReason;
+      source:        string;
+      gameId?:       string | null;
+      handId?:       string | null;
+      metadata?:     Record<string, any> | null;
+    },
+  ): Promise<void> {
+    await tx.insert(chipTransactions).values({
+      playerId:      params.playerId,
+      beforeBalance: params.beforeBalance,
+      amountChange:  params.amountChange,
+      afterBalance:  params.afterBalance,
+      reason:        params.reason,
+      source:        params.source,
+      gameId:        params.gameId   ?? null,
+      handId:        params.handId   ?? null,
+      metadata:      params.metadata ?? null,
+    });
+  }
+
   // ── Player Profile methods ─────────────────────────────────────────────────
   // These hit the PostgreSQL DB directly, regardless of the storage class name.
   // "Mem" only refers to the legacy in-memory user store (users table).
@@ -425,7 +461,20 @@ export class MemStorage implements IStorage {
       updatedAt: now,
     };
 
-    await db.insert(playerProfiles).values(profile);
+    // Wrap creation + genesis ledger in one transaction so new players always
+    // have a starting ledger entry.  The consistency checker can then compute
+    // a correct balance for all players created after this deployment.
+    await db.transaction(async (tx) => {
+      await tx.insert(playerProfiles).values(profile);
+      await this._insertChipLedger(tx, {
+        playerId:      id,
+        beforeBalance: 0,
+        amountChange:  25000,
+        afterBalance:  25000,
+        reason:        'other',
+        source:        'genesis',
+      });
+    });
     return profile;
   }
 
@@ -455,27 +504,46 @@ export class MemStorage implements IStorage {
   }
 
   async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void> {
-    if (handResult) {
-      await db
-        .update(playerProfiles)
-        .set({
-          chipBalance: chips,
-          updatedAt: new Date(),
-          handsPlayed: sql`${playerProfiles.handsPlayed} + 1`,
-          handsWon: handResult.won
-            ? sql`${playerProfiles.handsWon} + 1`
-            : playerProfiles.handsWon,
-          lifetimeProfit: handResult.deltaChips != null
-            ? sql`${playerProfiles.lifetimeProfit} + ${handResult.deltaChips}`
-            : playerProfiles.lifetimeProfit,
-        })
-        .where(eq(playerProfiles.id, id));
-      return;
-    }
-    await db
-      .update(playerProfiles)
-      .set({ chipBalance: chips, updatedAt: new Date() })
-      .where(eq(playerProfiles.id, id));
+    await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, id))
+        .limit(1);
+      const before = rows[0]?.chipBalance ?? 0;
+      const delta  = chips - before;
+
+      if (handResult) {
+        await tx
+          .update(playerProfiles)
+          .set({
+            chipBalance: chips,
+            updatedAt: new Date(),
+            handsPlayed: sql`${playerProfiles.handsPlayed} + 1`,
+            handsWon: handResult.won
+              ? sql`${playerProfiles.handsWon} + 1`
+              : playerProfiles.handsWon,
+            lifetimeProfit: handResult.deltaChips != null
+              ? sql`${playerProfiles.lifetimeProfit} + ${handResult.deltaChips}`
+              : playerProfiles.lifetimeProfit,
+          })
+          .where(eq(playerProfiles.id, id));
+      } else {
+        await tx
+          .update(playerProfiles)
+          .set({ chipBalance: chips, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, id));
+      }
+
+      await this._insertChipLedger(tx, {
+        playerId:      id,
+        beforeBalance: before,
+        amountChange:  delta,
+        afterBalance:  chips,
+        reason:        handResult ? 'hand_win' : 'other',
+        source:        handResult ? 'gameEngine' : 'syncOnDisconnect',
+      });
+    });
   }
 
   async setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void> {
@@ -496,14 +564,41 @@ export class MemStorage implements IStorage {
     await db.delete(playerProfiles).where(eq(playerProfiles.id, id));
   }
 
-  async addChipsToPlayer(id: string, chips: number): Promise<void> {
-    await db
-      .update(playerProfiles)
-      .set({
-        chipBalance: sql`${playerProfiles.chipBalance} + ${chips}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(playerProfiles.id, id));
+  async addChipsToPlayer(
+    id: string,
+    chips: number,
+    opts?: {
+      reason?:   ChipTxReason;
+      source?:   string;
+      gameId?:   string | null;
+      handId?:   string | null;
+      metadata?: Record<string, any> | null;
+    },
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, id))
+        .limit(1);
+      const before = rows[0]?.chipBalance ?? 0;
+      const after  = before + chips;
+      await tx
+        .update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${chips}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, id));
+      await this._insertChipLedger(tx, {
+        playerId:      id,
+        beforeBalance: before,
+        amountChange:  chips,
+        afterBalance:  after,
+        reason:        opts?.reason   ?? 'other',
+        source:        opts?.source   ?? 'addChipsToPlayer',
+        gameId:        opts?.gameId   ?? null,
+        handId:        opts?.handId   ?? null,
+        metadata:      opts?.metadata ?? null,
+      });
+    });
   }
 
   // ── Avatar ─────────────────────────────────────────────────────────────────
@@ -547,28 +642,46 @@ export class MemStorage implements IStorage {
   }
 
   async resetGuestAccount(id: string): Promise<void> {
+    const RESET_BALANCE = 25000;
     const now = new Date();
-    await db
-      .update(playerProfiles)
-      .set({
-        chipBalance:    25000,
-        handsPlayed:    0,
-        handsWon:       0,
-        lifetimeProfit: 0,
-        avatarId:       null,
-        activeTableId:  null,
-        activeSeatId:   null,
-        activeModeId:   null,
-        lastResetAt:    now,
-        updatedAt:      now,
-      })
-      .where(
-        and(
-          eq(playerProfiles.id, id),
-          isNull(playerProfiles.email),
-          isNull(playerProfiles.passwordHash)
-        )
-      );
+    await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, id))
+        .limit(1);
+      const before = rows[0]?.chipBalance ?? 0;
+      await tx
+        .update(playerProfiles)
+        .set({
+          chipBalance:    RESET_BALANCE,
+          handsPlayed:    0,
+          handsWon:       0,
+          lifetimeProfit: 0,
+          avatarId:       null,
+          activeTableId:  null,
+          activeSeatId:   null,
+          activeModeId:   null,
+          lastResetAt:    now,
+          updatedAt:      now,
+        })
+        .where(
+          and(
+            eq(playerProfiles.id, id),
+            isNull(playerProfiles.email),
+            isNull(playerProfiles.passwordHash)
+          )
+        );
+      await this._insertChipLedger(tx, {
+        playerId:      id,
+        beforeBalance: before,
+        amountChange:  RESET_BALANCE - before,
+        afterBalance:  RESET_BALANCE,
+        reason:        'guest_reset',
+        source:        'guestReset',
+        metadata:      { resetReason: '24h_expiry' },
+      });
+    });
   }
 
   // ── Stripes ────────────────────────────────────────────────────────────────
@@ -830,6 +943,20 @@ export class MemStorage implements IStorage {
         streakDay:      newStreakDay,
         chipsGranted:   reward.chips,
         stripesGranted: reward.stripes,
+      });
+
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance: player.chipBalance,
+        amountChange:  reward.chips,
+        afterBalance:  newChipBalance,
+        reason:        'daily_bonus',
+        source:        'dailyBonus',
+        metadata: {
+          streakDay:      newStreakDay,
+          chipsGranted:   reward.chips,
+          stripesGranted: reward.stripes,
+        },
       });
 
       return {
@@ -1491,12 +1618,80 @@ export class MemStorage implements IStorage {
         .where(eq(playerProfiles.id, playerId))
         .limit(1);
       if (!rows[0] || rows[0].chipBalance < amount) return false;
+      const before = rows[0].chipBalance;
+      const after  = before - amount;
       await tx
         .update(playerProfiles)
         .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
         .where(eq(playerProfiles.id, playerId));
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance: before,
+        amountChange:  -amount,
+        afterBalance:  after,
+        reason:        'buy_in',
+        source:        'gameEngine',
+      });
       return true;
     });
+  }
+
+  // ── Public chip ledger methods ─────────────────────────────────────────────
+
+  // recordChipTransaction: public entry point for callers outside the storage
+  // class that need to write a ledger row (e.g., admin tools).  Starts its own
+  // transaction so the insert is always atomic.
+  async recordChipTransaction(params: {
+    playerId:      string;
+    beforeBalance: number;
+    amountChange:  number;
+    afterBalance:  number;
+    reason:        ChipTxReason;
+    source:        string;
+    gameId?:       string | null;
+    handId?:       string | null;
+    metadata?:     Record<string, any> | null;
+  }): Promise<void> {
+    await db.transaction(async (tx) => {
+      await this._insertChipLedger(tx, params);
+    });
+  }
+
+  // verifyPlayerBalanceConsistency: forensic tool — read-only, no mutations.
+  // Computes the sum of all ledger entries and compares it to the live DB
+  // balance.  A drift of 0 means the ledger is complete and correct.
+  //
+  // Note: players created BEFORE this ledger was deployed will have no ledger
+  // entries, so computedBalance will be 0 and drift = currentBalance.  That is
+  // expected and correct — it means "no ledger coverage before deployment."
+  // Players created AFTER this deployment start with a genesis entry
+  // (amountChange=25000, source='genesis') so their computed balance is exact.
+  async verifyPlayerBalanceConsistency(playerId: string): Promise<{
+    consistent:      boolean;
+    currentBalance:  number;
+    computedBalance: number;
+    drift:           number;
+  }> {
+    const [playerRow, sumRow] = await Promise.all([
+      db.select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1),
+      db.select({ total: sql<string>`COALESCE(SUM(${chipTransactions.amountChange}), 0)` })
+        .from(chipTransactions)
+        .where(eq(chipTransactions.playerId, playerId)),
+    ]);
+
+    const currentBalance  = playerRow[0]?.chipBalance ?? 0;
+    const computedBalance = Number(sumRow[0]?.total ?? 0);
+    const drift           = currentBalance - computedBalance;
+
+    return {
+      consistent: drift === 0,
+      currentBalance,
+      computedBalance,
+      drift,
+    };
   }
 
   async getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }> {

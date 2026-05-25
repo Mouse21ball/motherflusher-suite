@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -274,6 +274,46 @@ export const timeBankEvents = pgTable("time_bank_events", {
 });
 
 export type TimeBankEvent = typeof timeBankEvents.$inferSelect;
+
+// ─── Chip Transactions (immutable audit ledger) ───────────────────────────────
+// Every virtual chip movement writes one row here. Balance updates and ledger
+// inserts always share the same database transaction — both commit or neither.
+export type ChipTxReason =
+  | 'hand_win'
+  | 'daily_bonus'
+  | 'subscription_grant'
+  | 'buy_in'
+  | 'guest_reset'
+  | 'admin_grant'
+  | 'admin_debit'
+  | 'refund'
+  | 'other';
+
+export const chipTransactions = pgTable("chip_transactions", {
+  id:            serial("id").primaryKey(),
+  playerId:      text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  beforeBalance: integer("before_balance").notNull(),
+  amountChange:  integer("amount_change").notNull(),
+  afterBalance:  integer("after_balance").notNull(),
+  reason:        text("reason").$type<ChipTxReason>().notNull(),
+  gameId:        text("game_id"),
+  handId:        text("hand_id"),
+  source:        text("source").notNull(),
+  metadata:      jsonb("metadata").$type<Record<string, any>>(),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("chip_tx_player_created_idx").on(table.playerId, table.createdAt),
+  index("chip_tx_reason_idx").on(table.reason),
+  index("chip_tx_created_at_idx").on(table.createdAt),
+]);
+
+export const insertChipTransactionSchema = createInsertSchema(chipTransactions).omit({
+  id:        true,
+  createdAt: true,
+});
+
+export type InsertChipTransaction = z.infer<typeof insertChipTransactionSchema>;
+export type ChipTransaction = typeof chipTransactions.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 export const users = pgTable("users", {

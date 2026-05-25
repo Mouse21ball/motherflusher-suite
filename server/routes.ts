@@ -671,7 +671,7 @@ export async function registerRoutes(
         res.status(404).json({ error: "Player not found" });
         return;
       }
-      await storage.addChipsToPlayer(id, chips);
+      await storage.addChipsToPlayer(id, chips, { reason: 'other', source: 'bonusChips' });
       const updated = await storage.getPlayerProfile(id);
       res.json({ chipBalance: updated?.chipBalance ?? profile.chipBalance + chips });
     } catch (err: any) {
@@ -716,7 +716,7 @@ export async function registerRoutes(
         tier === "gold_pro"      ? 1000 : 0;
 
       if (subBonusChips > 0) {
-        await storage.addChipsToPlayer(id, subBonusChips);
+        await storage.addChipsToPlayer(id, subBonusChips, { reason: 'subscription_grant', source: 'subscription' });
         console.log(
           `[daily-bonus] sub bonus player=${id} tier=${tier} chips=+${subBonusChips}`,
         );
