@@ -49,4 +49,5 @@ integrations = ["stripe:1.0.0"]
 [userenv.development]
 BADUGI_ALPHA_ENABLED = "true"
 VITE_BADUGI_ALPHA = "true"
-BILLING_TEST_MODE = "true"
+
+[userenv.shared]
