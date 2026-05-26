@@ -8,6 +8,7 @@ import { initGenericEngine } from "./genericEngine";
 import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
 import { startGuestResetJob } from "./guestReset";
 import { generalApiRateLimit } from "./middleware/rateLimits";
+import { seedCosmeticItems } from "./storage";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -100,6 +101,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await seedCosmeticItems();
+  console.log('[seed] Cosmetic items checked/seeded.');
+
   initEngine();              // restore persisted Badugi tables before WS server opens
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   initRooms(httpServer);
