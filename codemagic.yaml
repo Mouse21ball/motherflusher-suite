@@ -1,9 +1,11 @@
 workflows:
-  android-debug:
-    name: Chain Gang Poker — Android Debug APK
+  android-release:
+    name: Chain Gang Poker — Android Release APK
     environment:
       java: 17
       node: 20
+      android_signing:
+        - chaingang_keystore
       vars:
         # ── REQUIRED: set this to your deployed Replit backend URL ──────────
         # Find it in Replit → Deployments tab (looks like https://yourapp.replit.app)
@@ -26,4 +28,4 @@ workflows:
       - name: Assemble release APK
         script: cd android && ./gradlew assembleRelease --no-daemon
     artifacts:
-      - android/app/build/outputs/apk/release/app-release-unsigned.apk
+      - android/app/build/outputs/apk/release/app-release.apk

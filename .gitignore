@@ -9,3 +9,9 @@ vite.config.ts.*
 .env.*.local
 .env.production
 .env.development
+# Signing keys — NEVER commit to git
+*.keystore
+*.jks
+release-key.keystore
+keystore-base64.txt
+key.properties
