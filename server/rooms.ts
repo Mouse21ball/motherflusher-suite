@@ -105,6 +105,26 @@ interface HostUpdate {
 
 const rooms = new Map<string, Room>();
 
+// ─── Seat ownership registry ──────────────────────────────────────────────────
+// The WS AUTHZ checks must not compare a message's `playerId` (which the engine
+// assigns as a short seat label like "p1") against the join-time session UUID
+// stored in the `playerId` closure variable.  Instead, we record which
+// authenticated player owns each seat at join time and verify against that.
+//
+// Key format: "${tableId}:${seatPid}"  (e.g. "TABLE1:p1")
+// Value:      authWs.authenticatedPlayerId  (the verified profile/session UUID)
+const seatOwners = new Map<string, string>();
+
+function setSeatOwner(tableId: string, seatPid: string, authedId: string): void {
+  seatOwners.set(`${tableId}:${seatPid}`, authedId);
+}
+function getSeatOwner(tableId: string, seatPid: string): string | undefined {
+  return seatOwners.get(`${tableId}:${seatPid}`);
+}
+function clearSeatOwner(tableId: string, seatPid: string): void {
+  seatOwners.delete(`${tableId}:${seatPid}`);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Room {
@@ -290,8 +310,9 @@ export function initRooms(httpServer: Server): WebSocketServer {
     authWs.sessionExpiresAt      = (req as any).sessionExpiresAt      as Date;
     const remoteIp = req.socket?.remoteAddress ?? 'unknown';
 
-    let roomId:   string | null = null;
-    let playerId: string | null = null;
+    let roomId:        string | null = null;
+    let playerId:      string | null = null;
+    let engineSeatPid: string | null = null; // seat label assigned by the engine (e.g. "p1")
 
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
@@ -357,10 +378,21 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
         const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled };
 
+        let assignedSeat: string | null = null;
         if (room.isAuthoritative) {
-          addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
+          assignedSeat = addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
+          assignedSeat = addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
+        }
+
+        // Register seat ownership so subsequent AUTHZ checks can resolve seat
+        // labels (e.g. "p1") back to the verified authenticatedPlayerId.
+        // We register both the join-time pid (used by leave/host messages) and
+        // the engine-assigned seat label (used by badugi:action / mode:action).
+        setSeatOwner(tableId, pid, authWs.authenticatedPlayerId);
+        if (assignedSeat && assignedSeat !== '__spectator__') {
+          engineSeatPid = assignedSeat;
+          setSeatOwner(tableId, assignedSeat, authWs.authenticatedPlayerId);
         }
 
         // Send host/settings context to the joining player after engine init
@@ -372,11 +404,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── leave ────────────────────────────────────────────────────────────────
       if (msg.type === 'leave') {
         const { tableId, playerId: pid } = msg;
-        // Authorization: claimed pid must match what this connection registered at join
-        if (pid !== playerId) {
+        // Authorization: claimed pid must be owned by this authenticated connection
+        if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
-            `session_pid=${playerId} claimed_pid=${pid} msg=leave ip=${remoteIp} — REJECTED`,
+            `claimed_pid=${pid} seat_owner=${getSeatOwner(tableId, pid) ?? 'none'} ` +
+            `msg=leave ip=${remoteIp} — REJECTED`,
           );
           return;
         }
@@ -395,11 +428,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── host:kick ────────────────────────────────────────────────────────────
       if (msg.type === 'host:kick') {
         const { tableId, playerId: senderPid, targetPlayerId } = msg;
-        // Authorization: sender must be the connection's registered session pid
-        if (senderPid !== playerId) {
+        // Authorization: sender must be owned by this authenticated connection
+        if (getSeatOwner(tableId, senderPid) !== authWs.authenticatedPlayerId) {
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
-            `session_pid=${playerId} claimed_pid=${senderPid} msg=host:kick ip=${remoteIp} — REJECTED`,
+            `claimed_pid=${senderPid} seat_owner=${getSeatOwner(tableId, senderPid) ?? 'none'} ` +
+            `msg=host:kick ip=${remoteIp} — REJECTED`,
           );
           return;
         }
@@ -422,11 +456,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
       // ── host:settings ─────────────────────────────────────────────────────────
       if (msg.type === 'host:settings') {
         const { tableId, playerId: senderPid, maxPlayers, botsEnabled, isInviteOnly } = msg;
-        // Authorization: sender must be the connection's registered session pid
-        if (senderPid !== playerId) {
+        // Authorization: sender must be owned by this authenticated connection
+        if (getSeatOwner(tableId, senderPid) !== authWs.authenticatedPlayerId) {
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
-            `session_pid=${playerId} claimed_pid=${senderPid} msg=host:settings ip=${remoteIp} — REJECTED`,
+            `claimed_pid=${senderPid} seat_owner=${getSeatOwner(tableId, senderPid) ?? 'none'} ` +
+            `msg=host:settings ip=${remoteIp} — REJECTED`,
           );
           return;
         }
@@ -475,12 +510,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
           console.warn('[CGP][server] badugi:action DROPPED — missing field', { tableId, pid, action });
           return;
         }
-        // Authorization: claimed pid must match what this connection registered at join
-        if (pid !== playerId) {
+        // Authorization: claimed pid must be owned by this authenticated connection
+        if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
-            `session_pid=${playerId} claimed_pid=${pid} action=${action} msg=badugi:action ` +
-            `ip=${remoteIp} — REJECTED (pid mismatch)`,
+            `claimed_pid=${pid} seat_owner=${getSeatOwner(tableId, pid) ?? 'none'} ` +
+            `action=${action} msg=badugi:action ip=${remoteIp} — REJECTED`,
           );
           return;
         }
@@ -497,12 +532,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
           console.warn('[CGP][server] mode:action DROPPED — missing field', { tableId, pid, action });
           return;
         }
-        // Authorization: claimed pid must match what this connection registered at join
-        if (pid !== playerId) {
+        // Authorization: claimed pid must be owned by this authenticated connection
+        if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
-            `session_pid=${playerId} claimed_pid=${pid} action=${action} msg=mode:action ` +
-            `ip=${remoteIp} — REJECTED (pid mismatch)`,
+            `claimed_pid=${pid} seat_owner=${getSeatOwner(tableId, pid) ?? 'none'} ` +
+            `action=${action} msg=mode:action ip=${remoteIp} — REJECTED`,
           );
           return;
         }
@@ -516,7 +551,11 @@ export function initRooms(httpServer: Server): WebSocketServer {
     ws.on('close', () => {
       clearInterval(pingTimer);
       clearInterval(sessionCheckTimer);
-      if (roomId && playerId) releasePlayer(playerId, roomId);
+      if (roomId && playerId) {
+        releasePlayer(playerId, roomId);
+        clearSeatOwner(roomId, playerId);
+        if (engineSeatPid) clearSeatOwner(roomId, engineSeatPid);
+      }
     });
 
     ws.on('error', () => ws.terminate());

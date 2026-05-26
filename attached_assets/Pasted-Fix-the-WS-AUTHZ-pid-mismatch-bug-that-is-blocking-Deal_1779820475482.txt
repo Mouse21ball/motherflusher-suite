@@ -1,0 +1,12 @@
+Fix the WS AUTHZ pid mismatch bug that is blocking Deal Me In on every game in production.
+Problem evidence from production logs:
+[WS AUTHZ] authenticated=988c7b4b-937e-41e7-82e8-50db4f2e6ca3 session_pid=tusu3z5upuq9027zuf3ftb claimed_pid=p1 action=start msg=badugi:action — REJECTED (pid mismatch)
+The client sends playerId as myIdRef.current which is the seat label like "p1", not the session pid. This is correct because the poker engine downstream uses seat labels. The Ticket C authorization check in server/rooms.ts incorrectly compares the seat label to the session pid and rejects every action. Six rejection points exist for these message types: leave, join, host:kick, host:settings, badugi:action, mode:action.
+Fix scope: server-side only. Do not modify client code. Do not require an APK rebuild.
+Step 1. Add a seat ownership tracking Map at the top of server/rooms.ts. The Map should be keyed by tableId plus seat pid concatenated, and the value should be the authenticated session player id from the WebSocket connection. Add helper functions setSeatOwner, getSeatOwner, and clearSeatOwner.
+Step 2. In the join handler, after the existing identity verification passes and the player is added to the room, call setSeatOwner with the tableId, the seat pid the engine assigned, and authWs.authenticatedPlayerId.
+Step 3. At each of the six WS AUTHZ rejection points, replace the broken check. Currently the code compares the message pid to the session player id. Instead, look up the seat owner from the new Map using tableId and the claimed pid, and check that the looked-up value equals authWs.authenticatedPlayerId. If the seat owner is missing or does not match, log REJECTED with both values and the seat owner status, then return. This preserves the security guarantee that a player at seat 1 cannot impersonate seat 2 because seat 2's owner is a different session.
+Step 4. In the ws.on close handler in server/rooms.ts, when releasePlayer is called, also call clearSeatOwner with the tableId and seat pid so disconnected players do not retain seat ownership.
+Step 5. Verify locally. Restart the dev server. Run npm run check to confirm TypeScript compiles. Confirm the existing tests still pass.
+Step 6. Report back with the diff of server/rooms.ts and confirmation of which lines you changed. Do not commit or publish.
+Detroit will review the diff, commit, push, and trigger a production deploy. After that, Deal Me In should work in the APK without any client changes.
