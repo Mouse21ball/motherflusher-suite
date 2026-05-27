@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -348,3 +348,16 @@ export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).om
 
 export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+
+// ─── Blocked Players ─────────────────────────────────────────────────────────
+export const blockedPlayers = pgTable("blocked_players", {
+  id:        text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  blockerId: text("blocker_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  blockedId: text("blocked_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("blocked_players_blocker_blocked_uniq").on(table.blockerId, table.blockedId),
+  index("blocked_players_blocker_idx").on(table.blockerId),
+]);
+
+export type BlockedPlayer = typeof blockedPlayers.$inferSelect;

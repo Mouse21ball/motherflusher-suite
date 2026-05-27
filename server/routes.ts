@@ -6,6 +6,7 @@ import {
   registrationRateLimit,
   dailyBonusRateLimit,
   purchaseVerificationRateLimit,
+  generalApiRateLimit,
 } from "./middleware/rateLimits";
 import { z } from "zod";
 import {
@@ -294,6 +295,54 @@ export async function registerRoutes(
         console.error("Player upsert error:", err);
         res.status(500).json({ error: "Failed to create player" });
       }
+    }
+  });
+
+  // ── Player Block List ───────────────────────────────────────────────────────
+  // Registered before GET /api/players/:id so Express does not swallow the
+  // literal path segment "blocks" as a dynamic :id parameter.
+
+  // POST /api/players/blocks — block another player
+  app.post("/api/players/blocks", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const blockerId = req.sessionPlayerId!;
+      const { blockedId } = z.object({ blockedId: z.string().min(1) }).parse(req.body);
+
+      if (blockerId === blockedId) {
+        res.status(400).json({ error: "Cannot block yourself." }); return;
+      }
+      const target = await storage.getPlayerProfile(blockedId);
+      if (!target) {
+        res.status(404).json({ error: "Player not found." }); return;
+      }
+      const row = await storage.blockPlayer(blockerId, blockedId);
+      res.json({ id: row.id, blockerId: row.blockerId, blockedId: row.blockedId, createdAt: row.createdAt });
+    } catch (err: any) {
+      if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/players/blocks/:blockedId — unblock a player
+  app.delete("/api/players/blocks/:blockedId", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const blockerId = req.sessionPlayerId!;
+      const blockedId = req.params.blockedId as string;
+      const unblocked = await storage.unblockPlayer(blockerId, blockedId);
+      res.json({ unblocked });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/players/blocks — authenticated player's block list (id + displayName)
+  app.get("/api/players/blocks", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const blockerId = req.sessionPlayerId!;
+      const blocked = await storage.getBlockedPlayers(blockerId);
+      res.json({ blocked });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -1514,7 +1563,15 @@ export async function registerRoutes(
       const before    = beforeRaw ? new Date(beforeRaw) : undefined;
 
       const messages = await storage.getChatMessages(crewId, before, limit);
-      res.json({ messages });
+
+      // Filter out messages from players the requester has blocked.
+      const blockedList = await storage.getBlockedPlayers(playerId);
+      const blockedSet  = new Set(blockedList.map(b => b.id));
+      const filtered    = blockedSet.size === 0
+        ? messages
+        : messages.filter(m => !blockedSet.has(m.playerId));
+
+      res.json({ messages: filtered });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

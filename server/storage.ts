@@ -14,6 +14,8 @@ import {
   crews, crewMembers, crewChatMessages, crewEvents,
   timeBankEvents,
   chipTransactions,
+  blockedPlayers,
+  type BlockedPlayer,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -149,6 +151,11 @@ export interface IStorage {
   getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }>;
   consumeTimeBankSlot(playerId: string, source: 'free' | 'subscription' | 'purchased', tableId?: string): Promise<void>;
   purchaseTimeBankUses(playerId: string, quantity: number): Promise<{ success: boolean; newStripes: number; newPurchasedUses: number }>;
+  // ── Blocked Players ─────────────────────────────────────────────────────────
+  blockPlayer(blockerId: string, blockedId: string): Promise<BlockedPlayer>;
+  unblockPlayer(blockerId: string, blockedId: string): Promise<boolean>;
+  getBlockedPlayers(blockerId: string): Promise<Array<{ id: string; displayName: string }>>;
+  isBlocked(blockerId: string, blockedId: string): Promise<boolean>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -1815,6 +1822,73 @@ export class MemStorage implements IStorage {
       });
       return { success: true, newStripes, newPurchasedUses };
     });
+  }
+
+  // ── Blocked Players ─────────────────────────────────────────────────────────
+
+  async blockPlayer(blockerId: string, blockedId: string): Promise<BlockedPlayer> {
+    if (blockerId === blockedId) {
+      throw new Error('Cannot block yourself.');
+    }
+    // Check for existing row first to satisfy idempotent semantics.
+    const existing = await db
+      .select()
+      .from(blockedPlayers)
+      .where(and(
+        eq(blockedPlayers.blockerId, blockerId),
+        eq(blockedPlayers.blockedId, blockedId),
+      ))
+      .limit(1);
+    if (existing[0]) return existing[0];
+
+    const rows = await db
+      .insert(blockedPlayers)
+      .values({ blockerId, blockedId })
+      .onConflictDoNothing()
+      .returning();
+    if (rows[0]) return rows[0];
+
+    // Concurrent insert won the race — re-fetch.
+    const refetch = await db
+      .select()
+      .from(blockedPlayers)
+      .where(and(
+        eq(blockedPlayers.blockerId, blockerId),
+        eq(blockedPlayers.blockedId, blockedId),
+      ))
+      .limit(1);
+    return refetch[0]!;
+  }
+
+  async unblockPlayer(blockerId: string, blockedId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(blockedPlayers)
+      .where(and(
+        eq(blockedPlayers.blockerId, blockerId),
+        eq(blockedPlayers.blockedId, blockedId),
+      ))
+      .returning({ id: blockedPlayers.id });
+    return deleted.length > 0;
+  }
+
+  async getBlockedPlayers(blockerId: string): Promise<Array<{ id: string; displayName: string }>> {
+    return db
+      .select({ id: playerProfiles.id, displayName: playerProfiles.displayName })
+      .from(blockedPlayers)
+      .innerJoin(playerProfiles, eq(blockedPlayers.blockedId, playerProfiles.id))
+      .where(eq(blockedPlayers.blockerId, blockerId));
+  }
+
+  async isBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+    const rows = await db
+      .select({ id: blockedPlayers.id })
+      .from(blockedPlayers)
+      .where(and(
+        eq(blockedPlayers.blockerId, blockerId),
+        eq(blockedPlayers.blockedId, blockedId),
+      ))
+      .limit(1);
+    return rows.length > 0;
   }
 }
 

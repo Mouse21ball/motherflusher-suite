@@ -1616,6 +1616,64 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
   });
 }
 
+// ─── Per-recipient chat broadcast (respects block lists) ─────────────────────
+// Replaces broadcastState() for 'chat' actions.  For every human seat the
+// sender's profile UUID is resolved via seatToIdentityId; if the recipient has
+// blocked the sender, the new message is stripped from their snapshot.
+// table.state.chatMessages is NOT mutated — filtering is presentation-only.
+async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Promise<void> {
+  const senderProfileId = table.seatToIdentityId.get(senderSeat);
+  const spectatorCount  = table.spectators.size;
+  const stateWithMeta   = spectatorCount > 0
+    ? { ...table.state, spectatorCount }
+    : table.state;
+
+  for (const [recipientSeat, ws] of Array.from(table.connections.entries())) {
+    if (ws.readyState !== 1) continue;
+    const recipientProfileId = table.seatToIdentityId.get(recipientSeat);
+
+    let baseState = stateWithMeta;
+    if (senderProfileId && recipientProfileId && senderProfileId !== recipientProfileId) {
+      try {
+        const blocked = await storage.isBlocked(recipientProfileId, senderProfileId);
+        if (blocked) {
+          baseState = {
+            ...stateWithMeta,
+            chatMessages: stateWithMeta.chatMessages.filter(m => m.senderId !== senderSeat),
+          };
+        }
+      } catch { /* degrade to unfiltered delivery on DB error */ }
+    }
+
+    try {
+      let personalState = maskStateForPlayer(baseState, recipientSeat);
+      if (table.state.phase === 'SHOWDOWN') {
+        const prevChips = table.chipsAtHandStart.get(recipientSeat);
+        if (prevChips !== undefined) {
+          const nowChips = table.state.players.find(p => p.id === recipientSeat)?.chips ?? prevChips;
+          personalState = { ...personalState, heroChipChange: nowChips - prevChips };
+        }
+      }
+      ws.send(JSON.stringify({
+        type: 'badugi:snapshot',
+        state: personalState,
+        sessionStats: buildBadugiSessionStats(table, recipientSeat),
+      }));
+    } catch { /* ignore closed socket race */ }
+  }
+
+  // Spectators are observers — no block filtering applied
+  for (const [, spec] of Array.from(table.spectators.entries())) {
+    if (spec.ws.readyState !== 1) continue;
+    try {
+      const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+    } catch {}
+  }
+
+  scheduleSave(table.tableId, table.state, table.handId);
+}
+
 export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): void {
   const table = tables.get(tableId);
   if (!table) {
@@ -1700,7 +1758,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       table.state = { ...s, chatMessages: [...s.chatMessages.slice(-49), msg] };
       engineLog('ACTION', tableId, { player: playerId, action: 'chat', accepted: true });
       table.actionLock = false;
-      broadcastState(table);
+      broadcastChatFiltered(table, playerId).catch(() => {});
       return;
     }
 
