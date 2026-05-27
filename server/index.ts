@@ -130,6 +130,14 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
+  // ── Google Search Console ownership verification ─────────────────────────
+  // Must be registered BEFORE serveStatic / Vite catch-all so the SPA fallback
+  // doesn't intercept this URL and serve the React app instead.
+  app.get('/google617a2c28516b9bb1.html', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send('google-site-verification: google617a2c28516b9bb1.html');
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
