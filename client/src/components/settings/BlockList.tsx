@@ -1,21 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiUrl } from '@/lib/apiConfig';
-
-function getAuth() {
-  const id    = localStorage.getItem('cgp_player_id') ?? '';
-  const token = localStorage.getItem(`cgp_session_${id}`) ?? '';
-  return { id, token };
-}
+import { apiFetch as sessionFetch } from '@/lib/session';
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
-  const { token } = getAuth();
-  const res = await fetch(apiUrl(path), {
+  const res = await sessionFetch(path, {
     ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Session-Token': token,
-      ...(opts.headers ?? {}),
-    },
+    headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
