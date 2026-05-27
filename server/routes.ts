@@ -1034,8 +1034,44 @@ export async function registerRoutes(
         return;
       }
 
+      // Fix C: bind purchase to the authenticated player (fail closed).
+      // Skip only when running in TEST_MODE with a test_ token (no real Google data).
+      if (!(process.env.BILLING_TEST_MODE === "true" && purchaseToken.startsWith("test_"))) {
+        if (!purchaseData.obfuscatedExternalAccountId) {
+          console.log(
+            `[BILLING_AUTHZ] obfuscatedExternalAccountId missing — ` +
+            `player=${playerId.slice(0, 8)} product=${productId}`,
+          );
+          await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+          res.status(403).json({ error: "Purchase authorization failed: account identifier missing" });
+          return;
+        }
+        if (purchaseData.obfuscatedExternalAccountId !== playerId) {
+          console.log(
+            `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
+            `purchase=${purchaseData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
+          );
+          await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+          res.status(403).json({ error: "Purchase authorization failed: account ID mismatch" });
+          return;
+        }
+      }
+
       // Credit Stripes (atomic via stripe_transactions audit table)
       await storage.creditStripes(playerId, pack.stripes, `purchase:${productId}`);
+
+      // Fix B: chip_transactions audit row for IAP (amountChange=0 — Stripes grant, not chips).
+      // Provides a single ledger trail linking every IAP event to a chip_transactions row.
+      const iapProfile = await storage.getPlayerProfile(playerId);
+      await storage.recordChipTransaction({
+        playerId,
+        beforeBalance: iapProfile?.chipBalance ?? 0,
+        amountChange:  0,
+        afterBalance:  iapProfile?.chipBalance ?? 0,
+        reason:        'iap_purchase',
+        source:        'google_play',
+        metadata:      { productId, purchaseToken: purchaseToken.slice(0, 20) },
+      });
 
       // Mark verified with Google's orderId
       await storage.updatePurchaseTransactionStatus(

@@ -214,7 +214,9 @@ class NativeBillingPlugin implements BillingPlugin {
 
     return new Promise<PurchaseResult>((resolve, reject) => {
       this.pending.set(productId, { resolve, reject });
-      offer.order().then(error => {
+      // Fix C: pass the player ID as applicationUsername so Google embeds it as
+      // obfuscatedAccountId in the purchase — the server validates this server-side.
+      offer.order({ applicationUsername: ensurePlayerIdentity().id }).then(error => {
         if (error) {
           this.pending.delete(productId);
           reject(new Error(error.message ?? "Order failed"));
@@ -232,7 +234,8 @@ class NativeBillingPlugin implements BillingPlugin {
 
     return new Promise<SubscriptionResult>((resolve, reject) => {
       this.pending.set(productId, { resolve, reject });
-      offer.order().then(error => {
+      // Fix C: same applicationUsername binding for subscriptions.
+      offer.order({ applicationUsername: ensurePlayerIdentity().id }).then(error => {
         if (error) {
           this.pending.delete(productId);
           reject(new Error(error.message ?? "Subscription order failed"));

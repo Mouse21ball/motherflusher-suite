@@ -287,6 +287,7 @@ export type ChipTxReason =
   | 'admin_grant'
   | 'admin_debit'
   | 'refund'
+  | 'iap_purchase'   // Fix B: Google Play IAP audit (amountChange=0; Stripes credited separately)
   | 'other';
 
 export const chipTransactions = pgTable("chip_transactions", {

@@ -72,15 +72,20 @@ export interface GooglePurchaseData {
   orderId:          string;
   consumptionState: number;   // 0 = not consumed, 1 = already consumed
   regionCode?:      string;
+  // Fix C: present when the client passed applicationUsername to offer.order().
+  // Used to bind the purchase to the authenticated player server-side.
+  obfuscatedExternalAccountId?: string;
 }
 
+// Fix A: updated for purchases.subscriptionsv2.get (v2 API).
+// v1 fields startTimeMillis / expiryTimeMillis / paymentState are removed.
 export interface GoogleSubscriptionData {
-  startTimeMillis:      string;
-  expiryTimeMillis:     string;
-  autoRenewing:         boolean;
-  cancelSurveyResult?:  { cancelSurveyReason: number };
-  paymentState?:        number;  // 0=pending, 1=received, 2=free trial, 3=deferred
-  orderId:              string;
+  startTime:    string;   // ISO 8601 (SubscriptionPurchaseV2.startTime)
+  expiryTime:   string;   // ISO 8601 (lineItems[0].expiryTime)
+  autoRenewing: boolean;  // lineItems[0].autoRenewingPlan?.autoRenewEnabled
+  orderId:      string;   // latestOrderId
+  // Fix C: present when the client passed applicationUsername to offer.order().
+  obfuscatedExternalAccountId?: string;
 }
 
 // ─── Verify consumable purchase ───────────────────────────────────────────────
@@ -137,6 +142,8 @@ export async function verifyGooglePlayPurchase(
     orderId:          d.orderId          ?? "",
     consumptionState: d.consumptionState ?? 0,
     regionCode:       d.regionCode       ?? undefined,
+    // Fix C: obfuscatedExternalAccountId is set when client passes applicationUsername
+    obfuscatedExternalAccountId: d.obfuscatedExternalAccountId ?? undefined,
   };
 }
 
@@ -160,12 +167,12 @@ export async function verifyGooglePlaySubscription(
     const periodMs     = isYearly ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     const expiryMillis = Date.now() + periodMs;
     console.log(`[billing:sub] TEST_MODE: accepted test subscription token for ${productId}`);
+    // Fix A: return v2-shaped data (ISO strings, no paymentState)
     return {
-      startTimeMillis:  String(Date.now()),
-      expiryTimeMillis: String(expiryMillis),
-      autoRenewing:     true,
-      paymentState:     1,
-      orderId:          `test_sub_order_${Date.now()}`,
+      startTime:    new Date().toISOString(),
+      expiryTime:   new Date(expiryMillis).toISOString(),
+      autoRenewing: true,
+      orderId:      `test_sub_order_${Date.now()}`,
     };
   }
 
@@ -180,18 +187,28 @@ export async function verifyGooglePlaySubscription(
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
   });
   const androidPublisher = google.androidpublisher({ version: "v3", auth });
-  const response = await androidPublisher.purchases.subscriptions.get({
+  // Fix A: subscriptionsv2.get replaces the deprecated subscriptions.get (v1).
+  // v2 uses `token` (not `subscriptionId`) and returns SubscriptionPurchaseV2.
+  const response = await androidPublisher.purchases.subscriptionsv2.get({
     packageName: PACKAGE_NAME,
-    subscriptionId: productId,
-    token: purchaseToken,
+    token:       purchaseToken,
   });
   const d = response.data;
+  const expiryTime = d.lineItems?.[0]?.expiryTime
+    ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  console.log(
+    `[billing:sub] Google API v2 response: ` +
+    `state=${d.subscriptionState} orderId=${d.latestOrderId} expiry=${expiryTime}`,
+  );
   return {
-    startTimeMillis:  d.startTimeMillis  ?? String(Date.now()),
-    expiryTimeMillis: d.expiryTimeMillis ?? String(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    autoRenewing:     d.autoRenewing     ?? false,
-    paymentState:     d.paymentState     ?? 1,
-    orderId:          d.orderId          ?? "",
+    startTime:    d.startTime ?? new Date().toISOString(),
+    expiryTime,
+    // lineItems[0].autoRenewingPlan is absent when subscription is cancelled
+    autoRenewing: d.lineItems?.[0]?.autoRenewingPlan?.autoRenewEnabled ?? false,
+    orderId:      d.latestOrderId ?? "",
+    // Fix C: set by Google when client passes applicationUsername to offer.order()
+    obfuscatedExternalAccountId:
+      d.externalAccountIdentifiers?.obfuscatedExternalAccountId ?? undefined,
   };
 }
 
@@ -263,7 +280,28 @@ export async function processSubscriptionPurchase(
 
   // Verify with Google
   const subData = await verifyGooglePlaySubscription(productId, purchaseToken);
-  const expiresAt = new Date(parseInt(subData.expiryTimeMillis));
+
+  // Fix C: bind verified subscription to the authenticated player (fail closed).
+  // Skip only for test tokens in TEST_MODE (no real Google data available).
+  if (!(TEST_MODE && purchaseToken.startsWith("test_"))) {
+    if (!subData.obfuscatedExternalAccountId) {
+      console.log(
+        `[BILLING_AUTHZ] obfuscatedExternalAccountId missing — ` +
+        `player=${playerId.slice(0, 8)} product=${productId}`,
+      );
+      throw new Error("Purchase authorization failed: account identifier missing");
+    }
+    if (subData.obfuscatedExternalAccountId !== playerId) {
+      console.log(
+        `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
+        `purchase=${subData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
+      );
+      throw new Error("Purchase authorization failed: account ID mismatch");
+    }
+  }
+
+  // Fix A: v2 API returns expiryTime as ISO 8601 string (not expiryTimeMillis)
+  const expiresAt = new Date(subData.expiryTime);
 
   // Snapshot existing frame for restore on expiry
   const profile = await storage.getPlayerProfile(playerId);
@@ -288,6 +326,18 @@ export async function processSubscriptionPurchase(
 
   // Credit initial Stripes
   await storage.creditStripes(playerId, product.stripesOnStart, `subscription:${product.tier}:activation`);
+
+  // Fix B: chip_transactions audit row for subscription activation (amountChange=0 — Stripes grant, not chips).
+  // `profile` was fetched just above ("Snapshot existing frame for restore on expiry").
+  await storage.recordChipTransaction({
+    playerId,
+    beforeBalance: profile?.chipBalance ?? 0,
+    amountChange:  0,
+    afterBalance:  profile?.chipBalance ?? 0,
+    reason:        'iap_purchase',
+    source:        'google_play',
+    metadata:      { productId, purchaseToken: purchaseToken.slice(0, 20), event: 'subscription_activation' },
+  });
 
   // Auto-equip subscription frame
   await storage.forceEquipFrame(playerId, product.frameId);
@@ -337,6 +387,17 @@ export async function handleSubscriptionRenewal(purchaseToken: string): Promise<
   await storage.updateSubscriptionOnRenewal(sub.id, newExpiry, product.stripesMonthly);
   await storage.setPlayerSubscriptionTier(sub.playerId, sub.tier as SubscriptionTier, newExpiry);
   await storage.creditStripes(sub.playerId, product.stripesMonthly, `subscription:${sub.tier}:monthly_grant`);
+  // Fix B: chip_transactions audit row for renewal Stripes grant (amountChange=0).
+  const renewProfile = await storage.getPlayerProfile(sub.playerId);
+  await storage.recordChipTransaction({
+    playerId:      sub.playerId,
+    beforeBalance: renewProfile?.chipBalance ?? 0,
+    amountChange:  0,
+    afterBalance:  renewProfile?.chipBalance ?? 0,
+    reason:        'iap_purchase',
+    source:        'google_play',
+    metadata:      { productId: sub.productId, purchaseToken: purchaseToken.slice(0, 20), event: 'subscription_renewal' },
+  });
   await storage.updateSubscriptionLastStripesGrant(sub.playerId);
 
   await storage.logSubscriptionEvent({
