@@ -18,6 +18,7 @@ import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import DeleteAccount from "@/pages/DeleteAccount";
 import JoinTable from "@/pages/JoinTable";
 import Profile from "@/pages/Profile";
 import Leaderboard from "@/pages/Leaderboard";
@@ -58,6 +59,7 @@ function Router() {
         <Route path="/admin" component={Admin}/>
         <Route path="/terms" component={Terms}/>
         <Route path="/privacy" component={Privacy}/>
+        <Route path="/delete-account" component={DeleteAccount}/>
         <Route component={NotFound} />
       </Switch>
     </ErrorBoundary>
