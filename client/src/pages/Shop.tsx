@@ -10,17 +10,17 @@ const PACK_CHIP: Record<string, string> = {
   stripes_starter_99:  '/chip-starter.png',
   stripes_small_499:   '/chip-popular.png',
   stripes_medium_999:  '/chip-popular.png',
-  stripes_large_2199:  '/chip-highroller.png',
+  stripes_large_2499:  '/chip-highroller.png',
   stripes_mega_9999:   '/chip-whale.png',
 };
 
 // ── Stripes pack definitions ──────────────────────────────────────────────────
 const STRIPES_PACKS = [
-  { id: 'stripes_starter_99',  name: 'Starter Pack',  stripes: 60,   price: '$0.99',  badge: null as string | null,  featured: false },
-  { id: 'stripes_small_499',   name: 'Small Pack',    stripes: 300,  price: '$4.99',  badge: null as string | null,  featured: false },
-  { id: 'stripes_medium_999',  name: 'Medium Pack',   stripes: 650,  price: '$9.99',  badge: 'BEST STARTER',         featured: false },
-  { id: 'stripes_large_2199',  name: 'Large Pack',    stripes: 1500, price: '$21.99', badge: 'BEST VALUE',           featured: true  },
-  { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 8000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
+  { id: 'stripes_starter_99',  name: 'Starter Pack',  stripes: 100,   price: '$0.99',  badge: null as string | null,  featured: false },
+  { id: 'stripes_small_499',   name: 'Small Pack',    stripes: 550,   price: '$4.99',  badge: null as string | null,  featured: false },
+  { id: 'stripes_medium_999',  name: 'Medium Pack',   stripes: 1200,  price: '$9.99',  badge: 'BEST STARTER',         featured: false },
+  { id: 'stripes_large_2499',  name: 'Large Pack',    stripes: 3250,  price: '$24.99', badge: 'BEST VALUE',           featured: true  },
+  { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
 
 // ── Merch ─────────────────────────────────────────────────────────────────────
@@ -92,13 +92,13 @@ const TIER_DEFS: TierDef[] = [
     emblem: '/cosmetics/badges/badge-gold-pro.png', badge: 'MOST POPULAR',
     features: [
       'Exclusive Gold avatar frame',
-      'Daily +1,000 chip bonus',
-      'Monthly 100◆ Stripes grant',
-      'XP boost: +25% per hand',
+      '2x daily chip reward',
+      'Monthly 1,000◆ Stripes grant',
+      'XP boost: +50% per hand',
       'Gold Pro badge at table',
     ],
-    monthlyPrice: '$9.99', yearlyPrice: '$99.99',
-    yearlySavings: '~$8.33/mo · save 17%',
+    monthlyPrice: '$4.99', yearlyPrice: '$29.99',
+    yearlySavings: '~$2.50/mo · save ~50%',
     monthlyProductId: 'sub_gold_pro_monthly',
     yearlyProductId:  'sub_gold_pro_yearly',
   },
@@ -109,14 +109,14 @@ const TIER_DEFS: TierDef[] = [
     features: [
       'All Gold Pro benefits',
       'Exclusive animated Diamond frame',
-      'Daily +2,500 chip bonus',
-      'Monthly 300◆ Stripes grant',
-      'XP boost: +50% per hand',
+      '3x daily chip reward',
+      'Monthly 2,500◆ Stripes grant',
+      'XP boost: +100% per hand',
       'Exclusive Diamond table skin',
       'DIAMOND ELITE badge at table',
     ],
-    monthlyPrice: '$19.99', yearlyPrice: '$199.99',
-    yearlySavings: '~$16.67/mo · save 17%',
+    monthlyPrice: '$9.99', yearlyPrice: '$59.99',
+    yearlySavings: '~$5.00/mo · save ~50%',
     monthlyProductId: 'sub_diamond_elite_monthly',
     yearlyProductId:  'sub_diamond_elite_yearly',
   },
@@ -691,8 +691,8 @@ export default function Shop() {
                       style={{
                         top: -8,
                         right: 14,
-                        background: pack.id === 'stripes_large_2199' ? '#FF6B1A' : '#FFD700',
-                        color: pack.id === 'stripes_large_2199' ? '#fff' : '#0B0B0D',
+                        background: pack.id === 'stripes_large_2499' ? '#FF6B1A' : '#FFD700',
+                        color: pack.id === 'stripes_large_2499' ? '#fff' : '#0B0B0D',
                         padding: '4px 10px',
                         borderRadius: 12,
                         letterSpacing: '0.05em',

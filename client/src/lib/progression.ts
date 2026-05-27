@@ -211,9 +211,9 @@ export function awardHandXP(result: HandResult, subscriptionTier?: string | null
 
   // ── Subscription XP boost (applied to hand XP, not achievement XP) ────────
   if (subscriptionTier === "diamond_elite") {
-    xpGained = Math.round(xpGained * 1.5);
+    xpGained = Math.round(xpGained * 2.0);
   } else if (subscriptionTier === "gold_pro") {
-    xpGained = Math.round(xpGained * 1.25);
+    xpGained = Math.round(xpGained * 1.5);
   }
 
   state.xp += xpGained;

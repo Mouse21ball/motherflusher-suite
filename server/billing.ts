@@ -18,11 +18,11 @@
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
 // Product IDs must match what is registered in Play Console exactly.
 export const STRIPES_PACKS: Record<string, { stripes: number; priceCents: number }> = {
-  stripes_starter_99:  { stripes: 60,   priceCents: 99   },
-  stripes_small_499:   { stripes: 300,  priceCents: 499  },
-  stripes_medium_999:  { stripes: 650,  priceCents: 999  },
-  stripes_large_2199:  { stripes: 1500, priceCents: 2199 },
-  stripes_mega_9999:   { stripes: 8000, priceCents: 9999 },
+  stripes_starter_99:  { stripes: 100,   priceCents: 99   },
+  stripes_small_499:   { stripes: 550,   priceCents: 499  },
+  stripes_medium_999:  { stripes: 1200,  priceCents: 999  },
+  stripes_large_2499:  { stripes: 3250,  priceCents: 2499 },
+  stripes_mega_9999:   { stripes: 15000, priceCents: 9999 },
 };
 
 // ─── Subscription product catalog ────────────────────────────────────────────
@@ -35,7 +35,7 @@ export interface SubscriptionProduct {
   priceCents:     number;
   stripesOnStart: number;   // Stripes credited when subscription first activates
   stripesMonthly: number;   // Stripes credited on each renewal
-  chipBonusDaily: number;   // Extra chips added to daily bonus claim
+  dailyChipMultiplier: number;  // Multiplier applied to base daily chip reward (e.g. 2 = 2x)
   xpMultiplier:   number;   // e.g. 1.25 = +25%
   frameId:        string;   // cosmetic frame auto-equipped while active
 }
@@ -43,23 +43,23 @@ export interface SubscriptionProduct {
 export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   sub_gold_pro_monthly: {
     tier: "gold_pro", billingPeriod: "monthly",
-    priceCents: 999, stripesOnStart: 100, stripesMonthly: 100,
-    chipBonusDaily: 1000, xpMultiplier: 1.25, frameId: "frame_gold_subscription",
+    priceCents: 499, stripesOnStart: 1000, stripesMonthly: 1000,
+    dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
   },
   sub_gold_pro_yearly: {
     tier: "gold_pro", billingPeriod: "yearly",
-    priceCents: 9999, stripesOnStart: 100, stripesMonthly: 100,
-    chipBonusDaily: 1000, xpMultiplier: 1.25, frameId: "frame_gold_subscription",
+    priceCents: 2999, stripesOnStart: 1000, stripesMonthly: 1000,
+    dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
   },
   sub_diamond_elite_monthly: {
     tier: "diamond_elite", billingPeriod: "monthly",
-    priceCents: 1999, stripesOnStart: 300, stripesMonthly: 300,
-    chipBonusDaily: 2500, xpMultiplier: 1.50, frameId: "frame_diamond_animated",
+    priceCents: 999, stripesOnStart: 2500, stripesMonthly: 2500,
+    dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
   sub_diamond_elite_yearly: {
     tier: "diamond_elite", billingPeriod: "yearly",
-    priceCents: 19999, stripesOnStart: 300, stripesMonthly: 300,
-    chipBonusDaily: 2500, xpMultiplier: 1.50, frameId: "frame_diamond_animated",
+    priceCents: 5999, stripesOnStart: 2500, stripesMonthly: 2500,
+    dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
 };
 

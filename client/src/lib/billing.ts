@@ -27,7 +27,7 @@ export const STRIPES_PRODUCT_IDS = [
   "stripes_starter_99",
   "stripes_small_499",
   "stripes_medium_999",
-  "stripes_large_2199",
+  "stripes_large_2499",
   "stripes_mega_9999",
 ] as const;
 

@@ -20,6 +20,7 @@ import {
   type PlayerReport,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
+import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
@@ -946,11 +947,12 @@ export class MemStorage implements IStorage {
     return await db.transaction(async (tx) => {
       const rows = await tx
         .select({
-          chipBalance:        playerProfiles.chipBalance,
-          stripes:            playerProfiles.stripes,
-          lastBonusClaimedAt: playerProfiles.lastBonusClaimedAt,
-          bonusStreakDay:     playerProfiles.bonusStreakDay,
-          totalBonusClaims:  playerProfiles.totalBonusClaims,
+          chipBalance:             playerProfiles.chipBalance,
+          stripes:                 playerProfiles.stripes,
+          lastBonusClaimedAt:      playerProfiles.lastBonusClaimedAt,
+          bonusStreakDay:          playerProfiles.bonusStreakDay,
+          totalBonusClaims:       playerProfiles.totalBonusClaims,
+          activeSubscriptionTier: playerProfiles.activeSubscriptionTier,
         })
         .from(playerProfiles)
         .where(eq(playerProfiles.id, playerId))
@@ -968,7 +970,16 @@ export class MemStorage implements IStorage {
       const newStreakDay      = computeNextStreakDay(player.lastBonusClaimedAt, player.bonusStreakDay);
       const reward            = DAILY_BONUS_SCHEDULE[newStreakDay - 1];
       const now               = new Date();
-      const newChipBalance    = player.chipBalance + reward.chips;
+
+      // Apply subscription daily chip multiplier (2x Gold Pro, 3x Diamond Elite)
+      const subTier = player.activeSubscriptionTier;
+      const chipMultiplier =
+        subTier === 'diamond_elite' ? 3
+        : subTier === 'gold_pro'    ? 2
+        : 1;
+      const chipsAwarded      = Math.round(reward.chips * chipMultiplier);
+
+      const newChipBalance    = player.chipBalance + chipsAwarded;
       const newStripesBalance = player.stripes + reward.stripes;
 
       await tx
@@ -996,26 +1007,27 @@ export class MemStorage implements IStorage {
         playerId,
         claimedAt:      now,
         streakDay:      newStreakDay,
-        chipsGranted:   reward.chips,
+        chipsGranted:   chipsAwarded,
         stripesGranted: reward.stripes,
       });
 
       await this._insertChipLedger(tx, {
         playerId,
         beforeBalance: player.chipBalance,
-        amountChange:  reward.chips,
+        amountChange:  chipsAwarded,
         afterBalance:  newChipBalance,
         reason:        'daily_bonus',
         source:        'dailyBonus',
         metadata: {
-          streakDay:      newStreakDay,
-          chipsGranted:   reward.chips,
-          stripesGranted: reward.stripes,
+          streakDay:       newStreakDay,
+          chipsGranted:    chipsAwarded,
+          stripesGranted:  reward.stripes,
+          chipMultiplier,
         },
       });
 
       return {
-        chipsGranted:         reward.chips,
+        chipsGranted:         chipsAwarded,
         stripesGranted:       reward.stripes,
         newStreakDay,
         nextClaimAvailableAt: tomorrowUtcMidnight(),
