@@ -19,6 +19,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
+import { BlockList } from '@/components/settings/BlockList';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -926,6 +927,19 @@ export default function Profile() {
           {/* ════════════════════════════════════════════════════════════════ */}
           {/* FOOTER                                                            */}
           {/* ════════════════════════════════════════════════════════════════ */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* BLOCKED PLAYERS                                                    */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          <div style={{ background: 'rgba(15,10,25,0.55)', border: '1px solid rgba(255,215,0,0.12)', borderRadius: 16, padding: 16, marginTop: 12 }}>
+            <div
+              style={{ fontSize: 9, color: 'rgba(201,162,39,0.55)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}
+              data-testid="section-blocked-players"
+            >
+              Blocked Players
+            </div>
+            <BlockList />
+          </div>
+
           <div ref={footerRef} className="flex flex-col gap-3 mt-2">
             {/* Feedback */}
             <a

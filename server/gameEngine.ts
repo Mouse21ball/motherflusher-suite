@@ -461,9 +461,17 @@ function broadcastState(table: AuthTable): void {
           personalState = { ...personalState, heroChipChange: nowChips - prevChips };
         }
       }
+      // Enrich players with identityId so client can resolve seat→UUID for block feature
+      const enrichedState = {
+        ...personalState,
+        players: personalState.players.map(p => {
+          const iid = table.seatToIdentityId.get(p.id);
+          return iid ? { ...p, identityId: iid } : p;
+        }),
+      };
       ws.send(JSON.stringify({
         type: 'badugi:snapshot',
-        state: personalState,
+        state: enrichedState,
         sessionStats: buildBadugiSessionStats(table, playerId),
       }));
     } catch { /* ignore closed socket race */ }

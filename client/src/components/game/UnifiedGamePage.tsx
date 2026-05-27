@@ -353,6 +353,10 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         onSendMessage={handleSendMessage}
         open={chatOpen}
         onOpenChange={setChatOpen}
+        seatToPlayerId={Object.fromEntries(
+          state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!])
+        )}
+        myProfileId={serverProfile?.profileId}
       />
 
       <BustOutModal

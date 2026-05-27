@@ -34,6 +34,7 @@ export interface Player {
   name: string;
   avatarUrl?: string;
   presence?: PlayerPresence;
+  identityId?: string;
   chips: number;
   bet: number;
   totalBet?: number;

@@ -462,6 +462,10 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
   const [sending, setSend]  = useState(false);
   const bottomRef           = useRef<HTMLDivElement>(null);
   const seenIds             = useRef<Set<string>>(new Set());
+  const [crewMenu, setCrewMenu]           = useState<{ msgId: string; name: string; pid: string; x: number; y: number } | null>(null);
+  const [crewBlockTarget, setCrewBlockTarget] = useState<{ name: string; pid: string } | null>(null);
+  const [crewBlocking, setCrewBlocking]   = useState(false);
+  const longPressRef                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef             = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMsgs = useCallback(async () => {
@@ -489,6 +493,39 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
+
+  useEffect(() => {
+    if (!crewMenu) return;
+    const close = () => setCrewMenu(null);
+    document.addEventListener('click', close);
+    document.addEventListener('touchstart', close);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('touchstart', close); };
+  }, [crewMenu]);
+
+  function startLongPress(m: ChatMsg) {
+    return (e: React.TouchEvent) => {
+      if (m.playerId === playerId) return;
+      const t = e.touches[0];
+      const x = t?.clientX ?? 0; const y = t?.clientY ?? 0;
+      if (longPressRef.current) clearTimeout(longPressRef.current);
+      longPressRef.current = setTimeout(() => setCrewMenu({ msgId: m.id, name: m.playerName, pid: m.playerId, x, y }), 500);
+    };
+  }
+
+  function cancelLongPress() {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+  }
+
+  async function confirmCrewBlock() {
+    if (!crewBlockTarget) return;
+    setCrewBlocking(true);
+    try {
+      const { ok, data } = await apiFetch('/api/players/blocks', { method: 'POST', body: JSON.stringify({ blockedId: crewBlockTarget.pid }) });
+      if (ok) toast({ title: `Blocked ${crewBlockTarget.name}` });
+      else toast({ title: (data as { error?: string })?.error ?? 'Could not block player.', variant: 'destructive' });
+    } catch { toast({ title: 'Network error.', variant: 'destructive' }); }
+    finally { setCrewBlocking(false); setCrewBlockTarget(null); }
+  }
 
   async function send() {
     if (!text.trim() || sending) return;
@@ -518,7 +555,68 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     crew.members.find(m => m.playerId === pid)?.role ?? "member";
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 230px)" }}>
+    <>
+      {crewMenu && (
+        <div
+          className="fixed z-[200] rounded-xl shadow-2xl py-1 border min-w-[160px]"
+          style={{ top: crewMenu.y, left: Math.min(crewMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 180), background: '#1a1a1f', borderColor: 'rgba(255,255,255,0.08)' }}
+          onClick={e => e.stopPropagation()}
+          data-testid="crew-chat-context-menu"
+        >
+          <button
+            className="w-full text-left px-4 py-2.5 text-xs font-mono"
+            style={{ color: 'rgba(220,80,80,0.80)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            onClick={() => { setCrewBlockTarget({ name: crewMenu.name, pid: crewMenu.pid }); setCrewMenu(null); }}
+            data-testid="crew-chat-menu-block"
+          >
+            Block {crewMenu.name}
+          </button>
+        </div>
+      )}
+      {crewBlockTarget && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.60)' }}
+          onClick={() => setCrewBlockTarget(null)}
+          data-testid="crew-block-confirm-overlay"
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl p-5 space-y-4"
+            style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
+            onClick={e => e.stopPropagation()}
+            data-testid="crew-block-confirm-modal"
+          >
+            <div>
+              <div className="text-sm font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.85)' }}>Block {crewBlockTarget.name}?</div>
+              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                You won't see their messages. You can unblock them in Settings.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.40)' }}
+                onClick={() => setCrewBlockTarget(null)}
+                data-testid="crew-block-confirm-cancel"
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
+                style={{ background: 'rgba(220,80,80,0.20)', color: 'rgba(220,80,80,0.90)' }}
+                onClick={confirmCrewBlock}
+                disabled={crewBlocking}
+                data-testid="crew-block-confirm-submit"
+              >
+                {crewBlocking ? 'Blocking…' : 'Block'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col" style={{ height: "calc(100vh - 230px)" }}>
       {/* Message feed */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2">
         {msgs.length === 0 && (
@@ -544,12 +642,16 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
                     </span>
                   )}
                 </div>
-                <div className="rounded-xl px-3 py-1.5 text-xs font-mono break-words"
+                <div className="rounded-xl px-3 py-1.5 text-xs font-mono break-words select-none"
                      style={{
                        background: isMe ? "rgba(240,184,41,0.18)" : "rgba(255,255,255,0.06)",
                        color: isMe ? "#f0b829" : "rgba(240,184,41,0.8)",
                        border: "1px solid rgba(240,184,41,0.10)",
-                     }}>
+                     }}
+                     onContextMenu={!isMe ? (e) => { e.preventDefault(); setCrewMenu({ msgId: m.id, name: m.playerName, pid: m.playerId, x: e.clientX, y: e.clientY }); } : undefined}
+                     onTouchStart={!isMe ? startLongPress(m) : undefined}
+                     onTouchEnd={!isMe ? cancelLongPress : undefined}
+                     onTouchMove={!isMe ? cancelLongPress : undefined}>
                   {m.message}
                 </div>
                 <span className="text-[9px] font-mono mt-0.5" style={{ color: "rgba(240,184,41,0.25)" }}>
@@ -589,6 +691,7 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
         </button>
       </div>
     </div>
+    </>
   );
 }
 
