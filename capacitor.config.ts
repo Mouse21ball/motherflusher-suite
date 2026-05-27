@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.dgmentertainment.poker',
-  appName: 'DGM Poker',
+  appName: 'Chain Gang Poker',
   webDir: 'dist/public',
 
   // ── Server config ─────────────────────────────────────────────────────────
