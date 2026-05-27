@@ -4,6 +4,7 @@
  */
 
 import { storage } from "./storage";
+import { filterChatMessage } from './chatFilter';
 
 // ─── Invite-code generation ───────────────────────────────────────────────────
 // 6 uppercase alphanumeric chars from an unambiguous alphabet (no 0/1/I/O).
@@ -27,26 +28,6 @@ export async function generateUniqueInviteCode(): Promise<string> {
   throw new Error("Failed to generate unique invite code — try again.");
 }
 
-// ─── Profanity filter ─────────────────────────────────────────────────────────
-// Simple word-list approach with whole-word matching.  Easy to extend.
-const BLOCKED_WORDS: string[] = [
-  // racial/ethnic slurs
-  "nigger", "nigga", "chink", "gook", "spic", "wetback", "beaner",
-  "kike", "cracker", "redskin", "raghead", "sandnigger", "zipperhead",
-  // homophobic / transphobic slurs
-  "faggot", "fag", "dyke", "tranny",
-  // other commonly blocked terms
-  "retard", "retarded", "cunt",
-];
-
-const BLOCKED_PATTERNS: RegExp[] = BLOCKED_WORDS.map(
-  w => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")
-);
-
-export function containsProfanity(message: string): boolean {
-  return BLOCKED_PATTERNS.some(re => re.test(message));
-}
-
 // ─── Per-player chat rate limiter (in-memory, max 5 msg / 10 s) ──────────────
 const rateLimitMap = new Map<string, number[]>(); // playerId → timestamps[]
 
@@ -67,11 +48,13 @@ export function checkChatRateLimit(playerId: string): boolean {
 }
 
 // ─── Crew name validation ─────────────────────────────────────────────────────
+
 export function validateCrewName(name: string): string | null {
   const trimmed = name.trim();
   if (trimmed.length < 3)  return "Crew name must be at least 3 characters.";
   if (trimmed.length > 30) return "Crew name must be 30 characters or fewer.";
-  if (containsProfanity(trimmed)) return "Crew name contains a blocked word.";
+  const { hadProfanity } = filterChatMessage(trimmed);
+  if (hadProfanity) return "Crew name contains a blocked word.";
   return null; // valid
 }
 

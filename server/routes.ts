@@ -31,7 +31,8 @@ import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
 
 const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
-import { generateUniqueInviteCode, containsProfanity, checkChatRateLimit, validateCrewName } from "./crews";
+import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
+import { filterChatMessage } from "./chatFilter";
 import {
   STRIPES_PACKS,
   SUBSCRIPTION_PRODUCTS,
@@ -1638,15 +1639,14 @@ export async function registerRoutes(
 
       const { message } = z.object({ message: z.string().min(1).max(500) }).parse(req.body);
 
-      if (containsProfanity(message)) {
-        res.status(422).json({ error: "Message blocked — please keep it clean." }); return;
-      }
-
       if (!checkChatRateLimit(playerId)) {
         res.status(429).json({ error: "Too many messages — slow down." }); return;
       }
 
-      const { id, createdAt } = await storage.sendChatMessage(crewId, playerId, message);
+      const { filtered: filteredMessage, hadProfanity } = filterChatMessage(message);
+      if (hadProfanity) console.log(`[CHAT_FILTER] player=${playerId} crew=${crewId} hadProfanity=true`);
+
+      const { id, createdAt } = await storage.sendChatMessage(crewId, playerId, filteredMessage);
       res.json({ id, created_at: createdAt });
     } catch (err: any) {
       if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }

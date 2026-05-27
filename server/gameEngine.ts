@@ -14,6 +14,7 @@ import { engineLog } from './engineLog';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
+import { filterChatMessage } from './chatFilter';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -1752,10 +1753,12 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── chat — no turn required, any seated player can message ─────────────
     if (action === 'chat') {
-      const text = typeof payload === 'string' ? payload.trim().slice(0, 150) : '';
-      if (!text) { table.actionLock = false; return; }
+      const rawText = typeof payload === 'string' ? payload.trim().slice(0, 150) : '';
+      if (!rawText) { table.actionLock = false; return; }
       const sender = s.players.find(p => p.id === playerId);
       if (!sender) { table.actionLock = false; return; }
+      const { filtered: text, hadProfanity } = filterChatMessage(rawText);
+      if (hadProfanity) console.log(`[CHAT_FILTER] player=${playerId} table=${tableId} hadProfanity=true`);
       const msg: ChatMessage = {
         id: makeId(),
         senderId: playerId,
