@@ -971,11 +971,16 @@ export class MemStorage implements IStorage {
       const reward            = DAILY_BONUS_SCHEDULE[newStreakDay - 1];
       const now               = new Date();
 
-      // Apply subscription daily chip multiplier (2x Gold Pro, 3x Diamond Elite)
+      // Apply subscription daily chip multiplier from the catalog.
+      // Monthly product IDs are the canonical source per tier — monthly and yearly
+      // subscribers share the same dailyChipMultiplier value in SUBSCRIPTION_PRODUCTS.
       const subTier = player.activeSubscriptionTier;
-      const chipMultiplier =
-        subTier === 'diamond_elite' ? 3
-        : subTier === 'gold_pro'    ? 2
+      const subProductKey =
+        subTier === 'diamond_elite' ? 'sub_diamond_elite_monthly'
+        : subTier === 'gold_pro'    ? 'sub_gold_pro_monthly'
+        : null;
+      const chipMultiplier = subProductKey
+        ? (SUBSCRIPTION_PRODUCTS[subProductKey]?.dailyChipMultiplier ?? 1)
         : 1;
       const chipsAwarded      = Math.round(reward.chips * chipMultiplier);
 
