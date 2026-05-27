@@ -462,10 +462,14 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
   const [sending, setSend]  = useState(false);
   const bottomRef           = useRef<HTMLDivElement>(null);
   const seenIds             = useRef<Set<string>>(new Set());
-  const [crewMenu, setCrewMenu]           = useState<{ msgId: string; name: string; pid: string; x: number; y: number } | null>(null);
+  const [crewMenu, setCrewMenu]               = useState<{ msgId: string; name: string; pid: string; x: number; y: number } | null>(null);
   const [crewBlockTarget, setCrewBlockTarget] = useState<{ name: string; pid: string } | null>(null);
-  const [crewBlocking, setCrewBlocking]   = useState(false);
-  const longPressRef                      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [crewBlocking, setCrewBlocking]       = useState(false);
+  const [crewReportTarget, setCrewReportTarget] = useState<{ name: string; pid: string; msgId: string } | null>(null);
+  const [crewReportReason, setCrewReportReason] = useState('harassment');
+  const [crewReportNotes, setCrewReportNotes]   = useState('');
+  const [crewReporting, setCrewReporting]       = useState(false);
+  const longPressRef                            = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef             = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMsgs = useCallback(async () => {
@@ -527,6 +531,29 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     finally { setCrewBlocking(false); setCrewBlockTarget(null); }
   }
 
+  async function submitCrewReport() {
+    if (!crewReportTarget) return;
+    setCrewReporting(true);
+    try {
+      const { ok, data } = await apiFetch('/api/players/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          reportedId:  crewReportTarget.pid,
+          reason:      crewReportReason,
+          context:     crewReportTarget.msgId,
+          contextType: 'crew_chat',
+          notes:       crewReportNotes.trim() || undefined,
+        }),
+      });
+      if (ok) toast({ title: 'Report submitted. Our team will review it.' });
+      else toast({ title: (data as { error?: string })?.error ?? 'Could not submit report.', variant: 'destructive' });
+    } catch { toast({ title: 'Network error.', variant: 'destructive' }); }
+    finally {
+      setCrewReporting(false); setCrewReportTarget(null);
+      setCrewReportReason('harassment'); setCrewReportNotes('');
+    }
+  }
+
   async function send() {
     if (!text.trim() || sending) return;
     setSend(true);
@@ -573,6 +600,16 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
           >
             Block {crewMenu.name}
           </button>
+          <button
+            className="w-full text-left px-4 py-2.5 text-xs font-mono"
+            style={{ color: 'rgba(201,162,39,0.80)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            onClick={() => { setCrewReportTarget({ name: crewMenu.name, pid: crewMenu.pid, msgId: crewMenu.msgId }); setCrewMenu(null); }}
+            data-testid="crew-chat-menu-report"
+          >
+            Report {crewMenu.name}
+          </button>
         </div>
       )}
       {crewBlockTarget && (
@@ -612,6 +649,76 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
               >
                 {crewBlocking ? 'Blocking…' : 'Block'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {crewReportTarget && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.60)' }}
+          onClick={() => { setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }}
+          data-testid="crew-report-modal-overlay"
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl p-5 space-y-4"
+            style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
+            onClick={e => e.stopPropagation()}
+            data-testid="crew-report-modal"
+          >
+            <div>
+              <div className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>Report {crewReportTarget.name}</div>
+              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Our team reviews all reports. False reports may result in account action.
+              </p>
+            </div>
+            <div>
+              <label className="block mb-1.5 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.30)' }}>Reason</label>
+              <select
+                value={crewReportReason}
+                onChange={e => setCrewReportReason(e.target.value)}
+                className="w-full rounded-xl px-3 py-2 text-sm font-mono border focus:outline-none"
+                style={{ background: 'rgba(0,0,0,0.40)', color: 'rgba(255,255,255,0.75)', borderColor: 'rgba(255,255,255,0.08)' }}
+                data-testid="crew-report-reason-select"
+              >
+                <option value="harassment">Harassment</option>
+                <option value="cheating">Cheating</option>
+                <option value="spam">Spam</option>
+                <option value="offensive_language">Offensive Language</option>
+                <option value="impersonation">Impersonation</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1.5 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.30)' }}>Notes (optional)</label>
+              <textarea
+                value={crewReportNotes}
+                onChange={e => setCrewReportNotes(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Additional details…"
+                className="w-full rounded-xl px-3 py-2 text-sm font-mono border focus:outline-none resize-none"
+                style={{ background: 'rgba(0,0,0,0.40)', color: 'rgba(255,255,255,0.65)', borderColor: 'rgba(255,255,255,0.08)' }}
+                data-testid="crew-report-notes-textarea"
+              />
+              <div className="text-right text-[9px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.20)' }} data-testid="crew-report-notes-counter">
+                {crewReportNotes.length}/500
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.40)' }}
+                onClick={() => { setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }}
+                data-testid="crew-report-cancel"
+              >Cancel</button>
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
+                style={{ background: 'rgba(201,162,39,0.20)', color: 'rgba(201,162,39,0.90)' }}
+                onClick={submitCrewReport}
+                disabled={crewReporting}
+                data-testid="crew-report-submit"
+              >{crewReporting ? 'Sending…' : 'Submit'}</button>
             </div>
           </div>
         </div>

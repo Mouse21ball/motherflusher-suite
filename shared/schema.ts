@@ -361,3 +361,25 @@ export const blockedPlayers = pgTable("blocked_players", {
 ]);
 
 export type BlockedPlayer = typeof blockedPlayers.$inferSelect;
+
+// ─── Player Reports ──────────────────────────────────────────────────────────
+export const playerReports = pgTable("player_reports", {
+  id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  reporterId:  text("reporter_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  reportedId:  text("reported_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  reason:      text("reason").notNull(),
+  context:     text("context"),
+  contextType: text("context_type"),
+  notes:       text("notes"),
+  status:      text("status").notNull().default("pending"),
+  resolution:  text("resolution"),
+  reviewedBy:  text("reviewed_by").references(() => playerProfiles.id),
+  reviewedAt:  timestamp("reviewed_at"),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("player_reports_reporter_idx").on(table.reporterId),
+  index("player_reports_reported_idx").on(table.reportedId),
+  index("player_reports_status_idx").on(table.status),
+]);
+
+export type PlayerReport = typeof playerReports.$inferSelect;

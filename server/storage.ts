@@ -16,6 +16,8 @@ import {
   chipTransactions,
   blockedPlayers,
   type BlockedPlayer,
+  playerReports,
+  type PlayerReport,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -156,6 +158,11 @@ export interface IStorage {
   unblockPlayer(blockerId: string, blockedId: string): Promise<boolean>;
   getBlockedPlayers(blockerId: string): Promise<Array<{ id: string; displayName: string }>>;
   isBlocked(blockerId: string, blockedId: string): Promise<boolean>;
+  // ── Player Reports ──────────────────────────────────────────────────────────
+  createReport(reporterId: string, reportedId: string, reason: string, context: string | null, contextType: string | null, notes: string | null): Promise<PlayerReport>;
+  getReportsByReporter(reporterId: string, limit?: number): Promise<PlayerReport[]>;
+  getReportsAgainst(reportedId: string): Promise<PlayerReport[]>;
+  listPendingReports(limit: number, offset: number): Promise<Array<PlayerReport & { reporterName: string; reportedName: string }>>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -1889,6 +1896,59 @@ export class MemStorage implements IStorage {
       ))
       .limit(1);
     return rows.length > 0;
+  }
+
+  // ── Player Reports ──────────────────────────────────────────────────────────
+
+  async createReport(reporterId: string, reportedId: string, reason: string, context: string | null, contextType: string | null, notes: string | null): Promise<PlayerReport> {
+    if (reporterId === reportedId) throw new Error('Cannot report yourself.');
+    const rows = await db
+      .insert(playerReports)
+      .values({ reporterId, reportedId, reason, context, contextType, notes })
+      .returning();
+    return rows[0]!;
+  }
+
+  async getReportsByReporter(reporterId: string, limit = 50): Promise<PlayerReport[]> {
+    return db
+      .select()
+      .from(playerReports)
+      .where(eq(playerReports.reporterId, reporterId))
+      .orderBy(desc(playerReports.createdAt))
+      .limit(limit);
+  }
+
+  async getReportsAgainst(reportedId: string): Promise<PlayerReport[]> {
+    return db
+      .select()
+      .from(playerReports)
+      .where(eq(playerReports.reportedId, reportedId))
+      .orderBy(desc(playerReports.createdAt));
+  }
+
+  async listPendingReports(limit: number, offset: number): Promise<Array<PlayerReport & { reporterName: string; reportedName: string }>> {
+    return db
+      .select({
+        id:           playerReports.id,
+        reporterId:   playerReports.reporterId,
+        reportedId:   playerReports.reportedId,
+        reason:       playerReports.reason,
+        context:      playerReports.context,
+        contextType:  playerReports.contextType,
+        notes:        playerReports.notes,
+        status:       playerReports.status,
+        resolution:   playerReports.resolution,
+        reviewedBy:   playerReports.reviewedBy,
+        reviewedAt:   playerReports.reviewedAt,
+        createdAt:    playerReports.createdAt,
+        reporterName: sql<string>`(SELECT display_name FROM player_profiles WHERE id = ${playerReports.reporterId})`,
+        reportedName: sql<string>`(SELECT display_name FROM player_profiles WHERE id = ${playerReports.reportedId})`,
+      })
+      .from(playerReports)
+      .where(eq(playerReports.status, 'pending'))
+      .orderBy(desc(playerReports.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
 }
 

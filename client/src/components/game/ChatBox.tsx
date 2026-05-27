@@ -22,13 +22,33 @@ interface MenuState {
   y: number;
 }
 
+interface BlockTarget { name: string; profileId: string }
+interface ReportTarget { name: string; profileId: string; msgId: string }
+
+const REPORT_REASONS = [
+  { value: 'harassment',         label: 'Harassment' },
+  { value: 'cheating',           label: 'Cheating' },
+  { value: 'spam',               label: 'Spam' },
+  { value: 'offensive_language', label: 'Offensive Language' },
+  { value: 'impersonation',      label: 'Impersonation' },
+  { value: 'other',              label: 'Other' },
+] as const;
+
 export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, seatToPlayerId, myProfileId }: ChatBoxProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [blockTarget, setBlockTarget] = useState<{ name: string; profileId: string } | null>(null);
+
+  const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
   const [blocking, setBlocking] = useState(false);
+
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const [reportReason, setReportReason] = useState('harassment');
+  const [reportNotes, setReportNotes] = useState('');
+  const [reporting, setReporting] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLength = useRef(messages.length);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,7 +60,6 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
     else setInternalOpen(v);
   };
 
-  // Close context menu on outside click/tap
   useEffect(() => {
     if (!menu) return;
     const close = () => setMenu(null);
@@ -71,20 +90,15 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
   }, [isOpen]);
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, 100);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputText.trim()) {
-      onSendMessage(inputText.trim());
-      setInputText('');
-    }
+    if (inputText.trim()) { onSendMessage(inputText.trim()); setInputText(''); }
   };
 
-  function canBlockMsg(msg: ChatMessage): boolean {
+  function canAct(msg: ChatMessage): boolean {
     if (msg.senderId === myId) return false;
     const pid = seatToPlayerId?.[msg.senderId];
     return !!pid && pid !== myProfileId;
@@ -102,8 +116,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
       const profileId = seatToPlayerId?.[msg.senderId];
       if (!profileId || profileId === myProfileId) return;
       const touch = e.touches[0];
-      const x = touch?.clientX ?? 0;
-      const y = touch?.clientY ?? 0;
+      const x = touch?.clientX ?? 0; const y = touch?.clientY ?? 0;
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       longPressTimer.current = setTimeout(() => {
         setMenu({ msgId: msg.id, name: msg.senderName, profileId, x, y });
@@ -112,10 +125,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
   }
 
   function cancelLongPress() {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   }
 
   async function confirmBlock() {
@@ -136,10 +146,39 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
     } catch {
       toast({ title: 'Network error.', variant: 'destructive' });
     } finally {
-      setBlocking(false);
-      setBlockTarget(null);
+      setBlocking(false); setBlockTarget(null);
     }
   }
+
+  async function submitReport() {
+    if (!reportTarget) return;
+    setReporting(true);
+    try {
+      const res = await apiFetch('/api/players/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportedId:  reportTarget.profileId,
+          reason:      reportReason,
+          context:     reportTarget.msgId,
+          contextType: 'table_chat',
+          notes:       reportNotes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        toast({ title: 'Report submitted. Our team will review it.' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ title: (data as { error?: string })?.error ?? 'Could not submit report.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Network error.', variant: 'destructive' });
+    } finally {
+      setReporting(false); setReportTarget(null); setReportReason('harassment'); setReportNotes('');
+    }
+  }
+
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 400;
 
   return (
     <>
@@ -147,7 +186,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
       {menu && (
         <div
           className="fixed z-[200] rounded-xl shadow-2xl py-1 border border-white/[0.08] min-w-[160px]"
-          style={{ top: menu.y, left: Math.min(menu.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 180), background: '#1a1a1f' }}
+          style={{ top: menu.y, left: Math.min(menu.x, winW - 180), background: '#1a1a1f' }}
           onClick={e => e.stopPropagation()}
           data-testid="chat-context-menu"
         >
@@ -157,6 +196,13 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
             data-testid="chat-menu-block"
           >
             Block {menu.name}
+          </button>
+          <button
+            className="w-full text-left px-4 py-2.5 text-sm font-mono text-amber-400/80 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
+            onClick={() => { setReportTarget({ name: menu.name, profileId: menu.profileId, msgId: menu.msgId }); setMenu(null); }}
+            data-testid="chat-menu-report"
+          >
+            Report {menu.name}
           </button>
         </div>
       )}
@@ -185,17 +231,77 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
                 className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all bg-white/[0.05] text-white/40 hover:bg-white/[0.08] active:scale-[0.97]"
                 onClick={() => setBlockTarget(null)}
                 data-testid="block-confirm-cancel"
-              >
-                Cancel
-              </button>
+              >Cancel</button>
               <button
                 className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all bg-red-500/20 text-red-400/90 hover:bg-red-500/30 active:scale-[0.97] disabled:opacity-50"
                 onClick={confirmBlock}
                 disabled={blocking}
                 data-testid="block-confirm-submit"
+              >{blocking ? 'Blocking…' : 'Block'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report modal */}
+      {reportTarget && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={() => { setReportTarget(null); setReportReason('harassment'); setReportNotes(''); }}
+          data-testid="report-modal-overlay"
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl border border-white/[0.08] p-5 space-y-4"
+            style={{ background: '#17171c' }}
+            onClick={e => e.stopPropagation()}
+            data-testid="report-modal"
+          >
+            <div>
+              <div className="text-sm font-semibold text-white/85 mb-1">Report {reportTarget.name}</div>
+              <p className="text-xs font-mono text-white/35 leading-relaxed">
+                Our team reviews all reports. False reports may result in account action.
+              </p>
+            </div>
+            <div>
+              <label className="block text-[9px] font-mono uppercase tracking-widest text-white/30 mb-1.5">Reason</label>
+              <select
+                value={reportReason}
+                onChange={e => setReportReason(e.target.value)}
+                className="w-full rounded-xl px-3 py-2 text-sm font-mono bg-black/40 text-white/75 border border-white/[0.08] focus:outline-none focus:border-white/20"
+                data-testid="report-reason-select"
               >
-                {blocking ? 'Blocking…' : 'Block'}
-              </button>
+                {REPORT_REASONS.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[9px] font-mono uppercase tracking-widest text-white/30 mb-1.5">Notes (optional)</label>
+              <textarea
+                value={reportNotes}
+                onChange={e => setReportNotes(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Additional details…"
+                className="w-full rounded-xl px-3 py-2 text-sm font-mono bg-black/40 text-white/65 border border-white/[0.08] focus:outline-none focus:border-white/20 resize-none placeholder:text-white/20"
+                data-testid="report-notes-textarea"
+              />
+              <div className="text-right text-[9px] font-mono text-white/20 mt-0.5" data-testid="report-notes-counter">
+                {reportNotes.length}/500
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest bg-white/[0.05] text-white/40 hover:bg-white/[0.08] active:scale-[0.97] transition-all"
+                onClick={() => { setReportTarget(null); setReportReason('harassment'); setReportNotes(''); }}
+                data-testid="report-cancel"
+              >Cancel</button>
+              <button
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-400/90 hover:bg-amber-500/30 active:scale-[0.97] transition-all disabled:opacity-50"
+                onClick={submitReport}
+                disabled={reporting}
+                data-testid="report-submit"
+              >{reporting ? 'Sending…' : 'Submit'}</button>
             </div>
           </div>
         </div>
@@ -228,7 +334,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
           ) : (
             messages.map((msg) => {
               const isMe = msg.senderId === myId;
-              const blockable = canBlockMsg(msg);
+              const actable = canAct(msg);
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   <span className="text-[9px] text-white/25 mb-1 mx-1 font-mono tracking-wide">{msg.senderName}</span>
@@ -237,11 +343,11 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
                       isMe
                         ? 'bg-[#C9A227]/15 text-[#C9A227]/90 rounded-2xl rounded-br-md border border-[#C9A227]/10'
                         : 'bg-white/[0.04] text-white/60 rounded-2xl rounded-bl-md border border-white/[0.04]'
-                    } ${blockable ? 'cursor-pointer active:opacity-70' : ''}`}
-                    onContextMenu={blockable ? (e) => openMenuForMsg(e, msg) : undefined}
-                    onTouchStart={blockable ? startLongPress(msg) : undefined}
-                    onTouchEnd={blockable ? cancelLongPress : undefined}
-                    onTouchMove={blockable ? cancelLongPress : undefined}
+                    } ${actable ? 'cursor-pointer active:opacity-70' : ''}`}
+                    onContextMenu={actable ? (e) => openMenuForMsg(e, msg) : undefined}
+                    onTouchStart={actable ? startLongPress(msg) : undefined}
+                    onTouchEnd={actable ? cancelLongPress : undefined}
+                    onTouchMove={actable ? cancelLongPress : undefined}
                     data-testid={`chat-bubble-${msg.id}`}
                   >
                     {msg.text}

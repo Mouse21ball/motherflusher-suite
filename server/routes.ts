@@ -7,6 +7,7 @@ import {
   dailyBonusRateLimit,
   purchaseVerificationRateLimit,
   generalApiRateLimit,
+  reportRateLimit,
 } from "./middleware/rateLimits";
 import { z } from "zod";
 import {
@@ -332,6 +333,55 @@ export async function registerRoutes(
       res.json({ unblocked });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Player Reports ────────────────────────────────────────────────────────
+  // Registered before /api/players/:id to avoid Express param shadowing.
+
+  const REPORT_REASONS = ['harassment', 'cheating', 'spam', 'offensive_language', 'impersonation', 'other'] as const;
+  const reportBodySchema = z.object({
+    reportedId:  z.string().min(1),
+    reason:      z.enum(REPORT_REASONS),
+    context:     z.string().optional(),
+    contextType: z.enum(['table_chat', 'crew_chat', 'player_profile', 'gameplay']).optional(),
+    notes:       z.string().max(500).optional(),
+  });
+
+  // POST /api/players/reports — submit a report
+  app.post("/api/players/reports", requireAuth, reportRateLimit, generalApiRateLimit, async (req, res) => {
+    try {
+      const reporterId = req.sessionPlayerId!;
+      const { reportedId, reason, context, contextType, notes } = reportBodySchema.parse(req.body);
+      if (reporterId === reportedId) {
+        res.status(400).json({ error: "Cannot report yourself." }); return;
+      }
+      const target = await storage.getPlayerProfile(reportedId);
+      if (!target) {
+        res.status(404).json({ error: "Player not found." }); return;
+      }
+      const report = await storage.createReport(
+        reporterId, reportedId, reason,
+        context ?? null, contextType ?? null, notes ?? null,
+      );
+      res.json(report);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request." }); return;
+      }
+      console.error("[reports] POST error:", err);
+      res.status(500).json({ error: "Failed to submit report." });
+    }
+  });
+
+  // GET /api/players/reports/mine — authenticated user's filed reports
+  app.get("/api/players/reports/mine", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const reports = await storage.getReportsByReporter(req.sessionPlayerId!, 20);
+      res.json({ reports });
+    } catch (err) {
+      console.error("[reports] GET mine error:", err);
+      res.status(500).json({ error: "Failed to fetch reports." });
     }
   });
 

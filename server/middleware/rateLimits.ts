@@ -103,3 +103,16 @@ export const generalApiRateLimit = rateLimit({
   skip:            (req: Request) => req.path.startsWith('/api/billing/test/'),
   handler:         makeHandler('Too many requests. Please slow down.'),
 });
+
+// ─── f) Report submission — 10 per user per hour ──────────────────────────────
+// Keyed by session token so players can't evade via IP rotation.
+
+export const reportRateLimit = rateLimit({
+  windowMs:        60 * 60 * 1000,
+  limit:           10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    (req: Request) =>
+    req.get('X-Session-Token') ?? ipKeyGenerator(req.ip ?? ''),
+  handler:         makeHandler('You have submitted too many reports. Try again later.'),
+});
