@@ -1,6 +1,6 @@
 workflows:
   android-release:
-    name: Chain Gang Poker — Android Release APK
+    name: Chain Gang Poker — Android Release AAB
     environment:
       java: 17
       node: 20
@@ -25,7 +25,7 @@ workflows:
       - name: Make Gradle wrapper executable
         script: chmod +x android/gradlew
 
-      - name: Assemble release APK
-        script: cd android && ./gradlew assembleRelease --no-daemon
+      - name: Bundle release AAB
+        script: cd android && ./gradlew bundleRelease --no-daemon
     artifacts:
-      - android/app/build/outputs/apk/release/app-release.apk
+      - android/app/build/outputs/bundle/release/app-release.aab
