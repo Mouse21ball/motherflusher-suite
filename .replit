@@ -51,3 +51,7 @@ BADUGI_ALPHA_ENABLED = "true"
 VITE_BADUGI_ALPHA = "true"
 
 [userenv.shared]
+
+[userenv.production]
+BADUGI_ALPHA_ENABLED = "true"
+VITE_BADUGI_ALPHA = "true"
