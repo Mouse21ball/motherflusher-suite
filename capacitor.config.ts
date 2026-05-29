@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
   //   url: 'https://your-app.replit.app'
   //
   server: {
-    url: 'https://chaing-gang-poker.replit.app',
+    // url: 'https://chaing-gang-poker.replit.app',  // FIX 4: commented for production — assets load from bundle
     cleartext: false,
     androidScheme: 'https',
   },

@@ -8,6 +8,7 @@ import { WelcomeGate } from "@/components/WelcomeGate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
+import { billing } from "@/lib/billing";
 import { BetaFooter } from "@/components/BetaFooter";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
@@ -69,6 +70,26 @@ function Router() {
 function App() {
   useEffect(() => {
     initAnalytics();
+  }, []);
+
+  // FIX 1: initialize billing once at app startup after the native bridge is ready.
+  // cordova-plugin-purchase injects window.CdvPurchase on the 'deviceready' event.
+  // On web/dev the WebBillingStub.initialize() is a no-op and safe to call directly.
+  // Fire-and-forget: errors are logged but never thrown so the rest of the app is
+  // unaffected if Play Billing is unavailable.
+  useEffect(() => {
+    const init = () => {
+      billing
+        .initialize()
+        .then(() => console.log("[billing] initialized"))
+        .catch(err => console.error("[billing] initialize failed:", err));
+    };
+    // window.cordova is present in Capacitor/Cordova native builds; absent on web.
+    if ((window as any).cordova) {
+      document.addEventListener("deviceready", init, { once: true });
+    } else {
+      init();
+    }
   }, []);
 
   return (

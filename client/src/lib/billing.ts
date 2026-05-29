@@ -122,6 +122,13 @@ class NativeBillingPlugin implements BillingPlugin {
       }))
     );
 
+    // FIX 3: register error handler before connecting to Play Billing so all
+    // store errors (network, billing unavailable, invalid product, etc.) are
+    // surfaced instead of being silently swallowed.
+    store.error(err => {
+      console.error("[billing] store error:", err.code, err.message);
+    });
+
     // Central approved handler — fires for every Google-approved transaction.
     // Server verification must succeed before transaction.finish() is called to
     // acknowledge the purchase to Google (required within 3 days for consumables).
@@ -337,6 +344,28 @@ function isNativePlatform(): boolean {
   );
 }
 
-export const billing: BillingPlugin = isNativePlatform()
-  ? new NativeBillingPlugin()
-  : new WebBillingStub();
+// FIX 2: Lazy singleton — defer platform detection until first use.
+// isNativePlatform() MUST NOT be called at module parse time because the
+// Capacitor/Cordova bridge injects window.CdvPurchase asynchronously on
+// 'deviceready', which can fire after ES module evaluation. The Proxy defers
+// instance creation until the first method call, which always happens inside
+// a useEffect (post-deviceready), so window.CdvPurchase is guaranteed to be
+// defined by then.
+let _billingInstance: BillingPlugin | null = null;
+
+function getBillingInstance(): BillingPlugin {
+  if (!_billingInstance) {
+    _billingInstance = isNativePlatform()
+      ? new NativeBillingPlugin()
+      : new WebBillingStub();
+  }
+  return _billingInstance;
+}
+
+export const billing: BillingPlugin = new Proxy({} as BillingPlugin, {
+  get(_target: BillingPlugin, prop: string) {
+    const inst = getBillingInstance();
+    const val = (inst as any)[prop];
+    return typeof val === "function" ? val.bind(inst) : val;
+  },
+});
