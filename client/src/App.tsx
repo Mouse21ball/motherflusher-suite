@@ -86,7 +86,14 @@ function App() {
     };
     // window.cordova is present in Capacitor/Cordova native builds; absent on web.
     if ((window as any).cordova) {
-      document.addEventListener("deviceready", init, { once: true });
+      // Race A fix: deviceready may have already fired before this useEffect runs
+      // (fast bundle load from local assets). If CdvPurchase is already injected,
+      // call init() directly — the listener would never fire otherwise.
+      if (typeof (window as any).CdvPurchase !== "undefined") {
+        init();
+      } else {
+        document.addEventListener("deviceready", init, { once: true });
+      }
     } else {
       init();
     }

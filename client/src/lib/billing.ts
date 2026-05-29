@@ -344,28 +344,33 @@ function isNativePlatform(): boolean {
   );
 }
 
-// FIX 2: Lazy singleton — defer platform detection until first use.
-// isNativePlatform() MUST NOT be called at module parse time because the
-// Capacitor/Cordova bridge injects window.CdvPurchase asynchronously on
-// 'deviceready', which can fire after ES module evaluation. The Proxy defers
-// instance creation until the first method call, which always happens inside
-// a useEffect (post-deviceready), so window.CdvPurchase is guaranteed to be
-// defined by then.
-let _billingInstance: BillingPlugin | null = null;
+// Race B fix: BillingRouter — re-evaluates isNativePlatform() on every dispatch.
+// NativeBillingPlugin is cached once created (to preserve internal state like the
+// pending purchase map across the approved handler lifecycle). WebBillingStub is
+// never permanently locked in: if CdvPurchase becomes available after a stub call
+// (e.g. deviceready fires after Shop's first getActiveSubscription access), all
+// subsequent calls automatically upgrade to NativeBillingPlugin.
+class BillingRouter implements BillingPlugin {
+  private _native: NativeBillingPlugin | null = null;
+  private _web = new WebBillingStub();
 
-function getBillingInstance(): BillingPlugin {
-  if (!_billingInstance) {
-    _billingInstance = isNativePlatform()
-      ? new NativeBillingPlugin()
-      : new WebBillingStub();
+  private delegate(): BillingPlugin {
+    if (isNativePlatform()) {
+      if (!this._native) this._native = new NativeBillingPlugin();
+      return this._native;
+    }
+    return this._web;
   }
-  return _billingInstance;
+
+  async initialize(): Promise<void>                          { return this.delegate().initialize(); }
+  getProducts(): ProductInfo[]                               { return this.delegate().getProducts(); }
+  async purchase(productId: string): Promise<PurchaseResult> { return this.delegate().purchase(productId); }
+  async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
+    return this.delegate().launchSubscriptionPurchase(productId);
+  }
+  async getActiveSubscription(): Promise<ActiveSubscription> { return this.delegate().getActiveSubscription(); }
+  openSubscriptionManagement(): void                         { this.delegate().openSubscriptionManagement(); }
+  async restorePurchases(): Promise<void>                    { return this.delegate().restorePurchases(); }
 }
 
-export const billing: BillingPlugin = new Proxy({} as BillingPlugin, {
-  get(_target: BillingPlugin, prop: string) {
-    const inst = getBillingInstance();
-    const val = (inst as any)[prop];
-    return typeof val === "function" ? val.bind(inst) : val;
-  },
-});
+export const billing: BillingPlugin = new BillingRouter();
