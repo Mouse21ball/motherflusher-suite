@@ -17,7 +17,9 @@ workflows:
         script: npm ci
 
       - name: Build web app
-        script: npm run build
+        script: |
+          echo "[codemagic] VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          npm run build
 
       - name: Capacitor sync Android
         script: npx cap sync android
