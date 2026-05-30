@@ -63,7 +63,7 @@ export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   },
 };
 
-const PACKAGE_NAME = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.chaingangpoker";
+const PACKAGE_NAME = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.poker";
 const TEST_MODE    = process.env.BILLING_TEST_MODE === "true";
 console.log(`[billing] BILLING_TEST_MODE = ${TEST_MODE}`);
 
