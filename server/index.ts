@@ -9,6 +9,9 @@ import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
 import { startGuestResetJob } from "./guestReset";
 import { generalApiRateLimit } from "./middleware/rateLimits";
 import { seedCosmeticItems } from "./storage";
+import { db } from "./db";
+import { purchaseTransactions } from "../shared/schema";
+import { and, eq, isNull } from "drizzle-orm";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -103,6 +106,37 @@ app.use((req, res, next) => {
 (async () => {
   await seedCosmeticItems();
   console.log('[seed] Cosmetic items checked/seeded.');
+
+  // ONE-TIME CLEANUP (2026-05-30): Reset purchase_transaction rows that were marked
+  // "rejected" due to the missing googleapis bundle crash (all rows from the era before
+  // @googleapis/androidpublisher was introduced). These rows have no googleOrderId or
+  // verifiedAt because the Google API was never reached — the crash happened at the
+  // dynamic import stage. Resetting to "failed_retryable" allows the approved handler
+  // auto-retry on next app launch to re-enter the verification flow.
+  // Safe to run on every startup: after this deploy all new infrastructure failures are
+  // tagged "failed_retryable" directly, so the only "rejected" rows remaining are
+  // ones where Google confirmed the purchase was bad (those will re-reject cleanly on retry).
+  try {
+    const resetResult = await db
+      .update(purchaseTransactions)
+      .set({ verificationStatus: "failed_retryable" })
+      .where(
+        and(
+          eq(purchaseTransactions.verificationStatus, "rejected"),
+          isNull(purchaseTransactions.googleOrderId),
+          isNull(purchaseTransactions.verifiedAt),
+        )
+      )
+      .returning({ id: purchaseTransactions.id, token: purchaseTransactions.purchaseToken });
+    if (resetResult.length > 0) {
+      console.log(
+        `[startup] Reset ${resetResult.length} rejected→failed_retryable purchase_transaction(s):`,
+        resetResult.map(r => `${r.id.slice(0, 8)}… token=…${r.token.slice(-8)}`).join(', '),
+      );
+    }
+  } catch (cleanupErr: any) {
+    console.error('[startup] Failed to run infrastructure-rejection cleanup:', cleanupErr.message);
+  }
 
   initEngine();              // restore persisted Badugi tables before WS server opens
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables

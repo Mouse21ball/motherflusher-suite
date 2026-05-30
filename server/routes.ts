@@ -987,8 +987,9 @@ export async function registerRoutes(
 
       const playerId = req.sessionPlayerId!;
 
-      // Idempotency guard — reject duplicate tokens
+      // Idempotency guard — handle duplicate tokens by status
       const existing = await storage.getPurchaseTransactionByToken(purchaseToken);
+      let txnId: string;
       if (existing) {
         if (existing.verificationStatus === "verified") {
           res.json({
@@ -1002,34 +1003,48 @@ export async function registerRoutes(
           res.status(409).json({ error: "Purchase is still being processed. Please wait." });
           return;
         }
-        res.status(409).json({ error: "Purchase token already used or rejected." });
-        return;
+        if (existing.verificationStatus === "failed_retryable") {
+          // Previous attempt crashed before Google responded (e.g. missing googleapis bundle).
+          // Reset to pending and allow this attempt to proceed through full verification.
+          await storage.updatePurchaseTransactionStatus(existing.id, "pending");
+          txnId = existing.id;
+        } else {
+          // "rejected" (Google confirmed bad) or "refunded" — permanently blocked.
+          res.status(409).json({ error: "Purchase token already used or rejected." });
+          return;
+        }
+      } else {
+        // No prior record — create pending transaction for audit trail.
+        const txn = await storage.createPurchaseTransaction({
+          playerId,
+          productId,
+          stripesGranted:     pack.stripes,
+          priceUsdCents:      pack.priceCents,
+          purchaseToken,
+          verificationStatus: "pending",
+        });
+        txnId = txn.id;
       }
-
-      // Create pending transaction record first (for audit trail)
-      const txn = await storage.createPurchaseTransaction({
-        playerId,
-        productId,
-        stripesGranted:     pack.stripes,
-        priceUsdCents:      pack.priceCents,
-        purchaseToken,
-        verificationStatus: "pending",
-      });
 
       // Server-side Google Play verification
       let purchaseData;
       try {
         purchaseData = await verifyGooglePlayPurchase(productId, purchaseToken);
       } catch (verifyErr: any) {
-        console.error(`[billing] Verification failed: ${verifyErr.message}`);
-        await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+        // Distinguish infrastructure failures (no Google response received) from
+        // Google API HTTP errors (Google responded with 4xx/5xx).
+        // Infrastructure failures are retryable; Google API errors are permanent.
+        const hasGoogleResponse = !!(verifyErr as any)?.response;
+        const failStatus = hasGoogleResponse ? "rejected" : "failed_retryable";
+        console.error(`[billing] Verification failed (${failStatus}): ${verifyErr.message}`);
+        await storage.updatePurchaseTransactionStatus(txnId, failStatus);
         res.status(402).json({ error: `Purchase verification failed: ${verifyErr.message}` });
         return;
       }
 
       if (purchaseData.purchaseState !== 0) {
         const state = purchaseData.purchaseState === 1 ? "canceled" : "pending";
-        await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+        await storage.updatePurchaseTransactionStatus(txnId, "rejected");
         res.status(402).json({ error: `Purchase is ${state} — not completed.` });
         return;
       }
@@ -1042,7 +1057,7 @@ export async function registerRoutes(
             `[BILLING_AUTHZ] obfuscatedExternalAccountId missing — ` +
             `player=${playerId.slice(0, 8)} product=${productId}`,
           );
-          await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+          await storage.updatePurchaseTransactionStatus(txnId, "rejected");
           res.status(403).json({ error: "Purchase authorization failed: account identifier missing" });
           return;
         }
@@ -1051,7 +1066,7 @@ export async function registerRoutes(
             `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
             `purchase=${purchaseData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
           );
-          await storage.updatePurchaseTransactionStatus(txn.id, "rejected");
+          await storage.updatePurchaseTransactionStatus(txnId, "rejected");
           res.status(403).json({ error: "Purchase authorization failed: account ID mismatch" });
           return;
         }
@@ -1075,7 +1090,7 @@ export async function registerRoutes(
 
       // Mark verified with Google's orderId
       await storage.updatePurchaseTransactionStatus(
-        txn.id,
+        txnId,
         "verified",
         purchaseData.orderId,
         new Date(),
