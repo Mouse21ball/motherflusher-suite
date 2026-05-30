@@ -102,6 +102,7 @@ export async function verifyGooglePlayPurchase(
     `[billing] verify start: productId=${productId} ` +
     `token=${purchaseToken.slice(0, 16)}… testMode=${TEST_MODE}`
   );
+  console.log("[diagnostic] verifyGooglePlayPurchase calling Google with packageName:", PACKAGE_NAME);
 
   if (TEST_MODE && purchaseToken.startsWith("test_")) {
     console.log(`[billing] TEST_MODE: accepted test token for ${productId}`);
