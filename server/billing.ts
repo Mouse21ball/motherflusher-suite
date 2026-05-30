@@ -120,13 +120,13 @@ export async function verifyGooglePlayPurchase(
     );
   }
 
-  const { google } = await import("googleapis");
+  const { androidpublisher, auth: gAuth } = await import("@googleapis/androidpublisher");
   const credentials = JSON.parse(credJson);
-  const auth = new google.auth.GoogleAuth({
+  const auth = new gAuth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
   });
-  const androidPublisher = google.androidpublisher({ version: "v3", auth });
+  const androidPublisher = androidpublisher({ version: "v3", auth });
   const response = await androidPublisher.purchases.products.get({
     packageName: PACKAGE_NAME,
     productId,
@@ -180,13 +180,13 @@ export async function verifyGooglePlaySubscription(
   if (!credJson) {
     throw new Error("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON env var not set");
   }
-  const { google } = await import("googleapis");
+  const { androidpublisher, auth: gAuth } = await import("@googleapis/androidpublisher");
   const credentials = JSON.parse(credJson);
-  const auth = new google.auth.GoogleAuth({
+  const auth = new gAuth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
   });
-  const androidPublisher = google.androidpublisher({ version: "v3", auth });
+  const androidPublisher = androidpublisher({ version: "v3", auth });
   // Fix A: subscriptionsv2.get replaces the deprecated subscriptions.get (v1).
   // v2 uses `token` (not `subscriptionId`) and returns SubscriptionPurchaseV2.
   const response = await androidPublisher.purchases.subscriptionsv2.get({
@@ -228,13 +228,13 @@ export async function acknowledgeGooglePlayPurchase(
   }
   const credJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
   if (!credJson) return;
-  const { google } = await import("googleapis");
+  const { androidpublisher, auth: gAuth } = await import("@googleapis/androidpublisher");
   const credentials = JSON.parse(credJson);
-  const auth = new google.auth.GoogleAuth({
+  const auth = new gAuth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
   });
-  const androidPublisher = google.androidpublisher({ version: "v3", auth });
+  const androidPublisher = androidpublisher({ version: "v3", auth });
   await androidPublisher.purchases.products.consume({
     packageName: PACKAGE_NAME,
     productId,

@@ -15,7 +15,7 @@ const allowlist = [
   "express",
   "express-rate-limit",
   "express-session",
-  "googleapis",           // bundled: Replit VM deploy has no node_modules at runtime
+  "@googleapis/androidpublisher", // bundled: Replit VM deploy has no node_modules at runtime
   "jsonwebtoken",
   "memorystore",
   "multer",
