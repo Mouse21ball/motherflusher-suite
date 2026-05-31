@@ -235,7 +235,7 @@ export default function Shop() {
   const eliteTier       = TIER_DEFS[2];
   const eliteCardState  = getCardState(eliteTier);
   const eliteIsActive   = eliteCardState === 'active';
-  const elitePrice      = billingPeriod === 'monthly' ? '$19.99/MO' : '$199.99/YR';
+  const elitePrice      = billingPeriod === 'monthly' ? `${eliteTier.monthlyPrice}/MO` : `${eliteTier.yearlyPrice}/YR`;
 
   // ── CTA button renderer for tier cards ─────────────────────────────────────
   function TierCTA({ tier }: { tier: TierDef }) {
@@ -416,7 +416,7 @@ export default function Shop() {
             {/* Price */}
             <div className="flex items-baseline gap-1.5 mb-4">
               <span style={{ fontSize: 28, fontWeight: 900, color: '#9D7DC8' }}>
-                {billingPeriod === 'monthly' ? '$19.99' : '$199.99'}
+                {billingPeriod === 'monthly' ? eliteTier.monthlyPrice : eliteTier.yearlyPrice}
               </span>
               <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.70)', fontWeight: 600 }}>
                 {billingPeriod === 'monthly' ? '/MO' : '/YR'}
