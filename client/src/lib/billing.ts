@@ -104,6 +104,14 @@ class NativeBillingPlugin implements BillingPlugin {
   async initialize(): Promise<void> {
     const { store, Platform, ProductType } = CdvPurchase;
 
+    // Fix C (v13): set applicationUsername at the store level — additionalData.applicationUsername
+    // is deprecated and silently ignored by the v13 Google Play adapter. The store-level setter
+    // is what withObfuscatedAccountId() actually reads when building the accountId sent to Google.
+    // obfuscator must be 'disabled' so the raw UUID passes through unchanged; the server's
+    // BILLING_AUTHZ check compares the raw player UUID against obfuscatedExternalAccountId.
+    store.applicationUsername = () => ensurePlayerIdentity().id;
+    store.obfuscator = 'disabled';
+
     // Register all consumable Stripes packs
     store.register(
       STRIPES_PRODUCT_IDS.map(id => ({
