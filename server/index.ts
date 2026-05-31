@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -31,6 +32,27 @@ const httpServer = createServer(app);
 // real client IP, not the proxy's IP.  Without this every request looks like it
 // comes from the same address and rate limiting becomes useless.
 app.set('trust proxy', 1);
+
+// CORS — must be registered before any routes or body parsers so that
+// preflight OPTIONS requests are handled before they hit auth middleware.
+const ALLOWED_ORIGINS = new Set([
+  'https://localhost',            // Capacitor Android WebView
+  'capacitor://localhost',        // Capacitor iOS WebView
+  'https://chaing-gang-poker.replit.app', // production web
+  'http://localhost:5173',        // Vite dev server
+  'http://localhost:5000',        // local server testing
+]);
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, Pub/Sub webhooks)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin not allowed — ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Session-Token'],
+}));
 
 app.use(express.json());
 
