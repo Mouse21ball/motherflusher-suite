@@ -58,6 +58,7 @@ export interface IStorage {
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   deletePlayer(id: string): Promise<void>;
+  getPlayerIsAdmin(id: string): Promise<boolean>;
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   recordChipTransaction(params: { playerId: string; beforeBalance: number; amountChange: number; afterBalance: number; reason: ChipTxReason; source: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   verifyPlayerBalanceConsistency(playerId: string): Promise<{ consistent: boolean; currentBalance: number; computedBalance: number; drift: number }>;
@@ -513,6 +514,7 @@ export class MemStorage implements IStorage {
       currentCrewId:                  null,
       timeBankFreeUsesRemaining:      2,
       timeBankPurchasedUses:          0,
+      isAdmin:                        false,
       createdAt: now,
       updatedAt: now,
     };
@@ -541,6 +543,15 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id))
       .limit(1);
     return rows[0];
+  }
+
+  async getPlayerIsAdmin(id: string): Promise<boolean> {
+    const rows = await db
+      .select({ isAdmin: playerProfiles.isAdmin })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    return rows[0]?.isAdmin === true;
   }
 
   async getPlayerByEmail(email: string): Promise<PlayerProfile | undefined> {

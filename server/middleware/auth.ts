@@ -48,6 +48,38 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// requireAdmin — validates session token AND confirms the player's isAdmin flag.
+// Returns 401 if no valid session, 403 if authenticated but not admin.
+// Logs [ADMIN_AUTH] denied for every failed access attempt.
+export const requireAdmin: RequestHandler = async (req, res, next) => {
+  const raw   = req.headers["x-session-token"];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+
+  if (!token || token.trim() === "") {
+    logAuthFailure(req, "missing_token");
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const session = await storage.getSession(token);
+  if (!session) {
+    logAuthFailure(req, "invalid_or_expired_token");
+    res.status(401).json({ error: "Session expired — please re-open the app" });
+    return;
+  }
+
+  req.sessionPlayerId = session.playerId;
+
+  const isAdmin = await storage.getPlayerIsAdmin(session.playerId);
+  if (!isAdmin) {
+    console.warn(`[ADMIN_AUTH] denied playerId=${session.playerId} path=${req.path} at=${new Date().toISOString()}`);
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  next();
+};
+
 export const requireSelf: RequestHandler = (req, res, next) => {
   const targetId = req.params.id;
   if (!targetId || req.sessionPlayerId !== targetId) {

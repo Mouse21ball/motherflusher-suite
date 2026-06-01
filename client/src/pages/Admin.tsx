@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface DailyStats {
   date: string;
@@ -7,6 +9,12 @@ interface DailyStats {
   avgSessionMs: number;
   modeBreakdown: Record<string, number>;
   returningPlayers: number;
+}
+
+interface MeResponse {
+  profileId: string;
+  isAdmin: boolean;
+  sessionToken: string;
 }
 
 const MODE_NAMES: Record<string, string> = {
@@ -23,18 +31,69 @@ function formatDuration(ms: number): string {
   return `${mins}m ${secs}s`;
 }
 
+function getSessionToken(): string | null {
+  try {
+    const raw = localStorage.getItem("cgp_session_token");
+    return raw ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Admin() {
-  const { data: stats, isLoading, error } = useQuery<DailyStats[]>({
+  const [, navigate] = useLocation();
+
+  const { data: me, isLoading: meLoading } = useQuery<MeResponse>({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const token = getSessionToken();
+      const res = await fetch("/api/auth/me", {
+        headers: token ? { "X-Session-Token": token } : {},
+      });
+      if (!res.ok) throw new Error("Not authenticated");
+      return res.json();
+    },
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!meLoading && (!me || !me.isAdmin)) {
+      navigate("/");
+    }
+  }, [me, meLoading, navigate]);
+
+  const token = me?.sessionToken ?? getSessionToken() ?? "";
+
+  const { data: stats, isLoading: statsLoading, error } = useQuery<DailyStats[]>({
     queryKey: ["/api/analytics/stats"],
     queryFn: async () => {
-      const res = await fetch("/api/analytics/stats");
+      const res = await fetch("/api/analytics/stats", {
+        headers: { "X-Session-Token": token },
+      });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    enabled: !!me?.isAdmin,
     refetchInterval: 30000,
   });
 
-  if (isLoading) {
+  if (meLoading) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
+        <p className="text-white/50 font-mono text-sm">Checking access...</p>
+      </div>
+    );
+  }
+
+  if (!me || !me.isAdmin) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
+        <p className="text-red-400 font-mono text-sm">Not authorized</p>
+      </div>
+    );
+  }
+
+  if (statsLoading) {
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
         <p className="text-white/50 font-mono text-sm">Loading analytics...</p>

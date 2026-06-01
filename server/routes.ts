@@ -26,7 +26,7 @@ import {
 } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
-import { requireAuth, requireSelf } from "./middleware/auth";
+import { requireAuth, requireAdmin, requireSelf } from "./middleware/auth";
 import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
 
 const verifyPlayWebhook         = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_PLAY");
@@ -165,7 +165,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/analytics/stats", async (_req, res) => {
+  app.get("/api/analytics/stats", requireAdmin, async (_req, res) => {
     try {
       const stats = await storage.getDailyStats(30);
       res.json(stats);
@@ -618,6 +618,7 @@ export async function registerRoutes(
         sessionToken,
         activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
+        isAdmin:                 profile.isAdmin,
       });
     } catch (err) {
       console.error("Auth me error:", err);

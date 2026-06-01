@@ -11,7 +11,7 @@ import { startGuestResetJob } from "./guestReset";
 import { generalApiRateLimit } from "./middleware/rateLimits";
 import { seedCosmeticItems } from "./storage";
 import { db } from "./db";
-import { purchaseTransactions } from "../shared/schema";
+import { purchaseTransactions, playerProfiles } from "../shared/schema";
 import { and, eq, isNull } from "drizzle-orm";
 
 // Flush all debounced persistence writes before the process exits
@@ -159,6 +159,21 @@ app.use((req, res, next) => {
     }
   } catch (cleanupErr: any) {
     console.error('[startup] Failed to run infrastructure-rejection cleanup:', cleanupErr.message);
+  }
+
+  // ONE-TIME MIGRATION (2026-06-01): Grant admin status to Detroit's primary account.
+  // Safe to run on every startup — UPDATE is a no-op if isAdmin is already true.
+  try {
+    const adminResult = await db
+      .update(playerProfiles)
+      .set({ isAdmin: true })
+      .where(eq(playerProfiles.email, 'bikerguy1930@gmail.com'))
+      .returning({ id: playerProfiles.id });
+    if (adminResult.length > 0) {
+      console.log('[admin] granted isAdmin=true to bikerguy1930@gmail.com');
+    }
+  } catch (adminErr: any) {
+    console.error('[admin] Failed to grant admin to bikerguy1930@gmail.com:', adminErr.message);
   }
 
   initEngine();              // restore persisted Badugi tables before WS server opens

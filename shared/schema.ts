@@ -40,6 +40,8 @@ export const playerProfiles = pgTable("player_profiles", {
   // ── Time Bank ───────────────────────────────────────────────────────────────
   timeBankFreeUsesRemaining: integer("time_bank_free_uses_remaining").notNull().default(2),
   timeBankPurchasedUses:     integer("time_bank_purchased_uses").notNull().default(0),
+  // ── Admin flag ──────────────────────────────────────────────────────────────
+  isAdmin:              boolean("is_admin").notNull().default(false),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
