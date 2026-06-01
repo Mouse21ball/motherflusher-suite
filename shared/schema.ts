@@ -44,6 +44,11 @@ export const playerProfiles = pgTable("player_profiles", {
   isAdmin:              boolean("is_admin").notNull().default(false),
   // ── Welcome kit (new player advantage pack) ─────────────────────────────────
   welcomeKitClaimed:    boolean("welcome_kit_claimed").notNull().default(false),
+  // ── Account status ───────────────────────────────────────────────────────────
+  bannedAt:             timestamp("banned_at"),
+  banExpiresAt:         timestamp("ban_expires_at"),
+  banReason:            text("ban_reason"),
+  isDeleted:            boolean("is_deleted").notNull().default(false),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -64,6 +69,10 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   timeBankFreeUsesRemaining:      true,
   timeBankPurchasedUses:          true,
   welcomeKitClaimed:              true,
+  bannedAt:                       true,
+  banExpiresAt:                   true,
+  banReason:                      true,
+  isDeleted:                      true,
   createdAt:                      true,
   updatedAt:                      true,
 });
@@ -389,3 +398,28 @@ export const playerReports = pgTable("player_reports", {
 ]);
 
 export type PlayerReport = typeof playerReports.$inferSelect;
+
+// ─── Admin Actions (append-only audit log) ────────────────────────────────────
+// One row per admin action. beforeState and afterState are snapshots of the
+// relevant fields on the target player. metadata holds action-specific extras
+// (e.g. ban duration, cosmetic IDs, chip amount). Append-only — never deleted.
+export const adminActions = pgTable("admin_actions", {
+  id:             text("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId:        text("admin_id").notNull().references(() => playerProfiles.id),
+  targetPlayerId: text("target_player_id").notNull().references(() => playerProfiles.id),
+  actionType:     text("action_type").notNull(),
+  // ^ grant_chips | debit_chips | grant_stripes | debit_stripes | grant_cosmetic |
+  //   revoke_cosmetic | grant_subscription | revoke_subscription | ban | unban |
+  //   delete_account | reset_password
+  reason:         text("reason").notNull(),
+  beforeState:    jsonb("before_state").$type<Record<string, any>>(),
+  afterState:     jsonb("after_state").$type<Record<string, any>>(),
+  metadata:       jsonb("metadata").$type<Record<string, any>>(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("admin_actions_target_idx").on(table.targetPlayerId),
+  index("admin_actions_admin_idx").on(table.adminId),
+  index("admin_actions_type_created_idx").on(table.actionType, table.createdAt),
+]);
+
+export type AdminAction = typeof adminActions.$inferSelect;

@@ -45,6 +45,31 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   }
 
   req.sessionPlayerId = session.playerId;
+
+  // ── Account-status checks ─────────────────────────────────────────────────
+  const status = await storage.getPlayerBanStatus(session.playerId);
+  if (status) {
+    if (status.isDeleted) {
+      res.status(410).json({ error: "Account has been deleted" });
+      return;
+    }
+    if (status.bannedAt) {
+      const now = new Date();
+      // Auto-unban: temporary ban has expired — clear it transparently
+      if (status.banExpiresAt && status.banExpiresAt <= now) {
+        await storage.clearExpiredBan(session.playerId);
+        // Fall through: allow the request to proceed
+      } else {
+        res.status(403).json({
+          error:        "banned",
+          banReason:    status.banReason,
+          banExpiresAt: status.banExpiresAt?.toISOString() ?? null,
+        });
+        return;
+      }
+    }
+  }
+
   next();
 };
 

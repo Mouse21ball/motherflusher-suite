@@ -556,6 +556,26 @@ export async function registerRoutes(
         return;
       }
 
+      // Account-status gate — check before issuing any session token
+      if (profile.isDeleted) {
+        res.status(410).json({ error: "Account has been deleted" });
+        return;
+      }
+      if (profile.bannedAt) {
+        const now = new Date();
+        if (profile.banExpiresAt && profile.banExpiresAt <= now) {
+          // Temporary ban expired — clear it transparently
+          await storage.clearExpiredBan(profile.id);
+        } else {
+          res.status(403).json({
+            error:        "banned",
+            banReason:    profile.banReason,
+            banExpiresAt: profile.banExpiresAt?.toISOString() ?? null,
+          });
+          return;
+        }
+      }
+
       const level = Math.floor(profile.handsPlayed / 50);
       const loginExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const sessionToken = await storage.createSession(profile.id, loginExpiresAt);
@@ -2058,6 +2078,242 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ADMIN ROUTES — all under /api/admin/, all behind requireAdmin middleware
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const adminReasonSchema = z.object({ reason: z.string().min(10, "Reason must be at least 10 characters") });
+  const adminAmountSchema  = adminReasonSchema.extend({ amount: z.number().int().min(1) });
+
+  // GET /api/admin/players/search?q=  — search players by name / email / UUID
+  app.get("/api/admin/players/search", requireAdmin, async (req, res) => {
+    try {
+      const q = (req.query.q as string ?? "").trim();
+      if (!q) { res.status(400).json({ error: "q is required" }); return; }
+      const results = await storage.searchPlayers(q);
+      res.json({ players: results });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/players/:id  — full player details
+  app.get("/api/admin/players/:id", requireAdmin, async (req, res) => {
+    try {
+      const details = await storage.getPlayerFullDetails(req.params.id as string);
+      if (!details) { res.status(404).json({ error: "Player not found" }); return; }
+      res.json(details);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/players/:id/chip-history
+  app.get("/api/admin/players/:id/chip-history", requireAdmin, async (req, res) => {
+    try {
+      const limit  = Math.min(parseInt(req.query.limit  as string ?? "50", 10) || 50, 200);
+      const offset = parseInt(req.query.offset as string ?? "0",  10) || 0;
+      const rows = await storage.getPlayerChipHistory(req.params.id as string, limit, offset);
+      res.json({ rows, limit, offset });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/players/:id/stripes-history
+  app.get("/api/admin/players/:id/stripes-history", requireAdmin, async (req, res) => {
+    try {
+      const limit  = Math.min(parseInt(req.query.limit  as string ?? "50", 10) || 50, 200);
+      const offset = parseInt(req.query.offset as string ?? "0",  10) || 0;
+      const rows = await storage.getPlayerStripesHistory(req.params.id as string, limit, offset);
+      res.json({ rows, limit, offset });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/players/:id/admin-actions
+  app.get("/api/admin/players/:id/admin-actions", requireAdmin, async (req, res) => {
+    try {
+      const limit  = Math.min(parseInt(req.query.limit  as string ?? "50", 10) || 50, 200);
+      const offset = parseInt(req.query.offset as string ?? "0",  10) || 0;
+      const rows = await storage.getPlayerAdminActionHistory(req.params.id as string, limit, offset);
+      res.json({ rows, limit, offset });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/grant-chips
+  app.post("/api/admin/players/:id/grant-chips", requireAdmin, async (req, res) => {
+    try {
+      const { amount, reason } = adminAmountSchema.parse(req.body);
+      await storage.adminGrantChips(req.sessionPlayerId!, req.params.id as string, amount, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/debit-chips
+  app.post("/api/admin/players/:id/debit-chips", requireAdmin, async (req, res) => {
+    try {
+      const { amount, reason } = adminAmountSchema.parse(req.body);
+      await storage.adminDebitChips(req.sessionPlayerId!, req.params.id as string, amount, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/grant-stripes
+  app.post("/api/admin/players/:id/grant-stripes", requireAdmin, async (req, res) => {
+    try {
+      const { amount, reason } = adminAmountSchema.parse(req.body);
+      await storage.adminGrantStripes(req.sessionPlayerId!, req.params.id as string, amount, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/debit-stripes
+  app.post("/api/admin/players/:id/debit-stripes", requireAdmin, async (req, res) => {
+    try {
+      const { amount, reason } = adminAmountSchema.parse(req.body);
+      await storage.adminDebitStripes(req.sessionPlayerId!, req.params.id as string, amount, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/grant-cosmetic
+  app.post("/api/admin/players/:id/grant-cosmetic", requireAdmin, async (req, res) => {
+    try {
+      const { cosmeticId, reason } = adminReasonSchema
+        .extend({ cosmeticId: z.string().min(1) })
+        .parse(req.body);
+      await storage.adminGrantCosmetic(req.sessionPlayerId!, req.params.id as string, cosmeticId, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/revoke-cosmetic
+  app.post("/api/admin/players/:id/revoke-cosmetic", requireAdmin, async (req, res) => {
+    try {
+      const { cosmeticId, reason } = adminReasonSchema
+        .extend({ cosmeticId: z.string().min(1) })
+        .parse(req.body);
+      await storage.adminRevokeCosmetic(req.sessionPlayerId!, req.params.id as string, cosmeticId, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/grant-subscription
+  app.post("/api/admin/players/:id/grant-subscription", requireAdmin, async (req, res) => {
+    try {
+      const { tier, durationDays, reason } = adminReasonSchema
+        .extend({
+          tier:         z.enum(["gold_pro", "diamond_elite"]),
+          durationDays: z.number().int().min(1).max(3650),
+        })
+        .parse(req.body);
+      await storage.adminGrantSubscription(req.sessionPlayerId!, req.params.id as string, tier, durationDays, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/revoke-subscription
+  app.post("/api/admin/players/:id/revoke-subscription", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = adminReasonSchema.parse(req.body);
+      await storage.adminRevokeSubscription(req.sessionPlayerId!, req.params.id as string, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/ban
+  app.post("/api/admin/players/:id/ban", requireAdmin, async (req, res) => {
+    try {
+      const { durationDays, reason } = adminReasonSchema
+        .extend({ durationDays: z.number().int().min(1).nullable() })
+        .parse(req.body);
+      await storage.adminBanPlayer(req.sessionPlayerId!, req.params.id as string, durationDays, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/unban
+  app.post("/api/admin/players/:id/unban", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = adminReasonSchema.parse(req.body);
+      await storage.adminUnbanPlayer(req.sessionPlayerId!, req.params.id as string, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/players/:id/reset-password
+  app.post("/api/admin/players/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = adminReasonSchema.parse(req.body);
+      const { resetToken } = await storage.adminTriggerPasswordReset(req.sessionPlayerId!, req.params.id as string, reason);
+      // Token logged server-side (see storage). Phase 3 will email it.
+      res.json({ ok: true, resetToken });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/admin/players/:id  — soft delete
+  app.delete("/api/admin/players/:id", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = adminReasonSchema.parse(req.body);
+      await storage.adminDeleteAccount(req.sessionPlayerId!, req.params.id as string, reason);
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/audit-log?limit=&offset=&actionType=&adminId=
+  app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
+    try {
+      const limit      = Math.min(parseInt(req.query.limit  as string ?? "100", 10) || 100, 500);
+      const offset     = parseInt(req.query.offset     as string ?? "0",  10) || 0;
+      const actionType = (req.query.actionType as string | undefined)?.trim() || undefined;
+      const adminId    = (req.query.adminId    as string | undefined)?.trim() || undefined;
+      const rows = await storage.getAdminAuditLog({ limit, offset, actionType, adminId });
+      res.json({ rows, limit, offset });
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });

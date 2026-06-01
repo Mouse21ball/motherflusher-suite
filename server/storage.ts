@@ -8,6 +8,9 @@ import {
   type Subscription,
   type Crew,
   type ChipTxReason,
+  type ChipTransaction,
+  type StripeTransaction,
+  type AdminAction,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
@@ -18,13 +21,14 @@ import {
   type BlockedPlayer,
   playerReports,
   type PlayerReport,
+  adminActions,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, sql, and, or, gte, isNull, lt, gt, desc } from "drizzle-orm";
+import { eq, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -167,6 +171,28 @@ export interface IStorage {
   getReportsByReporter(reporterId: string, limit?: number): Promise<PlayerReport[]>;
   getReportsAgainst(reportedId: string): Promise<PlayerReport[]>;
   listPendingReports(limit: number, offset: number): Promise<Array<PlayerReport & { reporterName: string; reportedName: string }>>;
+  // ── Admin operations ────────────────────────────────────────────────────────
+  getPlayerBanStatus(id: string): Promise<BanStatus | null>;
+  clearExpiredBan(playerId: string): Promise<void>;
+  deletePlayerSessions(playerId: string): Promise<void>;
+  searchPlayers(query: string): Promise<PlayerSearchResult[]>;
+  getPlayerFullDetails(id: string): Promise<AdminPlayerDetails | null>;
+  getPlayerChipHistory(playerId: string, limit: number, offset: number): Promise<ChipTransaction[]>;
+  getPlayerStripesHistory(playerId: string, limit: number, offset: number): Promise<StripeTransaction[]>;
+  getPlayerAdminActionHistory(playerId: string, limit: number, offset: number): Promise<AdminAction[]>;
+  adminGrantChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void>;
+  adminDebitChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void>;
+  adminGrantStripes(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void>;
+  adminDebitStripes(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void>;
+  adminGrantCosmetic(adminId: string, targetPlayerId: string, cosmeticId: string, reason: string): Promise<void>;
+  adminRevokeCosmetic(adminId: string, targetPlayerId: string, cosmeticId: string, reason: string): Promise<void>;
+  adminGrantSubscription(adminId: string, targetPlayerId: string, tier: string, durationDays: number, reason: string): Promise<void>;
+  adminRevokeSubscription(adminId: string, targetPlayerId: string, reason: string): Promise<void>;
+  adminBanPlayer(adminId: string, targetPlayerId: string, durationDays: number | null, reason: string): Promise<void>;
+  adminUnbanPlayer(adminId: string, targetPlayerId: string, reason: string): Promise<void>;
+  adminDeleteAccount(adminId: string, targetPlayerId: string, reason: string): Promise<void>;
+  adminTriggerPasswordReset(adminId: string, targetPlayerId: string, reason: string): Promise<{ resetToken: string }>;
+  getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -218,6 +244,46 @@ export interface DailyBonusClaimResult {
   nextClaimAvailableAt: Date;
   newChipBalance:       number;
   newStripesBalance:    number;
+}
+
+export interface BanStatus {
+  isDeleted:    boolean;
+  bannedAt:     Date | null;
+  banExpiresAt: Date | null;
+  banReason:    string | null;
+}
+
+export interface PlayerSearchResult {
+  id:          string;
+  displayName: string;
+  email:       string | null;
+  chipBalance: number;
+  stripes:     number;
+  isAdmin:     boolean;
+  isBanned:    boolean;
+  isDeleted:   boolean;
+  createdAt:   Date;
+}
+
+export interface AdminPlayerDetails {
+  profile:            PlayerProfile;
+  recentChipHistory:  ChipTransaction[];
+  recentStripesHistory: StripeTransaction[];
+  recentAdminActions: AdminAction[];
+}
+
+export interface AdminAuditLogEntry {
+  id:             string;
+  adminId:        string;
+  adminName:      string;
+  targetPlayerId: string;
+  targetName:     string;
+  actionType:     string;
+  reason:         string;
+  beforeState:    Record<string, any> | null;
+  afterState:     Record<string, any> | null;
+  metadata:       Record<string, any> | null;
+  createdAt:      Date;
 }
 
 export interface DailyStats {
@@ -518,6 +584,10 @@ export class MemStorage implements IStorage {
       timeBankPurchasedUses:          0,
       isAdmin:                        false,
       welcomeKitClaimed:              false,
+      bannedAt:                       null,
+      banExpiresAt:                   null,
+      banReason:                      null,
+      isDeleted:                      false,
       createdAt: now,
       updatedAt: now,
     };
@@ -1989,6 +2059,464 @@ export class MemStorage implements IStorage {
       .orderBy(desc(playerReports.createdAt))
       .limit(limit)
       .offset(offset);
+  }
+
+  // ── Admin operations ────────────────────────────────────────────────────────
+
+  async getPlayerBanStatus(id: string): Promise<BanStatus | null> {
+    const rows = await db
+      .select({
+        isDeleted:    playerProfiles.isDeleted,
+        bannedAt:     playerProfiles.bannedAt,
+        banExpiresAt: playerProfiles.banExpiresAt,
+        banReason:    playerProfiles.banReason,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    if (!rows[0]) return null;
+    return rows[0];
+  }
+
+  async clearExpiredBan(playerId: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ bannedAt: null, banExpiresAt: null, banReason: null, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+  }
+
+  async deletePlayerSessions(playerId: string): Promise<void> {
+    await db.delete(sessions).where(eq(sessions.playerId, playerId));
+  }
+
+  async searchPlayers(query: string): Promise<PlayerSearchResult[]> {
+    const q = query.trim();
+    const rows = await db
+      .select({
+        id:          playerProfiles.id,
+        displayName: playerProfiles.displayName,
+        email:       playerProfiles.email,
+        chipBalance: playerProfiles.chipBalance,
+        stripes:     playerProfiles.stripes,
+        isAdmin:     playerProfiles.isAdmin,
+        bannedAt:    playerProfiles.bannedAt,
+        isDeleted:   playerProfiles.isDeleted,
+        createdAt:   playerProfiles.createdAt,
+      })
+      .from(playerProfiles)
+      .where(
+        or(
+          ilike(playerProfiles.displayName, `%${q}%`),
+          ilike(playerProfiles.email,       `%${q}%`),
+          eq(playerProfiles.id, q),
+        )
+      )
+      .orderBy(asc(playerProfiles.displayName))
+      .limit(50);
+    return rows.map(r => ({
+      ...r,
+      isBanned: r.bannedAt !== null,
+    }));
+  }
+
+  async getPlayerFullDetails(id: string): Promise<AdminPlayerDetails | null> {
+    const profiles = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    if (!profiles[0]) return null;
+    const [recentChipHistory, recentStripesHistory, recentAdminActions] = await Promise.all([
+      this.getPlayerChipHistory(id, 20, 0),
+      this.getPlayerStripesHistory(id, 20, 0),
+      this.getPlayerAdminActionHistory(id, 20, 0),
+    ]);
+    return { profile: profiles[0], recentChipHistory, recentStripesHistory, recentAdminActions };
+  }
+
+  async getPlayerChipHistory(playerId: string, limit: number, offset: number): Promise<ChipTransaction[]> {
+    return db
+      .select()
+      .from(chipTransactions)
+      .where(eq(chipTransactions.playerId, playerId))
+      .orderBy(desc(chipTransactions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getPlayerStripesHistory(playerId: string, limit: number, offset: number): Promise<StripeTransaction[]> {
+    return db
+      .select()
+      .from(stripeTransactions)
+      .where(eq(stripeTransactions.playerId, playerId))
+      .orderBy(desc(stripeTransactions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getPlayerAdminActionHistory(playerId: string, limit: number, offset: number): Promise<AdminAction[]> {
+    return db
+      .select()
+      .from(adminActions)
+      .where(eq(adminActions.targetPlayerId, playerId))
+      .orderBy(desc(adminActions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // ── Admin chip / stripe operations ─────────────────────────────────────────
+
+  private _guardSelf(adminId: string, targetPlayerId: string): void {
+    if (adminId === targetPlayerId) throw new Error('Admin cannot modify their own account via admin actions');
+  }
+
+  async adminGrantChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { chipBalance: target.chipBalance };
+      const afterBalance = target.chipBalance + amount;
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'grant_chips',
+        reason, beforeState: before, metadata: { amount },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${amount}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await this._insertChipLedger(tx, {
+        playerId: targetPlayerId, beforeBalance: target.chipBalance,
+        amountChange: amount, afterBalance: afterBalance,
+        reason: 'admin_grant', source: 'admin', metadata: { adminId, reason },
+      });
+      await tx.update(adminActions)
+        .set({ afterState: { chipBalance: afterBalance } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminDebitChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { chipBalance: target.chipBalance };
+      const debit = Math.min(amount, target.chipBalance); // clamp to 0
+      const afterBalance = target.chipBalance - debit;
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'debit_chips',
+        reason, beforeState: before, metadata: { amount, actualDebit: debit },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ chipBalance: afterBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await this._insertChipLedger(tx, {
+        playerId: targetPlayerId, beforeBalance: target.chipBalance,
+        amountChange: -debit, afterBalance: afterBalance,
+        reason: 'admin_debit', source: 'admin', metadata: { adminId, reason },
+      });
+      await tx.update(adminActions)
+        .set({ afterState: { chipBalance: afterBalance } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminGrantStripes(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { stripes: target.stripes };
+      const afterStripes = target.stripes + amount;
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'grant_stripes',
+        reason, beforeState: before, metadata: { amount },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ stripes: afterStripes, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await tx.insert(stripeTransactions).values({
+        playerId: targetPlayerId, amount, reason: `admin_grant: ${reason}`, balanceAfter: afterStripes,
+      });
+      await tx.update(adminActions)
+        .set({ afterState: { stripes: afterStripes } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminDebitStripes(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ stripes: playerProfiles.stripes })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { stripes: target.stripes };
+      const debit = Math.min(amount, target.stripes);
+      const afterStripes = target.stripes - debit;
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'debit_stripes',
+        reason, beforeState: before, metadata: { amount, actualDebit: debit },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ stripes: afterStripes, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await tx.insert(stripeTransactions).values({
+        playerId: targetPlayerId, amount: -debit, reason: `admin_debit: ${reason}`, balanceAfter: afterStripes,
+      });
+      await tx.update(adminActions)
+        .set({ afterState: { stripes: afterStripes } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  // ── Admin cosmetic operations ───────────────────────────────────────────────
+
+  async adminGrantCosmetic(adminId: string, targetPlayerId: string, cosmeticId: string, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const existing = await tx
+        .select({ id: playerInventory.id })
+        .from(playerInventory)
+        .where(and(eq(playerInventory.playerId, targetPlayerId), eq(playerInventory.cosmeticItemId, cosmeticId)))
+        .limit(1);
+      const before = { hasCosmetic: !!existing[0] };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'grant_cosmetic',
+        reason, beforeState: before, metadata: { cosmeticId },
+      }).returning();
+      if (!existing[0]) {
+        await tx.insert(playerInventory).values({
+          id:             randomUUID(),
+          playerId:       targetPlayerId,
+          cosmeticItemId: cosmeticId,
+          acquiredAt:     new Date(),
+          equipped:       false,
+        });
+      }
+      await tx.update(adminActions)
+        .set({ afterState: { hasCosmetic: true } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminRevokeCosmetic(adminId: string, targetPlayerId: string, cosmeticId: string, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const existing = await tx
+        .select({ id: playerInventory.id })
+        .from(playerInventory)
+        .where(and(eq(playerInventory.playerId, targetPlayerId), eq(playerInventory.cosmeticItemId, cosmeticId)))
+        .limit(1);
+      const before = { hasCosmetic: !!existing[0] };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'revoke_cosmetic',
+        reason, beforeState: before, metadata: { cosmeticId },
+      }).returning();
+      if (existing[0]) {
+        await tx.delete(playerInventory)
+          .where(and(eq(playerInventory.playerId, targetPlayerId), eq(playerInventory.cosmeticItemId, cosmeticId)));
+      }
+      await tx.update(adminActions)
+        .set({ afterState: { hasCosmetic: false } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  // ── Admin subscription operations ──────────────────────────────────────────
+
+  async adminGrantSubscription(adminId: string, targetPlayerId: string, tier: string, durationDays: number, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    const STRIPES_BY_TIER: Record<string, number> = { gold_pro: 200, diamond_elite: 500 };
+    const stripesGrant = STRIPES_BY_TIER[tier] ?? 0;
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ activeSubscriptionTier: playerProfiles.activeSubscriptionTier, stripes: playerProfiles.stripes })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+      const before = { activeSubscriptionTier: target.activeSubscriptionTier, stripes: target.stripes };
+      const afterStripes = target.stripes + stripesGrant;
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'grant_subscription',
+        reason, beforeState: before, metadata: { tier, durationDays, stripesGrant },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ activeSubscriptionTier: tier, subscriptionExpiresAt: expiresAt,
+               stripes: afterStripes, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      if (stripesGrant > 0) {
+        await tx.insert(stripeTransactions).values({
+          playerId: targetPlayerId, amount: stripesGrant,
+          reason: `admin_subscription_grant: ${tier}`, balanceAfter: afterStripes,
+        });
+      }
+      await tx.update(adminActions)
+        .set({ afterState: { activeSubscriptionTier: tier, subscriptionExpiresAt: expiresAt.toISOString(), stripes: afterStripes } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminRevokeSubscription(adminId: string, targetPlayerId: string, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ activeSubscriptionTier: playerProfiles.activeSubscriptionTier })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { activeSubscriptionTier: target.activeSubscriptionTier };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'revoke_subscription',
+        reason, beforeState: before,
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ activeSubscriptionTier: null, subscriptionExpiresAt: null, equippedFrameId: null, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await tx.update(adminActions)
+        .set({ afterState: { activeSubscriptionTier: null } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  // ── Admin ban operations ────────────────────────────────────────────────────
+
+  async adminBanPlayer(adminId: string, targetPlayerId: string, durationDays: number | null, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    const now = new Date();
+    const banExpiresAt = durationDays !== null
+      ? new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+      : null;
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ bannedAt: playerProfiles.bannedAt, banReason: playerProfiles.banReason })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { bannedAt: target.bannedAt?.toISOString() ?? null, banReason: target.banReason };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'ban',
+        reason, beforeState: before,
+        metadata: { durationDays, permanent: durationDays === null, banExpiresAt: banExpiresAt?.toISOString() ?? null },
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ bannedAt: now, banExpiresAt, banReason: reason, updatedAt: now })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      // Invalidate all existing sessions so the ban takes effect immediately
+      await tx.delete(sessions).where(eq(sessions.playerId, targetPlayerId));
+      await tx.update(adminActions)
+        .set({ afterState: { bannedAt: now.toISOString(), banExpiresAt: banExpiresAt?.toISOString() ?? null } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  async adminUnbanPlayer(adminId: string, targetPlayerId: string, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ bannedAt: playerProfiles.bannedAt, banReason: playerProfiles.banReason })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { bannedAt: target.bannedAt?.toISOString() ?? null, banReason: target.banReason };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'unban', reason, beforeState: before,
+      }).returning();
+      await tx.update(playerProfiles)
+        .set({ bannedAt: null, banExpiresAt: null, banReason: null, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await tx.update(adminActions)
+        .set({ afterState: { bannedAt: null } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  // ── Admin account deletion ──────────────────────────────────────────────────
+
+  async adminDeleteAccount(adminId: string, targetPlayerId: string, reason: string): Promise<void> {
+    this._guardSelf(adminId, targetPlayerId);
+    await db.transaction(async (tx) => {
+      const [target] = await tx
+        .select({ displayName: playerProfiles.displayName, email: playerProfiles.email,
+                  chipBalance: playerProfiles.chipBalance, stripes: playerProfiles.stripes })
+        .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+      if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+      const before = { displayName: target.displayName, email: target.email,
+                       chipBalance: target.chipBalance, stripes: target.stripes };
+      const [action] = await tx.insert(adminActions).values({
+        adminId, targetPlayerId, actionType: 'delete_account', reason, beforeState: before,
+      }).returning();
+      // Soft delete: scrub PII, zero balances, set isDeleted flag. Row kept for audit.
+      await tx.update(playerProfiles)
+        .set({
+          isDeleted:    true,
+          displayName:  'Deleted User',
+          email:        null,
+          passwordHash: randomUUID(), // non-matching hash — prevents re-auth
+          chipBalance:  0,
+          stripes:      0,
+          bannedAt:     null, banExpiresAt: null, banReason: null,
+          updatedAt:    new Date(),
+        })
+        .where(eq(playerProfiles.id, targetPlayerId));
+      await tx.delete(sessions).where(eq(sessions.playerId, targetPlayerId));
+      await tx.update(adminActions)
+        .set({ afterState: { isDeleted: true, displayName: 'Deleted User' } })
+        .where(eq(adminActions.id, action.id));
+    });
+  }
+
+  // ── Admin password reset ────────────────────────────────────────────────────
+
+  async adminTriggerPasswordReset(adminId: string, targetPlayerId: string, reason: string): Promise<{ resetToken: string }> {
+    this._guardSelf(adminId, targetPlayerId);
+    const [target] = await db
+      .select({ email: playerProfiles.email, displayName: playerProfiles.displayName })
+      .from(playerProfiles).where(eq(playerProfiles.id, targetPlayerId)).limit(1);
+    if (!target) throw new Error(`Player ${targetPlayerId} not found`);
+    if (!target.email) throw new Error('Player has no email — cannot trigger password reset');
+    const resetToken = randomBytes(32).toString('hex');
+    // Phase 3: store resetToken in a password_reset_tokens table and email it.
+    // For now: log it for manual delivery.
+    console.log(`[ADMIN_RESET] playerId=${targetPlayerId} email=${target.email} token=${resetToken} adminId=${adminId}`);
+    await db.insert(adminActions).values({
+      adminId, targetPlayerId, actionType: 'reset_password', reason,
+      beforeState: { email: target.email },
+      afterState:  { resetTokenGenerated: true },
+      metadata:    { email: target.email },
+    });
+    return { resetToken };
+  }
+
+  // ── Admin audit log ─────────────────────────────────────────────────────────
+
+  async getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]> {
+    const conditions = [];
+    if (opts.actionType) conditions.push(eq(adminActions.actionType, opts.actionType));
+    if (opts.adminId)   conditions.push(eq(adminActions.adminId,    opts.adminId));
+
+    return db
+      .select({
+        id:             adminActions.id,
+        adminId:        adminActions.adminId,
+        adminName:      sql<string>`(SELECT display_name FROM player_profiles WHERE id = ${adminActions.adminId})`,
+        targetPlayerId: adminActions.targetPlayerId,
+        targetName:     sql<string>`(SELECT display_name FROM player_profiles WHERE id = ${adminActions.targetPlayerId})`,
+        actionType:     adminActions.actionType,
+        reason:         adminActions.reason,
+        beforeState:    adminActions.beforeState,
+        afterState:     adminActions.afterState,
+        metadata:       adminActions.metadata,
+        createdAt:      adminActions.createdAt,
+      })
+      .from(adminActions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(adminActions.createdAt))
+      .limit(opts.limit)
+      .offset(opts.offset);
   }
 }
 
