@@ -29,6 +29,8 @@ import { sql as drizzleSql } from "drizzle-orm";
 import { requireAuth, requireSelf } from "./middleware/auth";
 import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
 
+const verifyPlayWebhook         = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_PLAY");
+// Deprecated — kept for backward-compat while old Pub/Sub configs are migrated to play-webhook.
 const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
@@ -1123,12 +1125,147 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/billing/refund-webhook
+  // POST /api/billing/play-webhook
+  // Unified Google Play Real-Time Developer Notification (RTDN) endpoint.
+  // All Play Console notification types (subscription lifecycle, voided purchases,
+  // one-time products, test pings) arrive here from a single Pub/Sub push subscription.
+  // Configure in Play Console → Monetize → Subscriptions & in-app products → Real-time
+  // developer notifications → Topic URL, then create ONE Pub/Sub push subscription
+  // pointing to this URL.
+  // Auth: JWT verified against PUBSUB_AUDIENCE_PLAY (value = this endpoint's full URL).
+  app.post("/api/billing/play-webhook", verifyPlayWebhook, async (req, res) => {
+    // Always ACK with 200 so Pub/Sub does not retry the same message indefinitely.
+    // Errors are logged but never bubble up to a 5xx.
+    try {
+      const message = req.body?.message;
+      if (!message?.data) {
+        console.warn("[billing:play] play-webhook: missing Pub/Sub message.data — ACK and skip");
+        res.status(200).json({ received: true });
+        return;
+      }
+
+      const raw = Buffer.from(message.data, "base64").toString("utf-8");
+      const notification = JSON.parse(raw);
+      const at = new Date().toISOString();
+
+      // ── Test ping ────────────────────────────────────────────────────────────
+      if (notification?.testNotification) {
+        console.log(`[billing:play] play-webhook: event=testNotification (test ping) at=${at}`);
+        res.status(200).json({ received: true });
+        return;
+      }
+
+      // ── Voided purchase (consumable refund / chargeback) ─────────────────────
+      // Player identity is resolved from purchase_transaction table — never from
+      // the webhook body. Guard on verificationStatus==="verified" ensures
+      // debitStripesForRefund is not called twice for the same token.
+      const voidedPurchase = notification?.voidedPurchaseNotification;
+      if (voidedPurchase?.purchaseToken) {
+        const token = voidedPurchase.purchaseToken as string;
+        const txn = await storage.getPurchaseTransactionByToken(token);
+        if (txn && txn.verificationStatus === "verified") {
+          await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
+          console.log(
+            `[billing:play] play-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `action=debit_stripes amount=${txn.stripesGranted} at=${at}`
+          );
+        } else {
+          console.log(
+            `[billing:play] play-webhook: event=voidedPurchase ` +
+            `token=...${token.slice(-8)} action=no_op ` +
+            `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${at}`
+          );
+        }
+        res.status(200).json({ received: true });
+        return;
+      }
+
+      // ── Subscription lifecycle ───────────────────────────────────────────────
+      const subNotif = notification?.subscriptionNotification;
+      if (subNotif?.purchaseToken) {
+        const { purchaseToken, notificationType } = subNotif;
+        const tokenTail = (purchaseToken as string).slice(-8);
+        // notificationType values from Google:
+        // 1=RECOVERED 2=RENEWED 3=CANCELED 4=PURCHASED 5=ON_HOLD
+        // 6=IN_GRACE_PERIOD 7=RESTARTED 12=EXPIRED 13=REVOKED (subscription refund)
+        switch (notificationType) {
+          case 1:
+            console.log(`[billing:play] play-webhook: event=RECOVERED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRecovered(purchaseToken);
+            break;
+          case 2:
+            console.log(`[billing:play] play-webhook: event=RENEWED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRenewal(purchaseToken);
+            break;
+          case 3:
+            console.log(`[billing:play] play-webhook: event=CANCELED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionCancellation(purchaseToken);
+            break;
+          case 4:
+            // PURCHASED is a no-op here — handled client-side by /verify-subscription.
+            console.log(`[billing:play] play-webhook: event=PURCHASED token=...${tokenTail} at=${at} action=no_op (handled by verify-subscription)`);
+            break;
+          case 5:
+            console.log(`[billing:play] play-webhook: event=ON_HOLD token=...${tokenTail} at=${at}`);
+            await handleSubscriptionOnHold(purchaseToken);
+            break;
+          case 6:
+            console.log(`[billing:play] play-webhook: event=IN_GRACE_PERIOD token=...${tokenTail} at=${at}`);
+            await handleSubscriptionGracePeriod(purchaseToken);
+            break;
+          case 7:
+            console.log(`[billing:play] play-webhook: event=RESTARTED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRecovered(purchaseToken);
+            break;
+          case 12:
+            console.log(`[billing:play] play-webhook: event=EXPIRED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionExpiration(purchaseToken);
+            break;
+          case 13:
+            console.log(`[billing:play] play-webhook: event=REVOKED token=...${tokenTail} at=${at}`);
+            await handleSubscriptionRefund(purchaseToken);
+            break;
+          default:
+            console.log(`[billing:play] play-webhook: event=UNKNOWN(${notificationType}) token=...${tokenTail} at=${at}`);
+        }
+        res.status(200).json({ received: true });
+        return;
+      }
+
+      // ── One-time product notification ────────────────────────────────────────
+      // Not yet actioned — consumable purchases are verified client-side via
+      // /api/billing/verify-purchase. Log for observability.
+      if (notification?.oneTimeProductNotification) {
+        const { sku, purchaseToken, notificationType } = notification.oneTimeProductNotification;
+        console.log(
+          `[billing:play] play-webhook: event=oneTimeProduct ` +
+          `sku=${sku} type=${notificationType} token=...${String(purchaseToken).slice(-8)} at=${at} action=no_op`
+        );
+        res.status(200).json({ received: true });
+        return;
+      }
+
+      // Unknown notification shape — log and ACK.
+      console.warn(`[billing:play] play-webhook: unrecognised notification shape at=${at}`, JSON.stringify(notification).slice(0, 200));
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[billing:play] play-webhook error:", err.message);
+      // Still ACK — do not let Pub/Sub retry a message that caused an internal error.
+      res.status(200).json({ received: true });
+    }
+  });
+
+  // POST /api/billing/refund-webhook  [DEPRECATED]
+  // Superseded by /api/billing/play-webhook. Kept registered so any existing Pub/Sub
+  // push subscriptions pointing here continue to ACK rather than queue up retries.
+  // Remove once Play Console is reconfigured to use play-webhook exclusively.
   // Receives Google Play Real-Time Developer Notifications (RTDN) via Pub/Sub.
   // Configure in Play Console → Monetize → Subscriptions & in-app products → Notifications.
   // The Pub/Sub push subscription must point to this URL.
   // JWT signature is verified by verifyRefundWebhook before the handler runs.
   app.post("/api/billing/refund-webhook", verifyRefundWebhook, async (req, res) => {
+    console.warn("[billing] DEPRECATED refund-webhook hit — migrate Pub/Sub config to /api/billing/play-webhook");
     try {
       const message = req.body?.message;
       if (!message?.data) {
@@ -1205,12 +1342,16 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/billing/subscription-webhook
+  // POST /api/billing/subscription-webhook  [DEPRECATED]
+  // Superseded by /api/billing/play-webhook. Kept registered so any existing Pub/Sub
+  // push subscriptions pointing here continue to ACK rather than queue up retries.
+  // Remove once Play Console is reconfigured to use play-webhook exclusively.
   // Google Real-Time Developer Notifications (RTDN) via Cloud Pub/Sub.
   // Push subscription must point to this URL.
   // Handles all subscription lifecycle events.
   // JWT signature is verified by verifySubscriptionWebhook before the handler runs.
   app.post("/api/billing/subscription-webhook", verifySubscriptionWebhook, async (req, res) => {
+    console.warn("[billing:sub] DEPRECATED subscription-webhook hit — migrate Pub/Sub config to /api/billing/play-webhook");
     try {
       const message = req.body?.message;
       if (!message?.data) {
