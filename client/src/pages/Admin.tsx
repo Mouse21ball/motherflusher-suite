@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { apiFetch } from "@/lib/session";
 
 interface DailyStats {
   date: string;
@@ -31,64 +32,61 @@ function formatDuration(ms: number): string {
   return `${mins}m ${secs}s`;
 }
 
-function getSessionToken(): string | null {
-  try {
-    const raw = localStorage.getItem("cgp_session_token");
-    return raw ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export default function Admin() {
   const [, navigate] = useLocation();
 
+  // FIX 2: staleTime:0 + refetchOnMount:'always' forces a fresh /api/auth/me fetch
+  // on every Admin page mount, bypassing any stale cache from before isAdmin was added.
+  // FIX 3: Use apiFetch (same helper as the rest of the app) to avoid two-implementation
+  // divergence under the shared ["/api/auth/me"] React Query cache key.
   const { data: me, isLoading: meLoading } = useQuery<MeResponse>({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
-      const token = getSessionToken();
-      const res = await fetch("/api/auth/me", {
-        headers: token ? { "X-Session-Token": token } : {},
-      });
+      const res = await apiFetch("/api/auth/me");
       if (!res.ok) throw new Error("Not authenticated");
       return res.json();
     },
+    staleTime: 0,
+    refetchOnMount: "always",
     retry: false,
   });
 
+  // FIX 1: Only redirect when the fetch is definitively complete AND isAdmin is
+  // explicitly not true. Never redirect while meLoading is true or me is undefined.
+  const isDefinitelyNotAdmin =
+    !meLoading && me !== undefined && me.isAdmin !== true;
+
   useEffect(() => {
-    if (!meLoading && (!me || !me.isAdmin)) {
+    if (isDefinitelyNotAdmin) {
       navigate("/");
     }
-  }, [me, meLoading, navigate]);
-
-  const token = me?.sessionToken ?? getSessionToken() ?? "";
+  }, [isDefinitelyNotAdmin, navigate]);
 
   const { data: stats, isLoading: statsLoading, error } = useQuery<DailyStats[]>({
     queryKey: ["/api/analytics/stats"],
     queryFn: async () => {
-      const res = await fetch("/api/analytics/stats", {
-        headers: { "X-Session-Token": token },
-      });
+      const res = await apiFetch("/api/analytics/stats");
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    enabled: !!me?.isAdmin,
+    enabled: me?.isAdmin === true,
     refetchInterval: 30000,
   });
 
-  if (meLoading) {
+  // Still checking auth
+  if (meLoading || me === undefined) {
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
-        <p className="text-white/50 font-mono text-sm">Checking access...</p>
+        <p className="text-white/50 font-mono text-sm" data-testid="text-admin-checking">Checking access...</p>
       </div>
     );
   }
 
-  if (!me || !me.isAdmin) {
+  // Auth settled but not admin
+  if (me.isAdmin !== true) {
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
-        <p className="text-red-400 font-mono text-sm">Not authorized</p>
+        <p className="text-red-400 font-mono text-sm" data-testid="text-admin-denied">Not authorized</p>
       </div>
     );
   }
