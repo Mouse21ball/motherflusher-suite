@@ -35,6 +35,8 @@ export interface ServerProfile {
   // ── Subscription ───────────────────────────────────────────────────────────
   activeSubscriptionTier:  string | null;  // "gold_pro" | "diamond_elite" | null
   subscriptionExpiresAt:   string | null;  // ISO string
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  isAdmin?:                boolean;        // true only for admin accounts
 }
 
 interface UseServerProfileResult {

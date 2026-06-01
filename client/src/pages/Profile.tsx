@@ -940,6 +940,25 @@ export default function Profile() {
             <BlockList />
           </div>
 
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/* ADMIN PANEL (only visible when isAdmin === true)                 */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {serverProfile?.isAdmin === true && (
+            <button
+              onClick={() => navigate('/admin')}
+              data-testid="button-admin-panel"
+              className="w-full h-12 rounded-xl font-mono text-sm font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
+              style={{
+                background: 'rgba(10,8,18,0.85)',
+                border: '1.5px solid rgba(255,215,0,0.55)',
+                color: '#FFD700',
+                cursor: 'pointer',
+              }}
+            >
+              ⚙️ Admin Panel
+            </button>
+          )}
+
           <div ref={footerRef} className="flex flex-col gap-3 mt-2">
             {/* Feedback */}
             <a
