@@ -38,7 +38,8 @@ app.set('trust proxy', 1);
 const ALLOWED_ORIGINS = new Set([
   'https://localhost',            // Capacitor Android WebView
   'capacitor://localhost',        // Capacitor iOS WebView
-  'https://chaing-gang-poker.replit.app', // production web
+  'https://chaing-gang-poker.replit.app', // production web (Replit domain)
+  'https://chainggangpoker.com',  // production web (custom domain)
   'http://localhost:5173',        // Vite dev server
   'http://localhost:5000',        // local server testing
 ]);
