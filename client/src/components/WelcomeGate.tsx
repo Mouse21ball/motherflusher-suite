@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
 import { setSessionToken } from "@/lib/session";
@@ -22,7 +22,21 @@ const LEGAL_PATHS = ['/terms', '/privacy'];
 
 export function WelcomeGate({ children }: WelcomeGateProps) {
   const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
-  const [name,  setName]    = useState(() => getPlayerName());
+  const [name,  setName]    = useState(() => {
+    try {
+      if (localStorage.getItem('just_logged_out') === '1') return '';
+    } catch {}
+    return getPlayerName();
+  });
+
+  // Clear the just_logged_out flag once the welcome/login screen is showing.
+  // DiamondBackground's useServerProfile effect fires first (sibling order) and
+  // reads the flag to skip auto-guest-init; this effect fires after that.
+  useEffect(() => {
+    if (!name) {
+      try { localStorage.removeItem('just_logged_out'); } catch {}
+    }
+  }, [name]);
 
   const onLegalPage = LEGAL_PATHS.includes(window.location.pathname);
 

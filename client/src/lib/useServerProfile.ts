@@ -76,6 +76,13 @@ export function useServerProfile(): UseServerProfileResult {
         if (r.status !== 401) throw new Error(`${r.status}`);
       }
 
+      // Guard: if the user just explicitly logged out, do NOT auto-create a guest
+      // session. Leave profile null so WelcomeGate shows the sign-in screen and
+      // the user must actively choose sign-in or "Play as Guest".
+      let justLoggedOut = false;
+      try { justLoggedOut = localStorage.getItem('just_logged_out') === '1'; } catch {}
+      if (justLoggedOut) throw new Error('just_logged_out');
+
       // Bootstrap path: no token or token expired — initialize as guest.
       // apiFetch attaches X-Session-Token automatically, but guest-init
       // doesn't require one (and will ignore it if present).

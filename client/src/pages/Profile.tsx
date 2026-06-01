@@ -114,11 +114,10 @@ export default function Profile() {
     void displayName;
   };
   const handleLogout = () => {
-    clearSessionToken();          // kills re-auth loop: useServerProfile won't find a token
-    queryClient.clear();          // wipe stale /api/auth/me cache before redirect
-    const freshId = crypto.randomUUID();
-    savePlayerIdentity({ id: freshId, name: 'Guest', avatarSeed: freshId.slice(0, 8), createdAt: Date.now() });
-    window.location.href = '/';   // hard redirect to lobby, not a reload
+    clearSessionToken();
+    queryClient.clear();
+    try { localStorage.setItem('just_logged_out', '1'); } catch {}
+    window.location.href = '/';
   };
 
   // ── Delete account ─────────────────────────────────────────────────────────
