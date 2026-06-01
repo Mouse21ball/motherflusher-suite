@@ -42,6 +42,8 @@ export const playerProfiles = pgTable("player_profiles", {
   timeBankPurchasedUses:     integer("time_bank_purchased_uses").notNull().default(0),
   // ── Admin flag ──────────────────────────────────────────────────────────────
   isAdmin:              boolean("is_admin").notNull().default(false),
+  // ── Welcome kit (new player advantage pack) ─────────────────────────────────
+  welcomeKitClaimed:    boolean("welcome_kit_claimed").notNull().default(false),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -61,6 +63,7 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   currentCrewId:                  true,
   timeBankFreeUsesRemaining:      true,
   timeBankPurchasedUses:          true,
+  welcomeKitClaimed:              true,
   createdAt:                      true,
   updatedAt:                      true,
 });

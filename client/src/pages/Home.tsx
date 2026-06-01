@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import {
   ensurePlayerIdentity,
@@ -25,7 +25,6 @@ import {
 } from '@/lib/dailyReward';
 import {
   isHourlyReady,
-  shouldShowStarterPack,
 } from '@/lib/retention';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
@@ -370,7 +369,8 @@ export default function Home() {
   const [starterOpen,      setStarterOpen]       = useState(false);
   const [rewardReady,      setRewardReady]       = useState(isRewardAvailable);
   const [hourlyReady,      setHourlyReady]       = useState(isHourlyReady);
-  const [starterAvailable, setStarterAvailable]  = useState(shouldShowStarterPack);
+  const starterAvailable = serverProfile?.welcomeKitClaimed === false;
+  const starterKitCheckDoneRef = useRef(false);
   const streakInfo = getStreakInfo();
 
   // Live tables (for LIVE pill count in top bar, 30s poll)
@@ -393,13 +393,16 @@ export default function Home() {
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
-  // Auto-show starter pack for very new players
+  // Auto-show starter pack for very new players (server-authoritative)
   useEffect(() => {
-    if (shouldShowStarterPack() && stats.handsPlayed < 5) {
+    if (starterKitCheckDoneRef.current) return;
+    if (serverProfile === null) return;          // still loading
+    starterKitCheckDoneRef.current = true;       // run once per mount
+    if (serverProfile.welcomeKitClaimed === false && serverProfile.handsPlayed < 5) {
       const timer = setTimeout(() => setStarterOpen(true), 1800);
       return () => clearTimeout(timer);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [serverProfile]);
 
   // Fetch server-authoritative daily bonus status on mount
   useEffect(() => {
@@ -446,7 +449,6 @@ export default function Home() {
 
   const handleStarterClose = useCallback(() => {
     setStarterOpen(false);
-    setStarterAvailable(false);
   }, []);
 
   const handleJoinTable = useCallback((modeId: string, tableId: string) => {

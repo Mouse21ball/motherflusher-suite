@@ -619,6 +619,7 @@ export async function registerRoutes(
         activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
         isAdmin:                 profile.isAdmin,
+        welcomeKitClaimed:       profile.welcomeKitClaimed,
       });
     } catch (err) {
       console.error("Auth me error:", err);
@@ -790,6 +791,19 @@ export async function registerRoutes(
         console.error("bonus-chips error:", err);
         res.status(500).json({ error: "Failed to add bonus chips" });
       }
+    }
+  });
+
+  // POST /api/players/:id/claim-welcome-kit
+  // Marks the new-player welcome kit as claimed in the DB.
+  // Idempotent: calling it again on an already-claimed account is a no-op.
+  app.post("/api/players/:id/claim-welcome-kit", requireAuth, requireSelf, async (req, res) => {
+    try {
+      await storage.claimWelcomeKit(req.params.id as string);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("claim-welcome-kit error:", err);
+      res.status(500).json({ error: "Failed to claim welcome kit" });
     }
   });
 

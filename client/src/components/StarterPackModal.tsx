@@ -60,6 +60,11 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
       body: JSON.stringify({ chips }),
     }).catch(() => {});
 
+    // Mark welcome kit claimed in DB — persists across devices/browsers
+    apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), {
+      method: 'POST',
+    }).catch(() => {});
+
     // T09: Signal the ReactionBar to show its one-time "Emotes unlocked" badge
     // the next time the game table renders.
     try { localStorage.setItem('cgp_emotes_just_unlocked', '1'); } catch {}

@@ -66,6 +66,8 @@ export interface IStorage {
   updatePlayerAvatar(id: string, avatarId: string | null): Promise<void>;
   // ── Display name change (90-day cooldown) ──────────────────────────────────
   updatePlayerDisplayName(id: string, name: string): Promise<void>;
+  // ── Welcome kit ────────────────────────────────────────────────────────────
+  claimWelcomeKit(id: string): Promise<void>;
   // ── Guest reset job ────────────────────────────────────────────────────────
   getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]>;
   resetGuestAccount(id: string): Promise<void>;
@@ -515,6 +517,7 @@ export class MemStorage implements IStorage {
       timeBankFreeUsesRemaining:      2,
       timeBankPurchasedUses:          0,
       isAdmin:                        false,
+      welcomeKitClaimed:              false,
       createdAt: now,
       updatedAt: now,
     };
@@ -683,6 +686,15 @@ export class MemStorage implements IStorage {
     await db
       .update(playerProfiles)
       .set({ displayName: name, lastNameChangeAt: new Date(), updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  // ── Welcome kit ────────────────────────────────────────────────────────────
+
+  async claimWelcomeKit(id: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ welcomeKitClaimed: true, updatedAt: new Date() })
       .where(eq(playerProfiles.id, id));
   }
 

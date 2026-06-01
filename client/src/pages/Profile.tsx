@@ -18,7 +18,8 @@ import {
 import { useServerProfile } from '@/lib/useServerProfile';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
-import { apiFetch } from '@/lib/session';
+import { apiFetch, clearSessionToken } from '@/lib/session';
+import { queryClient } from '@/lib/queryClient';
 import { BlockList } from '@/components/settings/BlockList';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
@@ -113,9 +114,11 @@ export default function Profile() {
     void displayName;
   };
   const handleLogout = () => {
+    clearSessionToken();          // kills re-auth loop: useServerProfile won't find a token
+    queryClient.clear();          // wipe stale /api/auth/me cache before redirect
     const freshId = crypto.randomUUID();
-    savePlayerIdentity({ id: freshId, name: identity.name, avatarSeed: freshId.slice(0, 8), createdAt: Date.now() });
-    window.location.reload();
+    savePlayerIdentity({ id: freshId, name: 'Guest', avatarSeed: freshId.slice(0, 8), createdAt: Date.now() });
+    window.location.href = '/';   // hard redirect to lobby, not a reload
   };
 
   // ── Delete account ─────────────────────────────────────────────────────────

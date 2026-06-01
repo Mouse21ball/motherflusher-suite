@@ -37,6 +37,7 @@ export interface ServerProfile {
   subscriptionExpiresAt:   string | null;  // ISO string
   // ── Admin ──────────────────────────────────────────────────────────────────
   isAdmin?:                boolean;        // true only for admin accounts
+  welcomeKitClaimed?:      boolean;        // false until new-player kit is claimed
 }
 
 interface UseServerProfileResult {
