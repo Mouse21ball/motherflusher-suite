@@ -2333,8 +2333,14 @@ export class MemStorage implements IStorage {
 
   async adminGrantSubscription(adminId: string, targetPlayerId: string, tier: string, durationDays: number, reason: string): Promise<void> {
     this._guardSelf(adminId, targetPlayerId);
-    const STRIPES_BY_TIER: Record<string, number> = { gold_pro: 200, diamond_elite: 500 };
-    const stripesGrant = STRIPES_BY_TIER[tier] ?? 0;
+    // Mirror real purchase grants — use the monthly product's stripesOnStart as canonical
+    // per-tier amount, matching what processSubscriptionPurchase credits on activation.
+    const TIER_TO_PRODUCT_ID: Record<string, string> = {
+      gold_pro:      'sub_gold_pro_monthly',
+      diamond_elite: 'sub_diamond_elite_monthly',
+    };
+    const productId = TIER_TO_PRODUCT_ID[tier];
+    const stripesGrant = productId ? (SUBSCRIPTION_PRODUCTS[productId]?.stripesOnStart ?? 0) : 0;
     await db.transaction(async (tx) => {
       const [target] = await tx
         .select({ activeSubscriptionTier: playerProfiles.activeSubscriptionTier, stripes: playerProfiles.stripes })
