@@ -12,21 +12,29 @@ interface Props {
   meId: string;
 }
 
-function age(createdAt: string) {
-  const ms = Date.now() - new Date(createdAt).getTime();
+function age(createdAt: string | null | undefined) {
+  if (!createdAt) return "N/A";
+  const d = new Date(createdAt);
+  if (isNaN(d.getTime())) return "N/A";
+  const ms = Date.now() - d.getTime();
   const days = Math.floor(ms / 86400000);
   if (days < 1) return "today";
   if (days === 1) return "1 day ago";
   return `${days} days ago`;
 }
 
-function fmtDate(ts: string | null) {
+function fmtDate(ts: string | null | undefined) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function fmtTs(ts: string) {
-  return new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+function fmtTs(ts: string | null | undefined) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function fmtNum(n: number) {

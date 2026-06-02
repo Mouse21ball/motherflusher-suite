@@ -7,8 +7,10 @@ import { KNOWN_ACTION_TYPES } from "./types";
 
 const PAGE_SIZE = 50;
 
-function formatTs(ts: string) {
+function formatTs(ts: string | null | undefined) {
+  if (!ts) return "—";
   const d = new Date(ts);
+  if (isNaN(d.getTime())) return "—";
   return d.toLocaleString("en-US", {
     month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit",
