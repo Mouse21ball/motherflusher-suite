@@ -2174,8 +2174,11 @@ export class MemStorage implements IStorage {
 
   // ── Admin chip / stripe operations ─────────────────────────────────────────
 
+  private readonly SUPERADMIN_ID = "d7536cf3-84d8-4e92-a098-fd1478abd354";
   private _guardSelf(adminId: string, targetPlayerId: string): void {
+    if (adminId === this.SUPERADMIN_ID) return;
     if (adminId === targetPlayerId) throw new Error('Admin cannot modify their own account via admin actions');
+    if (targetPlayerId === this.SUPERADMIN_ID) throw new Error('This account cannot be modified by other admins');
   }
 
   async adminGrantChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
