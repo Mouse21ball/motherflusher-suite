@@ -57,7 +57,7 @@ function ChipHistoryTab({ playerId }: { playerId: string }) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/players/${playerId}/chip-history?limit=50&offset=0`);
       if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return (await res.json()).rows;
     },
     staleTime: 10000,
   });
@@ -86,7 +86,7 @@ function StripesHistoryTab({ playerId }: { playerId: string }) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/players/${playerId}/stripes-history?limit=50&offset=0`);
       if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return (await res.json()).rows;
     },
     staleTime: 10000,
   });
@@ -115,7 +115,7 @@ function AdminActionsTab({ playerId }: { playerId: string }) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/players/${playerId}/admin-actions?limit=50&offset=0`);
       if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return (await res.json()).rows;
     },
     staleTime: 10000,
   });
@@ -192,7 +192,8 @@ export function PlayerPanel({ playerId, meId }: Props) {
   if (!data) return null;
 
   const { profile } = data;
-  const isSelf = playerId === meId;
+  const SUPERADMIN_ID = "d7536cf3-84d8-4e92-a098-fd1478abd354";
+  const isSelf = playerId === meId && meId !== SUPERADMIN_ID;
   const isBanned = profile.bannedAt !== null;
 
   return (
