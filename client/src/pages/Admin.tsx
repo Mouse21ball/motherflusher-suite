@@ -1,7 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/session";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlayerSearch } from "@/components/admin/PlayerSearch";
+import { PlayerPanel } from "@/components/admin/PlayerPanel";
+import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
+import type { MeResponse } from "@/components/admin/types";
+
+// ── Analytics helpers (preserved from original) ──────────────────────────────
 
 interface DailyStats {
   date: string;
@@ -12,16 +19,10 @@ interface DailyStats {
   returningPlayers: number;
 }
 
-interface MeResponse {
-  profileId: string;
-  isAdmin: boolean;
-  sessionToken: string;
-}
-
 const MODE_NAMES: Record<string, string> = {
-  badugi: "Badugi",
-  dead7: "Dead 7",
-  fifteen35: "15 / 35",
+  badugi:     "Badugi",
+  dead7:      "Dead 7",
+  fifteen35:  "15 / 35",
   suitspoker: "Suits & Poker",
 };
 
@@ -32,8 +33,110 @@ function formatDuration(ms: number): string {
   return `${mins}m ${secs}s`;
 }
 
+function StatCard({ label, value, testId }: { label: string; value: number; testId: string }) {
+  return (
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 sm:p-4" data-testid={testId}>
+      <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">{label}</p>
+      <p className="text-2xl font-mono font-bold">{value}</p>
+    </div>
+  );
+}
+
+function AnalyticsTab({ meIsAdmin }: { meIsAdmin: boolean }) {
+  const { data: stats, isLoading, error } = useQuery<DailyStats[]>({
+    queryKey: ["/api/analytics/stats"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/analytics/stats");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: meIsAdmin,
+    refetchInterval: 30000,
+  });
+
+  if (isLoading) return (
+    <p className="text-white/40 font-mono text-sm py-8 text-center">Loading analytics…</p>
+  );
+
+  if (error) return (
+    <p className="text-red-400 font-mono text-sm py-4 text-center">Failed to load analytics</p>
+  );
+
+  const today        = stats?.[0];
+  const totalPlayers  = stats?.reduce((sum, d) => sum + d.uniquePlayers, 0) ?? 0;
+  const totalSessions = stats?.reduce((sum, d) => sum + d.sessionCount,  0) ?? 0;
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="section-analytics">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Today DAU"      value={today?.uniquePlayers ?? 0} testId="stat-dau" />
+        <StatCard label="Today Sessions" value={today?.sessionCount  ?? 0} testId="stat-sessions-today" />
+        <StatCard label="30d Players"    value={totalPlayers}              testId="stat-total-players" />
+        <StatCard label="30d Sessions"   value={totalSessions}             testId="stat-total-sessions" />
+      </div>
+
+      {today && today.avgSessionMs > 0 && (
+        <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Avg Session Today</p>
+          <p className="text-lg font-mono font-bold" data-testid="stat-avg-session">{formatDuration(today.avgSessionMs)}</p>
+        </div>
+      )}
+
+      {today && Object.keys(today.modeBreakdown).length > 0 && (
+        <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3">Mode Plays Today</p>
+          <div className="space-y-2">
+            {Object.entries(today.modeBreakdown)
+              .sort(([, a], [, b]) => b - a)
+              .map(([mode, count]) => (
+                <div key={mode} className="flex items-center justify-between" data-testid={`stat-mode-${mode}`}>
+                  <span className="text-sm text-white/70 font-mono">{MODE_NAMES[mode] || mode}</span>
+                  <span className="text-sm font-mono font-bold">{count}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06]">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Daily Breakdown (Last 30 Days)</p>
+        </div>
+        <div className="divide-y divide-white/[0.04]">
+          {(!stats || stats.length === 0) && (
+            <div className="px-4 py-8 text-center">
+              <p className="text-white/30 font-mono text-sm">No data yet</p>
+            </div>
+          )}
+          {stats?.map(day => (
+            <div key={day.date} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1" data-testid={`row-day-${day.date}`}>
+              <span className="text-xs font-mono text-white/50 w-24 shrink-0">{day.date}</span>
+              <span className="text-xs font-mono text-white/70 w-16 shrink-0">{day.uniquePlayers} DAU</span>
+              <span className="text-xs font-mono text-white/70 w-16 shrink-0">{day.sessionCount} sess</span>
+              <span className="text-xs font-mono text-white/50 w-20 shrink-0">
+                {day.avgSessionMs > 0 ? formatDuration(day.avgSessionMs) : "—"}
+              </span>
+              <span className="text-xs font-mono text-white/50 shrink-0">
+                {day.returningPlayers > 0 ? `${day.returningPlayers} ret` : ""}
+              </span>
+              {Object.keys(day.modeBreakdown).length > 0 && (
+                <span className="text-[10px] font-mono text-white/35 truncate">
+                  {Object.entries(day.modeBreakdown).map(([m, c]) => `${m}:${c}`).join(" ")}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
+
 export default function Admin() {
-  const [, navigate] = useLocation();
+  const [, navigate]       = useLocation();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // FIX 2: staleTime:0 + refetchOnMount:'always' forces a fresh /api/auth/me fetch
   // on every Admin page mount, bypassing any stale cache from before isAdmin was added.
@@ -62,22 +165,11 @@ export default function Admin() {
     }
   }, [isDefinitelyNotAdmin, navigate]);
 
-  const { data: stats, isLoading: statsLoading, error } = useQuery<DailyStats[]>({
-    queryKey: ["/api/analytics/stats"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/analytics/stats");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-    enabled: me?.isAdmin === true,
-    refetchInterval: 30000,
-  });
-
   // Still checking auth
   if (meLoading || me === undefined) {
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
-        <p className="text-white/50 font-mono text-sm" data-testid="text-admin-checking">Checking access...</p>
+        <p className="text-white/50 font-mono text-sm" data-testid="text-admin-checking">Checking access…</p>
       </div>
     );
   }
@@ -91,104 +183,90 @@ export default function Admin() {
     );
   }
 
-  if (statsLoading) {
-    return (
-      <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
-        <p className="text-white/50 font-mono text-sm">Loading analytics...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center">
-        <p className="text-red-400 font-mono text-sm">Failed to load analytics</p>
-      </div>
-    );
-  }
-
-  const today = stats?.[0];
-  const totalPlayers = stats?.reduce((sum, d) => sum + d.uniquePlayers, 0) ?? 0;
-  const totalSessions = stats?.reduce((sum, d) => sum + d.sessionCount, 0) ?? 0;
-
   return (
-    <div className="min-h-[100dvh] bg-slate-950 text-white p-4 sm:p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold font-mono" data-testid="text-admin-title">Analytics</h1>
-          <a href="/" className="text-white/40 hover:text-white/70 text-sm font-mono transition-colors" data-testid="link-admin-back">&larr; Lobby</a>
+    <div className="min-h-[100dvh] bg-slate-950 text-white">
+      {/* Header */}
+      <div className="border-b border-white/[0.07] px-4 py-3 flex items-center justify-between sticky top-0 bg-slate-950/95 backdrop-blur z-10">
+        <div>
+          <h1 className="text-base font-mono font-bold" data-testid="text-admin-title">Admin Dashboard</h1>
+          <p className="text-[10px] font-mono text-white/40" data-testid="text-admin-who">{me.displayName}</p>
         </div>
+        <a
+          href="/"
+          className="text-white/40 hover:text-white/70 text-xs font-mono transition-colors"
+          data-testid="link-admin-back"
+        >
+          ← Lobby
+        </a>
+      </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          <StatCard label="Today DAU" value={today?.uniquePlayers ?? 0} testId="stat-dau" />
-          <StatCard label="Today Sessions" value={today?.sessionCount ?? 0} testId="stat-sessions-today" />
-          <StatCard label="30d Players" value={totalPlayers} testId="stat-total-players" />
-          <StatCard label="30d Sessions" value={totalSessions} testId="stat-total-sessions" />
-        </div>
+      {/* Body */}
+      <div className="max-w-5xl mx-auto px-4 py-4">
+        <Tabs defaultValue="players">
+          <TabsList className="bg-white/[0.04] border border-white/[0.08] mb-4 w-full" data-testid="tabs-main">
+            <TabsTrigger
+              value="players"
+              className="flex-1 font-mono text-xs data-[state=active]:bg-white/10"
+              data-testid="tab-main-players"
+            >
+              Players
+            </TabsTrigger>
+            <TabsTrigger
+              value="audit"
+              className="flex-1 font-mono text-xs data-[state=active]:bg-white/10"
+              data-testid="tab-main-audit"
+            >
+              Audit Log
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              className="flex-1 font-mono text-xs data-[state=active]:bg-white/10"
+              data-testid="tab-main-analytics"
+            >
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-        {today && today.avgSessionMs > 0 && (
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 mb-6">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Avg Session Today</p>
-            <p className="text-lg font-mono font-bold" data-testid="stat-avg-session">{formatDuration(today.avgSessionMs)}</p>
-          </div>
-        )}
-
-        {today && Object.keys(today.modeBreakdown).length > 0 && (
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 mb-6">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3">Mode Plays Today</p>
-            <div className="space-y-2">
-              {Object.entries(today.modeBreakdown)
-                .sort(([, a], [, b]) => b - a)
-                .map(([mode, count]) => (
-                  <div key={mode} className="flex items-center justify-between" data-testid={`stat-mode-${mode}`}>
-                    <span className="text-sm text-white/70 font-mono">{MODE_NAMES[mode] || mode}</span>
-                    <span className="text-sm font-mono font-bold">{count}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.06]">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Daily Breakdown (Last 30 Days)</p>
-          </div>
-          <div className="divide-y divide-white/[0.04]">
-            {(!stats || stats.length === 0) && (
-              <div className="px-4 py-8 text-center">
-                <p className="text-white/30 font-mono text-sm">No data yet</p>
+          {/* Players tab */}
+          <TabsContent value="players">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Search panel */}
+              <div className="lg:w-72 shrink-0">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Search Players</p>
+                <PlayerSearch
+                  onSelect={id => setSelectedId(id)}
+                  selectedId={selectedId}
+                />
               </div>
-            )}
-            {stats?.map((day) => (
-              <div key={day.date} className="px-4 py-3 flex items-center gap-4" data-testid={`row-day-${day.date}`}>
-                <span className="text-xs font-mono text-white/50 w-24 shrink-0">{day.date}</span>
-                <span className="text-xs font-mono text-white/70 w-16 shrink-0">{day.uniquePlayers} DAU</span>
-                <span className="text-xs font-mono text-white/70 w-16 shrink-0">{day.sessionCount} sess</span>
-                <span className="text-xs font-mono text-white/50 w-20 shrink-0">
-                  {day.avgSessionMs > 0 ? formatDuration(day.avgSessionMs) : "—"}
-                </span>
-                <span className="text-xs font-mono text-white/50 shrink-0">
-                  {day.returningPlayers > 0 ? `${day.returningPlayers} ret` : ""}
-                </span>
-                {Object.keys(day.modeBreakdown).length > 0 && (
-                  <span className="text-[10px] font-mono text-white/35 truncate">
-                    {Object.entries(day.modeBreakdown).map(([m, c]) => `${m}:${c}`).join(" ")}
-                  </span>
+
+              {/* Detail panel */}
+              <div className="flex-1 min-w-0">
+                {selectedId ? (
+                  <PlayerPanel
+                    key={selectedId}
+                    playerId={selectedId}
+                    meId={me.profileId}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center py-16 border border-white/[0.06] rounded-lg" data-testid="text-player-placeholder">
+                    <p className="text-white/20 font-mono text-sm">Select a player to view details</p>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+            </div>
+          </TabsContent>
 
-function StatCard({ label, value, testId }: { label: string; value: number; testId: string }) {
-  return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 sm:p-4" data-testid={testId}>
-      <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">{label}</p>
-      <p className="text-2xl font-mono font-bold">{value}</p>
+          {/* Audit Log tab */}
+          <TabsContent value="audit">
+            <AuditLogFeed />
+          </TabsContent>
+
+          {/* Analytics tab */}
+          <TabsContent value="analytics">
+            <AnalyticsTab meIsAdmin={me.isAdmin === true} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
