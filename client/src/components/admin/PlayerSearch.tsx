@@ -28,7 +28,7 @@ export function PlayerSearch({ onSelect, selectedId }: Props) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/players/search?q=${encodeURIComponent(debouncedQ)}`);
       if (!res.ok) throw new Error("Search failed");
-      return res.json();
+      return (await res.json()).players;
     },
     enabled,
     staleTime: 15000,
