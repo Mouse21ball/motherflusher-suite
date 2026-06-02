@@ -307,6 +307,7 @@ export function PlayerPanel({ playerId, meId }: Props) {
       <ActionModal
         actionType={activeModal}
         playerId={playerId}
+        ownedCosmetics={data.ownedCosmetics.map(c => ({ id: c.id, displayName: c.displayName, category: c.category }))}
         onClose={() => setActiveModal(null)}
         onSuccess={() => setActiveModal(null)}
       />

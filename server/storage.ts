@@ -266,10 +266,11 @@ export interface PlayerSearchResult {
 }
 
 export interface AdminPlayerDetails {
-  profile:            PlayerProfile;
-  recentChipHistory:  ChipTransaction[];
+  profile:              PlayerProfile;
+  recentChipHistory:    ChipTransaction[];
   recentStripesHistory: StripeTransaction[];
-  recentAdminActions: AdminAction[];
+  recentAdminActions:   AdminAction[];
+  ownedCosmetics:       CosmeticInventoryItem[];
 }
 
 export interface AdminAuditLogEntry {
@@ -2126,12 +2127,19 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id))
       .limit(1);
     if (!profiles[0]) return null;
-    const [recentChipHistory, recentStripesHistory, recentAdminActions] = await Promise.all([
+    const [recentChipHistory, recentStripesHistory, recentAdminActions, inventoryResult] = await Promise.all([
       this.getPlayerChipHistory(id, 20, 0),
       this.getPlayerStripesHistory(id, 20, 0),
       this.getPlayerAdminActionHistory(id, 20, 0),
+      this.getPlayerInventory(id),
     ]);
-    return { profile: profiles[0], recentChipHistory, recentStripesHistory, recentAdminActions };
+    return {
+      profile: profiles[0],
+      recentChipHistory,
+      recentStripesHistory,
+      recentAdminActions,
+      ownedCosmetics: inventoryResult.items,
+    };
   }
 
   async getPlayerChipHistory(playerId: string, limit: number, offset: number): Promise<ChipTransaction[]> {

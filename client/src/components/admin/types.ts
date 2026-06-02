@@ -76,6 +76,7 @@ export interface AdminPlayerDetails {
   recentChipHistory: ChipTransaction[];
   recentStripesHistory: StripeTransaction[];
   recentAdminActions: AdminAction[];
+  ownedCosmetics: OwnedCosmeticItem[];
 }
 
 export interface AdminAuditLogEntry {
@@ -98,6 +99,12 @@ export interface CosmeticCatalogItem {
   category: string;
   description: string;
   active: boolean;
+}
+
+export interface OwnedCosmeticItem {
+  id: string;
+  displayName: string;
+  category: string;
 }
 
 export type AdminActionType =

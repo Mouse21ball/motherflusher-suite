@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { AdminActionType, CosmeticCatalogItem } from "./types";
+import type { AdminActionType, CosmeticCatalogItem, OwnedCosmeticItem } from "./types";
 import { ACTION_LABELS, DESTRUCTIVE_ACTIONS } from "./types";
 
 interface CatalogResponse {
@@ -23,6 +23,7 @@ interface CatalogResponse {
 interface Props {
   actionType: AdminActionType | null;
   playerId: string;
+  ownedCosmetics: OwnedCosmeticItem[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -41,7 +42,7 @@ function resetState() {
   };
 }
 
-export function ActionModal({ actionType, playerId, onClose, onSuccess }: Props) {
+export function ActionModal({ actionType, playerId, ownedCosmetics, onClose, onSuccess }: Props) {
   const qc = useQueryClient();
   const [s, setS] = useState(resetState);
 
@@ -198,10 +199,22 @@ export function ActionModal({ actionType, playerId, onClose, onSuccess }: Props)
                 className="w-full bg-white/[0.04] border border-white/[0.12] rounded px-2 py-2 text-sm font-mono text-white/80 appearance-none"
               >
                 <option value="">— select cosmetic —</option>
-                {catalog?.items.filter(i => i.active).map(i => (
-                  <option key={i.id} value={i.id}>{i.displayName} ({i.category})</option>
-                ))}
+                {actionType === "revoke-cosmetic"
+                  ? ownedCosmetics.length === 0
+                    ? <option disabled value="">Player owns no cosmetics</option>
+                    : ownedCosmetics.map(i => (
+                        <option key={i.id} value={i.id}>{i.displayName} ({i.category})</option>
+                      ))
+                  : catalog?.items.filter(i => i.active).map(i => (
+                      <option key={i.id} value={i.id}>{i.displayName} ({i.category})</option>
+                    ))
+                }
               </select>
+              {actionType === "revoke-cosmetic" && ownedCosmetics.length === 0 && (
+                <p className="text-[10px] font-mono text-white/30 mt-1" data-testid="text-no-owned-cosmetics">
+                  This player owns no cosmetics.
+                </p>
+              )}
             </div>
           )}
 
