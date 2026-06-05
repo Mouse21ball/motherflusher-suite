@@ -390,13 +390,12 @@ export default function CosmeticsStore() {
           data-testid="text-stripes-balance"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
           style={{
-            background: 'rgba(201,162,39,0.15)',
-            border: '1px solid rgba(255,215,0,0.50)',
-            boxShadow: '0 0 12px rgba(255, 215, 0, 0.40)',
+            background: 'rgba(168,85,247,0.15)',
+            border: '1px solid rgba(168,85,247,0.40)',
           }}
         >
-          <span style={{ fontSize: '0.85rem' }}>◆</span>
-          <span style={{ color: 'rgba(201,162,39,0.95)', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'monospace' }}>
+          <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 14, height: 14 }} />
+          <span style={{ color: '#a855f7', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'monospace' }}>
             {stripes.toLocaleString()}
           </span>
         </div>
@@ -496,7 +495,7 @@ export default function CosmeticsStore() {
                       {item.displayName}
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span style={{ fontSize: 11, color: 'rgba(201,162,39,0.80)', fontFamily: 'monospace' }}>
+                      <span style={{ fontSize: 11, color: '#C9A227', fontFamily: 'monospace' }}>
                         ◆ {item.stripesCost}
                       </span>
                       <StateBadge state={state} />
@@ -550,7 +549,7 @@ export default function CosmeticsStore() {
             {/* Price row */}
             <div className="flex items-center justify-center gap-2 px-5 py-3">
               <span style={{ color: 'rgba(201,162,39,0.70)', fontSize: '0.75rem', fontFamily: 'monospace' }}>Cost:</span>
-              <span style={{ color: 'rgba(201,162,39,0.95)', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace' }}>
+              <span style={{ color: '#C9A227', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace' }}>
                 ◆ {selected.stripesCost}
               </span>
               {itemState(selected) === 'buy' && stripes < selected.stripesCost && (
@@ -653,7 +652,7 @@ export default function CosmeticsStore() {
                 className="text-sm font-medium"
                 style={{ color: 'rgba(255,255,255,0.88)', lineHeight: 1.5 }}
               >
-                Spend <strong style={{ color: 'rgba(201,162,39,0.95)' }}>◆ {selected.stripesCost} Stripes</strong> for<br />
+                Spend <strong style={{ color: '#C9A227' }}>◆ {selected.stripesCost} Stripes</strong> for<br />
                 <strong style={{ color: '#fff' }}>{selected.displayName}</strong>?
               </p>
               <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>

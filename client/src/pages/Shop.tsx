@@ -382,8 +382,11 @@ export default function Shop() {
             </div>
             <div className="text-right shrink-0">
               <div className="text-[10px] font-mono text-white/40 uppercase">Balance</div>
-              <div className="text-base font-bold font-mono text-white/90">
-                {(profile?.stripes ?? 0).toLocaleString()}◆
+              <div className="flex items-center justify-end gap-1 mt-0.5">
+                <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 14, height: 14 }} />
+                <span className="text-base font-bold font-mono tabular-nums" style={{ color: '#a855f7' }}>
+                  {(profile?.stripes ?? 0).toLocaleString()}
+                </span>
               </div>
             </div>
           </div>

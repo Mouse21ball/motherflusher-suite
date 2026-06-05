@@ -284,7 +284,7 @@ function NoCrew({ stripes, onCreate, onJoin }: {
             <p className="font-mono font-bold text-base" style={{ color: "#f0b829" }}>CREATE A CREW</p>
             <p className="text-xs mt-1" style={{ color: "rgba(240,184,41,0.55)" }}>Start your own Crew and invite up to 24 members.</p>
           </div>
-          <span className="font-mono text-lg font-bold" style={{ color: "#f0b829" }}>500◆</span>
+          <span className="font-mono text-lg font-bold" style={{ color: "#C9A227" }}>500◆</span>
         </div>
         {stripes < 500 ? (
           <p className="text-xs" style={{ color: "#ef4444" }}>
@@ -309,7 +309,7 @@ function NoCrew({ stripes, onCreate, onJoin }: {
             <p className="font-mono font-bold text-base" style={{ color: "#f0b829" }}>JOIN A CREW</p>
             <p className="text-xs mt-1" style={{ color: "rgba(240,184,41,0.55)" }}>Enter a 6-character invite code to join.</p>
           </div>
-          <span className="font-mono text-lg font-bold" style={{ color: "#f0b829" }}>50◆</span>
+          <span className="font-mono text-lg font-bold" style={{ color: "#C9A227" }}>50◆</span>
         </div>
         {stripes < 50 ? (
           <p className="text-xs" style={{ color: "#ef4444" }}>
@@ -977,7 +977,7 @@ function CreateCrewModal({ stripes, onClose, onCreated }: {
             style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: "#f0b829" }}
           />
         </div>
-        <div className="flex justify-between items-center text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
+        <div className="flex justify-between items-center text-xs font-mono" style={{ color: "#C9A227" }}>
           <span>Your balance: {stripes.toLocaleString()}◆</span>
           <span>Cost: 500◆</span>
         </div>
@@ -991,7 +991,7 @@ function CreateCrewModal({ stripes, onClose, onCreated }: {
           disabled={!canCreate || loading}
           data-testid="btn-confirm-create-crew"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(240,184,41,0.20)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.5)" }}
+          style={{ background: "rgba(201,162,39,0.20)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.5)" }}
         >
           {loading ? "Creating…" : "CREATE FOR 500◆"}
         </button>
@@ -1067,7 +1067,7 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
             )}
           </div>
         )}
-        <div className="flex justify-between items-center text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
+        <div className="flex justify-between items-center text-xs font-mono" style={{ color: "#C9A227" }}>
           <span>Your balance: {stripes.toLocaleString()}◆</span>
           <span>Cost: 50◆</span>
         </div>
@@ -1076,7 +1076,7 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
           disabled={!canJoin || loading}
           data-testid="btn-confirm-join-crew"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(240,184,41,0.15)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.35)" }}
+          style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.35)" }}
         >
           {loading ? "Joining…" : `JOIN FOR 50◆`}
         </button>

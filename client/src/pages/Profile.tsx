@@ -708,7 +708,7 @@ export default function Profile() {
               data-testid="stat-stripes"
             >
               <div style={{ fontSize: 9, color: '#B57BE8', letterSpacing: '0.10em', fontFamily: 'monospace', fontWeight: 700 }}>STRIPES</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: '#B57BE8', fontFamily: 'monospace', lineHeight: 1.1 }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#a855f7', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
               <img src="/profile/icons/stat-icon-stripes.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
