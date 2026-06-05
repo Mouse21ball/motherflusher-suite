@@ -1,29 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { apiUrl } from "@/lib/apiConfig";
 import { AuthModal } from "@/components/AuthModal";
-
-// ─── API helpers ──────────────────────────────────────────────────────────────
-function getAuth() {
-  const id    = localStorage.getItem("cgp_player_id") ?? "";
-  const token = localStorage.getItem(`cgp_session_${id}`) ?? "";
-  return { id, token };
-}
-
-async function apiFetch(path: string, opts: RequestInit = {}) {
-  const { token } = getAuth();
-  const res = await fetch(apiUrl(path), {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Session-Token": token,
-      ...(opts.headers ?? {}),
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data };
-}
+import { apiFetch, getSessionToken } from "@/lib/session";
+import { useQuery } from "@tanstack/react-query";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CrewMember {
@@ -61,7 +41,18 @@ function AvatarChip({ name, size = 32 }: { name: string; size?: number }) {
 export default function CrewsPage() {
   const [, navigate]   = useLocation();
   const { toast }      = useToast();
-  const { id: playerId } = getAuth();
+
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/auth/me");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  const playerId: string = me?.profileId ?? "";
 
   const [crew, setCrew]       = useState<CrewDetail | null | "loading">("loading");
   const [stripes, setStripes] = useState<number>(0);
@@ -76,12 +67,12 @@ export default function CrewsPage() {
 
   const loadCrew = useCallback(async () => {
     if (!playerId) return;
-    const { ok, data } = await apiFetch(`/api/players/${playerId}/crew`);
-    if (ok) setCrew(data.crew ?? null);
-    else    setCrew(null);
+    const crewRes = await apiFetch(`/api/players/${playerId}/crew`);
+    if (crewRes.ok) { const d = await crewRes.json(); setCrew(d.crew ?? null); }
+    else setCrew(null);
 
     const sr = await apiFetch(`/api/players/${playerId}/stripes`);
-    if (sr.ok) setStripes(sr.data.stripes ?? 0);
+    if (sr.ok) { const d = await sr.json(); setStripes(d.stripes ?? 0); }
   }, [playerId]);
 
   useEffect(() => { loadCrew(); }, [loadCrew]);
@@ -91,7 +82,7 @@ export default function CrewsPage() {
     else navigate("/");
   }
 
-  if (!playerId) {
+  if (!me || !me.profileId) {
     return (
       <>
         <div
@@ -473,9 +464,10 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
   const pollRef             = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMsgs = useCallback(async () => {
-    const { ok, data } = await apiFetch(`/api/crews/${crew.id}/chat?limit=50`);
-    if (!ok) return;
-    const incoming: ChatMsg[] = data.messages ?? [];
+    const res = await apiFetch(`/api/crews/${crew.id}/chat?limit=50`);
+    if (!res.ok) return;
+    const d = await res.json().catch(() => ({} as { messages?: ChatMsg[] }));
+    const incoming: ChatMsg[] = d.messages ?? [];
     const newOnes = incoming.filter(m => !seenIds.current.has(m.id));
     if (newOnes.length > 0) {
       newOnes.forEach(m => seenIds.current.add(m.id));
@@ -524,9 +516,10 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     if (!crewBlockTarget) return;
     setCrewBlocking(true);
     try {
-      const { ok, data } = await apiFetch('/api/players/blocks', { method: 'POST', body: JSON.stringify({ blockedId: crewBlockTarget.pid }) });
-      if (ok) toast({ title: `Blocked ${crewBlockTarget.name}` });
-      else toast({ title: (data as { error?: string })?.error ?? 'Could not block player.', variant: 'destructive' });
+      const res = await apiFetch('/api/players/blocks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blockedId: crewBlockTarget.pid }) });
+      const d = await res.json().catch(() => ({} as { error?: string }));
+      if (res.ok) toast({ title: `Blocked ${crewBlockTarget.name}` });
+      else toast({ title: d?.error ?? 'Could not block player.', variant: 'destructive' });
     } catch { toast({ title: 'Network error.', variant: 'destructive' }); }
     finally { setCrewBlocking(false); setCrewBlockTarget(null); }
   }
@@ -535,8 +528,9 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     if (!crewReportTarget) return;
     setCrewReporting(true);
     try {
-      const { ok, data } = await apiFetch('/api/players/reports', {
+      const res = await apiFetch('/api/players/reports', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reportedId:  crewReportTarget.pid,
           reason:      crewReportReason,
@@ -545,8 +539,9 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
           notes:       crewReportNotes.trim() || undefined,
         }),
       });
-      if (ok) toast({ title: 'Report submitted. Our team will review it.' });
-      else toast({ title: (data as { error?: string })?.error ?? 'Could not submit report.', variant: 'destructive' });
+      const d = await res.json().catch(() => ({} as { error?: string }));
+      if (res.ok) toast({ title: 'Report submitted. Our team will review it.' });
+      else toast({ title: d?.error ?? 'Could not submit report.', variant: 'destructive' });
     } catch { toast({ title: 'Network error.', variant: 'destructive' }); }
     finally {
       setCrewReporting(false); setCrewReportTarget(null);
@@ -557,20 +552,22 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
   async function send() {
     if (!text.trim() || sending) return;
     setSend(true);
-    const { ok, status, data } = await apiFetch(`/api/crews/${crew.id}/chat`, {
+    const res = await apiFetch(`/api/crews/${crew.id}/chat`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text.trim() }),
     });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setSend(false);
-    if (ok) {
+    if (res.ok) {
       setText("");
       fetchMsgs();
-    } else if (status === 422) {
+    } else if (res.status === 422) {
       toast({ title: "Message blocked — please keep it clean.", variant: "destructive" });
-    } else if (status === 429) {
+    } else if (res.status === 429) {
       toast({ title: "Slow down — too many messages.", variant: "destructive" });
     } else {
-      toast({ title: data?.error ?? "Failed to send.", variant: "destructive" });
+      toast({ title: d?.error ?? "Failed to send.", variant: "destructive" });
     }
   }
 
@@ -816,21 +813,24 @@ function InfoTab({ crew, playerId, isCaptain, onLeave, onReload }: {
   async function handleRename() {
     if (!editName.trim()) return;
     setSaving(true);
-    const { ok, data } = await apiFetch(`/api/crews/${crew.id}/rename`, {
+    const res = await apiFetch(`/api/crews/${crew.id}/rename`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null }),
     });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setSaving(false);
-    if (ok) { onReload(); toast({ title: "Crew updated." }); }
-    else     toast({ title: data?.error ?? "Failed to rename.", variant: "destructive" });
+    if (res.ok) { onReload(); toast({ title: "Crew updated." }); }
+    else         toast({ title: d?.error ?? "Failed to rename.", variant: "destructive" });
   }
 
   async function handleRegenInvite() {
     setRegen(true);
-    const { ok, data } = await apiFetch(`/api/crews/${crew.id}/regenerate-invite`, { method: "POST" });
+    const res = await apiFetch(`/api/crews/${crew.id}/regenerate-invite`, { method: "POST" });
+    const d = await res.json().catch(() => ({} as { inviteCode?: string; error?: string }));
     setRegen(false);
-    if (ok) { onReload(); toast({ title: `New code: ${data.inviteCode}` }); }
-    else     toast({ title: data?.error ?? "Failed.", variant: "destructive" });
+    if (res.ok) { onReload(); toast({ title: `New code: ${d.inviteCode}` }); }
+    else         toast({ title: d?.error ?? "Failed.", variant: "destructive" });
   }
 
   const memberCount = crew.memberCount;
@@ -936,14 +936,16 @@ function CreateCrewModal({ stripes, onClose, onCreated }: {
   async function handleCreate() {
     if (!canCreate) return;
     setLoading(true);
-    const { ok, data } = await apiFetch("/api/crews/create", {
+    const res = await apiFetch("/api/crews/create", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: name.trim(), description: desc.trim() || undefined }),
     });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setLoading(false);
-    if (ok)                   onCreated();
-    else if (data?.error)     toast({ title: data.error, variant: "destructive" });
-    else                      toast({ title: "Failed to create Crew.", variant: "destructive" });
+    if (res.ok)        onCreated();
+    else if (d?.error) toast({ title: d.error, variant: "destructive" });
+    else               toast({ title: "Failed to create Crew.", variant: "destructive" });
   }
 
   return (
@@ -1011,10 +1013,11 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
   async function fetchPreview(c: string) {
     if (c.length !== 6) { setPreview(null); return; }
     setPreviewing(true);
-    const { ok, data } = await apiFetch(`/api/crews/preview/${c.toUpperCase()}`);
+    const res = await apiFetch(`/api/crews/preview/${c.toUpperCase()}`);
+    const d = await res.json().catch(() => ({} as { name?: string; memberCount?: number }));
     setPreviewing(false);
-    if (ok) setPreview({ name: data.name, memberCount: data.memberCount });
-    else    setPreview(null);
+    if (res.ok) setPreview({ name: d.name as string, memberCount: d.memberCount as number });
+    else        setPreview(null);
   }
 
   function handleCode(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1025,14 +1028,16 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
 
   async function handleJoin() {
     setLoading(true);
-    const { ok, data } = await apiFetch("/api/crews/join", {
+    const res = await apiFetch("/api/crews/join", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ invite_code: code }),
     });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setLoading(false);
-    if (ok)               onJoined();
-    else if (data?.error) toast({ title: data.error, variant: "destructive" });
-    else                  toast({ title: "Failed to join Crew.", variant: "destructive" });
+    if (res.ok)        onJoined();
+    else if (d?.error) toast({ title: d.error, variant: "destructive" });
+    else               toast({ title: "Failed to join Crew.", variant: "destructive" });
   }
 
   const canJoin = code.length === 6 && !!preview && preview.memberCount < 25 && stripes >= 50;
@@ -1100,10 +1105,11 @@ function LeaveConfirmModal({ crew, playerId, onClose, onLeft }: {
 
   async function handleLeave() {
     setL(true);
-    const { ok, data } = await apiFetch(`/api/crews/${crew.id}/leave`, { method: "POST" });
+    const res = await apiFetch(`/api/crews/${crew.id}/leave`, { method: "POST" });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setL(false);
-    if (ok) onLeft();
-    else    toast({ title: data?.error ?? "Failed to leave.", variant: "destructive" });
+    if (res.ok) onLeft();
+    else        toast({ title: d?.error ?? "Failed to leave.", variant: "destructive" });
   }
 
   return (
@@ -1137,13 +1143,15 @@ function KickConfirmModal({ crew, target, onClose, onKicked }: {
 
   async function handleKick() {
     setL(true);
-    const { ok, data } = await apiFetch(`/api/crews/${crew.id}/kick`, {
+    const res = await apiFetch(`/api/crews/${crew.id}/kick`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ player_id: target.playerId }),
     });
+    const d = await res.json().catch(() => ({} as { error?: string }));
     setL(false);
-    if (ok) onKicked();
-    else    toast({ title: data?.error ?? "Failed to kick.", variant: "destructive" });
+    if (res.ok) onKicked();
+    else        toast({ title: d?.error ?? "Failed to kick.", variant: "destructive" });
   }
 
   return (
