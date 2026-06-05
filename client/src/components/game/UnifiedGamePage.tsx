@@ -364,12 +364,12 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
-        onRebuy={() => { handleAction('rebuy'); setBustDismissed(true); }}
+        onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(modeId, me.chips); navigate('/'); }}
         onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
-        onStarterPack={undefined}
+        onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
       />
     </div>
   );

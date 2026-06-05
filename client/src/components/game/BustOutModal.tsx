@@ -168,18 +168,18 @@ export function BustOutModal({
           </p>
         </div>
 
-        {/* ── TIER 1: First bust + never purchased → Starter Pack ── */}
+        {/* ── TIER 1: First bust + never purchased → Free Rebuy ── */}
         {tier === 1 && (
           <>
             <button
-              onClick={() => { onStarterPack ? onStarterPack() : console.log("TODO: IAP integration"); }}
+              onClick={() => onStarterPack?.()}
               data-testid="button-bust-starter-pack"
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
             >
-              <span>🎁 STARTER PACK — $0.99</span>
-              <span className="text-[11px] font-bold opacity-70 tracking-wide">5,000 chips · 5 emotes · VIP card back</span>
+              <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
+              <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
-            <p className="text-center text-[10px] text-white/30 font-mono mb-3">Best value for new players</p>
+            <p className="text-center text-[10px] text-white/30 font-mono mb-3">Keep rolling — chips on us</p>
             <div className="space-y-2">
               <RebuyBtn testId="button-bust-rebuy" />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
@@ -227,27 +227,26 @@ export function BustOutModal({
               {!onWatchAd && <span className="text-[11px] font-bold opacity-70 tracking-wide">Coming Soon</span>}
             </button>
             <div className="space-y-2">
-              <SecBtn label="Buy $4.99 Chips" onClick={() => console.log("TODO: IAP $4.99")} testId="button-bust-iap-499" />
-              <SecBtn label="Buy $9.99 Chips" onClick={() => console.log("TODO: IAP $9.99")} testId="button-bust-iap-999" />
+              <SecBtn label="Free Rebuy — Get 1,000 Chips" onClick={() => onStarterPack?.()} testId="button-bust-free-rebuy" />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>
           </>
         )}
 
-        {/* ── TIER 4: 2+ session busts, never purchased → Starter Pack push ── */}
+        {/* ── TIER 4: 2+ session busts, never purchased → Free Rebuy push ── */}
         {tier === 4 && (
           <>
             <button
-              onClick={() => { onStarterPack ? onStarterPack() : console.log("TODO: IAP integration"); }}
+              onClick={() => onStarterPack?.()}
               data-testid="button-bust-starter-pack"
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
             >
-              <span>🎁 STARTER PACK — $0.99</span>
-              <span className="text-[11px] font-bold opacity-70 tracking-wide">5,000 chips · 5 emotes · VIP card back</span>
+              <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
+              <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
             <p className="text-center text-[10px] text-white/30 font-mono mb-3">
-              You've busted {sessionBusts}× this session — best value to keep rolling
+              Busted {sessionBusts}× this session — chips on us, keep rolling
             </p>
             <div className="space-y-2">
               <SecBtn
