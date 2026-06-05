@@ -78,7 +78,7 @@ export function AuditLogFeed() {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/audit-log?${qsBase()}`);
       if (!res.ok) throw new Error("Failed to load audit log");
-      const rows: AdminAuditLogEntry[] = await res.json();
+      const rows: AdminAuditLogEntry[] = (await res.json()).rows ?? [];
       setAccumulated(rows);
       setOffset(rows.length);
       setHasMore(rows.length === PAGE_SIZE);
@@ -95,7 +95,7 @@ export function AuditLogFeed() {
       if (adminIdFilter)    params.set("adminId",    adminIdFilter);
       const res = await apiFetch(`/api/admin/audit-log?${params.toString()}`);
       if (!res.ok) throw new Error("Failed");
-      const rows: AdminAuditLogEntry[] = await res.json();
+      const rows: AdminAuditLogEntry[] = (await res.json()).rows ?? [];
       setAccumulated(prev => [...prev, ...rows]);
       setOffset(prev => prev + rows.length);
       setHasMore(rows.length === PAGE_SIZE);
