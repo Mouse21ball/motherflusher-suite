@@ -48,6 +48,8 @@ app.use(cors({
     // Allow requests with no origin (server-to-server, curl, Pub/Sub webhooks)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
+    // Allow all Replit preview/dev subdomains (dynamic URLs in the editor)
+    if (origin.endsWith('.replit.dev') || origin.endsWith('.repl.co')) return callback(null, true);
     callback(new Error(`CORS: origin not allowed — ${origin}`));
   },
   credentials: true,
