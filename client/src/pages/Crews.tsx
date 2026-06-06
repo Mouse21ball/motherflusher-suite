@@ -197,72 +197,84 @@ export default function CrewsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: "rgba(10,8,4,0.97)" }}>
-      {/* Header */}
-      <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
-           style={{ background: "rgba(10,8,4,0.92)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
-        <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform">
-          ←
-        </button>
-        <h1 className="font-mono text-lg font-bold tracking-widest" style={{ color: "#f0b829" }}>
-          {crew ? crew.name.toUpperCase() : "CREWS"}
-        </h1>
-        {crew && (
-          <span className="ml-auto text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
-            {crew.memberCount}/25
-          </span>
+    <div
+      className="min-h-screen pb-24"
+      style={{
+        position: "relative",
+        backgroundImage: "url('/crews/crews-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 0 }} />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        {/* Header */}
+        <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
+             style={{ background: "rgba(10,8,4,0.92)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
+          <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform">
+            ←
+          </button>
+          <h1 className="font-mono text-lg font-bold tracking-widest" style={{ color: "#f0b829" }}>
+            {crew ? crew.name.toUpperCase() : "CREWS"}
+          </h1>
+          {crew && (
+            <span className="ml-auto text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
+              {crew.memberCount}/25
+            </span>
+          )}
+        </div>
+
+        {crew === null ? (
+          <NoCrew
+            stripes={stripes}
+            onCreate={() => setShowCreate(true)}
+            onJoin={()  => setShowJoin(true)}
+          />
+        ) : (
+          <InCrew
+            crew={crew}
+            playerId={playerId}
+            tab={tab}
+            onTabChange={setTab}
+            onLeave={() => setLeaveTarget(crew)}
+            onKick={setKickTarget}
+            onReload={loadCrew}
+          />
+        )}
+
+        {/* ── Modals ── */}
+        {showCreate && (
+          <CreateCrewModal
+            stripes={stripes}
+            onClose={() => setShowCreate(false)}
+            onCreated={() => { setShowCreate(false); loadCrew(); toast({ title: "Crew created!" }); }}
+          />
+        )}
+        {showJoin && (
+          <JoinCrewModal
+            stripes={stripes}
+            onClose={() => setShowJoin(false)}
+            onJoined={() => { setShowJoin(false); loadCrew(); toast({ title: "Joined the Crew!" }); }}
+          />
+        )}
+        {leaveTarget && (
+          <LeaveConfirmModal
+            crew={leaveTarget}
+            playerId={playerId}
+            onClose={() => setLeaveTarget(null)}
+            onLeft={() => { setLeaveTarget(null); setCrew(null); loadCrew(); }}
+          />
+        )}
+        {kickTarget && crew && (
+          <KickConfirmModal
+            crew={crew}
+            target={kickTarget}
+            onClose={() => setKickTarget(null)}
+            onKicked={() => { setKickTarget(null); loadCrew(); toast({ title: `${kickTarget.displayName} removed.` }); }}
+          />
         )}
       </div>
-
-      {crew === null ? (
-        <NoCrew
-          stripes={stripes}
-          onCreate={() => setShowCreate(true)}
-          onJoin={()  => setShowJoin(true)}
-        />
-      ) : (
-        <InCrew
-          crew={crew}
-          playerId={playerId}
-          tab={tab}
-          onTabChange={setTab}
-          onLeave={() => setLeaveTarget(crew)}
-          onKick={setKickTarget}
-          onReload={loadCrew}
-        />
-      )}
-
-      {/* ── Modals ── */}
-      {showCreate && (
-        <CreateCrewModal
-          stripes={stripes}
-          onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); loadCrew(); toast({ title: "Crew created!" }); }}
-        />
-      )}
-      {showJoin && (
-        <JoinCrewModal
-          stripes={stripes}
-          onClose={() => setShowJoin(false)}
-          onJoined={() => { setShowJoin(false); loadCrew(); toast({ title: "Joined the Crew!" }); }}
-        />
-      )}
-      {leaveTarget && (
-        <LeaveConfirmModal
-          crew={leaveTarget}
-          playerId={playerId}
-          onClose={() => setLeaveTarget(null)}
-          onLeft={() => { setLeaveTarget(null); setCrew(null); loadCrew(); }}
-        />
-      )}
-      {kickTarget && crew && (
-        <KickConfirmModal
-          crew={crew}
-          target={kickTarget}
-          onClose={() => setKickTarget(null)}
-          onKicked={() => { setKickTarget(null); loadCrew(); toast({ title: `${kickTarget.displayName} removed.` }); }}
-        />
-      )}
     </div>
   );
 }
