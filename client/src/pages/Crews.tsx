@@ -209,21 +209,38 @@ export default function CrewsPage() {
     >
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 0 }} />
       <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Header */}
-        <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
-             style={{ background: "rgba(10,8,4,0.92)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
-          <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform">
-            ←
-          </button>
-          <h1 className="font-mono text-lg font-bold tracking-widest" style={{ color: "#f0b829" }}>
-            {crew ? crew.name.toUpperCase() : "CREWS"}
-          </h1>
-          {crew && (
+        {/* Header — title image for NoCrew, crew name bar for InCrew */}
+        {crew ? (
+          <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
+               style={{ background: "rgba(10,8,4,0.92)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
+            <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform">←</button>
+            <h1 className="font-mono text-lg font-bold tracking-widest" style={{ color: "#f0b829" }}>
+              {crew.name.toUpperCase()}
+            </h1>
             <span className="ml-auto text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
               {crew.memberCount}/25
             </span>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div style={{ position: "relative", paddingTop: 12, paddingBottom: 4 }}>
+            <button
+              onClick={() => navigate("/")}
+              style={{ position: "absolute", top: 14, left: 14, color: "#C9A227", fontSize: 22, lineHeight: 1, zIndex: 2 }}
+              className="active:scale-90 transition-transform"
+            >←</button>
+            <div style={{ paddingLeft: 16, paddingRight: 16 }}>
+              <img
+                src="/crews/crews-title.png"
+                alt="Crews"
+                style={{ width: "100%", maxWidth: 320, display: "block" }}
+              />
+              <p className="font-mono uppercase text-[11px] leading-snug mt-2"
+                 style={{ color: "rgba(255,255,255,0.70)" }}>
+                CREWS ARE YOUR IN-GAME FAMILY. CHAT, CLIMB THE ROSTER, AND REP YOUR SET.
+              </p>
+            </div>
+          </div>
+        )}
 
         {crew === null ? (
           <NoCrew
@@ -283,9 +300,16 @@ export default function CrewsPage() {
 function NoCrew({ stripes, onCreate, onJoin }: {
   stripes: number; onCreate: () => void; onJoin: () => void;
 }) {
+  const IMPACT: React.CSSProperties = {
+    fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+    color: "#C9A227",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  };
+
   const ChainDivider = () => (
     <div className="flex items-center gap-1 my-2">
-      {Array.from({ length: 12 }).map((_, i) => (
+      {Array.from({ length: 14 }).map((_, i) => (
         <div key={i} style={{ width: 10, height: 5, borderRadius: 3, background: "rgba(201,162,39,0.55)", border: "1px solid rgba(201,162,39,0.35)" }} />
       ))}
     </div>
@@ -295,22 +319,21 @@ function NoCrew({ stripes, onCreate, onJoin }: {
     <div className="flex flex-col w-full">
 
       {/* ── SECTION 1: CREATE A CREW ── */}
-      <div className="flex items-center w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}>
+      <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
         {/* Left: stacked icons */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 160, position: "relative" }}>
-          <img src="/crews/icon-crew.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 80, height: 80, objectFit: "contain", position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)" }} />
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 170, position: "relative" }}>
+          <img src="/crews/icon-crew.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 85, height: 85, objectFit: "contain", position: "absolute", top: -20, left: "50%", transform: "translateX(-50%)" }} />
         </div>
         {/* Right: text */}
-        <div className="flex-1 py-6 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
-          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            CREATE A CREW
-          </p>
+        <div className="flex-1 py-5 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
+          {/* Title + price on same line */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>CREATE A CREW</span>
+            <span style={{ ...IMPACT, fontSize: 22, fontWeight: 900, flexShrink: 0 }}>500◆</span>
+          </div>
           <ChainDivider />
-          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1 }}>
-            500◆
-          </p>
-          <p className="mt-2 font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
+          <p className="font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
             START YOUR OWN CREW AND INVITE UP TO 24 MEMBERS.
           </p>
           {stripes < 500 ? (
@@ -335,21 +358,19 @@ function NoCrew({ stripes, onCreate, onJoin }: {
       </div>
 
       {/* ── SECTION 2: JOIN A CREW ── */}
-      <div className="flex items-center w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}>
+      <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
         {/* Left: icon */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 140 }}>
-          <img src="/crews/icon-lock.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 150 }}>
+          <img src="/crews/icon-lock.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
         </div>
         {/* Right: text */}
-        <div className="flex-1 py-6 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
-          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            JOIN A CREW
-          </p>
+        <div className="flex-1 py-5 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>JOIN A CREW</span>
+            <span style={{ ...IMPACT, fontSize: 22, fontWeight: 900, flexShrink: 0 }}>50◆</span>
+          </div>
           <ChainDivider />
-          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1 }}>
-            50◆
-          </p>
-          <p className="mt-2 font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
+          <p className="font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
             ENTER A 6-CHARACTER INVITE CODE TO JOIN.
           </p>
           {stripes < 50 && (
@@ -368,19 +389,19 @@ function NoCrew({ stripes, onCreate, onJoin }: {
       <button
         onClick={onJoin}
         data-testid="btn-join-crew"
-        className="flex items-center w-full transition-all active:scale-[0.98]"
-        style={{ background: "rgba(0,0,0,0.20)" }}
+        className="flex items-stretch w-full transition-all active:scale-[0.98]"
       >
         {/* Left: icon */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 130 }}>
-          <img src="/crews/icon-code.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 140 }}>
+          <img src="/crews/icon-code.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
         </div>
         {/* Right: text */}
-        <div className="flex-1 py-6 pr-4 text-left" style={{ background: "rgba(0,0,0,0.35)" }}>
-          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
-            JOIN WITH CODE <span style={{ fontSize: 18 }}>›</span>
-          </p>
-          <div style={{ marginTop: 6, height: 2, width: 120, background: "linear-gradient(90deg, #C9A227 0%, rgba(201,162,39,0) 100%)", borderRadius: 1 }} />
+        <div className="flex-1 py-5 pr-4 text-left" style={{ background: "rgba(0,0,0,0.35)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>JOIN WITH CODE</span>
+            <span style={{ color: "#C9A227", fontSize: 22 }}>›</span>
+          </div>
+          <div style={{ marginTop: 6, height: 2, width: 140, background: "linear-gradient(90deg, #C9A227 0%, rgba(201,162,39,0) 100%)", borderRadius: 1 }} />
         </div>
       </button>
 
