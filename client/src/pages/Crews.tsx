@@ -283,61 +283,107 @@ export default function CrewsPage() {
 function NoCrew({ stripes, onCreate, onJoin }: {
   stripes: number; onCreate: () => void; onJoin: () => void;
 }) {
+  const ChainDivider = () => (
+    <div className="flex items-center gap-1 my-2">
+      {Array.from({ length: 12 }).map((_, i) => (
+        <div key={i} style={{ width: 10, height: 5, borderRadius: 3, background: "rgba(201,162,39,0.55)", border: "1px solid rgba(201,162,39,0.35)" }} />
+      ))}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-5 px-4 pt-6 max-w-lg mx-auto">
-      <p className="text-center text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
-        Crews are your in-game family. Chat, climb the roster, and rep your set.
-      </p>
+    <div className="flex flex-col w-full">
 
-      {/* CREATE card */}
-      <div className="rounded-2xl p-5" style={{ border: "1px solid rgba(240,184,41,0.28)", background: "rgba(240,184,41,0.04)" }}>
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="font-mono font-bold text-base" style={{ color: "#f0b829" }}>CREATE A CREW</p>
-            <p className="text-xs mt-1" style={{ color: "rgba(240,184,41,0.55)" }}>Start your own Crew and invite up to 24 members.</p>
-          </div>
-          <span className="font-mono text-lg font-bold" style={{ color: "#C9A227" }}>500◆</span>
+      {/* ── SECTION 1: CREATE A CREW ── */}
+      <div className="flex items-center w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}>
+        {/* Left: stacked icons */}
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 160, position: "relative" }}>
+          <img src="/crews/icon-crew.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 80, height: 80, objectFit: "contain", position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)" }} />
         </div>
-        {stripes < 500 ? (
-          <p className="text-xs" style={{ color: "#ef4444" }}>
-            Need 500 Stripes — <button className="underline" onClick={() => window.location.href = "/shop"}>visit the Shop?</button>
+        {/* Right: text */}
+        <div className="flex-1 py-6 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
+          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            CREATE A CREW
           </p>
-        ) : (
-          <button
-            onClick={onCreate}
-            data-testid="btn-create-crew"
-            className="w-full rounded-xl py-2.5 font-mono font-bold text-sm tracking-wider transition-all active:scale-95"
-            style={{ background: "rgba(240,184,41,0.18)", border: "1px solid rgba(240,184,41,0.5)", color: "#f0b829" }}
-          >
-            CREATE CREW
-          </button>
-        )}
+          <ChainDivider />
+          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1 }}>
+            500◆
+          </p>
+          <p className="mt-2 font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
+            START YOUR OWN CREW AND INVITE UP TO 24 MEMBERS.
+          </p>
+          {stripes < 500 ? (
+            <button
+              onClick={() => window.location.href = "/shop"}
+              className="mt-2 font-mono uppercase text-[10px] underline tracking-wide"
+              style={{ color: "#ef4444" }}
+            >
+              NEED 500 STRIPES — VISIT THE SHOP
+            </button>
+          ) : (
+            <button
+              onClick={onCreate}
+              data-testid="btn-create-crew"
+              className="mt-3 font-mono uppercase text-xs font-bold tracking-widest px-4 py-2 rounded-lg transition-all active:scale-95"
+              style={{ background: "rgba(201,162,39,0.20)", border: "1px solid rgba(201,162,39,0.50)", color: "#C9A227" }}
+            >
+              CREATE CREW →
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* JOIN card */}
-      <div className="rounded-2xl p-5" style={{ border: "1px solid rgba(240,184,41,0.18)", background: "rgba(240,184,41,0.02)" }}>
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="font-mono font-bold text-base" style={{ color: "#f0b829" }}>JOIN A CREW</p>
-            <p className="text-xs mt-1" style={{ color: "rgba(240,184,41,0.55)" }}>Enter a 6-character invite code to join.</p>
-          </div>
-          <span className="font-mono text-lg font-bold" style={{ color: "#C9A227" }}>50◆</span>
+      {/* ── SECTION 2: JOIN A CREW ── */}
+      <div className="flex items-center w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}>
+        {/* Left: icon */}
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 140 }}>
+          <img src="/crews/icon-lock.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
         </div>
-        {stripes < 50 ? (
-          <p className="text-xs" style={{ color: "#ef4444" }}>
-            Need 50 Stripes — <button className="underline" onClick={() => window.location.href = "/shop"}>visit the Shop?</button>
+        {/* Right: text */}
+        <div className="flex-1 py-6 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
+          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            JOIN A CREW
           </p>
-        ) : (
-          <button
-            onClick={onJoin}
-            data-testid="btn-join-crew"
-            className="w-full rounded-xl py-2.5 font-mono font-bold text-sm tracking-wider transition-all active:scale-95"
-            style={{ background: "rgba(240,184,41,0.10)", border: "1px solid rgba(240,184,41,0.35)", color: "#f0b829" }}
-          >
-            JOIN WITH CODE
-          </button>
-        )}
+          <ChainDivider />
+          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 28, fontWeight: 900, lineHeight: 1 }}>
+            50◆
+          </p>
+          <p className="mt-2 font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
+            ENTER A 6-CHARACTER INVITE CODE TO JOIN.
+          </p>
+          {stripes < 50 && (
+            <button
+              onClick={() => window.location.href = "/shop"}
+              className="mt-2 font-mono uppercase text-[10px] underline tracking-wide"
+              style={{ color: "#ef4444" }}
+            >
+              NEED 50 STRIPES — VISIT THE SHOP
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ── SECTION 3: JOIN WITH CODE ── */}
+      <button
+        onClick={onJoin}
+        data-testid="btn-join-crew"
+        className="flex items-center w-full transition-all active:scale-[0.98]"
+        style={{ background: "rgba(0,0,0,0.20)" }}
+      >
+        {/* Left: icon */}
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 130 }}>
+          <img src="/crews/icon-code.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+        </div>
+        {/* Right: text */}
+        <div className="flex-1 py-6 pr-4 text-left" style={{ background: "rgba(0,0,0,0.35)" }}>
+          <p style={{ color: "#C9A227", fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
+            JOIN WITH CODE <span style={{ fontSize: 18 }}>›</span>
+          </p>
+          <div style={{ marginTop: 6, height: 2, width: 120, background: "linear-gradient(90deg, #C9A227 0%, rgba(201,162,39,0) 100%)", borderRadius: 1 }} />
+        </div>
+      </button>
+
     </div>
   );
 }
