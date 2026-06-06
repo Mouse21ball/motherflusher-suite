@@ -301,7 +301,7 @@ function NoCrew({ stripes, onCreate, onJoin }: {
   stripes: number; onCreate: () => void; onJoin: () => void;
 }) {
   const IMPACT: React.CSSProperties = {
-    fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+    fontFamily: "'Impact', 'Anton', 'Arial Narrow', sans-serif",
     color: "#C9A227",
     textTransform: "uppercase",
     letterSpacing: "0.06em",
