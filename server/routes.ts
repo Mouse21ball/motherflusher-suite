@@ -699,6 +699,7 @@ export async function registerRoutes(
         sessionToken,
         activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
+        welcomeKitClaimed:       profile.welcomeKitClaimed,
       });
     } catch (err: any) {
       if (err?.name === "ZodError") {

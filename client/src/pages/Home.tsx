@@ -393,10 +393,10 @@ export default function Home() {
   });
 
   // Auto-show starter pack — fires only when welcomeKitClaimed changes.
-  // Server is the sole source of truth: if false → open, if true → never opens.
+  // Server is the sole source of truth: if false/null/undefined → open, if true → never opens.
   useEffect(() => {
     if (!serverProfile) return;
-    if (serverProfile.welcomeKitClaimed === false) {
+    if (serverProfile.welcomeKitClaimed === false || serverProfile.welcomeKitClaimed === null || serverProfile.welcomeKitClaimed === undefined) {
       setStarterOpen(true);
     }
   }, [serverProfile?.welcomeKitClaimed]);
