@@ -333,11 +333,6 @@ function syncXPFromHistory(): void {
   initProgressionBaseline(history.length);
 }
 
-// Module-level: persists across Home re-mounts within the same browser session.
-// Prevents the starter kit modal from re-triggering on navigate-away + back.
-// Resets only on full page reload (which also re-fetches the server profile).
-let starterKitAutoCheckDone = false;
-
 // ── Home ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -397,17 +392,14 @@ export default function Home() {
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
-  // Auto-show starter pack — server-authoritative: only fires if welcomeKitClaimed is false.
-  // Uses module-level flag so it cannot re-trigger across Home re-mounts in the same session.
+  // Auto-show starter pack — fires only when welcomeKitClaimed changes.
+  // Server is the sole source of truth: if false → open, if true → never opens.
   useEffect(() => {
-    if (starterKitAutoCheckDone) return;
-    if (serverProfile === null) return;          // still loading
-    starterKitAutoCheckDone = true;              // module-level — survives re-mounts
+    if (!serverProfile) return;
     if (serverProfile.welcomeKitClaimed === false) {
-      const timer = setTimeout(() => setStarterOpen(true), 1800);
-      return () => clearTimeout(timer);
+      setStarterOpen(true);
     }
-  }, [serverProfile]);
+  }, [serverProfile?.welcomeKitClaimed]);
 
   // Fetch server-authoritative daily bonus status on mount
   useEffect(() => {

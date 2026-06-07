@@ -63,9 +63,10 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
 
     setClaimed(true);
     setAnimating(false);
-    // Refetch server profile so welcomeKitClaimed=true is reflected immediately —
-    // this prevents the modal from re-triggering on next Home mount.
+    // Refetch first so welcomeKitClaimed=true lands in the server profile before
+    // the modal closes — prevents any re-open on the next render cycle.
     onRefetchProfile?.();
+    onClose(true);
   };
 
   const emoteCount = STARTER_PACK_EMOTES;
