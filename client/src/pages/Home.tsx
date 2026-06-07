@@ -333,6 +333,11 @@ function syncXPFromHistory(): void {
   initProgressionBaseline(history.length);
 }
 
+// Module-level: persists across Home re-mounts within the same browser session.
+// Prevents the starter kit modal from re-triggering on navigate-away + back.
+// Resets only on full page reload (which also re-fetches the server profile).
+let starterKitAutoCheckDone = false;
+
 // ── Home ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -370,7 +375,6 @@ export default function Home() {
   const [rewardReady,      setRewardReady]       = useState(isRewardAvailable);
   const [hourlyReady,      setHourlyReady]       = useState(isHourlyReady);
   const starterAvailable = serverProfile?.welcomeKitClaimed === false;
-  const starterKitCheckDoneRef = useRef(false);
   const streakInfo = getStreakInfo();
 
   // Live tables (for LIVE pill count in top bar, 30s poll)
@@ -393,11 +397,12 @@ export default function Home() {
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
-  // Auto-show starter pack — server-authoritative: only fires if welcomeKitClaimed is false
+  // Auto-show starter pack — server-authoritative: only fires if welcomeKitClaimed is false.
+  // Uses module-level flag so it cannot re-trigger across Home re-mounts in the same session.
   useEffect(() => {
-    if (starterKitCheckDoneRef.current) return;
+    if (starterKitAutoCheckDone) return;
     if (serverProfile === null) return;          // still loading
-    starterKitCheckDoneRef.current = true;       // run once per mount
+    starterKitAutoCheckDone = true;              // module-level — survives re-mounts
     if (serverProfile.welcomeKitClaimed === false) {
       const timer = setTimeout(() => setStarterOpen(true), 1800);
       return () => clearTimeout(timer);
@@ -447,9 +452,10 @@ export default function Home() {
     setHourlyReady(isHourlyReady());
   }, []);
 
-  const handleStarterClose = useCallback(() => {
+  const handleStarterClose = useCallback((claimed?: boolean) => {
     setStarterOpen(false);
-  }, []);
+    if (claimed) refetch();     // pull updated welcomeKitClaimed=true from server
+  }, [refetch]);
 
   const handleJoinTable = useCallback((modeId: string, tableId: string) => {
     const info = LIVE_MODE_INFO[modeId];
@@ -599,7 +605,7 @@ export default function Home() {
         onClaimed={handleDailyBonusClaimed}
       />
       <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
-      <StarterPackModal  open={starterOpen} onClose={handleStarterClose} />
+      <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
       {/* ── Main scrollable content ───────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col items-center pt-14 pb-24">

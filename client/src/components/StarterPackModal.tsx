@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/session';
 interface StarterPackModalProps {
   open: boolean;
   onClose: (claimed?: boolean) => void;
+  onRefetchProfile?: () => void;
 }
 
 const PACK_CONTENTS = [
@@ -26,41 +27,45 @@ const PACK_CONTENTS = [
 
 const MODES = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
 
-export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
+export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPackModalProps) {
   const [claimed,   setClaimed]   = useState(isStarterPackClaimed);
   const [animating, setAnimating] = useState(false);
 
   if (!open) return null;
 
-  const handleClaim = () => {
+  const handleClaim = async () => {
     if (animating || claimed) return;
     setAnimating(true);
+
     const { chips } = claimStarterPack();
     for (const modeId of MODES) {
       saveChips(modeId, getChips(modeId) + chips);
     }
 
-    // Persist to DB so balance survives refresh/login on any device
     const identity = ensurePlayerIdentity();
+
+    // Persist chips to DB — fire and forget
     apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chips }),
     }).catch(() => {});
 
-    // Mark welcome kit claimed in DB — persists across devices/browsers
-    apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), {
-      method: 'POST',
-    }).catch(() => {});
+    // Mark welcome kit claimed + grant 250 Stripes — awaited so both ops complete
+    // before we update UI. 409 = already claimed (safe to ignore).
+    try {
+      await apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), {
+        method: 'POST',
+      });
+    } catch {}
 
-    // T09: Signal the ReactionBar to show its one-time "Emotes unlocked" badge
-    // the next time the game table renders.
     try { localStorage.setItem('cgp_emotes_just_unlocked', '1'); } catch {}
 
-    setTimeout(() => {
-      setClaimed(true);
-      setAnimating(false);
-    }, 600);
+    setClaimed(true);
+    setAnimating(false);
+    // Refetch server profile so welcomeKitClaimed=true is reflected immediately —
+    // this prevents the modal from re-triggering on next Home mount.
+    onRefetchProfile?.();
   };
 
   const emoteCount = STARTER_PACK_EMOTES;

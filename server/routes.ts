@@ -828,7 +828,7 @@ export async function registerRoutes(
       }
       await storage.claimWelcomeKit(id);
       const newStripes = await storage.creditStripes(id, 250, 'welcome_kit');
-      console.log(`[welcome-kit] player=${id} stripes=+250 newTotal=${newStripes}`);
+      console.log(`[welcome-kit] player=${id} welcomeKitClaimed=true stripes=+250 newTotal=${newStripes}`);
       res.json({ ok: true });
     } catch (err) {
       console.error("claim-welcome-kit error:", err);
