@@ -1025,6 +1025,7 @@ export async function registerRoutes(
     0: { questId: 'daily_sunday',    description: 'Play 10 hands in two different modes', modeId: null,     requiredHands: 10, stripes: 5 },
   };
   const MILESTONE_QUESTS: Record<string, { requiredHands: number; modeId: string | null; stripes: number }> = {
+    milestone_10:         { requiredHands: 10,   modeId: null,     stripes: 5   },
     milestone_50:         { requiredHands: 50,   modeId: null,     stripes: 10  },
     milestone_100:        { requiredHands: 100,  modeId: null,     stripes: 25  },
     milestone_500:        { requiredHands: 500,  modeId: null,     stripes: 50  },
