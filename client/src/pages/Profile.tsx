@@ -22,6 +22,7 @@ import { apiFetch, clearSessionToken } from '@/lib/session';
 import { queryClient } from '@/lib/queryClient';
 import { BlockList } from '@/components/settings/BlockList';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { resolveAvatarSrc } from '@/lib/persistence';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -332,7 +333,7 @@ export default function Profile() {
             {/* LEFT: Avatar circle + badges */}
             <div className="flex flex-col items-center gap-2 shrink-0">
               <AvatarWithFrame
-                avatarSrc={currentAvatarSrc}
+                avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, currentAvatarId)}
                 frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
                 initials={initials}
                 initialsColor="#fff"

@@ -290,7 +290,10 @@ export function resolveAvatarSrc(
   avatarId:         string | null | undefined,
 ): string | null {
   if (equippedAvatarId) {
-    return `/cosmetics/avatars/${equippedAvatarId.replace(/_/g, '-')}.png`;
+    // DB IDs have an `avatar_` prefix (e.g. "avatar_king") that does NOT appear
+    // in the filename (e.g. "king.png"). Strip it before building the path.
+    const filename = equippedAvatarId.replace(/^avatar_/, '').replace(/_/g, '-');
+    return `/cosmetics/avatars/${filename}.png`;
   }
   if (avatarId) {
     return FREE_AVATAR_SRCS[avatarId] ?? null;
