@@ -116,10 +116,10 @@ const MODES = [
 
 // Card-specific background images and copy (per spec)
 const MODE_CARD_CONFIGS = [
-  { id: 'badugi',     bg: '/cgp-wallpaper.png',                 btnColor: '#10b981', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
-  { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', btnColor: '#ef4444', title: 'DEAD 7',        subtitle: 'ONLY ONE WALKS AWAY'   },
-  { id: 'fifteen35',  bg: '/cgp-wallpaper-1535.png',            btnColor: '#f59e0b', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
-  { id: 'suitspoker', bg: '/cgp-wallpaper-luxury.png',          btnColor: '#3b82f6', title: 'SUITS & POKER', subtitle: 'TWO PATHS. ONE WINNER.' },
+  { id: 'badugi',     bg: '/modes/bg-badugi.png',               color: '#4CAF50', btnText: 'white', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
+  { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'ONLY ONE WALKS AWAY'   },
+  { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
+  { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'TWO PATHS. ONE WINNER.' },
 ];
 
 // ── Live table browser ────────────────────────────────────────────────────────
@@ -466,73 +466,61 @@ export default function Home() {
 
   const canClaimBonus = serverBonusCanClaim === true || (serverBonusCanClaim === null && rewardReady);
 
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <>
-    <div
-      className="min-h-[100dvh] flex flex-col relative overflow-x-hidden"
-      style={{
-        backgroundImage: "linear-gradient(rgba(0,0,0,0.75),rgba(0,0,0,0.75)), url('/assets/backgrounds/bg-cellblock.jpg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top',
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
+    {/* Fixed background layers */}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.78)' }} />
 
-      {/* ── Fixed top header ─────────────────────────────────────────────────── */}
-      <div
-        className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-3 gap-2"
-        style={{
-          background: 'rgba(0,0,0,0.60)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(201,162,39,0.20)',
-        }}
-      >
+    <div className="min-h-[100dvh] flex flex-col" style={{ position: 'relative', zIndex: 1 }}>
+
+      {/* ── Sticky top header ──────────────────────────────────────────────── */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50, height: 64,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', background: 'rgba(0,0,0,0.70)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(201,162,39,0.25)',
+      }}>
         {/* Left: leaderboard */}
         <button
           onClick={() => navigate('/leaderboard')}
-          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-90"
-          style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(201,162,39,0.22)' }}
           data-testid="link-leaderboard-header"
+          style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(201,162,39,0.30)', background: 'rgba(0,0,0,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
         >
-          <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-5 h-5 object-contain" />
+          <img src="/dock-leaderboard.png" alt="Leaderboard" style={{ width: 20, height: 20, objectFit: 'contain' }} />
         </button>
 
-        {/* Center: hero logo */}
-        <div className="flex-1 flex justify-center">
-          <img
-            src="/hero-chain-logo.png"
-            alt="Chain Gang Poker"
-            className="object-contain drop-shadow-[0_2px_12px_rgba(201,162,39,0.40)]"
-            style={{ maxWidth: 180, height: 36 }}
-          />
-        </div>
+        {/* Center: hero logo (absolutely centered) */}
+        <img
+          src="/hero-chain-logo.png"
+          alt="Chain Gang Poker"
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 44, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 10px rgba(201,162,39,0.40))' }}
+        />
 
-        {/* Right: ◆ cosmetics, 👑 shop, avatar */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right: ◆ + stripes + avatar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <button
             onClick={() => navigate('/cosmetics')}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-transform active:scale-90 text-base"
-            style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(201,162,39,0.22)', color: '#C9A227' }}
             data-testid="link-cosmetics-header"
+            style={{ background: 'none', border: 'none', color: '#C9A227', fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0 }}
           >
             ◆
           </button>
           <button
             onClick={() => navigate('/shop')}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-transform active:scale-90 text-base"
-            style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(201,162,39,0.22)' }}
             data-testid="link-shop-header"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
           >
-            👑
+            <img src="/stripes-icon.png" alt="Stripes" style={{ width: 20, height: 20, objectFit: 'contain' }} />
           </button>
           <button
             onClick={() => navigate('/profile')}
-            className="transition-transform active:scale-90"
             data-testid="button-open-profile"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
           >
             <AvatarWithFrame
               avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
@@ -543,11 +531,11 @@ export default function Home() {
             />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* ── Achievement toasts ───────────────────────────────────────────────── */}
       {newAchievements.length > 0 && (
-        <div className="fixed top-16 right-3 z-50 flex flex-col gap-2 max-w-[280px]">
+        <div className="fixed top-20 right-3 z-50 flex flex-col gap-2 max-w-[280px]">
           {newAchievements.map(ach => (
             <button
               key={ach.id}
@@ -592,18 +580,15 @@ export default function Home() {
       <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
-      {/* ── Main scrollable content ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col pt-14 pb-24">
+      {/* ── Main content ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col pb-24">
         <div className="w-full max-w-lg mx-auto flex flex-col">
 
-          {/* ══════════════════════════════════════════════════════
-              1. PLAYER CARD
-          ══════════════════════════════════════════════════════ */}
+          {/* ═══════════ 1. PLAYER CARD ═══════════ */}
           <button
             onClick={() => navigate('/profile')}
-            className="w-full flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.99]"
-            style={{ background: 'rgba(0,0,0,0.40)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
             data-testid="button-profile-strip"
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(0,0,0,0.50)', borderBottom: '1px solid rgba(201,162,39,0.15)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
           >
             {/* Avatar */}
             <AvatarWithFrame
@@ -611,46 +596,36 @@ export default function Home() {
               frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
               initials={initials}
               initialsColor="#F0B829"
-              size={72}
+              size={64}
             />
 
-            {/* Center: name + tier + XP + welcome */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-bold text-white text-sm truncate leading-none" data-testid="text-player-name">
+            {/* Middle */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <span style={{ fontWeight: 800, color: 'white', fontSize: 18, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} data-testid="text-player-name">
                   {identity.name}
                 </span>
-                <img src={getTierBadgeAsset(rank.name)} alt={rank.name} className="h-5 w-auto shrink-0 object-contain" data-testid="badge-rank-home" />
-                {serverProfile?.activeSubscriptionTier === 'gold_pro' && (
-                  <img src="/cosmetics/badges/badge-gold-pro.png" alt="GOLD PRO" className="h-5 w-auto shrink-0 object-contain" data-testid="badge-sub-gold-pro" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                )}
-                {serverProfile?.activeSubscriptionTier === 'diamond_elite' && (
-                  <img src="/cosmetics/badges/badge-diamond-elite.png" alt="DIAMOND ELITE" className="h-5 w-auto shrink-0 object-contain" data-testid="badge-sub-diamond-elite" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                )}
+                <img src={getTierBadgeAsset(rank.name)} alt={rank.name} style={{ height: 20, width: 'auto', objectFit: 'contain', flexShrink: 0 }} data-testid="badge-rank-home" />
               </div>
-              <div className="text-[10px] font-mono leading-none mb-1" style={{ color: 'rgba(201,162,39,0.65)' }}>
-                Level {serverLevel} · {levelInfo.xpIntoLevel}/{levelInfo.xpNeeded} XP
+              {/* XP bar */}
+              <div style={{ width: '100%', height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.10)', overflow: 'hidden', marginBottom: 5 }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', borderRadius: 4, background: 'rgba(201,162,39,0.80)', transition: 'width 0.7s ease' }} />
               </div>
-              <div className="h-[3px] rounded-full overflow-hidden mb-1.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg,#C9A227,#F0B829)' }} />
-              </div>
-              <div className="text-[10px] font-mono" style={{ color: 'rgba(201,162,39,0.50)' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.60)', fontFamily: 'monospace' }}>
                 Welcome back, {identity.name.split(' ')[0]}.
               </div>
             </div>
 
-            {/* Right: chips + stripes pills */}
-            <div className="flex flex-col items-end gap-2 shrink-0">
+            {/* Right: pills */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
               <div
-                className="px-2.5 py-1 rounded-lg font-mono font-bold tabular-nums text-xs"
-                style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
+                style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(0,180,0,0.15)', border: '1px solid rgba(0,255,0,0.30)', color: '#22c55e', fontWeight: 800, fontFamily: 'monospace', fontSize: 13 }}
                 data-testid="text-bankroll"
               >
                 ${displayChips.toLocaleString()}
               </div>
               <div
-                className="px-2.5 py-1 rounded-lg font-mono font-bold tabular-nums text-xs flex items-center gap-1"
-                style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.28)', color: '#a855f7' }}
+                style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.40)', color: '#a855f7', fontWeight: 800, fontFamily: 'monospace', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
                 data-testid="text-stripes-lobby"
               >
                 <img src="/stripes-icon.png" alt="" aria-hidden style={{ width: 12, height: 12 }} />
@@ -659,9 +634,7 @@ export default function Home() {
             </div>
           </button>
 
-          {/* ══════════════════════════════════════════════════════
-              2. GAME MODE CARDS — 4 stacked banners
-          ══════════════════════════════════════════════════════ */}
+          {/* ═══════════ 2. MODE CARDS ═══════════ */}
           <div>
             {MODE_CARD_CONFIGS.map(card => {
               const mode = MODES.find(m => m.id === card.id)!;
@@ -670,56 +643,40 @@ export default function Home() {
                   key={card.id}
                   onClick={() => navigateToMode(card.id, mode.path)}
                   data-testid={`button-mode-${card.id}`}
-                  className="w-full text-left transition-all active:brightness-90"
-                  style={{
-                    position: 'relative',
-                    height: 110,
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundImage: `url('${card.bg}')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    borderBottom: '1px solid rgba(0,0,0,0.35)',
-                    cursor: 'pointer',
-                    border: 'none',
-                    padding: 0,
-                  }}
+                  style={{ position: 'relative', overflow: 'hidden', width: '100%', height: 110, cursor: 'pointer', border: 'none', padding: 0, display: 'block' }}
                 >
-                  {/* Dark gradient overlay — dark left (text), lighter right (button) */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.62) 55%,rgba(0,0,0,0.38) 100%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }} />
+                  {/* Background image */}
+                  <img
+                    src={card.bg}
+                    alt=""
+                    aria-hidden
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {/* Dark gradient overlay */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.40) 60%, rgba(0,0,0,0.10) 100%)' }} />
 
-                  {/* Left: icon + title + subtitle */}
-                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 16, flex: 1, minWidth: 0 }}>
-                    <img
-                      src={mode.icon}
-                      alt={mode.name}
-                      style={{ width: 42, height: 42, objectFit: 'contain', filter: `drop-shadow(0 0 10px ${card.btnColor}66)`, flexShrink: 0 }}
-                    />
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: 24, color: 'white', letterSpacing: '0.04em', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.80)' }}
-                        data-testid={`text-mode-name-${card.id}`}
-                      >
-                        {card.title}
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 9, color: card.btnColor, fontWeight: 700, letterSpacing: '0.14em', marginTop: 4, textTransform: 'uppercase' }}>
-                        {card.subtitle}
+                  {/* Content */}
+                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: '100%' }}>
+                    {/* Left */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <img src={mode.icon} alt={card.title} style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0, filter: `drop-shadow(0 0 10px ${card.color}66)` }} />
+                      <div style={{ minWidth: 0, textAlign: 'left' }}>
+                        <div
+                          style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 28, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 10px rgba(0,0,0,0.80)' }}
+                          data-testid={`text-mode-name-${card.id}`}
+                        >
+                          {card.title}
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.60)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
+                          {card.subtitle}
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Right: PLAY → button */}
-                  <div style={{ position: 'relative', zIndex: 1, paddingRight: 16, flexShrink: 0 }}>
+                    {/* Right: PLAY button */}
                     <div style={{
-                      background: card.btnColor,
-                      color: 'white',
-                      fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif',
-                      fontSize: 14,
-                      letterSpacing: '0.08em',
-                      padding: '8px 16px',
-                      borderRadius: 10,
-                      boxShadow: `0 4px 16px ${card.btnColor}55`,
-                      whiteSpace: 'nowrap',
+                      background: card.color, color: card.btnText, borderRadius: 24,
+                      padding: '10px 20px', fontWeight: 700, fontSize: 14, border: 'none',
+                      whiteSpace: 'nowrap', flexShrink: 0, boxShadow: `0 4px 16px ${card.color}55`,
                     }}>
                       PLAY →
                     </div>
@@ -729,347 +686,223 @@ export default function Home() {
             })}
           </div>
 
-          {/* ══════════════════════════════════════════════════════
-              3. DAILY BONUS + DAILY MISSIONS ROW
-          ══════════════════════════════════════════════════════ */}
-          <div style={{ padding: '12px 12px 0' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-
-              {/* Left: Daily Bonus */}
-              <div style={{
-                background: 'linear-gradient(135deg,rgba(120,53,15,0.50) 0%,rgba(0,0,0,0.55) 100%)',
-                border: canClaimBonus ? '1px solid rgba(240,184,41,0.55)' : '1px solid rgba(245,158,11,0.22)',
-                borderRadius: 14,
-                padding: '12px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                boxShadow: canClaimBonus ? '0 0 18px rgba(240,184,41,0.12)' : 'none',
-              }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.60)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  🔥 DAILY BONUS
-                </div>
-                <div style={{ fontWeight: 800, color: 'white', fontSize: 13, lineHeight: 1.2 }}>
-                  {serverBonusCanClaim !== null
-                    ? `Day ${serverBonusStreakDay} Ready`
-                    : streakInfo.streak > 0
-                      ? `${streakInfo.streak}-Day Streak`
-                      : 'Daily Streak'}
-                </div>
-                <div style={{ flex: 1 }} />
-                {canClaimBonus ? (
-                  <button
-                    onClick={() => setDailyBonusCalOpen(true)}
-                    data-testid="button-claim-daily-home"
-                    style={{
-                      width: '100%', padding: '8px 0', borderRadius: 10,
-                      background: 'linear-gradient(135deg,#F0B829,#C9A227)',
-                      color: '#0c0b08', fontFamily: 'monospace', fontWeight: 900,
-                      fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-                      boxShadow: '0 4px 16px rgba(240,184,41,0.45)', cursor: 'pointer',
-                      border: 'none',
-                    }}
-                  >
-                    🎁 CLAIM BONUS
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setDailyBonusCalOpen(true)}
-                    data-testid="button-view-daily-streak"
-                    style={{
-                      width: '100%', padding: '7px 0', borderRadius: 10,
-                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)',
-                      color: 'rgba(255,255,255,0.40)', fontFamily: 'monospace', fontWeight: 700,
-                      fontSize: 10, letterSpacing: '0.04em', cursor: 'pointer',
-                    }}
-                  >
-                    📅 {getTimeUntilMidnight()}
-                  </button>
-                )}
+          {/* ═══════════ 3. DAILY ROW ═══════════ */}
+          <div style={{ display: 'flex', gap: 8, padding: '12px 16px' }}>
+            {/* Daily Bonus */}
+            <div style={{ flex: 1, background: 'rgba(180,120,0,0.15)', border: '1px solid rgba(201,162,39,0.30)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
+                🔥 DAILY BONUS
               </div>
+              <div style={{ fontWeight: 800, color: 'white', fontSize: 14, lineHeight: 1.2 }}>
+                {serverBonusCanClaim !== null
+                  ? `Day ${serverBonusStreakDay} Ready`
+                  : streakInfo.streak > 0
+                    ? `${streakInfo.streak}-Day Streak`
+                    : 'Daily Streak'}
+              </div>
+              <div style={{ flex: 1 }} />
+              {canClaimBonus ? (
+                <button
+                  onClick={() => setDailyBonusCalOpen(true)}
+                  data-testid="button-claim-daily-home"
+                  style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#F0B829,#C9A227)', color: '#0c0b08', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 16px rgba(240,184,41,0.45)' }}
+                >
+                  CLAIM BONUS
+                </button>
+              ) : (
+                <button
+                  onClick={() => setDailyBonusCalOpen(true)}
+                  data-testid="button-view-daily-streak"
+                  style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace', fontWeight: 700, fontSize: 10, cursor: 'pointer' }}
+                >
+                  📅 {getTimeUntilMidnight()}
+                </button>
+              )}
+            </div>
 
-              {/* Right: Daily Missions */}
-              <div style={{
-                background: 'rgba(0,0,0,0.45)',
-                border: '1px solid rgba(201,162,39,0.18)',
-                borderRadius: 14,
-                padding: '12px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-              }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.60)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  🎯 DAILY MISSIONS
-                </div>
-                {todayQuest ? (
-                  <>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', lineHeight: 1.35, fontWeight: 600 }}>
-                      {todayQuest.description}
-                    </div>
-                    {/* Reward badge */}
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(201,162,39,0.10)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 6, padding: '2px 7px', width: 'fit-content' }}>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#C9A227' }}>+{todayQuest.stripes} ◆ Stripes</span>
-                    </div>
-                    {/* Progress bar */}
-                    <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
-                      <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#10b981' : 'linear-gradient(90deg,#C9A22799,#C9A227)', borderRadius: 4, transition: 'width 0.4s ease' }} />
-                    </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)' }}>
-                      {Math.min(todayQuestHands, todayQuest.requiredHands)}/{todayQuest.requiredHands} hands
-                    </div>
-                    <button
-                      disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
-                      onClick={() => claimQuestById(todayQuest.questId, todayQuest.stripes)}
-                      data-testid="daily-quest-claim-btn"
-                      style={{
-                        width: '100%', padding: '7px 0', borderRadius: 10, border: 'none',
-                        background: todayQuestClaimed
-                          ? 'rgba(16,185,129,0.15)'
-                          : todayQuestEligible
-                            ? '#10b981'
-                            : 'rgba(255,255,255,0.06)',
-                        color: todayQuestClaimed ? '#10b981' : todayQuestEligible ? 'white' : 'rgba(255,255,255,0.25)',
-                        fontFamily: 'monospace', fontWeight: 900, fontSize: 11,
-                        letterSpacing: '0.08em', textTransform: 'uppercase',
-                        cursor: todayQuestEligible && !todayQuestClaimed ? 'pointer' : 'not-allowed',
-                        boxShadow: todayQuestEligible && !todayQuestClaimed ? '0 3px 12px rgba(16,185,129,0.40)' : 'none',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {todayQuestClaimed ? '✓ CLAIMED' : questClaiming === todayQuest.questId ? '…' : 'CLAIM'}
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>No quest today.</div>
-                )}
+            {/* Daily Missions */}
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(201,162,39,0.20)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
+                🎯 DAILY MISSIONS
+              </div>
+              {todayQuest ? (
+                <>
+                  <div style={{ fontSize: 13, color: 'white', lineHeight: 1.3, fontWeight: 600 }}>
+                    {todayQuest.description}
+                  </div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', background: 'rgba(201,162,39,0.18)', border: '1px solid rgba(201,162,39,0.40)', borderRadius: 20, padding: '2px 8px' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#F0B829' }}>+{todayQuest.stripes} ◆ Stripes</span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.10)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
+                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.80)', borderRadius: 4, transition: 'width 0.4s ease' }} />
+                  </div>
+                  <div style={{ flex: 1 }} />
+                  <button
+                    disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
+                    onClick={() => claimQuestById(todayQuest.questId, todayQuest.stripes)}
+                    data-testid="daily-quest-claim-btn"
+                    style={{
+                      width: '100%', padding: '8px 0', borderRadius: 10, border: 'none',
+                      background: todayQuestClaimed ? 'rgba(34,197,94,0.15)' : todayQuestEligible ? '#22c55e' : 'rgba(255,255,255,0.07)',
+                      color: todayQuestClaimed ? '#22c55e' : todayQuestEligible ? 'white' : 'rgba(255,255,255,0.30)',
+                      fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      cursor: todayQuestEligible && !todayQuestClaimed ? 'pointer' : 'not-allowed',
+                      boxShadow: todayQuestEligible && !todayQuestClaimed ? '0 3px 12px rgba(34,197,94,0.40)' : 'none',
+                    }}
+                  >
+                    {todayQuestClaimed ? '✓ CLAIMED' : questClaiming === todayQuest.questId ? '…' : 'CLAIM'}
+                  </button>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>No quest today.</div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══════════ 4. MILESTONES ═══════════ */}
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '4px 16px' }}>
+            Milestones
+          </div>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '8px 16px', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {HOME_MILESTONES.map(m => {
+              const totalHands = questData?.handsPlayed ?? 0;
+              const eligible   = totalHands >= m.required;
+              const claimed    = questData?.claimed.includes(m.questId) ?? false;
+              const isClaiming = questClaiming === m.questId;
+              return (
+                <button
+                  key={m.questId}
+                  data-testid={`milestone-badge-${m.questId}`}
+                  disabled={!eligible || claimed || !!questClaiming}
+                  onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
+                  style={{
+                    width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    border: `2px solid ${claimed ? 'rgba(201,162,39,0.80)' : eligible ? 'rgba(201,162,39,0.50)' : 'rgba(255,255,255,0.10)'}`,
+                    background: claimed ? 'rgba(201,162,39,0.20)' : eligible ? 'rgba(201,162,39,0.10)' : 'rgba(255,255,255,0.03)',
+                    cursor: eligible && !claimed ? 'pointer' : 'default',
+                    animation: eligible && !claimed ? 'pulse 2s infinite' : 'none',
+                    opacity: isClaiming ? 0.6 : 1, padding: 0,
+                  }}
+                >
+                  {claimed ? (
+                    <span style={{ color: '#C9A227', fontSize: 22, lineHeight: 1 }}>✓</span>
+                  ) : isClaiming ? (
+                    <span style={{ color: '#C9A227', fontFamily: 'monospace', fontSize: 14 }}>…</span>
+                  ) : (
+                    <>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: eligible ? '#C9A227' : 'rgba(255,255,255,0.30)', lineHeight: 1 }}>
+                        {m.label}
+                      </span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, marginTop: 3, color: eligible ? 'rgba(201,162,39,0.70)' : 'rgba(255,255,255,0.20)' }}>
+                        +{m.stripes} ◆
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ═══════════ 5. CREW MODE CARD ═══════════ */}
+          <div style={{
+            margin: '12px 16px', borderRadius: 16, overflow: 'hidden', position: 'relative', height: 120,
+            backgroundImage: "url('/crews/icon-crew.png')", backgroundPosition: 'left center', backgroundRepeat: 'no-repeat', backgroundSize: 'contain', backgroundColor: '#1a0a2e',
+          }}>
+            {/* Gradient overlay from right */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to left, rgba(26,10,46,0.95) 30%, rgba(26,10,46,0.60) 70%, transparent 100%)' }} />
+            {/* Content right-aligned */}
+            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', textAlign: 'right', padding: '0 16px' }}>
+              <div style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 24, color: '#C9A227', letterSpacing: '0.04em', lineHeight: 1 }}>
+                CREW MODE
+              </div>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.60)', marginTop: 4, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                BUILD YOUR EMPIRE.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => navigate('/crews')}
+                  data-testid="button-create-crew"
+                  style={{ border: '1px solid rgba(138,43,226,0.60)', background: 'rgba(138,43,226,0.20)', color: 'white', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  CREATE CREW
+                </button>
+                <button
+                  onClick={() => navigate('/crews')}
+                  data-testid="button-join-crew"
+                  style={{ border: '1px solid rgba(138,43,226,0.60)', background: 'rgba(138,43,226,0.20)', color: 'white', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  JOIN CREW
+                </button>
               </div>
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════════════
-              4. MILESTONES ROW — horizontal scroll
-          ══════════════════════════════════════════════════════ */}
-          <div style={{ padding: '12px 12px 0' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.55)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>
-              Milestones
-            </div>
-            <div
-              style={{ display: 'flex', gap: 14, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 } as React.CSSProperties}
+          {/* ═══════════ 6. LIVE TABLES ═══════════ */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }} data-testid="section-live-tables">
+            <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: publicTables.length > 0 ? '#22c55e' : '#444', boxShadow: publicTables.length > 0 ? '0 0 6px #22c55e' : 'none', animation: publicTables.length > 0 ? 'pulse 2s infinite' : 'none' }} />
+            <span style={{ fontWeight: 800, color: 'white', fontSize: 14, letterSpacing: '0.04em' }}>LIVE TABLES</span>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => setShowOpenTableModal(true)}
+              data-testid="link-view-all-tables"
+              style={{ background: 'none', border: 'none', color: '#C9A227', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', padding: 0 }}
             >
-              {HOME_MILESTONES.map(m => {
-                const totalHands = questData?.handsPlayed ?? 0;
-                const eligible   = totalHands >= m.required;
-                const claimed    = questData?.claimed.includes(m.questId) ?? false;
-                const isClaiming = questClaiming === m.questId;
+              VIEW ALL →
+            </button>
+          </div>
+          {publicTables.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.30)', fontSize: 13, padding: '8px 16px 12px' }}>
+              No public tables open. Start one above!
+            </p>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 12px', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {publicTables.slice(0, 10).map(table => {
+                const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '', color: '#A0A0B8', path: '/', icon: '', stakes: '' };
+                const isFull = table.humanCount >= table.maxPlayers;
+                const isOpen = table.phase === 'WAITING';
                 return (
                   <button
-                    key={m.questId}
-                    data-testid={`milestone-badge-${m.questId}`}
-                    disabled={!eligible || claimed || !!questClaiming}
-                    onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
+                    key={`${table.modeId}-${table.tableId}`}
+                    onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
+                    disabled={isFull}
+                    data-testid={`button-join-card-${table.tableId}`}
                     style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      gap: 5, flexShrink: 0, background: 'none', border: 'none', padding: 0,
-                      cursor: eligible && !claimed ? 'pointer' : 'default',
-                      opacity: isClaiming ? 0.6 : 1,
+                      width: 140, flexShrink: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12, padding: 10, display: 'flex', flexDirection: 'column', gap: 5, textAlign: 'left',
+                      cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1,
                     }}
                   >
-                    {/* Circle */}
-                    <div style={{
-                      width: 58, height: 58, borderRadius: '50%',
-                      border: `2px solid ${claimed ? '#10b981' : eligible ? '#C9A227' : 'rgba(255,255,255,0.14)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: claimed ? 'rgba(16,185,129,0.13)' : eligible ? 'rgba(201,162,39,0.12)' : 'rgba(255,255,255,0.04)',
-                      boxShadow: eligible && !claimed ? '0 0 14px rgba(201,162,39,0.28)' : 'none',
-                      transition: 'all 0.2s',
-                    }}>
-                      {claimed ? (
-                        <span style={{ color: '#10b981', fontSize: 22, lineHeight: 1 }}>✓</span>
-                      ) : isClaiming ? (
-                        <span style={{ color: '#C9A227', fontFamily: 'monospace', fontSize: 14 }}>…</span>
-                      ) : (
-                        <span style={{
-                          fontFamily: 'monospace', fontWeight: 900,
-                          fontSize: m.label.length > 2 ? 10 : 13,
-                          color: eligible ? '#C9A227' : 'rgba(255,255,255,0.28)',
-                        }}>
-                          {m.label}
-                        </span>
-                      )}
-                    </div>
-                    {/* Reward label */}
-                    <span style={{
-                      fontFamily: 'monospace', fontSize: 9,
-                      color: claimed ? 'rgba(16,185,129,0.60)' : eligible ? 'rgba(201,162,39,0.70)' : 'rgba(255,255,255,0.20)',
-                    }}>
-                      +{m.stripes} ◆
+                    {info.icon && <img src={info.icon} alt={info.name} style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 4px ${info.color}44)` }} />}
+                    <span style={{ fontWeight: 800, fontSize: 12, color: info.color, lineHeight: 1, fontFamily: 'monospace' }}>{info.name}</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)', fontFamily: 'monospace' }} data-testid={`text-live-players-${table.tableId}`}>
+                      {table.humanCount}/{table.maxPlayers} players
                     </span>
+                    {info.stakes && <span style={{ fontSize: 9, color: 'rgba(201,162,39,0.50)', fontFamily: 'monospace' }}>{info.stakes}</span>}
+                    <div style={{
+                      padding: '4px 0', borderRadius: 6, textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, fontSize: 10, letterSpacing: '0.06em',
+                      background: isFull ? 'rgba(255,255,255,0.05)' : isOpen ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)',
+                      color: isFull ? 'rgba(255,255,255,0.25)' : isOpen ? '#22c55e' : 'rgba(255,255,255,0.45)',
+                    }}>
+                      {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
+                    </div>
                   </button>
                 );
               })}
             </div>
-          </div>
+          )}
 
-          {/* ══════════════════════════════════════════════════════
-              5. CREW MODE CARD
-          ══════════════════════════════════════════════════════ */}
-          <div style={{ padding: '12px 12px 0' }}>
-            <div style={{
-              position: 'relative', borderRadius: 16, overflow: 'hidden',
-              background: 'linear-gradient(135deg,rgba(59,7,100,0.65) 0%,rgba(8,3,18,0.88) 100%)',
-              border: '1px solid rgba(139,92,246,0.28)',
-              padding: '16px 16px 16px 0',
-            }}>
-              {/* Crew icon — left background art */}
-              <img
-                src="/crews/icon-crew.png"
-                alt=""
-                aria-hidden
-                style={{
-                  position: 'absolute', left: -16, top: '50%', transform: 'translateY(-50%)',
-                  width: 130, height: 130, objectFit: 'contain',
-                  opacity: 0.22, filter: 'drop-shadow(0 0 24px rgba(139,92,246,0.35))',
-                  pointerEvents: 'none',
-                }}
-              />
-              {/* Content */}
-              <div style={{ position: 'relative', paddingLeft: 96 }}>
-                <div style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: 22, color: '#C9A227', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 3 }}>
-                  CREW MODE
-                </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>
-                  BUILD YOUR EMPIRE.
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={() => navigate('/crews')}
-                    data-testid="button-create-crew"
-                    style={{
-                      padding: '8px 0', background: 'rgba(139,92,246,0.22)',
-                      border: '1px solid rgba(139,92,246,0.42)', borderRadius: 10,
-                      color: '#a78bfa', fontFamily: 'monospace', fontWeight: 900,
-                      fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    CREATE CREW
-                  </button>
-                  <button
-                    onClick={() => navigate('/crews')}
-                    data-testid="button-join-crew"
-                    style={{
-                      padding: '8px 0', background: 'rgba(139,92,246,0.12)',
-                      border: '1px solid rgba(139,92,246,0.28)', borderRadius: 10,
-                      color: '#c4b5fd', fontFamily: 'monospace', fontWeight: 900,
-                      fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    JOIN CREW
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════════════════════════════════════════════════
-              6. LIVE TABLES — horizontal scroll
-          ══════════════════════════════════════════════════════ */}
-          <div style={{ padding: '12px 12px 0' }} data-testid="section-live-tables">
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                background: publicTables.length > 0 ? '#10b981' : '#444',
-                boxShadow: publicTables.length > 0 ? '0 0 6px #10b981' : 'none',
-                animation: publicTables.length > 0 ? 'pulse 2s infinite' : 'none',
-              }} />
-              <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 12, color: 'rgba(255,255,255,0.90)', letterSpacing: '0.10em' }}>LIVE TABLES</span>
-              {publicTables.length > 0 && (
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', marginLeft: 2 }} data-testid="text-live-count">
-                  {realPlayerCount > 0 ? `${realPlayerCount} playing` : `${publicTables.length} open`}
-                </span>
-              )}
-              <div style={{ flex: 1 }} />
-              <button
-                onClick={() => setShowOpenTableModal(true)}
-                data-testid="link-view-all-tables"
-                style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(201,162,39,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                VIEW ALL →
-              </button>
-            </div>
-
-            {/* Cards */}
-            {publicTables.length === 0 ? (
-              <p style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.25)', padding: '12px 0 4px' }}>
-                No public tables open · Start one above!
-              </p>
-            ) : (
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 8 } as React.CSSProperties}>
-                {publicTables.slice(0, 10).map(table => {
-                  const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, color: '#A0A0B8', path: '/', icon: '', stakes: '' };
-                  const isFull = table.humanCount >= table.maxPlayers;
-                  const isOpen = table.phase === 'WAITING';
-                  return (
-                    <button
-                      key={`${table.modeId}-${table.tableId}`}
-                      onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
-                      disabled={isFull}
-                      data-testid={`button-join-card-${table.tableId}`}
-                      style={{
-                        width: 128, flexShrink: 0,
-                        background: info.color + '0d',
-                        border: `1px solid ${info.color}33`,
-                        borderRadius: 12, padding: '10px 10px',
-                        display: 'flex', flexDirection: 'column', gap: 5,
-                        cursor: isFull ? 'default' : 'pointer',
-                        opacity: isFull ? 0.55 : 1,
-                        textAlign: 'left',
-                      }}
-                    >
-                      {info.icon && (
-                        <img src={info.icon} alt={info.name}
-                          style={{ width: 28, height: 28, objectFit: 'contain', filter: `drop-shadow(0 0 4px ${info.color}44)` }} />
-                      )}
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 11, color: info.color, lineHeight: 1 }}>
-                        {info.name}
-                      </span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.50)' }}
-                        data-testid={`text-live-players-${table.tableId}`}>
-                        {table.humanCount}/{table.maxPlayers} players
-                      </span>
-                      {info.stakes && (
-                        <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.50)' }}>{info.stakes}</span>
-                      )}
-                      <div style={{
-                        padding: '4px 0', borderRadius: 6, textAlign: 'center',
-                        background: isFull ? 'rgba(255,255,255,0.05)' : isOpen ? info.color + '22' : 'rgba(255,255,255,0.06)',
-                        color: isFull ? 'rgba(255,255,255,0.25)' : isOpen ? info.color : 'rgba(255,255,255,0.45)',
-                        fontFamily: 'monospace', fontWeight: 800, fontSize: 10, letterSpacing: '0.06em',
-                      }}>
-                        {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ══════════════════════════════════════════════════════
-              7. FOOTER
-          ══════════════════════════════════════════════════════ */}
+          {/* ═══════════ 7. FOOTER ═══════════ */}
           <div style={{ padding: '16px 12px 0' }}>
             <div className="flex items-center justify-center gap-3 py-1">
-              <a href="/terms" className="text-[9px] font-mono tracking-wider transition-colors" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-terms">Terms</a>
+              <a href="/terms" className="text-[9px] font-mono tracking-wider" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-terms">Terms</a>
               <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
-              <a href="/privacy" className="text-[9px] font-mono tracking-wider transition-colors" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
+              <a href="/privacy" className="text-[9px] font-mono tracking-wider" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
               <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
               <a
                 href="https://forms.gle/Vh6Uut9bB6neHA3J8"
                 target="_blank" rel="noopener noreferrer"
-                className="text-[9px] font-mono tracking-wider transition-colors"
+                className="text-[9px] font-mono tracking-wider"
                 style={{ color: 'rgba(255,255,255,0.15)' }}
                 data-testid="link-home-footer-feedback"
                 onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}
@@ -1086,12 +919,7 @@ export default function Home() {
       {/* ── Fixed bottom dock ────────────────────────────────────────────────── */}
       <div
         className="fixed bottom-0 left-0 right-0 z-50 h-[76px] flex items-center"
-        style={{
-          background: 'rgba(0,0,0,0.72)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(245,158,11,0.18)',
-        }}
+        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(245,158,11,0.18)' }}
       >
         <div className="w-full max-w-lg mx-auto grid grid-cols-6 h-full">
           <button onClick={() => navigate('/leaderboard')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-leaderboard-footer">
