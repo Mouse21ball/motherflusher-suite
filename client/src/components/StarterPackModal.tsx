@@ -175,9 +175,6 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
                   Kit Claimed! +${STARTER_PACK_CHIPS.toLocaleString()} chips added
                 </div>
                 <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
-                  {emoteCount} reaction emotes unlocked · Bronze badge active
-                </div>
-                <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
                   +250 Stripes added · spend in Style &amp; Crews
                 </div>
               </div>
