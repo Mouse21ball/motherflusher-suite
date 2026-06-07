@@ -396,7 +396,7 @@ export default function Home() {
   // Server is the sole source of truth: if false/null/undefined → open, if true → never opens.
   useEffect(() => {
     if (!serverProfile) return;
-    if (serverProfile.welcomeKitClaimed === false || serverProfile.welcomeKitClaimed === null || serverProfile.welcomeKitClaimed === undefined) {
+    if (serverProfile.welcomeKitClaimed === false) {
       setStarterOpen(true);
     }
   }, [serverProfile?.welcomeKitClaimed]);

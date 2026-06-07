@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { claimStarterPack, isStarterPackClaimed, STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
-import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
+import { STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
+import { ensurePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 
@@ -25,10 +25,8 @@ const PACK_CONTENTS = [
   },
 ];
 
-const MODES = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
-
 export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPackModalProps) {
-  const [claimed,   setClaimed]   = useState(isStarterPackClaimed);
+  const [claimed,   setClaimed]   = useState(false);
   const [animating, setAnimating] = useState(false);
 
   if (!open) return null;
@@ -37,18 +35,13 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
     if (animating || claimed) return;
     setAnimating(true);
 
-    const { chips } = claimStarterPack();
-    for (const modeId of MODES) {
-      saveChips(modeId, getChips(modeId) + chips);
-    }
-
     const identity = ensurePlayerIdentity();
 
     // Persist chips to DB — fire and forget
     apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chips }),
+      body: JSON.stringify({ chips: STARTER_PACK_CHIPS }),
     }).catch(() => {});
 
     // Mark welcome kit claimed + grant 250 Stripes — awaited so both ops complete
@@ -63,9 +56,11 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
 
     setClaimed(true);
     setAnimating(false);
-    // Refetch first so welcomeKitClaimed=true lands in the server profile before
-    // the modal closes — prevents any re-open on the next render cycle.
+    // Wait for server to commit before refetching, then wait again before closing
+    // so welcomeKitClaimed=true is guaranteed in the profile before the modal unmounts.
+    await new Promise(r => setTimeout(r, 500));
     onRefetchProfile?.();
+    await new Promise(r => setTimeout(r, 800));
     onClose(true);
   };
 
