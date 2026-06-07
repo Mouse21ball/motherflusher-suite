@@ -33,6 +33,7 @@ import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { QuestPanel } from '@/components/home/QuestPanel';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
@@ -977,7 +978,10 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── 6. CREW MODE CARD ──────────────────────────────────────────── */}
+          {/* ── 6. QUEST PANEL ─────────────────────────────────────────────── */}
+          <QuestPanel playerId={profile.id} />
+
+          {/* ── 7. CREW MODE CARD ──────────────────────────────────────────── */}
           <div
             className="rounded-2xl p-4"
             style={{

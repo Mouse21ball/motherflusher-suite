@@ -1,4 +1,5 @@
 import {
+  questProgress,
   type User, type InsertUser,
   type InsertAnalyticsEvent, type AnalyticsEvent,
   type PlayerProfile,
@@ -193,6 +194,10 @@ export interface IStorage {
   adminDeleteAccount(adminId: string, targetPlayerId: string, reason: string): Promise<void>;
   adminTriggerPasswordReset(adminId: string, targetPlayerId: string, reason: string): Promise<{ resetToken: string }>;
   getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]>;
+  // ── Quests ─────────────────────────────────────────────────────────────────
+  incrementHandsPlayed(playerId: string, modeId: string): Promise<void>;
+  getClaimedQuests(playerId: string): Promise<string[]>;
+  claimQuest(playerId: string, questId: string, stripesReward: number): Promise<{ newStripes: number }>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -564,6 +569,10 @@ export class MemStorage implements IStorage {
       activeSeatId: null,
       activeModeId: null,
       handsPlayed: 0,
+      handsPlayedBadugi: 0,
+      handsPlayedDead7: 0,
+      handsPlayed1535: 0,
+      handsPlayedSuits: 0,
       handsWon: 0,
       lifetimeProfit: 0,
       email: null,
@@ -2509,6 +2518,58 @@ export class MemStorage implements IStorage {
   }
 
   // ── Admin audit log ─────────────────────────────────────────────────────────
+
+  // ── Quest methods ────────────────────────────────────────────────────────────
+
+  async incrementHandsPlayed(playerId: string, modeId: string): Promise<void> {
+    const update =
+      modeId === 'badugi' ? { handsPlayedBadugi: sql`${playerProfiles.handsPlayedBadugi} + 1` } :
+      modeId === 'dead7'  ? { handsPlayedDead7:  sql`${playerProfiles.handsPlayedDead7}  + 1` } :
+      modeId === '1535'   ? { handsPlayed1535:   sql`${playerProfiles.handsPlayed1535}   + 1` } :
+      modeId === 'suits'  ? { handsPlayedSuits:  sql`${playerProfiles.handsPlayedSuits}  + 1` } :
+      null;
+    if (!update) return;
+    await db.update(playerProfiles).set(update).where(eq(playerProfiles.id, playerId));
+  }
+
+  async getClaimedQuests(playerId: string): Promise<string[]> {
+    const rows = await db
+      .select({ questId: questProgress.questId })
+      .from(questProgress)
+      .where(eq(questProgress.playerId, playerId));
+    return rows.map(r => r.questId);
+  }
+
+  async claimQuest(playerId: string, questId: string, stripesReward: number): Promise<{ newStripes: number }> {
+    // Check daily re-claim: if questId starts with 'daily_', block if already claimed today
+    const isDailyQuest = questId.startsWith('daily_');
+    const startOfTodayUtc = new Date();
+    startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+
+    const existing = await db
+      .select({ claimedAt: questProgress.claimedAt })
+      .from(questProgress)
+      .where(and(eq(questProgress.playerId, playerId), eq(questProgress.questId, questId)))
+      .limit(1);
+
+    if (existing[0]) {
+      if (!isDailyQuest) throw Object.assign(new Error('Quest already claimed'), { code: 'already_claimed' });
+      // For daily quests: only block if claimed today UTC
+      if (existing[0].claimedAt >= startOfTodayUtc) throw Object.assign(new Error('Quest already claimed today'), { code: 'already_claimed' });
+      // Different day — update the claimedAt to today (upsert)
+      await db
+        .update(questProgress)
+        .set({ claimedAt: new Date() })
+        .where(and(eq(questProgress.playerId, playerId), eq(questProgress.questId, questId)));
+    } else {
+      await db
+        .insert(questProgress)
+        .values({ playerId, questId, claimedAt: new Date() });
+    }
+
+    const newStripes = await this.creditStripes(playerId, stripesReward, `quest:${questId}`);
+    return { newStripes };
+  }
 
   async getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]> {
     const conditions = [];

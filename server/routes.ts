@@ -1014,6 +1014,102 @@ export async function registerRoutes(
     }
   });
 
+  // ── Quest definitions ──────────────────────────────────────────────────────
+  const DAILY_QUESTS: Record<number, { questId: string; description: string; modeId: string | null; requiredHands: number; stripes: number }> = {
+    1: { questId: 'daily_monday',    description: 'Play 10 hands in Badugi',              modeId: 'badugi', requiredHands: 10, stripes: 5 },
+    2: { questId: 'daily_tuesday',   description: 'Play 10 hands in Dead 7',              modeId: 'dead7',  requiredHands: 10, stripes: 5 },
+    3: { questId: 'daily_wednesday', description: 'Play 10 hands in 15/35',               modeId: '1535',   requiredHands: 10, stripes: 5 },
+    4: { questId: 'daily_thursday',  description: 'Play 10 hands in Suits & Poker',       modeId: 'suits',  requiredHands: 10, stripes: 5 },
+    5: { questId: 'daily_friday',    description: 'Play 15 hands in any mode',            modeId: null,     requiredHands: 15, stripes: 5 },
+    6: { questId: 'daily_saturday',  description: 'Win 15 hands in any mode',             modeId: null,     requiredHands: 15, stripes: 5 },
+    0: { questId: 'daily_sunday',    description: 'Play 10 hands in two different modes', modeId: null,     requiredHands: 10, stripes: 5 },
+  };
+  const MILESTONE_QUESTS: Record<string, { requiredHands: number; modeId: string | null; stripes: number }> = {
+    milestone_50:         { requiredHands: 50,   modeId: null,     stripes: 10  },
+    milestone_100:        { requiredHands: 100,  modeId: null,     stripes: 25  },
+    milestone_500:        { requiredHands: 500,  modeId: null,     stripes: 50  },
+    milestone_1000:       { requiredHands: 1000, modeId: null,     stripes: 100 },
+    milestone_2500:       { requiredHands: 2500, modeId: null,     stripes: 150 },
+    milestone_badugi_100: { requiredHands: 100,  modeId: 'badugi', stripes: 15  },
+    milestone_dead7_100:  { requiredHands: 100,  modeId: 'dead7',  stripes: 15  },
+    milestone_1535_100:   { requiredHands: 100,  modeId: '1535',   stripes: 15  },
+    milestone_suits_100:  { requiredHands: 100,  modeId: 'suits',  stripes: 15  },
+  };
+
+  // GET /api/players/:id/quests
+  app.get("/api/players/:id/quests", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const playerId = req.params.id as string;
+      const [profile, claimed] = await Promise.all([
+        storage.getPlayerProfile(playerId),
+        storage.getClaimedQuests(playerId),
+      ]);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+      res.json({
+        claimed,
+        handsPlayed:       profile.handsPlayed,
+        handsPlayedBadugi: profile.handsPlayedBadugi,
+        handsPlayedDead7:  profile.handsPlayedDead7,
+        handsPlayed1535:   profile.handsPlayed1535,
+        handsPlayedSuits:  profile.handsPlayedSuits,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/players/:id/quests/claim
+  app.post("/api/players/:id/quests/claim", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const { questId } = z.object({ questId: z.string().min(1) }).parse(req.body);
+      const playerId = req.params.id as string;
+
+      const profile = await storage.getPlayerProfile(playerId);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+
+      // Locate the quest definition
+      const todayDow = new Date().getUTCDay(); // 0=Sunday … 6=Saturday
+      const dailyDef = Object.values(DAILY_QUESTS).find(q => q.questId === questId);
+      const milestoneDef = MILESTONE_QUESTS[questId];
+      if (!dailyDef && !milestoneDef) { res.status(400).json({ error: "Unknown quest" }); return; }
+
+      // Check eligibility
+      if (dailyDef) {
+        const hands = dailyDef.modeId === 'badugi' ? profile.handsPlayedBadugi
+                    : dailyDef.modeId === 'dead7'  ? profile.handsPlayedDead7
+                    : dailyDef.modeId === '1535'   ? profile.handsPlayed1535
+                    : dailyDef.modeId === 'suits'  ? profile.handsPlayedSuits
+                    : profile.handsPlayed;
+        if (hands < dailyDef.requiredHands) {
+          res.status(400).json({ error: "Not enough hands played", required: dailyDef.requiredHands, current: hands }); return;
+        }
+        // Only valid on the matching day of the week
+        const questDow = Object.entries(DAILY_QUESTS).find(([, v]) => v.questId === questId)?.[0];
+        if (questDow !== undefined && parseInt(questDow, 10) !== todayDow) {
+          res.status(400).json({ error: "This daily quest is not active today" }); return;
+        }
+        const { newStripes } = await storage.claimQuest(playerId, questId, dailyDef.stripes);
+        res.json({ stripesGranted: dailyDef.stripes, newTotal: newStripes });
+      } else if (milestoneDef) {
+        const hands = milestoneDef.modeId === 'badugi' ? profile.handsPlayedBadugi
+                    : milestoneDef.modeId === 'dead7'  ? profile.handsPlayedDead7
+                    : milestoneDef.modeId === '1535'   ? profile.handsPlayed1535
+                    : milestoneDef.modeId === 'suits'  ? profile.handsPlayedSuits
+                    : profile.handsPlayed;
+        if (hands < milestoneDef.requiredHands) {
+          res.status(400).json({ error: "Not enough hands played", required: milestoneDef.requiredHands, current: hands }); return;
+        }
+        const { newStripes } = await storage.claimQuest(playerId, questId, milestoneDef.stripes);
+        res.json({ stripesGranted: milestoneDef.stripes, newTotal: newStripes });
+      }
+    } catch (err: any) {
+      if (err?.code === 'already_claimed') { res.status(409).json({ error: "Quest already claimed" }); return; }
+      if (err?.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message }); return; }
+      console.error("[quests] claim error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/billing/verify-purchase
   // Called by the native client after Google Play returns a purchase token.
   // Performs server-side verification via Play Developer API, credits Stripes,

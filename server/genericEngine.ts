@@ -1129,6 +1129,7 @@ function resetToAnte(table: GenericTable): void {
     table.lastChipSyncHand.set(p.id, table.handId);
     const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
     storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    storage.incrementHandsPlayed(identityId, table.modeId).catch(() => {});
 
     // Crew chip-win tracking: accumulate only genuine gameplay wins (not bonuses).
     if (isWinner && deltaChips > 0) {

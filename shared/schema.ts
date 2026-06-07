@@ -13,6 +13,10 @@ export const playerProfiles = pgTable("player_profiles", {
   activeSeatId:         text("active_seat_id"),
   activeModeId:         text("active_mode_id"),
   handsPlayed:          integer("hands_played").notNull().default(0),
+  handsPlayedBadugi:    integer("hands_played_badugi").notNull().default(0),
+  handsPlayedDead7:     integer("hands_played_dead7").notNull().default(0),
+  handsPlayed1535:      integer("hands_played_1535").notNull().default(0),
+  handsPlayedSuits:     integer("hands_played_suits").notNull().default(0),
   handsWon:             integer("hands_won").notNull().default(0),
   lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
   email:                text("email").unique(),
@@ -423,3 +427,16 @@ export const adminActions = pgTable("admin_actions", {
 ]);
 
 export type AdminAction = typeof adminActions.$inferSelect;
+
+// ─── Quest Progress ───────────────────────────────────────────────────────────
+export const questProgress = pgTable("quest_progress", {
+  id:        serial("id").primaryKey(),
+  playerId:  text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  questId:   text("quest_id").notNull(),
+  claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("quest_progress_player_quest_uniq").on(table.playerId, table.questId),
+  index("quest_progress_player_idx").on(table.playerId),
+]);
+
+export type QuestProgressRow = typeof questProgress.$inferSelect;
