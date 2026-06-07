@@ -979,7 +979,7 @@ export default function Home() {
           </div>
 
           {/* ── 6. QUEST PANEL ─────────────────────────────────────────────── */}
-          <QuestPanel playerId={profile.id} />
+          {serverProfile && <QuestPanel playerId={serverProfile.profileId} />}
 
           {/* ── 7. CREW MODE CARD ──────────────────────────────────────────── */}
           <div
