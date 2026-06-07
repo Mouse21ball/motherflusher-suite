@@ -340,8 +340,8 @@ export default function Profile() {
                 data-testid="button-avatar-change"
                 style={{
                   width: 140, height: 140, borderRadius: '50%',
-                  border: '3px solid #FFD700',
-                  boxShadow: '0 0 24px rgba(255,215,0,0.6)',
+                  border: serverProfile?.equippedFrameId ? 'none' : '3px solid #FFD700',
+                  boxShadow: serverProfile?.equippedFrameId ? 'none' : '0 0 24px rgba(255,215,0,0.6)',
                   background: avatarColor + '33',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', flexShrink: 0, position: 'relative',
@@ -356,7 +356,7 @@ export default function Profile() {
                   <img
                     src={getFrameSrc(serverProfile?.equippedFrameId)!}
                     alt="frame"
-                    style={{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', zIndex: 2 }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }}
                   />
                 )}
                 {/* Edit pencil overlay */}

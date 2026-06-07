@@ -765,7 +765,7 @@ export default function Home() {
                 className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{
                   background: avatarColor + '28',
-                  border: '2px solid rgba(245,158,11,0.55)',
+                  border: serverProfile?.equippedFrameId ? 'none' : '2px solid rgba(245,158,11,0.55)',
                 }}
               >
                 <span className="text-lg font-bold font-mono" style={{ color: '#F0B829' }}>{initials}</span>
@@ -774,7 +774,7 @@ export default function Home() {
                 <img
                   src={getFrameSrc(serverProfile?.equippedFrameId)!}
                   alt="frame"
-                  style={{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', zIndex: 2 }}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }}
                 />
               )}
             </div>
