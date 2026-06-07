@@ -391,6 +391,11 @@ export default function Shop() {
             </div>
           </div>
 
+          {/* ── Stripes explainer ──────────────────────────────────────── */}
+          <p style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.50)', margin: '0 0 20px' }}>
+            Stripes are your premium currency — spend them on cosmetics, Crews, and exclusive features.
+          </p>
+
           {/* ══════════════════════════════════════════════════════════════ */}
           {/* HERO — Diamond Elite pitch                                     */}
           {/* ══════════════════════════════════════════════════════════════ */}

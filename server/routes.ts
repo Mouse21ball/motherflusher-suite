@@ -819,7 +819,10 @@ export async function registerRoutes(
   // Idempotent: calling it again on an already-claimed account is a no-op.
   app.post("/api/players/:id/claim-welcome-kit", requireAuth, requireSelf, async (req, res) => {
     try {
-      await storage.claimWelcomeKit(req.params.id as string);
+      const id = req.params.id as string;
+      await storage.claimWelcomeKit(id);
+      const newStripes = await storage.creditStripes(id, 250, 'welcome_kit');
+      console.log(`[welcome-kit] player=${id} stripes=+250 newTotal=${newStripes}`);
       res.json({ ok: true });
     } catch (err) {
       console.error("claim-welcome-kit error:", err);

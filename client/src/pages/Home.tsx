@@ -674,6 +674,29 @@ export default function Home() {
                       className="relative z-10 object-contain w-[120px] h-[120px] md:w-[160px] md:h-[160px]"
                       style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }}
                     />
+                    {mode.id === 'badugi' && (
+                      <div
+                        className="absolute z-20"
+                        style={{
+                          top: 2,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          background: 'linear-gradient(90deg, #C9A227, #F0C040)',
+                          color: '#1a1000',
+                          fontSize: 9,
+                          fontWeight: 900,
+                          letterSpacing: '0.14em',
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          fontFamily: 'monospace',
+                          textTransform: 'uppercase',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                        }}
+                      >
+                        START HERE
+                      </div>
+                    )}
                   </div>
 
                   {/* Mode name */}
