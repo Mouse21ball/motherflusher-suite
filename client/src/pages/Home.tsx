@@ -30,6 +30,7 @@ import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
+import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
@@ -331,11 +332,6 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
 function syncXPFromHistory(): void {
   const history = getHandHistory();
   initProgressionBaseline(history.length);
-}
-
-function getFrameSrc(equippedFrameId: string | null | undefined): string | null {
-  if (!equippedFrameId) return null;
-  return `/cosmetics/frames/${equippedFrameId.replace(/_/g, '-')}.png`;
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -760,24 +756,13 @@ export default function Home() {
             data-testid="button-profile-strip"
           >
             {/* Avatar */}
-            <div className="relative shrink-0" style={{ width: 56, height: 56 }}>
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{
-                  background: avatarColor + '28',
-                  border: serverProfile?.equippedFrameId ? 'none' : '2px solid rgba(245,158,11,0.55)',
-                }}
-              >
-                <span className="text-lg font-bold font-mono" style={{ color: '#F0B829' }}>{initials}</span>
-              </div>
-              {getFrameSrc(serverProfile?.equippedFrameId) && (
-                <img
-                  src={getFrameSrc(serverProfile?.equippedFrameId)!}
-                  alt="frame"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', zIndex: 2 }}
-                />
-              )}
-            </div>
+            <AvatarWithFrame
+              avatarSrc={serverProfile?.equippedAvatarId ? `/cosmetics/avatars/${serverProfile.equippedAvatarId.replace(/_/g, '-')}.png` : null}
+              frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
+              initials={initials}
+              initialsColor="#F0B829"
+              size={56}
+            />
 
             {/* Middle: name + tier + level + xp bar */}
             <div className="flex-1 min-w-0">

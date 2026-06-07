@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthModal } from "@/components/AuthModal";
 import { apiFetch, getSessionToken } from "@/lib/session";
 import { useQuery } from "@tanstack/react-query";
+import { AvatarWithFrame } from "@/components/ui/AvatarWithFrame";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CrewMember {
@@ -21,34 +22,17 @@ interface ChatMsg {
   avatarId: string | null; role: string; message: string; createdAt: string;
 }
 
-function getFrameSrc(equippedFrameId: string | null | undefined): string | null {
-  if (!equippedFrameId) return null;
-  return `/cosmetics/frames/${equippedFrameId.replace(/_/g, '-')}.png`;
-}
-
 // ─── Small avatar chip ────────────────────────────────────────────────────────
 function AvatarChip({ name, size = 32, equippedFrameId }: { name: string; size?: number; equippedFrameId?: string | null }) {
-  const colors = ["#c9541a","#1a6dc9","#1ac97a","#c9c21a","#c91a7a","#7a1ac9","#1ac9c9"];
-  const color  = colors[name.charCodeAt(0) % colors.length];
   const initials = name.slice(0, 2).toUpperCase();
-  const frameSrc = getFrameSrc(equippedFrameId);
+  const frameSrc = equippedFrameId ? `/cosmetics/frames/${equippedFrameId.replace(/_/g, '-')}.png` : null;
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <div
-        style={{ width: size, height: size, borderRadius: "50%", background: color,
-                 display: "flex", alignItems: "center", justifyContent: "center",
-                 fontSize: size * 0.36, fontWeight: 700, color: "#fff" }}
-      >
-        {initials}
-      </div>
-      {frameSrc && (
-        <img
-          src={frameSrc}
-          alt="frame"
-          style={{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', zIndex: 2 }}
-        />
-      )}
-    </div>
+    <AvatarWithFrame
+      initials={initials}
+      initialsColor="#fff"
+      frameSrc={frameSrc}
+      size={size}
+    />
   );
 }
 
