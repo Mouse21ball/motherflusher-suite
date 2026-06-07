@@ -7,6 +7,8 @@ import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { getSimulatedPlayerCount } from '@/lib/dailyReward';
+import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 // ── Simulated leaderboard data ────────────────────────────────────────────────
 
@@ -46,23 +48,6 @@ function getSimulatedLeaderboard(dayKey: number): {
 
 const dayKey = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
 
-// Avatar plate background colours keyed by player colour
-const AVATAR_PLATE: Record<string, string> = {
-  '#C9A227': '#2a1e06',
-  '#7B61FF': '#1e1540',
-  '#3B82F6': '#0c1e38',
-  '#10B981': '#0a2218',
-  '#F59E0B': '#2a1e06',
-  '#EF4444': '#2a0c0c',
-  '#8B5CF6': '#1e1235',
-  '#06B6D4': '#071e28',
-  '#EC4899': '#2a0c1e',
-  '#84CC16': '#162008',
-};
-
-// Top-3 always use the purple prison plate look
-const TOP3_PLATE = '#1d1240';
-const TOP3_BORDER = '#7B61FF';
 
 // ── Medal badge component ─────────────────────────────────────────────────────
 function MedalBadge({ pos }: { pos: number }) {
@@ -123,17 +108,20 @@ export default function Leaderboard() {
   const rank        = getRankForLevel(levelInfo.level);
   const playerCount = getSimulatedPlayerCount();
 
+  const { profile: serverProfile } = useServerProfile();
   const [tab, setTab] = useState<'xp' | 'hands'>('xp');
 
   const board = getSimulatedLeaderboard(dayKey);
   const playerEntry = {
-    name:        identity.name,
-    xp:          progression.xp,
-    level:       levelInfo.level,
-    rank:        rank.name,
-    handsPlayed: progression.handsPlayed,
-    color:       getAvatarColor(identity.avatarSeed),
-    isMe:        true,
+    name:             identity.name,
+    xp:               progression.xp,
+    level:            levelInfo.level,
+    rank:             rank.name,
+    handsPlayed:      progression.handsPlayed,
+    color:            getAvatarColor(identity.avatarSeed),
+    isMe:             true,
+    equippedAvatarId: serverProfile?.equippedAvatarId ?? null,
+    equippedFrameId:  serverProfile?.equippedFrameId  ?? null,
   };
 
   const sorted = tab === 'xp'
@@ -322,30 +310,14 @@ export default function Leaderboard() {
             />
 
             <div className="relative flex items-center gap-4">
-              {/* Avatar — bolted prison ID plate */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                {/* Bolt corners */}
-                {[[-3,-3],[33,-3],[-3,33],[33,33]].map(([x,y],i) => (
-                  <div key={i} style={{
-                    position: 'absolute', left: x, top: y,
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #8a7040, #4a3a18)',
-                    border: '1px solid rgba(201,162,39,0.30)',
-                    zIndex: 2,
-                  }} />
-                ))}
-                <div style={{
-                  width: 58, height: 58, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #2a1e5a 0%, #1a1040 100%)',
-                  border: '2px solid rgba(123,97,255,0.70)',
-                  boxShadow: '0 0 14px rgba(123,97,255,0.40), inset 0 0 8px rgba(0,0,0,0.40)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ fontWeight: 900, fontSize: 22, fontFamily: 'monospace', color: '#C9A227', letterSpacing: '0.04em' }}>
-                    {initials}
-                  </span>
-                </div>
-              </div>
+              {/* Avatar */}
+              <AvatarWithFrame
+                avatarSrc={serverProfile?.equippedAvatarId ? `/cosmetics/avatars/${serverProfile.equippedAvatarId.replace(/_/g, '-')}.png` : null}
+                frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
+                initials={(identity.name ?? 'ME').slice(0, 2).toUpperCase()}
+                initialsColor="#F0B829"
+                size={86}
+              />
 
               {/* Identity */}
               <div className="flex-1 min-w-0">
@@ -443,10 +415,6 @@ export default function Leaderboard() {
             const entryRank = getRankForLevel(entry.level);
             const isMe      = (entry as any).isMe;
 
-            // Avatar plate color
-            const plateBg     = isTop3 ? TOP3_PLATE : (AVATAR_PLATE[entry.color] ?? '#1a1230');
-            const plateBorder = isTop3 ? TOP3_BORDER : (entry.color ?? entryRank.color);
-
             return (
               <div
                 key={`${entry.name}-${i}`}
@@ -462,6 +430,10 @@ export default function Leaderboard() {
                     : 'transparent',
                   borderLeft: isMe ? '3px solid rgba(201,162,39,0.55)' : '3px solid transparent',
                   position: 'relative',
+                  boxShadow: !isMe && pos === 1 ? '0 0 12px rgba(255,215,0,0.4)'
+                           : !isMe && pos === 2 ? '0 0 12px rgba(192,192,192,0.3)'
+                           : !isMe && pos === 3 ? '0 0 12px rgba(205,127,50,0.3)'
+                           : 'none',
                 }}
               >
                 {/* Subtle row glow for top 3 */}
@@ -475,22 +447,14 @@ export default function Leaderboard() {
                 {/* Medal / rank number */}
                 <MedalBadge pos={pos} />
 
-                {/* Avatar plate */}
-                <div style={{
-                  width: 38, height: 38, borderRadius: 8, flexShrink: 0,
-                  background: `linear-gradient(135deg, ${plateBg} 0%, rgba(0,0,0,0.30) 100%)`,
-                  border: `1.5px solid ${plateBorder}60`,
-                  boxShadow: isTop3 ? `0 0 8px ${plateBorder}30` : 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 900, fontFamily: 'monospace',
-                    color: isTop3 ? '#C9A227' : (entryRank.color ?? '#fff'),
-                    letterSpacing: '0.04em',
-                  }}>
-                    {getAvatarInitials(entry.name)}
-                  </span>
-                </div>
+                {/* Avatar */}
+                <AvatarWithFrame
+                  avatarSrc={(entry as any).equippedAvatarId ? `/cosmetics/avatars/${(entry as any).equippedAvatarId.replace(/_/g, '-')}.png` : null}
+                  frameSrc={(entry as any).equippedFrameId ? `/cosmetics/frames/${(entry as any).equippedFrameId.replace(/_/g, '-')}.png` : null}
+                  initials={(entry.name ?? '??').slice(0, 2).toUpperCase()}
+                  initialsColor="#fff"
+                  size={52}
+                />
 
                 {/* Name + level */}
                 <div className="flex-1 min-w-0 flex items-baseline gap-2">
