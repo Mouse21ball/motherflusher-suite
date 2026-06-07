@@ -393,12 +393,12 @@ export default function Home() {
     return (p.newAchievements ?? []).map(id => ACHIEVEMENT_MAP.get(id)!).filter(Boolean);
   });
 
-  // Auto-show starter pack for very new players (server-authoritative)
+  // Auto-show starter pack — server-authoritative: only fires if welcomeKitClaimed is false
   useEffect(() => {
     if (starterKitCheckDoneRef.current) return;
     if (serverProfile === null) return;          // still loading
     starterKitCheckDoneRef.current = true;       // run once per mount
-    if (serverProfile.welcomeKitClaimed === false && serverProfile.handsPlayed < 5) {
+    if (serverProfile.welcomeKitClaimed === false) {
       const timer = setTimeout(() => setStarterOpen(true), 1800);
       return () => clearTimeout(timer);
     }

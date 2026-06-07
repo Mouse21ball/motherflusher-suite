@@ -17,24 +17,6 @@ const PACK_CONTENTS = [
     highlight: true,
   },
   {
-    icon: '🥉',
-    label: 'Bronze VIP Badge',
-    sub: 'Bronze tier profile badge — earned from day one',
-    highlight: false,
-  },
-  {
-    icon: '😎',
-    label: '5 Reaction Emotes',
-    sub: 'Send 5 table reactions per session',
-    highlight: false,
-  },
-  {
-    icon: '⏱️',
-    label: 'Time Bank Perk',
-    sub: 'Extra decision time in fast rounds (coming soon)',
-    highlight: false,
-  },
-  {
     icon: '💜',
     label: '250 Stripes',
     sub: 'Your starter premium currency — spend on cosmetics and Crews',
