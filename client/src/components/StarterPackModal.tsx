@@ -34,6 +34,12 @@ const PACK_CONTENTS = [
     sub: 'Extra decision time in fast rounds (coming soon)',
     highlight: false,
   },
+  {
+    icon: '💜',
+    label: '250 Stripes',
+    sub: 'Your starter premium currency — spend on cosmetics and Crews',
+    highlight: false,
+  },
 ];
 
 const MODES = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
@@ -188,6 +194,9 @@ export function StarterPackModal({ open, onClose }: StarterPackModalProps) {
                 </div>
                 <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
                   {emoteCount} reaction emotes unlocked · Bronze badge active
+                </div>
+                <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
+                  +250 Stripes added · spend in Style &amp; Crews
                 </div>
               </div>
               <button

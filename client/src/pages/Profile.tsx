@@ -128,7 +128,8 @@ export default function Profile() {
 
   const clearAllLocalData = () => {
     ['poker_table_identity', 'poker_table_player_name', 'poker_table_analytics_id',
-     'poker_table_chips', 'poker_table_history', 'pt_daily_reward', 'pt_progression']
+     'poker_table_chips', 'poker_table_history', 'pt_daily_reward', 'pt_progression',
+     'cgp_session_token', 'cgp_player_id']
       .forEach(k => { try { localStorage.removeItem(k); } catch {} });
   };
 
@@ -140,7 +141,17 @@ export default function Profile() {
     setDeleteBusy(true);
     setDeleteError(null);
     const isGuest = !serverProfile?.hasAuth;
-    if (isGuest) { clearAllLocalData(); window.location.href = '/'; return; }
+    if (isGuest) {
+      try {
+        await apiFetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
+      } catch {}
+      clearAllLocalData();
+      clearSessionToken();
+      queryClient.clear();
+      try { localStorage.setItem('just_logged_out', '1'); } catch {}
+      window.location.href = '/';
+      return;
+    }
     try {
       const { apiUrl } = await import('@/lib/apiConfig');
       const res = await apiFetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
