@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
+import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor, resolveAvatarSrc } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { getSimulatedPlayerCount } from '@/lib/dailyReward';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
@@ -312,7 +312,7 @@ export default function Leaderboard() {
             <div className="relative flex items-center gap-4">
               {/* Avatar */}
               <AvatarWithFrame
-                avatarSrc={serverProfile?.equippedAvatarId ? `/cosmetics/avatars/${serverProfile.equippedAvatarId.replace(/_/g, '-')}.png` : null}
+                avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
                 frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
                 initials={(identity.name ?? 'ME').slice(0, 2).toUpperCase()}
                 initialsColor="#F0B829"
@@ -449,7 +449,7 @@ export default function Leaderboard() {
 
                 {/* Avatar */}
                 <AvatarWithFrame
-                  avatarSrc={(entry as any).equippedAvatarId ? `/cosmetics/avatars/${(entry as any).equippedAvatarId.replace(/_/g, '-')}.png` : null}
+                  avatarSrc={resolveAvatarSrc((entry as any).equippedAvatarId, (entry as any).avatarId)}
                   frameSrc={(entry as any).equippedFrameId ? `/cosmetics/frames/${(entry as any).equippedFrameId.replace(/_/g, '-')}.png` : null}
                   initials={(entry.name ?? '??').slice(0, 2).toUpperCase()}
                   initialsColor="#fff"

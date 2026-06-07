@@ -4,6 +4,7 @@ import {
   ensurePlayerIdentity,
   getAvatarInitials,
   getAvatarColor,
+  resolveAvatarSrc,
   getAllChips,
   getHandHistory,
   getPlayerStats,
@@ -757,7 +758,7 @@ export default function Home() {
           >
             {/* Avatar */}
             <AvatarWithFrame
-              avatarSrc={serverProfile?.equippedAvatarId ? `/cosmetics/avatars/${serverProfile.equippedAvatarId.replace(/_/g, '-')}.png` : null}
+              avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
               frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
               initials={initials}
               initialsColor="#F0B829"

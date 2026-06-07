@@ -269,6 +269,35 @@ export function getAvatarColor(seed: string): string {
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
 
+// Maps a free preset avatarId (e.g. 'bear') to its image src.
+// Premium cosmetic avatars (equippedAvatarId) use /cosmetics/avatars/<id>.png
+// and are NOT handled here — callers should check equippedAvatarId first.
+const FREE_AVATAR_SRCS: Record<string, string> = {
+  bear:    '/emote-bear-celebrating.png',
+  bulldog: '/emote-bulldog-cigar.png',
+  cat:     '/emote-cat-thinking.png',
+  fox:     '/emote-fox-smug.png',
+  gorilla: '/emote-gorilla-angry.png',
+  wolf:    '/emote-wolf-tilted.png',
+};
+
+// Resolves the display avatar src for a player.
+//   equippedAvatarId — premium cosmetic (takes priority)
+//   avatarId         — free preset selection
+// Returns null if neither is set (caller should render initials).
+export function resolveAvatarSrc(
+  equippedAvatarId: string | null | undefined,
+  avatarId:         string | null | undefined,
+): string | null {
+  if (equippedAvatarId) {
+    return `/cosmetics/avatars/${equippedAvatarId.replace(/_/g, '-')}.png`;
+  }
+  if (avatarId) {
+    return FREE_AVATAR_SRCS[avatarId] ?? null;
+  }
+  return null;
+}
+
 // ─── Full Reset ───────────────────────────────────────────────────────────────
 
 export function resetAllData(): void {
