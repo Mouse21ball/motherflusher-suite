@@ -820,6 +820,12 @@ export async function registerRoutes(
   app.post("/api/players/:id/claim-welcome-kit", requireAuth, requireSelf, async (req, res) => {
     try {
       const id = req.params.id as string;
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+      if (profile.welcomeKitClaimed) {
+        res.status(409).json({ error: "Welcome kit already claimed" });
+        return;
+      }
       await storage.claimWelcomeKit(id);
       const newStripes = await storage.creditStripes(id, 250, 'welcome_kit');
       console.log(`[welcome-kit] player=${id} stripes=+250 newTotal=${newStripes}`);
