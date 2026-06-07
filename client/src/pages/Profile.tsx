@@ -22,6 +22,11 @@ import { apiFetch, clearSessionToken } from '@/lib/session';
 import { queryClient } from '@/lib/queryClient';
 import { BlockList } from '@/components/settings/BlockList';
 
+function getFrameSrc(equippedFrameId: string | null | undefined): string | null {
+  if (!equippedFrameId) return null;
+  return `/cosmetics/frames/${equippedFrameId}.png`;
+}
+
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
 const AVATAR_OPTIONS = [
@@ -338,15 +343,21 @@ export default function Profile() {
                   border: '3px solid #FFD700',
                   boxShadow: '0 0 24px rgba(255,215,0,0.6)',
                   background: avatarColor + '33',
-                  overflow: 'hidden',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', flexShrink: 0, position: 'relative',
                 }}
               >
                 {currentAvatarSrc ? (
-                  <img src={currentAvatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={currentAvatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 ) : (
                   <span style={{ fontWeight: 700, fontSize: 44, color: '#fff' }} data-testid="avatar-player">{initials}</span>
+                )}
+                {getFrameSrc(serverProfile?.equippedFrameId) && (
+                  <img
+                    src={getFrameSrc(serverProfile?.equippedFrameId)!}
+                    alt="frame"
+                    style={{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', zIndex: 2 }}
+                  />
                 )}
                 {/* Edit pencil overlay */}
                 <div style={{
@@ -355,7 +366,7 @@ export default function Profile() {
                   background: 'linear-gradient(135deg, #c49028, #8a5c14)',
                   border: '2px solid rgba(0,0,0,0.60)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11,
+                  fontSize: 11, zIndex: 3,
                 }}>✏</div>
               </button>
 

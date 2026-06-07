@@ -21,18 +21,33 @@ interface ChatMsg {
   avatarId: string | null; role: string; message: string; createdAt: string;
 }
 
+function getFrameSrc(equippedFrameId: string | null | undefined): string | null {
+  if (!equippedFrameId) return null;
+  return `/cosmetics/frames/${equippedFrameId}.png`;
+}
+
 // ─── Small avatar chip ────────────────────────────────────────────────────────
-function AvatarChip({ name, size = 32 }: { name: string; size?: number }) {
+function AvatarChip({ name, size = 32, equippedFrameId }: { name: string; size?: number; equippedFrameId?: string | null }) {
   const colors = ["#c9541a","#1a6dc9","#1ac97a","#c9c21a","#c91a7a","#7a1ac9","#1ac9c9"];
   const color  = colors[name.charCodeAt(0) % colors.length];
   const initials = name.slice(0, 2).toUpperCase();
+  const frameSrc = getFrameSrc(equippedFrameId);
   return (
-    <div
-      style={{ width: size, height: size, borderRadius: "50%", background: color,
-               display: "flex", alignItems: "center", justifyContent: "center",
-               fontSize: size * 0.36, fontWeight: 700, color: "#fff", flexShrink: 0 }}
-    >
-      {initials}
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <div
+        style={{ width: size, height: size, borderRadius: "50%", background: color,
+                 display: "flex", alignItems: "center", justifyContent: "center",
+                 fontSize: size * 0.36, fontWeight: 700, color: "#fff" }}
+      >
+        {initials}
+      </div>
+      {frameSrc && (
+        <img
+          src={frameSrc}
+          alt="frame"
+          style={{ position: 'absolute', inset: '-15%', width: '130%', height: '130%', pointerEvents: 'none', zIndex: 2 }}
+        />
+      )}
     </div>
   );
 }
@@ -492,7 +507,7 @@ function RosterTab({ crew, playerId, isCaptain, onKick }: {
           <span className="font-mono text-xs w-5 text-right" style={{ color: "rgba(240,184,41,0.35)" }}>
             #{i + 1}
           </span>
-          <AvatarChip name={m.displayName} size={32} />
+          <AvatarChip name={m.displayName} size={32} equippedFrameId={m.equippedFrameId} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-sm truncate" style={{ color: "#f0b829" }}>{m.displayName}</span>
