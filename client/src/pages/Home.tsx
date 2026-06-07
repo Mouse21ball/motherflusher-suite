@@ -335,7 +335,7 @@ function syncXPFromHistory(): void {
 
 function getFrameSrc(equippedFrameId: string | null | undefined): string | null {
   if (!equippedFrameId) return null;
-  return `/cosmetics/frames/${equippedFrameId}.png`;
+  return `/cosmetics/frames/${equippedFrameId.replace(/_/g, '-')}.png`;
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
