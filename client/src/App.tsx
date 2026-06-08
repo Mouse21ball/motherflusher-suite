@@ -9,7 +9,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
-import { BetaFooter } from "@/components/BetaFooter";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
@@ -108,7 +107,6 @@ function App() {
         <DiamondBackground />
         <WelcomeGate>
           <Router />
-          <BetaFooter />
         </WelcomeGate>
       </TooltipProvider>
     </QueryClientProvider>
