@@ -789,23 +789,21 @@ export default function Home() {
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, height: 76, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(245,158,11,0.18)', display: 'flex', alignItems: 'center' }}>
         <div style={{ width: '100%', maxWidth: 512, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', height: '100%' }}>
           {([
-            { icon: '/dock-leaderboard.png', label: 'RANKS',   onClick: () => navigate('/leaderboard'), testId: 'link-leaderboard-footer', isImg: true  },
-            { icon: '/dock-shop.png',        label: 'SHOP',    onClick: () => navigate('/shop'),        testId: 'link-shop-footer',        isImg: true  },
-            { icon: '◆',                    label: 'STYLE',   onClick: () => navigate('/cosmetics'),   testId: 'link-cosmetics-footer',   isImg: false },
-            { icon: '/dock-home.png',        label: 'HOME',    onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }), testId: 'link-home-dock', isImg: true, isCenter: true },
-            { icon: '⛓',                    label: 'CREWS',   onClick: () => navigate('/crews'),       testId: 'link-crews-footer',       isImg: false },
-            { icon: '/dock-profile.png',     label: 'PROFILE', onClick: () => navigate('/profile'),    testId: 'link-profile-footer',     isImg: true  },
+            { icon: '🏆', label: 'RANKS',   onClick: () => navigate('/leaderboard'), testId: 'link-leaderboard-footer' },
+            { icon: '🛒', label: 'SHOP',    onClick: () => navigate('/shop'),        testId: 'link-shop-footer'        },
+            { icon: '💎', label: 'STYLE',   onClick: () => navigate('/cosmetics'),   testId: 'link-cosmetics-footer'   },
+            { icon: '♠',  label: 'HOME',    onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }), testId: 'link-home-dock', isCenter: true },
+            { icon: '👥', label: 'CREWS',   onClick: () => navigate('/crews'),       testId: 'link-crews-footer'       },
+            { icon: '👤', label: 'PROFILE', onClick: () => navigate('/profile'),     testId: 'link-profile-footer'     },
           ] as const).map(item => (
             <button key={item.testId} onClick={item.onClick} data-testid={item.testId}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, height: '100%', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', transform: (item as { isCenter?: boolean }).isCenter ? 'translateY(-4px)' : undefined }}>
               {(item as { isCenter?: boolean }).isCenter ? (
-                <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30)', background: 'rgba(240,184,41,0.10)' }}>
-                  <img src={item.icon as string} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+                <div style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30)', background: 'rgba(240,184,41,0.12)' }}>
+                  <span style={{ fontSize: 22, lineHeight: 1, color: 'rgba(240,184,41,0.95)' }}>{item.icon}</span>
                 </div>
-              ) : item.isImg ? (
-                <img src={item.icon as string} alt={item.label} style={{ width: 28, height: 28, objectFit: 'contain' }} />
               ) : (
-                <span style={{ fontSize: 20, lineHeight: 1, color: 'rgba(201,162,39,0.75)' }}>{item.icon}</span>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
               )}
               <span style={{ fontFamily: 'monospace', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: (item as { isCenter?: boolean }).isCenter ? 'rgba(240,184,41,0.90)' : 'rgba(240,184,41,0.60)' }}>
                 {item.label}
