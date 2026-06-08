@@ -1131,9 +1131,10 @@ function resetToAnte(table: GenericTable): void {
     storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
     storage.incrementHandsPlayed(identityId, table.modeId).catch(() => {});
 
-    // Crew chip-win tracking: accumulate only genuine gameplay wins (not bonuses).
+    // Crew chip-win tracking + win-Stripes: accumulate only genuine gameplay wins (not bonuses).
     if (isWinner && deltaChips > 0) {
       storage.incrementCrewMemberChipsWon(identityId, deltaChips).catch(() => {});
+      storage.awardWinStripes(identityId).catch(() => {});
     }
   }
 

@@ -198,6 +198,7 @@ export interface IStorage {
   incrementHandsPlayed(playerId: string, modeId: string): Promise<void>;
   getClaimedQuests(playerId: string): Promise<string[]>;
   claimQuest(playerId: string, questId: string, stripesReward: number): Promise<{ newStripes: number }>;
+  awardWinStripes(playerId: string): Promise<{ awarded: number; dailyTotal: number }>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -594,6 +595,8 @@ export class MemStorage implements IStorage {
       timeBankPurchasedUses:          0,
       isAdmin:                        false,
       welcomeKitClaimed:              false,
+      dailyWinStripes:                0,
+      dailyWinStripesResetAt:         null,
       bannedAt:                       null,
       banExpiresAt:                   null,
       banReason:                      null,
@@ -2569,6 +2572,36 @@ export class MemStorage implements IStorage {
 
     const newStripes = await this.creditStripes(playerId, stripesReward, `quest:${questId}`);
     return { newStripes };
+  }
+
+  async awardWinStripes(playerId: string): Promise<{ awarded: number; dailyTotal: number }> {
+    const profile = await this.getPlayerProfile(playerId);
+    if (!profile) return { awarded: 0, dailyTotal: 0 };
+
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const needsReset = !profile.dailyWinStripesResetAt || profile.dailyWinStripesResetAt < todayStart;
+    const currentTotal = needsReset ? 0 : profile.dailyWinStripes;
+    if (currentTotal >= 5) return { awarded: 0, dailyTotal: 5 };
+
+    const newTotal = currentTotal + 1;
+    await db.update(playerProfiles)
+      .set({
+        dailyWinStripes: newTotal,
+        dailyWinStripesResetAt: needsReset ? new Date() : profile.dailyWinStripesResetAt,
+        stripes: sql`${playerProfiles.stripes} + 1`,
+      })
+      .where(eq(playerProfiles.id, playerId));
+
+    await db.insert(stripeTransactions).values({
+      playerId,
+      amount: 1,
+      reason: 'win_reward',
+      balanceAfter: (profile.stripes ?? 0) + 1,
+    });
+
+    return { awarded: 1, dailyTotal: newTotal };
   }
 
   async getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]> {

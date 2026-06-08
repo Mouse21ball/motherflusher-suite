@@ -48,6 +48,9 @@ export const playerProfiles = pgTable("player_profiles", {
   isAdmin:              boolean("is_admin").notNull().default(false),
   // ── Welcome kit (new player advantage pack) ─────────────────────────────────
   welcomeKitClaimed:    boolean("welcome_kit_claimed").notNull().default(false),
+  // ── Daily win Stripes tracking ───────────────────────────────────────────────
+  dailyWinStripes:        integer("daily_win_stripes").notNull().default(0),
+  dailyWinStripesResetAt: timestamp("daily_win_stripes_reset_at"),
   // ── Account status ───────────────────────────────────────────────────────────
   bannedAt:             timestamp("banned_at"),
   banExpiresAt:         timestamp("ban_expires_at"),

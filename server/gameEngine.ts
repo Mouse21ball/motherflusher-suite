@@ -861,6 +861,7 @@ function resetToAnte(table: AuthTable): void {
     table.lastChipSyncHand.set(p.id, table.handId);
     const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
     storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    if (isWinner) storage.awardWinStripes(identityId).catch(() => {});
     storage.incrementHandsPlayed(identityId, 'badugi').catch(() => {});
   }
 
