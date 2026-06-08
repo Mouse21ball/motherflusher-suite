@@ -48306,7 +48306,7 @@
       "currentBet": 0,
       "minBet": 50,
       "raisesThisRound": 0,
-      "activePlayerId": "p1",
+      "activePlayerId": "p4",
       "players": [
         {
           "id": "p1",
@@ -48340,7 +48340,7 @@
           "status": "active",
           "isDealer": false,
           "declaration": null,
-          "hasActed": false
+          "hasActed": true
         },
         {
           "id": "p2",
@@ -48482,12 +48482,6 @@
       "communityCards": [],
       "messages": [
         {
-          "id": "wqawch65",
-          "text": "KingstonRiley called $145",
-          "time": 1780925508952,
-          "isResolution": false
-        },
-        {
           "id": "gag66z5y",
           "text": "PocketPair raised to $9720",
           "time": 1780925514485,
@@ -48539,6 +48533,12 @@
           "id": "jjpj470a",
           "text": "BET 2",
           "time": 1780925519845,
+          "isResolution": false
+        },
+        {
+          "id": "gpkjxq4v",
+          "text": "KingstonRiley checked",
+          "time": 1780925521870,
           "isResolution": false
         }
       ],
@@ -48710,6 +48710,6 @@
       "turnDeadline": null
     },
     "handId": 66,
-    "savedAt": 1780925521854
+    "savedAt": 1780925523880
   }
 }
