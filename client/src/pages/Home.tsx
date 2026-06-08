@@ -471,211 +471,145 @@ export default function Home() {
 
   return (
     <>
-    {/* Fixed background layers */}
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }} />
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.78)' }} />
+    {/* ── Fixed background ──────────────────────────────────────────────────── */}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.72)' }} />
 
-    <div className="min-h-[100dvh] flex flex-col" style={{ position: 'relative', zIndex: 1 }}>
+    <div style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Sticky top header ──────────────────────────────────────────────── */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 50, height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', background: 'transparent',
-      }}>
-        {/* Left: leaderboard */}
-        <button
-          onClick={() => navigate('/leaderboard')}
-          data-testid="link-leaderboard-header"
-          style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.30)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
-        >
-          <img src="/dock-leaderboard.png" alt="Leaderboard" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-        </button>
+      {/* ── Sticky header ─────────────────────────────────────────────────────── */}
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px' }}>
+        {/* Left: live indicator + leaderboard */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em' }}>LIVE</span>
+          </div>
+          <button onClick={() => navigate('/leaderboard')} data-testid="link-leaderboard-header"
+            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <img src="/dock-leaderboard.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+          </button>
+        </div>
 
-        {/* Center: hero logo (absolutely centered) */}
-        <img
-          src="/hero-chain-logo.png"
-          alt="Chain Gang Poker"
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 60, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 10px rgba(201,162,39,0.40))' }}
-        />
+        {/* Center: logo */}
+        <img src="/hero-chain-logo.png" alt="Chain Gang Poker"
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 52, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 14px rgba(201,162,39,0.50))' }} />
 
-        {/* Right: ◆ + stripes + avatar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button
-            onClick={() => navigate('/cosmetics')}
-            data-testid="link-cosmetics-header"
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0 }}
-          >
+        {/* Right: icons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => navigate('/shop')} data-testid="link-shop-header"
+            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>
+            👑
+          </button>
+          <button onClick={() => navigate('/cosmetics')} data-testid="link-cosmetics-header"
+            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', fontSize: 16 }}>
             ◆
           </button>
-          <button
-            onClick={() => navigate('/shop')}
-            data-testid="link-shop-header"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-          >
-            <span style={{ color: '#a855f7', fontSize: 18, lineHeight: 1 }}>◆</span>
-          </button>
-          <button
-            onClick={() => navigate('/profile')}
-            data-testid="button-open-profile"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-          >
+          <button onClick={() => navigate('/profile')} data-testid="button-open-profile"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             <AvatarWithFrame
               avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
               frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-              initials={initials}
-              initialsColor="#F0B829"
-              size={40}
-            />
+              initials={initials} initialsColor="#F0B829" size={38} />
           </button>
         </div>
       </header>
 
-      {/* ── Achievement toasts ───────────────────────────────────────────────── */}
+      {/* ── Toasts ────────────────────────────────────────────────────────────── */}
       {newAchievements.length > 0 && (
-        <div className="fixed top-20 right-3 z-50 flex flex-col gap-2 max-w-[280px]">
+        <div style={{ position: 'fixed', top: 68, right: 12, zIndex: 60, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 280 }}>
           {newAchievements.map(ach => (
-            <button
-              key={ach.id}
-              onClick={() => dismissAchievement(ach.id)}
-              className="flex items-center gap-3 rounded-2xl border px-3 py-2.5 shadow-2xl text-left w-full"
-              style={{ background: 'rgba(10,10,16,0.94)', backdropFilter: 'blur(16px)', borderColor: 'rgba(201,162,39,0.30)' }}
-              data-testid={`toast-achievement-${ach.id}`}
-            >
-              <span className="text-xl leading-none shrink-0">{ach.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[8px] font-mono uppercase tracking-widest mb-0.5" style={{ color: 'rgba(201,162,39,0.75)' }}>Achievement Unlocked</div>
-                <div className="text-xs font-bold text-white/90 truncate">{ach.name}</div>
-                <div className="text-[9px] text-white/30 truncate">{ach.description}</div>
+            <button key={ach.id} onClick={() => dismissAchievement(ach.id)} data-testid={`toast-achievement-${ach.id}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(10,10,16,0.96)', backdropFilter: 'blur(16px)', border: '1px solid rgba(201,162,39,0.35)', borderRadius: 14, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}>
+              <span style={{ fontSize: 20 }}>{ach.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.75)', textTransform: 'uppercase', letterSpacing: '0.10em', marginBottom: 2 }}>Achievement Unlocked</div>
+                <div style={{ fontWeight: 800, color: 'white', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ach.name}</div>
               </div>
-              <div className="text-[10px] font-mono font-bold shrink-0 text-emerald-400">+{ach.xpReward} XP</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#10b981' }}>+{ach.xpReward} XP</div>
             </button>
           ))}
         </div>
       )}
-
-      {/* ── Quest claim toast ────────────────────────────────────────────────── */}
       {questToast && (
-        <div style={{
-          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg,#1a1230,#12092a)',
-          border: '1.5px solid rgba(201,162,39,0.60)', borderRadius: 12,
-          padding: '10px 20px', color: '#F0B829', fontFamily: 'monospace',
-          fontWeight: 800, fontSize: 13, zIndex: 9999, whiteSpace: 'nowrap',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.60)',
-        }}>
+        <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,8,24,0.96)', backdropFilter: 'blur(16px)', border: '1.5px solid rgba(201,162,39,0.55)', borderRadius: 12, padding: '10px 22px', color: '#F0B829', fontFamily: 'monospace', fontWeight: 800, fontSize: 13, zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 8px 32px rgba(0,0,0,0.60)' }}>
           {questToast}
         </div>
       )}
 
-      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────────────── */}
       <DailyRewardModal open={dailyOpen} onClose={handleDailyClose} />
-      <DailyBonusCalendarModal
-        open={dailyBonusCalOpen}
-        onClose={() => setDailyBonusCalOpen(false)}
-        onClaimed={handleDailyBonusClaimed}
-      />
-      <HourlyBonusModal  open={hourlyOpen}  onClose={handleHourlyClose}  />
-      <StarterPackModal  open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
+      <DailyBonusCalendarModal open={dailyBonusCalOpen} onClose={() => setDailyBonusCalOpen(false)} onClaimed={handleDailyBonusClaimed} />
+      <HourlyBonusModal open={hourlyOpen} onClose={handleHourlyClose} />
+      <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
-      {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col" style={{ paddingBottom: 120 }}>
-        <div className="w-full max-w-lg mx-auto flex flex-col">
+      {/* ── Scrollable content ────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, paddingBottom: 120 }}>
+        <div style={{ width: '100%', maxWidth: 512, margin: '0 auto' }}>
 
-          {/* ═══════════ 1. PLAYER CARD ═══════════ */}
-          <button
-            onClick={() => navigate('/profile')}
-            data-testid="button-profile-strip"
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(0,0,0,0.30)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
-          >
-            {/* Avatar */}
+          {/* ══ PLAYER AREA — floating, no box ═══════════════════════════════════ */}
+          <button onClick={() => navigate('/profile')} data-testid="button-profile-strip"
+            style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 14px', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <AvatarWithFrame
               avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
               frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-              initials={initials}
-              initialsColor="#F0B829"
-              size={64}
-            />
-
-            {/* Middle */}
+              initials={initials} initialsColor="#F0B829" size={72} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                <span style={{ fontWeight: 800, color: 'white', fontSize: 18, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} data-testid="text-player-name">
-                  {identity.name}
-                </span>
-                <img src={getTierBadgeAsset(rank.name)} alt={rank.name} style={{ height: 20, width: 'auto', objectFit: 'contain', flexShrink: 0 }} data-testid="badge-rank-home" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontWeight: 900, color: 'white', fontSize: 22, lineHeight: 1, textShadow: '0 2px 12px rgba(0,0,0,0.80)' }} data-testid="text-player-name">{identity.name}</span>
+                <img src={getTierBadgeAsset(rank.name)} alt={rank.name} style={{ height: 20, width: 'auto', objectFit: 'contain' }} data-testid="badge-rank-home" />
               </div>
-              {/* XP bar */}
-              <div style={{ width: '100%', height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.10)', overflow: 'hidden', marginBottom: 5 }}>
-                <div style={{ width: `${progressPct}%`, height: '100%', borderRadius: 4, background: 'rgba(201,162,39,0.80)', transition: 'width 0.7s ease' }} />
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,215,0,0.55)', marginBottom: 5 }}>LVL {serverLevel} &nbsp;·&nbsp; {levelInfo.xpIntoLevel} / {levelInfo.xpNeeded} XP</div>
+              <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 4, overflow: 'hidden', marginBottom: 5 }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', background: 'rgba(201,162,39,0.85)', borderRadius: 4, transition: 'width 0.7s' }} />
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.60)', fontFamily: 'monospace' }}>
-                Welcome back, {identity.name.split(' ')[0]}.
-              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.55)', fontFamily: 'monospace' }}>Welcome back, {identity.name.split(' ')[0]}.</div>
             </div>
-
-            {/* Right: pills */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-              <div
-                style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(0,180,0,0.15)', border: '1px solid rgba(0,255,0,0.30)', color: '#22c55e', fontWeight: 800, fontFamily: 'monospace', fontSize: 13 }}
-                data-testid="text-bankroll"
-              >
+              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16, color: '#22c55e', textShadow: '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1 }}>
                 ${displayChips.toLocaleString()}
               </div>
-              <div
-                style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.40)', color: '#a855f7', fontWeight: 800, fontFamily: 'monospace', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
-                data-testid="text-stripes-lobby"
-              >
-                <img src="/stripes-icon.png" alt="" aria-hidden style={{ width: 12, height: 12 }} />
-                {(serverProfile?.stripes ?? 0).toLocaleString()}
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(34,197,94,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>CHIPS</div>
+              <div data-testid="text-stripes-lobby" style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace', fontWeight: 800, fontSize: 16, color: '#a855f7', textShadow: '0 0 12px rgba(168,85,247,0.45)', lineHeight: 1 }}>
+                <span style={{ fontSize: 13, color: '#a855f7' }}>◆</span>{(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(168,85,247,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>STRIPES</div>
             </div>
           </button>
 
-          {/* ═══════════ 2. MODE CARDS ═══════════ */}
-          <div>
+          {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px 4px' }}>
             {MODE_CARD_CONFIGS.map(card => {
               const mode = MODES.find(m => m.id === card.id)!;
               return (
-                <button
-                  key={card.id}
-                  onClick={() => navigateToMode(card.id, mode.path)}
-                  data-testid={`button-mode-${card.id}`}
-                  style={{ position: 'relative', overflow: 'hidden', width: '100%', height: 110, cursor: 'pointer', border: 'none', padding: 0, display: 'block' }}
-                >
-                  {/* Background image */}
-                  <img
-                    src={card.bg}
-                    alt=""
-                    aria-hidden
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  {/* Dark gradient overlay */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.40) 60%, rgba(0,0,0,0.10) 100%)' }} />
+                <button key={card.id} onClick={() => navigateToMode(card.id, mode.path)} data-testid={`button-mode-${card.id}`}
+                  style={{ position: 'relative', height: 108, borderRadius: 12, overflow: 'hidden', width: '100%', border: `1px solid ${card.color}55`, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+                  {/* BG scene art */}
+                  <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+                  {/* Atmospheric overlay — dark both sides, lighter center */}
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.68) 100%)` }} />
+                  {/* Subtle color atmosphere */}
+                  <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 50%, ${card.color}14 0%, transparent 70%)` }} />
 
-                  {/* Content */}
-                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: '100%' }}>
-                    {/* Left */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <img src={mode.icon} alt={card.title} style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0, filter: `drop-shadow(0 0 10px ${card.color}66)` }} />
-                      <div style={{ minWidth: 0, textAlign: 'left' }}>
-                        <div
-                          style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 28, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 10px rgba(0,0,0,0.80)' }}
-                          data-testid={`text-mode-name-${card.id}`}
-                        >
-                          {card.title}
-                        </div>
-                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.60)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
-                          {card.subtitle}
-                        </div>
-                      </div>
+                  {/* Left: framed game art */}
+                  <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, width: 86, height: 86, margin: '0 0 0 10px', borderRadius: 8, border: `1.5px solid ${card.color}55`, background: 'rgba(0,0,0,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src={mode.icon} alt={card.title} style={{ width: 66, height: 66, objectFit: 'contain', filter: `drop-shadow(0 0 10px ${card.color}88)` }} />
+                  </div>
+
+                  {/* Center: title + subtitle */}
+                  <div style={{ position: 'relative', zIndex: 1, flex: 1, padding: '0 10px 0 12px', minWidth: 0, textAlign: 'left' }}>
+                    <div data-testid={`text-mode-name-${card.id}`}
+                      style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 26, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: `0 0 20px ${card.color}66`, marginBottom: 5 }}>
+                      {card.title}
                     </div>
-                    {/* Right: PLAY button */}
-                    <div style={{
-                      background: card.color, color: card.btnText, borderRadius: 24,
-                      padding: '10px 20px', fontWeight: 700, fontSize: 14, border: 'none',
-                      whiteSpace: 'nowrap', flexShrink: 0, boxShadow: `0 4px 16px ${card.color}55`,
-                    }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.62)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {card.subtitle}
+                    </div>
+                  </div>
+
+                  {/* Right: PLAY button */}
+                  <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
+                    <div style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 4px 20px ${card.color}66`, letterSpacing: '0.04em' }}>
                       PLAY →
                     </div>
                   </div>
@@ -684,186 +618,188 @@ export default function Home() {
             })}
           </div>
 
-          {/* ═══════════ 3. DAILY ROW ═══════════ */}
-          <div style={{ display: 'flex', gap: 8, padding: '12px 16px' }}>
-            {/* Daily Bonus */}
-            <div style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
-                🔥 DAILY BONUS
+          {/* ══ DAILY BONUS + MISSIONS ════════════════════════════════════════════ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
+
+            {/* Daily Bonus — parchment / amber */}
+            <div style={{ background: 'linear-gradient(160deg, rgba(100,60,8,0.80) 0%, rgba(42,22,3,0.90) 100%)', border: '1px solid rgba(201,162,39,0.38)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(8px)' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                🔥 <span>DAILY BONUS</span>
               </div>
-              <div style={{ fontWeight: 800, color: 'white', fontSize: 14, lineHeight: 1.2 }}>
+              <div style={{ fontWeight: 900, color: 'white', fontSize: 15, lineHeight: 1.2 }}>
                 {serverBonusCanClaim !== null
                   ? `Day ${serverBonusStreakDay} Ready`
                   : streakInfo.streak > 0
                     ? `${streakInfo.streak}-Day Streak`
-                    : 'Daily Streak'}
+                    : 'Day 1 Ready'}
               </div>
-              <div style={{ flex: 1 }} />
-              {canClaimBonus ? (
-                <button
-                  onClick={() => setDailyBonusCalOpen(true)}
-                  data-testid="button-claim-daily-home"
-                  style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#F0B829,#C9A227)', color: '#0c0b08', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 16px rgba(240,184,41,0.45)' }}
-                >
-                  CLAIM BONUS
-                </button>
-              ) : (
-                <button
-                  onClick={() => setDailyBonusCalOpen(true)}
-                  data-testid="button-view-daily-streak"
-                  style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace', fontWeight: 700, fontSize: 10, cursor: 'pointer' }}
-                >
-                  📅 {getTimeUntilMidnight()}
-                </button>
+              {!canClaimBonus && (
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{getTimeUntilMidnight()}</span>
+                  <span style={{ color: 'rgba(201,162,39,0.55)' }}>NEXT BONUS</span>
+                </div>
               )}
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setDailyBonusCalOpen(true)} data-testid="button-claim-daily-home"
+                style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: canClaimBonus ? 'none' : '1px solid rgba(255,255,255,0.12)', background: canClaimBonus ? 'linear-gradient(135deg,#F0B829,#C9A227)' : 'rgba(255,255,255,0.06)', color: canClaimBonus ? '#0c0b08' : 'rgba(255,255,255,0.35)', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: canClaimBonus ? '0 4px 18px rgba(240,184,41,0.45)' : 'none', transition: 'all 0.2s' }}>
+                {canClaimBonus ? '🎁 CLAIM BONUS' : `📅 ${getTimeUntilMidnight()}`}
+              </button>
             </div>
 
-            {/* Daily Missions */}
-            <div style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {/* Daily Missions + Milestones */}
+            <div style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(10px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
                 🎯 DAILY MISSIONS
               </div>
               {todayQuest ? (
                 <>
-                  <div style={{ fontSize: 13, color: 'white', lineHeight: 1.3, fontWeight: 600 }}>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.35, fontWeight: 600 }}>
                     {todayQuest.description}
                   </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', background: 'rgba(201,162,39,0.18)', border: '1px solid rgba(201,162,39,0.40)', borderRadius: 20, padding: '2px 8px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#F0B829' }}>+{todayQuest.stripes} ◆ Stripes</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(201,162,39,0.16)', border: '1px solid rgba(201,162,39,0.36)', borderRadius: 20, padding: '2px 7px' }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#F0B829' }}>+{todayQuest.stripes} ◆</span>
+                    </div>
+                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.30)' }}>{Math.min(todayQuestHands, todayQuest.requiredHands)}/{todayQuest.requiredHands}</span>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 3, height: 6, overflow: 'hidden' }}>
-                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.80)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+                  <div style={{ background: 'rgba(255,255,255,0.14)', borderRadius: 3, height: 6, overflow: 'hidden' }}>
+                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.85)', borderRadius: 3, transition: 'width 0.4s' }} />
                   </div>
-                  <div style={{ flex: 1 }} />
-                  <button
-                    disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
-                    onClick={() => claimQuestById(todayQuest.questId, todayQuest.stripes)}
-                    data-testid="daily-quest-claim-btn"
-                    style={{
-                      width: '100%', padding: '8px 0', borderRadius: 10, border: 'none',
-                      background: todayQuestClaimed ? 'rgba(34,197,94,0.15)' : todayQuestEligible ? '#22c55e' : 'rgba(255,255,255,0.07)',
-                      color: todayQuestClaimed ? '#22c55e' : todayQuestEligible ? 'white' : 'rgba(255,255,255,0.30)',
-                      fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase',
-                      cursor: todayQuestEligible && !todayQuestClaimed ? 'pointer' : 'not-allowed',
-                      boxShadow: todayQuestEligible && !todayQuestClaimed ? '0 3px 12px rgba(34,197,94,0.40)' : 'none',
-                    }}
-                  >
+                  <button disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
+                    onClick={() => claimQuestById(todayQuest.questId, todayQuest.stripes)} data-testid="daily-quest-claim-btn"
+                    style={{ padding: '7px 0', borderRadius: 10, border: 'none', background: todayQuestClaimed ? 'rgba(34,197,94,0.15)' : todayQuestEligible ? '#22c55e' : 'rgba(255,255,255,0.07)', color: todayQuestClaimed ? '#22c55e' : todayQuestEligible ? 'white' : 'rgba(255,255,255,0.28)', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', cursor: todayQuestEligible && !todayQuestClaimed ? 'pointer' : 'not-allowed', boxShadow: todayQuestEligible && !todayQuestClaimed ? '0 3px 12px rgba(34,197,94,0.40)' : 'none', letterSpacing: '0.06em' }}>
                     {todayQuestClaimed ? '✓ CLAIMED' : questClaiming === todayQuest.questId ? '…' : 'CLAIM'}
                   </button>
                 </>
               ) : (
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>No quest today.</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', fontFamily: 'monospace' }}>No quest today.</div>
               )}
+
+              {/* Milestones row embedded */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 8, marginTop: 2 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7 }}>MILESTONES</div>
+                <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+                  {HOME_MILESTONES.map(m => {
+                    const totalHands = questData?.handsPlayed ?? 0;
+                    const eligible   = totalHands >= m.required;
+                    const claimed    = questData?.claimed.includes(m.questId) ?? false;
+                    const isClaiming = questClaiming === m.questId;
+                    return (
+                      <button key={m.questId} data-testid={`milestone-badge-${m.questId}`}
+                        disabled={!eligible || claimed || !!questClaiming}
+                        onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
+                        style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${claimed ? 'rgba(201,162,39,0.90)' : eligible ? 'rgba(201,162,39,0.55)' : 'rgba(255,255,255,0.12)'}`, background: claimed ? 'rgba(201,162,39,0.22)' : eligible ? 'rgba(201,162,39,0.10)' : 'rgba(255,255,255,0.04)', cursor: eligible && !claimed ? 'pointer' : 'default', padding: 0, opacity: isClaiming ? 0.6 : 1, animation: eligible && !claimed ? 'pulse 2s infinite' : 'none' }}>
+                        {claimed ? (
+                          <>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 9, color: '#C9A227', lineHeight: 1 }}>{m.label}</span>
+                            <span style={{ color: '#C9A227', fontSize: 11, lineHeight: 1 }}>✓</span>
+                          </>
+                        ) : isClaiming ? (
+                          <span style={{ color: '#C9A227', fontSize: 12 }}>…</span>
+                        ) : (
+                          <>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 10, color: eligible ? '#C9A227' : 'rgba(255,255,255,0.28)', lineHeight: 1 }}>{m.label}</span>
+                            <span style={{ fontFamily: 'monospace', fontSize: 7, color: eligible ? 'rgba(201,162,39,0.65)' : 'rgba(255,255,255,0.18)', marginTop: 1 }}>+{m.stripes}◆</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* ═══════════ 4. MILESTONES ═══════════ */}
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '4px 16px' }}>
-            Milestones
-          </div>
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '8px 16px', scrollbarWidth: 'none' } as React.CSSProperties}>
-            {HOME_MILESTONES.map(m => {
-              const totalHands = questData?.handsPlayed ?? 0;
-              const eligible   = totalHands >= m.required;
-              const claimed    = questData?.claimed.includes(m.questId) ?? false;
-              const isClaiming = questClaiming === m.questId;
-              return (
-                <button
-                  key={m.questId}
-                  data-testid={`milestone-badge-${m.questId}`}
-                  disabled={!eligible || claimed || !!questClaiming}
-                  onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
-                  style={{
-                    width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    border: `2px solid ${claimed ? 'rgba(201,162,39,0.80)' : eligible ? 'rgba(201,162,39,0.50)' : 'rgba(255,255,255,0.10)'}`,
-                    background: claimed ? 'rgba(201,162,39,0.20)' : eligible ? 'rgba(201,162,39,0.10)' : 'rgba(255,255,255,0.03)',
-                    cursor: eligible && !claimed ? 'pointer' : 'default',
-                    animation: eligible && !claimed ? 'pulse 2s infinite' : 'none',
-                    opacity: isClaiming ? 0.6 : 1, padding: 0,
-                  }}
-                >
-                  {claimed ? (
-                    <>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: '#C9A227', lineHeight: 1 }}>
-                        {m.label}
-                      </span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.70)', marginTop: 1 }}>
-                        +{m.stripes} ◆
-                      </span>
-                      <span style={{ color: '#C9A227', fontSize: 14, lineHeight: 1, marginTop: 1 }}>✓</span>
-                    </>
-                  ) : isClaiming ? (
-                    <span style={{ color: '#C9A227', fontFamily: 'monospace', fontSize: 14 }}>…</span>
-                  ) : (
-                    <>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: eligible ? '#C9A227' : 'rgba(255,255,255,0.30)', lineHeight: 1 }}>
-                        {m.label}
-                      </span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 9, marginTop: 3, color: eligible ? 'rgba(201,162,39,0.70)' : 'rgba(255,255,255,0.20)' }}>
-                        +{m.stripes} ◆
-                      </span>
-                    </>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {/* ══ CREW MODE — cinematic dark purple banner ══════════════════════════ */}
+          <div style={{ margin: '10px 12px 0', position: 'relative', height: 140, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(138,43,226,0.30)' }}>
+            {/* Deep purple atmospheric background */}
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 25% 50%, rgba(88,28,135,0.75) 0%, rgba(30,10,60,0.92) 55%, rgba(8,3,18,0.97) 100%)' }} />
+            {/* Crew art — large ghost silhouette */}
+            <img src="/crews/icon-crew.png" alt="" aria-hidden style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', height: 150, width: 'auto', objectFit: 'contain', filter: 'brightness(0.35) saturate(0.6) drop-shadow(0 0 30px rgba(138,43,226,0.60))', pointerEvents: 'none' }} />
+            {/* Purple smoke / glow */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: '55%', height: '100%', background: 'radial-gradient(ellipse at 30% 60%, rgba(138,43,226,0.22) 0%, transparent 70%)' }} />
+            {/* Fade left-to-right so text is readable */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 30%, rgba(8,3,18,0.70) 70%, rgba(8,3,18,0.90) 100%)' }} />
 
-          {/* ═══════════ 5. CREW MODE CARD ═══════════ */}
-          <div style={{
-            margin: '12px 16px', borderRadius: 16, overflow: 'hidden', position: 'relative', height: 120,
-            backgroundImage: "url('/crews/icon-crew.png')", backgroundPosition: 'left center', backgroundRepeat: 'no-repeat', backgroundSize: 'contain', backgroundColor: 'rgba(88,28,135,0.40)',
-            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            border: '1px solid rgba(138,43,226,0.25)',
-          }}>
-            {/* Gradient overlay from right */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to left, rgba(20,6,40,0.88) 30%, rgba(20,6,40,0.50) 70%, transparent 100%)' }} />
-            {/* Content right-aligned */}
-            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', textAlign: 'right', padding: '0 16px' }}>
-              <div style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 24, color: '#C9A227', letterSpacing: '0.04em', lineHeight: 1 }}>
+            {/* Content — right aligned */}
+            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px', textAlign: 'right' }}>
+              <div style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 26, letterSpacing: '0.05em', lineHeight: 1, marginBottom: 3, background: 'linear-gradient(135deg, #C9A227 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 CREW MODE
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.60)', marginTop: 4, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 14 }}>
                 BUILD YOUR EMPIRE.
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => navigate('/crews')}
-                  data-testid="button-create-crew"
-                  style={{ border: '1px solid rgba(138,43,226,0.60)', background: 'rgba(138,43,226,0.20)', color: 'white', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, cursor: 'pointer' }}
-                >
+                <button onClick={() => navigate('/crews')} data-testid="button-create-crew"
+                  style={{ padding: '8px 14px', background: 'rgba(138,43,226,0.30)', border: '1px solid rgba(138,43,226,0.65)', borderRadius: 20, color: '#d8b4fe', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, cursor: 'pointer', letterSpacing: '0.04em' }}>
                   CREATE CREW
                 </button>
-                <button
-                  onClick={() => navigate('/crews')}
-                  data-testid="button-join-crew"
-                  style={{ border: '1px solid rgba(138,43,226,0.60)', background: 'rgba(138,43,226,0.20)', color: 'white', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, cursor: 'pointer' }}
-                >
+                <button onClick={() => navigate('/crews')} data-testid="button-join-crew"
+                  style={{ padding: '8px 14px', background: 'rgba(138,43,226,0.18)', border: '1px solid rgba(138,43,226,0.45)', borderRadius: 20, color: '#c4b5fd', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, cursor: 'pointer', letterSpacing: '0.04em' }}>
                   JOIN CREW
                 </button>
               </div>
             </div>
           </div>
 
-
-          {/* ═══════════ 7. FOOTER ═══════════ */}
-          <div style={{ padding: '16px 12px 0' }}>
-            <div className="flex items-center justify-center gap-3 py-1">
-              <a href="/terms" className="text-[9px] font-mono tracking-wider" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-terms">Terms</a>
-              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
-              <a href="/privacy" className="text-[9px] font-mono tracking-wider" style={{ color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
-              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
-              <a
-                href="https://forms.gle/Vh6Uut9bB6neHA3J8"
-                target="_blank" rel="noopener noreferrer"
-                className="text-[9px] font-mono tracking-wider"
-                style={{ color: 'rgba(255,255,255,0.15)' }}
-                data-testid="link-home-footer-feedback"
-                onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}
-              >Feedback</a>
+          {/* ══ LIVE TABLES ═══════════════════════════════════════════════════════ */}
+          <div style={{ padding: '10px 12px 0' }}>
+            {/* Header row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: publicTables.length > 0 ? '#22c55e' : '#555', boxShadow: publicTables.length > 0 ? '0 0 8px #22c55e' : 'none', animation: publicTables.length > 0 ? 'pulse 2s infinite' : 'none' }} />
+              <span style={{ fontWeight: 800, color: 'white', fontSize: 13, letterSpacing: '0.06em', fontFamily: 'monospace' }}>LIVE TABLES</span>
+              {realPlayerCount > 0 && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)' }}>{realPlayerCount} playing</span>}
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setShowOpenTableModal(true)} data-testid="link-view-all-tables"
+                style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.70)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.06em' }}>
+                VIEW ALL →
+              </button>
             </div>
-            <p className="text-center text-[9px] font-mono py-1 tracking-wider" style={{ color: 'rgba(255,255,255,0.10)' }} data-testid="text-home-chips-disclaimer">
+
+            {publicTables.length === 0 ? (
+              <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.28)', textAlign: 'center', padding: '8px 0 4px' }}>
+                No public tables open — start one above!
+              </p>
+            ) : (
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 } as React.CSSProperties}>
+                {publicTables.slice(0, 8).map(table => {
+                  const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '', color: '#888', path: '/', icon: '', stakes: '' };
+                  const isFull = table.humanCount >= table.maxPlayers;
+                  const isOpen = table.phase === 'WAITING';
+                  return (
+                    <button key={`${table.modeId}-${table.tableId}`}
+                      onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
+                      disabled={isFull} data-testid={`button-join-card-${table.tableId}`}
+                      style={{ width: 130, flexShrink: 0, background: 'rgba(0,0,0,0.55)', border: `1px solid ${info.color}30`, borderRadius: 12, padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 5, cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1, textAlign: 'left', backdropFilter: 'blur(8px)' }}>
+                      {info.icon && <img src={info.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 5px ${info.color}55)` }} />}
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 11, color: info.color }}>{info.name}</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.45)' }} data-testid={`text-live-players-${table.tableId}`}>
+                        👤 {table.humanCount}/{table.maxPlayers}
+                      </span>
+                      {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.55)' }}>{info.stakes}</span>}
+                      <div style={{ padding: '5px 0', borderRadius: 8, textAlign: 'center', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', background: isFull ? 'rgba(255,255,255,0.06)' : isOpen ? `${info.color}22` : 'rgba(255,255,255,0.06)', color: isFull ? 'rgba(255,255,255,0.25)' : isOpen ? info.color : 'rgba(255,255,255,0.40)' }}>
+                        {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
+          <div style={{ padding: '14px 12px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
+              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
+              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
+              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
+              <a href="https://forms.gle/Vh6Uut9bB6neHA3J8" target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)' }}
+                data-testid="link-home-footer-feedback"
+                onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}>Feedback</a>
+            </div>
+            <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.10)', textAlign: 'center', marginTop: 4, letterSpacing: '0.08em' }} data-testid="text-home-chips-disclaimer">
               VIRTUAL CHIPS · FOR ENTERTAINMENT ONLY · NO CASH VALUE
             </p>
           </div>
@@ -871,38 +807,33 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Fixed bottom dock ────────────────────────────────────────────────── */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 h-[76px] flex items-center"
-        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(245,158,11,0.18)' }}
-      >
-        <div className="w-full max-w-lg mx-auto grid grid-cols-6 h-full">
-          <button onClick={() => navigate('/leaderboard')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-leaderboard-footer">
-            <img src="/dock-leaderboard.png" alt="Leaderboard" className="w-6 h-6 object-contain" />
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Ranks</span>
-          </button>
-          <button onClick={() => navigate('/shop')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-shop-footer">
-            <img src="/dock-shop.png" alt="Shop" className="w-6 h-6 object-contain" />
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Shop</span>
-          </button>
-          <button onClick={() => navigate('/cosmetics')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-cosmetics-footer">
-            <span className="w-6 h-6 flex items-center justify-center text-base" style={{ color: 'rgba(201,162,39,0.75)' }}>◆</span>
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Style</span>
-          </button>
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90 -translate-y-1" data-testid="link-home-dock">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30),0 0 6px rgba(240,184,41,0.15)', background: 'rgba(240,184,41,0.10)' }}>
-              <img src="/dock-home.png" alt="Home" className="w-5 h-5 object-contain" />
-            </div>
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.90)' }}>Home</span>
-          </button>
-          <button onClick={() => navigate('/crews')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-crews-footer">
-            <span className="w-6 h-6 flex items-center justify-center text-base" style={{ color: 'rgba(201,162,39,0.75)' }}>⛓</span>
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Crews</span>
-          </button>
-          <button onClick={() => navigate('/profile')} className="flex flex-col items-center justify-center gap-0.5 h-full min-h-[44px] transition-all active:scale-90" data-testid="link-profile-footer">
-            <img src="/dock-profile.png" alt="Profile" className="w-7 h-7 object-contain" />
-            <span className="text-[6.5px] font-mono uppercase tracking-wider" style={{ color: 'rgba(240,184,41,0.60)' }}>Profile</span>
-          </button>
+      {/* ── Fixed bottom dock ─────────────────────────────────────────────────── */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, height: 76, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(245,158,11,0.18)', display: 'flex', alignItems: 'center' }}>
+        <div style={{ width: '100%', maxWidth: 512, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', height: '100%' }}>
+          {([
+            { icon: '/dock-leaderboard.png', label: 'RANKS',   onClick: () => navigate('/leaderboard'), testId: 'link-leaderboard-footer', isImg: true  },
+            { icon: '/dock-shop.png',        label: 'SHOP',    onClick: () => navigate('/shop'),        testId: 'link-shop-footer',        isImg: true  },
+            { icon: '◆',                    label: 'STYLE',   onClick: () => navigate('/cosmetics'),   testId: 'link-cosmetics-footer',   isImg: false },
+            { icon: '/dock-home.png',        label: 'HOME',    onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }), testId: 'link-home-dock', isImg: true, isCenter: true },
+            { icon: '⛓',                    label: 'CREWS',   onClick: () => navigate('/crews'),       testId: 'link-crews-footer',       isImg: false },
+            { icon: '/dock-profile.png',     label: 'PROFILE', onClick: () => navigate('/profile'),    testId: 'link-profile-footer',     isImg: true  },
+          ] as const).map(item => (
+            <button key={item.testId} onClick={item.onClick} data-testid={item.testId}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, height: '100%', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', transform: (item as { isCenter?: boolean }).isCenter ? 'translateY(-4px)' : undefined }}>
+              {(item as { isCenter?: boolean }).isCenter ? (
+                <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30)', background: 'rgba(240,184,41,0.10)' }}>
+                  <img src={item.icon as string} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                </div>
+              ) : item.isImg ? (
+                <img src={item.icon as string} alt={item.label} style={{ width: item.label === 'PROFILE' ? 28 : 24, height: item.label === 'PROFILE' ? 28 : 24, objectFit: 'contain' }} />
+              ) : (
+                <span style={{ fontSize: 20, lineHeight: 1, color: 'rgba(201,162,39,0.75)' }}>{item.icon}</span>
+              )}
+              <span style={{ fontFamily: 'monospace', fontSize: '6.5px', textTransform: 'uppercase', letterSpacing: '0.08em', color: (item as { isCenter?: boolean }).isCenter ? 'rgba(240,184,41,0.90)' : 'rgba(240,184,41,0.60)' }}>
+                {item.label}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -910,51 +841,27 @@ export default function Home() {
 
     <PrivateTableSetup open={showPrivateSetup} onClose={() => setShowPrivateSetup(false)} />
 
-    {/* ── Open Table Mode Picker ───────────────────────────────────────────── */}
+    {/* ── Open Table Mode Picker ────────────────────────────────────────────── */}
     {showOpenTableModal && (
-      <div
-        className="fixed inset-0 z-[100] flex items-end justify-center"
-        style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-        onClick={() => setShowOpenTableModal(false)}
-      >
-        <div
-          className="w-full max-w-lg rounded-t-2xl p-5 pb-8"
-          style={{ background: 'linear-gradient(180deg,#111116 0%,#0d0d11 100%)', border: '1px solid rgba(245,158,11,0.18)', borderBottom: 'none' }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
-          <div className="text-center mb-5">
-            <h2 className="text-base font-black tracking-[0.12em] text-white" style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif' }}>
-              OPEN A TABLE
-            </h2>
-            <p className="text-[11px] font-mono text-white/40 mt-1">Pick a mode — a public table opens instantly</p>
-          </div>
-          <div className="grid grid-cols-4 gap-2 mb-5">
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+        onClick={() => setShowOpenTableModal(false)}>
+        <div style={{ width: '100%', maxWidth: 512, borderRadius: '20px 20px 0 0', padding: '20px 20px 32px', background: 'linear-gradient(180deg,#111116 0%,#0d0d11 100%)', border: '1px solid rgba(245,158,11,0.18)', borderBottom: 'none' }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 18px' }} />
+          <h2 style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: 16, fontWeight: 900, color: 'white', letterSpacing: '0.10em', textAlign: 'center', marginBottom: 4 }}>OPEN A TABLE</h2>
+          <p style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.40)', textAlign: 'center', marginBottom: 18 }}>Pick a mode — a public table opens instantly</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 18 }}>
             {MODES.map(mode => (
-              <button
-                key={mode.id}
-                data-testid={`button-open-table-mode-${mode.id}`}
-                className="flex flex-col items-center active:scale-95 transition-transform"
-                style={{ background: 'linear-gradient(180deg,rgba(40,28,8,0.85) 0%,rgba(20,12,2,0.92) 100%)', border: '1px solid rgba(80,55,15,0.45)', borderRadius: 6, padding: '8px 4px 7px', cursor: 'pointer' }}
-                onClick={() => {
-                  setShowOpenTableModal(false);
-                  track({ name: 'crew_table_opened', mode: mode.id as 'badugi' });
-                  navigateToMode(mode.id, mode.path);
-                }}
-              >
+              <button key={mode.id} data-testid={`button-open-table-mode-${mode.id}`}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(40,28,8,0.85)', border: '1px solid rgba(80,55,15,0.45)', borderRadius: 8, padding: '8px 4px 7px', cursor: 'pointer' }}
+                onClick={() => { setShowOpenTableModal(false); track({ name: 'crew_table_opened', mode: mode.id as 'badugi' }); navigateToMode(mode.id, mode.path); }}>
                 <img src={mode.icon} alt={mode.name} style={{ width: 40, height: 40, objectFit: 'contain' }} />
-                <span style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: '0.52rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(210,165,55,0.90)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>
-                  {mode.name}
-                </span>
+                <span style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: '0.52rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(210,165,55,0.90)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>{mode.name}</span>
               </button>
             ))}
           </div>
-          <button
-            className="w-full py-2.5 rounded-xl text-xs font-bold border border-white/10 text-white/38 transition-all active:scale-[0.98]"
-            style={{ background: 'rgba(255,255,255,0.04)' }}
-            onClick={() => setShowOpenTableModal(false)}
-            data-testid="button-open-table-cancel"
-          >
+          <button style={{ width: '100%', padding: '10px', borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.38)', cursor: 'pointer' }}
+            onClick={() => setShowOpenTableModal(false)} data-testid="button-open-table-cancel">
             Cancel
           </button>
         </div>
