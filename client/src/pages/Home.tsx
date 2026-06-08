@@ -495,24 +495,14 @@ export default function Home() {
         <img src="/hero-chain-logo.png" alt="Chain Gang Poker"
           style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 64, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 14px rgba(201,162,39,0.50))' }} />
 
-        {/* Right: icons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => navigate('/shop')} data-testid="link-shop-header"
-            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>
-            👑
-          </button>
-          <button onClick={() => navigate('/cosmetics')} data-testid="link-cosmetics-header"
-            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.85)', fontSize: 16 }}>
-            ◆
-          </button>
-          <button onClick={() => navigate('/profile')} data-testid="button-open-profile"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <AvatarWithFrame
-              avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
-              frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-              initials={initials} initialsColor="#F0B829" size={38} />
-          </button>
-        </div>
+        {/* Right: avatar only */}
+        <button onClick={() => navigate('/profile')} data-testid="button-open-profile"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <AvatarWithFrame
+            avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
+            frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
+            initials={initials} initialsColor="#F0B829" size={40} />
+        </button>
       </header>
 
       {/* ── Toasts ────────────────────────────────────────────────────────────── */}
@@ -544,7 +534,7 @@ export default function Home() {
       <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
       {/* ── Scrollable content ────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, paddingBottom: 120 }}>
+      <div style={{ flex: 1, paddingBottom: 140 }}>
         <div style={{ width: '100%', maxWidth: 512, margin: '0 auto' }}>
 
           {/* ══ PLAYER AREA — floating, no box ═══════════════════════════════════ */}
@@ -598,7 +588,7 @@ export default function Home() {
                       style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 30, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 5 }}>
                       {card.title}
                     </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.62)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
                       {card.subtitle}
                     </div>
                   </div>
@@ -618,7 +608,7 @@ export default function Home() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
 
             {/* Daily Bonus — parchment / amber */}
-            <div style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em', display: 'flex', alignItems: 'center', gap: 5 }}>
                 🔥 <span>DAILY BONUS</span>
               </div>
@@ -643,7 +633,7 @@ export default function Home() {
             </div>
 
             {/* Daily Missions + Milestones */}
-            <div style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
                 🎯 DAILY MISSIONS
               </div>
