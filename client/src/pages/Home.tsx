@@ -579,17 +579,17 @@ export default function Home() {
                   {/* Atmospheric overlay — dark both sides, lighter center */}
                   <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.05) 100%)` }} />
 
-                  {/* Mode icon — no frame, bleeds over art */}
-                  <img src={mode.icon} alt={card.title} style={{ position: 'relative', zIndex: 1, flexShrink: 0, width: 52, height: 52, objectFit: 'contain', margin: '0 0 0 14px', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }} />
-
-                  {/* Center: title + subtitle */}
-                  <div style={{ position: 'relative', zIndex: 1, flex: 1, padding: '0 10px 0 12px', minWidth: 0, textAlign: 'left' }}>
-                    <div data-testid={`text-mode-name-${card.id}`}
-                      style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 30, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 5 }}>
-                      {card.title}
-                    </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
-                      {card.subtitle}
+                  {/* Icon + text grouped in a flex row */}
+                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', flex: 1, gap: 14, padding: '0 10px 0 14px', minWidth: 0 }}>
+                    <img src={mode.icon} alt={card.title} style={{ flexShrink: 0, width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }} />
+                    <div style={{ minWidth: 0, textAlign: 'left' }}>
+                      <div data-testid={`text-mode-name-${card.id}`}
+                        style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 34, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 5 }}>
+                        {card.title}
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 14, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                        {card.subtitle}
+                      </div>
                     </div>
                   </div>
 
@@ -780,9 +780,6 @@ export default function Home() {
                 data-testid="link-home-footer-feedback"
                 onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}>Feedback</a>
             </div>
-            <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.10)', textAlign: 'center', marginTop: 4, letterSpacing: '0.08em' }} data-testid="text-home-chips-disclaimer">
-              VIRTUAL CHIPS · FOR ENTERTAINMENT ONLY · NO CASH VALUE
-            </p>
           </div>
 
         </div>
@@ -803,14 +800,14 @@ export default function Home() {
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, height: '100%', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', transform: (item as { isCenter?: boolean }).isCenter ? 'translateY(-4px)' : undefined }}>
               {(item as { isCenter?: boolean }).isCenter ? (
                 <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30)', background: 'rgba(240,184,41,0.10)' }}>
-                  <img src={item.icon as string} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                  <img src={item.icon as string} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
                 </div>
               ) : item.isImg ? (
-                <img src={item.icon as string} alt={item.label} style={{ width: item.label === 'PROFILE' ? 28 : 24, height: item.label === 'PROFILE' ? 28 : 24, objectFit: 'contain' }} />
+                <img src={item.icon as string} alt={item.label} style={{ width: 28, height: 28, objectFit: 'contain' }} />
               ) : (
                 <span style={{ fontSize: 20, lineHeight: 1, color: 'rgba(201,162,39,0.75)' }}>{item.icon}</span>
               )}
-              <span style={{ fontFamily: 'monospace', fontSize: '6.5px', textTransform: 'uppercase', letterSpacing: '0.08em', color: (item as { isCenter?: boolean }).isCenter ? 'rgba(240,184,41,0.90)' : 'rgba(240,184,41,0.60)' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: (item as { isCenter?: boolean }).isCenter ? 'rgba(240,184,41,0.90)' : 'rgba(240,184,41,0.60)' }}>
                 {item.label}
               </span>
             </button>
