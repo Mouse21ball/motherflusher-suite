@@ -498,7 +498,7 @@ export default function Home() {
         <img
           src="/hero-chain-logo.png"
           alt="Chain Gang Poker"
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 44, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 10px rgba(201,162,39,0.40))' }}
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 60, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 10px rgba(201,162,39,0.40))' }}
         />
 
         {/* Right: ◆ + stripes + avatar */}
@@ -581,7 +581,7 @@ export default function Home() {
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col pb-24">
+      <div className="flex-1 flex flex-col" style={{ paddingBottom: 80 }}>
         <div className="w-full max-w-lg mx-auto flex flex-col">
 
           {/* ═══════════ 1. PLAYER CARD ═══════════ */}
@@ -733,8 +733,8 @@ export default function Home() {
                   <div style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', background: 'rgba(201,162,39,0.18)', border: '1px solid rgba(201,162,39,0.40)', borderRadius: 20, padding: '2px 8px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 10, color: '#F0B829' }}>+{todayQuest.stripes} ◆ Stripes</span>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.10)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
-                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.80)', borderRadius: 4, transition: 'width 0.4s ease' }} />
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 3, height: 6, overflow: 'hidden' }}>
+                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.80)', borderRadius: 3, transition: 'width 0.4s ease' }} />
                   </div>
                   <div style={{ flex: 1 }} />
                   <button
@@ -786,7 +786,15 @@ export default function Home() {
                   }}
                 >
                   {claimed ? (
-                    <span style={{ color: '#C9A227', fontSize: 22, lineHeight: 1 }}>✓</span>
+                    <>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: '#C9A227', lineHeight: 1 }}>
+                        {m.label}
+                      </span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.70)', marginTop: 1 }}>
+                        +{m.stripes} ◆
+                      </span>
+                      <span style={{ color: '#C9A227', fontSize: 14, lineHeight: 1, marginTop: 1 }}>✓</span>
+                    </>
                   ) : isClaiming ? (
                     <span style={{ color: '#C9A227', fontFamily: 'monospace', fontSize: 14 }}>…</span>
                   ) : (
