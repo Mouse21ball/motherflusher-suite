@@ -481,15 +481,13 @@ export default function Home() {
       <header style={{
         position: 'sticky', top: 0, zIndex: 50, height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', background: 'rgba(0,0,0,0.70)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(201,162,39,0.25)',
+        padding: '0 16px', background: 'transparent',
       }}>
         {/* Left: leaderboard */}
         <button
           onClick={() => navigate('/leaderboard')}
           data-testid="link-leaderboard-header"
-          style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(201,162,39,0.30)', background: 'rgba(0,0,0,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+          style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.30)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
         >
           <img src="/dock-leaderboard.png" alt="Leaderboard" style={{ width: 20, height: 20, objectFit: 'contain' }} />
         </button>
@@ -506,7 +504,7 @@ export default function Home() {
           <button
             onClick={() => navigate('/cosmetics')}
             data-testid="link-cosmetics-header"
-            style={{ background: 'none', border: 'none', color: '#C9A227', fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0 }}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0 }}
           >
             ◆
           </button>
@@ -515,7 +513,7 @@ export default function Home() {
             data-testid="link-shop-header"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
           >
-            <img src="/stripes-icon.png" alt="Stripes" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+            <span style={{ color: '#a855f7', fontSize: 18, lineHeight: 1 }}>◆</span>
           </button>
           <button
             onClick={() => navigate('/profile')}
@@ -588,7 +586,7 @@ export default function Home() {
           <button
             onClick={() => navigate('/profile')}
             data-testid="button-profile-strip"
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(0,0,0,0.50)', borderBottom: '1px solid rgba(201,162,39,0.15)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(0,0,0,0.30)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
           >
             {/* Avatar */}
             <AvatarWithFrame
@@ -689,7 +687,7 @@ export default function Home() {
           {/* ═══════════ 3. DAILY ROW ═══════════ */}
           <div style={{ display: 'flex', gap: 8, padding: '12px 16px' }}>
             {/* Daily Bonus */}
-            <div style={{ flex: 1, background: 'rgba(180,120,0,0.15)', border: '1px solid rgba(201,162,39,0.30)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
                 🔥 DAILY BONUS
               </div>
@@ -721,7 +719,7 @@ export default function Home() {
             </div>
 
             {/* Daily Missions */}
-            <div style={{ flex: 1, background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(201,162,39,0.20)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
                 🎯 DAILY MISSIONS
               </div>
@@ -815,10 +813,12 @@ export default function Home() {
           {/* ═══════════ 5. CREW MODE CARD ═══════════ */}
           <div style={{
             margin: '12px 16px', borderRadius: 16, overflow: 'hidden', position: 'relative', height: 120,
-            backgroundImage: "url('/crews/icon-crew.png')", backgroundPosition: 'left center', backgroundRepeat: 'no-repeat', backgroundSize: 'contain', backgroundColor: '#1a0a2e',
+            backgroundImage: "url('/crews/icon-crew.png')", backgroundPosition: 'left center', backgroundRepeat: 'no-repeat', backgroundSize: 'contain', backgroundColor: 'rgba(88,28,135,0.40)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(138,43,226,0.25)',
           }}>
             {/* Gradient overlay from right */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to left, rgba(26,10,46,0.95) 30%, rgba(26,10,46,0.60) 70%, transparent 100%)' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to left, rgba(20,6,40,0.88) 30%, rgba(20,6,40,0.50) 70%, transparent 100%)' }} />
             {/* Content right-aligned */}
             <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', textAlign: 'right', padding: '0 16px' }}>
               <div style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 24, color: '#C9A227', letterSpacing: '0.04em', lineHeight: 1 }}>
