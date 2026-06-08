@@ -29,3 +29,44 @@ workflows:
         script: cd android && ./gradlew bundleRelease --no-daemon
     artifacts:
       - android/app/build/outputs/bundle/release/app-release.aab
+
+  ios-release:
+    name: Chain Gang Poker — iOS Release IPA
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      cocoapods: default
+      node: 20
+      vars:
+        VITE_API_BASE_URL: https://chaing-gang-poker.replit.app
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Capacitor sync iOS
+        script: npx cap sync ios
+
+      - name: Install CocoaPods
+        script: cd ios/App && pod install
+
+      - name: Build unsigned IPA
+        script: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath ios/App/App.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO
+          xcodebuild \
+            -exportArchive \
+            -archivePath ios/App/App.xcarchive \
+            -exportPath ios/App/output \
+            -exportOptionsPlist ios/App/ExportOptions.plist \
+            CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - ios/App/output/*.ipa
