@@ -497,19 +497,6 @@ export default function Leaderboard() {
         {/* ══════════════════════════════════════════════════════════════ */}
         {/* FOOTER                                                          */}
         {/* ══════════════════════════════════════════════════════════════ */}
-        <p
-          className="text-center pb-6"
-          style={{
-            fontSize: 9,
-            fontFamily: 'monospace',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'rgba(140,100,200,0.35)',
-            lineHeight: 1.8,
-          }}
-        >
-          VIRTUAL CHIPS • FOR ENTERTAINMENT ONLY • NO CASH VALUE
-        </p>
 
       </div>
     </div>

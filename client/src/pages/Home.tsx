@@ -771,12 +771,12 @@ export default function Home() {
           {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
           <div style={{ padding: '14px 12px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
-              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
-              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)' }} data-testid="link-home-footer-privacy">Privacy</a>
-              <span style={{ color: 'rgba(255,255,255,0.12)' }}>·</span>
+              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
+              <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
+              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }} data-testid="link-home-footer-privacy">Privacy</a>
+              <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
               <a href="https://forms.gle/Vh6Uut9bB6neHA3J8" target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.15)' }}
+                style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}
                 data-testid="link-home-footer-feedback"
                 onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}>Feedback</a>
             </div>
