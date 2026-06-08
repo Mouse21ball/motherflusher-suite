@@ -581,7 +581,7 @@ export default function Home() {
       <StarterPackModal  open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col" style={{ paddingBottom: 80 }}>
+      <div className="flex-1 flex flex-col" style={{ paddingBottom: 120 }}>
         <div className="w-full max-w-lg mx-auto flex flex-col">
 
           {/* ═══════════ 1. PLAYER CARD ═══════════ */}
@@ -846,59 +846,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ═══════════ 6. LIVE TABLES ═══════════ */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }} data-testid="section-live-tables">
-            <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: publicTables.length > 0 ? '#22c55e' : '#444', boxShadow: publicTables.length > 0 ? '0 0 6px #22c55e' : 'none', animation: publicTables.length > 0 ? 'pulse 2s infinite' : 'none' }} />
-            <span style={{ fontWeight: 800, color: 'white', fontSize: 14, letterSpacing: '0.04em' }}>LIVE TABLES</span>
-            <div style={{ flex: 1 }} />
-            <button
-              onClick={() => setShowOpenTableModal(true)}
-              data-testid="link-view-all-tables"
-              style={{ background: 'none', border: 'none', color: '#C9A227', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', padding: 0 }}
-            >
-              VIEW ALL →
-            </button>
-          </div>
-          {publicTables.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.30)', fontSize: 13, padding: '8px 16px 12px' }}>
-              No public tables open. Start one above!
-            </p>
-          ) : (
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 12px', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {publicTables.slice(0, 10).map(table => {
-                const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '', color: '#A0A0B8', path: '/', icon: '', stakes: '' };
-                const isFull = table.humanCount >= table.maxPlayers;
-                const isOpen = table.phase === 'WAITING';
-                return (
-                  <button
-                    key={`${table.modeId}-${table.tableId}`}
-                    onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
-                    disabled={isFull}
-                    data-testid={`button-join-card-${table.tableId}`}
-                    style={{
-                      width: 140, flexShrink: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 12, padding: 10, display: 'flex', flexDirection: 'column', gap: 5, textAlign: 'left',
-                      cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1,
-                    }}
-                  >
-                    {info.icon && <img src={info.icon} alt={info.name} style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 4px ${info.color}44)` }} />}
-                    <span style={{ fontWeight: 800, fontSize: 12, color: info.color, lineHeight: 1, fontFamily: 'monospace' }}>{info.name}</span>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)', fontFamily: 'monospace' }} data-testid={`text-live-players-${table.tableId}`}>
-                      {table.humanCount}/{table.maxPlayers} players
-                    </span>
-                    {info.stakes && <span style={{ fontSize: 9, color: 'rgba(201,162,39,0.50)', fontFamily: 'monospace' }}>{info.stakes}</span>}
-                    <div style={{
-                      padding: '4px 0', borderRadius: 6, textAlign: 'center', fontFamily: 'monospace', fontWeight: 800, fontSize: 10, letterSpacing: '0.06em',
-                      background: isFull ? 'rgba(255,255,255,0.05)' : isOpen ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)',
-                      color: isFull ? 'rgba(255,255,255,0.25)' : isOpen ? '#22c55e' : 'rgba(255,255,255,0.45)',
-                    }}>
-                      {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* ═══════════ 7. FOOTER ═══════════ */}
           <div style={{ padding: '16px 12px 0' }}>
