@@ -473,7 +473,7 @@ export default function Home() {
     <>
     {/* ── Fixed background ──────────────────────────────────────────────────── */}
     <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top' }} />
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.72)' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.55)' }} />
 
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
 
@@ -493,7 +493,7 @@ export default function Home() {
 
         {/* Center: logo */}
         <img src="/hero-chain-logo.png" alt="Chain Gang Poker"
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 52, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 14px rgba(201,162,39,0.50))' }} />
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 64, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 14px rgba(201,162,39,0.50))' }} />
 
         {/* Right: icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -553,10 +553,10 @@ export default function Home() {
             <AvatarWithFrame
               avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
               frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-              initials={initials} initialsColor="#F0B829" size={72} />
+              initials={initials} initialsColor="#F0B829" size={68} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontWeight: 900, color: 'white', fontSize: 22, lineHeight: 1, textShadow: '0 2px 12px rgba(0,0,0,0.80)' }} data-testid="text-player-name">{identity.name}</span>
+                <span style={{ fontWeight: 900, color: 'white', fontSize: 20, lineHeight: 1, textShadow: '0 2px 12px rgba(0,0,0,0.80)' }} data-testid="text-player-name">{identity.name}</span>
                 <img src={getTierBadgeAsset(rank.name)} alt={rank.name} style={{ height: 20, width: 'auto', objectFit: 'contain' }} data-testid="badge-rank-home" />
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,215,0,0.55)', marginBottom: 5 }}>LVL {serverLevel} &nbsp;·&nbsp; {levelInfo.xpIntoLevel} / {levelInfo.xpNeeded} XP</div>
@@ -566,11 +566,11 @@ export default function Home() {
               <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.55)', fontFamily: 'monospace' }}>Welcome back, {identity.name.split(' ')[0]}.</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16, color: '#22c55e', textShadow: '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1 }}>
+              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: '#22c55e', textShadow: '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1 }}>
                 ${displayChips.toLocaleString()}
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(34,197,94,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>CHIPS</div>
-              <div data-testid="text-stripes-lobby" style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace', fontWeight: 800, fontSize: 16, color: '#a855f7', textShadow: '0 0 12px rgba(168,85,247,0.45)', lineHeight: 1 }}>
+              <div data-testid="text-stripes-lobby" style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: '#a855f7', textShadow: '0 0 12px rgba(168,85,247,0.45)', lineHeight: 1 }}>
                 <span style={{ fontSize: 13, color: '#a855f7' }}>◆</span>{(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(168,85,247,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>STRIPES</div>
@@ -578,28 +578,24 @@ export default function Home() {
           </button>
 
           {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px 4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {MODE_CARD_CONFIGS.map(card => {
               const mode = MODES.find(m => m.id === card.id)!;
               return (
                 <button key={card.id} onClick={() => navigateToMode(card.id, mode.path)} data-testid={`button-mode-${card.id}`}
-                  style={{ position: 'relative', height: 108, borderRadius: 12, overflow: 'hidden', width: '100%', border: `1px solid ${card.color}55`, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+                  style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
                   {/* BG scene art */}
                   <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
                   {/* Atmospheric overlay — dark both sides, lighter center */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.68) 100%)` }} />
-                  {/* Subtle color atmosphere */}
-                  <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 50%, ${card.color}14 0%, transparent 70%)` }} />
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.05) 100%)` }} />
 
-                  {/* Left: framed game art */}
-                  <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, width: 86, height: 86, margin: '0 0 0 10px', borderRadius: 8, border: `1.5px solid ${card.color}55`, background: 'rgba(0,0,0,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    <img src={mode.icon} alt={card.title} style={{ width: 66, height: 66, objectFit: 'contain', filter: `drop-shadow(0 0 10px ${card.color}88)` }} />
-                  </div>
+                  {/* Mode icon — no frame, bleeds over art */}
+                  <img src={mode.icon} alt={card.title} style={{ position: 'relative', zIndex: 1, flexShrink: 0, width: 52, height: 52, objectFit: 'contain', margin: '0 0 0 14px', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }} />
 
                   {/* Center: title + subtitle */}
                   <div style={{ position: 'relative', zIndex: 1, flex: 1, padding: '0 10px 0 12px', minWidth: 0, textAlign: 'left' }}>
                     <div data-testid={`text-mode-name-${card.id}`}
-                      style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 26, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: `0 0 20px ${card.color}66`, marginBottom: 5 }}>
+                      style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 30, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 5 }}>
                       {card.title}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.62)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -609,7 +605,7 @@ export default function Home() {
 
                   {/* Right: PLAY button */}
                   <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
-                    <div style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 4px 20px ${card.color}66`, letterSpacing: '0.04em' }}>
+                    <div style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em' }}>
                       PLAY →
                     </div>
                   </div>
@@ -622,7 +618,7 @@ export default function Home() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
 
             {/* Daily Bonus — parchment / amber */}
-            <div style={{ background: 'linear-gradient(160deg, rgba(100,60,8,0.80) 0%, rgba(42,22,3,0.90) 100%)', border: '1px solid rgba(201,162,39,0.38)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(8px)' }}>
+            <div style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em', display: 'flex', alignItems: 'center', gap: 5 }}>
                 🔥 <span>DAILY BONUS</span>
               </div>
@@ -647,7 +643,7 @@ export default function Home() {
             </div>
 
             {/* Daily Missions + Milestones */}
-            <div style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(10px)' }}>
+            <div style={{ background: 'rgba(0,0,0,0.40)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
                 🎯 DAILY MISSIONS
               </div>
@@ -675,47 +671,48 @@ export default function Home() {
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', fontFamily: 'monospace' }}>No quest today.</div>
               )}
 
-              {/* Milestones row embedded */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 8, marginTop: 2 }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7 }}>MILESTONES</div>
-                <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                  {HOME_MILESTONES.map(m => {
-                    const totalHands = questData?.handsPlayed ?? 0;
-                    const eligible   = totalHands >= m.required;
-                    const claimed    = questData?.claimed.includes(m.questId) ?? false;
-                    const isClaiming = questClaiming === m.questId;
-                    return (
-                      <button key={m.questId} data-testid={`milestone-badge-${m.questId}`}
-                        disabled={!eligible || claimed || !!questClaiming}
-                        onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
-                        style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${claimed ? 'rgba(201,162,39,0.90)' : eligible ? 'rgba(201,162,39,0.55)' : 'rgba(255,255,255,0.12)'}`, background: claimed ? 'rgba(201,162,39,0.22)' : eligible ? 'rgba(201,162,39,0.10)' : 'rgba(255,255,255,0.04)', cursor: eligible && !claimed ? 'pointer' : 'default', padding: 0, opacity: isClaiming ? 0.6 : 1, animation: eligible && !claimed ? 'pulse 2s infinite' : 'none' }}>
-                        {claimed ? (
-                          <>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 9, color: '#C9A227', lineHeight: 1 }}>{m.label}</span>
-                            <span style={{ color: '#C9A227', fontSize: 11, lineHeight: 1 }}>✓</span>
-                          </>
-                        ) : isClaiming ? (
-                          <span style={{ color: '#C9A227', fontSize: 12 }}>…</span>
-                        ) : (
-                          <>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 10, color: eligible ? '#C9A227' : 'rgba(255,255,255,0.28)', lineHeight: 1 }}>{m.label}</span>
-                            <span style={{ fontFamily: 'monospace', fontSize: 7, color: eligible ? 'rgba(201,162,39,0.65)' : 'rgba(255,255,255,0.18)', marginTop: 1 }}>+{m.stripes}◆</span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            </div>
+          </div>
+
+          {/* ══ MILESTONES — floating circles, no container ═══════════════════════ */}
+          <div style={{ padding: '10px 14px 0' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>MILESTONES</div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {HOME_MILESTONES.map(m => {
+                const totalHands = questData?.handsPlayed ?? 0;
+                const eligible   = totalHands >= m.required;
+                const claimed    = questData?.claimed.includes(m.questId) ?? false;
+                const isClaiming = questClaiming === m.questId;
+                return (
+                  <button key={m.questId} data-testid={`milestone-badge-${m.questId}`}
+                    disabled={!eligible || claimed || !!questClaiming}
+                    onClick={() => eligible && !claimed && claimQuestById(m.questId, m.stripes)}
+                    style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${claimed ? 'rgba(201,162,39,0.90)' : eligible ? 'rgba(201,162,39,0.55)' : 'rgba(255,255,255,0.10)'}`, background: claimed ? 'rgba(201,162,39,0.18)' : eligible ? 'rgba(201,162,39,0.08)' : 'rgba(0,0,0,0.25)', cursor: eligible && !claimed ? 'pointer' : 'default', padding: 0, opacity: isClaiming ? 0.6 : 1, animation: eligible && !claimed ? 'pulse 2s infinite' : 'none', backdropFilter: 'blur(4px)' }}>
+                    {claimed ? (
+                      <>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 9, color: '#C9A227', lineHeight: 1 }}>{m.label}</span>
+                        <span style={{ color: '#C9A227', fontSize: 12, lineHeight: 1 }}>✓</span>
+                      </>
+                    ) : isClaiming ? (
+                      <span style={{ color: '#C9A227', fontSize: 13 }}>…</span>
+                    ) : (
+                      <>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 11, color: eligible ? '#C9A227' : 'rgba(255,255,255,0.28)', lineHeight: 1 }}>{m.label}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 7, color: eligible ? 'rgba(201,162,39,0.60)' : 'rgba(255,255,255,0.15)', marginTop: 1 }}>+{m.stripes}◆</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* ══ CREW MODE — cinematic dark purple banner ══════════════════════════ */}
-          <div style={{ margin: '10px 12px 0', position: 'relative', height: 140, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(138,43,226,0.30)' }}>
-            {/* Deep purple atmospheric background */}
-            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 25% 50%, rgba(88,28,135,0.75) 0%, rgba(30,10,60,0.92) 55%, rgba(8,3,18,0.97) 100%)' }} />
-            {/* Crew art — large ghost silhouette */}
-            <img src="/crews/icon-crew.png" alt="" aria-hidden style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', height: 150, width: 'auto', objectFit: 'contain', filter: 'brightness(0.35) saturate(0.6) drop-shadow(0 0 30px rgba(138,43,226,0.60))', pointerEvents: 'none' }} />
+          <div style={{ margin: '10px 12px 0', position: 'relative', height: 140, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(168,85,247,0.20)', background: 'linear-gradient(135deg, rgba(88,28,135,0.55), rgba(40,10,60,0.40))', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+            {/* Crew art — bleeds from left */}
+            <img src="/crews/icon-crew.png" alt="" aria-hidden style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', height: 150, width: 'auto', objectFit: 'contain', filter: 'brightness(0.55) saturate(0.8) drop-shadow(0 0 40px rgba(138,43,226,0.80))', pointerEvents: 'none' }} />
+            {/* Radial purple glow behind icon */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', background: 'radial-gradient(ellipse at 25% 50%, rgba(138,43,226,0.35) 0%, transparent 70%)' }} />
             {/* Purple smoke / glow */}
             <div style={{ position: 'absolute', left: 0, top: 0, width: '55%', height: '100%', background: 'radial-gradient(ellipse at 30% 60%, rgba(138,43,226,0.22) 0%, transparent 70%)' }} />
             {/* Fade left-to-right so text is readable */}
@@ -742,25 +739,19 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ══ LIVE TABLES ═══════════════════════════════════════════════════════ */}
-          <div style={{ padding: '10px 12px 0' }}>
-            {/* Header row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: publicTables.length > 0 ? '#22c55e' : '#555', boxShadow: publicTables.length > 0 ? '0 0 8px #22c55e' : 'none', animation: publicTables.length > 0 ? 'pulse 2s infinite' : 'none' }} />
-              <span style={{ fontWeight: 800, color: 'white', fontSize: 13, letterSpacing: '0.06em', fontFamily: 'monospace' }}>LIVE TABLES</span>
-              {realPlayerCount > 0 && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)' }}>{realPlayerCount} playing</span>}
-              <div style={{ flex: 1 }} />
-              <button onClick={() => setShowOpenTableModal(true)} data-testid="link-view-all-tables"
-                style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.70)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.06em' }}>
-                VIEW ALL →
-              </button>
-            </div>
-
-            {publicTables.length === 0 ? (
-              <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.28)', textAlign: 'center', padding: '8px 0 4px' }}>
-                No public tables open — start one above!
-              </p>
-            ) : (
+          {/* ══ LIVE TABLES — only if tables exist ═══════════════════════════════ */}
+          {publicTables.length > 0 && (
+            <div style={{ padding: '10px 12px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontWeight: 800, color: 'white', fontSize: 13, letterSpacing: '0.06em', fontFamily: 'monospace' }}>LIVE TABLES</span>
+                {realPlayerCount > 0 && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)' }}>{realPlayerCount} playing</span>}
+                <div style={{ flex: 1 }} />
+                <button onClick={() => setShowOpenTableModal(true)} data-testid="link-view-all-tables"
+                  style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.70)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.06em' }}>
+                  VIEW ALL →
+                </button>
+              </div>
               <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 } as React.CSSProperties}>
                 {publicTables.slice(0, 8).map(table => {
                   const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, abbrev: '', color: '#888', path: '/', icon: '', stakes: '' };
@@ -770,7 +761,7 @@ export default function Home() {
                     <button key={`${table.modeId}-${table.tableId}`}
                       onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
                       disabled={isFull} data-testid={`button-join-card-${table.tableId}`}
-                      style={{ width: 130, flexShrink: 0, background: 'rgba(0,0,0,0.55)', border: `1px solid ${info.color}30`, borderRadius: 12, padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 5, cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1, textAlign: 'left', backdropFilter: 'blur(8px)' }}>
+                      style={{ width: 130, flexShrink: 0, background: 'rgba(0,0,0,0.40)', border: `1px solid rgba(255,255,255,0.05)`, borderRadius: 12, padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 5, cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1, textAlign: 'left', backdropFilter: 'blur(8px)' }}>
                       {info.icon && <img src={info.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 5px ${info.color}55)` }} />}
                       <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 11, color: info.color }}>{info.name}</span>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.45)' }} data-testid={`text-live-players-${table.tableId}`}>
@@ -784,8 +775,8 @@ export default function Home() {
                   );
                 })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
           <div style={{ padding: '14px 12px 0' }}>
