@@ -7,46 +7,249 @@ interface HowToPlayProps {
   onClose: () => void;
 }
 
+type CardSuit = '♠' | '♥' | '♦' | '♣';
+
+interface SlideCard {
+  rank: string;
+  suit: CardSuit;
+}
+
 interface Slide {
   icon: string;
   title: string;
   desc: string;
+  cards?: SlideCard[][];
+  cardLabels?: string[];
 }
+
+// ── Visual card component ─────────────────────────────────────────────────────
+
+function CardDisplay({ cards }: { cards: SlideCard[] }) {
+  const suitColor = (suit: string) =>
+    suit === '♥' || suit === '♦' ? '#e53935' : '#1a1a2e';
+  return (
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '4px 0' }}>
+      {cards.map((c, i) => (
+        <div
+          key={i}
+          style={{
+            width:          48,
+            height:         68,
+            background:     'white',
+            borderRadius:   8,
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            boxShadow:      '0 2px 8px rgba(0,0,0,0.5)',
+            position:       'relative',
+          }}
+        >
+          <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 13, fontWeight: 'bold', color: suitColor(c.suit), lineHeight: 1 }}>
+            {c.rank}
+          </span>
+          <span style={{ fontSize: 22, color: suitColor(c.suit) }}>
+            {c.suit}
+          </span>
+          <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 13, fontWeight: 'bold', color: suitColor(c.suit), lineHeight: 1, transform: 'rotate(180deg)' }}>
+            {c.rank}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Slides data ───────────────────────────────────────────────────────────────
 
 const SLIDES: Record<HowToPlayModeId, Slide[]> = {
   badugi: [
-    { icon: '🃏', title: 'What is Badugi?', desc: 'Build the best 4-card hand with all different suits AND all different ranks. The pot splits between the best HIGH and LOW Badugi.' },
-    { icon: '🃏', title: 'Valid Badugi Example', desc: 'A valid Badugi — all 4 different suits, all 4 different ranks:\n\n2♠  5♥  9♦  K♣\n\nAll different suits ✓  All different ranks ✓' },
-    { icon: '⬆️⬇️', title: 'HIGH vs LOW Badugi', desc: 'LOW hand — you want small cards:\n\nA♠  2♥  3♦  4♣  →  4-Low Badugi\n\nHIGH hand — you want big cards:\n\nJ♠  Q♥  K♦  10♣  →  K-High Badugi' },
-    { icon: '🔄', title: 'Draw Rounds', desc: 'You get 3 draw rounds. Discard cards to try to improve your hand. The fewer cards you discard the stronger your position looks.' },
-    { icon: '🏆', title: 'Winning', desc: 'Pot splits 50/50 between the best HIGH Badugi and best LOW Badugi. No valid Badugi on either side — pot rolls over to the next hand.' },
-    { icon: '💡', title: 'Pro Tip', desc: 'Watch what other players discard. If everyone is drawing many cards nobody has a strong Badugi yet. Bluffing is powerful here.' },
+    {
+      icon: '🃏',
+      title: 'What is Badugi?',
+      desc: 'Build the best 4-card hand with all different suits AND all different ranks. The pot splits between the best HIGH and LOW Badugi.',
+    },
+    {
+      icon: '🃏',
+      title: 'Valid Badugi Example',
+      desc: 'All 4 different suits ✓  All 4 different ranks ✓',
+      cards: [
+        [
+          { rank: '2',  suit: '♠' },
+          { rank: '5',  suit: '♥' },
+          { rank: '9',  suit: '♦' },
+          { rank: 'K',  suit: '♣' },
+        ],
+      ],
+    },
+    {
+      icon: '⬆️⬇️',
+      title: 'HIGH vs LOW Badugi',
+      desc: 'Declare HIGH for big cards or LOW for small cards at showdown.',
+      cards: [
+        [
+          { rank: 'A',  suit: '♠' },
+          { rank: '2',  suit: '♥' },
+          { rank: '3',  suit: '♦' },
+          { rank: '4',  suit: '♣' },
+        ],
+        [
+          { rank: 'J',  suit: '♠' },
+          { rank: 'Q',  suit: '♥' },
+          { rank: 'K',  suit: '♦' },
+          { rank: '10', suit: '♣' },
+        ],
+      ],
+      cardLabels: ['LOW Hand — small cards:', 'HIGH Hand — big cards:'],
+    },
+    {
+      icon: '🔄',
+      title: 'Draw Rounds',
+      desc: 'You get 3 draw rounds. Discard cards to try to improve your hand. The fewer cards you discard the stronger your position looks.',
+    },
+    {
+      icon: '🏆',
+      title: 'Winning',
+      desc: 'Pot splits 50/50 between the best HIGH Badugi and best LOW Badugi. No valid Badugi on either side — pot rolls over to the next hand.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Watch what other players discard. If everyone is drawing many cards nobody has a strong Badugi yet. Bluffing is powerful here.',
+    },
   ],
   dead7: [
-    { icon: '💀', title: 'What is Dead 7?', desc: 'Build a qualifying 4-card hand with NO 7s and NO duplicate ranks. Any 7 in your hand means you are DEAD — out of the pot.' },
-    { icon: '⬆️', title: 'HIGH Ball Hand', desc: 'All 4 cards must be 8 or higher — no 7s, no duplicate ranks:\n\n8♠  10♥  Q♦  K♣  →  Valid HIGH Ball' },
-    { icon: '⬇️', title: 'LOW Ball Hand', desc: 'All 4 cards must be 6 or lower — no 7s, no duplicate ranks:\n\nA♠  3♥  5♦  6♣  →  Valid LOW Ball' },
-    { icon: '♠️', title: 'Flush Scoops All', desc: 'Flush — all 4 cards same suit — beats everything and wins the whole pot:\n\n2♠  5♠  9♠  K♠  →  Flush (scoops)\n\nBadugi — all 4 different suits — beats a plain ball:\n\n2♠  5♥  9♦  K♣  →  Badugi' },
-    { icon: '🏆', title: 'Winning', desc: 'Declare HIGH or LOW at showdown. Pot splits between the best HIGH and best LOW hand. No qualifiers on a side — that half rolls over.' },
-    { icon: '💡', title: 'Pro Tip', desc: 'Never hold a 7. Discard it immediately every time. Then focus on building all HIGH or all LOW — mixing ranks from both sides leaves you with nothing.' },
+    {
+      icon: '💀',
+      title: 'What is Dead 7?',
+      desc: 'Build a qualifying 4-card hand with NO 7s and NO duplicate ranks. Any 7 in your hand means you are DEAD — out of the pot.',
+    },
+    {
+      icon: '⬆️',
+      title: 'HIGH Ball Hand',
+      desc: 'All 4 cards must be 8 or higher — no 7s, no duplicate ranks.',
+      cards: [
+        [
+          { rank: '8',  suit: '♠' },
+          { rank: '10', suit: '♥' },
+          { rank: 'Q',  suit: '♦' },
+          { rank: 'K',  suit: '♣' },
+        ],
+      ],
+      cardLabels: ['Valid HIGH Ball:'],
+    },
+    {
+      icon: '⬇️',
+      title: 'LOW Ball Hand',
+      desc: 'All 4 cards must be 6 or lower — no 7s, no duplicate ranks.',
+      cards: [
+        [
+          { rank: 'A',  suit: '♠' },
+          { rank: '3',  suit: '♥' },
+          { rank: '5',  suit: '♦' },
+          { rank: '6',  suit: '♣' },
+        ],
+      ],
+      cardLabels: ['Valid LOW Ball:'],
+    },
+    {
+      icon: '♠️',
+      title: 'Flush Scoops All',
+      desc: 'A Flush (all same suit) beats everything and wins the whole pot. A Badugi (all different suits) beats a plain ball.',
+      cards: [
+        [
+          { rank: '2',  suit: '♠' },
+          { rank: '5',  suit: '♠' },
+          { rank: '9',  suit: '♠' },
+          { rank: 'K',  suit: '♠' },
+        ],
+        [
+          { rank: '2',  suit: '♠' },
+          { rank: '5',  suit: '♥' },
+          { rank: '9',  suit: '♦' },
+          { rank: 'K',  suit: '♣' },
+        ],
+      ],
+      cardLabels: ['Flush (scoops entire pot):', 'Badugi (beats plain ball):'],
+    },
+    {
+      icon: '🏆',
+      title: 'Winning',
+      desc: 'Declare HIGH or LOW at showdown. Pot splits between the best HIGH and best LOW hand. No qualifiers on a side — that half rolls over.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Never hold a 7. Discard it immediately every time. Then focus on building all HIGH or all LOW — mixing ranks from both sides leaves you with nothing.',
+    },
   ],
   '1535': [
-    { icon: '🎲', title: 'What is 15/35?', desc: 'Get your card total as close to 15 or 35 as possible without going over 35. The pot splits between the closest LOW (13-15) and HIGH (33-35).' },
-    { icon: '🃏', title: 'Card Values', desc: 'Face cards J, Q, K are worth 0.5 each. Ace is worth 11 (or 1 to avoid busting). Cards 2-10 are face value.' },
-    { icon: '👆', title: 'Hit or Stay', desc: 'Each round choose HIT to take another card or STAY to hold your total. You start with 2 cards and can keep hitting until you qualify or bust.' },
-    { icon: '💥', title: 'Busting', desc: 'Go over 35 and you BUST — you lose your chips for that hand. Know when to stay.' },
-    { icon: '🏆', title: 'Qualifying', desc: 'LOW qualifies at total 13-15. HIGH qualifies at total 33-35. Pot splits between the best LOW and best HIGH. No qualifiers — pot rolls over.' },
-    { icon: '💡', title: 'Pro Tip', desc: 'Face cards (0.5 each) are your best friends — they barely move your total. Stack them to creep toward 15 or 35 without busting.' },
+    {
+      icon: '🎲',
+      title: 'What is 15/35?',
+      desc: 'Get your card total as close to 15 or 35 as possible without going over 35. The pot splits between the closest LOW (13-15) and HIGH (33-35).',
+    },
+    {
+      icon: '🃏',
+      title: 'Card Values',
+      desc: 'Face cards J, Q, K are worth 0.5 each. Ace is worth 11 (or 1 to avoid busting). Cards 2-10 are face value.',
+    },
+    {
+      icon: '👆',
+      title: 'Hit or Stay',
+      desc: 'Each round choose HIT to take another card or STAY to hold your total. You start with 2 cards and can keep hitting until you qualify or bust.',
+    },
+    {
+      icon: '💥',
+      title: 'Busting',
+      desc: 'Go over 35 and you BUST — you lose your chips for that hand. Know when to stay.',
+    },
+    {
+      icon: '🏆',
+      title: 'Qualifying',
+      desc: 'LOW qualifies at total 13-15. HIGH qualifies at total 33-35. Pot splits between the best LOW and best HIGH. No qualifiers — pot rolls over.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Face cards (0.5 each) are your best friends — they barely move your total. Stack them to creep toward 15 or 35 without busting.',
+    },
   ],
   suits: [
-    { icon: '♠️♥️', title: 'What is Suits & Poker?', desc: 'Two paths to win — POKER (best standard hand) or SUITS (highest single-suit score). The pot splits 50/50 between the best of each.' },
-    { icon: '🃏', title: 'Community Cards', desc: 'You get 5 hole cards. Community cards are revealed in stages across two paths — Side A and Side B. You combine your hole cards with either path.' },
-    { icon: '♠️', title: 'SUITS Path', desc: 'Add up all cards of your strongest suit. Need a score of 40 or higher to qualify. Ace=11, face cards=10, others face value.' },
-    { icon: '🃏', title: 'POKER Path', desc: 'Best standard 5-card poker hand wins — Royal Flush down to High Card. Use your hole cards plus either community path.' },
-    { icon: '🎯', title: 'SWING Declaration', desc: 'Declare SWING to compete for BOTH paths at once. Win both the POKER and SUITS comparison and you scoop the entire pot. Fail either side and you lose everything.' },
-    { icon: '💡', title: 'Pro Tip', desc: 'SWING is high risk high reward. Only declare SWING if you have both a strong poker hand AND a qualifying suit score of 40+. Otherwise pick the path you are stronger in.' },
+    {
+      icon: '♠️♥️',
+      title: 'What is Suits & Poker?',
+      desc: 'Two paths to win — POKER (best standard hand) or SUITS (highest single-suit score). The pot splits 50/50 between the best of each.',
+    },
+    {
+      icon: '🃏',
+      title: 'Community Cards',
+      desc: 'You get 5 hole cards. Community cards are revealed in stages across two paths — Side A and Side B. You combine your hole cards with either path.',
+    },
+    {
+      icon: '♠️',
+      title: 'SUITS Path',
+      desc: 'Add up all cards of your strongest suit. Need a score of 40 or higher to qualify. Ace=11, face cards=10, others face value.',
+    },
+    {
+      icon: '🃏',
+      title: 'POKER Path',
+      desc: 'Best standard 5-card poker hand wins — Royal Flush down to High Card. Use your hole cards plus either community path.',
+    },
+    {
+      icon: '🎯',
+      title: 'SWING Declaration',
+      desc: 'Declare SWING to compete for BOTH paths at once. Win both the POKER and SUITS comparison and you scoop the entire pot. Fail either side and you lose everything.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'SWING is high risk high reward. Only declare SWING if you have both a strong poker hand AND a qualifying suit score of 40+. Otherwise pick the path you are stronger in.',
+    },
   ],
 };
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const MODE_COLORS: Record<HowToPlayModeId, string> = {
   badugi: '#4CAF50',
@@ -62,25 +265,28 @@ const MODE_NAMES: Record<HowToPlayModeId, string> = {
   suits:  'SUITS & POKER',
 };
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
   const [slide, setSlide] = useState(0);
-  const slides = SLIDES[modeId];
-  const color  = MODE_COLORS[modeId];
-  const name   = MODE_NAMES[modeId];
-  const total  = slides.length;
+  const slides  = SLIDES[modeId];
+  const color   = MODE_COLORS[modeId];
+  const name    = MODE_NAMES[modeId];
+  const total   = slides.length;
   const current = slides[slide];
   const isLast  = slide === total - 1;
+  const hasCards = !!(current.cards && current.cards.length > 0);
 
   return (
     <div
       data-testid="modal-how-to-play"
       style={{
-        position:        'fixed',
-        inset:           0,
-        background:      'rgba(0,0,0,0.92)',
-        zIndex:          100,
-        display:         'flex',
-        flexDirection:   'column',
+        position:      'fixed',
+        inset:         0,
+        background:    'rgba(0,0,0,0.92)',
+        zIndex:        100,
+        display:       'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Header */}
@@ -136,16 +342,17 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
           flexDirection:  'column',
           alignItems:     'center',
           justifyContent: 'center',
-          padding:        '32px 24px',
+          padding:        '16px 24px 8px',
           textAlign:      'center',
+          overflowY:      'auto',
         }}
       >
-        {/* Icon */}
+        {/* Icon — smaller when cards are present */}
         <div
           data-testid="text-slide-icon"
           style={{
-            fontSize:     64,
-            marginBottom: 16,
+            fontSize:     hasCards ? 44 : 64,
+            marginBottom: hasCards ? 10 : 16,
             lineHeight:   1,
             filter:       `drop-shadow(0 0 24px ${color}66)`,
           }}
@@ -157,11 +364,11 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
         <div
           data-testid="text-slide-title"
           style={{
-            fontFamily:   'Anton, Impact, "Arial Narrow Bold", sans-serif',
-            fontSize:     22,
-            fontWeight:   'bold',
-            color:        'white',
-            marginBottom: 12,
+            fontFamily:    'Anton, Impact, "Arial Narrow Bold", sans-serif',
+            fontSize:      22,
+            fontWeight:    'bold',
+            color:         'white',
+            marginBottom:  10,
             letterSpacing: '0.5px',
           }}
         >
@@ -172,15 +379,35 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
         <div
           data-testid="text-slide-desc"
           style={{
-            fontSize:    15,
-            color:       'rgba(255,255,255,0.80)',
-            lineHeight:  1.6,
-            maxWidth:    320,
-            whiteSpace:  'pre-line',
+            fontSize:   15,
+            color:      'rgba(255,255,255,0.80)',
+            lineHeight: 1.6,
+            maxWidth:   320,
+            whiteSpace: 'pre-line',
+            marginBottom: hasCards ? 10 : 0,
           }}
         >
           {current.desc}
         </div>
+
+        {/* Card hands */}
+        {current.cards && current.cards.map((hand, i) => (
+          <div key={i} style={{ width: '100%', maxWidth: 320 }}>
+            {current.cardLabels?.[i] && (
+              <div style={{
+                fontFamily:    'monospace',
+                fontSize:      11,
+                color:         'rgba(255,255,255,0.50)',
+                letterSpacing: '0.06em',
+                marginTop:     i === 0 ? 0 : 14,
+                marginBottom:  6,
+              }}>
+                {current.cardLabels[i]}
+              </div>
+            )}
+            <CardDisplay cards={hand} />
+          </div>
+        ))}
       </div>
 
       {/* Navigation */}
@@ -194,7 +421,6 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
           gap:            16,
         }}
       >
-        {/* Back */}
         <button
           data-testid="button-how-to-play-back"
           onClick={() => setSlide(s => Math.max(0, s - 1))}
@@ -216,7 +442,6 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
           ← BACK
         </button>
 
-        {/* Next / Let's Play */}
         <button
           data-testid={isLast ? 'button-how-to-play-finish' : 'button-how-to-play-next'}
           onClick={() => isLast ? onClose() : setSlide(s => s + 1)}
