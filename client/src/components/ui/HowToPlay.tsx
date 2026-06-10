@@ -192,17 +192,33 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '🃏',
       title: 'Card Values',
-      desc: 'Face cards J, Q, K are worth 0.5 each. Ace is worth 11 (or 1 to avoid busting). Cards 2-10 are face value.',
+      desc: 'Face cards are only worth 0.5 each — great for not busting. Ace = 11 (or 1 to avoid busting). All others are face value.',
+      cards: [
+        [{ rank: 'J', suit: '♠' }, { rank: 'Q', suit: '♥' }, { rank: 'K', suit: '♦' }],
+        [{ rank: 'A', suit: '♠' }],
+        [{ rank: '7', suit: '♣' }],
+      ],
+      cardLabels: ['J, Q, K = 0.5 each', 'Ace = 11 (or 1)', '7 = 7'],
     },
     {
       icon: '👆',
-      title: 'Hit or Stay',
-      desc: 'Each round choose HIT to take another card or STAY to hold your total. You start with 2 cards and can keep hitting until you qualify or bust.',
+      title: 'Hitting Toward LOW (15)',
+      desc: 'Start with 2 cards. Keep hitting to reach 13-15. Going over 35 means you BUST.',
+      cards: [
+        [{ rank: '4', suit: '♠' }, { rank: '8', suit: '♥' }],
+        [{ rank: '4', suit: '♠' }, { rank: '8', suit: '♥' }, { rank: '3', suit: '♦' }],
+      ],
+      cardLabels: ['Start: 4 + 8 = 12 (too low, HIT)', 'After HIT: 4 + 8 + 3 = 15 ✓ QUALIFY LOW'],
     },
     {
       icon: '💥',
-      title: 'Busting',
-      desc: 'Go over 35 and you BUST — you lose your chips for that hand. Know when to stay.',
+      title: 'The Ace is Special',
+      desc: 'Ace counts as 11 normally but switches to 1 automatically if it saves you from busting.',
+      cards: [
+        [{ rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: 'Q', suit: '♦' }],
+        [{ rank: 'A', suit: '♠' }, { rank: '9', suit: '♥' }, { rank: '8', suit: '♦' }, { rank: '7', suit: '♣' }],
+      ],
+      cardLabels: ['A(11) + K(0.5) + Q(0.5) = 12 — HIT safely', 'A(1) + 9 + 8 + 7 = 25 — Ace saved you from busting'],
     },
     {
       icon: '🏆',
