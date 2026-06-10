@@ -605,7 +605,7 @@ export default function Home() {
                         <button
                           data-testid={`button-how-to-play-${card.id}`}
                           onClick={e => { e.stopPropagation(); setHowToPlayMode(htpModeId); }}
-                          style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.5)', borderRadius: 20, padding: '4px 14px', fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: '#C9A227', letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase' }}
                         >
                           HOW TO PLAY
                         </button>

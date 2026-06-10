@@ -16,17 +16,17 @@ interface Slide {
 const SLIDES: Record<HowToPlayModeId, Slide[]> = {
   badugi: [
     { icon: '🃏', title: 'What is Badugi?', desc: 'Build the best 4-card hand with all different suits AND all different ranks. The pot splits between the best HIGH and LOW Badugi.' },
-    { icon: '🎯', title: 'Valid Badugi', desc: 'A valid Badugi needs all 4 cards to have different suits AND different ranks. Any duplicate suit or rank breaks your Badugi.' },
+    { icon: '🃏', title: 'Valid Badugi Example', desc: 'A valid Badugi — all 4 different suits, all 4 different ranks:\n\n2♠  5♥  9♦  K♣\n\nAll different suits ✓  All different ranks ✓' },
+    { icon: '⬆️⬇️', title: 'HIGH vs LOW Badugi', desc: 'LOW hand — you want small cards:\n\nA♠  2♥  3♦  4♣  →  4-Low Badugi\n\nHIGH hand — you want big cards:\n\nJ♠  Q♥  K♦  10♣  →  K-High Badugi' },
     { icon: '🔄', title: 'Draw Rounds', desc: 'You get 3 draw rounds. Discard cards to try to improve your hand. The fewer cards you discard the stronger your position looks.' },
-    { icon: '⬆️⬇️', title: 'Declare HIGH or LOW', desc: 'At showdown you declare HIGH or LOW. Going HIGH you want high cards like Kings. Going LOW you want low cards like Aces.' },
     { icon: '🏆', title: 'Winning', desc: 'Pot splits 50/50 between the best HIGH Badugi and best LOW Badugi. No valid Badugi on either side — pot rolls over to the next hand.' },
     { icon: '💡', title: 'Pro Tip', desc: 'Watch what other players discard. If everyone is drawing many cards nobody has a strong Badugi yet. Bluffing is powerful here.' },
   ],
   dead7: [
     { icon: '💀', title: 'What is Dead 7?', desc: 'Build a qualifying 4-card hand with NO 7s and NO duplicate ranks. Any 7 in your hand means you are DEAD — out of the pot.' },
-    { icon: '⬆️', title: 'HIGH Hand', desc: 'For HIGH you need all 4 cards ranked 8 or higher — 8, 9, 10, J, Q, K. Going HIGH means high cards are your friends.' },
-    { icon: '⬇️', title: 'LOW Hand', desc: 'For LOW you need all 4 cards ranked 6 or lower — A, 2, 3, 4, 5, 6. Going LOW means low cards are your friends.' },
-    { icon: '♠️', title: 'Flush Scoops', desc: 'A Flush (all 4 cards same suit) beats a Badugi (all 4 different suits) which beats a plain qualifying hand. A Flush wins the entire pot.' },
+    { icon: '⬆️', title: 'HIGH Ball Hand', desc: 'All 4 cards must be 8 or higher — no 7s, no duplicate ranks:\n\n8♠  10♥  Q♦  K♣  →  Valid HIGH Ball' },
+    { icon: '⬇️', title: 'LOW Ball Hand', desc: 'All 4 cards must be 6 or lower — no 7s, no duplicate ranks:\n\nA♠  3♥  5♦  6♣  →  Valid LOW Ball' },
+    { icon: '♠️', title: 'Flush Scoops All', desc: 'Flush — all 4 cards same suit — beats everything and wins the whole pot:\n\n2♠  5♠  9♠  K♠  →  Flush (scoops)\n\nBadugi — all 4 different suits — beats a plain ball:\n\n2♠  5♥  9♦  K♣  →  Badugi' },
     { icon: '🏆', title: 'Winning', desc: 'Declare HIGH or LOW at showdown. Pot splits between the best HIGH and best LOW hand. No qualifiers on a side — that half rolls over.' },
     { icon: '💡', title: 'Pro Tip', desc: 'Never hold a 7. Discard it immediately every time. Then focus on building all HIGH or all LOW — mixing ranks from both sides leaves you with nothing.' },
   ],
@@ -172,10 +172,11 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
         <div
           data-testid="text-slide-desc"
           style={{
-            fontSize:   15,
-            color:      'rgba(255,255,255,0.80)',
-            lineHeight: 1.6,
-            maxWidth:   320,
+            fontSize:    15,
+            color:       'rgba(255,255,255,0.80)',
+            lineHeight:  1.6,
+            maxWidth:    320,
+            whiteSpace:  'pre-line',
           }}
         >
           {current.desc}
