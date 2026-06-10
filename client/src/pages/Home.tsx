@@ -32,6 +32,7 @@ import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { HowToPlay } from '@/components/ui/HowToPlay';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
@@ -265,6 +266,11 @@ export default function Home() {
   const [, navigate] = useLocation();
   const [showPrivateSetup,   setShowPrivateSetup]   = useState(false);
   const [showOpenTableModal, setShowOpenTableModal] = useState(false);
+  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | null>(null);
+
+  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits'> = {
+    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
+  };
 
   const identity    = ensurePlayerIdentity();
   const initials    = getAvatarInitials(identity.name);
@@ -532,6 +538,7 @@ export default function Home() {
       <DailyBonusCalendarModal open={dailyBonusCalOpen} onClose={() => setDailyBonusCalOpen(false)} onClaimed={handleDailyBonusClaimed} />
       <HourlyBonusModal open={hourlyOpen} onClose={handleHourlyClose} />
       <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
+      {howToPlayMode && <HowToPlay modeId={howToPlayMode} onClose={() => setHowToPlayMode(null)} />}
 
       {/* ── Scrollable content ────────────────────────────────────────────────── */}
       <div style={{ flex: 1, paddingBottom: 140 }}>
@@ -570,10 +577,14 @@ export default function Home() {
           {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {MODE_CARD_CONFIGS.map(card => {
-              const mode = MODES.find(m => m.id === card.id)!;
+              const mode       = MODES.find(m => m.id === card.id)!;
+              const htpModeId  = HOW_TO_PLAY_ID[card.id];
               return (
-                <button key={card.id} onClick={() => navigateToMode(card.id, mode.path)} data-testid={`button-mode-${card.id}`}
-                  style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
+                <div key={card.id} data-testid={`button-mode-${card.id}`}
+                  onClick={() => navigateToMode(card.id, mode.path)}
+                  role="button" tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigateToMode(card.id, mode.path); }}
+                  style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
                   {/* BG scene art */}
                   <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
                   {/* Atmospheric overlay — dark both sides, lighter center */}
@@ -584,22 +595,35 @@ export default function Home() {
                     <img src={mode.icon} alt={card.title} style={{ flexShrink: 0, width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }} />
                     <div style={{ minWidth: 0, textAlign: 'left' }}>
                       <div data-testid={`text-mode-name-${card.id}`}
-                        style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 34, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 5 }}>
+                        style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 34, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 4 }}>
                         {card.title}
                       </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 14, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: 14, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)', marginBottom: 4 }}>
                         {card.subtitle}
                       </div>
+                      {htpModeId && (
+                        <button
+                          data-testid={`button-how-to-play-${card.id}`}
+                          onClick={e => { e.stopPropagation(); setHowToPlayMode(htpModeId); }}
+                          style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: '0.08em', cursor: 'pointer', textTransform: 'uppercase' }}
+                        >
+                          HOW TO PLAY
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Right: PLAY button */}
                   <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
-                    <div style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em' }}>
+                    <button
+                      data-testid={`button-play-${card.id}`}
+                      onClick={e => { e.stopPropagation(); navigateToMode(card.id, mode.path); }}
+                      style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em', border: 'none', cursor: 'pointer' }}
+                    >
                       PLAY →
-                    </div>
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
