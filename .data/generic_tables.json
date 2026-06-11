@@ -37344,11 +37344,11 @@
     "state": {
       "tableId": "57YV9Z",
       "phase": "BET_2",
-      "pot": 373,
-      "currentBet": 0,
+      "pot": 1816,
+      "currentBet": 481,
       "minBet": 50,
-      "raisesThisRound": 0,
-      "activePlayerId": "p3",
+      "raisesThisRound": 1,
+      "activePlayerId": "p1",
       "players": [
         {
           "id": "p1",
@@ -37423,9 +37423,9 @@
           "id": "p3",
           "name": "PokerFacePete",
           "presence": "bot",
-          "chips": 12051,
-          "bet": 0,
-          "totalBet": 87,
+          "chips": 11570,
+          "bet": 481,
+          "totalBet": 568,
           "cards": [
             {
               "suit": "hearts",
@@ -37451,15 +37451,15 @@
           "status": "active",
           "isDealer": false,
           "declaration": null,
-          "hasActed": false
+          "hasActed": true
         },
         {
           "id": "p4",
           "name": "MoneyMaverick",
           "presence": "bot",
-          "chips": 6305,
-          "bet": 0,
-          "totalBet": 87,
+          "chips": 5824,
+          "bet": 481,
+          "totalBet": 568,
           "cards": [
             {
               "suit": "hearts",
@@ -37485,15 +37485,15 @@
           "status": "active",
           "isDealer": false,
           "declaration": null,
-          "hasActed": false
+          "hasActed": true
         },
         {
           "id": "p5",
           "name": "GrinderGreg",
           "presence": "bot",
-          "chips": 9661,
-          "bet": 0,
-          "totalBet": 87,
+          "chips": 9180,
+          "bet": 481,
+          "totalBet": 568,
           "cards": [
             {
               "suit": "hearts",
@@ -37519,29 +37519,11 @@
           "status": "active",
           "isDealer": false,
           "declaration": null,
-          "hasActed": false
+          "hasActed": true
         }
       ],
       "communityCards": [],
       "messages": [
-        {
-          "id": "wh93tqj7",
-          "text": "MoneyMaverick called $62",
-          "time": 1781188223195,
-          "isResolution": false
-        },
-        {
-          "id": "f06y3y6a",
-          "text": "GrinderGreg called $62",
-          "time": 1781188225259,
-          "isResolution": false
-        },
-        {
-          "id": "maqmhrxu",
-          "text": "RoyalFlushRick called $62",
-          "time": 1781188225895,
-          "isResolution": false
-        },
         {
           "id": "kigoi7ho",
           "text": "GamblerGus folded",
@@ -37582,6 +37564,24 @@
           "id": "ppuhtmzk",
           "text": "BET 2",
           "time": 1781188232194,
+          "isResolution": false
+        },
+        {
+          "id": "vsit0o2j",
+          "text": "PokerFacePete raised to $481",
+          "time": 1781188234507,
+          "isResolution": false
+        },
+        {
+          "id": "e9mvl9e7",
+          "text": "MoneyMaverick called $481",
+          "time": 1781188236329,
+          "isResolution": false
+        },
+        {
+          "id": "yrv0eueg",
+          "text": "GrinderGreg called $481",
+          "time": 1781188236925,
           "isResolution": false
         }
       ],
@@ -37782,6 +37782,6 @@
       "turnDeadline": null
     },
     "handId": 16,
-    "savedAt": 1781188234202
+    "savedAt": 1781188238933
   }
 }
