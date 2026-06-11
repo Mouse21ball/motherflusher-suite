@@ -49630,5 +49630,194 @@
     },
     "handId": 24,
     "savedAt": 1781140360304
+  },
+  "HA82VN": {
+    "state": {
+      "tableId": "HA82VN",
+      "phase": "WAITING",
+      "pot": 0,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 450,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "PotControlPete",
+          "presence": "bot",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "FloridaFrank",
+          "presence": "bot",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 10000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "sitting_out",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "778c8p5n",
+          "text": "Game ready. Press start.",
+          "time": 1781187777400
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 0,
+    "savedAt": 1781187889097
+  },
+  "GZX7AX": {
+    "state": {
+      "tableId": "GZX7AX",
+      "phase": "ANTE",
+      "pot": 25,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 450,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p2",
+          "name": "GamblerGus",
+          "presence": "bot",
+          "chips": 9406,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "PokerFacePete",
+          "presence": "bot",
+          "chips": 9847,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "MoneyMaverick",
+          "presence": "bot",
+          "chips": 9406,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p5",
+          "name": "GrinderGreg",
+          "presence": "bot",
+          "chips": 11341,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "y0pjrjk0",
+          "text": "New hand.",
+          "time": 1781188001083
+        },
+        {
+          "id": "ib0g1u10",
+          "text": "GrinderGreg paid $25 Ante",
+          "time": 1781188002173,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1781188004182
   }
 }
