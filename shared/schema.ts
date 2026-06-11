@@ -236,7 +236,7 @@ export const subscriptionEvents = pgTable("subscription_events", {
 
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 
-// ─── Crews ────────────────────────────────────────────────────────────────────
+// ─── Crews / Clubs ────────────────────────────────────────────────────────────
 export const crews = pgTable("crews", {
   id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
   name:        varchar("name", { length: 30 }).notNull(),
@@ -246,6 +246,9 @@ export const crews = pgTable("crews", {
   memberCount: integer("member_count").notNull().default(1),
   disbandedAt: timestamp("disbanded_at"),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
+  chipBank:    integer("chip_bank").notNull().default(0),
+  isPublic:    boolean("is_public").notNull().default(true),
+  clubId:      text("club_id").notNull().default(''),
 });
 
 export type Crew = typeof crews.$inferSelect;
@@ -288,6 +291,20 @@ export const crewEvents = pgTable("crew_events", {
 
 export type CrewEvent = typeof crewEvents.$inferSelect;
 
+// ─── Club Chip Requests ───────────────────────────────────────────────────────
+export const clubChipRequests = pgTable("club_chip_requests", {
+  id:          serial("id").primaryKey(),
+  crewId:      text("crew_id").notNull().references(() => crews.id),
+  playerId:    text("player_id").notNull().references(() => playerProfiles.id),
+  amount:      integer("amount").notNull(),
+  status:      text("status").notNull().default('pending'),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  resolvedAt:  timestamp("resolved_at"),
+  resolvedBy:  text("resolved_by"),
+});
+
+export type ClubChipRequest = typeof clubChipRequests.$inferSelect;
+
 // ─── Time Bank Events (audit log) ────────────────────────────────────────────
 export const timeBankEvents = pgTable("time_bank_events", {
   id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
@@ -314,6 +331,7 @@ export type ChipTxReason =
   | 'admin_debit'
   | 'refund'
   | 'iap_purchase'   // Fix B: Google Play IAP audit (amountChange=0; Stripes credited separately)
+  | 'club_distribution'
   | 'other';
 
 export const chipTransactions = pgTable("chip_transactions", {

@@ -15,7 +15,7 @@ import {
   analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
-  crews, crewMembers, crewChatMessages, crewEvents,
+  crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
   timeBankEvents,
   chipTransactions,
   blockedPlayers,
@@ -202,6 +202,14 @@ export interface IStorage {
   // ── Chip loan ───────────────────────────────────────────────────────────────
   grantChipLoan(playerId: string): Promise<{ success: boolean; error?: string; newBalance?: number }>;
   repayChipLoan(playerId: string, chipsEarned: number): Promise<number>;
+  // ── Club (PokerBros-style) ───────────────────────────────────────────────────
+  fundClubBank(crewId: string, ownerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }>;
+  distributeChips(crewId: string, agentId: string, targetPlayerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }>;
+  requestChips(crewId: string, playerId: string, amount: number): Promise<{ success: boolean; requestId: number }>;
+  resolveChipRequest(requestId: number, agentId: string, approve: boolean): Promise<{ success: boolean }>;
+  appointAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void>;
+  removeAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void>;
+  getPublicClubs(): Promise<{ id: string; name: string; clubId: string; memberCount: number; chipBank: number; inviteCode: string }[]>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -1589,13 +1597,14 @@ export class MemStorage implements IStorage {
         captainId:   data.playerId,
         memberCount: 1,
         createdAt:   now,
+        clubId:      crewId.slice(0, 8),
       }).returning();
 
       await tx.insert(crewMembers).values({
         id:       randomUUID(),
         crewId,
         playerId: data.playerId,
-        role:     "captain",
+        role:     "owner",
         joinedAt: now,
         totalChipsWon: 0,
       });
@@ -1654,7 +1663,8 @@ export class MemStorage implements IStorage {
       let newCaptainId: string | undefined;
       let disbanded = false;
 
-      if (member.role === "captain") {
+      const isOwnerRole = member.role === "captain" || member.role === "owner";
+      if (isOwnerRole) {
         if (others.length === 0) {
           // Last member — disband
           await tx.update(crews)
@@ -1662,14 +1672,14 @@ export class MemStorage implements IStorage {
             .where(eq(crews.id, data.crewId));
           disbanded = true;
         } else {
-          // Promote longest-tenured member
+          // Promote longest-tenured non-owner member
           const nextCaptain = others
-            .filter(m => m.role === "member")
+            .filter(m => m.role === "member" || m.role === "agent")
             .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0))[0]
             ?? others[0];
 
           await tx.update(crewMembers)
-            .set({ role: "captain" })
+            .set({ role: "owner" })
             .where(and(eq(crewMembers.crewId, data.crewId), eq(crewMembers.playerId, nextCaptain.playerId)));
 
           await tx.update(crews)
@@ -1792,6 +1802,215 @@ export class MemStorage implements IStorage {
       eventData:  data.eventData ?? {},
       occurredAt: new Date(),
     });
+  }
+
+  // ── Club (PokerBros-style) chip bank methods ─────────────────────────────────
+
+  async fundClubBank(crewId: string, ownerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }> {
+    return db.transaction(async tx => {
+      // Verify caller is owner or agent
+      const [mem] = await tx.select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, ownerId)));
+      if (!mem || !['owner', 'captain', 'agent'].includes(mem.role)) {
+        throw Object.assign(new Error('Not authorized'), { code: 'unauthorized' });
+      }
+
+      // Deduct from owner chipBalance
+      const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, ownerId));
+      if (!profile || profile.chipBalance < amount) {
+        throw Object.assign(new Error('Insufficient chips'), { code: 'insufficient_chips' });
+      }
+      await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, ownerId));
+
+      // Add to crew chip_bank
+      const [updated] = await tx.update(crews)
+        .set({ chipBank: sql`${crews.chipBank} + ${amount}` })
+        .where(eq(crews.id, crewId))
+        .returning({ chipBank: crews.chipBank });
+
+      return { success: true, newBankBalance: updated?.chipBank ?? 0 };
+    });
+  }
+
+  async distributeChips(crewId: string, agentId: string, targetPlayerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }> {
+    return db.transaction(async tx => {
+      // Verify agent role
+      const [agentMem] = await tx.select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, agentId)));
+      if (!agentMem || !['owner', 'captain', 'agent'].includes(agentMem.role)) {
+        throw Object.assign(new Error('Not authorized'), { code: 'unauthorized' });
+      }
+
+      // Verify target is member
+      const [targetMem] = await tx.select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, targetPlayerId)));
+      if (!targetMem) {
+        throw Object.assign(new Error('Target is not a member of this club'), { code: 'not_member' });
+      }
+
+      // Verify bank has enough
+      const [crew] = await tx.select({ chipBank: crews.chipBank })
+        .from(crews)
+        .where(eq(crews.id, crewId));
+      if (!crew || crew.chipBank < amount) {
+        throw Object.assign(new Error('Insufficient club bank balance'), { code: 'insufficient_bank' });
+      }
+
+      // Deduct from bank
+      const [updatedCrew] = await tx.update(crews)
+        .set({ chipBank: sql`${crews.chipBank} - ${amount}` })
+        .where(eq(crews.id, crewId))
+        .returning({ chipBank: crews.chipBank });
+
+      // Credit target
+      const [targetProfile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, targetPlayerId));
+      const before = targetProfile?.chipBalance ?? 0;
+      const after  = before + amount;
+
+      await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${amount}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, targetPlayerId));
+
+      // Chip ledger row
+      await this._insertChipLedger(tx, {
+        playerId:      targetPlayerId,
+        beforeBalance: before,
+        amountChange:  amount,
+        afterBalance:  after,
+        reason:        'club_distribution',
+        source:        'club',
+        metadata:      { crewId, distributedBy: agentId },
+      });
+
+      return { success: true, newBankBalance: updatedCrew?.chipBank ?? 0 };
+    });
+  }
+
+  async requestChips(crewId: string, playerId: string, amount: number): Promise<{ success: boolean; requestId: number }> {
+    // Verify member
+    const [mem] = await db.select({ role: crewMembers.role })
+      .from(crewMembers)
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, playerId)));
+    if (!mem) {
+      throw Object.assign(new Error('Not a member of this club'), { code: 'not_member' });
+    }
+
+    const [row] = await db.insert(clubChipRequests)
+      .values({ crewId, playerId, amount, status: 'pending', requestedAt: new Date() })
+      .returning({ id: clubChipRequests.id });
+
+    return { success: true, requestId: row!.id };
+  }
+
+  async resolveChipRequest(requestId: number, agentId: string, approve: boolean): Promise<{ success: boolean }> {
+    return db.transaction(async tx => {
+      // Load request
+      const [req] = await tx.select()
+        .from(clubChipRequests)
+        .where(eq(clubChipRequests.id, requestId));
+      if (!req) throw Object.assign(new Error('Request not found'), { code: 'not_found' });
+      if (req.status !== 'pending') throw Object.assign(new Error('Request already resolved'), { code: 'already_resolved' });
+
+      // Verify agent role
+      const [agentMem] = await tx.select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, req.crewId), eq(crewMembers.playerId, agentId)));
+      if (!agentMem || !['owner', 'captain', 'agent'].includes(agentMem.role)) {
+        throw Object.assign(new Error('Not authorized'), { code: 'unauthorized' });
+      }
+
+      if (approve) {
+        // distributeChips handles its own transaction — call storage method directly
+        // but we're already inside a tx, so inline the distribution
+        const [crew] = await tx.select({ chipBank: crews.chipBank })
+          .from(crews)
+          .where(eq(crews.id, req.crewId));
+        if (!crew || crew.chipBank < req.amount) {
+          throw Object.assign(new Error('Insufficient club bank balance'), { code: 'insufficient_bank' });
+        }
+        await tx.update(crews)
+          .set({ chipBank: sql`${crews.chipBank} - ${req.amount}` })
+          .where(eq(crews.id, req.crewId));
+
+        const [targetProfile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+          .from(playerProfiles)
+          .where(eq(playerProfiles.id, req.playerId));
+        const before = targetProfile?.chipBalance ?? 0;
+        const after  = before + req.amount;
+        await tx.update(playerProfiles)
+          .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${req.amount}`, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, req.playerId));
+        await this._insertChipLedger(tx, {
+          playerId:      req.playerId,
+          beforeBalance: before,
+          amountChange:  req.amount,
+          afterBalance:  after,
+          reason:        'club_distribution',
+          source:        'club',
+          metadata:      { crewId: req.crewId, requestId, resolvedBy: agentId },
+        });
+      }
+
+      await tx.update(clubChipRequests)
+        .set({ status: approve ? 'approved' : 'rejected', resolvedAt: new Date(), resolvedBy: agentId })
+        .where(eq(clubChipRequests.id, requestId));
+
+      return { success: true };
+    });
+  }
+
+  async appointAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void> {
+    const [ownerMem] = await db.select({ role: crewMembers.role })
+      .from(crewMembers)
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, ownerId)));
+    if (!ownerMem || !['owner', 'captain'].includes(ownerMem.role)) {
+      throw Object.assign(new Error('Only the owner can appoint agents'), { code: 'unauthorized' });
+    }
+    const updated = await db.update(crewMembers)
+      .set({ role: 'agent' })
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, targetPlayerId)))
+      .returning({ id: crewMembers.id });
+    if (updated.length === 0) throw Object.assign(new Error('Target is not a member of this club'), { code: 'not_member' });
+  }
+
+  async removeAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void> {
+    const [ownerMem] = await db.select({ role: crewMembers.role })
+      .from(crewMembers)
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, ownerId)));
+    if (!ownerMem || !['owner', 'captain'].includes(ownerMem.role)) {
+      throw Object.assign(new Error('Only the owner can remove agents'), { code: 'unauthorized' });
+    }
+    const updated = await db.update(crewMembers)
+      .set({ role: 'member' })
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, targetPlayerId), eq(crewMembers.role, 'agent')))
+      .returning({ id: crewMembers.id });
+    if (updated.length === 0) throw Object.assign(new Error('Target is not an agent of this club'), { code: 'not_agent' });
+  }
+
+  async getPublicClubs(): Promise<{ id: string; name: string; clubId: string; memberCount: number; chipBank: number; inviteCode: string }[]> {
+    const rows = await db
+      .select({
+        id:          crews.id,
+        name:        crews.name,
+        clubId:      crews.clubId,
+        memberCount: crews.memberCount,
+        chipBank:    crews.chipBank,
+        inviteCode:  crews.inviteCode,
+      })
+      .from(crews)
+      .where(and(eq(crews.isPublic, true), isNull(crews.disbandedAt)))
+      .orderBy(desc(crews.memberCount))
+      .limit(20);
+    return rows;
   }
 
   // ── Time Bank ───────────────────────────────────────────────────────────────

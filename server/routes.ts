@@ -1877,7 +1877,7 @@ export async function registerRoutes(
 
       const mem = await requireCrewMember(crewId, captainId);
       if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
-      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can kick members." }); return; }
+      if (!["captain","owner"].includes(mem.role)) { res.status(403).json({ error: "Only the Captain can kick members." }); return; }
       if (targetId === captainId) { res.status(422).json({ error: "Cannot kick yourself. Use leave instead." }); return; }
 
       const targetMem = await requireCrewMember(crewId, targetId);
@@ -1906,7 +1906,7 @@ export async function registerRoutes(
 
       const mem = await requireCrewMember(crewId, captainId);
       if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
-      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can rename the Crew." }); return; }
+      if (!["captain","owner"].includes(mem.role)) { res.status(403).json({ error: "Only the Captain can rename the Crew." }); return; }
 
       if (name) {
         const nameErr = validateCrewName(name);
@@ -1940,7 +1940,7 @@ export async function registerRoutes(
 
       const mem = await requireCrewMember(crewId, captainId);
       if (!mem) { res.status(403).json({ error: "You are not a member of this Crew." }); return; }
-      if (mem.role !== "captain") { res.status(403).json({ error: "Only the Captain can regenerate the invite code." }); return; }
+      if (!["captain","owner"].includes(mem.role)) { res.status(403).json({ error: "Only the Captain can regenerate the invite code." }); return; }
 
       const inviteCode = await generateUniqueInviteCode();
       await storage.regenerateCrewInviteTx({ crewId, inviteCode });
@@ -2003,6 +2003,120 @@ export async function registerRoutes(
       res.json({ id, created_at: createdAt });
     } catch (err: any) {
       if (err.name === "ZodError") { res.status(422).json({ error: "Invalid request." }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Club system (PokerBros-style) ────────────────────────────────────────
+
+  // GET /api/clubs/public — unauthenticated
+  app.get("/api/clubs/public", async (_req, res) => {
+    try {
+      const clubs = await storage.getPublicClubs();
+      res.json({ clubs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/fund-bank — owner/agent only
+  app.post("/api/crews/:id/fund-bank", requireAuth, async (req, res) => {
+    try {
+      const ownerId = req.sessionPlayerId!;
+      const crewId  = req.params.id as string;
+      const { amount } = z.object({ amount: z.number().int().positive() }).parse(req.body);
+      const result = await storage.fundClubBank(crewId, ownerId, amount);
+      res.json(result);
+    } catch (err: any) {
+      if (err?.code === 'unauthorized')        { res.status(403).json({ error: err.message }); return; }
+      if (err?.code === 'insufficient_chips')  { res.status(402).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')            { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/distribute — owner/agent only
+  app.post("/api/crews/:id/distribute", requireAuth, async (req, res) => {
+    try {
+      const agentId = req.sessionPlayerId!;
+      const crewId  = req.params.id as string;
+      const { targetPlayerId, amount } = z.object({
+        targetPlayerId: z.string().min(1),
+        amount:         z.number().int().positive(),
+      }).parse(req.body);
+      const result = await storage.distributeChips(crewId, agentId, targetPlayerId, amount);
+      res.json(result);
+    } catch (err: any) {
+      if (err?.code === 'unauthorized')       { res.status(403).json({ error: err.message }); return; }
+      if (err?.code === 'not_member')         { res.status(404).json({ error: err.message }); return; }
+      if (err?.code === 'insufficient_bank')  { res.status(402).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')           { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/request-chips — member only
+  app.post("/api/crews/:id/request-chips", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.id as string;
+      const { amount } = z.object({ amount: z.number().int().positive() }).parse(req.body);
+      const result = await storage.requestChips(crewId, playerId, amount);
+      res.json(result);
+    } catch (err: any) {
+      if (err?.code === 'not_member') { res.status(403).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')   { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/requests/:requestId/resolve — owner/agent only
+  app.post("/api/crews/:id/requests/:requestId/resolve", requireAuth, async (req, res) => {
+    try {
+      const agentId   = req.sessionPlayerId!;
+      const requestId = parseInt(req.params.requestId as string, 10);
+      const { approve } = z.object({ approve: z.boolean() }).parse(req.body);
+      if (isNaN(requestId)) { res.status(400).json({ error: 'Invalid requestId.' }); return; }
+      const result = await storage.resolveChipRequest(requestId, agentId, approve);
+      res.json(result);
+    } catch (err: any) {
+      if (err?.code === 'unauthorized')       { res.status(403).json({ error: err.message }); return; }
+      if (err?.code === 'not_found')          { res.status(404).json({ error: err.message }); return; }
+      if (err?.code === 'already_resolved')   { res.status(409).json({ error: err.message }); return; }
+      if (err?.code === 'insufficient_bank')  { res.status(402).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')           { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/appoint-agent — owner only
+  app.post("/api/crews/:id/appoint-agent", requireAuth, async (req, res) => {
+    try {
+      const ownerId = req.sessionPlayerId!;
+      const crewId  = req.params.id as string;
+      const { targetPlayerId } = z.object({ targetPlayerId: z.string().min(1) }).parse(req.body);
+      await storage.appointAgent(crewId, ownerId, targetPlayerId);
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err?.code === 'unauthorized') { res.status(403).json({ error: err.message }); return; }
+      if (err?.code === 'not_member')   { res.status(404).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')     { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/crews/:id/remove-agent — owner only
+  app.post("/api/crews/:id/remove-agent", requireAuth, async (req, res) => {
+    try {
+      const ownerId = req.sessionPlayerId!;
+      const crewId  = req.params.id as string;
+      const { targetPlayerId } = z.object({ targetPlayerId: z.string().min(1) }).parse(req.body);
+      await storage.removeAgent(crewId, ownerId, targetPlayerId);
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err?.code === 'unauthorized') { res.status(403).json({ error: err.message }); return; }
+      if (err?.code === 'not_agent')    { res.status(404).json({ error: err.message }); return; }
+      if (err?.name === 'ZodError')     { res.status(422).json({ error: 'Invalid request.' }); return; }
       res.status(500).json({ error: err.message });
     }
   });
