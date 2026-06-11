@@ -1743,14 +1743,14 @@ export async function registerRoutes(
 
       // Check Stripes
       const { stripes } = await storage.getPlayerStripes(playerId);
-      if (stripes < 500) { res.status(402).json({ error: "Insufficient Stripes. Need 500◆ to create a Crew." }); return; }
+      if (stripes < 100) { res.status(402).json({ error: "Insufficient Stripes. Need 100◆ to create a Crew." }); return; }
 
       // Check name uniqueness (case-insensitive)
       // The DB unique index on LOWER(name) enforces this — we catch the error.
       const inviteCode = await generateUniqueInviteCode();
 
       // Transaction: debit Stripes + create crew
-      const ok = await storage.debitStripes(playerId, 500, "crew:create");
+      const ok = await storage.debitStripes(playerId, 100, "crew:create");
       if (!ok) { res.status(402).json({ error: "Insufficient Stripes." }); return; }
 
       let crew;
@@ -1758,7 +1758,7 @@ export async function registerRoutes(
         crew = await storage.createCrewTx({ playerId, name: name.trim(), description, inviteCode });
       } catch (txErr: any) {
         // Refund if crew creation failed
-        await storage.creditStripes(playerId, 500, "crew:create:refund");
+        await storage.creditStripes(playerId, 100, "crew:create:refund");
         if (txErr.message?.includes("unique") || txErr.code === "23505") {
           res.status(409).json({ error: "A Crew with that name already exists." }); return;
         }
@@ -1766,7 +1766,7 @@ export async function registerRoutes(
       }
 
       await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "created" });
-      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "stripes_paid", eventData: { amount: 500 } });
+      await storage.logCrewEvent({ crewId: crew.id, playerId, eventType: "stripes_paid", eventData: { amount: 100 } });
       console.log(`[crews] ${playerId} created Crew "${crew.name}" (${crew.id})`);
 
       res.json({ crew_id: crew.id, invite_code: crew.inviteCode, name: crew.name, member_count: 1 });
@@ -2117,6 +2117,25 @@ export async function registerRoutes(
       if (err?.code === 'unauthorized') { res.status(403).json({ error: err.message }); return; }
       if (err?.code === 'not_agent')    { res.status(404).json({ error: err.message }); return; }
       if (err?.name === 'ZodError')     { res.status(422).json({ error: 'Invalid request.' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/crews/:id/chip-requests — owner/agent sees pending from all; member sees own
+  app.get("/api/crews/:id/chip-requests", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const crewId   = req.params.id as string;
+      const mem = await requireCrewMember(crewId, playerId);
+      if (!mem) { res.status(403).json({ error: "Not a member of this club." }); return; }
+
+      const isPrivileged = ['owner', 'captain', 'agent'].includes(mem.role);
+      const requests = await storage.getClubChipRequests(crewId, {
+        pendingOnly: isPrivileged,
+        playerId:    isPrivileged ? undefined : playerId,
+      });
+      res.json({ requests });
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });

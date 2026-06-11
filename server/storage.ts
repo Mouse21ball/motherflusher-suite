@@ -210,6 +210,7 @@ export interface IStorage {
   appointAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void>;
   removeAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void>;
   getPublicClubs(): Promise<{ id: string; name: string; clubId: string; memberCount: number; chipBank: number; inviteCode: string }[]>;
+  getClubChipRequests(crewId: string, options: { pendingOnly: boolean; playerId?: string }): Promise<{ id: number; playerId: string; playerName: string; amount: number; status: string; requestedAt: Date; resolvedAt: Date | null }[]>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -2011,6 +2012,33 @@ export class MemStorage implements IStorage {
       .orderBy(desc(crews.memberCount))
       .limit(20);
     return rows;
+  }
+
+  async getClubChipRequests(
+    crewId: string,
+    options: { pendingOnly: boolean; playerId?: string },
+  ): Promise<{ id: number; playerId: string; playerName: string; amount: number; status: string; requestedAt: Date; resolvedAt: Date | null }[]> {
+    const conditions = [eq(clubChipRequests.crewId, crewId)];
+    if (options.pendingOnly) conditions.push(eq(clubChipRequests.status, 'pending'));
+    if (options.playerId)    conditions.push(eq(clubChipRequests.playerId, options.playerId));
+
+    const rows = await db
+      .select({
+        id:          clubChipRequests.id,
+        playerId:    clubChipRequests.playerId,
+        playerName:  playerProfiles.displayName,
+        amount:      clubChipRequests.amount,
+        status:      clubChipRequests.status,
+        requestedAt: clubChipRequests.requestedAt,
+        resolvedAt:  clubChipRequests.resolvedAt,
+      })
+      .from(clubChipRequests)
+      .leftJoin(playerProfiles, eq(playerProfiles.id, clubChipRequests.playerId))
+      .where(and(...conditions))
+      .orderBy(desc(clubChipRequests.requestedAt))
+      .limit(100);
+
+    return rows.map(r => ({ ...r, playerName: r.playerName ?? 'Unknown' }));
   }
 
   // ── Time Bank ───────────────────────────────────────────────────────────────

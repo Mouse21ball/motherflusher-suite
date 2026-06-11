@@ -2,39 +2,62 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { AuthModal } from "@/components/AuthModal";
-import { apiFetch, getSessionToken } from "@/lib/session";
+import { apiFetch } from "@/lib/session";
 import { useQuery } from "@tanstack/react-query";
 import { AvatarWithFrame } from "@/components/ui/AvatarWithFrame";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface PublicClub {
+  id: string; name: string; clubId: string;
+  memberCount: number; chipBank: number; inviteCode: string;
+}
 interface CrewMember {
   id: string; playerId: string; displayName: string;
   avatarId: string | null; equippedFrameId: string | null;
-  role: string; joinedAt: string; totalChipsWon: number;
+  role: string; joinedAt: string; totalChipsWon: number; chipBalance?: number;
 }
 interface CrewDetail {
   id: string; name: string; description: string | null;
   inviteCode: string; captainId: string; memberCount: number;
+  chipBank?: number; clubId?: string; isPublic?: boolean;
   createdAt: string; members: CrewMember[];
 }
 interface ChatMsg {
   id: string; playerId: string; playerName: string;
   avatarId: string | null; role: string; message: string; createdAt: string;
 }
+interface ChipRequest {
+  id: number; playerId: string; playerName?: string;
+  amount: number; status: string;
+  requestedAt: string; resolvedAt?: string | null;
+}
 
-// ─── Small avatar chip ────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function AvatarChip({ name, size = 32, equippedFrameId }: { name: string; size?: number; equippedFrameId?: string | null }) {
   const initials = name.slice(0, 2).toUpperCase();
   const frameSrc = equippedFrameId ? `/cosmetics/frames/${equippedFrameId.replace(/_/g, '-')}.png` : null;
-  return (
-    <AvatarWithFrame
-      initials={initials}
-      initialsColor="#fff"
-      frameSrc={frameSrc}
-      size={size}
-    />
-  );
+  return <AvatarWithFrame initials={initials} initialsColor="#fff" frameSrc={frameSrc} size={size} />;
 }
+
+function roleBadge(role: string) {
+  if (role === "owner" || role === "captain") {
+    return <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(240,184,41,0.22)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.35)" }}>OWNER</span>;
+  }
+  if (role === "agent") {
+    return <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(180,180,180,0.15)", color: "#bbb", border: "1px solid rgba(180,180,180,0.3)" }}>AGENT</span>;
+  }
+  return <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>MEMBER</span>;
+}
+
+const BG: React.CSSProperties = {
+  backgroundImage: "url('/crews/crews-bg.png')",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundAttachment: "fixed",
+};
+const OVERLAY: React.CSSProperties = { position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 0 };
+const GOLD = "#f0b829";
+const GOLD_DIM = "rgba(240,184,41,0.5)";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CrewsPage() {
@@ -55,7 +78,7 @@ export default function CrewsPage() {
 
   const [crew, setCrew]       = useState<CrewDetail | null | "loading">("loading");
   const [stripes, setStripes] = useState<number>(0);
-  const [tab, setTab]         = useState<"roster" | "chat" | "info">("roster");
+  const [tab, setTab]         = useState<"tables" | "members" | "bank" | "chat">("members");
 
   // modal states
   const [showCreate, setShowCreate]       = useState(false);
@@ -69,7 +92,6 @@ export default function CrewsPage() {
     const crewRes = await apiFetch(`/api/players/${playerId}/crew`);
     if (crewRes.ok) { const d = await crewRes.json(); setCrew(d.crew ?? null); }
     else setCrew(null);
-
     const sr = await apiFetch(`/api/players/${playerId}/stripes`);
     if (sr.ok) { const d = await sr.json(); setStripes(d.stripes ?? 0); }
   }, [playerId]);
@@ -81,107 +103,40 @@ export default function CrewsPage() {
     else navigate("/");
   }
 
+  // ── Unauthenticated wall ──────────────────────────────────────────────────
   if (!me || !me.profileId) {
     return (
       <>
-        <div
-          className="min-h-screen flex flex-col"
-          style={{
-            backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundAttachment: "fixed",
-          }}
-        >
-          {/* Dark overlay */}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(5,4,10,0.82)" }} />
-
-          {/* Header */}
-          <div
-            className="relative z-10 flex items-center px-4 py-4"
-            style={{ borderBottom: "1px solid rgba(240,184,41,0.18)" }}
-          >
-            <button
-              onClick={goBack}
-              data-testid="btn-crews-back"
+        <div className="min-h-screen flex flex-col" style={BG}>
+          <div style={OVERLAY} />
+          <div className="relative z-10 flex items-center px-4 py-4" style={{ borderBottom: "1px solid rgba(240,184,41,0.18)" }}>
+            <button onClick={goBack} data-testid="btn-crews-back"
               className="flex items-center justify-center transition-all active:scale-90"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                border: "2px solid rgba(240,184,41,0.6)",
-                background: "rgba(240,184,41,0.08)",
-                color: "#f0b829",
-                fontSize: 20,
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
-            >
+              style={{ width: 40, height: 40, borderRadius: "50%", border: "2px solid rgba(240,184,41,0.6)", background: "rgba(240,184,41,0.08)", color: GOLD, fontSize: 20 }}>
               ‹
             </button>
-            <h1
-              className="flex-1 text-center font-mono font-bold tracking-[0.22em] text-base"
-              style={{ color: "#f0b829", textShadow: "0 0 18px rgba(240,184,41,0.4)" }}
-            >
-              CREWS
-            </h1>
-            {/* Spacer to balance the back button */}
+            <h1 className="flex-1 text-center font-mono font-bold tracking-[0.22em] text-base" style={{ color: GOLD }}>CREWS</h1>
             <div style={{ width: 40 }} />
           </div>
-
-          {/* Body */}
           <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-6 px-8 text-center">
-            <p
-              className="font-mono text-base"
-              data-testid="crews-guest-message"
-              style={{ color: "rgba(240,184,41,0.85)" }}
-            >
+            <p className="font-mono text-base" data-testid="crews-guest-message" style={{ color: "rgba(240,184,41,0.85)" }}>
               Sign in to access Crews.
             </p>
-
-            {/* SIGN IN */}
-            <button
-              onClick={() => setShowAuthModal(true)}
-              data-testid="btn-crews-sign-in"
+            <button onClick={() => setShowAuthModal(true)} data-testid="btn-crews-sign-in"
               className="w-full max-w-xs font-mono font-bold tracking-widest transition-all active:scale-95"
-              style={{
-                background: "linear-gradient(135deg, #FFD700, #DAA520)",
-                color: "#0a0805",
-                padding: "14px 32px",
-                borderRadius: 10,
-                fontSize: 15,
-                border: "none",
-              }}
-            >
+              style={{ background: "linear-gradient(135deg,#FFD700,#DAA520)", color: "#0a0805", padding: "14px 32px", borderRadius: 10, fontSize: 15 }}>
               SIGN IN
             </button>
-
-            {/* Back to Lobby */}
-            <button
-              onClick={() => navigate("/")}
-              data-testid="btn-crews-lobby"
+            <button onClick={() => navigate("/")} data-testid="btn-crews-lobby"
               className="w-full max-w-xs font-mono font-bold tracking-widest transition-all active:scale-95"
-              style={{
-                background: "transparent",
-                color: "#f0b829",
-                padding: "14px 32px",
-                borderRadius: 10,
-                fontSize: 15,
-                border: "1.5px solid #f0b829",
-              }}
-            >
+              style={{ background: "transparent", color: GOLD, padding: "14px 32px", borderRadius: 10, fontSize: 15, border: `1.5px solid ${GOLD}` }}>
               Back to Lobby
             </button>
           </div>
         </div>
-
         {showAuthModal && (
-          <AuthModal
-            open={showAuthModal}
-            defaultTab="login"
-            onClose={() => setShowAuthModal(false)}
-            onSuccess={() => setShowAuthModal(false)}
-          />
+          <AuthModal open={showAuthModal} defaultTab="login"
+            onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} />
         )}
       </>
     );
@@ -189,68 +144,78 @@ export default function CrewsPage() {
 
   if (crew === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ color: "#f0b829" }}>
-        <p className="font-mono animate-pulse">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center" style={BG}>
+        <div style={OVERLAY} />
+        <p className="relative z-10 font-mono animate-pulse" style={{ color: GOLD }}>Loading…</p>
       </div>
     );
   }
 
+  const myRole = crew ? (crew.members.find(m => m.playerId === playerId)?.role ?? "member") : "member";
+  const isOwner        = myRole === "owner" || myRole === "captain";
+  const isOwnerOrAgent = isOwner || myRole === "agent";
+
   return (
-    <div
-      className="min-h-screen pb-24"
-      style={{
-        position: "relative",
-        backgroundImage: "url('/crews/crews-bg.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 0 }} />
+    <div className="min-h-screen pb-24" style={{ position: "relative", ...BG }}>
+      <div style={OVERLAY} />
       <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Header — title image for NoCrew, crew name bar for InCrew */}
+
+        {/* ── Header ── */}
         {crew ? (
-          <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
-               style={{ background: "rgba(10,8,4,0.92)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
-            <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform">←</button>
-            <h1 className="font-mono text-lg font-bold tracking-widest" style={{ color: "#f0b829" }}>
-              {crew.name.toUpperCase()}
-            </h1>
-            <span className="ml-auto text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
-              {crew.memberCount}/25
-            </span>
+          <div className="sticky top-0 z-30 px-4 pt-3 pb-2"
+               style={{ background: "rgba(10,8,4,0.95)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigate("/")} className="text-amber-400 active:scale-90 transition-transform text-xl">←</button>
+              <div className="flex-1 min-w-0">
+                <h1 className="font-mono text-lg font-bold tracking-widest truncate" style={{ color: GOLD }}>
+                  {crew.name.toUpperCase()}
+                </h1>
+                <div className="flex items-center gap-3">
+                  {crew.clubId && (
+                    <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>ID: {crew.clubId}</span>
+                  )}
+                  <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>{crew.memberCount}/25 members</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] font-mono" style={{ color: GOLD_DIM }}>BANK</div>
+                <div className="font-mono font-bold text-sm" style={{ color: GOLD }}>
+                  {(crew.chipBank ?? 0).toLocaleString()}
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div style={{ position: "relative", paddingTop: 12, paddingBottom: 4 }}>
-            <button
-              onClick={() => navigate("/")}
+            <button onClick={() => navigate("/")}
               style={{ position: "absolute", top: 14, left: 14, color: "#C9A227", fontSize: 22, lineHeight: 1, zIndex: 2 }}
-              className="active:scale-90 transition-transform"
-            >←</button>
+              className="active:scale-90 transition-transform">←</button>
             <div style={{ paddingLeft: 16, paddingRight: 16 }}>
-              <img
-                src="/crews/crews-title.png"
-                alt="Crews"
-                style={{ width: "100%", maxWidth: 320, display: "block" }}
-              />
+              <img src="/crews/crews-title.png" alt="Crews"
+                style={{ width: "100%", maxWidth: 320, display: "block" }} />
               <p className="font-mono uppercase text-[11px] leading-snug mt-2"
-                 style={{ color: "rgba(255,255,255,0.70)" }}>
-                CREWS ARE YOUR IN-GAME FAMILY. CHAT, CLIMB THE ROSTER, AND REP YOUR SET.
+                 style={{ color: "rgba(255,255,255,0.65)" }}>
+                Find your crew. Run your table.
               </p>
             </div>
           </div>
         )}
 
+        {/* ── Views ── */}
         {crew === null ? (
           <NoCrew
             stripes={stripes}
             onCreate={() => setShowCreate(true)}
-            onJoin={()  => setShowJoin(true)}
+            onJoin={() => setShowJoin(true)}
+            onJoined={() => { loadCrew(); toast({ title: "Joined the Club!" }); }}
           />
         ) : (
-          <InCrew
+          <InClub
             crew={crew}
             playerId={playerId}
+            myRole={myRole}
+            isOwner={isOwner}
+            isOwnerOrAgent={isOwnerOrAgent}
             tab={tab}
             onTabChange={setTab}
             onLeave={() => setLeaveTarget(crew)}
@@ -261,146 +226,102 @@ export default function CrewsPage() {
 
         {/* ── Modals ── */}
         {showCreate && (
-          <CreateCrewModal
-            stripes={stripes}
+          <CreateCrewModal stripes={stripes}
             onClose={() => setShowCreate(false)}
-            onCreated={() => { setShowCreate(false); loadCrew(); toast({ title: "Crew created!" }); }}
-          />
+            onCreated={() => { setShowCreate(false); loadCrew(); toast({ title: "Club created!" }); }} />
         )}
         {showJoin && (
-          <JoinCrewModal
-            stripes={stripes}
+          <JoinCrewModal stripes={stripes}
             onClose={() => setShowJoin(false)}
-            onJoined={() => { setShowJoin(false); loadCrew(); toast({ title: "Joined the Crew!" }); }}
-          />
+            onJoined={() => { setShowJoin(false); loadCrew(); toast({ title: "Joined the Club!" }); }} />
         )}
         {leaveTarget && (
-          <LeaveConfirmModal
-            crew={leaveTarget}
-            playerId={playerId}
+          <LeaveConfirmModal crew={leaveTarget} playerId={playerId}
             onClose={() => setLeaveTarget(null)}
-            onLeft={() => { setLeaveTarget(null); setCrew(null); loadCrew(); }}
-          />
+            onLeft={() => { setLeaveTarget(null); setCrew(null); loadCrew(); }} />
         )}
         {kickTarget && crew && (
-          <KickConfirmModal
-            crew={crew}
-            target={kickTarget}
+          <KickConfirmModal crew={crew} target={kickTarget}
             onClose={() => setKickTarget(null)}
-            onKicked={() => { setKickTarget(null); loadCrew(); toast({ title: `${kickTarget.displayName} removed.` }); }}
-          />
+            onKicked={() => { setKickTarget(null); loadCrew(); toast({ title: `${kickTarget.displayName} removed.` }); }} />
         )}
       </div>
     </div>
   );
 }
 
-// ─── No-crew state ────────────────────────────────────────────────────────────
-function NoCrew({ stripes, onCreate, onJoin }: {
-  stripes: number; onCreate: () => void; onJoin: () => void;
+// ─── VIEW 1: No Club ──────────────────────────────────────────────────────────
+function NoCrew({ stripes, onCreate, onJoin, onJoined }: {
+  stripes: number; onCreate: () => void; onJoin: () => void; onJoined: () => void;
 }) {
-  const IMPACT: React.CSSProperties = {
-    fontFamily: "'Impact', 'Anton', 'Arial Narrow', sans-serif",
-    color: "#C9A227",
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  };
-
-  const ChainDivider = () => (
-    <div className="flex items-center gap-1 my-2">
-      {Array.from({ length: 14 }).map((_, i) => (
-        <div key={i} style={{ width: 10, height: 5, borderRadius: 3, background: "rgba(201,162,39,0.55)", border: "1px solid rgba(201,162,39,0.35)" }} />
-      ))}
-    </div>
-  );
-
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full max-w-lg mx-auto pb-8">
 
-      {/* ── SECTION 1: CREATE A CREW ── */}
-      <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
-        {/* Left: stacked icons */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 170, position: "relative" }}>
-          <img src="/crews/icon-crew.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 85, height: 85, objectFit: "contain", position: "absolute", top: -20, left: "50%", transform: "translateX(-50%)" }} />
+      {/* ── PUBLIC CLUBS BROWSER ── */}
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="font-mono font-bold tracking-[0.18em] text-sm" style={{ color: GOLD }}>OPEN CLUBS</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(240,184,41,0.2)" }} />
         </div>
-        {/* Right: text */}
+        <PublicClubsBrowser onJoined={onJoined} stripes={stripes} />
+      </div>
+
+      <div style={{ height: 1, background: "rgba(240,184,41,0.12)", margin: "0 16px" }} />
+
+      {/* ── CREATE A CLUB ── */}
+      <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 160, position: "relative" }}>
+          <img src="/crews/icon-crew.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 75, height: 75, objectFit: "contain", position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" }} />
+        </div>
         <div className="flex-1 py-5 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
-          {/* Title + price on same line */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>CREATE A CREW</span>
-            <span style={{ ...IMPACT, fontSize: 22, fontWeight: 900, flexShrink: 0 }}>500◆</span>
+            <span style={{ fontFamily: "'Impact','Anton','Arial Narrow',sans-serif", color: "#C9A227", textTransform: "uppercase", fontSize: 24, fontWeight: 900 }}>
+              CREATE A CLUB
+            </span>
+            <span style={{ fontFamily: "'Impact','Anton','Arial Narrow',sans-serif", color: "#C9A227", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>100◆</span>
           </div>
-          <ChainDivider />
-          <p className="font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
-            START YOUR OWN CREW AND INVITE UP TO 24 MEMBERS.
+          <div className="flex items-center gap-1 my-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} style={{ width: 9, height: 5, borderRadius: 3, background: "rgba(201,162,39,0.5)", border: "1px solid rgba(201,162,39,0.3)" }} />
+            ))}
+          </div>
+          <p className="font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.70)" }}>
+            START YOUR OWN CLUB. INVITE UP TO 24 MEMBERS.
           </p>
-          {stripes < 500 ? (
-            <button
-              onClick={() => window.location.href = "/shop"}
+          {stripes < 100 ? (
+            <button onClick={() => window.location.href = "/shop"}
               className="mt-2 font-mono uppercase text-[10px] underline tracking-wide"
-              style={{ color: "#ef4444" }}
-            >
-              NEED 500 STRIPES — VISIT THE SHOP
+              style={{ color: "#ef4444" }}>
+              NEED 100 STRIPES — VISIT THE SHOP
             </button>
           ) : (
-            <button
-              onClick={onCreate}
-              data-testid="btn-create-crew"
+            <button onClick={onCreate} data-testid="btn-create-crew"
               className="mt-3 font-mono uppercase text-xs font-bold tracking-widest px-4 py-2 rounded-lg transition-all active:scale-95"
-              style={{ background: "rgba(201,162,39,0.20)", border: "1px solid rgba(201,162,39,0.50)", color: "#C9A227" }}
-            >
-              CREATE CREW →
+              style={{ background: "rgba(201,162,39,0.20)", border: "1px solid rgba(201,162,39,0.50)", color: "#C9A227" }}>
+              CREATE CLUB →
             </button>
           )}
         </div>
       </div>
 
-      {/* ── SECTION 2: JOIN A CREW ── */}
-      <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
-        {/* Left: icon */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 150 }}>
-          <img src="/crews/icon-lock.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
+      {/* ── JOIN WITH CODE ── */}
+      <button onClick={onJoin} data-testid="btn-join-crew"
+        className="flex items-stretch w-full transition-all active:scale-[0.98]">
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 130 }}>
+          <img src="/crews/icon-code.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
         </div>
-        {/* Right: text */}
-        <div className="flex-1 py-5 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>JOIN A CREW</span>
-            <span style={{ ...IMPACT, fontSize: 22, fontWeight: 900, flexShrink: 0 }}>50◆</span>
-          </div>
-          <ChainDivider />
-          <p className="font-mono uppercase text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.75)" }}>
-            ENTER A 6-CHARACTER INVITE CODE TO JOIN.
-          </p>
-          {stripes < 50 && (
-            <button
-              onClick={() => window.location.href = "/shop"}
-              className="mt-2 font-mono uppercase text-[10px] underline tracking-wide"
-              style={{ color: "#ef4444" }}
-            >
-              NEED 50 STRIPES — VISIT THE SHOP
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── SECTION 3: JOIN WITH CODE ── */}
-      <button
-        onClick={onJoin}
-        data-testid="btn-join-crew"
-        className="flex items-stretch w-full transition-all active:scale-[0.98]"
-      >
-        {/* Left: icon */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 150, minHeight: 140 }}>
-          <img src="/crews/icon-code.png" alt="" style={{ width: 130, height: 130, objectFit: "contain" }} />
-        </div>
-        {/* Right: text */}
         <div className="flex-1 py-5 pr-4 text-left" style={{ background: "rgba(0,0,0,0.35)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ ...IMPACT, fontSize: 26, fontWeight: 900 }}>JOIN WITH CODE</span>
-            <span style={{ color: "#C9A227", fontSize: 22 }}>›</span>
+            <span style={{ fontFamily: "'Impact','Anton','Arial Narrow',sans-serif", color: "#C9A227", textTransform: "uppercase", fontSize: 24, fontWeight: 900 }}>
+              JOIN WITH CODE
+            </span>
+            <span style={{ color: "#C9A227", fontSize: 20 }}>›</span>
           </div>
-          <div style={{ marginTop: 6, height: 2, width: 140, background: "linear-gradient(90deg, #C9A227 0%, rgba(201,162,39,0) 100%)", borderRadius: 1 }} />
+          <div style={{ marginTop: 6, height: 2, width: 130, background: "linear-gradient(90deg,#C9A227 0%,rgba(201,162,39,0) 100%)", borderRadius: 1 }} />
+          <p className="font-mono text-[11px] mt-2" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Enter a 6-char invite code • 50◆
+          </p>
         </div>
       </button>
 
@@ -408,14 +329,131 @@ function NoCrew({ stripes, onCreate, onJoin }: {
   );
 }
 
-// ─── In-crew state ────────────────────────────────────────────────────────────
-function InCrew({ crew, playerId, tab, onTabChange, onLeave, onKick, onReload }: {
-  crew: CrewDetail; playerId: string; tab: "roster" | "chat" | "info";
-  onTabChange: (t: "roster" | "chat" | "info") => void;
+// ─── Public clubs browser ─────────────────────────────────────────────────────
+function PublicClubsBrowser({ onJoined, stripes }: { onJoined: () => void; stripes: number }) {
+  const { toast } = useToast();
+  const [clubs, setClubs] = useState<PublicClub[] | null>(null);
+  const [joining, setJoining] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch("/api/clubs/public")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setClubs(d?.clubs ?? []))
+      .catch(() => setClubs([]));
+  }, []);
+
+  async function handleJoin(club: PublicClub) {
+    if (stripes < 50) {
+      toast({ title: "Need 50◆ Stripes to join. Visit the Shop.", variant: "destructive" });
+      return;
+    }
+    setJoining(club.id);
+    const res = await apiFetch("/api/crews/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invite_code: club.inviteCode }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    setJoining(null);
+    if (res.ok) { onJoined(); }
+    else toast({ title: d?.error ?? "Failed to join.", variant: "destructive" });
+  }
+
+  if (clubs === null) {
+    return (
+      <p className="font-mono text-xs text-center py-4" style={{ color: GOLD_DIM }}>Loading clubs…</p>
+    );
+  }
+
+  if (clubs.length === 0) {
+    return (
+      <div className="rounded-xl py-6 px-4 text-center" style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.1)" }}>
+        <p className="font-mono text-sm" style={{ color: GOLD_DIM }}>No public clubs yet.</p>
+        <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.3)" }}>Create the first one.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {clubs.map(club => (
+        <div key={club.id} data-testid={`club-card-${club.id}`}
+          className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{ background: "rgba(240,184,41,0.05)", border: "1px solid rgba(240,184,41,0.12)" }}>
+          <div className="flex-1 min-w-0">
+            <div className="font-mono font-bold text-sm truncate" style={{ color: "#fff" }}>
+              {club.name}
+            </div>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="font-mono text-[10px]" style={{ color: GOLD }}>#{club.clubId}</span>
+              <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>{club.memberCount}/25 members</span>
+              <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>{club.chipBank.toLocaleString()} bank</span>
+            </div>
+          </div>
+          <button
+            onClick={() => handleJoin(club)}
+            disabled={joining === club.id}
+            data-testid={`btn-join-club-${club.id}`}
+            className="font-mono text-[10px] font-bold tracking-widest px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+            style={{ border: `1px solid ${GOLD}`, color: GOLD, background: "transparent" }}>
+            {joining === club.id ? "…" : "REQUEST\nTO JOIN"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── VIEW 2/3: In Club ────────────────────────────────────────────────────────
+function InClub({ crew, playerId, myRole, isOwner, isOwnerOrAgent, tab, onTabChange, onLeave, onKick, onReload }: {
+  crew: CrewDetail; playerId: string;
+  myRole: string; isOwner: boolean; isOwnerOrAgent: boolean;
+  tab: "tables" | "members" | "bank" | "chat";
+  onTabChange: (t: "tables" | "members" | "bank" | "chat") => void;
   onLeave: () => void; onKick: (m: CrewMember) => void; onReload: () => void;
 }) {
+  const TABS: Array<{ key: "tables" | "members" | "bank" | "chat"; label: string }> = [
+    { key: "tables",  label: "TABLES"  },
+    { key: "members", label: "MEMBERS" },
+    { key: "bank",    label: "BANK"    },
+    { key: "chat",    label: "CHAT"    },
+  ];
+
+  return (
+    <div className="flex flex-col max-w-lg mx-auto">
+      {/* Tab bar */}
+      <div className="grid grid-cols-4 sticky top-[72px] z-20"
+           style={{ background: "rgba(10,8,4,0.95)", borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => onTabChange(t.key)}
+                  data-testid={`tab-crew-${t.key}`}
+                  className="py-2.5 font-mono text-[11px] tracking-wider transition-colors"
+                  style={{
+                    color: tab === t.key ? GOLD : GOLD_DIM,
+                    borderBottom: tab === t.key ? `2px solid ${GOLD}` : "2px solid transparent",
+                  }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Invite code bar (shown on members tab) */}
+      {tab === "members" && (
+        <InviteBar crew={crew} isOwner={isOwner} onReload={onReload} />
+      )}
+
+      {tab === "tables"  && <TablesTab  crew={crew} playerId={playerId} isOwnerOrAgent={isOwnerOrAgent} />}
+      {tab === "members" && <MembersTab crew={crew} playerId={playerId} myRole={myRole} isOwner={isOwner} isOwnerOrAgent={isOwnerOrAgent} onKick={onKick} onReload={onReload} onLeave={onLeave} />}
+      {tab === "bank"    && <BankTab    crew={crew} playerId={playerId} isOwnerOrAgent={isOwnerOrAgent} onReload={onReload} />}
+      {tab === "chat"    && <ChatTab    crew={crew} playerId={playerId} onReload={onReload} />}
+    </div>
+  );
+}
+
+// ─── Invite bar ───────────────────────────────────────────────────────────────
+function InviteBar({ crew, isOwner, onReload }: { crew: CrewDetail; isOwner: boolean; onReload: () => void }) {
   const { toast } = useToast();
-  const isCaptain = crew.captainId === playerId;
+  const [regen, setRegen] = useState(false);
 
   function copyInvite() {
     navigator.clipboard.writeText(crew.inviteCode).then(
@@ -424,106 +462,413 @@ function InCrew({ crew, playerId, tab, onTabChange, onLeave, onKick, onReload }:
     );
   }
 
-  const TABS: Array<{ key: "roster" | "chat" | "info"; label: string }> = [
-    { key: "roster", label: "ROSTER" },
-    { key: "chat",   label: "CHAT"   },
-    { key: "info",   label: "INFO"   },
-  ];
+  async function handleRegen() {
+    setRegen(true);
+    const res = await apiFetch(`/api/crews/${crew.id}/regenerate-invite`, { method: "POST" });
+    const d = await res.json().catch(() => ({} as { inviteCode?: string; error?: string }));
+    setRegen(false);
+    if (res.ok) { onReload(); toast({ title: `New code: ${d.inviteCode}` }); }
+    else toast({ title: d?.error ?? "Failed.", variant: "destructive" });
+  }
 
   return (
-    <div className="flex flex-col max-w-lg mx-auto">
-      {/* Invite code bar */}
-      <div className="flex items-center justify-between px-4 py-2.5"
-           style={{ borderBottom: "1px solid rgba(240,184,41,0.10)" }}>
-        <span className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Invite code</span>
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-bold tracking-[0.3em] text-sm" style={{ color: "#f0b829" }} data-testid="crew-invite-code">
-            {crew.inviteCode}
-          </span>
-          <button onClick={copyInvite} data-testid="btn-copy-invite"
-                  className="text-xs px-2 py-0.5 rounded font-mono transition-all active:scale-90"
-                  style={{ background: "rgba(240,184,41,0.12)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.25)" }}>
-            COPY
+    <div className="flex items-center justify-between px-4 py-2"
+         style={{ borderBottom: "1px solid rgba(240,184,41,0.08)", background: "rgba(0,0,0,0.25)" }}>
+      <span className="text-[10px] font-mono" style={{ color: GOLD_DIM }}>Invite code</span>
+      <div className="flex items-center gap-2">
+        <span className="font-mono font-bold tracking-[0.3em] text-sm" style={{ color: GOLD }} data-testid="crew-invite-code">
+          {crew.inviteCode}
+        </span>
+        <button onClick={copyInvite} data-testid="btn-copy-invite"
+          className="text-[10px] px-2 py-0.5 rounded font-mono transition-all active:scale-90"
+          style={{ background: "rgba(240,184,41,0.12)", color: GOLD, border: "1px solid rgba(240,184,41,0.25)" }}>
+          COPY
+        </button>
+        {isOwner && (
+          <button onClick={handleRegen} disabled={regen} data-testid="btn-regen-invite"
+            className="text-[10px] px-2 py-0.5 rounded font-mono transition-all active:scale-90 disabled:opacity-40"
+            style={{ background: "rgba(240,184,41,0.08)", color: GOLD_DIM, border: "1px solid rgba(240,184,41,0.15)" }}>
+            {regen ? "…" : "↺"}
           </button>
-        </div>
+        )}
       </div>
-
-      {/* Tab bar */}
-      <div className="grid grid-cols-3" style={{ borderBottom: "1px solid rgba(240,184,41,0.15)" }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => onTabChange(t.key)}
-                  data-testid={`tab-crew-${t.key}`}
-                  className="py-2.5 font-mono text-xs tracking-wider transition-colors"
-                  style={{
-                    color: tab === t.key ? "#f0b829" : "rgba(240,184,41,0.4)",
-                    borderBottom: tab === t.key ? "2px solid #f0b829" : "2px solid transparent",
-                  }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      {tab === "roster" && (
-        <RosterTab crew={crew} playerId={playerId} isCaptain={isCaptain} onKick={onKick} />
-      )}
-      {tab === "chat" && (
-        <ChatTab crew={crew} playerId={playerId} onReload={onReload} />
-      )}
-      {tab === "info" && (
-        <InfoTab crew={crew} playerId={playerId} isCaptain={isCaptain} onLeave={onLeave} onReload={onReload} />
-      )}
     </div>
   );
 }
 
-// ─── Roster tab ───────────────────────────────────────────────────────────────
-function RosterTab({ crew, playerId, isCaptain, onKick }: {
-  crew: CrewDetail; playerId: string; isCaptain: boolean; onKick: (m: CrewMember) => void;
+// ─── TABLES tab ───────────────────────────────────────────────────────────────
+function TablesTab({ crew: _crew, playerId: _playerId, isOwnerOrAgent }: {
+  crew: CrewDetail; playerId: string; isOwnerOrAgent: boolean;
 }) {
-  const sorted = [...crew.members].sort((a, b) => b.totalChipsWon - a.totalChipsWon);
+  const [, navigate] = useLocation();
+
   return (
-    <div className="flex flex-col gap-1 px-4 pt-3">
-      {sorted.map((m, i) => (
-        <div key={m.id} data-testid={`roster-row-${m.playerId}`}
-             className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-             style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.08)" }}>
-          <span className="font-mono text-xs w-5 text-right" style={{ color: "rgba(240,184,41,0.35)" }}>
-            #{i + 1}
-          </span>
-          <AvatarChip name={m.displayName} size={32} equippedFrameId={m.equippedFrameId} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-sm truncate" style={{ color: "#f0b829" }}>{m.displayName}</span>
-              {m.role === "captain" && (
-                <span className="text-[9px] font-mono px-1 rounded" style={{ background: "rgba(240,184,41,0.2)", color: "#f0b829" }}>
-                  CAPTAIN
-                </span>
-              )}
-              {m.playerId === playerId && m.role !== "captain" && (
-                <span className="text-[9px] font-mono px-1 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(240,184,41,0.5)" }}>
-                  YOU
-                </span>
-              )}
+    <div className="px-4 pt-4 flex flex-col gap-4">
+      {isOwnerOrAgent && (
+        <button
+          onClick={() => navigate("/")}
+          data-testid="btn-open-table"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95"
+          style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: `1px solid ${GOLD}` }}>
+          + OPEN TABLE
+        </button>
+      )}
+      <div className="rounded-xl py-10 text-center"
+           style={{ background: "rgba(240,184,41,0.03)", border: "1px solid rgba(240,184,41,0.08)" }}>
+        <p className="font-mono text-sm" style={{ color: GOLD_DIM }}>No tables open.</p>
+        {!isOwnerOrAgent && (
+          <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.3)" }}>
+            Ask your agent to open one.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MEMBERS tab ──────────────────────────────────────────────────────────────
+function MembersTab({ crew, playerId, myRole: _myRole, isOwner, isOwnerOrAgent, onKick, onReload, onLeave }: {
+  crew: CrewDetail; playerId: string; myRole: string;
+  isOwner: boolean; isOwnerOrAgent: boolean;
+  onKick: (m: CrewMember) => void; onReload: () => void; onLeave: () => void;
+}) {
+  const { toast } = useToast();
+  const [sendTarget, setSendTarget] = useState<CrewMember | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState(crew.name);
+  const [editDesc, setEditDesc] = useState(crew.description ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const sorted = [...crew.members].sort((a, b) => {
+    const rOrder = (r: string) => r === "owner" || r === "captain" ? 0 : r === "agent" ? 1 : 2;
+    return rOrder(a.role) - rOrder(b.role) || b.totalChipsWon - a.totalChipsWon;
+  });
+
+  async function handleAppoint(m: CrewMember) {
+    const res = await apiFetch(`/api/crews/${crew.id}/appoint-agent`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPlayerId: m.playerId }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    if (res.ok) { onReload(); toast({ title: `${m.displayName} is now an Agent.` }); }
+    else toast({ title: d?.error ?? "Failed.", variant: "destructive" });
+  }
+
+  async function handleRemoveAgent(m: CrewMember) {
+    const res = await apiFetch(`/api/crews/${crew.id}/remove-agent`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPlayerId: m.playerId }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    if (res.ok) { onReload(); toast({ title: `${m.displayName} demoted to member.` }); }
+    else toast({ title: d?.error ?? "Failed.", variant: "destructive" });
+  }
+
+  async function handleRename() {
+    if (!editName.trim()) return;
+    setSaving(true);
+    const res = await apiFetch(`/api/crews/${crew.id}/rename`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    setSaving(false);
+    if (res.ok) { onReload(); setEditMode(false); toast({ title: "Club updated." }); }
+    else toast({ title: d?.error ?? "Failed to rename.", variant: "destructive" });
+  }
+
+  return (
+    <div className="flex flex-col gap-2 px-4 pt-3 pb-6">
+
+      {/* Owner edit club settings */}
+      {isOwner && (
+        <div className="rounded-xl overflow-hidden mb-1" style={{ border: "1px solid rgba(240,184,41,0.18)" }}>
+          <button onClick={() => setEditMode(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 font-mono text-xs tracking-wider transition-colors"
+            style={{ background: "rgba(240,184,41,0.07)", color: GOLD }}>
+            <span>CLUB SETTINGS</span>
+            <span>{editMode ? "▲" : "▼"}</span>
+          </button>
+          {editMode && (
+            <div className="px-4 py-3 flex flex-col gap-3" style={{ background: "rgba(10,8,4,0.6)" }}>
+              <div>
+                <label className="text-[10px] font-mono" style={{ color: GOLD_DIM }}>Club name</label>
+                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={30}
+                  data-testid="input-rename-crew"
+                  className="w-full rounded-lg px-3 py-2 mt-1 text-sm font-mono outline-none"
+                  style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
+              </div>
+              <div>
+                <label className="text-[10px] font-mono" style={{ color: GOLD_DIM }}>Description (optional)</label>
+                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} maxLength={200} rows={2}
+                  data-testid="input-crew-description"
+                  className="w-full rounded-lg px-3 py-2 mt-1 text-sm font-mono outline-none resize-none"
+                  style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
+              </div>
+              <button onClick={handleRename} disabled={saving || editName.trim().length < 3}
+                data-testid="btn-save-crew-info"
+                className="rounded-lg py-2 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
+                style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: "1px solid rgba(240,184,41,0.35)" }}>
+                {saving ? "Saving…" : "SAVE CHANGES"}
+              </button>
             </div>
-            <p className="text-xs font-mono mt-0.5" style={{ color: "rgba(240,184,41,0.4)" }}>
-              {m.totalChipsWon.toLocaleString()} chips won
-            </p>
-          </div>
-          {isCaptain && m.role !== "captain" && (
-            <button onClick={() => onKick(m)} data-testid={`btn-kick-${m.playerId}`}
-                    className="text-xs px-2 py-1 rounded font-mono transition-all active:scale-90"
-                    style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
-              Kick
-            </button>
           )}
         </div>
-      ))}
+      )}
+
+      {/* Member list */}
+      {sorted.map(m => {
+        const isMe = m.playerId === playerId;
+        const isMemberOwner = m.role === "owner" || m.role === "captain";
+        return (
+          <div key={m.id} data-testid={`roster-row-${m.playerId}`}
+               className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+               style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.08)" }}>
+            <AvatarChip name={m.displayName} size={34} equippedFrameId={m.equippedFrameId} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-sm truncate" style={{ color: "#fff" }}>{m.displayName}</span>
+                {roleBadge(m.role)}
+                {isMe && (
+                  <span className="text-[9px] font-mono px-1 rounded" style={{ background: "rgba(255,255,255,0.06)", color: GOLD_DIM }}>YOU</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[10px] font-mono" style={{ color: "rgba(240,184,41,0.35)" }}>
+                  {m.totalChipsWon.toLocaleString()} chips won
+                </p>
+                {m.chipBalance !== undefined && (
+                  <p className="text-[10px] font-mono" style={{ color: GOLD_DIM }}>
+                    {m.chipBalance.toLocaleString()} chips
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Owner/Agent: send chips to any non-self member */}
+            {isOwnerOrAgent && !isMe && (
+              <button onClick={() => setSendTarget(m)} data-testid={`btn-send-chips-${m.playerId}`}
+                className="text-[10px] px-2 py-1 rounded font-mono transition-all active:scale-90 flex-shrink-0"
+                style={{ background: "rgba(240,184,41,0.12)", color: GOLD, border: "1px solid rgba(240,184,41,0.25)" }}>
+                SEND
+              </button>
+            )}
+            {/* Owner only: promote/demote agents, kick members */}
+            {isOwner && !isMe && !isMemberOwner && (
+              <>
+                {m.role === "agent" ? (
+                  <button onClick={() => handleRemoveAgent(m)} data-testid={`btn-remove-agent-${m.playerId}`}
+                    className="text-[10px] px-2 py-1 rounded font-mono transition-all active:scale-90 flex-shrink-0"
+                    style={{ background: "rgba(180,180,180,0.1)", color: "#aaa", border: "1px solid rgba(180,180,180,0.2)" }}>
+                    −AGENT
+                  </button>
+                ) : (
+                  <button onClick={() => handleAppoint(m)} data-testid={`btn-appoint-agent-${m.playerId}`}
+                    className="text-[10px] px-2 py-1 rounded font-mono transition-all active:scale-90 flex-shrink-0"
+                    style={{ background: "rgba(180,180,180,0.1)", color: "#aaa", border: "1px solid rgba(180,180,180,0.2)" }}>
+                    +AGENT
+                  </button>
+                )}
+                <button onClick={() => onKick(m)} data-testid={`btn-kick-${m.playerId}`}
+                  className="text-[10px] px-2 py-1 rounded font-mono transition-all active:scale-90 flex-shrink-0"
+                  style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                  KICK
+                </button>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Leave */}
+      <button onClick={onLeave} data-testid="btn-leave-crew"
+        className="w-full mt-2 rounded-xl py-3 font-mono text-sm font-bold tracking-wider transition-all active:scale-95"
+        style={{ background: "rgba(239,68,68,0.10)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+        LEAVE CLUB
+      </button>
+
+      {/* Send chips modal */}
+      {sendTarget && (
+        <SendChipsModal crew={_fakeCrewRef()} target={sendTarget}
+          onClose={() => setSendTarget(null)}
+          onSent={() => { setSendTarget(null); onReload(); }} />
+      )}
+    </div>
+  );
+
+  function _fakeCrewRef() { return crew; }
+}
+
+// ─── BANK tab ─────────────────────────────────────────────────────────────────
+function BankTab({ crew, playerId, isOwnerOrAgent, onReload }: {
+  crew: CrewDetail; playerId: string; isOwnerOrAgent: boolean; onReload: () => void;
+}) {
+  const { toast } = useToast();
+  const [showFund, setShowFund]         = useState(false);
+  const [showRequest, setShowRequest]   = useState(false);
+  const [requests, setRequests]         = useState<ChipRequest[] | null>(null);
+  const [resolving, setResolving]       = useState<number | null>(null);
+
+  const loadRequests = useCallback(async () => {
+    const res = await apiFetch(`/api/crews/${crew.id}/chip-requests`);
+    if (res.ok) { const d = await res.json(); setRequests(d.requests ?? []); }
+    else setRequests([]);
+  }, [crew.id]);
+
+  useEffect(() => { loadRequests(); }, [loadRequests]);
+
+  async function handleResolve(reqId: number, approve: boolean) {
+    setResolving(reqId);
+    const res = await apiFetch(`/api/crews/${crew.id}/requests/${reqId}/resolve`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approve }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    setResolving(null);
+    if (res.ok) { loadRequests(); onReload(); toast({ title: approve ? "Chips sent!" : "Request rejected." }); }
+    else toast({ title: d?.error ?? "Failed.", variant: "destructive" });
+  }
+
+  const pendingRequests = (requests ?? []).filter(r => r.status === "pending");
+  const myRequests      = (requests ?? []).filter(r => !isOwnerOrAgent);
+
+  return (
+    <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
+
+      {/* Bank balance */}
+      <div className="rounded-2xl py-6 px-4 text-center"
+           style={{ background: "rgba(240,184,41,0.06)", border: "1px solid rgba(240,184,41,0.2)" }}>
+        <p className="font-mono text-xs tracking-widest mb-1" style={{ color: GOLD_DIM }}>CLUB BANK</p>
+        <p className="font-mono font-bold text-4xl" style={{ color: GOLD }} data-testid="bank-balance">
+          {(crew.chipBank ?? 0).toLocaleString()}
+        </p>
+        <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.35)" }}>chips</p>
+      </div>
+
+      {/* Owner/Agent: Fund Bank */}
+      {isOwnerOrAgent && (
+        <button onClick={() => setShowFund(true)} data-testid="btn-fund-bank"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95"
+          style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: `1px solid ${GOLD}` }}>
+          FUND BANK
+        </button>
+      )}
+
+      {/* Member: Request Chips */}
+      {!isOwnerOrAgent && (
+        <button onClick={() => setShowRequest(true)} data-testid="btn-request-chips"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95"
+          style={{ background: "rgba(240,184,41,0.1)", color: GOLD, border: `1px solid rgba(240,184,41,0.4)` }}>
+          REQUEST CHIPS
+        </button>
+      )}
+
+      {/* Owner/Agent: Pending requests */}
+      {isOwnerOrAgent && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-xs tracking-wider" style={{ color: GOLD }}>PENDING REQUESTS</span>
+            {pendingRequests.length > 0 && (
+              <span className="rounded-full text-[9px] font-mono px-1.5 py-0.5" style={{ background: "rgba(240,184,41,0.2)", color: GOLD }}>
+                {pendingRequests.length}
+              </span>
+            )}
+          </div>
+          {requests === null ? (
+            <p className="font-mono text-xs text-center py-4" style={{ color: GOLD_DIM }}>Loading…</p>
+          ) : pendingRequests.length === 0 ? (
+            <p className="font-mono text-xs text-center py-4 rounded-xl"
+               style={{ color: GOLD_DIM, background: "rgba(240,184,41,0.03)", border: "1px solid rgba(240,184,41,0.08)" }}>
+              No pending requests.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pendingRequests.map(req => (
+                <div key={req.id} data-testid={`chip-request-${req.id}`}
+                     className="flex items-center gap-3 rounded-xl px-4 py-3"
+                     style={{ background: "rgba(240,184,41,0.05)", border: "1px solid rgba(240,184,41,0.12)" }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-bold" style={{ color: "#fff" }}>{req.playerName ?? req.playerId.slice(0, 8)}</p>
+                    <p className="font-mono text-xs" style={{ color: GOLD }}>{req.amount.toLocaleString()} chips</p>
+                    <p className="font-mono text-[10px] mt-0.5" style={{ color: "rgba(240,184,41,0.3)" }}>
+                      {new Date(req.requestedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button onClick={() => handleResolve(req.id, true)}
+                      disabled={resolving === req.id}
+                      data-testid={`btn-approve-request-${req.id}`}
+                      className="px-3 py-1 rounded-lg font-mono text-[10px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                      style={{ background: "rgba(34,197,94,0.2)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
+                      {resolving === req.id ? "…" : "APPROVE"}
+                    </button>
+                    <button onClick={() => handleResolve(req.id, false)}
+                      disabled={resolving === req.id}
+                      data-testid={`btn-reject-request-${req.id}`}
+                      className="px-3 py-1 rounded-lg font-mono text-[10px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                      style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                      REJECT
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Member: Own request history */}
+      {!isOwnerOrAgent && (
+        <div>
+          <p className="font-mono text-xs tracking-wider mb-2" style={{ color: GOLD }}>MY REQUESTS</p>
+          {requests === null ? (
+            <p className="font-mono text-xs text-center py-4" style={{ color: GOLD_DIM }}>Loading…</p>
+          ) : myRequests.length === 0 ? (
+            <p className="font-mono text-xs text-center py-3 rounded-xl"
+               style={{ color: GOLD_DIM, background: "rgba(240,184,41,0.03)", border: "1px solid rgba(240,184,41,0.08)" }}>
+              No requests yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {(requests).map(req => (
+                <div key={req.id} data-testid={`my-request-${req.id}`}
+                     className="flex items-center justify-between rounded-xl px-4 py-3"
+                     style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.08)" }}>
+                  <div>
+                    <p className="font-mono text-sm" style={{ color: "#fff" }}>{req.amount.toLocaleString()} chips</p>
+                    <p className="font-mono text-[10px] mt-0.5" style={{ color: "rgba(240,184,41,0.35)" }}>
+                      {new Date(req.requestedAt).toLocaleString([], { month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+                  <span className="font-mono text-[10px] px-2 py-1 rounded"
+                        style={{
+                          background: req.status === "approved" ? "rgba(34,197,94,0.15)" : req.status === "rejected" ? "rgba(239,68,68,0.12)" : "rgba(240,184,41,0.12)",
+                          color:      req.status === "approved" ? "#22c55e" : req.status === "rejected" ? "#ef4444" : GOLD,
+                        }}>
+                    {req.status.toUpperCase()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modals */}
+      {showFund && (
+        <FundBankModal crew={crew}
+          onClose={() => setShowFund(false)}
+          onFunded={() => { setShowFund(false); onReload(); toast({ title: "Bank funded!" }); }} />
+      )}
+      {showRequest && (
+        <RequestChipsModal crew={crew}
+          onClose={() => setShowRequest(false)}
+          onRequested={() => { setShowRequest(false); loadRequests(); toast({ title: "Request submitted!" }); }} />
+      )}
     </div>
   );
 }
 
-// ─── Chat tab ─────────────────────────────────────────────────────────────────
+// ─── CHAT tab ─────────────────────────────────────────────────────────────────
 function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onReload: () => void }) {
   const { toast }           = useToast();
   const [msgs, setMsgs]     = useState<ChatMsg[]>([]);
@@ -550,9 +895,7 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     if (newOnes.length > 0) {
       newOnes.forEach(m => seenIds.current.add(m.id));
       setMsgs(prev => {
-        const all = [...prev, ...newOnes].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        const all = [...prev, ...newOnes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         return all.slice(-200);
       });
     }
@@ -564,9 +907,7 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchMsgs]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   useEffect(() => {
     if (!crewMenu) return;
@@ -585,7 +926,6 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
       longPressRef.current = setTimeout(() => setCrewMenu({ msgId: m.id, name: m.playerName, pid: m.playerId, x, y }), 500);
     };
   }
-
   function cancelLongPress() {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
   }
@@ -607,155 +947,94 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
     setCrewReporting(true);
     try {
       const res = await apiFetch('/api/players/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reportedId:  crewReportTarget.pid,
-          reason:      crewReportReason,
-          context:     crewReportTarget.msgId,
-          contextType: 'crew_chat',
-          notes:       crewReportNotes.trim() || undefined,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportedId: crewReportTarget.pid, reason: crewReportReason, context: crewReportTarget.msgId, contextType: 'crew_chat', notes: crewReportNotes.trim() || undefined }),
       });
       const d = await res.json().catch(() => ({} as { error?: string }));
       if (res.ok) toast({ title: 'Report submitted. Our team will review it.' });
       else toast({ title: d?.error ?? 'Could not submit report.', variant: 'destructive' });
     } catch { toast({ title: 'Network error.', variant: 'destructive' }); }
-    finally {
-      setCrewReporting(false); setCrewReportTarget(null);
-      setCrewReportReason('harassment'); setCrewReportNotes('');
-    }
+    finally { setCrewReporting(false); setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }
   }
 
   async function send() {
     if (!text.trim() || sending) return;
     setSend(true);
     const res = await apiFetch(`/api/crews/${crew.id}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text.trim() }),
     });
     const d = await res.json().catch(() => ({} as { error?: string }));
     setSend(false);
-    if (res.ok) {
-      setText("");
-      fetchMsgs();
-    } else if (res.status === 422) {
-      toast({ title: "Message blocked — please keep it clean.", variant: "destructive" });
-    } else if (res.status === 429) {
-      toast({ title: "Slow down — too many messages.", variant: "destructive" });
-    } else {
-      toast({ title: d?.error ?? "Failed to send.", variant: "destructive" });
-    }
+    if (res.ok) { setText(""); fetchMsgs(); }
+    else if (res.status === 422) toast({ title: "Message blocked — please keep it clean.", variant: "destructive" });
+    else if (res.status === 429) toast({ title: "Slow down — too many messages.", variant: "destructive" });
+    else toast({ title: d?.error ?? "Failed to send.", variant: "destructive" });
   }
 
-  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") send();
-  }
+  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) { if (e.key === "Enter") send(); }
 
-  const memberRole = (pid: string) =>
-    crew.members.find(m => m.playerId === pid)?.role ?? "member";
+  const memberRole = (pid: string) => crew.members.find(m => m.playerId === pid)?.role ?? "member";
 
   return (
     <>
       {crewMenu && (
-        <div
-          className="fixed z-[200] rounded-xl shadow-2xl py-1 border min-w-[160px]"
-          style={{ top: crewMenu.y, left: Math.min(crewMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 180), background: '#1a1a1f', borderColor: 'rgba(255,255,255,0.08)' }}
-          onClick={e => e.stopPropagation()}
-          data-testid="crew-chat-context-menu"
-        >
-          <button
-            className="w-full text-left px-4 py-2.5 text-xs font-mono"
-            style={{ color: 'rgba(220,80,80,0.80)' }}
+        <div className="fixed z-[200] rounded-xl shadow-2xl py-1 border min-w-[160px]"
+             style={{ top: crewMenu.y, left: Math.min(crewMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 180), background: '#1a1a1f', borderColor: 'rgba(255,255,255,0.08)' }}
+             onClick={e => e.stopPropagation()} data-testid="crew-chat-context-menu">
+          <button className="w-full text-left px-4 py-2.5 text-xs font-mono" style={{ color: 'rgba(220,80,80,0.80)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             onClick={() => { setCrewBlockTarget({ name: crewMenu.name, pid: crewMenu.pid }); setCrewMenu(null); }}
-            data-testid="crew-chat-menu-block"
-          >
-            Block {crewMenu.name}
-          </button>
-          <button
-            className="w-full text-left px-4 py-2.5 text-xs font-mono"
-            style={{ color: 'rgba(201,162,39,0.80)' }}
+            data-testid="crew-chat-menu-block">Block {crewMenu.name}</button>
+          <button className="w-full text-left px-4 py-2.5 text-xs font-mono" style={{ color: 'rgba(201,162,39,0.80)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             onClick={() => { setCrewReportTarget({ name: crewMenu.name, pid: crewMenu.pid, msgId: crewMenu.msgId }); setCrewMenu(null); }}
-            data-testid="crew-chat-menu-report"
-          >
-            Report {crewMenu.name}
-          </button>
+            data-testid="crew-chat-menu-report">Report {crewMenu.name}</button>
         </div>
       )}
       {crewBlockTarget && (
-        <div
-          className="fixed inset-0 z-[300] flex items-center justify-center px-4"
-          style={{ background: 'rgba(0,0,0,0.60)' }}
-          onClick={() => setCrewBlockTarget(null)}
-          data-testid="crew-block-confirm-overlay"
-        >
-          <div
-            className="w-full max-w-xs rounded-2xl p-5 space-y-4"
-            style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
-            onClick={e => e.stopPropagation()}
-            data-testid="crew-block-confirm-modal"
-          >
+        <div className="fixed inset-0 z-[300] flex items-center justify-center px-4"
+             style={{ background: 'rgba(0,0,0,0.60)' }}
+             onClick={() => setCrewBlockTarget(null)} data-testid="crew-block-confirm-overlay">
+          <div className="w-full max-w-xs rounded-2xl p-5 space-y-4"
+               style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
+               onClick={e => e.stopPropagation()} data-testid="crew-block-confirm-modal">
             <div>
               <div className="text-sm font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.85)' }}>Block {crewBlockTarget.name}?</div>
-              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.40)' }}>
-                You won't see their messages. You can unblock them in Settings.
-              </p>
+              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.40)' }}>You won't see their messages. You can unblock them in Settings.</p>
             </div>
             <div className="flex gap-2 pt-1">
-              <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
+              <button className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
                 style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.40)' }}
-                onClick={() => setCrewBlockTarget(null)}
-                data-testid="crew-block-confirm-cancel"
-              >
-                Cancel
-              </button>
-              <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
+                onClick={() => setCrewBlockTarget(null)} data-testid="crew-block-confirm-cancel">Cancel</button>
+              <button className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
                 style={{ background: 'rgba(220,80,80,0.20)', color: 'rgba(220,80,80,0.90)' }}
-                onClick={confirmCrewBlock}
-                disabled={crewBlocking}
-                data-testid="crew-block-confirm-submit"
-              >
-                {crewBlocking ? 'Blocking…' : 'Block'}
-              </button>
+                onClick={confirmCrewBlock} disabled={crewBlocking} data-testid="crew-block-confirm-submit">
+                {crewBlocking ? 'Blocking…' : 'Block'}</button>
             </div>
           </div>
         </div>
       )}
       {crewReportTarget && (
-        <div
-          className="fixed inset-0 z-[300] flex items-center justify-center px-4"
-          style={{ background: 'rgba(0,0,0,0.60)' }}
-          onClick={() => { setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }}
-          data-testid="crew-report-modal-overlay"
-        >
-          <div
-            className="w-full max-w-xs rounded-2xl p-5 space-y-4"
-            style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
-            onClick={e => e.stopPropagation()}
-            data-testid="crew-report-modal"
-          >
+        <div className="fixed inset-0 z-[300] flex items-center justify-center px-4"
+             style={{ background: 'rgba(0,0,0,0.60)' }}
+             onClick={() => { setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }}
+             data-testid="crew-report-modal-overlay">
+          <div className="w-full max-w-xs rounded-2xl p-5 space-y-4"
+               style={{ background: '#17171c', border: '1px solid rgba(255,255,255,0.08)' }}
+               onClick={e => e.stopPropagation()} data-testid="crew-report-modal">
             <div>
               <div className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>Report {crewReportTarget.name}</div>
-              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                Our team reviews all reports. False reports may result in account action.
-              </p>
+              <p className="text-xs font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>Our team reviews all reports.</p>
             </div>
             <div>
               <label className="block mb-1.5 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.30)' }}>Reason</label>
-              <select
-                value={crewReportReason}
-                onChange={e => setCrewReportReason(e.target.value)}
+              <select value={crewReportReason} onChange={e => setCrewReportReason(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 text-sm font-mono border focus:outline-none"
                 style={{ background: 'rgba(0,0,0,0.40)', color: 'rgba(255,255,255,0.75)', borderColor: 'rgba(255,255,255,0.08)' }}
-                data-testid="crew-report-reason-select"
-              >
+                data-testid="crew-report-reason-select">
                 <option value="harassment">Harassment</option>
                 <option value="cheating">Cheating</option>
                 <option value="spam">Spam</option>
@@ -766,236 +1045,215 @@ function ChatTab({ crew, playerId }: { crew: CrewDetail; playerId: string; onRel
             </div>
             <div>
               <label className="block mb-1.5 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.30)' }}>Notes (optional)</label>
-              <textarea
-                value={crewReportNotes}
-                onChange={e => setCrewReportNotes(e.target.value)}
-                maxLength={500}
-                rows={3}
-                placeholder="Additional details…"
+              <textarea value={crewReportNotes} onChange={e => setCrewReportNotes(e.target.value)}
+                maxLength={500} rows={3} placeholder="Additional details…"
                 className="w-full rounded-xl px-3 py-2 text-sm font-mono border focus:outline-none resize-none"
                 style={{ background: 'rgba(0,0,0,0.40)', color: 'rgba(255,255,255,0.65)', borderColor: 'rgba(255,255,255,0.08)' }}
-                data-testid="crew-report-notes-textarea"
-              />
+                data-testid="crew-report-notes-textarea" />
               <div className="text-right text-[9px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.20)' }} data-testid="crew-report-notes-counter">
                 {crewReportNotes.length}/500
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
+              <button className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97]"
                 style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.40)' }}
                 onClick={() => { setCrewReportTarget(null); setCrewReportReason('harassment'); setCrewReportNotes(''); }}
-                data-testid="crew-report-cancel"
-              >Cancel</button>
-              <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
+                data-testid="crew-report-cancel">Cancel</button>
+              <button className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all active:scale-[0.97] disabled:opacity-50"
                 style={{ background: 'rgba(201,162,39,0.20)', color: 'rgba(201,162,39,0.90)' }}
-                onClick={submitCrewReport}
-                disabled={crewReporting}
-                data-testid="crew-report-submit"
-              >{crewReporting ? 'Sending…' : 'Submit'}</button>
+                onClick={submitCrewReport} disabled={crewReporting} data-testid="crew-report-submit">
+                {crewReporting ? 'Sending…' : 'Submit'}</button>
             </div>
           </div>
         </div>
       )}
-      <div className="flex flex-col" style={{ height: "calc(100vh - 230px)" }}>
-      {/* Message feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2">
-        {msgs.length === 0 && (
-          <p className="text-center text-xs font-mono pt-8" style={{ color: "rgba(240,184,41,0.3)" }}>
-            No messages yet. Say something.
-          </p>
-        )}
-        {msgs.map(m => {
-          const role = memberRole(m.playerId);
-          const isMe = m.playerId === playerId;
-          return (
-            <div key={m.id} data-testid={`chat-msg-${m.id}`}
-                 className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-              <AvatarChip name={m.playerName} size={26} />
-              <div className={`flex flex-col max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>
-                    {m.playerName}
+      <div className="flex flex-col" style={{ height: "calc(100vh - 190px)" }}>
+        <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2">
+          {msgs.length === 0 && (
+            <p className="text-center text-xs font-mono pt-8" style={{ color: "rgba(240,184,41,0.3)" }}>No messages yet. Say something.</p>
+          )}
+          {msgs.map(m => {
+            const role = memberRole(m.playerId);
+            const isMe = m.playerId === playerId;
+            return (
+              <div key={m.id} data-testid={`chat-msg-${m.id}`}
+                   className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+                <AvatarChip name={m.playerName} size={26} />
+                <div className={`flex flex-col max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[10px] font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>{m.playerName}</span>
+                    {(role === "owner" || role === "captain") && (
+                      <span className="text-[8px] font-mono px-0.5 rounded" style={{ background: "rgba(240,184,41,0.15)", color: GOLD }}>OWNER</span>
+                    )}
+                    {role === "agent" && (
+                      <span className="text-[8px] font-mono px-0.5 rounded" style={{ background: "rgba(180,180,180,0.12)", color: "#aaa" }}>AGENT</span>
+                    )}
+                  </div>
+                  <div className="rounded-xl px-3 py-1.5 text-xs font-mono break-words select-none"
+                       style={{ background: isMe ? "rgba(240,184,41,0.18)" : "rgba(255,255,255,0.06)", color: isMe ? GOLD : "rgba(240,184,41,0.8)", border: "1px solid rgba(240,184,41,0.10)" }}
+                       onContextMenu={!isMe ? (e) => { e.preventDefault(); setCrewMenu({ msgId: m.id, name: m.playerName, pid: m.playerId, x: e.clientX, y: e.clientY }); } : undefined}
+                       onTouchStart={!isMe ? startLongPress(m) : undefined}
+                       onTouchEnd={!isMe ? cancelLongPress : undefined}
+                       onTouchMove={!isMe ? cancelLongPress : undefined}>
+                    {m.message}
+                  </div>
+                  <span className="text-[9px] font-mono mt-0.5" style={{ color: "rgba(240,184,41,0.25)" }}>
+                    {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
-                  {role === "captain" && (
-                    <span className="text-[8px] font-mono px-0.5 rounded" style={{ background: "rgba(240,184,41,0.15)", color: "#f0b829" }}>
-                      CAPTAIN
-                    </span>
-                  )}
                 </div>
-                <div className="rounded-xl px-3 py-1.5 text-xs font-mono break-words select-none"
-                     style={{
-                       background: isMe ? "rgba(240,184,41,0.18)" : "rgba(255,255,255,0.06)",
-                       color: isMe ? "#f0b829" : "rgba(240,184,41,0.8)",
-                       border: "1px solid rgba(240,184,41,0.10)",
-                     }}
-                     onContextMenu={!isMe ? (e) => { e.preventDefault(); setCrewMenu({ msgId: m.id, name: m.playerName, pid: m.playerId, x: e.clientX, y: e.clientY }); } : undefined}
-                     onTouchStart={!isMe ? startLongPress(m) : undefined}
-                     onTouchEnd={!isMe ? cancelLongPress : undefined}
-                     onTouchMove={!isMe ? cancelLongPress : undefined}>
-                  {m.message}
-                </div>
-                <span className="text-[9px] font-mono mt-0.5" style={{ color: "rgba(240,184,41,0.25)" }}>
-                  {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
               </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+        <div className="px-4 pb-3 flex gap-2 pt-2" style={{ borderTop: "1px solid rgba(240,184,41,0.10)" }}>
+          <input value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKey}
+            maxLength={500} placeholder="Say something…" data-testid="input-crew-chat"
+            className="flex-1 rounded-xl px-3 py-2 text-sm font-mono outline-none"
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
+          <button onClick={send} disabled={!text.trim() || sending} data-testid="btn-send-chat"
+            className="rounded-xl px-4 py-2 font-mono text-xs font-bold transition-all active:scale-90 disabled:opacity-40"
+            style={{ background: "rgba(240,184,41,0.2)", color: GOLD, border: "1px solid rgba(240,184,41,0.4)" }}>
+            SEND
+          </button>
+        </div>
       </div>
-
-      {/* Input bar */}
-      <div className="px-4 pb-3 flex gap-2" style={{ borderTop: "1px solid rgba(240,184,41,0.10)" }}>
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={handleKey}
-          maxLength={500}
-          placeholder="Say something…"
-          data-testid="input-crew-chat"
-          className="flex-1 rounded-xl px-3 py-2 text-sm font-mono outline-none"
-          style={{
-            background: "rgba(240,184,41,0.07)",
-            border: "1px solid rgba(240,184,41,0.2)",
-            color: "#f0b829",
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!text.trim() || sending}
-          data-testid="btn-send-chat"
-          className="rounded-xl px-4 py-2 font-mono text-xs font-bold transition-all active:scale-90 disabled:opacity-40"
-          style={{ background: "rgba(240,184,41,0.2)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.4)" }}
-        >
-          SEND
-        </button>
-      </div>
-    </div>
     </>
   );
 }
 
-// ─── Info tab ─────────────────────────────────────────────────────────────────
-function InfoTab({ crew, playerId, isCaptain, onLeave, onReload }: {
-  crew: CrewDetail; playerId: string; isCaptain: boolean;
-  onLeave: () => void; onReload: () => void;
+// ─── Send Chips modal ─────────────────────────────────────────────────────────
+function SendChipsModal({ crew, target, onClose, onSent }: {
+  crew: CrewDetail; target: CrewMember; onClose: () => void; onSent: () => void;
 }) {
-  const { toast }                 = useToast();
-  const [editName, setEditName]   = useState(crew.name);
-  const [editDesc, setEditDesc]   = useState(crew.description ?? "");
-  const [saving, setSaving]       = useState(false);
-  const [regen, setRegen]         = useState(false);
+  const { toast } = useToast();
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleRename() {
-    if (!editName.trim()) return;
-    setSaving(true);
-    const res = await apiFetch(`/api/crews/${crew.id}/rename`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null }),
+  async function handleSend() {
+    const amt = parseInt(amount, 10);
+    if (!amt || amt <= 0) return;
+    setLoading(true);
+    const res = await apiFetch(`/api/crews/${crew.id}/distribute`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPlayerId: target.playerId, amount: amt }),
     });
     const d = await res.json().catch(() => ({} as { error?: string }));
-    setSaving(false);
-    if (res.ok) { onReload(); toast({ title: "Crew updated." }); }
-    else         toast({ title: d?.error ?? "Failed to rename.", variant: "destructive" });
+    setLoading(false);
+    if (res.ok) onSent();
+    else toast({ title: d?.error ?? "Failed to send chips.", variant: "destructive" });
   }
-
-  async function handleRegenInvite() {
-    setRegen(true);
-    const res = await apiFetch(`/api/crews/${crew.id}/regenerate-invite`, { method: "POST" });
-    const d = await res.json().catch(() => ({} as { inviteCode?: string; error?: string }));
-    setRegen(false);
-    if (res.ok) { onReload(); toast({ title: `New code: ${d.inviteCode}` }); }
-    else         toast({ title: d?.error ?? "Failed.", variant: "destructive" });
-  }
-
-  const memberCount = crew.memberCount;
-  const nextCaptain = [...crew.members]
-    .filter(m => m.role === "member")
-    .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())[0];
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-4">
-      {/* Crew description */}
-      <div className="rounded-xl p-4" style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.10)" }}>
-        <p className="text-xs font-mono mb-1" style={{ color: "rgba(240,184,41,0.45)" }}>DESCRIPTION</p>
-        <p className="text-sm" style={{ color: "rgba(240,184,41,0.7)" }}>
-          {crew.description || <em style={{ color: "rgba(240,184,41,0.3)" }}>No description set.</em>}
-        </p>
-      </div>
-
-      <div className="rounded-xl p-4" style={{ background: "rgba(240,184,41,0.04)", border: "1px solid rgba(240,184,41,0.10)" }}>
-        <p className="text-xs font-mono mb-1" style={{ color: "rgba(240,184,41,0.45)" }}>FOUNDED</p>
-        <p className="text-sm font-mono" style={{ color: "rgba(240,184,41,0.7)" }}>
-          {new Date(crew.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
-        </p>
-      </div>
-
-      {/* Captain controls */}
-      {isCaptain && (
-        <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: "rgba(240,184,41,0.05)", border: "1px solid rgba(240,184,41,0.18)" }}>
-          <p className="font-mono text-xs font-bold tracking-wider" style={{ color: "#f0b829" }}>CAPTAIN CONTROLS</p>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Crew name</label>
-            <input
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              maxLength={30}
-              data-testid="input-rename-crew"
-              className="rounded-lg px-3 py-2 text-sm font-mono outline-none"
-              style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: "#f0b829" }}
-            />
-            <label className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Description (optional)</label>
-            <textarea
-              value={editDesc}
-              onChange={e => setEditDesc(e.target.value)}
-              maxLength={200}
-              rows={3}
-              data-testid="input-crew-description"
-              className="rounded-lg px-3 py-2 text-sm font-mono outline-none resize-none"
-              style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: "#f0b829" }}
-            />
-            <button
-              onClick={handleRename}
-              disabled={saving || editName.trim().length < 3}
-              data-testid="btn-save-crew-info"
-              className="rounded-lg py-2 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-              style={{ background: "rgba(240,184,41,0.15)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.35)" }}
-            >
-              {saving ? "Saving…" : "SAVE CHANGES"}
-            </button>
-          </div>
-
-          <button
-            onClick={handleRegenInvite}
-            disabled={regen}
-            data-testid="btn-regen-invite"
-            className="rounded-lg py-2 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: "rgba(240,184,41,0.07)", color: "#f0b829", border: "1px solid rgba(240,184,41,0.2)" }}
-          >
-            {regen ? "Generating…" : "↺ REGENERATE INVITE CODE"}
-          </button>
-
-          <p className="text-xs" style={{ color: "rgba(240,184,41,0.35)" }}>
-            {memberCount > 1
-              ? `Leaving will promote ${nextCaptain?.displayName ?? "the next member"} to Captain.`
-              : "Leaving will permanently disband this Crew."}
-          </p>
+    <Modal onClose={onClose} title={`SEND CHIPS TO ${target.displayName.toUpperCase()}`}>
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Amount</label>
+          <input value={amount} onChange={e => setAmount(e.target.value.replace(/\D/g, ""))}
+            placeholder="e.g. 1000" data-testid="input-send-amount"
+            className="w-full rounded-lg px-3 py-2 mt-1 text-xl font-mono outline-none text-center"
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
         </div>
-      )}
+        <button onClick={handleSend} disabled={!amount || loading || parseInt(amount,10) <= 0}
+          data-testid="btn-confirm-send-chips"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
+          style={{ background: "rgba(240,184,41,0.2)", color: GOLD, border: "1px solid rgba(240,184,41,0.5)" }}>
+          {loading ? "Sending…" : `SEND ${amount ? parseInt(amount,10).toLocaleString() : "—"} CHIPS`}
+        </button>
+      </div>
+    </Modal>
+  );
+}
 
-      {/* Leave button */}
-      <button
-        onClick={onLeave}
-        data-testid="btn-leave-crew"
-        className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-wider transition-all active:scale-95"
-        style={{ background: "rgba(239,68,68,0.10)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}
-      >
-        LEAVE CREW
-      </button>
-    </div>
+// ─── Request Chips modal ──────────────────────────────────────────────────────
+function RequestChipsModal({ crew, onClose, onRequested }: {
+  crew: CrewDetail; onClose: () => void; onRequested: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleRequest() {
+    const amt = parseInt(amount, 10);
+    if (!amt || amt <= 0) return;
+    setLoading(true);
+    const res = await apiFetch(`/api/crews/${crew.id}/request-chips`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: amt }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    setLoading(false);
+    if (res.ok) onRequested();
+    else toast({ title: d?.error ?? "Failed to submit request.", variant: "destructive" });
+  }
+
+  return (
+    <Modal onClose={onClose} title="REQUEST CHIPS">
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>How many chips do you need?</label>
+          <input value={amount} onChange={e => setAmount(e.target.value.replace(/\D/g, ""))}
+            placeholder="e.g. 5000" data-testid="input-request-amount"
+            className="w-full rounded-lg px-3 py-2 mt-1 text-xl font-mono outline-none text-center"
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
+        </div>
+        <p className="text-xs font-mono text-center" style={{ color: "rgba(240,184,41,0.4)" }}>
+          Your owner or agent will approve the request.
+        </p>
+        <button onClick={handleRequest} disabled={!amount || loading || parseInt(amount,10) <= 0}
+          data-testid="btn-confirm-request-chips"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
+          style={{ background: "rgba(240,184,41,0.12)", color: GOLD, border: `1px solid ${GOLD}` }}>
+          {loading ? "Requesting…" : `REQUEST ${amount ? parseInt(amount,10).toLocaleString() : "—"} CHIPS`}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Fund Bank modal ──────────────────────────────────────────────────────────
+function FundBankModal({ crew, onClose, onFunded }: {
+  crew: CrewDetail; onClose: () => void; onFunded: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleFund() {
+    const amt = parseInt(amount, 10);
+    if (!amt || amt <= 0) return;
+    setLoading(true);
+    const res = await apiFetch(`/api/crews/${crew.id}/fund-bank`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: amt }),
+    });
+    const d = await res.json().catch(() => ({} as { error?: string }));
+    setLoading(false);
+    if (res.ok) onFunded();
+    else toast({ title: d?.error ?? "Failed to fund bank.", variant: "destructive" });
+  }
+
+  return (
+    <Modal onClose={onClose} title="FUND CLUB BANK">
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Transfer from your chips to club bank</label>
+          <input value={amount} onChange={e => setAmount(e.target.value.replace(/\D/g, ""))}
+            placeholder="e.g. 10000" data-testid="input-fund-amount"
+            className="w-full rounded-lg px-3 py-2 mt-1 text-xl font-mono outline-none text-center"
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
+        </div>
+        <div className="text-center text-xs font-mono" style={{ color: GOLD_DIM }}>
+          Current bank: {(crew.chipBank ?? 0).toLocaleString()} chips
+        </div>
+        <button onClick={handleFund} disabled={!amount || loading || parseInt(amount,10) <= 0}
+          data-testid="btn-confirm-fund-bank"
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
+          style={{ background: "rgba(240,184,41,0.2)", color: GOLD, border: `1px solid ${GOLD}` }}>
+          {loading ? "Funding…" : `ADD ${amount ? parseInt(amount,10).toLocaleString() : "—"} TO BANK`}
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -1008,70 +1266,52 @@ function CreateCrewModal({ stripes, onClose, onCreated }: {
   const [desc, setDesc]       = useState("");
   const [loading, setLoading] = useState(false);
 
-  const nameErr = name.trim().length > 0 && (name.trim().length < 3 ? "Min 3 chars" : name.trim().length > 30 ? "Max 30 chars" : null);
-  const canCreate = name.trim().length >= 3 && name.trim().length <= 30 && stripes >= 500;
+  const nameErr  = name.trim().length > 0 && (name.trim().length < 3 ? "Min 3 chars" : name.trim().length > 30 ? "Max 30 chars" : null);
+  const canCreate = name.trim().length >= 3 && name.trim().length <= 30 && stripes >= 100;
 
   async function handleCreate() {
     if (!canCreate) return;
     setLoading(true);
     const res = await apiFetch("/api/crews/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: name.trim(), description: desc.trim() || undefined }),
     });
     const d = await res.json().catch(() => ({} as { error?: string }));
     setLoading(false);
     if (res.ok)        onCreated();
     else if (d?.error) toast({ title: d.error, variant: "destructive" });
-    else               toast({ title: "Failed to create Crew.", variant: "destructive" });
+    else               toast({ title: "Failed to create Club.", variant: "destructive" });
   }
 
   return (
-    <Modal onClose={onClose} title="CREATE A CREW">
+    <Modal onClose={onClose} title="CREATE A CLUB">
       <div className="flex flex-col gap-4">
         <div>
-          <label className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Crew name *</label>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            maxLength={30}
-            placeholder="3–30 characters"
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Club name *</label>
+          <input value={name} onChange={e => setName(e.target.value)} maxLength={30} placeholder="3–30 characters"
             data-testid="input-crew-name"
             className="w-full rounded-lg px-3 py-2 mt-1 text-sm font-mono outline-none"
-            style={{ background: "rgba(240,184,41,0.07)", border: `1px solid ${nameErr ? "#ef4444" : "rgba(240,184,41,0.2)"}`, color: "#f0b829" }}
-          />
+            style={{ background: "rgba(240,184,41,0.07)", border: `1px solid ${nameErr ? "#ef4444" : "rgba(240,184,41,0.2)"}`, color: GOLD }} />
           {nameErr && <p className="text-xs mt-0.5" style={{ color: "#ef4444" }}>{nameErr}</p>}
         </div>
         <div>
-          <label className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Description (optional)</label>
-          <textarea
-            value={desc}
-            onChange={e => setDesc(e.target.value)}
-            maxLength={200}
-            rows={3}
-            placeholder="What's your Crew about?"
-            data-testid="input-create-crew-desc"
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Description (optional)</label>
+          <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={200} rows={3}
+            placeholder="What's your Club about?" data-testid="input-create-crew-desc"
             className="w-full rounded-lg px-3 py-2 mt-1 text-sm font-mono outline-none resize-none"
-            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: "#f0b829" }}
-          />
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
         </div>
         <div className="flex justify-between items-center text-xs font-mono" style={{ color: "#C9A227" }}>
           <span>Your balance: {stripes.toLocaleString()}◆</span>
-          <span>Cost: 500◆</span>
+          <span>Cost: 100◆</span>
         </div>
-        {canCreate && (
-          <p className="text-xs font-mono text-center" style={{ color: "rgba(240,184,41,0.45)" }}>
-            Create "{name.trim()}" for 500 Stripes?
-          </p>
+        {stripes < 100 && (
+          <p className="text-xs font-mono text-center" style={{ color: "#ef4444" }}>Need 100 Stripes — visit the Shop.</p>
         )}
-        <button
-          onClick={handleCreate}
-          disabled={!canCreate || loading}
-          data-testid="btn-confirm-create-crew"
+        <button onClick={handleCreate} disabled={!canCreate || loading} data-testid="btn-confirm-create-crew"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(201,162,39,0.20)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.5)" }}
-        >
-          {loading ? "Creating…" : "CREATE FOR 500◆"}
+          style={{ background: "rgba(201,162,39,0.20)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.5)" }}>
+          {loading ? "Creating…" : "CREATE FOR 100◆"}
         </button>
       </div>
     </Modal>
@@ -1095,7 +1335,7 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
     const d = await res.json().catch(() => ({} as { name?: string; memberCount?: number }));
     setPreviewing(false);
     if (res.ok) setPreview({ name: d.name as string, memberCount: d.memberCount as number });
-    else        setPreview(null);
+    else setPreview(null);
   }
 
   function handleCode(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1107,56 +1347,44 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
   async function handleJoin() {
     setLoading(true);
     const res = await apiFetch("/api/crews/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ invite_code: code }),
     });
     const d = await res.json().catch(() => ({} as { error?: string }));
     setLoading(false);
     if (res.ok)        onJoined();
     else if (d?.error) toast({ title: d.error, variant: "destructive" });
-    else               toast({ title: "Failed to join Crew.", variant: "destructive" });
+    else               toast({ title: "Failed to join Club.", variant: "destructive" });
   }
 
   const canJoin = code.length === 6 && !!preview && preview.memberCount < 25 && stripes >= 50;
 
   return (
-    <Modal onClose={onClose} title="JOIN A CREW">
+    <Modal onClose={onClose} title="JOIN WITH CODE">
       <div className="flex flex-col gap-4">
         <div>
-          <label className="text-xs font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>Enter invite code</label>
-          <input
-            value={code}
-            onChange={handleCode}
-            maxLength={6}
-            placeholder="XXXXXX"
+          <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Enter invite code</label>
+          <input value={code} onChange={handleCode} maxLength={6} placeholder="XXXXXX"
             data-testid="input-invite-code"
             className="w-full rounded-lg px-3 py-2 mt-1 text-xl font-mono tracking-[0.4em] outline-none text-center"
-            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: "#f0b829" }}
-          />
+            style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
         </div>
-        {previewing && <p className="text-xs text-center font-mono" style={{ color: "rgba(240,184,41,0.4)" }}>Looking up…</p>}
+        {previewing && <p className="text-xs text-center font-mono" style={{ color: GOLD_DIM }}>Looking up…</p>}
         {preview && (
           <div className="rounded-xl p-3 text-center" style={{ background: "rgba(240,184,41,0.08)", border: "1px solid rgba(240,184,41,0.2)" }}>
-            <p className="font-mono font-bold" style={{ color: "#f0b829" }}>{preview.name}</p>
-            <p className="text-xs mt-1 font-mono" style={{ color: "rgba(240,184,41,0.5)" }}>{preview.memberCount}/25 members</p>
-            {preview.memberCount >= 25 && (
-              <p className="text-xs mt-1" style={{ color: "#ef4444" }}>This Crew is full.</p>
-            )}
+            <p className="font-mono font-bold" style={{ color: GOLD }}>{preview.name}</p>
+            <p className="text-xs mt-1 font-mono" style={{ color: GOLD_DIM }}>{preview.memberCount}/25 members</p>
+            {preview.memberCount >= 25 && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>This Club is full.</p>}
           </div>
         )}
         <div className="flex justify-between items-center text-xs font-mono" style={{ color: "#C9A227" }}>
           <span>Your balance: {stripes.toLocaleString()}◆</span>
           <span>Cost: 50◆</span>
         </div>
-        <button
-          onClick={handleJoin}
-          disabled={!canJoin || loading}
-          data-testid="btn-confirm-join-crew"
+        <button onClick={handleJoin} disabled={!canJoin || loading} data-testid="btn-confirm-join-crew"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.35)" }}
-        >
-          {loading ? "Joining…" : `JOIN FOR 50◆`}
+          style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.35)" }}>
+          {loading ? "Joining…" : "JOIN FOR 50◆"}
         </button>
       </div>
     </Modal>
@@ -1167,18 +1395,19 @@ function JoinCrewModal({ stripes, onClose, onJoined }: {
 function LeaveConfirmModal({ crew, playerId, onClose, onLeft }: {
   crew: CrewDetail; playerId: string; onClose: () => void; onLeft: () => void;
 }) {
-  const { toast }         = useToast();
-  const [loading, setL]   = useState(false);
-  const isCaptain         = crew.captainId === playerId;
-  const otherMembers      = crew.members.filter(m => m.playerId !== playerId);
-  const nextCaptain       = [...crew.members]
-    .filter(m => m.role === "member")
+  const { toast }       = useToast();
+  const [loading, setL] = useState(false);
+  const isOwner         = crew.members.find(m => m.playerId === playerId)?.role;
+  const isCaptainRole   = isOwner === "captain" || isOwner === "owner";
+  const otherMembers    = crew.members.filter(m => m.playerId !== playerId);
+  const nextLeader      = [...crew.members]
+    .filter(m => m.role === "member" && m.playerId !== playerId)
     .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())[0];
 
-  let message = `Leave ${crew.name}? You'll need an invite to rejoin and the 50 Stripes cost still applies.`;
-  if (isCaptain && otherMembers.length > 0)
-    message = `Leave ${crew.name}? ${nextCaptain?.displayName ?? "The longest-tenured member"} will become the new Captain.`;
-  if (isCaptain && otherMembers.length === 0)
+  let message = `Leave ${crew.name}? You'll need an invite to rejoin.`;
+  if (isCaptainRole && otherMembers.length > 0)
+    message = `Leave ${crew.name}? ${nextLeader?.displayName ?? "The longest-tenured member"} will become the new Owner.`;
+  if (isCaptainRole && otherMembers.length === 0)
     message = `Leave and disband ${crew.name}? This cannot be undone.`;
 
   async function handleLeave() {
@@ -1187,24 +1416,20 @@ function LeaveConfirmModal({ crew, playerId, onClose, onLeft }: {
     const d = await res.json().catch(() => ({} as { error?: string }));
     setL(false);
     if (res.ok) onLeft();
-    else        toast({ title: d?.error ?? "Failed to leave.", variant: "destructive" });
+    else toast({ title: d?.error ?? "Failed to leave.", variant: "destructive" });
   }
 
   return (
-    <Modal onClose={onClose} title="LEAVE CREW">
+    <Modal onClose={onClose} title="LEAVE CLUB">
       <p className="text-sm mb-5" style={{ color: "rgba(240,184,41,0.7)" }}>{message}</p>
       <div className="flex gap-3">
         <button onClick={onClose} className="flex-1 rounded-xl py-2.5 font-mono text-sm transition-all active:scale-95"
-                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(240,184,41,0.6)", border: "1px solid rgba(240,184,41,0.15)" }}>
+          style={{ background: "rgba(255,255,255,0.05)", color: GOLD_DIM, border: "1px solid rgba(240,184,41,0.15)" }}>
           CANCEL
         </button>
-        <button
-          onClick={handleLeave}
-          disabled={loading}
-          data-testid="btn-confirm-leave"
+        <button onClick={handleLeave} disabled={loading} data-testid="btn-confirm-leave"
           className="flex-1 rounded-xl py-2.5 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
-        >
+          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}>
           {loading ? "Leaving…" : "LEAVE"}
         </button>
       </div>
@@ -1222,14 +1447,13 @@ function KickConfirmModal({ crew, target, onClose, onKicked }: {
   async function handleKick() {
     setL(true);
     const res = await apiFetch(`/api/crews/${crew.id}/kick`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ player_id: target.playerId }),
     });
     const d = await res.json().catch(() => ({} as { error?: string }));
     setL(false);
     if (res.ok) onKicked();
-    else        toast({ title: d?.error ?? "Failed to kick.", variant: "destructive" });
+    else toast({ title: d?.error ?? "Failed to kick.", variant: "destructive" });
   }
 
   return (
@@ -1239,16 +1463,12 @@ function KickConfirmModal({ crew, target, onClose, onKicked }: {
       </p>
       <div className="flex gap-3">
         <button onClick={onClose} className="flex-1 rounded-xl py-2.5 font-mono text-sm transition-all active:scale-95"
-                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(240,184,41,0.6)", border: "1px solid rgba(240,184,41,0.15)" }}>
+          style={{ background: "rgba(255,255,255,0.05)", color: GOLD_DIM, border: "1px solid rgba(240,184,41,0.15)" }}>
           CANCEL
         </button>
-        <button
-          onClick={handleKick}
-          disabled={loading}
-          data-testid="btn-confirm-kick"
+        <button onClick={handleKick} disabled={loading} data-testid="btn-confirm-kick"
           className="flex-1 rounded-xl py-2.5 font-mono text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
-        >
+          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}>
           {loading ? "Kicking…" : "KICK"}
         </button>
       </div>
@@ -1256,7 +1476,7 @@ function KickConfirmModal({ crew, target, onClose, onKicked }: {
   );
 }
 
-// ─── Generic modal shell ──────────────────────────────────────────────────────
+// ─── Modal shell ──────────────────────────────────────────────────────────────
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-end justify-center"
@@ -1265,8 +1485,8 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       <div className="w-full max-w-lg rounded-t-2xl px-5 pt-5 pb-8"
            style={{ background: "rgba(16,12,6,0.98)", border: "1px solid rgba(240,184,41,0.20)" }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-mono font-bold tracking-widest text-sm" style={{ color: "#f0b829" }}>{title}</h2>
-          <button onClick={onClose} className="text-lg" style={{ color: "rgba(240,184,41,0.5)" }}>✕</button>
+          <h2 className="font-mono font-bold tracking-widest text-sm" style={{ color: GOLD }}>{title}</h2>
+          <button onClick={onClose} className="text-lg" style={{ color: GOLD_DIM }}>✕</button>
         </div>
         {children}
       </div>
