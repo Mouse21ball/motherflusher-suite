@@ -140,6 +140,7 @@ function convertReservedToBots(table: AuthTable): void {
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: AuthTable): void {
+  if (table.crewId) return;
   if (!table.botsEnabled) return;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return;
@@ -166,6 +167,7 @@ function quickFillBots(table: AuthTable): void {
 // Bot ceiling: 1 human → max 2 bots; 2 humans → max 1 bot; 3+ humans → 0 bots.
 // Also respects botsEnabled and maxPlayers from host settings.
 function convertOneReservedToBot(table: AuthTable): boolean {
+  if (table.crewId) return false;
   if (!table.botsEnabled) return false;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
@@ -313,6 +315,7 @@ interface AuthTable {
   // Host-configurable settings (stored at creation, respected by all bot/seat logic)
   maxPlayers: number;   // 2-5: how many human seats are open
   botsEnabled: boolean; // false = no bots ever fill empty seats
+  crewId?: string;      // club table — bots suppressed regardless of botsEnabled
   // Turn-timer support: monotonic generation counter + active handle.
   // Increments whenever armTurnTimer or clearTurnTimer is called so that
   // a late-firing timeout can detect it is stale and abort cleanly.
@@ -1265,7 +1268,7 @@ export function getOrCreateBadugiTable(
   tableId: string,
   isPrivate = false,
   quickPlay = false,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {}
 ): AuthTable {
   if (!tables.has(tableId)) {
     const maxPlayers  = options.maxPlayers  ?? 5;
@@ -1290,6 +1293,7 @@ export function getOrCreateBadugiTable(
       isPrivate,
       maxPlayers,
       botsEnabled,
+      crewId: options.crewId,
       turnTimerGen: 0,
       turnTimer: null,
       seatBankroll: new Map(),
@@ -1317,7 +1321,7 @@ export function addBadugiConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {},
   buyinChips?: number
 ): string | null {
   const isNew = !tables.has(tableId);

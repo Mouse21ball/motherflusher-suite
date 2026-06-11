@@ -638,9 +638,12 @@ function TablesTab({ crew, playerId, isOwnerOrAgent }: {
   const { data: tables = [], refetch } = useQuery<LiveTable[]>({
     queryKey: ['club-tables', crew.id],
     queryFn: async () => {
+      console.log('[club-tables] fetching tables for crewId:', crew.id);
       const res = await apiFetch(`/api/tables?crewId=${encodeURIComponent(crew.id)}`);
       if (!res.ok) return [];
-      return res.json();
+      const data = await res.json();
+      console.log('[club-tables] tables returned:', data);
+      return data;
     },
     refetchInterval: 10000,
   });

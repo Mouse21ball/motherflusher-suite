@@ -156,6 +156,7 @@ function convertReservedToBots(table: GenericTable): void {
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: GenericTable): void {
+  if (table.crewId) return;
   if (!table.botsEnabled) return;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return;
@@ -180,6 +181,7 @@ function quickFillBots(table: GenericTable): void {
 // Bot ceiling: 1 human → max 2 bots; 2 humans → max 1 bot; 3+ humans → 0 bots.
 // Also respects botsEnabled and maxPlayers from host settings.
 function convertOneReservedToBot(table: GenericTable): boolean {
+  if (table.crewId) return false;
   if (!table.botsEnabled) return false;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');
   if (reserved.length === 0) return false;
@@ -319,6 +321,7 @@ interface GenericTable {
   // Host-configurable settings
   maxPlayers: number;   // 2-5: how many human seats are open
   botsEnabled: boolean; // false = no bots ever fill empty seats
+  crewId?: string;      // club table — bots suppressed regardless of botsEnabled
   // Per-seat chip balance at the START of the current hand (for profit delta calculation).
   // Initialized when player first loads chips from DB; updated after each hand sync.
   chipsAtHandStart: Map<string, number>;
@@ -1396,7 +1399,7 @@ function getOrCreateTable(
   tableId: string,
   isPrivate = false,
   quickPlay = false,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {}
 ): GenericTable | null {
   const mode = MODE_REGISTRY[modeId];
   if (!mode) return null;
@@ -1426,6 +1429,7 @@ function getOrCreateTable(
       isPrivate,
       maxPlayers,
       botsEnabled,
+      crewId: options.crewId,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
@@ -1451,7 +1455,7 @@ export function addGenericConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {},
   buyinChips?: number
 ): string | null {
   const key = tableKey(modeId, tableId);

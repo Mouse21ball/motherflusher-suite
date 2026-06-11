@@ -135,7 +135,7 @@ function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Ro
     // Read host settings from the routes TableRecord if available
     const record = getTableRecord(tableId);
     const maxPlayers  = record?.maxPlayers  ?? 5;
-    const botsEnabled = record?.botsEnabled ?? true;
+    const botsEnabled = record?.crewId ? false : (record?.botsEnabled ?? true);
     const isInviteOnly = record?.isInviteOnly ?? false;
     const hostId = playerId ?? record?.hostId ?? null;
 
@@ -389,7 +389,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           room.seats.set(seatId, { seatId, playerId: pid, name: name || 'Player', joinedAt: Date.now() });
         }
 
-        const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled };
+        const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled, crewId: room.crewId };
 
         let assignedSeat: string | null = null;
         if (room.isAuthoritative) {

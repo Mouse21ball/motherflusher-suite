@@ -200,7 +200,7 @@ export async function registerRoutes(
         createdAt:   Date.now(),
         playerCount: 1,
         maxPlayers:  parsed.maxPlayers,
-        botsEnabled: parsed.botsEnabled,
+        botsEnabled: parsed.crewId ? false : parsed.botsEnabled,
         isInviteOnly: parsed.isInviteOnly,
         hostId:      parsed.hostId ?? parsed.createdBy,
         crewId:      parsed.crewId,
@@ -264,7 +264,10 @@ export async function registerRoutes(
       ...generic.sort((a, b) => b.humanCount - a.humanCount),
     ];
     if (filterCrewId) {
+      const before = all.length;
       all = all.filter(t => t.crewId === filterCrewId);
+      console.log(`[club-tables] crewId filter=${filterCrewId} before=${before} after=${all.length}`,
+        all.map(t => `${t.tableId}(crewId=${t.crewId ?? 'none'})`));
     }
     res.json(all);
   });
