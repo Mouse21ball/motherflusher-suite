@@ -535,19 +535,21 @@ function OpenTableModal({ crew, playerId, onClose, onOpened }: {
     setErr(null);
     const tableId = generateTableId();
     try {
+      const requestBody = {
+        tableId,
+        modeId:      selMode,
+        createdBy:   playerId,
+        maxPlayers,
+        botsEnabled: false,
+        isInviteOnly: true,
+        hostId:      playerId,
+        crewId:      crew.id,
+      };
+      console.log('[open-table] POST /api/tables body:', JSON.stringify(requestBody));
       const res = await apiFetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tableId,
-          modeId:      selMode,
-          createdBy:   playerId,
-          maxPlayers,
-          botsEnabled: false,
-          isInviteOnly: true,
-          hostId:      playerId,
-          crewId:      crew.id,
-        }),
+        body: JSON.stringify(requestBody),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

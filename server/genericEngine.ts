@@ -156,6 +156,7 @@ function convertReservedToBots(table: GenericTable): void {
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
 function quickFillBots(table: GenericTable): void {
+  console.log(`[quickFillBots] tableId: ${table.tableId} crewId: ${table.crewId ?? 'none'} botsEnabled: ${table.botsEnabled}`);
   if (table.crewId) return;
   if (!table.botsEnabled) return;
   const reserved = table.state.players.filter(p => p.presence === 'reserved');

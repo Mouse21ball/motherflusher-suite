@@ -186,6 +186,7 @@ export async function registerRoutes(
     pruneExpiredTables();
     try {
       const parsed = createTableSchema.parse(req.body);
+      console.log(`[table-create] crewId received: ${parsed.crewId ?? 'none'} botsEnabled forced: ${parsed.crewId ? false : parsed.botsEnabled}`);
       const code = parsed.tableId.toUpperCase();
 
       if (tables.has(code)) {
