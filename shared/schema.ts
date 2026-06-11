@@ -56,6 +56,9 @@ export const playerProfiles = pgTable("player_profiles", {
   banExpiresAt:         timestamp("ban_expires_at"),
   banReason:            text("ban_reason"),
   isDeleted:            boolean("is_deleted").notNull().default(false),
+  // ── Chip loan ───────────────────────────────────────────────────────────────
+  chipLoanBalance:      integer("chip_loan_balance").notNull().default(0),
+  chipLoanGrantedAt:    timestamp("chip_loan_granted_at"),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -80,6 +83,8 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   banExpiresAt:                   true,
   banReason:                      true,
   isDeleted:                      true,
+  chipLoanBalance:                true,
+  chipLoanGrantedAt:              true,
   createdAt:                      true,
   updatedAt:                      true,
 });

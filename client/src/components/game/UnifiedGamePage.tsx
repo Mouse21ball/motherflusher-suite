@@ -58,7 +58,7 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
 function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [, navigate] = useLocation();
-  const { profile: serverProfile } = useServerProfile();
+  const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
 
   // Navigate home if host kicked this player
   useEffect(() => {
@@ -175,6 +175,20 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   };
 
   const handleSendMessage = (text: string) => handleAction('chat', text);
+
+  const handleBorrowChips = async () => {
+    const pid = serverProfile?.profileId;
+    if (!pid) return;
+    try {
+      const res = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        handleAction('rebuy', 1000);
+        setBustDismissed(true);
+        refetchProfile();
+      }
+    } catch { /* silent */ }
+  };
 
   // Chat drawer external control
   const [chatOpen, setChatOpen] = useState(false);
@@ -370,6 +384,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
+        onBorrowChips={handleBorrowChips}
       />
     </div>
   );

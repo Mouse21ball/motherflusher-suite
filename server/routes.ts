@@ -815,6 +815,25 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/players/:id/chip-loan
+  // Grants a one-time 1,000 chip loan to a broke player (chipBalance ≤ 500, no existing loan).
+  // The loan balance is tracked and auto-repaid from subsequent chip earnings.
+  app.post("/api/players/:id/chip-loan", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const result = await storage.grantChipLoan(id);
+      if (!result.success) {
+        const status = result.error === 'player_not_found' ? 404 : 409;
+        res.status(status).json({ error: result.error });
+        return;
+      }
+      res.json({ success: true, newBalance: result.newBalance });
+    } catch (err) {
+      console.error("chip-loan error:", err);
+      res.status(500).json({ error: "Failed to grant chip loan" });
+    }
+  });
+
   // POST /api/players/:id/claim-welcome-kit
   // Marks the new-player welcome kit as claimed in the DB.
   // Idempotent: calling it again on an already-claimed account is a no-op.

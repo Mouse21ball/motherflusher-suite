@@ -14,6 +14,7 @@ interface BustOutModalProps {
   onClaimDailyBonus: () => void;
   onWatchAd?: () => void;
   onStarterPack?: () => void;
+  onBorrowChips?: () => void;
   /** Ticket-7: buy-in slider for rebuy. If provided, shows slider instead of fixed rebuy. */
   tableId?: string;
   modeId?: string;
@@ -44,6 +45,7 @@ export function BustOutModal({
   onClaimDailyBonus,
   onWatchAd,
   onStarterPack,
+  onBorrowChips,
   tableId,
   modeId,
   bankrollAvailable,
@@ -147,6 +149,24 @@ export function BustOutModal({
     );
   };
 
+  // ── Loan button (shown on every tier when onBorrowChips is provided) ────────
+  const LoanBtn = () => onBorrowChips ? (
+    <button
+      onClick={onBorrowChips}
+      data-testid="button-bust-borrow-chips"
+      style={{
+        width: '100%', padding: '10px 20px', borderRadius: 20,
+        border: '1px solid rgba(201,162,39,0.4)',
+        background: 'rgba(201,162,39,0.1)',
+        color: '#C9A227', fontFamily: 'monospace', fontSize: 11,
+        fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        cursor: 'pointer', transition: 'background 0.15s',
+      }}
+    >
+      Borrow 1,000 Chips — repaid from next earnings
+    </button>
+  ) : null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
@@ -182,6 +202,7 @@ export function BustOutModal({
             <p className="text-center text-[10px] text-white/30 font-mono mb-3">Keep rolling — chips on us</p>
             <div className="space-y-2">
               <RebuyBtn testId="button-bust-rebuy" />
+              <LoanBtn />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
             </div>
           </>
@@ -200,6 +221,7 @@ export function BustOutModal({
             </button>
             <div className="space-y-2">
               <RebuyBtn testId="button-bust-rebuy" />
+              <LoanBtn />
               <SecBtn
                 label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
                 onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
@@ -228,6 +250,7 @@ export function BustOutModal({
             </button>
             <div className="space-y-2">
               <SecBtn label="Free Rebuy — Get 1,000 Chips" onClick={() => onStarterPack?.()} testId="button-bust-free-rebuy" />
+              <LoanBtn />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>
@@ -249,6 +272,7 @@ export function BustOutModal({
               Busted {sessionBusts}× this session — chips on us, keep rolling
             </p>
             <div className="space-y-2">
+              <LoanBtn />
               <SecBtn
                 label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
                 onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
@@ -286,6 +310,7 @@ export function BustOutModal({
               </button>
             )}
             <div className="space-y-2">
+              <LoanBtn />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>

@@ -199,6 +199,9 @@ export interface IStorage {
   getClaimedQuests(playerId: string): Promise<string[]>;
   claimQuest(playerId: string, questId: string, stripesReward: number): Promise<{ newStripes: number }>;
   awardWinStripes(playerId: string): Promise<{ awarded: number; dailyTotal: number }>;
+  // ── Chip loan ───────────────────────────────────────────────────────────────
+  grantChipLoan(playerId: string): Promise<{ success: boolean; error?: string; newBalance?: number }>;
+  repayChipLoan(playerId: string, chipsEarned: number): Promise<number>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -601,6 +604,8 @@ export class MemStorage implements IStorage {
       banExpiresAt:                   null,
       banReason:                      null,
       isDeleted:                      false,
+      chipLoanBalance:                0,
+      chipLoanGrantedAt:              null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1050,7 +1055,7 @@ export class MemStorage implements IStorage {
   }
 
   async claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult> {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const rows = await tx
         .select({
           chipBalance:             playerProfiles.chipBalance,
@@ -1146,6 +1151,9 @@ export class MemStorage implements IStorage {
         newStripesBalance,
       };
     });
+    // Auto-repay outstanding chip loan from daily bonus earnings
+    await this.repayChipLoan(playerId, result.chipsGranted).catch(() => {});
+    return result;
   }
 
   // ── Cosmetics ──────────────────────────────────────────────────────────────
@@ -2218,6 +2226,8 @@ export class MemStorage implements IStorage {
         .set({ afterState: { chipBalance: afterBalance } })
         .where(eq(adminActions.id, action.id));
     });
+    // Auto-repay outstanding chip loan from admin chip grant
+    await this.repayChipLoan(targetPlayerId, amount).catch(() => {});
   }
 
   async adminDebitChips(adminId: string, targetPlayerId: string, amount: number, reason: string): Promise<void> {
@@ -2602,6 +2612,43 @@ export class MemStorage implements IStorage {
     });
 
     return { awarded: 1, dailyTotal: newTotal };
+  }
+
+  async grantChipLoan(playerId: string): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+    const [profile] = await db
+      .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+    if (!profile) return { success: false, error: 'player_not_found' };
+    if (profile.chipLoanBalance > 0) return { success: false, error: 'existing_loan' };
+    if (profile.chipBalance > 500) return { success: false, error: 'not_broke' };
+
+    const loanAmount = 1000;
+    const newBalance = profile.chipBalance + loanAmount;
+    await db.update(playerProfiles)
+      .set({ chipBalance: newBalance, chipLoanBalance: loanAmount, chipLoanGrantedAt: new Date(), updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+    return { success: true, newBalance };
+  }
+
+  async repayChipLoan(playerId: string, chipsEarned: number): Promise<number> {
+    const [profile] = await db
+      .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+    if (!profile || profile.chipLoanBalance <= 0) return chipsEarned;
+
+    const repayAmount = Math.min(profile.chipLoanBalance, chipsEarned);
+    const newLoanBalance = profile.chipLoanBalance - repayAmount;
+    const newChipBalance = profile.chipBalance - repayAmount;
+
+    await db.update(playerProfiles)
+      .set({ chipBalance: newChipBalance, chipLoanBalance: newLoanBalance, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId));
+
+    return chipsEarned - repayAmount;
   }
 
   async getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]> {
