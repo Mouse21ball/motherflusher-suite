@@ -71,6 +71,7 @@ interface Room {
   maxPlayers: number;
   botsEnabled: boolean;
   isInviteOnly: boolean;
+  crewId?: string;
 }
 
 // ─── Client message types ─────────────────────────────────────────────────────
@@ -149,6 +150,7 @@ function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Ro
       maxPlayers,
       botsEnabled,
       isInviteOnly,
+      crewId: record?.crewId,
     });
   }
   return rooms.get(tableId)!;
@@ -331,7 +333,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
       }
     }, 60_000);
 
-    ws.on('message', (data: Buffer) => {
+    ws.on('message', async (data: Buffer) => {
       let msg: ClientMessage;
       try {
         msg = JSON.parse(data.toString()) as ClientMessage;
@@ -356,6 +358,17 @@ export function initRooms(httpServer: Server): WebSocketServer {
           );
           ws.close();
           return;
+        }
+
+        // ── Club membership gate ───────────────────────────────────────────────
+        const tableRec = getTableRecord(tableId);
+        if (tableRec?.crewId) {
+          const isMember = await storage.isCrewMember(tableRec.crewId, pid);
+          if (!isMember) {
+            ws.send(JSON.stringify({ type: 'error', message: 'This is a private club table. Members only.' }));
+            ws.close();
+            return;
+          }
         }
 
         if (roomId && playerId) releasePlayer(playerId, roomId);

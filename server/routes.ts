@@ -67,6 +67,7 @@ interface TableRecord {
   botsEnabled: boolean;  // false = no bots ever, even if seats are empty
   isInviteOnly: boolean; // true = invite code required; false = appears in public list
   hostId:      string;   // session/identity id of creator (for authority checks)
+  crewId?:     string;   // club this table belongs to (if any)
 }
 
 const tables = new Map<string, TableRecord>();
@@ -115,6 +116,7 @@ const createTableSchema = z.object({
   botsEnabled: z.boolean().default(true),
   isInviteOnly: z.boolean().default(true),
   hostId:      z.string().min(1).optional(),
+  crewId:      z.string().optional(),
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -201,6 +203,7 @@ export async function registerRoutes(
         botsEnabled: parsed.botsEnabled,
         isInviteOnly: parsed.isInviteOnly,
         hostId:      parsed.hostId ?? parsed.createdBy,
+        crewId:      parsed.crewId,
       };
       tables.set(code, record);
       res.status(201).json({
@@ -225,8 +228,9 @@ export async function registerRoutes(
   // Merges the Badugi engine and the generic engine into one sorted list.
   // Includes maxPlayers and isInviteOnly so the client can render "X/Y" counts
   // and filter out invite-only tables from the public lobby.
-  app.get("/api/tables", (_req, res) => {
+  app.get("/api/tables", (req, res) => {
     pruneExpiredTables();
+    const filterCrewId = req.query.crewId as string | undefined;
     const badugi = getActiveBadugiTables()
       .filter(t => t.humanCount > 0)
       .map(t => {
@@ -238,6 +242,7 @@ export async function registerRoutes(
           phase:        t.phase,
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
+          crewId:       rec?.crewId,
         };
       });
     const generic = getActiveGenericTables()
@@ -251,12 +256,16 @@ export async function registerRoutes(
           phase:        t.phase,
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
+          crewId:       rec?.crewId,
         };
       });
-    const all = [
+    let all = [
       ...badugi,
       ...generic.sort((a, b) => b.humanCount - a.humanCount),
     ];
+    if (filterCrewId) {
+      all = all.filter(t => t.crewId === filterCrewId);
+    }
     res.json(all);
   });
 
@@ -277,6 +286,39 @@ export async function registerRoutes(
       return;
     }
     res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt });
+  });
+
+  // DELETE /api/tables/:tableId — close a club table (host or crew owner/agent only)
+  app.delete("/api/tables/:tableId", requireAuth, async (req, res) => {
+    try {
+      const tableId  = (req.params.tableId as string).toUpperCase();
+      const callerId = req.sessionPlayerId!;
+
+      const record = tables.get(tableId);
+      if (!record) {
+        res.status(404).json({ error: "Table not found." });
+        return;
+      }
+
+      const isHost = record.hostId === callerId || record.createdBy === callerId;
+      let authorized = isHost;
+
+      if (!authorized && record.crewId) {
+        const mem = await requireCrewMember(record.crewId, callerId);
+        authorized = !!mem && ['owner', 'captain', 'agent'].includes(mem.role);
+      }
+
+      if (!authorized) {
+        res.status(403).json({ error: "Not authorized to close this table." });
+        return;
+      }
+
+      tables.delete(tableId);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Delete table error:", err);
+      res.status(500).json({ error: "Failed to close table." });
+    }
   });
 
   // ── Player Profiles ───────────────────────────────────────────────────────

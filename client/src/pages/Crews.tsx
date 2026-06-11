@@ -31,6 +31,10 @@ interface ChipRequest {
   amount: number; status: string;
   requestedAt: string; resolvedAt?: string | null;
 }
+interface LiveTable {
+  tableId: string; modeId: string; humanCount: number;
+  phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function AvatarChip({ name, size = 32, equippedFrameId }: { name: string; size?: number; equippedFrameId?: string | null }) {
@@ -496,32 +500,262 @@ function InviteBar({ crew, isOwner, onReload }: { crew: CrewDetail; isOwner: boo
   );
 }
 
+// ─── Club mode map ────────────────────────────────────────────────────────────
+const CLUB_MODES = [
+  { id: 'badugi',     label: 'BADUGI',       path: '/badugi',     color: '#10b981' },
+  { id: 'dead7',      label: 'DEAD 7',        path: '/dead7',      color: '#ef4444' },
+  { id: 'fifteen35',  label: '15 / 35',       path: '/fifteen35',  color: '#f59e0b' },
+  { id: 'suits_poker',label: 'SUITS & POKER', path: '/suitspoker', color: '#3b82f6' },
+] as const;
+
+type ClubModeId = typeof CLUB_MODES[number]['id'];
+
+function modeInfo(modeId: string) {
+  return CLUB_MODES.find(m => m.id === modeId) ?? { id: modeId, label: modeId.toUpperCase(), path: '/', color: '#A0A0B8' };
+}
+
+function generateTableId(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// ─── Open Table modal ─────────────────────────────────────────────────────────
+function OpenTableModal({ crew, playerId, onClose, onOpened }: {
+  crew: CrewDetail; playerId: string;
+  onClose: () => void; onOpened: (tableId: string, modeId: string) => void;
+}) {
+  const [selMode,     setSelMode]     = useState<ClubModeId>('badugi');
+  const [maxPlayers,  setMaxPlayers]  = useState(5);
+  const [creating,    setCreating]    = useState(false);
+  const [err,         setErr]         = useState<string | null>(null);
+  const { toast } = useToast();
+
+  async function handleCreate() {
+    setCreating(true);
+    setErr(null);
+    const tableId = generateTableId();
+    try {
+      const res = await apiFetch('/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          modeId:      selMode,
+          createdBy:   playerId,
+          maxPlayers,
+          botsEnabled: false,
+          isInviteOnly: true,
+          hostId:      playerId,
+          crewId:      crew.id,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setErr(body.error ?? 'Failed to create table.');
+        setCreating(false);
+        return;
+      }
+      toast({ title: 'Table opened', description: `${tableId} · ${selMode.toUpperCase()}` });
+      onOpened(tableId, selMode);
+    } catch {
+      setErr('Network error — try again.');
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+         onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-t-2xl p-6 flex flex-col gap-5"
+           style={{ background: '#1a1610', border: '1px solid rgba(240,184,41,0.2)' }}>
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-sm font-bold tracking-widest" style={{ color: GOLD }}>OPEN TABLE</p>
+          <button onClick={onClose} className="text-white/40 hover:text-white/70 text-lg leading-none">✕</button>
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/40 mb-2 tracking-widest">GAME MODE</p>
+          <div className="grid grid-cols-2 gap-2">
+            {CLUB_MODES.map(m => (
+              <button key={m.id}
+                data-testid={`mode-btn-${m.id}`}
+                onClick={() => setSelMode(m.id)}
+                className="rounded-lg py-2.5 px-3 font-mono text-xs font-bold tracking-wider transition-all active:scale-95"
+                style={{
+                  background: selMode === m.id ? `${m.color}22` : 'rgba(255,255,255,0.04)',
+                  border:     `1px solid ${selMode === m.id ? m.color + '88' : 'rgba(255,255,255,0.1)'}`,
+                  color:      selMode === m.id ? m.color : 'rgba(255,255,255,0.5)',
+                }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/40 mb-2 tracking-widest">MAX PLAYERS</p>
+          <div className="flex gap-2">
+            {[2, 3, 4, 5].map(n => (
+              <button key={n}
+                data-testid={`maxplayers-btn-${n}`}
+                onClick={() => setMaxPlayers(n)}
+                className="flex-1 rounded-lg py-2 font-mono text-sm font-bold transition-all active:scale-95"
+                style={{
+                  background: maxPlayers === n ? 'rgba(240,184,41,0.18)' : 'rgba(255,255,255,0.04)',
+                  border:     `1px solid ${maxPlayers === n ? 'rgba(240,184,41,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                  color:      maxPlayers === n ? GOLD : 'rgba(255,255,255,0.4)',
+                }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {err && <p className="font-mono text-xs text-red-400 text-center">{err}</p>}
+
+        <button
+          data-testid="btn-confirm-open-table"
+          disabled={creating}
+          onClick={handleCreate}
+          className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95 disabled:opacity-50"
+          style={{ background: 'rgba(240,184,41,0.18)', color: GOLD, border: `1px solid ${GOLD}` }}>
+          {creating ? 'OPENING…' : 'OPEN TABLE'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── TABLES tab ───────────────────────────────────────────────────────────────
-function TablesTab({ crew: _crew, playerId: _playerId, isOwnerOrAgent }: {
+function TablesTab({ crew, playerId, isOwnerOrAgent }: {
   crew: CrewDetail; playerId: string; isOwnerOrAgent: boolean;
 }) {
   const [, navigate] = useLocation();
+  const { toast }    = useToast();
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [closing, setClosing] = useState<string | null>(null);
+
+  const { data: tables = [], refetch } = useQuery<LiveTable[]>({
+    queryKey: ['club-tables', crew.id],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/tables?crewId=${encodeURIComponent(crew.id)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 10000,
+  });
+
+  async function closeTable(tableId: string) {
+    setClosing(tableId);
+    try {
+      const res = await apiFetch(`/api/tables/${tableId}`, { method: 'DELETE' });
+      if (res.ok) { toast({ title: 'Table closed' }); refetch(); }
+      else { const b = await res.json().catch(() => ({})); toast({ title: b.error ?? 'Failed to close', variant: 'destructive' }); }
+    } catch { toast({ title: 'Network error', variant: 'destructive' }); }
+    finally { setClosing(null); }
+  }
+
+  function joinTable(table: LiveTable, spectate = false) {
+    const info = modeInfo(table.modeId);
+    navigate(`${info.path}?t=${table.tableId}${spectate ? '&spectate=true' : ''}`);
+  }
 
   return (
     <div className="px-4 pt-4 flex flex-col gap-4">
       {isOwnerOrAgent && (
         <button
-          onClick={() => navigate("/")}
+          onClick={() => setShowOpenModal(true)}
           data-testid="btn-open-table"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95"
           style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: `1px solid ${GOLD}` }}>
           + OPEN TABLE
         </button>
       )}
-      <div className="rounded-xl py-10 text-center"
-           style={{ background: "rgba(240,184,41,0.03)", border: "1px solid rgba(240,184,41,0.08)" }}>
-        <p className="font-mono text-sm" style={{ color: GOLD_DIM }}>No tables open.</p>
-        {!isOwnerOrAgent && (
-          <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.3)" }}>
-            Ask your agent to open one.
-          </p>
-        )}
-      </div>
+
+      {tables.length === 0 ? (
+        <div className="rounded-xl py-10 text-center"
+             style={{ background: "rgba(240,184,41,0.03)", border: "1px solid rgba(240,184,41,0.08)" }}>
+          {isOwnerOrAgent ? (
+            <p className="font-mono text-sm" style={{ color: GOLD_DIM }}>
+              + OPEN TABLE to get started
+            </p>
+          ) : (
+            <>
+              <p className="font-mono text-sm" style={{ color: GOLD_DIM }}>No tables open.</p>
+              <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.3)" }}>
+                Ask your agent to open one.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {tables.map(table => {
+            const info   = modeInfo(table.modeId);
+            const isFull = table.humanCount >= table.maxPlayers;
+            return (
+              <div key={table.tableId} data-testid={`club-table-card-${table.tableId}`}
+                   className="rounded-xl p-4 flex flex-col gap-3"
+                   style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${info.color}33` }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold" style={{ color: info.color }}>
+                      {info.label}
+                    </span>
+                    <span className="font-mono text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      #{table.tableId}
+                    </span>
+                  </div>
+                  <span className="font-mono text-xs font-bold"
+                        style={{ color: isFull ? '#ef4444' : '#10b981' }}>
+                    {table.humanCount}/{table.maxPlayers}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    data-testid={`btn-join-table-${table.tableId}`}
+                    disabled={isFull}
+                    onClick={() => joinTable(table)}
+                    className="flex-1 rounded-lg py-2 font-mono text-xs font-bold tracking-widest transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background: `${info.color}22`, color: info.color, border: `1px solid ${info.color}66` }}>
+                    JOIN
+                  </button>
+                  <button
+                    data-testid={`btn-spectate-table-${table.tableId}`}
+                    onClick={() => joinTable(table, true)}
+                    className="flex-1 rounded-lg py-2 font-mono text-xs font-bold tracking-widest transition-all active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    SPECTATE
+                  </button>
+                  {isOwnerOrAgent && (
+                    <button
+                      data-testid={`btn-close-table-${table.tableId}`}
+                      disabled={closing === table.tableId}
+                      onClick={() => closeTable(table.tableId)}
+                      className="rounded-lg py-2 px-3 font-mono text-xs font-bold tracking-widest transition-all active:scale-95 disabled:opacity-40"
+                      style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                      {closing === table.tableId ? '…' : 'CLOSE'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showOpenModal && (
+        <OpenTableModal
+          crew={crew}
+          playerId={playerId}
+          onClose={() => setShowOpenModal(false)}
+          onOpened={(tableId, modeId) => {
+            setShowOpenModal(false);
+            const info = modeInfo(modeId);
+            navigate(`${info.path}?t=${tableId}`);
+          }}
+        />
+      )}
     </div>
   );
 }

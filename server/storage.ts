@@ -157,6 +157,7 @@ export interface IStorage {
   sendChatMessage(crewId: string, playerId: string, message: string): Promise<{ id: string; createdAt: Date }>;
   incrementCrewMemberChipsWon(playerId: string, chipsWon: number): Promise<void>;
   logCrewEvent(data: { crewId: string; playerId: string; eventType: string; eventData?: Record<string, unknown> }): Promise<void>;
+  isCrewMember(crewId: string, playerId: string): Promise<boolean>;
   // ── Time Bank ───────────────────────────────────────────────────────────────
   debitChipsForBuyin(playerId: string, amount: number): Promise<boolean>;
   getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }>;
@@ -1803,6 +1804,15 @@ export class MemStorage implements IStorage {
       eventData:  data.eventData ?? {},
       occurredAt: new Date(),
     });
+  }
+
+  async isCrewMember(crewId: string, playerId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: crewMembers.id })
+      .from(crewMembers)
+      .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, playerId)))
+      .limit(1);
+    return !!row;
   }
 
   // ── Club (PokerBros-style) chip bank methods ─────────────────────────────────
