@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Menu, Camera, Home, BookOpen, MessageSquare } from "lucide-react";
+import { HowToPlay } from "@/components/ui/HowToPlay";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -46,11 +47,17 @@ function PillGroup({ label, value, valueClass = '' }: { label: string; value: st
   );
 }
 
+const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits'> = {
+  badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
+};
+
 export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [, navigate] = useLocation();
+  const htpModeId = HTP_MODE_ID[modeId];
 
   const modeInfo = MODE_INFO[modeId];
   const isMidHand = MID_HAND.has(phase);
@@ -136,8 +143,28 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
           >
             <Camera className="w-4 h-4" />
           </button>
+          {htpModeId && (
+            <button
+              onClick={() => setShowHelp(true)}
+              aria-label="How to Play"
+              data-testid="button-how-to-play-ingame"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'rgba(0,0,0,0.5)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'white', fontSize: 14, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              ?
+            </button>
+          )}
         </div>
       </header>
+      {showHelp && htpModeId && (
+        <HowToPlay modeId={htpModeId} onClose={() => setShowHelp(false)} />
+      )}
 
       {/* Hamburger drawer */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>

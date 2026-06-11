@@ -82,6 +82,9 @@ function TurnCountdown({ deadline }: { deadline: number }) {
 export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked, myDeclaration, turnDeadline, playerId, tableId, modeId }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
+  const [showBadugiTip, setShowBadugiTip] = useState(() => {
+    try { return !localStorage.getItem('cgp_badugi_declare_seen'); } catch { return false; }
+  });
 
   /* ── Turn onset — fires once when it becomes the hero's turn ────────── */
   const prevIsMyTurnRef = useRef(isMyTurn);
@@ -435,15 +438,54 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   }
 
   if (phase === 'DECLARE' && !pendingDeclaration) {
+    const isBadugi = modeId === 'badugi';
+    const dismissBadugiTip = () => {
+      try { localStorage.setItem('cgp_badugi_declare_seen', 'true'); } catch {}
+      setShowBadugiTip(false);
+    };
     return (
-      <div className={panelClass}>
-        <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Declare</div>
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
-          <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/40 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
-          <Button variant="outline" className="border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
+      <>
+        {isBadugi && showBadugiTip && (
+          <div
+            data-testid="tooltip-badugi-declare"
+            style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+              background: 'rgba(10,8,20,0.96)', backdropFilter: 'blur(16px)',
+              borderTop: '1px solid rgba(255,255,255,0.10)',
+              borderRadius: '16px 16px 0 0',
+              padding: '20px 20px calc(20px + env(safe-area-inset-bottom, 0px))',
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}
+          >
+            <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 800 }}>
+              DECLARE PHASE
+            </div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.6 }}>
+              Choose <strong style={{ color: '#ef4444' }}>HIGH</strong> if you want big cards to win. Choose <strong style={{ color: '#60a5fa' }}>LOW</strong> if you want small cards to win. Your Badugi competes against others on the same side. Pot splits between best HIGH and best LOW.
+            </div>
+            <button
+              data-testid="button-badugi-tip-dismiss"
+              onClick={dismissBadugiTip}
+              style={{
+                alignSelf: 'stretch', padding: '12px', borderRadius: 12,
+                background: '#4CAF50', border: 'none', color: 'white',
+                fontFamily: 'monospace', fontWeight: 800, fontSize: 13,
+                letterSpacing: '0.06em', cursor: 'pointer',
+              }}
+            >
+              GOT IT
+            </button>
+          </div>
+        )}
+        <div className={panelClass}>
+          <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Declare</div>
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="outline" className="border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
+            <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/40 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
+            <Button variant="outline" className="border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
