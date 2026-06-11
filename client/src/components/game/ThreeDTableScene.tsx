@@ -200,7 +200,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
   const isFolded    = player.status === 'folded';
   const isBust      = player.declaration === 'BUST';
   const isStay      = player.declaration === 'STAY';
-  const avatarSrc   = getAvatarForSeat(seatIndex);
+  const avatarSrc   = player.avatarUrl || getAvatarForSeat(seatIndex);
   const isFifteen35 = modeId === 'fifteen35';
 
   const totalCards = player.cards.length;
@@ -215,6 +215,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
           : "border-white/[0.07] bg-white/[0.025]",
         isFolded && "opacity-35",
       )}
+      style={isActive ? { boxShadow: '0 0 8px rgba(201,162,39,0.6)' } : undefined}
       data-testid={`compact-opponent-${player.id}`}
     >
       {/* Animal avatar + seat-number badge */}
@@ -235,11 +236,14 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
         <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black border border-white/25 flex items-center justify-center text-[7px] font-bold text-white/70 z-10">
           {seatIndex}
         </div>
+        {player.presence === 'human' && (
+          <div className="absolute top-0 right-0 w-[6px] h-[6px] rounded-full z-20" style={{ background: '#00C896' }} />
+        )}
       </div>
 
       {/* Name + subscription badge */}
       <div className="flex items-center gap-0.5">
-        <span className="text-[8px] font-mono text-white/55 truncate max-w-[52px]">{player.name}</span>
+        <span className="text-[10px] font-mono text-white/80 truncate max-w-[64px]">{player.name}</span>
         {player.subscriptionTier === 'gold_pro' && (
           <img src="/cosmetics/badges/badge-gold-pro.png" alt="G" className="h-3 w-auto shrink-0"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
@@ -249,8 +253,11 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
         )}
       </div>
+      {player.presence === 'bot' && (
+        <span style={{ fontFamily: 'monospace', fontSize: '6px', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', padding: '1px 3px' }}>BOT</span>
+      )}
       {/* Chips */}
-      <span className="text-[9px] font-mono font-semibold text-[#C9A227]/80 tabular-nums">${player.chips}</span>
+      <span className="text-[11px] font-mono font-semibold text-[#C9A227] tabular-nums">${player.chips}</span>
 
       {/* 15/35: card fan — card[0] face-down, card[1+] face-up */}
       {isFifteen35 && totalCards > 0 && !isShowdown && (
