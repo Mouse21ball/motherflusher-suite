@@ -2554,10 +2554,9 @@ export class MemStorage implements IStorage {
   }
 
   async claimQuest(playerId: string, questId: string, stripesReward: number): Promise<{ newStripes: number }> {
-    // Check daily re-claim: if questId starts with 'daily_', block if already claimed today
+    // Check daily re-claim: if questId starts with 'daily_', block if already claimed within the last 48 hours
     const isDailyQuest = questId.startsWith('daily_');
-    const startOfTodayUtc = new Date();
-    startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+    const fortyEightHoursAgoUtc = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
     const existing = await db
       .select({ claimedAt: questProgress.claimedAt })
@@ -2567,8 +2566,8 @@ export class MemStorage implements IStorage {
 
     if (existing[0]) {
       if (!isDailyQuest) throw Object.assign(new Error('Quest already claimed'), { code: 'already_claimed' });
-      // For daily quests: only block if claimed today UTC
-      if (existing[0].claimedAt >= startOfTodayUtc) throw Object.assign(new Error('Quest already claimed today'), { code: 'already_claimed' });
+      // For daily quests: only block if claimed within the last 48 hours
+      if (existing[0].claimedAt >= fortyEightHoursAgoUtc) throw Object.assign(new Error('Quest already claimed today'), { code: 'already_claimed' });
       // Different day — update the claimedAt to today (upsert)
       await db
         .update(questProgress)
