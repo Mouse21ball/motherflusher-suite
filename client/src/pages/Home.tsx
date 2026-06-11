@@ -118,7 +118,7 @@ const MODES = [
 // Card-specific background images and copy (per spec)
 const MODE_CARD_CONFIGS = [
   { id: 'badugi',     bg: '/modes/bg-badugi.png',               color: '#4CAF50', btnText: 'white', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
-  { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'ONLY ONE WALKS AWAY'   },
+  { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'PICK A SIDE.'          },
   { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
   { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.' },
 ];
@@ -472,6 +472,22 @@ export default function Home() {
 
   const canClaimBonus = serverBonusCanClaim === true || (serverBonusCanClaim === null && rewardReady);
 
+  const stripes = serverProfile?.stripes ?? 0;
+  let stripeGoalLabel = '';
+  let stripeGoalPct = 0;
+  if (stripes < 100) {
+    stripeGoalLabel = `${100 - stripes} away from Gold Frame`;
+    stripeGoalPct = stripes / 100;
+  } else if (stripes < 125) {
+    stripeGoalLabel = `${125 - stripes} away from first avatar`;
+    stripeGoalPct = (stripes - 100) / 25;
+  } else if (stripes < 500) {
+    stripeGoalLabel = `${500 - stripes} away from creating a Crew`;
+    stripeGoalPct = (stripes - 125) / 375;
+  } else {
+    stripeGoalLabel = 'Ready to create a Crew';
+    stripeGoalPct = 1;
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -571,29 +587,12 @@ export default function Home() {
                 <span style={{ fontSize: 13, color: '#a855f7' }}>◆</span>{(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(168,85,247,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>STRIPES</div>
-              {(() => {
-                const s = serverProfile?.stripes ?? 0;
-                let label = '';
-                let pct = 0;
-                if (s >= 500) {
-                  label = 'Ready to create a Crew';
-                  pct = 100;
-                } else if (s >= 100) {
-                  label = `${125 - s} away from next avatar`;
-                  pct = Math.min(100, Math.round(((s - 100) / 25) * 100));
-                } else {
-                  label = `${100 - s} away from Gold Frame`;
-                  pct = Math.round((s / 100) * 100);
-                }
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, marginTop: -2 }}>
-                    <div style={{ width: 60, height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: '#C9A227', borderRadius: 2, transition: 'width 0.5s' }} />
-                    </div>
-                    <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.55)', textAlign: 'right', lineHeight: 1 }}>{label}</span>
-                  </div>
-                );
-              })()}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, marginTop: -2 }}>
+                <div style={{ width: 60, height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.round(stripeGoalPct * 100)}%`, height: '100%', background: '#C9A227', borderRadius: 2, transition: 'width 0.5s' }} />
+                </div>
+                <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#a855f7', textAlign: 'right', lineHeight: 1 }}>{stripeGoalLabel}</span>
+              </div>
             </div>
           </button>
 
