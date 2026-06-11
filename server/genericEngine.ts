@@ -139,6 +139,8 @@ function makeInitialPlayers(): Player[] {
 }
 
 function convertReservedToBots(table: GenericTable): void {
+  if (table.crewId) return;
+  if (!table.botsEnabled) return;
   const hasReserved = table.state.players.some(p => p.presence === 'reserved');
   if (!hasReserved) return;
   table.state = {

@@ -123,6 +123,8 @@ function makeInitialPlayers(heroChips: number): Player[] {
 // Called on hand start (early fill) or when the creator starts.
 // Sets joinWindowEndsAt = 0 so staged-fill timers abort.
 function convertReservedToBots(table: AuthTable): void {
+  if (table.crewId) return;
+  if (!table.botsEnabled) return;
   const hasReserved = table.state.players.some(p => p.presence === 'reserved');
   if (!hasReserved) return;
   table.state = {
