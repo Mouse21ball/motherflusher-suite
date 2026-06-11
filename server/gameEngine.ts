@@ -209,12 +209,12 @@ function scheduleStagedBotFill(tableId: string, capturedJoinWindowEndsAt: number
 
     setTimeout(() => {
       const t2 = tables.get(tableId);
-      if (!t2 || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
+      if (!t2 || t2.crewId || !t2.botsEnabled || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
       if (convertOneReservedToBot(t2)) broadcastState(t2);
 
       setTimeout(() => {
         const t3 = tables.get(tableId);
-        if (!t3 || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
+        if (!t3 || t3.crewId || !t3.botsEnabled || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
         if (convertOneReservedToBot(t3)) broadcastState(t3);
       }, 60_000);
     }, 30_000);
@@ -947,12 +947,21 @@ function releaseSeat(table: AuthTable, seat: string): void {
         return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
       // Mid-hand: hand off to bot so the round completes cleanly.
+      // Club tables have no bots — fold the seat instead so the hand advances.
+      if (table.crewId) {
+        return { ...p, presence: 'reserved' as const, status: 'folded' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
+      }
       return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
     }),
   };
 
   if (!isBetweenHands) {
-    // Mid-hand bot takeover: trigger the bot immediately if it was this player's turn.
+    if (table.crewId && table.state.activePlayerId === seat) {
+      // Club table: the folded seat was the active player — advance past it.
+      const myIdx  = table.state.players.findIndex(p => p.id === seat);
+      const nextIdx = getNextActivePlayerIndex(table.state.players, myIdx, false);
+      table.state = { ...table.state, activePlayerId: table.state.players[nextIdx].id };
+    }
     broadcastState(table);
     scheduleNextBot(table);
   } else if (phase === 'ANTE' && table.state.activePlayerId === seat) {
@@ -1308,6 +1317,13 @@ export function getOrCreateBadugiTable(
     if (!isPrivate && !quickPlay && botsEnabled) {
       scheduleStagedBotFill(tableId, joinWindowEndsAt);
     }
+  } else {
+    // Refresh crewId and botsEnabled from options so a restored table (which
+    // defaults to crewId=undefined, botsEnabled=true) picks up the correct
+    // values as soon as the first player reconnects after a server restart.
+    const t = tables.get(tableId)!;
+    if (options.crewId !== undefined)     t.crewId     = options.crewId;
+    if (options.botsEnabled !== undefined) t.botsEnabled = options.botsEnabled;
   }
   return tables.get(tableId)!;
 }
