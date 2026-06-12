@@ -927,14 +927,12 @@ function MembersTab({ crew, playerId, myRole: _myRole, isOwner, isOwnerOrAgent, 
 
       {/* Send chips modal */}
       {sendTarget && (
-        <SendChipsModal crew={_fakeCrewRef()} target={sendTarget}
+        <SendChipsModal crew={crew} target={sendTarget}
           onClose={() => setSendTarget(null)}
           onSent={() => { setSendTarget(null); onReload(); }} />
       )}
     </div>
   );
-
-  function _fakeCrewRef() { return crew; }
 }
 
 // ─── BANK tab ─────────────────────────────────────────────────────────────────
