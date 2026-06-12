@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { apiUrl, wsUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import {
   LadyLuckState,
@@ -222,11 +223,10 @@ export default function LadyLuck() {
   const handleJoinRoom = async (roomType: LadyLuckRoom) => {
     setJoining(true);
     try {
-      const res = await fetch(apiUrl('/api/ladyluck/tables'), {
-        method:      'POST',
-        credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ roomType }),
+      const res = await apiFetch('/api/ladyluck/tables', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ roomType }),
       });
       if (!res.ok) throw new Error('Failed to create table');
       const { tableId: tid } = await res.json() as { tableId: string };
