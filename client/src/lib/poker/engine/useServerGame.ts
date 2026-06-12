@@ -96,6 +96,7 @@ export function useServerBadugi(tableId: string) {
   // Host authority state
   const [hostId, setHostId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<{ maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean }>({ maxPlayers: 5, botsEnabled: true, isInviteOnly: false });
+  const isClubTableRef = useRef(false);
   const [isClubTable, setIsClubTable] = useState(false);
   const [kickedByHost, setKickedByHost] = useState(false);
 
@@ -116,6 +117,34 @@ export function useServerBadugi(tableId: string) {
     if (params.get('t')) return;
     const identity = ensurePlayerIdentity();
     registerTable({ tableId, modeId: 'badugi', createdAt: Date.now(), createdBy: identity.id });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Once isClubTable has been set to true via the ref it must never revert.
+  // React state can temporarily read stale false during re-renders; the ref is
+  // the durable source of truth.
+  useEffect(() => {
+    if (isClubTableRef.current && !isClubTable) {
+      setIsClubTable(true);
+    }
+  }, [isClubTable]);
+
+  // Eagerly detect club table from the REST API before the WebSocket connects.
+  // GET /api/tables includes crewId for every active table, so we can check
+  // immediately on mount and set isClubTable before the first render that calls
+  // renderWaitingCenter.
+  useEffect(() => {
+    const tid = tableIdRef.current.toUpperCase();
+    fetch(apiUrl('/api/tables'))
+      .then(r => r.json())
+      .then((list: Array<{ tableId: string; crewId?: string }>) => {
+        const entry = list.find(t => t.tableId === tid);
+        if (entry?.crewId) {
+          isClubTableRef.current = true;
+          setIsClubTable(true);
+        }
+      })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -214,7 +243,7 @@ export function useServerBadugi(tableId: string) {
             if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
               setRole('spectator');
             }
-            if (msg.crewId) setIsClubTable(true);
+            if (msg.crewId) { isClubTableRef.current = true; setIsClubTable(true); }
             return;
           }
 
@@ -235,7 +264,7 @@ export function useServerBadugi(tableId: string) {
             if (msg.tableSettings) {
               setTableSettings(msg.tableSettings as { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean });
             }
-            if (msg.crewId) setIsClubTable(true);
+            if (msg.crewId) { isClubTableRef.current = true; setIsClubTable(true); }
             return;
           }
 

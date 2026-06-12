@@ -100,6 +100,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   // Host authority state
   const [hostId, setHostId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<{ maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean }>({ maxPlayers: 5, botsEnabled: true, isInviteOnly: false });
+  const isClubTableRef = useRef(false);
   const [isClubTable, setIsClubTable] = useState(false);
   const [kickedByHost, setKickedByHost] = useState(false);
   const wsRef      = useRef<WebSocket | null>(null);
@@ -119,6 +120,29 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     if (params.get('t')) return;
     const identity = ensurePlayerIdentity();
     registerTable({ tableId, modeId, createdAt: Date.now(), createdBy: identity.id });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Once isClubTable has been set to true via the ref it must never revert.
+  useEffect(() => {
+    if (isClubTableRef.current && !isClubTable) {
+      setIsClubTable(true);
+    }
+  }, [isClubTable]);
+
+  // Eagerly detect club table from the REST API before the WebSocket connects.
+  useEffect(() => {
+    const tid = tableIdRef.current.toUpperCase();
+    fetch(apiUrl('/api/tables'))
+      .then(r => r.json())
+      .then((list: Array<{ tableId: string; crewId?: string }>) => {
+        const entry = list.find(t => t.tableId === tid);
+        if (entry?.crewId) {
+          isClubTableRef.current = true;
+          setIsClubTable(true);
+        }
+      })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -219,7 +243,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
               sessionStatsRef.current = ss;
               setSessionStats(ss);
             }
-            if (msg.crewId) setIsClubTable(true);
+            if (msg.crewId) { isClubTableRef.current = true; setIsClubTable(true); }
             return;
           }
           if (msg.type === 'mode:snapshot') {
@@ -243,7 +267,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             if (msg.tableSettings) {
               setTableSettings(msg.tableSettings as { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean });
             }
-            if (msg.crewId) setIsClubTable(true);
+            if (msg.crewId) { isClubTableRef.current = true; setIsClubTable(true); }
             return;
           }
 
