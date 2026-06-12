@@ -1838,13 +1838,17 @@ export class MemStorage implements IStorage {
         .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
         .where(eq(playerProfiles.id, ownerId));
 
-      // Add to crew chip_bank
+      // Add to crew chip_bank (COALESCE guards against any legacy NULL rows)
       const [updated] = await tx.update(crews)
-        .set({ chipBank: sql`${crews.chipBank} + ${amount}` })
+        .set({ chipBank: sql`COALESCE(${crews.chipBank}, 0) + ${amount}` })
         .where(eq(crews.id, crewId))
         .returning({ chipBank: crews.chipBank });
+      // If the UPDATE matched no rows the debit must be rolled back
+      if (!updated) {
+        throw Object.assign(new Error('Crew not found'), { code: 'crew_not_found' });
+      }
 
-      return { success: true, newBankBalance: updated?.chipBank ?? 0 };
+      return { success: true, newBankBalance: updated.chipBank };
     });
   }
 

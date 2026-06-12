@@ -260,15 +260,29 @@ export async function registerRoutes(
           crewId:       rec?.crewId,
         };
       });
-    let all = [
+    let all: Array<{ tableId: string; modeId: string; humanCount: number; phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string }> = [
       ...badugi,
       ...generic.sort((a, b) => b.humanCount - a.humanCount),
     ];
     if (filterCrewId) {
-      const before = all.length;
+      // Keep matching active tables (humanCount > 0 already included above)
       all = all.filter(t => t.crewId === filterCrewId);
-      console.log(`[club-tables] crewId filter=${filterCrewId} before=${before} after=${all.length}`,
-        all.map(t => `${t.tableId}(crewId=${t.crewId ?? 'none'})`));
+      // Also include crew tables that are registered but have 0 active WS connections
+      // (just opened, or everyone navigated away — invisible to the humanCount filter).
+      const seenIds = new Set(all.map(t => t.tableId));
+      for (const [tid, rec] of tables.entries()) {
+        if (rec.crewId !== filterCrewId || seenIds.has(tid)) continue;
+        all.push({
+          tableId:      tid,
+          modeId:       rec.modeId,
+          humanCount:   0,
+          phase:        'WAITING',
+          maxPlayers:   rec.maxPlayers,
+          isInviteOnly: rec.isInviteOnly ?? false,
+          crewId:       rec.crewId,
+        });
+      }
+      console.log(`[club-tables] crewId=${filterCrewId} total=${all.length}`, all.map(t => `${t.tableId}(h=${t.humanCount})`));
     }
     res.json(all);
   });
@@ -2076,6 +2090,7 @@ export async function registerRoutes(
     } catch (err: any) {
       if (err?.code === 'unauthorized')        { res.status(403).json({ error: err.message }); return; }
       if (err?.code === 'insufficient_chips')  { res.status(402).json({ error: err.message }); return; }
+      if (err?.code === 'crew_not_found')      { res.status(404).json({ error: err.message }); return; }
       if (err?.name === 'ZodError')            { res.status(422).json({ error: 'Invalid request.' }); return; }
       res.status(500).json({ error: err.message });
     }

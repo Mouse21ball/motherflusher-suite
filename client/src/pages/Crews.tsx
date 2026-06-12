@@ -988,7 +988,7 @@ function BankTab({ crew, playerId, isOwnerOrAgent, onReload }: {
         <button onClick={() => setShowFund(true)} data-testid="btn-fund-bank"
           className="w-full rounded-xl py-3 font-mono text-sm font-bold tracking-widest transition-all active:scale-95"
           style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: `1px solid ${GOLD}` }}>
-          FUND BANK
+          TRANSFER CHIPS TO BANK
         </button>
       )}
 
@@ -1473,7 +1473,7 @@ function FundBankModal({ crew, onClose, onFunded }: {
   }
 
   return (
-    <Modal onClose={onClose} title="FUND CLUB BANK">
+    <Modal onClose={onClose} title="TRANSFER CHIPS TO BANK">
       <div className="flex flex-col gap-4">
         <div>
           <label className="text-xs font-mono" style={{ color: GOLD_DIM }}>Transfer from your chips to club bank</label>
