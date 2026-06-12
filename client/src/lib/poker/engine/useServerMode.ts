@@ -131,13 +131,13 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, [isClubTable]);
 
   // Eagerly detect club table from the REST API before the WebSocket connects.
+  // GET /api/tables/:tableId returns crewId regardless of humanCount.
   useEffect(() => {
     const tid = tableIdRef.current.toUpperCase();
-    fetch(apiUrl('/api/tables'))
-      .then(r => r.json())
-      .then((list: Array<{ tableId: string; crewId?: string }>) => {
-        const entry = list.find(t => t.tableId === tid);
-        if (entry?.crewId) {
+    fetch(apiUrl(`/api/tables/${tid}`))
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { crewId?: string | null } | null) => {
+        if (data?.crewId) {
           isClubTableRef.current = true;
           setIsClubTable(true);
         }

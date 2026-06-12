@@ -289,7 +289,7 @@ export async function registerRoutes(
       res.status(404).json({ error: "Table not found" });
       return;
     }
-    res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt });
+    res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt, crewId: table.crewId ?? null });
   });
 
   // DELETE /api/tables/:tableId — close a club table (host or crew owner/agent only)

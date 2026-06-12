@@ -130,16 +130,14 @@ export function useServerBadugi(tableId: string) {
   }, [isClubTable]);
 
   // Eagerly detect club table from the REST API before the WebSocket connects.
-  // GET /api/tables includes crewId for every active table, so we can check
-  // immediately on mount and set isClubTable before the first render that calls
-  // renderWaitingCenter.
+  // GET /api/tables/:tableId returns crewId regardless of humanCount, so this
+  // fires at mount and sets isClubTable before the first renderWaitingCenter call.
   useEffect(() => {
     const tid = tableIdRef.current.toUpperCase();
-    fetch(apiUrl('/api/tables'))
-      .then(r => r.json())
-      .then((list: Array<{ tableId: string; crewId?: string }>) => {
-        const entry = list.find(t => t.tableId === tid);
-        if (entry?.crewId) {
+    fetch(apiUrl(`/api/tables/${tid}`))
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { crewId?: string | null } | null) => {
+        if (data?.crewId) {
           isClubTableRef.current = true;
           setIsClubTable(true);
         }
