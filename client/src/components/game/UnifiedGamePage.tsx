@@ -58,6 +58,20 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
 
 function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, isClubTable = false, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
+  // Pre-buy-in state: crew table players start as observers until they tap BUY IN.
+  // Initialised to false; auto-resolved to true once the WS confirms it is NOT a
+  // crew table (lastWsAt becomes non-null). This avoids a flash on first render
+  // when isClubTable is still the default false before the socket handshake.
+  const [hasBoughtIn, setHasBoughtIn] = useState(false);
+  const boughtInInitRef = useRef(false);
+  useEffect(() => {
+    if (boughtInInitRef.current) return;
+    if (lastWsAt == null) return; // wait until WS has connected and isClubTable is stable
+    boughtInInitRef.current = true;
+    if (!isClubTable) setHasBoughtIn(true); // regular table: skip buy-in gate
+  }, [lastWsAt, isClubTable]);
+  const isPrebuyIn = isClubTable && !hasBoughtIn;
+  const effectiveSpectator = isSpectator || isPrebuyIn;
   const [, navigate] = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
 
@@ -79,7 +93,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
    *      Only flag bust when the player is no longer actively playing
    *      (sitting_out, folded, or absent). */
   const [bustDismissed, setBustDismissed] = useState(false);
-  const heroBust = !!me && me.chips <= 0 && !isSpectator && me.status !== 'active';
+  const heroBust = !!me && me.chips <= 0 && !effectiveSpectator && me.status !== 'active';
   const bustEligiblePhase = me?.status === 'sitting_out' || state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
   const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
   // Reset dismissal once chips return.
@@ -146,7 +160,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const isDrawPhase = state.phase === 'DRAW' || state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
 
   const handleCardClick = (index: number) => {
-    if (isSpectator || !isDrawPhase) return;
+    if (effectiveSpectator || !isDrawPhase) return;
     setSelectedCardIndices(prev => {
       if (prev.includes(index)) return prev.filter(i => i !== index);
       let maxCards = 1;
@@ -223,10 +237,10 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         stripes={serverProfile?.stripes ?? 0}
         phase={state.phase}
         onForfeit={() => { if (me) saveChips(modeId, me.chips); }}
-        sessionStats={isSpectator ? undefined : sessionStats}
+        sessionStats={effectiveSpectator ? undefined : sessionStats}
         tableId={tableId}
         humanCount={humanCount}
-        onOpenChat={!isSpectator ? () => setChatOpen(true) : undefined}
+        onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
       />
 
@@ -253,7 +267,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         </div>
       )}
 
-      {!isSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
+      {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
         <div className="flex justify-center pt-1">
           <SpectatorWatchingBadge count={state.spectatorCount} />
         </div>
@@ -290,19 +304,19 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         {/* Table 3D scene */}
         <ThreeDTableScene
           gameState={state}
-          myId={isSpectator ? 'p1' : myId}
+          myId={effectiveSpectator ? 'p1' : myId}
           modeId={modeId}
-          selectedCardIndices={isSpectator ? [] : selectedCardIndices}
+          selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
           onCardClick={handleCardClick}
-          selectableCards={!isSpectator && isDrawPhase}
+          selectableCards={!effectiveSpectator && isDrawPhase}
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
-          onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
+          onReact={!effectiveSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
           isClubTable={isClubTable}
         />
 
         {/* Hero hand panel — 3-column card/info/qualifier strip */}
-        {!isSpectator && me && me.cards.length > 0 && (
+        {!effectiveSpectator && me && me.cards.length > 0 && (
           <div className="mt-2 px-2">
             <HeroHandPanel
               player={me}
@@ -332,7 +346,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       )}
 
       {/* ── Fixed action zone ─────────────────────────────────────────────── */}
-      {!isSpectator && (
+      {!effectiveSpectator && (
         <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
           style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
           <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
@@ -359,6 +373,23 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               myDeclaration={me?.declaration ?? null}
               turnDeadline={state.turnDeadline ?? null}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── Crew table buy-in gate ─────────────────────────────────────────── */}
+      {isPrebuyIn && (
+        <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
+          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
+            <button
+              data-testid="button-crew-buyin"
+              onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
+              className="w-full py-3.5 rounded-xl font-mono font-bold text-sm tracking-widest uppercase"
+              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em' }}
+            >
+              BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
+            </button>
           </div>
         </div>
       )}

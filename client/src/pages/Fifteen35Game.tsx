@@ -872,7 +872,7 @@ export default function Fifteen35Game() {
     saveRecentTable(tableId);
   }, [tableId]);
 
-  const { state, handleAction, myId, role, sessionStats } = useServerMode(tableId, 'fifteen35');
+  const { state, handleAction, myId, role, sessionStats, isClubTable, lastWsAt } = useServerMode(tableId, 'fifteen35');
   const { profile: serverProfile } = useServerProfile();
 
   usePhaseSounds(state.phase);
@@ -880,12 +880,22 @@ export default function Fifteen35Game() {
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
   const isSpectator = role === 'spectator';
+  const [hasBoughtIn, setHasBoughtIn] = useState(false);
+  const boughtInInitRef = useRef(false);
+  useEffect(() => {
+    if (boughtInInitRef.current) return;
+    if (lastWsAt == null) return;
+    boughtInInitRef.current = true;
+    if (!isClubTable) setHasBoughtIn(true);
+  }, [lastWsAt, isClubTable]);
+  const isPrebuyIn = isClubTable && !hasBoughtIn;
+  const effectiveSpectator = isSpectator || isPrebuyIn;
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
 
   // ── Bust-out modal — preserves the all-in fix from UnifiedGamePage ─────────
   const [bustDismissed, setBustDismissed] = useState(false);
-  const heroBust = !!me && me.chips <= 0 && !isSpectator && me.status !== 'active';
+  const heroBust = !!me && me.chips <= 0 && !effectiveSpectator && me.status !== 'active';
   const bustEligiblePhase = me?.status === 'sitting_out' || state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
   const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
   useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
@@ -1135,7 +1145,7 @@ export default function Fifteen35Game() {
         )}
 
         {/* Action zone */}
-        {!isSpectator && (
+        {!effectiveSpectator && (
           <div className="px-3 pt-1 pb-1">
             <F35ActionZone
               phase={state.phase}
@@ -1151,6 +1161,20 @@ export default function Fifteen35Game() {
               openSeatsCount={openSeats}
               humanCount={humanCount}
             />
+          </div>
+        )}
+
+        {/* Crew table buy-in gate */}
+        {isPrebuyIn && (
+          <div className="px-3 pt-1 pb-1">
+            <button
+              data-testid="button-crew-buyin"
+              onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
+              className="w-full py-3.5 rounded-xl font-mono font-bold text-sm tracking-widest uppercase"
+              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em' }}
+            >
+              BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
+            </button>
           </div>
         )}
       </div>

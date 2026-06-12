@@ -625,19 +625,20 @@ export function ThreeDTableScene({
   function renderWaitingCenter() {
     const reservedCount = gameState.players.filter(p => p.presence === 'reserved' || p.presence === 'open').length;
     const others = gameState.players.filter(p => p.presence === 'human' && p.id !== myId);
-    const nameLabel = others.length === 0 ? 'Table\'s heating up…'
+    const nameLabel = others.length === 0
+      ? (isClubTable ? 'Waiting for members…' : 'Table\'s heating up…')
       : others.length === 1 ? `${others[0].name} · you`
       : `${others.slice(0, 2).map(p => p.name).join(', ')}${others.length > 2 ? ` +${others.length - 2}` : ''} · you`;
     const subLabel = others.length === 0
       ? (isClubTable
-          ? (reservedCount > 0 ? 'Invite friends to join' : 'Ready to start')
+          ? (reservedCount > 0 ? 'Share your invite code to fill seats' : 'Members are ready')
           : (reservedCount > 0 ? 'More bots joining soon' : 'Bots are in — deal when ready'))
       : (reservedCount > 0 ? `${reservedCount} seat${reservedCount !== 1 ? 's' : ''} open` : 'Full crew');
     return (
       <div className="flex flex-col items-center gap-2 text-center anim-slide-up">
         <div className="flex items-center gap-1.5 mb-0.5">
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>Live Table</span>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>{isClubTable ? 'Crew Table' : 'Live Table'}</span>
         </div>
         <div className="text-sm font-mono font-medium" style={{ color: 'rgba(255,255,255,0.65)' }} data-testid="text-waiting-who">{nameLabel}</div>
         <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>{subLabel}</div>
