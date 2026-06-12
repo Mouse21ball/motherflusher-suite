@@ -1537,6 +1537,7 @@ export function addBadugiConnection(
       playerId: seat,
       state: maskStateForPlayer(table.state, seat),
       sessionStats: buildBadugiSessionStats(table, seat),
+      crewId: table.crewId ?? null,
     }));
   } catch { /* ws may have already closed */ }
 

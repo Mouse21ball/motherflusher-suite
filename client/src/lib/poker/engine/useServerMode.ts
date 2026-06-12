@@ -219,6 +219,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
               sessionStatsRef.current = ss;
               setSessionStats(ss);
             }
+            if (msg.crewId) setIsClubTable(true);
             return;
           }
           if (msg.type === 'mode:snapshot') {

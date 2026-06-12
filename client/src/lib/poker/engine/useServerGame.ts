@@ -214,6 +214,7 @@ export function useServerBadugi(tableId: string) {
             if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
               setRole('spectator');
             }
+            if (msg.crewId) setIsClubTable(true);
             return;
           }
 

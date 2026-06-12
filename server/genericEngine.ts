@@ -1685,6 +1685,7 @@ export function addGenericConnection(
       modeId,
       state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
       sessionStats: buildSessionStats(table, seat),
+      crewId: table.crewId ?? null,
     }));
   } catch {}
 
