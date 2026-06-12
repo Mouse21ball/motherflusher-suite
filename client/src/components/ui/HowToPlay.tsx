@@ -156,21 +156,47 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '🏆',
       title: 'Hand Rankings',
-      desc: 'Hands rank in this order:\n\n1. Flush — scoops ENTIRE pot\n2. Badugi — scoops if others only have balls\n3. High Ball (all cards 8-King)\n4. Low Ball (all cards Ace-6)\n\nAny 7 = DEAD. Pot splits between HIGH and LOW if no flush or Badugi.',
+      desc: 'Hands rank in this order — all must be HIGH (8-King) or LOW (Ace-6):\n\n1. Flush — all 4 same suit (splits if both HIGH and LOW flush exist)\n2. Badugi — all 4 different suits (splits if both HIGH and LOW Badugi exist)\n3. High Ball vs Low Ball — always splits\n\nCards must ALL be high OR all be low. Never mix. Any 7 = DEAD.',
     },
     {
       icon: '♠️',
       title: 'Flush — Scoops All',
-      desc: 'All 4 cards same suit, no 7s, no duplicate ranks. Wins the ENTIRE pot:',
+      desc: 'All 4 cards same suit AND all HIGH or all LOW. HIGH and LOW flush split the pot.',
       cards: [
         [
-          { rank: '2', suit: '♠' },
-          { rank: '5', suit: '♠' },
-          { rank: '9', suit: '♠' },
-          { rank: 'K', suit: '♠' },
+          { rank: 'A',  suit: '♠' },
+          { rank: '3',  suit: '♠' },
+          { rank: '5',  suit: '♠' },
+          { rank: '6',  suit: '♠' },
+        ],
+        [
+          { rank: '8',  suit: '♥' },
+          { rank: '10', suit: '♥' },
+          { rank: 'Q',  suit: '♥' },
+          { rank: 'K',  suit: '♥' },
         ],
       ],
-      cardLabels: ['Flush — scoops entire pot'],
+      cardLabels: ['LOW Flush — Ace through 6 same suit', 'HIGH Flush — 8 through King same suit'],
+    },
+    {
+      icon: '🃏',
+      title: 'Badugi — HIGH and LOW',
+      desc: 'All 4 different suits AND all HIGH or all LOW. Scoops against plain ball hands.',
+      cards: [
+        [
+          { rank: 'A', suit: '♠' },
+          { rank: '3', suit: '♥' },
+          { rank: '5', suit: '♦' },
+          { rank: '6', suit: '♣' },
+        ],
+        [
+          { rank: '8',  suit: '♠' },
+          { rank: '10', suit: '♥' },
+          { rank: 'Q',  suit: '♦' },
+          { rank: 'K',  suit: '♣' },
+        ],
+      ],
+      cardLabels: ['LOW Badugi — Ace through 6', 'HIGH Badugi — 8 through King'],
     },
     {
       icon: '⬆️',
@@ -217,8 +243,14 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
           { rank: 'Q', suit: '♦' },
           { rank: 'K', suit: '♣' },
         ],
+        [
+          { rank: '4', suit: '♠' },
+          { rank: 'K', suit: '♥' },
+          { rank: '9', suit: '♦' },
+          { rank: '2', suit: '♣' },
+        ],
       ],
-      cardLabels: ['Has a 7 = DEAD ❌', 'Duplicate rank = INVALID ❌'],
+      cardLabels: ['Has a 7 = DEAD ❌', 'Duplicate rank = INVALID ❌', 'Mixed high and low = INVALID ❌'],
     },
     {
       icon: '🔄',
