@@ -133,6 +133,7 @@ export default function LadyLuck() {
   const [countdown, setCountdown] = useState(8);
   const [flipAnim, setFlipAnim]   = useState<LadyLuckSuit | null>(null);
   const [joining, setJoining]     = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [wagerAmt, setWagerAmt]   = useState(0);
   const [sideBetSuit, setSideBetSuit] = useState<LadyLuckSuit | null>(null);
   const [sideBetAmt, setSideBetAmt]   = useState(0);
@@ -222,18 +223,28 @@ export default function LadyLuck() {
 
   const handleJoinRoom = async (roomType: LadyLuckRoom) => {
     setJoining(true);
+    setJoinError(null);
+    console.log('[ladyluck] JOIN tapped', roomType);
     try {
       const res = await apiFetch('/api/ladyluck/tables', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ roomType }),
       });
-      if (!res.ok) throw new Error('Failed to create table');
+      console.log('[ladyluck] response status', res.status);
+      if (!res.ok) {
+        let msg = `Server returned ${res.status}`;
+        try { const j = await res.json(); msg = j.error || msg; } catch {}
+        throw new Error(msg);
+      }
       const { tableId: tid } = await res.json() as { tableId: string };
+      console.log('[ladyluck] tableId received', tid);
+      console.log('[ladyluck] navigating to', `/ladyluck?t=${tid}`);
       setTableId(tid);
       navigate(`/ladyluck?t=${tid}`, { replace: true });
     } catch (err) {
-      console.error(err);
+      console.error('[ladyluck] JOIN error', err);
+      setJoinError(err instanceof Error ? err.message : String(err));
     }
     setJoining(false);
   };
@@ -311,6 +322,13 @@ export default function LadyLuck() {
             </div>
           ))}
         </div>
+
+        {/* Join error banner */}
+        {joinError && (
+          <div style={{ margin: '0 16px 8px', background: 'rgba(229,57,53,0.12)', border: '1px solid #e5393580', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b' }}>
+            ✕ {joinError}
+          </div>
+        )}
 
         {/* How it works blurb */}
         <div style={{ margin: '0 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 16px' }}>
