@@ -128,13 +128,14 @@ const RECONNECT_TIMEOUT_MS = 90_000;
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
-function makeInitialPlayers(): Player[] {
+function makeInitialPlayers(isClubTable = false): Player[] {
+  const empty = isClubTable ? 'open' as const : 'reserved' as const;
   return [
-    { id: 'p1', name: 'You',  presence: 'human',    chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Open', presence: 'reserved', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p3', name: 'Open', presence: 'reserved', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Open', presence: 'reserved', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p5', name: 'Open', presence: 'reserved', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p1', name: 'You',  presence: 'human', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p3', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p5', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
   ];
 }
 
@@ -226,7 +227,7 @@ function scheduleStagedBotFill(key: string, tableId: string, capturedJoinWindowE
   }, 10_000);
 }
 
-function makeInitialState(tableId: string): GameState {
+function makeInitialState(tableId: string, isClubTable = false): GameState {
   return {
     tableId,
     phase: 'WAITING',
@@ -235,7 +236,7 @@ function makeInitialState(tableId: string): GameState {
     minBet: 50,
     raisesThisRound: 0,
     activePlayerId: 'p1',
-    players: makeInitialPlayers(),
+    players: makeInitialPlayers(isClubTable),
     communityCards: [],
     messages: [{ id: makeId(), text: 'Game ready. Press start.', time: Date.now() }],
     chatMessages: [],
@@ -1229,12 +1230,13 @@ function releaseSeat(table: GenericTable, seat: string): void {
     players: table.state.players.map(p => {
       if (p.id !== seat) return p;
       if (isBetweenHands) {
-        return { ...p, presence: 'reserved' as const, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
+        const emptyP = table.crewId ? 'open' as const : 'reserved' as const;
+        return { ...p, presence: emptyP, status: 'sitting_out' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
       // Mid-hand: hand off to bot so the round completes cleanly.
       // Club tables have no bots — fold the seat instead so the hand advances.
       if (table.crewId) {
-        return { ...p, presence: 'reserved' as const, status: 'folded' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
+        return { ...p, presence: 'open' as const, status: 'folded' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
       return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
     }),
@@ -1427,7 +1429,7 @@ function getOrCreateTable(
       tableId,
       modeId,
       mode,
-      state: makeInitialState(tableId),
+      state: makeInitialState(tableId, !!options.crewId),
       handId: 0,
       actionLock: false,
       botTimers: new Map(),
@@ -1571,7 +1573,7 @@ export function addGenericConnection(
     table.state.activePlayerId === seat &&
     INTERACTIVE_PHASES.has(table.state.phase);
 
-  const wasReserved = table.state.players.find(p => p.id === seat)?.presence === 'reserved';
+  const wasReserved = (p => p === 'reserved' || p === 'open')(table.state.players.find(p => p.id === seat)?.presence ?? '');
   table.state = {
     ...table.state,
     players: table.state.players.map(p => {

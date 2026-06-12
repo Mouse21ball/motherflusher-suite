@@ -368,7 +368,9 @@ export function ThreeDTableScene({
   }
   const me        = orderedPlayers[0];
   // Club tables have no bots — hide reserved (empty) seats from the opponent arc entirely.
-  const opponents = orderedPlayers.slice(1).filter(p => !isClubTable || p.presence !== 'reserved');
+  // 'open' = empty seat on a club table — always invisible in the arc.
+  // 'reserved' = bot-pending seat on a regular table — shown as a ghost.
+  const opponents = orderedPlayers.slice(1).filter(p => p.presence !== 'open');
 
   // ── Pot pulse ────────────────────────────────────────────────────────────
   const [potPulse, setPotPulse] = useState(false);
@@ -395,7 +397,7 @@ export function ThreeDTableScene({
       return;
     }
     // Snapshot reveal order at SHOWDOWN entry: losers/folded first, winners last
-    const active = gameState.players.filter(p => p.presence !== 'reserved');
+    const active = gameState.players.filter(p => p.presence !== 'reserved' && p.presence !== 'open');
     sdRevealOrderRef.current = [
       ...active.filter(p => !p.isWinner).map(p => p.id),
       ...active.filter(p =>  p.isWinner).map(p => p.id),
@@ -509,7 +511,7 @@ export function ThreeDTableScene({
   const isScoop = !!heroAtShowdown?.isWinner && heroAtShowdown.declaration === 'SWING' && !!(heroAtShowdown.score?.high && heroAtShowdown.score?.low);
 
   // ── Stack leader ──────────────────────────────────────────────────────────
-  const activePlayers = gameState.players.filter(p => p.presence !== 'reserved');
+  const activePlayers = gameState.players.filter(p => p.presence !== 'reserved' && p.presence !== 'open');
   const maxChips = activePlayers.length > 1 ? Math.max(...activePlayers.map(p => p.chips)) : -1;
   const leadCandidates = activePlayers.filter(p => p.chips === maxChips);
   const stackLeaderId = leadCandidates.length === 1 ? leadCandidates[0].id : null;
@@ -525,7 +527,7 @@ export function ThreeDTableScene({
     if (phase !== actionPhaseRef.current) {
       actionPhaseRef.current = phase;
       actionBaselineRef.current = Object.fromEntries(
-        gameState.players.filter(p => p.presence !== 'reserved').map(p => [p.id, { bet: p.bet, chips: p.chips, status: p.status }])
+        gameState.players.filter(p => p.presence !== 'reserved' && p.presence !== 'open').map(p => [p.id, { bet: p.bet, chips: p.chips, status: p.status }])
       );
       if (!isBetPhase) {
         Object.values(actionTimers.current).forEach(clearTimeout);
@@ -538,7 +540,7 @@ export function ThreeDTableScene({
     const baseline = actionBaselineRef.current;
     const updates: Record<string, string> = {};
     gameState.players.forEach(p => {
-      if (p.presence === 'reserved') return;
+      if (p.presence === 'reserved' || p.presence === 'open') return;
       const old = baseline[p.id];
       if (!old) return;
       let label = '';
@@ -621,7 +623,7 @@ export function ThreeDTableScene({
 
   // ── Waiting state label ───────────────────────────────────────────────────
   function renderWaitingCenter() {
-    const reservedCount = gameState.players.filter(p => p.presence === 'reserved').length;
+    const reservedCount = gameState.players.filter(p => p.presence === 'reserved' || p.presence === 'open').length;
     const others = gameState.players.filter(p => p.presence === 'human' && p.id !== myId);
     const nameLabel = others.length === 0 ? 'Table\'s heating up…'
       : others.length === 1 ? `${others[0].name} · you`

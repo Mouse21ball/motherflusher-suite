@@ -19,7 +19,7 @@ export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | 
 // Distinguishes a real human seat from a bot seat.
 // 'reserved' = open seat held for a human during the join window; excluded
 //              from all game logic until the window expires or the hand starts.
-export type PlayerPresence = 'human' | 'bot' | 'reserved';
+export type PlayerPresence = 'human' | 'bot' | 'reserved' | 'open';
 
 export interface HandEvaluation {
   description: string;
