@@ -126,17 +126,8 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     },
     {
       icon: '⬆️',
-      title: 'HIGH Ball Hand',
-      desc: 'All 4 cards must be 8 or higher — no 7s, no duplicate ranks.',
-      cards: [
-        [
-          { rank: '8',  suit: '♠' },
-          { rank: '10', suit: '♥' },
-          { rank: 'Q',  suit: '♦' },
-          { rank: 'K',  suit: '♣' },
-        ],
-      ],
-      cardLabels: ['Valid HIGH Ball:'],
+      title: 'Hand Rankings',
+      desc: 'Hands rank in this order:\n\n1. Flush — scoops ENTIRE pot\n2. Badugi — scoops if others only have balls\n3. High Ball (all cards 8-King)\n4. Low Ball (all cards Ace-6)\n\nAny 7 = DEAD. Pot splits between HIGH and LOW if no flush or Badugi.',
     },
     {
       icon: '⬇️',
