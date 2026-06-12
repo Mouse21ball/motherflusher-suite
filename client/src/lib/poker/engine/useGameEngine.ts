@@ -11,10 +11,10 @@ export const createMockPlayers = (heroChips: number): Player[] => {
   const identity = ensurePlayerIdentity();
   return [
     { id: 'p1', name: identity.name || 'You', presence: 'human', chips: heroChips, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Alice',   presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p3', name: 'Bob',     presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Charlie', presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p5', name: 'Daisy',   presence: 'bot', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p2', name: 'Alice',   presence: 'open', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: true,  declaration: null, hasActed: false },
+    { id: 'p3', name: 'Bob',     presence: 'open', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p4', name: 'Charlie', presence: 'open', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
+    { id: 'p5', name: 'Daisy',   presence: 'open', chips: 1000, bet: 0, totalBet: 0, cards: [], status: 'active', isDealer: false, declaration: null, hasActed: false },
   ];
 };
 
@@ -198,28 +198,28 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
     const botId = state.activePlayerId;
     const bot = state.players.find(p => p.id === botId);
-    if (!bot || bot.status !== 'active') {
-      if (bot && bot.status !== 'active') {
-        const timer = setTimeout(() => {
-          setState(s => {
-            const curIdx = s.players.findIndex(p => p.id === botId);
-            if (curIdx === -1) return s;
-            const isHitPhase = s.phase.startsWith('HIT_');
-            const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
-            const isDrawPhase = s.phase.startsWith('DRAW');
-            const skipAllIn = !isDeclarePhase && !isDrawPhase && !isHitPhase;
-            const nextIdx = getNextActivePlayerIndex(s.players, curIdx, skipAllIn);
-            const nextPlayer = s.players[nextIdx];
-            if (!nextPlayer || nextPlayer.status !== 'active' || nextPlayer.id === botId) {
-              safeTimeout(advancePhase, 500);
-              return s;
-            }
-            return { ...s, activePlayerId: nextPlayer.id };
-          });
-        }, 100);
-        return () => clearTimeout(timer);
-      }
-      return;
+    // Only run client-side bot logic for players explicitly marked as bots.
+    // 'open' seats (club table placeholders) must never trigger bot actions.
+    if (!bot || bot.presence !== 'bot') return;
+    if (bot.status !== 'active') {
+      const timer = setTimeout(() => {
+        setState(s => {
+          const curIdx = s.players.findIndex(p => p.id === botId);
+          if (curIdx === -1) return s;
+          const isHitPhase = s.phase.startsWith('HIT_');
+          const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
+          const isDrawPhase = s.phase.startsWith('DRAW');
+          const skipAllIn = !isDeclarePhase && !isDrawPhase && !isHitPhase;
+          const nextIdx = getNextActivePlayerIndex(s.players, curIdx, skipAllIn);
+          const nextPlayer = s.players[nextIdx];
+          if (!nextPlayer || nextPlayer.status !== 'active' || nextPlayer.id === botId) {
+            safeTimeout(advancePhase, 500);
+            return s;
+          }
+          return { ...s, activePlayerId: nextPlayer.id };
+        });
+      }, 100);
+      return () => clearTimeout(timer);
     }
 
     // Betting phases get more "think" time — builds pressure at the table
