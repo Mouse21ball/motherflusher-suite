@@ -113,6 +113,7 @@ const MODES = [
   { id: 'dead7',      name: 'DEAD 7',        tagline: 'Snitches get stitches', path: '/dead7',      color: '#ef4444', icon: '/mode-icon-dead7.png'     },
   { id: 'fifteen35',  name: '15 / 35',       tagline: 'Hit or go home',        path: '/fifteen35',  color: '#f59e0b', icon: '/mode-icon-fifteen35.png' },
   { id: 'suitspoker', name: 'SUITS & POKER', tagline: 'Two paths, one winner', path: '/suitspoker', color: '#3b82f6', icon: '/mode-icon-suits.png'     },
+  { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your Queen. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
 ] as const;
 
 // Card-specific background images and copy (per spec)
@@ -121,6 +122,7 @@ const MODE_CARD_CONFIGS = [
   { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'PICK A SIDE.'          },
   { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
   { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.' },
+  { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR QUEEN. RUN THE RACE.', directNav: true },
 ];
 
 // ── Live table browser ────────────────────────────────────────────────────────
@@ -266,10 +268,10 @@ export default function Home() {
   const [, navigate] = useLocation();
   const [showPrivateSetup,   setShowPrivateSetup]   = useState(false);
   const [showOpenTableModal, setShowOpenTableModal] = useState(false);
-  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | null>(null);
+  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck' | null>(null);
 
-  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits'> = {
-    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
+  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck'> = {
+    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits', ladyluck: 'ladyluck',
   };
 
   const identity    = ensurePlayerIdentity();
@@ -603,9 +605,9 @@ export default function Home() {
               const htpModeId  = HOW_TO_PLAY_ID[card.id];
               return (
                 <div key={card.id} data-testid={`button-mode-${card.id}`}
-                  onClick={() => navigateToMode(card.id, mode.path)}
+                  onClick={() => (card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path)}
                   role="button" tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigateToMode(card.id, mode.path); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') ((card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path)); }}
                   style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
                   {/* BG scene art */}
                   <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
@@ -639,7 +641,7 @@ export default function Home() {
                   <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
                     <button
                       data-testid={`button-play-${card.id}`}
-                      onClick={e => { e.stopPropagation(); navigateToMode(card.id, mode.path); }}
+                      onClick={e => { e.stopPropagation(); (card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path); }}
                       style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em', border: 'none', cursor: 'pointer' }}
                     >
                       PLAY →

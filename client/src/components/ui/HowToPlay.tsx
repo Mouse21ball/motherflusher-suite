@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-type HowToPlayModeId = 'badugi' | 'dead7' | '1535' | 'suits';
+type HowToPlayModeId = 'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck';
 
 interface HowToPlayProps {
   modeId: HowToPlayModeId;
@@ -401,22 +401,56 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
       desc: 'A Royal Flush scores 51 suit points and is the best poker hand. If you have one always SWING — it is the strongest possible hand in the entire game.',
     },
   ],
+  ladyluck: [
+    {
+      icon: '👑',
+      title: 'What is Lady Luck?',
+      desc: '4 Queens race to 9 card flips. Pick your Queen and wager your chips. First Queen to 9 wins the pot.',
+    },
+    {
+      icon: '🔄',
+      title: 'Pick Order',
+      desc: 'Action starts LEFT of the dealer going clockwise. Dealer automatically gets the last remaining Queen.',
+    },
+    {
+      icon: '💰',
+      title: 'Place Your Wager',
+      desc: 'Bet chips before the race starts in 100-chip increments. Winner takes the entire pot.',
+    },
+    {
+      icon: '🃏',
+      title: 'The Race',
+      desc: 'Cards flip one at a time every 1.5 seconds. When your suit appears your Queen advances one space toward 9.',
+    },
+    {
+      icon: '🎰',
+      title: 'Side Bets',
+      desc: 'Bet on any Queen before the race at 2.5× payout. Placed during the wager phase only. Win and the house pays you 2.5×. Lose and the house keeps your bet.',
+    },
+    {
+      icon: '🏆',
+      title: 'Win the Race',
+      desc: 'First Queen to reach 9 advances wins the entire pot. Side bet winners collect 2.5× from the house.',
+    },
+  ],
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MODE_COLORS: Record<HowToPlayModeId, string> = {
-  badugi: '#4CAF50',
-  dead7:  '#f44336',
-  '1535': '#C9A227',
-  suits:  '#2196F3',
+  badugi:   '#4CAF50',
+  dead7:    '#f44336',
+  '1535':   '#C9A227',
+  suits:    '#2196F3',
+  ladyluck: '#e53935',
 };
 
 const MODE_NAMES: Record<HowToPlayModeId, string> = {
-  badugi: 'BADUGI',
-  dead7:  'DEAD 7',
-  '1535': '15 / 35',
-  suits:  'SUITS & POKER',
+  badugi:   'BADUGI',
+  dead7:    'DEAD 7',
+  '1535':   '15 / 35',
+  suits:    'SUITS & POKER',
+  ladyluck: 'LADY LUCK',
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────

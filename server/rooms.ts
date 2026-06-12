@@ -30,6 +30,14 @@ import {
   updateGenericTableSettings,
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
+import {
+  handleLLJoin,
+  handleLLSelect,
+  handleLLWager,
+  handleLLSideBet,
+  handleLLStart,
+  handleLLDisconnect,
+} from './ladyluckEngine';
 
 // ─── Rollout gate ─────────────────────────────────────────────────────────────
 
@@ -561,12 +569,73 @@ export function initRooms(httpServer: Server): WebSocketServer {
         handleGenericAction(tableId, pid, action, payload);
         return;
       }
+
+      // ── Lady Luck messages (ll: prefix) ─────────────────────────────────────
+      // msg is narrowed to `never` after the ClientMessage union is exhausted above,
+      // so we widen to a generic record for the dynamic message types below.
+      const llMsg = msg as { type: string; tableId?: string; playerId?: string; name?: string; suit?: string; amount?: number };
+
+      if (llMsg.type === 'll:join') {
+        const tid = llMsg.tableId; const pid = llMsg.playerId; const name = llMsg.name;
+        if (!tid || !pid) return;
+        roomId   = tid;
+        playerId = pid;
+        setSeatOwner(tid, pid, authWs.authenticatedPlayerId);
+        const profile = await storage.getPlayerProfile(pid).catch(() => null);
+        const chips   = profile?.chipBalance ?? 1000;
+        handleLLJoin(tid, pid, name || 'Player', chips, ws);
+        return;
+      }
+
+      if (llMsg.type === 'll:start') {
+        const tid = llMsg.tableId; const pid = llMsg.playerId;
+        if (!tid || !pid) return;
+        if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
+        handleLLStart(tid, pid);
+        return;
+      }
+
+      if (llMsg.type === 'll:select') {
+        const tid = llMsg.tableId; const pid = llMsg.playerId; const suit = llMsg.suit;
+        if (!tid || !pid || !suit) return;
+        if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
+        const result = handleLLSelect(tid, pid, suit as import('../shared/modes/ladyluck').LadyLuckSuit);
+        if (!result.ok && ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
+        }
+        return;
+      }
+
+      if (llMsg.type === 'll:wager') {
+        const tid = llMsg.tableId; const pid = llMsg.playerId; const amount = llMsg.amount;
+        if (!tid || !pid || amount == null) return;
+        if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
+        handleLLWager(tid, pid, amount).then(result => {
+          if (!result.ok && ws.readyState === WebSocket.OPEN) {
+            try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      if (llMsg.type === 'll:sidebet') {
+        const tid = llMsg.tableId; const pid = llMsg.playerId; const suit = llMsg.suit; const amount = llMsg.amount;
+        if (!tid || !pid || !suit || amount == null) return;
+        if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
+        handleLLSideBet(tid, pid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount).then(result => {
+          if (!result.ok && ws.readyState === WebSocket.OPEN) {
+            try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
+          }
+        }).catch(() => {});
+        return;
+      }
     });
 
     ws.on('close', () => {
       clearInterval(pingTimer);
       clearInterval(sessionCheckTimer);
       if (roomId && playerId) {
+        handleLLDisconnect(roomId, playerId);
         releasePlayer(playerId, roomId);
         clearSeatOwner(roomId, playerId);
         if (engineSeatPid) clearSeatOwner(roomId, engineSeatPid);

@@ -34,6 +34,7 @@ const verifyPlayWebhook         = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_PLAY
 const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
+import { createLLTable, getLLActiveTables } from "./ladyluckEngine";
 import { filterChatMessage } from "./chatFilter";
 import {
   STRIPES_PACKS,
@@ -2651,6 +2652,33 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err: any) {
       if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Lady Luck endpoints ──────────────────────────────────────────────────────
+
+  // POST /api/ladyluck/tables — create a Lady Luck table
+  app.post("/api/ladyluck/tables", requireAuth, async (req, res) => {
+    try {
+      const { roomType } = z.object({
+        roomType: z.enum(['pony', 'thoroughbred', 'champion']),
+      }).parse(req.body);
+      const tableId = `ll_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+      const hostId  = req.sessionPlayerId!;
+      createLLTable(tableId, roomType, hostId);
+      res.json({ tableId });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' }); return; }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/ladyluck/tables — list active Lady Luck tables
+  app.get("/api/ladyluck/tables", async (_req, res) => {
+    try {
+      res.json(getLLActiveTables());
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
