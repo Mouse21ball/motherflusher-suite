@@ -233,6 +233,9 @@ export interface CrewDetail {
   inviteCode:  string;
   captainId:   string;
   memberCount: number;
+  chipBank:    number;
+  clubId:      string;
+  isPublic:    boolean;
   createdAt:   Date;
   disbandedAt: Date | null;
   members:     CrewMemberRow[];
@@ -1552,6 +1555,9 @@ export class MemStorage implements IStorage {
       inviteCode:  crew.inviteCode,
       captainId:   crew.captainId,
       memberCount: crew.memberCount,
+      chipBank:    crew.chipBank ?? 0,
+      clubId:      crew.clubId ?? '',
+      isPublic:    crew.isPublic ?? true,
       createdAt:   crew.createdAt,
       disbandedAt: crew.disbandedAt ?? null,
       members:     rows.map(r => ({
