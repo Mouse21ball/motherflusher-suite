@@ -45,6 +45,7 @@ interface UnifiedGameUIProps {
   // Host authority
   hostId?: string | null;
   tableSettings?: TableSettings;
+  isClubTable?: boolean;
   sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
   kickedByHost?: boolean;
 }
@@ -55,7 +56,7 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
   { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
+function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, isClubTable = false, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   const [, navigate] = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
@@ -297,7 +298,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
           onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
-          isClubTable={tableSettings?.botsEnabled === false}
+          isClubTable={isClubTable}
         />
 
         {/* Hero hand panel — 3-column card/info/qualifier strip */}
@@ -345,9 +346,9 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
               locked={actionLocked}
               selectedCardsCount={selectedCardIndices.length}
-              openSeatsCount={tableSettings?.botsEnabled === false ? 0 : openSeatsCount}
+              openSeatsCount={isClubTable ? 0 : openSeatsCount}
               humanCount={humanCount}
-              isClubTable={tableSettings?.botsEnabled === false}
+              isClubTable={isClubTable}
               declarationOptions={modeId === 'suitspoker' ? (() => {
                 const heroSuitsQualifies = me ? qualifiesForSuits(me.cards) : false;
                 return SUITSPOKER_DECLARATION_OPTIONS.map(opt => ({
@@ -409,8 +410,8 @@ function useTableId(modeId: string) {
 function BadugiServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost } = useServerBadugi(tableId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerBadugi(tableId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
 // Server engine modeId mapping (UI modeId → server engine modeId)
@@ -424,8 +425,8 @@ function GenericServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost } = useServerMode(tableId, engineId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerMode(tableId, engineId);
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────

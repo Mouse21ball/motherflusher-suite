@@ -100,6 +100,7 @@ interface HostUpdate {
   hostId: string | null;
   hostName: string | null;
   tableSettings: { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean };
+  crewId: string | null;
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -169,6 +170,7 @@ function buildHostUpdate(room: Room): HostUpdate {
       botsEnabled: room.botsEnabled,
       isInviteOnly: room.isInviteOnly,
     },
+    crewId: room.crewId ?? null,
   };
 }
 

@@ -100,6 +100,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   // Host authority state
   const [hostId, setHostId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<{ maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean }>({ maxPlayers: 5, botsEnabled: true, isInviteOnly: false });
+  const [isClubTable, setIsClubTable] = useState(false);
   const [kickedByHost, setKickedByHost] = useState(false);
   const wsRef      = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
@@ -241,6 +242,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             if (msg.tableSettings) {
               setTableSettings(msg.tableSettings as { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean });
             }
+            if (msg.crewId) setIsClubTable(true);
             return;
           }
 
@@ -321,5 +323,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     ws.send(JSON.stringify({ type, tableId: tableIdRef.current, playerId: myIdRef.current, ...payload }));
   }, []);
 
-  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, sendHostAction, kickedByHost };
+  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
 }
