@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { AuthModal } from "@/components/AuthModal";
 import { apiFetch } from "@/lib/session";
+import { billing } from "@/lib/billing";
 import { useQuery } from "@tanstack/react-query";
 import { AvatarWithFrame } from "@/components/ui/AvatarWithFrame";
 
@@ -944,6 +945,7 @@ function BankTab({ crew, playerId, isOwnerOrAgent, onReload }: {
   const [showRequest, setShowRequest]   = useState(false);
   const [requests, setRequests]         = useState<ChipRequest[] | null>(null);
   const [resolving, setResolving]       = useState<number | null>(null);
+  const [buyingPack, setBuyingPack]     = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     const res = await apiFetch(`/api/crews/${crew.id}/chip-requests`);
@@ -988,6 +990,49 @@ function BankTab({ crew, playerId, isOwnerOrAgent, onReload }: {
           style={{ background: "rgba(240,184,41,0.15)", color: GOLD, border: `1px solid ${GOLD}` }}>
           TRANSFER CHIPS TO BANK
         </button>
+      )}
+
+      {/* Owner/Agent: Buy Club Chips via IAP */}
+      {isOwnerOrAgent && (
+        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(240,184,41,0.15)" }}>
+          <p className="px-4 py-2.5 font-mono text-xs tracking-widest"
+             style={{ background: "rgba(240,184,41,0.06)", color: GOLD }}>
+            BUY CLUB CHIPS
+          </p>
+          {([
+            { id: 'club-chips-small-999',   label: 'Club Starter Pack', chips: 10000, price: '$9.99'  },
+            { id: 'club-chips-medium-2499', label: 'Club Pro Pack',     chips: 30000, price: '$24.99' },
+            { id: 'club-chips-large-4999',  label: 'Club Elite Pack',   chips: 75000, price: '$49.99' },
+          ] as const).map(pack => (
+            <button
+              key={pack.id}
+              disabled={!!buyingPack}
+              data-testid={`btn-buy-club-chips-${pack.id}`}
+              onClick={async () => {
+                setBuyingPack(pack.id);
+                try {
+                  await billing.purchase(pack.id, { crewId: crew.id });
+                  toast({ title: `+${pack.chips.toLocaleString()} chips added to club bank` });
+                  onReload();
+                } catch (err: any) {
+                  toast({ title: err?.message ?? 'Purchase failed', variant: 'destructive' });
+                } finally {
+                  setBuyingPack(null);
+                }
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 font-mono text-sm transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                background:  buyingPack === pack.id ? "rgba(240,184,41,0.12)" : "transparent",
+                borderTop:   "1px solid rgba(240,184,41,0.08)",
+                color:       GOLD,
+              }}>
+              <span>{buyingPack === pack.id ? 'Processing…' : pack.label}</span>
+              <span className="text-xs" style={{ color: GOLD_DIM }}>
+                {pack.chips.toLocaleString()} chips · {pack.price}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Member: Request Chips */}

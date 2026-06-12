@@ -205,6 +205,7 @@ export interface IStorage {
   repayChipLoan(playerId: string, chipsEarned: number): Promise<number>;
   // ── Club (PokerBros-style) ───────────────────────────────────────────────────
   fundClubBank(crewId: string, ownerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }>;
+  addChipsToCrewBank(crewId: string, ownerId: string, amount: number): Promise<{ newBankBalance: number }>;
   distributeChips(crewId: string, agentId: string, targetPlayerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }>;
   requestChips(crewId: string, playerId: string, amount: number): Promise<{ success: boolean; requestId: number }>;
   resolveChipRequest(requestId: number, agentId: string, approve: boolean): Promise<{ success: boolean }>;
@@ -1857,6 +1858,30 @@ export class MemStorage implements IStorage {
       return { success: true, newBankBalance: updated.chipBank };
     });
   }
+
+  // IAP-only bank credit — no personal chip deduction.
+  // Verifies caller is owner/captain/agent, then adds chips directly to the crew bank.
+  async addChipsToCrewBank(crewId: string, ownerId: string, amount: number): Promise<{ newBankBalance: number }> {
+    return db.transaction(async tx => {
+      const [mem] = await tx
+        .select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, crewId), eq(crewMembers.playerId, ownerId)));
+      if (!mem || !['owner', 'captain', 'agent'].includes(mem.role)) {
+        throw Object.assign(new Error('Not authorized to fund this club bank'), { code: 'unauthorized' });
+      }
+      const [updated] = await tx
+        .update(crews)
+        .set({ chipBank: sql`COALESCE(${crews.chipBank}, 0) + ${amount}` })
+        .where(eq(crews.id, crewId))
+        .returning({ chipBank: crews.chipBank });
+      if (!updated) {
+        throw Object.assign(new Error('Crew not found'), { code: 'crew_not_found' });
+      }
+      return { newBankBalance: updated.chipBank };
+    });
+  }
+
 
   async distributeChips(crewId: string, agentId: string, targetPlayerId: string, amount: number): Promise<{ success: boolean; newBankBalance: number }> {
     return db.transaction(async tx => {

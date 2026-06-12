@@ -25,6 +25,15 @@ export const STRIPES_PACKS: Record<string, { stripes: number; priceCents: number
   stripes_mega_9999:   { stripes: 15000, priceCents: 9999 },
 };
 
+// ─── Club Chip pack catalog ───────────────────────────────────────────────────
+// Consumable IAPs that credit chips directly to the buyer's club bank.
+// No personal chip deduction — real money is exchanged, not a transfer.
+export const CLUB_CHIP_PACKS: Record<string, { chips: number; priceCents: number }> = {
+  'club-chips-small-999':   { chips: 10000,  priceCents: 999  },
+  'club-chips-medium-2499': { chips: 30000,  priceCents: 2499 },
+  'club-chips-large-4999':  { chips: 75000,  priceCents: 4999 },
+};
+
 // ─── Subscription product catalog ────────────────────────────────────────────
 export type SubscriptionTier   = "gold_pro" | "diamond_elite";
 export type BillingPeriod      = "monthly" | "yearly";

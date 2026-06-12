@@ -37,6 +37,7 @@ import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "
 import { filterChatMessage } from "./chatFilter";
 import {
   STRIPES_PACKS,
+  CLUB_CHIP_PACKS,
   SUBSCRIPTION_PRODUCTS,
   verifyGooglePlayPurchase,
   acknowledgeGooglePlayPurchase,
@@ -1199,8 +1200,38 @@ export async function registerRoutes(
       const schema = z.object({
         productId:     z.string().min(1),
         purchaseToken: z.string().min(1),
+        crewId:        z.string().optional(),
       });
-      const { productId, purchaseToken } = schema.parse(req.body);
+      const { productId, purchaseToken, crewId } = schema.parse(req.body);
+
+      // ── Club chip IAP: credits chips directly to the crew bank ───────────────
+      const clubPack = CLUB_CHIP_PACKS[productId];
+      if (clubPack) {
+        if (!crewId) {
+          res.status(400).json({ error: 'crewId required for club chip purchases' });
+          return;
+        }
+        const clubPlayerId = req.sessionPlayerId!;
+        let clubPurchaseData;
+        try {
+          clubPurchaseData = await verifyGooglePlayPurchase(productId, purchaseToken);
+        } catch (verifyErr: any) {
+          res.status(402).json({ error: `Purchase verification failed: ${verifyErr.message}` });
+          return;
+        }
+        if (clubPurchaseData.purchaseState !== 0) {
+          const state = clubPurchaseData.purchaseState === 1 ? 'canceled' : 'pending';
+          res.status(402).json({ error: `Purchase is ${state} — not completed.` });
+          return;
+        }
+        await storage.addChipsToCrewBank(crewId, clubPlayerId, clubPack.chips);
+        await acknowledgeGooglePlayPurchase(productId, purchaseToken);
+        console.log(
+          `[billing] club-chips: player=${clubPlayerId} crewId=${crewId} chips=+${clubPack.chips}`
+        );
+        res.json({ chipsGranted: clubPack.chips, crewId });
+        return;
+      }
 
       const pack = STRIPES_PACKS[productId];
       if (!pack) {

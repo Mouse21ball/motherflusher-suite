@@ -33,6 +33,15 @@ export const STRIPES_PRODUCT_IDS = [
 
 export type StripesProductId = typeof STRIPES_PRODUCT_IDS[number];
 
+// ─── Club Chip consumable product catalog ────────────────────────────────────
+export const CLUB_CHIP_PRODUCT_IDS = [
+  'club-chips-small-999',
+  'club-chips-medium-2499',
+  'club-chips-large-4999',
+] as const;
+
+export type ClubChipProductId = typeof CLUB_CHIP_PRODUCT_IDS[number];
+
 // ─── Subscription product catalog ────────────────────────────────────────────
 export const SUBSCRIPTION_PRODUCT_IDS = [
   "sub_gold_pro_monthly",
@@ -54,10 +63,12 @@ export interface ProductInfo {
 }
 
 export interface PurchaseResult {
-  productId:     string;
-  purchaseToken: string;
-  orderId:       string;
+  productId:      string;
+  purchaseToken:  string;
+  orderId:        string;
   stripesGranted: number;
+  chipsGranted?:  number;
+  crewId?:        string;
 }
 
 export interface SubscriptionResult {
@@ -83,7 +94,7 @@ export interface ActiveSubscription {
 export interface BillingPlugin {
   initialize(): Promise<void>;
   getProducts(): ProductInfo[];
-  purchase(productId: string): Promise<PurchaseResult>;
+  purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult>;
   restorePurchases(): Promise<void>;
   launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult>;
   getActiveSubscription(): Promise<ActiveSubscription>;
@@ -99,7 +110,7 @@ class NativeBillingPlugin implements BillingPlugin {
   private initialized = false;
   // Pending purchase promises keyed by productId.
   // Resolved/rejected inside store.when().approved() after server verification.
-  private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
+  private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; crewId?: string }>();
 
   async initialize(): Promise<void> {
     const { store, Platform, ProductType } = CdvPurchase;
@@ -115,6 +126,15 @@ class NativeBillingPlugin implements BillingPlugin {
     // Register all consumable Stripes packs
     store.register(
       STRIPES_PRODUCT_IDS.map(id => ({
+        id,
+        type:     ProductType.CONSUMABLE,
+        platform: Platform.GOOGLE_PLAY,
+      }))
+    );
+
+    // Register all club chip consumable packs
+    store.register(
+      CLUB_CHIP_PRODUCT_IDS.map(id => ({
         id,
         type:     ProductType.CONSUMABLE,
         platform: Platform.GOOGLE_PLAY,
@@ -150,14 +170,19 @@ class NativeBillingPlugin implements BillingPlugin {
       const gpTx          = transaction as unknown as CdvPurchase.GooglePlay.Transaction;
       const purchaseToken = gpTx.nativePurchase?.purchaseToken ?? transaction.transactionId;
       const sessionToken  = getSessionToken() ?? "";
-      const isConsumable  = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isStripesPack  = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isClubChipPack = (CLUB_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isConsumable   = isStripesPack || isClubChipPack;
 
       try {
         if (isConsumable) {
+          const pendingEntry = this.pending.get(productId);
+          const body: Record<string, unknown> = { productId, purchaseToken };
+          if (isClubChipPack && pendingEntry?.crewId) body.crewId = pendingEntry.crewId;
           const resp = await fetch(apiUrl("/api/billing/verify-purchase"), {
             method:  "POST",
             headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
-            body:    JSON.stringify({ productId, purchaseToken }),
+            body:    JSON.stringify(body),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
@@ -166,11 +191,19 @@ class NativeBillingPlugin implements BillingPlugin {
             );
             return;
           }
-          const data = await resp.json() as { stripesGranted: number; orderId: string };
+          const data = await resp.json() as {
+            stripesGranted?: number; orderId?: string;
+            chipsGranted?:   number; crewId?:  string;
+          };
           // Consumables must be finished (acknowledged + consumed) to become re-purchasable
           await transaction.finish();
           this.pending.get(productId)?.resolve({
-            productId, purchaseToken, orderId: data.orderId, stripesGranted: data.stripesGranted,
+            productId,
+            purchaseToken,
+            orderId:        data.orderId        ?? '',
+            stripesGranted: data.stripesGranted ?? 0,
+            chipsGranted:   data.chipsGranted,
+            crewId:         data.crewId,
           });
         } else {
           // Subscription
@@ -220,7 +253,7 @@ class NativeBillingPlugin implements BillingPlugin {
       });
   }
 
-  async purchase(productId: string): Promise<PurchaseResult> {
+  async purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult> {
     if (!this.initialized) throw new Error("Billing not initialized");
     const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
     if (!product) throw new Error(`Product not found: ${productId}`);
@@ -228,7 +261,7 @@ class NativeBillingPlugin implements BillingPlugin {
     if (!offer) throw new Error(`No offer found for: ${productId}`);
 
     return new Promise<PurchaseResult>((resolve, reject) => {
-      this.pending.set(productId, { resolve, reject });
+      this.pending.set(productId, { resolve, reject, crewId: meta?.crewId });
       // Fix C: pass the player ID as applicationUsername so Google embeds it as
       // obfuscatedAccountId in the purchase — the server validates this server-side.
       offer.order({ applicationUsername: ensurePlayerIdentity().id }).then(error => {
@@ -295,7 +328,7 @@ class WebBillingStub implements BillingPlugin {
     return [];
   }
 
-  async purchase(_productId: string): Promise<PurchaseResult> {
+  async purchase(_productId: string, _meta?: { crewId?: string }): Promise<PurchaseResult> {
     throw new Error("In-app purchases require the native Android build. Open the app from the Play Store.");
   }
 
@@ -372,7 +405,7 @@ class BillingRouter implements BillingPlugin {
 
   async initialize(): Promise<void>                          { return this.delegate().initialize(); }
   getProducts(): ProductInfo[]                               { return this.delegate().getProducts(); }
-  async purchase(productId: string): Promise<PurchaseResult> { return this.delegate().purchase(productId); }
+  async purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult> { return this.delegate().purchase(productId, meta); }
   async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
     return this.delegate().launchSubscriptionPurchase(productId);
   }
