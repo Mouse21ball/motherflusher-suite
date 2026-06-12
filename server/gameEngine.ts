@@ -1731,6 +1731,9 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
       // Close join window — fill any still-open seats with bots before the hand starts.
+      // Club tables: convertReservedToBots returns immediately (crewId guard), reserved seats
+      // stay as-is. Minimum 1 human is always present (the player pressing start), so we
+      // never need a bot-count check — the hand starts with however many humans are seated.
       convertReservedToBots(table);
       const freshPlayers = table.state.players;
       table.handId += 1;

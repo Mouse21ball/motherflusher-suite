@@ -297,6 +297,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
           onReact={!isSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
+          isClubTable={tableSettings?.botsEnabled === false}
         />
 
         {/* Hero hand panel — 3-column card/info/qualifier strip */}
@@ -344,8 +345,9 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
               locked={actionLocked}
               selectedCardsCount={selectedCardIndices.length}
-              openSeatsCount={openSeatsCount}
+              openSeatsCount={tableSettings?.botsEnabled === false ? 0 : openSeatsCount}
               humanCount={humanCount}
+              isClubTable={tableSettings?.botsEnabled === false}
               declarationOptions={modeId === 'suitspoker' ? (() => {
                 const heroSuitsQualifies = me ? qualifiesForSuits(me.cards) : false;
                 return SUITSPOKER_DECLARATION_OPTIONS.map(opt => ({

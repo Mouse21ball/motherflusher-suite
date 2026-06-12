@@ -25,6 +25,7 @@ interface ActionControlsProps {
   phaseHint?: string;
   openSeatsCount?: number;
   humanCount?: number;
+  isClubTable?: boolean;
   /** Brief lock (200–300ms) after hero sends an action — prevents double-fire
    *  and gives a "bet impact" pause before the next player's turn appears.  */
   locked?: boolean;
@@ -79,7 +80,7 @@ function TurnCountdown({ deadline }: { deadline: number }) {
   );
 }
 
-export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, locked, myDeclaration, turnDeadline, playerId, tableId, modeId }: ActionControlsProps) {
+export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction, isMyTurn, selectedCardsCount, declarationOptions, phaseHint, openSeatsCount, humanCount, isClubTable, locked, myDeclaration, turnDeadline, playerId, tableId, modeId }: ActionControlsProps) {
   const [betAmount, setBetAmount] = useState<number>(Math.max(currentBet - myBet, 2));
   const [pendingDeclaration, setPendingDeclaration] = useState<Declaration>(null);
   const [showBadugiTip, setShowBadugiTip] = useState(() => {
@@ -243,8 +244,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       readinessMsg = `${hc} real players here — start now or wait for more`;
       startSubtext = `${openSeatsCount} seat${openSeatsCount !== 1 ? 's' : ''} still open for friends`;
     } else {
-      readinessMsg = 'Share the link — friends can still join';
-      startSubtext = 'Starting now fills empty seats with bots';
+      readinessMsg = isClubTable ? 'Invite a friend — or start solo' : 'Share the link — friends can still join';
+      startSubtext = isClubTable ? 'Start whenever you\'re ready — no bots will join' : 'Starting now fills empty seats with bots';
     }
 
     return (
