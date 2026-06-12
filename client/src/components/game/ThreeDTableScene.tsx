@@ -708,13 +708,14 @@ export function ThreeDTableScene({
           {/* Win celebration */}
           {showCelebration && <WinCelebration isScoop={isScoop} onDone={() => setShowCelebration(false)} />}
 
-          {/* All 5 seats */}
+          {/* All 5 seats — 'open' club-table placeholders render as empty seats */}
           {Array.from({ length: 5 }).map((_, i) => {
             const player = orderedPlayers[i];
+            const seatPlayer = player?.presence === 'open' ? null : (player ?? null);
             return (
               <div key={i} className={getRingPosition(i)}>
                 <PlayerSeat
-                  player={player || null}
+                  player={seatPlayer}
                   seatNumber={i}
                   isActive={player?.id === gameState.activePlayerId}
                   isSelf={player?.id === myId}

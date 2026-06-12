@@ -100,7 +100,7 @@ function resolveWithSidePots(
   return { players: currentPlayers, pot: totalRemainingPot, messages: allMessages };
 }
 
-export function useGameEngine(mode: GameMode, myId: string = 'p1') {
+export function useGameEngine(mode: GameMode, myId: string = 'p1', isServerMode = false) {
   const savedChips = getChips(mode.id);
   const [state, setState] = useState<GameState>(() => createInitialState(savedChips));
   const chipsBeforeHandRef = useRef<number>(savedChips);
@@ -190,6 +190,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Bot logic
   useEffect(() => {
+    if (isServerMode) return;
     if (state.activePlayerId === myId) return;
     if (!state.activePlayerId) return;
     
@@ -341,6 +342,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Automatic phase transitions
   useEffect(() => {
+    if (isServerMode) return;
     const transition = mode.getAutoTransition(state.phase);
     if (transition) {
       const timer = setTimeout(() => {
@@ -362,6 +364,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
 
   // Simulating Game Loop for dealing
   useEffect(() => {
+    if (isServerMode) return;
     if (state.phase === 'DEAL') {
       setState(s => {
         const freshDeck = createDeck();
@@ -782,6 +785,7 @@ export function useGameEngine(mode: GameMode, myId: string = 'p1') {
   }, [state.phase, myId]);
 
   useEffect(() => {
+    if (isServerMode) return;
     if (state.phase === 'SHOWDOWN') {
       // Longer pre-resolution pause — give the table a beat before cards flip
       const timer = setTimeout(() => {
