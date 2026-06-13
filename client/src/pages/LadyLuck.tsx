@@ -8,141 +8,191 @@ import {
   LadyLuckSuit,
   LadyLuckRoom,
   LADY_LUCK_ROOMS,
-  SUITS,
-  SUIT_SYMBOLS,
-  SUIT_COLORS,
 } from '../../../shared/modes/ladyluck';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
 
-function suitBg(suit: LadyLuckSuit) {
-  return suit === 'hearts' || suit === 'diamonds' ? '#1a0000' : '#0a0a14';
-}
+const QUEEN_NICKNAMES: Record<string, string> = {
+  spades:   'Black Widow',
+  hearts:   'Lady Red',
+  diamonds: 'Diamond Dee',
+  clubs:    'Club Ace',
+};
 
-function RaceCard({ rank, suit, big }: { rank: string; suit: LadyLuckSuit; big?: boolean }) {
-  const color = SUIT_COLORS[suit];
-  const size = big ? { w: 80, h: 110, fs: 36, rfs: 18 } : { w: 36, h: 50, fs: 16, rfs: 10 };
-  return (
-    <div style={{
-      width: size.w, height: size.h,
-      background: '#fff',
-      borderRadius: big ? 12 : 6,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      position: 'relative',
-      boxShadow: big ? '0 4px 20px rgba(0,0,0,0.7)' : '0 2px 6px rgba(0,0,0,0.5)',
-      flexShrink: 0,
-    }}>
-      <span style={{ position: 'absolute', top: 3, left: 5, fontSize: size.rfs, fontWeight: 800, color, lineHeight: 1 }}>{rank}</span>
-      <span style={{ fontSize: size.fs, color }}>{SUIT_SYMBOLS[suit]}</span>
-      <span style={{ position: 'absolute', bottom: 3, right: 5, fontSize: size.rfs, fontWeight: 800, color, lineHeight: 1, transform: 'rotate(180deg)' }}>{rank}</span>
-    </div>
-  );
-}
+const SUIT_SYMBOLS: Record<string, string> = {
+  spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣',
+};
 
-function QueenCard({
-  suit,
-  claimed,
-  claimedBy,
-  isYours,
-  isMyTurn,
-  isDealer,
-  onPick,
+// Card face text color (on white background)
+const SUIT_COLORS: Record<string, string> = {
+  spades: '#1a1a1a', hearts: '#e53935', diamonds: '#e53935', clubs: '#1a1a1a',
+};
+
+// Suit symbol color on dark background
+const SUIT_BG_COLORS: Record<string, string> = {
+  spades: '#ffffff', hearts: '#e53935', diamonds: '#e53935', clubs: '#ffffff',
+};
+
+const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'] as LadyLuckSuit[];
+
+const ROOM_CFGS: Record<LadyLuckRoom, { label: string; color: string; range: string; sideBetMax: number }> = {
+  pony:         { label: 'PONY',         color: '#10b981', range: '100–500',    sideBetMax: 200  },
+  thoroughbred: { label: 'THOROUGHBRED', color: '#f59e0b', range: '500–2,000',  sideBetMax: 1000 },
+  champion:     { label: 'CHAMPION',     color: '#e53935', range: '2,000–5,000',sideBetMax: 2500 },
+};
+
+// ── FaceDownCard ───────────────────────────────────────────────────────────────
+
+function FaceDownCard({
+  suit, claimed, claimedBy, canPick, onPick,
 }: {
-  suit: LadyLuckSuit;
-  claimed: boolean;
+  suit?: LadyLuckSuit;
+  claimed?: boolean;
   claimedBy?: string;
-  isYours?: boolean;
-  isMyTurn?: boolean;
-  isDealer?: boolean;
+  canPick?: boolean;
   onPick?: () => void;
 }) {
-  const color = SUIT_COLORS[suit];
-  const pulse = isMyTurn && !claimed;
+  const [peeked, setPeeked] = useState(false);
+
+  if (claimed && suit) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{
+          width: 72, height: 100, background: '#fff', borderRadius: 10,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          border: `2px solid ${SUIT_COLORS[suit]}`, position: 'relative',
+          boxShadow: `0 0 12px ${SUIT_COLORS[suit] === '#e53935' ? '#e5393540' : '#ffffff20'}, 0 2px 8px rgba(0,0,0,0.5)`,
+          animation: 'll-card-appear 0.4s ease-out',
+        }}>
+          <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
+          <span style={{ fontSize: 28, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+          <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
+        </div>
+        {claimedBy && <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)', textAlign: 'center', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{claimedBy}</span>}
+      </div>
+    );
+  }
+
   return (
-    <div
-      onClick={pulse ? onPick : undefined}
-      style={{
-        width: 80, height: 110,
-        background: suitBg(suit),
-        border: `2px solid ${pulse ? '#C9A227' : isYours ? '#C9A227' : claimed ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`,
-        borderRadius: 12,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        cursor: pulse ? 'pointer' : 'default',
-        position: 'relative',
-        boxShadow: pulse ? `0 0 20px #C9A22780, 0 0 40px #C9A22740` : isYours ? `0 0 12px ${color}60` : 'none',
-        animation: pulse ? 'll-pulse 1.2s infinite' : 'none',
-        transition: 'box-shadow 0.2s',
-        opacity: claimed && !isYours ? 0.7 : 1,
-        userSelect: 'none',
-      }}
-    >
-      <span style={{ fontSize: 38, color }}>{SUIT_SYMBOLS[suit]}</span>
-      <span style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>Q</span>
-      {claimed && claimedBy && (
-        <span style={{
-          position: 'absolute', bottom: 6, left: 0, right: 0,
-          textAlign: 'center', fontSize: 9, color: 'rgba(255,255,255,0.7)',
-          fontFamily: 'monospace', fontWeight: 700, padding: '0 4px',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{claimedBy}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div
+        onClick={canPick ? onPick : undefined}
+        style={{
+          width: 72, height: 100,
+          background: peeked ? '#fff' : 'linear-gradient(135deg, #1a237e 0%, #0d1362 100%)',
+          borderRadius: 10,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          border: canPick ? '2px solid #e53935' : peeked ? '2px solid #C9A227' : '2px solid rgba(255,255,255,0.12)',
+          boxShadow: canPick ? '0 0 14px #e5393550, 0 2px 8px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.5)',
+          cursor: canPick ? 'pointer' : 'default',
+          position: 'relative',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+        }}
+      >
+        {peeked && suit ? (
+          <>
+            <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
+            <span style={{ fontSize: 28, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+            <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.12)' }}>?</span>
+            {canPick && <span style={{ position: 'absolute', bottom: 6, fontSize: 9, fontFamily: 'monospace', color: '#e53935', fontWeight: 700, letterSpacing: 1 }}>PICK</span>}
+          </>
+        )}
+      </div>
+      {!claimed && suit && !peeked && (
+        <button
+          onClick={() => setPeeked(true)}
+          style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.25)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 1, padding: '1px 4px' }}
+        >
+          PEEK
+        </button>
       )}
-      {isDealer && !claimed && (
-        <span style={{ position: 'absolute', bottom: 4, fontSize: 8, color: '#C9A227', fontFamily: 'monospace', fontWeight: 700 }}>AUTO</span>
+      {peeked && suit && !claimed && (
+        <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#C9A227', letterSpacing: 1 }}>PEEKED</span>
       )}
     </div>
   );
 }
 
-// ── Room counts ───────────────────────────────────────────────────────────────
+// ── QueenCard ──────────────────────────────────────────────────────────────────
+
+function QueenCard({
+  suit, isWinner, isYours, playerName,
+}: {
+  suit: LadyLuckSuit;
+  isWinner?: boolean;
+  isYours?: boolean;
+  playerName?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 72, height: 100, background: '#fff', borderRadius: 10,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        border: isWinner ? '2.5px solid #C9A227' : isYours ? `2px solid ${SUIT_COLORS[suit]}` : '2px solid rgba(200,200,200,0.3)',
+        boxShadow: isWinner
+          ? '0 0 24px #C9A227cc, 0 4px 16px rgba(0,0,0,0.5)'
+          : isYours ? `0 0 10px ${SUIT_COLORS[suit]}40` : '0 2px 10px rgba(0,0,0,0.4)',
+        position: 'relative',
+        animation: isWinner ? 'll-winner-glow 2s ease-in-out infinite' : undefined,
+      }}>
+        <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
+        <span style={{ fontSize: 28, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+        <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 700, color: isWinner ? '#C9A227' : 'rgba(255,255,255,0.6)', letterSpacing: 0.5 }}>{QUEEN_NICKNAMES[suit]}</div>
+        {playerName && <div style={{ fontSize: 8, fontFamily: 'monospace', color: isYours ? '#C9A227' : 'rgba(255,255,255,0.35)', marginTop: 1 }}>{isYours ? '★ ' : ''}{playerName.slice(0, 10)}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Room counts hook ───────────────────────────────────────────────────────────
 
 function useLLRoomCounts() {
   const [counts, setCounts] = useState<Record<LadyLuckRoom, number>>({ pony: 0, thoroughbred: 0, champion: 0 });
-
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/ladyluck/tables'));
         if (!res.ok) return;
         const data: { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] = await res.json();
-        const c = { pony: 0, thoroughbred: 0, champion: 0 } as Record<LadyLuckRoom, number>;
+        const c: Record<LadyLuckRoom, number> = { pony: 0, thoroughbred: 0, champion: 0 };
         for (const t of data) c[t.roomType] = (c[t.roomType] ?? 0) + t.playerCount;
         setCounts(c);
       } catch {}
     };
     load();
-    const id = setInterval(load, 8000);
+    const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, []);
-
   return counts;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function LadyLuck() {
-  const [, navigate] = useLocation();
-  const [tableId, setTableId] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('t');
-  });
-
+  const [, navigate]          = useLocation();
+  const [tableId, setTableId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('t'));
   const [state, setState]     = useState<LadyLuckState | null>(null);
   const [connected, setConnected] = useState(false);
-  const [countdown, setCountdown] = useState(8);
   const [flipAnim, setFlipAnim]   = useState<LadyLuckSuit | null>(null);
   const [joining, setJoining]     = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [wagerAmt, setWagerAmt]   = useState(0);
   const [sideBetSuit, setSideBetSuit] = useState<LadyLuckSuit | null>(null);
   const [sideBetAmt, setSideBetAmt]   = useState(0);
+  const [countdown, setCountdown]     = useState(0);
 
-  const wsRef      = useRef<WebSocket | null>(null);
-  const identity   = ensurePlayerIdentity();
+  const wsRef    = useRef<WebSocket | null>(null);
+  const identity = ensurePlayerIdentity();
   const roomCounts = useLLRoomCounts();
 
-  // Connect WS when tableId is available
+  // ── WebSocket connection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!tableId) return;
     let ws: WebSocket | null = null;
@@ -152,137 +202,95 @@ export default function LadyLuck() {
       try {
         const tokenRes = await fetch(apiUrl('/api/auth/ws-token'), { credentials: 'include' });
         let token: string | null = null;
-        if (tokenRes.ok) {
-          const j = await tokenRes.json();
-          token = j.token ?? null;
-        }
+        if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
 
-        const url = wsUrl(token);
-        ws = new WebSocket(url);
+        ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;
 
         ws.onopen = () => {
           if (!alive) { ws?.close(); return; }
           setConnected(true);
-          ws?.send(JSON.stringify({
-            type:     'll:join',
-            tableId,
-            playerId: identity.id,
-            name:     identity.name,
-          }));
+          ws?.send(JSON.stringify({ type: 'll:join', tableId, playerId: identity.id, name: identity.name }));
         };
 
         ws.onmessage = (e) => {
           try {
-            const msg = JSON.parse(e.data);
+            const msg = JSON.parse(e.data as string);
             if (msg.type === 'll:state') {
               setState(msg.state as LadyLuckState);
-              const s = msg.state as LadyLuckState;
-              const room = LADY_LUCK_ROOMS[s.roomType];
-              setWagerAmt(v => v || room.minWager);
+              setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
             }
             if (msg.type === 'll:flip') {
-              setFlipAnim(msg.card.suit);
-              setState(prev => prev ? { ...prev, positions: msg.positions, currentCard: msg.card, flippedCards: [...(prev.flippedCards ?? []), msg.card] } : prev);
-              setTimeout(() => setFlipAnim(null), 600);
+              const flippedSuit = (msg.card as { suit: LadyLuckSuit }).suit;
+              setFlipAnim(flippedSuit);
+              setState(prev => prev ? {
+                ...prev,
+                positions:    msg.positions as Record<LadyLuckSuit, number>,
+                currentCard:  msg.card as { rank: string; suit: LadyLuckSuit },
+                flippedCards: [...(prev.flippedCards ?? []), msg.card as { rank: string; suit: LadyLuckSuit }],
+              } : prev);
+              setTimeout(() => setFlipAnim(null), 700);
             }
             if (msg.type === 'll:result') {
               setState(msg.state as LadyLuckState);
-              let c = 8;
-              setCountdown(c);
-              const id = setInterval(() => {
-                c--;
-                setCountdown(c);
-                if (c <= 0) clearInterval(id);
-              }, 1000);
+              let c = 8; setCountdown(c);
+              const id = setInterval(() => { c--; setCountdown(c); if (c <= 0) clearInterval(id); }, 1000);
             }
           } catch {}
         };
 
-        ws.onclose = () => {
-          if (!alive) return;
-          setConnected(false);
-        };
+        ws.onclose = () => { if (!alive) return; setConnected(false); };
       } catch {}
     };
 
     connect();
-    return () => {
-      alive = false;
-      ws?.close();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { alive = false; ws?.close(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableId]);
 
   const send = useCallback((msg: object) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
-    }
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const goBack = () => { setTableId(null); setState(null); navigate('/ladyluck'); };
+
   const handleJoinRoom = async (roomType: LadyLuckRoom) => {
-    setJoining(true);
-    setJoinError(null);
-    console.log('[ladyluck] JOIN tapped', roomType);
+    setJoining(true); setJoinError(null);
     try {
       const res = await apiFetch('/api/ladyluck/tables', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ roomType }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomType }),
       });
-      console.log('[ladyluck] response status', res.status);
       if (!res.ok) {
         let msg = `Server returned ${res.status}`;
         try { const j = await res.json(); msg = j.error || msg; } catch {}
         throw new Error(msg);
       }
       const { tableId: tid } = await res.json() as { tableId: string };
-      console.log('[ladyluck] tableId received', tid);
-      console.log('[ladyluck] navigating to', `/ladyluck?t=${tid}`);
       setTableId(tid);
       navigate(`/ladyluck?t=${tid}`, { replace: true });
     } catch (err) {
-      console.error('[ladyluck] JOIN error', err);
       setJoinError(err instanceof Error ? err.message : String(err));
     }
     setJoining(false);
   };
 
-  const handleSelectSuit = (suit: LadyLuckSuit) => {
-    send({ type: 'll:select', tableId, playerId: identity.id, suit });
-  };
-
-  const handleWager = () => {
-    send({ type: 'll:wager', tableId, playerId: identity.id, amount: wagerAmt });
-  };
-
-  const handleSideBet = () => {
-    if (!sideBetSuit || sideBetAmt <= 0) return;
+  const handleStart      = () => send({ type: 'll:start',   tableId, playerId: identity.id });
+  const handleSelectSuit = (suit: LadyLuckSuit) => send({ type: 'll:select', tableId, playerId: identity.id, suit });
+  const handleWager      = () => send({ type: 'll:wager',   tableId, playerId: identity.id, amount: wagerAmt });
+  const handleSideBet    = () => {
+    if (!sideBetSuit || !sideBetAmt) return;
     send({ type: 'll:sidebet', tableId, playerId: identity.id, suit: sideBetSuit, amount: sideBetAmt });
-    setSideBetSuit(null);
-    setSideBetAmt(0);
+    setSideBetSuit(null); setSideBetAmt(0);
   };
 
-  const handleStart = () => {
-    send({ type: 'll:start', tableId, playerId: identity.id });
-  };
-
-  const myPlayer = state?.players.find(p => p.id === identity.id);
-  const isMyTurn = state?.phase === 'SELECT' && state.currentPickIndex >= 0 &&
-    state.players[state.currentPickIndex]?.id === identity.id;
-
-  // ── LOBBY ──────────────────────────────────────────────────────────────────
-  if (!tableId || (!state && !connected)) {
-    const rooms: { id: LadyLuckRoom; label: string; range: string; color: string }[] = [
-      { id: 'pony',         label: 'PONY',         range: '100 – 500',   color: '#10b981' },
-      { id: 'thoroughbred', label: 'THOROUGHBRED',  range: '500 – 2,000', color: '#f59e0b' },
-      { id: 'champion',     label: 'CHAMPION',      range: '2,000 – 5,000', color: '#e53935' },
-    ];
-
+  // ── ROOM SELECTION (no tableId) ─────────────────────────────────────────────
+  if (!tableId) {
     return (
       <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column' }}>
-        <style>{`@keyframes ll-pulse { 0%,100%{box-shadow:0 0 18px #C9A22780,0 0 36px #C9A22740} 50%{box-shadow:0 0 28px #C9A227b0,0 0 50px #C9A22760} }`}</style>
+        <style>{`@keyframes ll-card-appear { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }`}</style>
 
         {/* Header */}
         <div style={{ padding: '16px 16px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -290,107 +298,116 @@ export default function LadyLuck() {
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>
             ← Home
           </button>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 28, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 26, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
         </div>
+        <div style={{ padding: '4px 16px 12px', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 2 }}>PICK YOUR QUEEN. RUN THE RACE.</div>
 
-        <div style={{ padding: '8px 16px 4px', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, textTransform: 'uppercase' }}>
-          PICK YOUR QUEEN. RUN THE RACE.
+        {/* Queen nicknames preview */}
+        <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px' }}>
+          {SUITS.map(suit => (
+            <div key={suit} style={{
+              flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${SUIT_BG_COLORS[suit] === '#e53935' ? '#e5393528' : 'rgba(255,255,255,0.07)'}`,
+              borderRadius: 10, padding: '8px 6px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 20, color: SUIT_BG_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.45)', marginTop: 3, lineHeight: 1.4 }}>{QUEEN_NICKNAMES[suit]}</div>
+            </div>
+          ))}
         </div>
 
         {/* Room cards */}
-        <div style={{ padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {rooms.map(room => (
-            <div key={room.id} data-testid={`card-room-${room.id}`}
-              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${room.color}44`, borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(Object.entries(ROOM_CFGS) as [LadyLuckRoom, typeof ROOM_CFGS[LadyLuckRoom]][]).map(([id, cfg]) => (
+            <div key={id} data-testid={`card-room-${id}`}
+              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.color}44`, borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: room.color, letterSpacing: 1 }}>{room.label}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-                  WAGER {room.range} CHIPS
-                </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-                  {roomCounts[room.id] > 0 ? `${roomCounts[room.id]} players online` : 'No active tables'}
+                <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 19, color: cfg.color, letterSpacing: 1 }}>{cfg.label}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>WAGER {cfg.range} CHIPS</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 2 }}>SIDE BET MAX {cfg.sideBetMax.toLocaleString()} · PAYS 2.5×</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.18)', marginTop: 3 }}>
+                  {roomCounts[id] > 0 ? `${roomCounts[id]} players online` : 'No active tables'}
                 </div>
               </div>
               <button
-                data-testid={`button-join-${room.id}`}
-                onClick={() => handleJoinRoom(room.id)}
+                data-testid={`button-join-${id}`}
+                onClick={() => handleJoinRoom(id)}
                 disabled={joining}
-                style={{ background: room.color, color: '#fff', border: 'none', borderRadius: 24, padding: '10px 20px', fontWeight: 800, fontSize: 13, cursor: joining ? 'not-allowed' : 'pointer', letterSpacing: 1, opacity: joining ? 0.6 : 1 }}
-              >
+                style={{ background: cfg.color, color: '#fff', border: 'none', borderRadius: 22, padding: '10px 20px', fontWeight: 800, fontSize: 13, cursor: joining ? 'not-allowed' : 'pointer', letterSpacing: 1, opacity: joining ? 0.6 : 1, flexShrink: 0 }}>
                 JOIN
               </button>
             </div>
           ))}
         </div>
 
-        {/* Join error banner */}
         {joinError && (
-          <div style={{ margin: '0 16px 8px', background: 'rgba(229,57,53,0.12)', border: '1px solid #e5393580', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b' }}>
+          <div style={{ margin: '12px 16px 0', background: 'rgba(229,57,53,0.12)', border: '1px solid #e5393560', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b' }}>
             ✕ {joinError}
           </div>
         )}
 
-        {/* How it works blurb */}
-        <div style={{ margin: '0 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 16px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
-            4 Queens race to 9 card flips. Pick your Queen, place your wager. First Queen to 9 wins the pot. Side bets pay 2.5×.
+        <div style={{ margin: '14px 16px 24px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, padding: '10px 14px' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)', lineHeight: 1.8 }}>
+            4 Queens race to 9 card flips. Pick clockwise — dealer gets last. Wager chips, place side bets. First to 9 wins the pot. Side bets pay 2.5×.
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Waiting for connection ─────────────────────────────────────────────────
+  // ── Connecting ──────────────────────────────────────────────────────────────
   if (!state) {
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
-        Connecting…
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>{connected ? 'Joining table…' : 'Connecting…'}</div>
+        <button onClick={goBack} style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to rooms</button>
       </div>
     );
   }
 
-  const room = LADY_LUCK_ROOMS[state.roomType];
+  const myPlayer = state.players.find(p => p.id === identity.id);
+  const room     = LADY_LUCK_ROOMS[state.roomType];
+  const roomCfg  = ROOM_CFGS[state.roomType];
 
-  // ── LOBBY (in-table, waiting for start) ────────────────────────────────────
+  // ── IN-TABLE LOBBY ──────────────────────────────────────────────────────────
   if (state.phase === 'LOBBY') {
     const isHost = state.players[0]?.id === identity.id;
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16 }}>
-        <style>{`@keyframes ll-pulse { 0%,100%{box-shadow:0 0 18px #C9A22780,0 0 36px #C9A22740} 50%{box-shadow:0 0 28px #C9A227b0,0 0 50px #C9A22760} }`}</style>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Home</button>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 24, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
-          <div style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{state.roomType}</div>
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={goBack} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back</button>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
+          <div style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 10, color: roomCfg.color, letterSpacing: 2, textTransform: 'uppercase' }}>{state.roomType}</div>
         </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 2, marginBottom: 10 }}>PLAYERS IN LOBBY</div>
+        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 16 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 2, marginBottom: 10 }}>PLAYERS IN LOBBY</div>
           {state.players.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: p.id === identity.id ? '#C9A227' : '#fff' }}>{p.name}{p.id === identity.id ? ' (you)' : ''}</span>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.id === identity.id ? '#C9A227' : '#10b981', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: p.id === identity.id ? '#C9A227' : '#fff' }}>
+                {p.name}{p.id === identity.id ? ' (you)' : ''}
+              </span>
+              {p.id === state.players[0]?.id && <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: 1 }}>HOST</span>}
             </div>
           ))}
           {Array.from({ length: 4 - state.players.length }).map((_, i) => (
-            <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.25)' }}>Open seat</span>
+            <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.18)' }}>Open seat</span>
             </div>
           ))}
         </div>
 
-        {isHost && (
+        {isHost ? (
           <button
             data-testid="button-ll-start"
             onClick={handleStart}
             disabled={state.players.length < 2}
-            style={{ background: state.players.length >= 2 ? '#e53935' : 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: 24, padding: '14px 0', fontWeight: 800, fontSize: 15, cursor: state.players.length >= 2 ? 'pointer' : 'not-allowed', letterSpacing: 1 }}
-          >
+            style={{ background: state.players.length >= 2 ? '#e53935' : 'rgba(255,255,255,0.07)', color: '#fff', border: 'none', borderRadius: 24, padding: '14px 0', fontWeight: 800, fontSize: 15, cursor: state.players.length >= 2 ? 'pointer' : 'not-allowed', letterSpacing: 1 }}>
             {state.players.length >= 2 ? `START GAME (${state.players.length} players)` : 'Waiting for 2+ players…'}
           </button>
-        )}
-        {!isHost && (
-          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.4)', padding: 16 }}>
+        ) : (
+          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.3)', padding: 12 }}>
             Waiting for host to start…
           </div>
         )}
@@ -398,101 +415,84 @@ export default function LadyLuck() {
     );
   }
 
-  // ── SELECT ─────────────────────────────────────────────────────────────────
+  // ── SELECT ──────────────────────────────────────────────────────────────────
   if (state.phase === 'SELECT') {
-    const pickerName = state.currentPickIndex >= 0 ? state.players[state.currentPickIndex]?.name : null;
-    const isDealer   = (i: number) => i === state.dealerIndex;
+    const myIdx      = state.players.findIndex(p => p.id === identity.id);
+    const isMyTurn   = myIdx !== -1 && state.currentPickIndex === myIdx;
+    const isDealer   = myIdx === state.dealerIndex;
+    const pickerPlayer = state.players[state.currentPickIndex] ?? null;
+    const dealerAutoGets = isDealer && state.claimedSuits.length >= state.players.length - 1;
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16 }}>
-        <style>{`@keyframes ll-pulse { 0%,100%{box-shadow:0 0 18px #C9A22780,0 0 36px #C9A22740} 50%{box-shadow:0 0 28px #C9A227b0,0 0 50px #C9A22760} }`}</style>
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
+        <style>{`
+          @keyframes ll-card-appear { from{opacity:0;transform:scale(0.85) rotateY(-20deg)} to{opacity:1;transform:scale(1) rotateY(0deg)} }
+          @keyframes ll-your-turn-pulse { 0%,100%{box-shadow:0 0 0 0 #e5393530} 50%{box-shadow:0 0 0 8px #e5393510} }
+        `}</style>
 
-        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 26, color: '#C9A227', letterSpacing: 2, textAlign: 'center', marginBottom: 4 }}>PICK YOUR QUEEN</div>
-        {!isMyTurn && pickerName && (
-          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 16 }}>
-            Waiting for <span style={{ color: '#C9A227' }}>{pickerName}</span> to pick…
-          </div>
-        )}
-        {isMyTurn && (
-          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: '#C9A227', marginBottom: 16, fontWeight: 700 }}>
-            YOUR TURN — tap a Queen to claim it
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
-          {SUITS.map(suit => {
-            const claimed   = state.claimedSuits.includes(suit);
-            const claimedBy = state.players.find(p => p.suit === suit)?.name;
-            const myIdx     = state.players.findIndex(p => p.id === identity.id);
-            const isDeale   = SUITS.indexOf(suit) === -1; // not used
-            const dealerSuit = state.players[state.dealerIndex]?.suit;
-            const isDealerCard = !claimed && state.players[state.dealerIndex] && !state.players[state.dealerIndex].suit;
-
-            return (
-              <QueenCard
-                key={suit}
-                suit={suit}
-                claimed={claimed}
-                claimedBy={claimedBy}
-                isYours={myPlayer?.suit === suit}
-                isMyTurn={isMyTurn && !claimed}
-                isDealer={state.currentPickIndex >= 0 &&
-                  state.players[state.currentPickIndex]?.id !== identity.id &&
-                  !claimed &&
-                  state.claimedSuits.length === 3 &&
-                  state.players[state.dealerIndex]?.suit === null &&
-                  suit !== state.claimedSuits[0] && suit !== state.claimedSuits[1] && suit !== state.claimedSuits[2]}
-                onPick={() => handleSelectSuit(suit)}
-              />
-            );
-          })}
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CHOOSE YOUR QUEEN</div>
         </div>
 
-        {/* Pick order */}
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 14px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 8 }}>PICK ORDER</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {state.players.map((p, i) => {
-              const isDealer = i === state.dealerIndex;
-              const isCurrent = i === state.currentPickIndex;
+        {/* Pick order row */}
+        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 8 }}>PICK ORDER</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {state.players.map((p, idx) => {
+              const isCurrent = idx === state.currentPickIndex;
+              const isDlr     = idx === state.dealerIndex;
+              const hasPicked = p.suit !== null;
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: isCurrent ? '#C9A227' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: isCurrent ? '#000' : 'rgba(255,255,255,0.3)' }}>
-                    {isDealer ? 'D' : i === (state.dealerIndex + 1) % state.players.length ? '1' :
-                     i === (state.dealerIndex + 2) % state.players.length ? '2' : '3'}
+                <div key={p.id} style={{
+                  flex: 1, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
+                  background: isCurrent ? 'rgba(201,162,39,0.15)' : hasPicked ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${isCurrent ? '#C9A22770' : hasPicked ? '#10b98135' : 'rgba(255,255,255,0.05)'}`,
+                }}>
+                  <div style={{ fontSize: hasPicked && p.suit ? 15 : 10, color: isCurrent ? '#C9A227' : hasPicked ? '#10b981' : 'rgba(255,255,255,0.35)' }}>
+                    {hasPicked && p.suit ? SUIT_SYMBOLS[p.suit] : isDlr ? '🎴' : `${idx + 1}`}
                   </div>
-                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: isCurrent ? '#C9A227' : p.suit ? SUIT_COLORS[p.suit] : 'rgba(255,255,255,0.5)', fontWeight: isCurrent ? 700 : 400 }}>
-                    {p.name}{p.id === identity.id ? ' (you)' : ''}
-                    {isDealer ? ' — GETS LAST CARD' : ''}
-                    {p.suit ? ` ${SUIT_SYMBOLS[p.suit]}` : ''}
-                  </span>
+                  <div style={{ fontFamily: 'monospace', fontSize: 7, color: p.id === identity.id ? '#C9A227' : 'rgba(255,255,255,0.3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isDlr ? 'DEALER' : p.name.slice(0, 6)}
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
-      </div>
-    );
-  }
 
-  // ── WAGER ──────────────────────────────────────────────────────────────────
-  if (state.phase === 'WAGER') {
-    const myWagered = myPlayer?.wagered ?? false;
+        {/* Status */}
+        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, minHeight: 20 }}>
+          {state.currentPickIndex === -1 ? (
+            <span style={{ color: '#10b981' }}>All Queens assigned — moving to wager…</span>
+          ) : dealerAutoGets ? (
+            <span style={{ color: '#C9A227' }}>You're the dealer — you get the last Queen! 🎴</span>
+          ) : isMyTurn ? (
+            <span style={{ color: '#e53935', fontWeight: 700 }}>YOUR TURN — Pick a Queen!</span>
+          ) : pickerPlayer ? (
+            <span style={{ color: 'rgba(255,255,255,0.38)' }}>Waiting for {pickerPlayer.name}…</span>
+          ) : null}
+        </div>
 
-    return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 14 }}>
-        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 24, color: '#C9A227', letterSpacing: 2, textAlign: 'center' }}>PLACE YOUR WAGER</div>
-
-        {/* Queens row */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+        {/* 4 cards */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', paddingBottom: 20, animation: isMyTurn ? 'll-your-turn-pulse 1.5s ease-in-out infinite' : 'none', borderRadius: 14 }}>
           {SUITS.map(suit => {
-            const owner = state.players.find(p => p.suit === suit);
+            const claimer  = state.players.find(p => p.suit === suit);
+            const isClaimed = state.claimedSuits.includes(suit);
+            const canPick   = isMyTurn && !isClaimed;
             return (
-              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <QueenCard suit={suit} claimed={!!owner} claimedBy={owner?.name} isYours={myPlayer?.suit === suit} />
-                {owner && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 9, color: owner.wagered ? '#10b981' : 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>
-                    {owner.wagered ? 'WAGERED' : 'WAITING'}
+              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <FaceDownCard
+                  suit={suit}
+                  claimed={isClaimed}
+                  claimedBy={claimer?.name}
+                  canPick={canPick}
+                  onPick={() => handleSelectSuit(suit)}
+                />
+                {isClaimed && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 8, color: SUIT_BG_COLORS[suit] === '#e53935' ? '#e53935' : 'rgba(255,255,255,0.5)', textAlign: 'center', letterSpacing: 0.5 }}>
+                    {QUEEN_NICKNAMES[suit]}
                   </div>
                 )}
               </div>
@@ -500,72 +500,120 @@ export default function LadyLuck() {
           })}
         </div>
 
-        {/* Pot */}
-        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, color: '#C9A227' }}>
-          POT: <span style={{ fontWeight: 800, fontSize: 18 }}>{state.pot.toLocaleString()}</span> chips
+        {!isMyTurn && state.currentPickIndex !== -1 && (
+          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.18)' }}>
+            Tap PEEK to privately preview a suit
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── WAGER ───────────────────────────────────────────────────────────────────
+  if (state.phase === 'WAGER') {
+    const alreadyWagered = myPlayer?.wagered ?? false;
+
+    return (
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>PLACE YOUR WAGER</div>
+        </div>
+
+        {/* Queen cards */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {SUITS.map(suit => {
+            const owner   = state.players.find(p => p.suit === suit);
+            const isYours = myPlayer?.suit === suit;
+            return <QueenCard key={suit} suit={suit} isYours={isYours} playerName={owner?.name} />;
+          })}
+        </div>
+
+        {/* Pot + wager status */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#C9A227' }}>POT {state.pot.toLocaleString()}</span>
+          <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>·</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+            {state.players.filter(p => p.wagered).length}/{state.players.length} wagered
+          </span>
+        </div>
+
+        {/* Per-player wager status row */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {state.players.map(p => (
+            <div key={p.id} style={{
+              flex: 1, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
+              background: p.wagered ? 'rgba(16,185,129,0.09)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${p.wagered ? '#10b98132' : 'rgba(255,255,255,0.05)'}`,
+            }}>
+              {p.suit && <div style={{ fontSize: 14, color: SUIT_BG_COLORS[p.suit] }}>{SUIT_SYMBOLS[p.suit]}</div>}
+              <div style={{ fontFamily: 'monospace', fontSize: 7, color: p.wagered ? '#10b981' : 'rgba(255,255,255,0.28)', marginTop: 2 }}>
+                {p.wagered ? `✓ ${p.wager.toLocaleString()}` : 'WAITING'}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Wager control */}
-        {!myWagered ? (
-          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 16 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 10 }}>
-              YOUR WAGER — {room.minWager.toLocaleString()}–{room.maxWager.toLocaleString()} chips
+        {!alreadyWagered ? (
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 14 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 10 }}>
+              YOUR WAGER · {room.minWager.toLocaleString()}–{room.maxWager.toLocaleString()} CHIPS
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <button onClick={() => setWagerAmt(v => Math.max(room.minWager, v - 100))}
-                style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>−</button>
-              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Anton, Impact, sans-serif', fontSize: 28, color: '#C9A227' }}>
-                {wagerAmt.toLocaleString()}
-              </div>
+                style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>−</button>
+              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Anton, Impact, sans-serif', fontSize: 28, color: '#C9A227' }}>{wagerAmt.toLocaleString()}</div>
               <button onClick={() => setWagerAmt(v => Math.min(room.maxWager, v + 100))}
-                style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>+</button>
+                style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>+</button>
             </div>
             <input type="range" min={room.minWager} max={room.maxWager} step={100}
-              value={wagerAmt}
-              onChange={e => setWagerAmt(Number(e.target.value))}
-              style={{ width: '100%', marginBottom: 12, accentColor: '#C9A227' }}
+              value={wagerAmt} onChange={e => setWagerAmt(Number(e.target.value))}
               data-testid="slider-wager"
-            />
+              style={{ width: '100%', marginBottom: 12, accentColor: '#C9A227' }} />
             <button
               data-testid="button-confirm-wager"
               onClick={handleWager}
-              style={{ width: '100%', background: '#C9A227', color: '#000', border: 'none', borderRadius: 24, padding: '12px 0', fontWeight: 800, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
+              style={{ width: '100%', background: '#C9A227', color: '#000', border: 'none', borderRadius: 24, padding: '13px 0', fontWeight: 800, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
               CONFIRM WAGER
             </button>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', background: 'rgba(16,185,129,0.1)', border: '1px solid #10b98144', borderRadius: 12, padding: 14, fontFamily: 'monospace', fontSize: 13, color: '#10b981' }}>
+          <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b98140', borderRadius: 12, padding: 14, textAlign: 'center', fontFamily: 'monospace', fontSize: 13, color: '#10b981' }}>
             ✓ Wager placed — {myPlayer?.wager.toLocaleString()} chips
           </div>
         )}
 
         {/* Side bets */}
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 14 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: 2, marginBottom: 10 }}>
-            SIDE BETS — max {room.maxSideBet.toLocaleString()} · pays 2.5×
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 14 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 10 }}>
+            SIDE BET — max {room.maxSideBet.toLocaleString()} chips · pays 2.5×
           </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
             {SUITS.map(suit => (
               <button key={suit}
                 data-testid={`button-sidebet-suit-${suit}`}
                 onClick={() => setSideBetSuit(suit)}
-                style={{ flex: 1, padding: '8px 4px', borderRadius: 10, background: sideBetSuit === suit ? suitBg(suit) : 'rgba(255,255,255,0.06)', border: `2px solid ${sideBetSuit === suit ? SUIT_COLORS[suit] : 'rgba(255,255,255,0.1)'}`, color: SUIT_COLORS[suit], fontSize: 20, cursor: 'pointer' }}>
-                {SUIT_SYMBOLS[suit]}
+                style={{
+                  flex: 1, padding: '7px 2px', borderRadius: 10, cursor: 'pointer',
+                  background: sideBetSuit === suit ? (SUIT_BG_COLORS[suit] === '#e53935' ? 'rgba(229,57,53,0.15)' : 'rgba(255,255,255,0.09)') : 'rgba(255,255,255,0.04)',
+                  border: `2px solid ${sideBetSuit === suit ? SUIT_BG_COLORS[suit] : 'rgba(255,255,255,0.07)'}`,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                }}>
+                <span style={{ fontSize: 18, color: SUIT_BG_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+                <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.38)', lineHeight: 1.2 }}>{QUEEN_NICKNAMES[suit].split(' ')[0]}</span>
               </button>
             ))}
           </div>
           {sideBetSuit && (
             <div style={{ display: 'flex', gap: 8 }}>
               <input
-                type="number"
-                min={1}
-                max={room.maxSideBet}
-                value={sideBetAmt || ''}
-                onChange={e => setSideBetAmt(Number(e.target.value))}
-                placeholder="Amount"
+                type="number" min={1} max={room.maxSideBet}
+                value={sideBetAmt || ''} onChange={e => setSideBetAmt(Number(e.target.value))}
+                placeholder={`1–${room.maxSideBet}`}
                 data-testid="input-sidebet-amount"
-                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 14 }}
-              />
+                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 14 }} />
               <button
                 data-testid="button-place-sidebet"
                 onClick={handleSideBet}
@@ -575,10 +623,10 @@ export default function LadyLuck() {
             </div>
           )}
           {state.sideBets.length > 0 && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
               {state.sideBets.map((b, i) => (
-                <div key={i} style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                  {b.playerName} bet {b.amount.toLocaleString()} on {SUIT_SYMBOLS[b.suit]}
+                <div key={i} style={{ fontFamily: 'monospace', fontSize: 10, color: SUIT_BG_COLORS[b.suit] }}>
+                  {b.playerName} · {b.amount.toLocaleString()} on {QUEEN_NICKNAMES[b.suit]} {SUIT_SYMBOLS[b.suit]}
                 </div>
               ))}
             </div>
@@ -588,90 +636,82 @@ export default function LadyLuck() {
     );
   }
 
-  // ── RACE ───────────────────────────────────────────────────────────────────
+  // ── RACE ────────────────────────────────────────────────────────────────────
   if (state.phase === 'RACE') {
-    const flipCount  = state.flippedCards.length;
-    const maxPos     = Math.max(...SUITS.map(s => state.positions[s] ?? 0));
+    const flipCount = state.flippedCards.length;
+    const maxPos    = Math.max(0, ...SUITS.map(s => state.positions[s] ?? 0));
+    const leader    = maxPos > 0 ? SUITS.find(s => (state.positions[s] ?? 0) === maxPos) ?? null : null;
+    const speedLabel = maxPos >= 7 ? '⚡ FINAL STRETCH' : maxPos >= 5 ? '🔥 HEATING UP' : '';
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: '12px 14px', gap: 10 }}>
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: '12px 14px', gap: 8 }}>
         <style>{`
           @keyframes ll-queen-pulse {
-            0%   { transform: scale(1); }
-            40%  { transform: scale(1.22); box-shadow: 0 0 18px #C9A227cc, 0 0 32px #C9A22766; }
-            100% { transform: scale(1); box-shadow: none; }
+            0%   { transform: translateY(-50%) scale(1); }
+            40%  { transform: translateY(-50%) scale(1.22); box-shadow: 0 0 18px #C9A227cc; }
+            100% { transform: translateY(-50%) scale(1); }
           }
           @keyframes ll-card-flip {
-            0%   { opacity: 0; transform: perspective(400px) rotateY(-90deg) scale(0.7); }
-            30%  { opacity: 1; transform: perspective(400px) rotateY(12deg)  scale(1.05); }
-            55%  { opacity: 1; transform: perspective(400px) rotateY(0deg)   scale(1); }
-            80%  { opacity: 1; transform: perspective(400px) rotateY(0deg)   scale(1); }
-            100% { opacity: 0; transform: perspective(400px) rotateY(0deg)   scale(0.85); }
-          }
-          @keyframes ll-track-glow {
-            0%,100% { box-shadow: none; }
-            50%     { box-shadow: 0 0 14px #C9A22750; }
+            0%   { opacity:0; transform: perspective(400px) rotateY(-90deg) scale(0.7); }
+            30%  { opacity:1; transform: perspective(400px) rotateY(12deg)  scale(1.05); }
+            55%  { opacity:1; transform: perspective(400px) rotateY(0deg)   scale(1); }
+            80%  { opacity:1; transform: perspective(400px) rotateY(0deg)   scale(1); }
+            100% { opacity:0; transform: perspective(400px) rotateY(0deg)   scale(0.85); }
           }
         `}</style>
 
         {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 2 }}>RACE IN PROGRESS</div>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 17, color: '#C9A227' }}>
-            POT {state.pot.toLocaleString()}
-          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>RACE IN PROGRESS</div>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 16, color: '#C9A227' }}>POT {state.pot.toLocaleString()}</div>
         </div>
 
-        {/* Card flip display — animates on every new flip */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 100, flexShrink: 0, position: 'relative' }}>
+        {/* Leader bar */}
+        {leader && (
+          <div style={{ background: 'rgba(201,162,39,0.1)', border: '1px solid #C9A22738', borderRadius: 9, padding: '7px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227' }}>
+              LEADING: {QUEEN_NICKNAMES[leader]} {SUIT_SYMBOLS[leader]}
+            </div>
+            {speedLabel && <div style={{ fontFamily: 'monospace', fontSize: 9, color: maxPos >= 7 ? '#00bcd4' : '#f59e0b' }}>{speedLabel}</div>}
+            <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 13, color: '#C9A227' }}>{maxPos}/9</div>
+          </div>
+        )}
+
+        {/* Flipped card center */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 90, flexShrink: 0, position: 'relative' }}>
           {state.currentCard ? (
-            <div
-              key={flipCount}
-              style={{
-                animation: 'll-card-flip 1.3s ease-out forwards',
-                width: 68, height: 96,
-                background: '#fff',
-                borderRadius: 10,
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                position: 'relative',
-                boxShadow: `0 6px 28px rgba(0,0,0,0.7), 0 0 20px ${SUIT_COLORS[state.currentCard.suit]}60`,
-              }}
-            >
-              <span style={{ position: 'absolute', top: 5, left: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[state.currentCard.suit], lineHeight: 1 }}>
-                {state.currentCard.rank}
-              </span>
-              <span style={{ fontSize: 40, color: SUIT_COLORS[state.currentCard.suit] }}>
-                {SUIT_SYMBOLS[state.currentCard.suit]}
-              </span>
-              <span style={{ position: 'absolute', bottom: 5, right: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[state.currentCard.suit], lineHeight: 1, transform: 'rotate(180deg)' }}>
-                {state.currentCard.rank}
-              </span>
+            <div key={flipCount} style={{
+              animation: 'll-card-flip 1.3s ease-out forwards',
+              width: 62, height: 88, background: '#fff', borderRadius: 9,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              position: 'relative',
+              boxShadow: `0 6px 24px rgba(0,0,0,0.7), 0 0 18px ${SUIT_BG_COLORS[state.currentCard.suit]}50`,
+            }}>
+              <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[state.currentCard.suit] }}>{state.currentCard.rank}</span>
+              <span style={{ fontSize: 32, color: SUIT_COLORS[state.currentCard.suit] }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
+              <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[state.currentCard.suit], transform: 'rotate(180deg)' }}>{state.currentCard.rank}</span>
             </div>
           ) : (
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Starting race…</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.18)' }}>Starting race…</div>
           )}
-          {/* Last 3 flipped cards (small, behind) */}
+          {/* Recent 4 cards mini */}
           {state.flippedCards.length > 1 && (
-            <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: 4 }}>
-              {[...state.flippedCards].reverse().slice(1, 4).map((c, i) => (
-                <RaceCard key={i} rank={c.rank} suit={c.suit} />
+            <div style={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', gap: 3 }}>
+              {[...state.flippedCards].reverse().slice(1, 5).map((c, i) => (
+                <div key={i} style={{ width: 28, height: 40, background: '#fff', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                  <span style={{ fontSize: 15, color: SUIT_COLORS[c.suit] }}>{SUIT_SYMBOLS[c.suit]}</span>
+                </div>
               ))}
             </div>
           )}
         </div>
 
         {/* Race tracks */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-          {/* Position markers header */}
-          <div style={{ display: 'flex', marginLeft: 64, marginRight: 32, marginBottom: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+          {/* Position header */}
+          <div style={{ display: 'flex', marginLeft: 56, marginRight: 26 }}>
             {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} style={{
-                flex: 1, textAlign: 'center',
-                fontFamily: 'monospace', fontSize: 9,
-                color: i === 8 ? '#C9A227' : 'rgba(255,255,255,0.2)',
-                fontWeight: i === 8 ? 700 : 400,
-              }}>
+              <div key={i} style={{ flex: 1, textAlign: 'center', fontFamily: 'monospace', fontSize: 8, color: i === 8 ? '#C9A227' : 'rgba(255,255,255,0.16)', fontWeight: i === 8 ? 700 : 400 }}>
                 {i === 8 ? '👑' : i + 1}
               </div>
             ))}
@@ -683,109 +723,85 @@ export default function LadyLuck() {
             const isPulse   = flipAnim === suit;
             const isMe      = myPlayer?.suit === suit;
             const isLeading = pos === maxPos && maxPos > 0;
+            const posColor  = pos >= 9 ? '#10b981' : pos >= 7 ? '#f97316' : pos >= 5 ? '#f59e0b' : 'rgba(255,255,255,0.7)';
+            const nick      = QUEEN_NICKNAMES[suit].split(' ')[0];
 
             return (
               <div key={suit} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', gap: 5,
                 background: isMe ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${isMe ? `${SUIT_COLORS[suit]}33` : 'rgba(255,255,255,0.05)'}`,
-                borderRadius: 10,
-                padding: '6px 8px',
-                animation: isPulse ? 'll-track-glow 0.6s ease-out' : 'none',
+                border: `1px solid ${isMe ? `${SUIT_BG_COLORS[suit]}28` : 'rgba(255,255,255,0.04)'}`,
+                borderRadius: 7, padding: '3px 5px',
               }}>
-                {/* Left label */}
-                <div style={{ width: 48, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontSize: 20, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
-                  <span style={{
-                    fontSize: 8, fontFamily: 'monospace',
-                    color: isMe ? SUIT_COLORS[suit] : 'rgba(255,255,255,0.3)',
-                    fontWeight: isMe ? 700 : 400,
-                    marginTop: 2, textAlign: 'center',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    maxWidth: 48,
-                  }}>
-                    {owner ? owner.name.slice(0, 7) : '—'}
-                  </span>
+                {/* Label */}
+                <div style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: 17, color: SUIT_BG_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+                  <span style={{ fontSize: 7, fontFamily: 'monospace', color: isMe ? SUIT_BG_COLORS[suit] : 'rgba(255,255,255,0.22)', marginTop: 1, whiteSpace: 'nowrap' }}>{nick}</span>
+                  {owner && <span style={{ fontSize: 6, fontFamily: 'monospace', color: 'rgba(255,255,255,0.18)', whiteSpace: 'nowrap', maxWidth: 46, overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name.slice(0, 6)}</span>}
                 </div>
 
                 {/* Track */}
-                <div style={{
-                  flex: 1,
-                  height: 72,
-                  position: 'relative',
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  background: 'rgba(0,0,0,0.35)',
-                }}>
-                  {/* Grid lines at each position */}
+                <div style={{ flex: 1, height: 60, position: 'relative', borderRadius: 5, overflow: 'hidden', background: 'rgba(0,0,0,0.4)' }}>
                   {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} style={{
-                      position: 'absolute', top: 0, bottom: 0,
-                      left: `${(i / 9) * 100}%`,
-                      width: 1,
-                      background: i === 9 ? '#C9A22780' : 'rgba(255,255,255,0.06)',
-                    }} />
+                    <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(i / 9) * 100}%`, width: 1, background: i === 9 ? '#C9A22780' : 'rgba(255,255,255,0.04)' }} />
                   ))}
-                  {/* Finish crown line */}
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 2, background: '#C9A227' }} />
+                  {/* Progress fill */}
                   <div style={{
-                    position: 'absolute', top: 0, bottom: 0, right: 0, width: 3,
-                    background: 'linear-gradient(to bottom, #C9A227, #C9A22780)',
-                    borderRadius: 2,
-                  }} />
-
-                  {/* Filled track behind queen */}
-                  <div style={{
-                    position: 'absolute', top: '30%', bottom: '30%', left: 0,
+                    position: 'absolute', top: '34%', bottom: '34%', left: 0,
                     width: `calc(${(pos / 9) * 100}% - 4px)`,
-                    background: `linear-gradient(to right, ${SUIT_COLORS[suit]}22, ${SUIT_COLORS[suit]}44)`,
-                    borderRadius: '0 3px 3px 0',
+                    background: `linear-gradient(to right, ${SUIT_BG_COLORS[suit]}15, ${SUIT_BG_COLORS[suit]}28)`,
+                    borderRadius: '0 2px 2px 0',
                     transition: 'width 0.5s ease-out',
                   }} />
-
-                  {/* Queen card — moves along track */}
+                  {/* Sliding Queen card */}
                   <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: `calc(${(pos / 9) * 100}% - ${(pos / 9) * 48}px)`,
+                    position: 'absolute', top: '50%',
+                    left: `calc(${(pos / 9) * 100}% - ${(pos / 9) * 42}px)`,
                     transform: 'translateY(-50%)',
                     transition: 'left 0.5s ease-out',
-                    width: 48, height: 68,
-                    background: '#fff',
-                    borderRadius: 7,
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    boxShadow: isLeading
-                      ? `0 0 14px #C9A227cc, 0 2px 8px rgba(0,0,0,0.6)`
-                      : '0 2px 8px rgba(0,0,0,0.6)',
-                    border: isLeading ? '2px solid #C9A227' : `1.5px solid ${SUIT_COLORS[suit]}66`,
+                    width: 42, height: 58, background: '#fff', borderRadius: 6,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: isLeading ? `0 0 12px #C9A227aa, 0 2px 6px rgba(0,0,0,0.6)` : '0 2px 6px rgba(0,0,0,0.5)',
+                    border: isLeading ? '2px solid #C9A227' : `1.5px solid ${SUIT_COLORS[suit] === '#1a1a1a' ? 'rgba(0,0,0,0.3)' : '#e5393550'}`,
                     animation: isPulse ? 'll-queen-pulse 0.5s ease-out' : 'none',
                     zIndex: 2,
-                    flexShrink: 0,
                   }}>
-                    <span style={{ position: 'absolute', top: 3, left: 5, fontSize: 10, fontWeight: 800, color: SUIT_COLORS[suit] === '#ffffff' ? '#1a1a2e' : SUIT_COLORS[suit], lineHeight: 1 }}>Q</span>
-                    <span style={{ fontSize: 22, color: SUIT_COLORS[suit] === '#ffffff' ? '#1a1a2e' : SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-                    <span style={{ position: 'absolute', bottom: 3, right: 5, fontSize: 10, fontWeight: 800, color: SUIT_COLORS[suit] === '#ffffff' ? '#1a1a2e' : SUIT_COLORS[suit], lineHeight: 1, transform: 'rotate(180deg)' }}>Q</span>
+                    <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 8, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
+                    <span style={{ fontSize: 18, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+                    <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 8, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
                   </div>
                 </div>
 
-                {/* Right: score */}
-                <div style={{ width: 24, flexShrink: 0, textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: isLeading ? '#C9A227' : SUIT_COLORS[suit] }}>
-                  {pos}
-                </div>
+                {/* Score */}
+                <div style={{ width: 20, flexShrink: 0, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: isLeading ? '#C9A227' : posColor }}>{pos}</div>
               </div>
             );
           })}
         </div>
 
-        {/* Side bets panel */}
+        {/* History bar */}
+        {state.flippedCards.length > 4 && (
+          <div style={{ display: 'flex', gap: 3, overflowX: 'auto', flexShrink: 0, alignItems: 'center', paddingBottom: 2 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.18)', flexShrink: 0 }}>HISTORY</span>
+            {[...state.flippedCards].reverse().slice(0, 8).map((c, i) => (
+              <div key={i} style={{ width: 24, height: 34, background: '#fff', borderRadius: 3, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
+                <span style={{ fontSize: 6, fontWeight: 800, color: SUIT_COLORS[c.suit], lineHeight: 1 }}>{c.rank}</span>
+                <span style={{ fontSize: 10, color: SUIT_COLORS[c.suit] }}>{SUIT_SYMBOLS[c.suit]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Side bets */}
         {state.sideBets.length > 0 && (
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 10px', flexShrink: 0 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: 2, marginBottom: 5 }}>SIDE BETS</div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 7, padding: '5px 8px', flexShrink: 0 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.22)', letterSpacing: 2, marginBottom: 3 }}>SIDE BETS</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {state.sideBets.map((b, i) => (
-                <div key={i} style={{ fontFamily: 'monospace', fontSize: 10, color: SUIT_COLORS[b.suit] }}>
-                  {b.playerName}: {b.amount.toLocaleString()} on {SUIT_SYMBOLS[b.suit]}
-                </div>
+                <span key={i} style={{ fontFamily: 'monospace', fontSize: 9, color: SUIT_BG_COLORS[b.suit] }}>
+                  {b.playerName} · {b.amount.toLocaleString()} on {QUEEN_NICKNAMES[b.suit]}
+                </span>
               ))}
             </div>
           </div>
@@ -794,70 +810,108 @@ export default function LadyLuck() {
     );
   }
 
-  // ── RESULT ─────────────────────────────────────────────────────────────────
+  // ── RESULT ──────────────────────────────────────────────────────────────────
   if (state.phase === 'RESULT') {
-    const winner     = state.winner!;
-    const winPlayer  = state.players.find(p => p.suit === winner);
-    const isWinner   = winPlayer?.id === identity.id;
+    const winner      = state.winner!;
+    const winPlayer   = state.players.find(p => p.suit === winner);
+    const isWinner    = winPlayer?.id === identity.id;
+    const myWager     = myPlayer?.wager ?? 0;
+    const myBets      = state.sideBets.filter(b => b.playerId === identity.id);
+    const myBetsTotal = myBets.reduce((s, b) => s + b.amount, 0);
+    const myPayout    = isWinner ? state.pot : 0;
+    const myBetPayout = myBets.filter(b => b.suit === winner).reduce((s, b) => s + Math.floor(b.amount * 2.5), 0);
+    const myDelta     = myPayout + myBetPayout - myWager - myBetsTotal;
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 24, gap: 16 }}>
-        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 32, color: '#C9A227', letterSpacing: 2 }}>
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px', gap: 14 }}>
+        <style>{`
+          @keyframes ll-winner-glow { 0%,100%{box-shadow:0 0 20px #C9A227aa,0 0 40px #C9A22740} 50%{box-shadow:0 0 32px #C9A227cc,0 0 60px #C9A22760} }
+          @keyframes ll-result-in { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        `}</style>
+
+        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 28, color: isWinner ? '#C9A227' : '#e53935', letterSpacing: 2, animation: 'll-result-in 0.5s ease-out' }}>
           {isWinner ? '🏆 YOU WIN!' : 'RACE OVER'}
         </div>
 
-        {/* Winner queen */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 32 }}>👑</div>
-          <div style={{ position: 'relative' }}>
-            <QueenCard suit={winner} claimed isYours={isWinner} claimedBy={winPlayer?.name} />
-            <div style={{ position: 'absolute', inset: -4, borderRadius: 16, boxShadow: `0 0 30px ${SUIT_COLORS[winner]}80, 0 0 60px ${SUIT_COLORS[winner]}40`, pointerEvents: 'none' }} />
+        {/* Winner Queen */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'll-result-in 0.5s ease-out 0.1s both' }}>
+          <div style={{ fontSize: 22 }}>👑</div>
+          <div style={{ width: 80, height: 112, background: '#fff', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', border: '3px solid #C9A227', animation: 'll-winner-glow 2s ease-in-out infinite' }}>
+            <span style={{ position: 'absolute', top: 5, left: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[winner] }}>Q</span>
+            <span style={{ fontSize: 36, color: SUIT_COLORS[winner] }}>{SUIT_SYMBOLS[winner]}</span>
+            <span style={{ position: 'absolute', bottom: 5, right: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[winner], transform: 'rotate(180deg)' }}>Q</span>
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: 14, color: '#C9A227', fontWeight: 700 }}>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 18, color: '#C9A227', letterSpacing: 1 }}>{QUEEN_NICKNAMES[winner]}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>
             {winPlayer?.name ?? 'Unknown'} wins {state.pot.toLocaleString()} chips
           </div>
         </div>
 
-        {/* Final positions */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {SUITS.map(suit => (
-            <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 24, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: suit === winner ? '#C9A227' : 'rgba(255,255,255,0.45)', fontWeight: suit === winner ? 700 : 400 }}>
-                {state.positions[suit] ?? 0}/9
+        {/* All 4 Queens final positions */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', width: '100%', animation: 'll-result-in 0.5s ease-out 0.2s both' }}>
+          {SUITS.map(suit => {
+            const owner   = state.players.find(p => p.suit === suit);
+            const pos     = state.positions[suit] ?? 0;
+            const isWin   = suit === winner;
+            const isYours = myPlayer?.suit === suit;
+            return (
+              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <QueenCard suit={suit} isWinner={isWin} playerName={owner?.name} isYours={isYours} />
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: isWin ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{pos}/9</div>
               </div>
+            );
+          })}
+        </div>
+
+        {/* My chips delta */}
+        <div style={{ background: myDelta >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(229,57,53,0.1)', border: `1px solid ${myDelta >= 0 ? '#10b98138' : '#e5393538'}`, borderRadius: 12, padding: '12px 20px', textAlign: 'center', width: '100%', animation: 'll-result-in 0.5s ease-out 0.3s both' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>YOUR RESULT</div>
+          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 24, color: myDelta >= 0 ? '#10b981' : '#e53935', letterSpacing: 1 }}>
+            {myDelta >= 0 ? '+' : ''}{myDelta.toLocaleString()} chips
+          </div>
+          {(myWager > 0 || myBetsTotal > 0) && (
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 4 }}>
+              wager {myWager.toLocaleString()} · side bets {myBetsTotal.toLocaleString()} · payout {(myPayout + myBetPayout).toLocaleString()}
             </div>
-          ))}
+          )}
         </div>
 
         {/* Side bet results */}
         {state.sideBets.length > 0 && (
-          <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 8 }}>SIDE BET RESULTS</div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 14px', width: '100%', animation: 'll-result-in 0.5s ease-out 0.35s both' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 8 }}>SIDE BETS</div>
             {state.sideBets.map((b, i) => {
-              const won = b.suit === winner;
+              const won    = b.suit === winner;
+              const payout = won ? Math.floor(b.amount * 2.5) : 0;
               return (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontFamily: 'monospace', fontSize: 12 }}>
-                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>{b.playerName} on {SUIT_SYMBOLS[b.suit]}</span>
-                  <span style={{ color: won ? '#10b981' : '#e53935', fontWeight: 700 }}>
-                    {won ? `+${Math.floor(b.amount * 2.5).toLocaleString()}` : `-${b.amount.toLocaleString()}`}
-                  </span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontFamily: 'monospace', fontSize: 10, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: SUIT_BG_COLORS[b.suit] }}>{b.playerName} · {QUEEN_NICKNAMES[b.suit]} · {b.amount.toLocaleString()}</span>
+                  <span style={{ color: won ? '#10b981' : '#e53935', fontWeight: 700 }}>{won ? `+${payout.toLocaleString()}` : `−${b.amount.toLocaleString()}`}</span>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Countdown and play again */}
-        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
-          New game in {countdown}s…
+        {countdown > 0 && (
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Next round in {countdown}s…</div>
+        )}
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 10, width: '100%', animation: 'll-result-in 0.5s ease-out 0.4s both' }}>
+          <button
+            data-testid="button-play-again"
+            onClick={() => setState(prev => prev ? { ...prev, phase: 'LOBBY' } : prev)}
+            style={{ flex: 1, background: '#e53935', color: '#fff', border: 'none', borderRadius: 24, padding: '13px 0', fontWeight: 800, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
+            PLAY AGAIN
+          </button>
+          <button
+            data-testid="button-lobby"
+            onClick={goBack}
+            style={{ flex: 1, background: 'rgba(255,255,255,0.07)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, padding: '13px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
+            LOBBY
+          </button>
         </div>
-        <button
-          data-testid="button-play-again"
-          onClick={() => { setTableId(null); setState(null); navigate('/ladyluck'); }}
-          style={{ background: '#e53935', color: '#fff', border: 'none', borderRadius: 24, padding: '12px 32px', fontWeight: 800, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
-          PLAY AGAIN
-        </button>
       </div>
     );
   }
