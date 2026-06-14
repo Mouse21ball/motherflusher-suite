@@ -19,6 +19,8 @@ interface LLTableMeta {
   raceInterval?: ReturnType<typeof setInterval>;
   botFillTimer?: ReturnType<typeof setTimeout>;
   countdownTimer?: ReturnType<typeof setInterval>;
+  resultsInterval?: ReturnType<typeof setInterval>;
+  betInterval?: ReturnType<typeof setInterval>;
   deck: LLCard[];
   hostId: string | null;
 }
@@ -87,6 +89,8 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     currentPickIndex: 1,
     claimedSuits:     [],
     startingIn:       null,
+    resultsTimeLeft:  null,
+    betTimeLeft:      null,
   };
   const meta: LLTableMeta = {
     state,
@@ -224,7 +228,8 @@ function doStart(tableId: string): void {
 export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] {
   const out: { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] = [];
   for (const [tableId, meta] of tables.entries()) {
-    if (meta.state.phase === 'LOBBY' || meta.state.phase === 'SELECT' || meta.state.phase === 'WAGER') {
+    const { phase } = meta.state;
+    if (phase === 'LOBBY' || phase === 'SELECT' || phase === 'WAGER' || phase === 'RESULTS' || phase === 'BET') {
       out.push({ tableId, roomType: meta.state.roomType, playerCount: meta.state.players.filter(p => p.presence !== 'open').length });
     }
   }
@@ -251,25 +256,44 @@ export function handleLLJoin(
 
   const existing = state.players.find(p => p.id === playerId);
   if (!existing) {
-    if (state.phase !== 'LOBBY') {
+    if (state.phase === 'LOBBY') {
+      // First-time join in lobby — just append
+      if (state.players.length >= 4) {
+        try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_full' })); } catch {}
+        return;
+      }
+      state.players.push({
+        id:        playerId,
+        name:      playerName,
+        chips,
+        suit:      null,
+        wager:     0,
+        presence:  'human',
+        wagered:   false,
+        seatIndex: state.players.length,
+      });
+    } else if (state.phase === 'RESULTS' || state.phase === 'BET') {
+      // New player joining during inter-round window — fill an open seat
+      const openIdx = state.players.findIndex(p => p.presence === 'open');
+      if (openIdx === -1) {
+        try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_full' })); } catch {}
+        return;
+      }
+      const seat = state.players[openIdx];
+      state.players[openIdx] = {
+        id:        playerId,
+        name:      playerName,
+        chips,
+        suit:      null,
+        wager:     0,
+        presence:  'human',
+        wagered:   false,
+        seatIndex: seat.seatIndex,
+      };
+    } else {
       try { ws.send(JSON.stringify({ type: 'll:error', message: 'game_in_progress' })); } catch {}
       return;
     }
-    if (state.players.length >= 4) {
-      try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_full' })); } catch {}
-      return;
-    }
-    const player: LadyLuckPlayer = {
-      id:         playerId,
-      name:       playerName,
-      chips,
-      suit:       null,
-      wager:      0,
-      presence:   'human',
-      wagered:    false,
-      seatIndex:  state.players.length,
-    };
-    state.players.push(player);
   } else {
     existing.chips = chips;
   }
@@ -308,17 +332,22 @@ export function handleLLSelect(tableId: string, playerId: string, suit: LadyLuck
   const meta = tables.get(tableId);
   if (!meta) return { ok: false, error: 'table_not_found' };
   const { state } = meta;
-  if (state.phase !== 'SELECT') return { ok: false, error: 'wrong_phase' };
+  if (state.phase !== 'SELECT' && state.phase !== 'BET') return { ok: false, error: 'wrong_phase' };
 
   const playerIdx = state.players.findIndex(p => p.id === playerId);
   if (playerIdx === -1) return { ok: false, error: 'not_in_table' };
-  if (playerIdx !== state.currentPickIndex) return { ok: false, error: 'not_your_turn' };
+
+  // In SELECT phase, picks follow strict turn order; in BET phase anyone can pick freely
+  if (state.phase === 'SELECT' && playerIdx !== state.currentPickIndex) return { ok: false, error: 'not_your_turn' };
+  if (state.players[playerIdx].suit !== null) return { ok: false, error: 'already_selected' };
   if (state.claimedSuits.includes(suit)) return { ok: false, error: 'suit_taken' };
 
   state.players[playerIdx].suit = suit;
   state.claimedSuits.push(suit);
 
-  advancePickIndex(tableId, meta);
+  if (state.phase === 'SELECT') {
+    advancePickIndex(tableId, meta);
+  }
   broadcastState(meta);
   return { ok: true };
 }
@@ -375,11 +404,13 @@ export async function handleLLWager(
   const meta = tables.get(tableId);
   if (!meta) return { ok: false, error: 'table_not_found' };
   const { state } = meta;
-  if (state.phase !== 'WAGER') return { ok: false, error: 'wrong_phase' };
+  if (state.phase !== 'WAGER' && state.phase !== 'BET') return { ok: false, error: 'wrong_phase' };
 
   const player = state.players.find(p => p.id === playerId);
   if (!player) return { ok: false, error: 'not_in_table' };
   if (player.wagered) return { ok: false, error: 'already_wagered' };
+  // In BET phase player must have picked a suit before wagering
+  if (state.phase === 'BET' && player.suit === null) return { ok: false, error: 'no_suit_selected' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
   if (amount % 100 !== 0) return { ok: false, error: 'must_be_100_increment' };
@@ -424,8 +455,41 @@ function checkAllWagered(tableId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
   const { state } = meta;
-  if (state.players.every(p => p.wagered)) {
+  // Only active (non-open) players count — open seats don't wager
+  const active = state.players.filter(p => p.presence !== 'open');
+  if (active.length > 0 && active.every(p => p.wagered)) {
     startRace(tableId);
+  }
+}
+
+/** Bot auto-pick for BET phase: each bot picks a suit then wagers, staggered naturally */
+async function scheduleBotAutobet(tableId: string) {
+  const meta = tables.get(tableId);
+  if (!meta) return;
+  const room = LADY_LUCK_ROOMS[meta.state.roomType];
+
+  for (const player of meta.state.players) {
+    if (player.presence !== 'bot') continue;
+    const p = player;
+    const delay = 2_000 + Math.random() * 2_000;
+    setTimeout(async () => {
+      const m = tables.get(tableId);
+      if (!m || m.state.phase !== 'BET') return;
+      // Pick suit if not yet chosen
+      if (!p.suit) {
+        const available = SUITS.filter(s => !m.state.claimedSuits.includes(s));
+        if (available.length === 0) return;
+        handleLLSelect(tableId, p.id, available[Math.floor(Math.random() * available.length)]);
+      }
+      // Wager 1 s later
+      setTimeout(async () => {
+        const m2 = tables.get(tableId);
+        if (!m2 || m2.state.phase !== 'BET') return;
+        const steps  = Math.floor((room.maxWager - room.minWager) / 100);
+        const amount = room.minWager + Math.floor(Math.random() * (steps + 1)) * 100;
+        await handleLLWager(tableId, p.id, amount);
+      }, 1_000);
+    }, delay);
   }
 }
 
@@ -440,7 +504,7 @@ export async function handleLLSideBet(
   const meta = tables.get(tableId);
   if (!meta) return { ok: false, error: 'table_not_found' };
   const { state } = meta;
-  if (state.phase !== 'WAGER') return { ok: false, error: 'wrong_phase' };
+  if (state.phase !== 'WAGER' && state.phase !== 'BET') return { ok: false, error: 'wrong_phase' };
 
   const player = state.players.find(p => p.id === playerId);
   if (!player) return { ok: false, error: 'not_in_table' };
@@ -512,17 +576,17 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
   const { state } = meta;
 
   state.winner = winningSuit;
-  state.phase  = 'RESULT';
+  state.phase  = 'RESULTS';
 
-  const winner = state.players.find(p => p.suit === winningSuit);
-  if (winner && winner.presence === 'human') {
+  // ── Payout ─────────────────────────────────────────────────────────────────
+  const winnerPlayer = state.players.find(p => p.suit === winningSuit);
+  if (winnerPlayer && winnerPlayer.presence === 'human') {
     try {
-      await storage.addChipsToPlayer(winner.id, state.pot, { reason: 'other', source: 'ladyluck_win' });
+      await storage.addChipsToPlayer(winnerPlayer.id, state.pot, { reason: 'other', source: 'ladyluck_win' });
     } catch (e) {
       console.error('[LadyLuck] Failed to credit winner chips:', e);
     }
   }
-
   for (const bet of state.sideBets) {
     if (bet.suit === winningSuit && bet.playerId) {
       const betPlayer = state.players.find(p => p.id === bet.playerId);
@@ -537,53 +601,178 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
     }
   }
 
-  broadcast(meta, {
-    type:   'll:result',
-    state:  { ...state },
-    winner: winningSuit,
-    pot:    state.pot,
-  });
-
-  setTimeout(() => {
-    const m = tables.get(tableId);
-    if (!m) return;
-    const s = m.state;
-
-    s.dealerIndex      = (s.dealerIndex + 1) % s.players.length;
-    s.currentPickIndex = (s.dealerIndex + 1) % s.players.length;
-    s.phase            = 'LOBBY';
-    s.positions        = emptyPositions();
-    s.flippedCards     = [];
-    s.currentCard      = null;
-    s.winner           = null;
-    s.pot              = 0;
-    s.sideBets         = [];
-    s.claimedSuits     = [];
-    s.startingIn       = null;
-    for (const p of s.players) {
-      p.suit    = null;
-      p.wager   = 0;
-      p.wagered = false;
+  // ── Update chip totals for human players so RESULTS UI shows live balances ─
+  for (const p of state.players) {
+    if (p.presence === 'human') {
+      try {
+        const profile = await storage.getPlayerProfile(p.id);
+        if (profile) p.chips = profile.chips;
+      } catch {}
     }
+  }
 
-    broadcastState(m);
-  }, 8000);
+  // ── RESULTS countdown 10 → 0 ───────────────────────────────────────────────
+  state.resultsTimeLeft = 10;
+  broadcastState(meta);
+
+  let ticks = 10;
+  meta.resultsInterval = setInterval(() => {
+    const m = tables.get(tableId);
+    if (!m || m.state.phase !== 'RESULTS') {
+      clearInterval(m?.resultsInterval);
+      if (m) m.resultsInterval = undefined;
+      return;
+    }
+    ticks--;
+    if (ticks <= 0) {
+      clearInterval(m.resultsInterval);
+      m.resultsInterval       = undefined;
+      m.state.resultsTimeLeft = null;
+      startNextRound(tableId);
+    } else {
+      m.state.resultsTimeLeft = ticks;
+      broadcastState(m);
+    }
+  }, 1_000);
+}
+
+// ── Inter-round transition ────────────────────────────────────────────────────
+
+function startNextRound(tableId: string) {
+  const meta = tables.get(tableId);
+  if (!meta) return;
+  const { state } = meta;
+
+  const nonActive = state.players.length;
+  state.dealerIndex = (state.dealerIndex + 1) % Math.max(1, nonActive);
+
+  // Mark busted/bot players as open seats; keep solvent humans
+  for (const p of state.players) {
+    if (p.presence === 'bot') {
+      // Bots never auto-rejoin — free the seat for humans or fresh bots
+      p.presence = 'open';
+    } else if (p.presence === 'human' && p.chips <= 0) {
+      p.presence = 'open';
+    }
+    // Reset round-specific state
+    p.suit    = null;
+    p.wager   = 0;
+    p.wagered = false;
+  }
+
+  // If only 1 or 0 humans remain, fill open seats with bots so the round can run
+  const humanCount = state.players.filter(p => p.presence === 'human').length;
+  if (humanCount < 2) {
+    for (let i = 0; i < state.players.length; i++) {
+      if (state.players[i].presence === 'open') {
+        const name  = pickBotName(state.players.map(p => p.name));
+        const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+        state.players[i] = {
+          id:        botId,
+          name,
+          chips:     10_000,
+          suit:      null,
+          wager:     0,
+          presence:  'bot',
+          wagered:   false,
+          seatIndex: state.players[i].seatIndex,
+        };
+      }
+    }
+  }
+
+  // Reset shared round state
+  state.positions        = emptyPositions();
+  state.flippedCards     = [];
+  state.currentCard      = null;
+  state.winner           = null;
+  state.pot              = 0;
+  state.sideBets         = [];
+  state.claimedSuits     = [];
+  state.startingIn       = null;
+  state.resultsTimeLeft  = null;
+  state.betTimeLeft      = 30;
+  state.phase            = 'BET';
+
+  broadcastState(meta);
+  scheduleBotAutobet(tableId);
+
+  // 30-second BET countdown
+  let betTicks = 30;
+  meta.betInterval = setInterval(async () => {
+    const m = tables.get(tableId);
+    if (!m || m.state.phase !== 'BET') {
+      clearInterval(m?.betInterval);
+      if (m) m.betInterval = undefined;
+      return;
+    }
+    betTicks--;
+    if (betTicks <= 0) {
+      clearInterval(m.betInterval);
+      m.betInterval      = undefined;
+      m.state.betTimeLeft = null;
+      // Force-wager any active player who hasn't yet (auto min-bet)
+      const room = LADY_LUCK_ROOMS[m.state.roomType];
+      for (const p of m.state.players) {
+        if (p.presence === 'open' || p.wagered) continue;
+        // Assign a suit if missing
+        if (!p.suit) {
+          const avail = SUITS.filter(s => !m.state.claimedSuits.includes(s));
+          if (avail.length > 0) {
+            p.suit = avail[Math.floor(Math.random() * avail.length)];
+            m.state.claimedSuits.push(p.suit);
+          } else continue;
+        }
+        if (p.presence === 'human') {
+          const ok = await storage.debitChipsForBuyin(p.id, room.minWager);
+          if (!ok) { p.presence = 'open'; continue; }
+        }
+        p.wager   = room.minWager;
+        p.wagered = true;
+        m.state.pot += room.minWager;
+      }
+      broadcastState(m);
+      const active = m.state.players.filter(q => q.presence !== 'open');
+      if (active.length >= 2) startRace(tableId);
+    } else {
+      m.state.betTimeLeft = betTicks;
+      broadcastState(m);
+    }
+  }, 1_000);
 }
 
 // ── Disconnect cleanup ────────────────────────────────────────────────────────
+
+function clearAllTimers(meta: LLTableMeta) {
+  if (meta.raceInterval)    { clearInterval(meta.raceInterval);    meta.raceInterval    = undefined; }
+  if (meta.botFillTimer)    { clearTimeout(meta.botFillTimer);     meta.botFillTimer    = undefined; }
+  if (meta.countdownTimer)  { clearInterval(meta.countdownTimer);  meta.countdownTimer  = undefined; }
+  if (meta.resultsInterval) { clearInterval(meta.resultsInterval); meta.resultsInterval = undefined; }
+  if (meta.betInterval)     { clearInterval(meta.betInterval);     meta.betInterval     = undefined; }
+}
 
 export function handleLLDisconnect(tableId: string, playerId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
   meta.connections.delete(playerId);
 
+  // During RESULTS or BET, open the seat instead of just removing the connection
+  if (meta.state.phase === 'RESULTS' || meta.state.phase === 'BET') {
+    const idx = meta.state.players.findIndex(p => p.id === playerId);
+    if (idx !== -1 && meta.state.players[idx].presence === 'human') {
+      meta.state.players[idx].presence = 'open';
+      meta.state.players[idx].suit     = null;
+      meta.state.players[idx].wager    = 0;
+      meta.state.players[idx].wagered  = false;
+      broadcastState(meta);
+    }
+  }
+
   if (meta.connections.size === 0) {
-    if (meta.raceInterval)   clearInterval(meta.raceInterval);
-    if (meta.botFillTimer)   { clearTimeout(meta.botFillTimer);   meta.botFillTimer   = undefined; }
-    if (meta.countdownTimer) { clearInterval(meta.countdownTimer); meta.countdownTimer = undefined; }
+    clearAllTimers(meta);
     setTimeout(() => {
       const m = tables.get(tableId);
       if (m && m.connections.size === 0) tables.delete(tableId);
-    }, 30000);
+    }, 30_000);
   }
 }

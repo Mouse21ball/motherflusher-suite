@@ -20,7 +20,7 @@ export interface LadyLuckSideBet {
 }
 
 export interface LadyLuckState {
-  phase: 'LOBBY' | 'SELECT' | 'WAGER' | 'RACE' | 'RESULT';
+  phase: 'LOBBY' | 'SELECT' | 'WAGER' | 'RACE' | 'RESULTS' | 'BET';
   players: LadyLuckPlayer[];
   positions: Record<LadyLuckSuit, number>;
   flippedCards: { rank: string; suit: LadyLuckSuit }[];
@@ -32,8 +32,12 @@ export interface LadyLuckState {
   dealerIndex: number;
   currentPickIndex: number;
   claimedSuits: LadyLuckSuit[];
-  /** Countdown seconds remaining before auto-start (null when not counting down) */
+  /** Countdown seconds remaining before auto-start from LOBBY (null when not counting down) */
   startingIn: number | null;
+  /** Seconds remaining in RESULTS window (10→0) */
+  resultsTimeLeft: number | null;
+  /** Seconds remaining in BET window (30→0) */
+  betTimeLeft: number | null;
 }
 
 export const LADY_LUCK_ROOMS: Record<LadyLuckRoom, { minWager: number; maxWager: number; maxSideBet: number }> = {
