@@ -1205,41 +1205,46 @@ export default function LadyLuck() {
         `}</style>
 
         {/* ── HERO HEADER ── */}
-        <div style={{ position: 'relative', padding: '14px 14px 10px', textAlign: 'center', flexShrink: 0, overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.72) 0%,rgba(0,0,0,0.1) 70%,rgba(0,0,0,0) 100%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '14px 14px 10px', flexShrink: 0 }}>
 
-          {/* Back button */}
-          <button onClick={goBack} data-testid="button-race-back"
-            style={{ position: 'absolute', top: 14, left: 14, width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>←</button>
-          <div style={{ position: 'absolute', top: 26, left: 56, fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 1, zIndex: 3 }}>BACK</div>
-
-          {/* CGP logo box — top right */}
-          <div style={{ position: 'absolute', top: 14, right: 70, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 8, padding: '5px 9px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, zIndex: 3 }}>
-            <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 22, height: 22, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
-            <span style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 11, color: '#C9A227', letterSpacing: 2 }}>CGP</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 5.5, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, textAlign: 'center', lineHeight: 1.3 }}>LOYALTY{'\n'}NEVER LEAVES</span>
+          {/* LEFT — back button */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, width: 52 }}>
+            <button onClick={goBack} data-testid="button-race-back"
+              style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>BACK</span>
           </div>
 
-          {/* POT box — far top right */}
-          <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 8, padding: '6px 10px', textAlign: 'center', zIndex: 3 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.65)', letterSpacing: 3, marginBottom: 2 }}>POT</div>
-            <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 22, color: '#C9A227', lineHeight: 1 }}>{state.pot.toLocaleString()}</div>
+          {/* CENTER — crown + title + subtitle */}
+          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+            <img src="/crews/icon-crown.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-race-crown 3s ease-in-out infinite' }} />
+            <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 34, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.92, marginBottom: 5 }}>LADY LUCK</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <div style={{ width: 24, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A22799', letterSpacing: 3, whiteSpace: 'nowrap' }}>THE RACE IS ON</span>
+              <div style={{ width: 24, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
+            </div>
           </div>
 
-          {/* Crown */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', position: 'relative', zIndex: 2, animation: 'll-race-crown 3s ease-in-out infinite' }} />
-          {/* Title */}
-          <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 38, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.92, position: 'relative', zIndex: 2, marginBottom: 6 }}>LADY LUCK</div>
-          {/* Subtitle */}
-          <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A22799', letterSpacing: 3, whiteSpace: 'nowrap' }}>THE RACE IS ON</span>
-            <div style={{ flex: 1, maxWidth: 60, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
+          {/* RIGHT — CGP box + POT box stacked */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0, alignItems: 'flex-end' }}>
+            {/* CGP logo */}
+            <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+              <div>
+                <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 5, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, whiteSpace: 'nowrap' }}>LOYALTY NEVER LEAVES</div>
+              </div>
+            </div>
+            {/* POT */}
+            <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 7, padding: '5px 10px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.6)', letterSpacing: 3 }}>POT</div>
+              <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 20, color: '#C9A227', lineHeight: 1 }}>{state.pot.toLocaleString()}</div>
+            </div>
           </div>
         </div>
 
         {/* ── STATUS BAR ── */}
-        <div style={{ margin: '0 14px 8px', background: 'rgba(0,0,0,0.58)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px 8px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           {/* Leader */}
           <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 1 }}>
             {leader
@@ -1259,55 +1264,31 @@ export default function LadyLuck() {
         </div>
 
         {/* ── CARD FLIP AREA ── */}
-        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, minHeight: 120, background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)', borderRadius: 12, padding: '8px 10px' }}>
-          {/* Large current card */}
-          <div style={{ flex: '0 0 84px', height: 116, position: 'relative' }}>
-            {state.currentCard ? (
-              <div key={flipCount} style={{
-                animation: 'll-card-flip 1.6s ease-out forwards',
-                width: 84, height: 116,
-                background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
-                borderRadius: 10, position: 'absolute',
-                border: `2px solid ${SUIT_COLORS[state.currentCard.suit] === '#1a1a1a' ? 'rgba(0,0,0,0.35)' : '#e5393575'}`,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.75), 0 0 24px ${SUIT_BG_COLORS[state.currentCard.suit]}55`,
-              }}>
-                <span style={{ position: 'absolute', top: 5, left: 7, fontSize: 14, fontWeight: 900, color: SUIT_COLORS[state.currentCard.suit], fontFamily: 'serif' }}>{state.currentCard.rank}</span>
-                <span style={{ position: 'absolute', top: 20, left: 7, fontSize: 11, color: SUIT_COLORS[state.currentCard.suit] }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
-                <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 36, color: SUIT_COLORS[state.currentCard.suit], lineHeight: 1 }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
-                <span style={{ position: 'absolute', bottom: 5, right: 7, fontSize: 14, fontWeight: 900, color: SUIT_COLORS[state.currentCard.suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>{state.currentCard.rank}</span>
-                <span style={{ position: 'absolute', bottom: 20, right: 7, fontSize: 11, color: SUIT_COLORS[state.currentCard.suit], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
-              </div>
-            ) : (
-              <div style={{ width: 84, height: 116, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', letterSpacing: 1 }}>STARTING{'\n'}RACE…</span>
-              </div>
-            )}
-          </div>
-
-          {/* 4 suit reference cards */}
-          <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'center' }}>
-            {SUITS.map(suit => {
-              const isLeading = leader === suit;
-              const isRed = suit === 'hearts' || suit === 'diamonds';
-              return (
-                <div key={suit} style={{
-                  width: 50, height: 70,
-                  background: 'linear-gradient(160deg,#f0e3c5 0%,#ddc98a 60%,#c9a84c 100%)',
-                  borderRadius: 7, position: 'relative', flexShrink: 0,
-                  border: isLeading ? '2px solid #C9A227' : `1px solid ${isRed ? '#e5393545' : 'rgba(255,255,255,0.3)'}`,
-                  boxShadow: isLeading ? '0 0 14px #C9A22770, 0 3px 10px rgba(0,0,0,0.6)' : '0 3px 8px rgba(0,0,0,0.5)',
-                }}>
-                  <span style={{ position: 'absolute', top: 3, left: 4, fontSize: 9, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif' }}>Q</span>
-                  <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 22, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
-                  <span style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>Q</span>
-                </div>
-              );
-            })}
-          </div>
+        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, minHeight: 116, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, padding: '8px 10px' }}>
+          {state.currentCard ? (
+            <div key={flipCount} style={{
+              animation: 'll-card-flip 1.6s ease-out forwards',
+              width: 84, height: 116, flexShrink: 0,
+              background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
+              borderRadius: 10, position: 'relative',
+              border: `2px solid ${SUIT_COLORS[state.currentCard.suit] === '#1a1a1a' ? 'rgba(0,0,0,0.35)' : '#e5393575'}`,
+              boxShadow: `0 8px 32px rgba(0,0,0,0.75), 0 0 24px ${SUIT_BG_COLORS[state.currentCard.suit]}55`,
+            }}>
+              <span style={{ position: 'absolute', top: 5, left: 7, fontSize: 14, fontWeight: 900, color: SUIT_COLORS[state.currentCard.suit], fontFamily: 'serif' }}>{state.currentCard.rank}</span>
+              <span style={{ position: 'absolute', top: 20, left: 7, fontSize: 11, color: SUIT_COLORS[state.currentCard.suit] }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
+              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 36, color: SUIT_COLORS[state.currentCard.suit], lineHeight: 1 }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
+              <span style={{ position: 'absolute', bottom: 5, right: 7, fontSize: 14, fontWeight: 900, color: SUIT_COLORS[state.currentCard.suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>{state.currentCard.rank}</span>
+              <span style={{ position: 'absolute', bottom: 20, right: 7, fontSize: 11, color: SUIT_COLORS[state.currentCard.suit], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[state.currentCard.suit]}</span>
+            </div>
+          ) : (
+            <div style={{ width: 84, height: 116, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', letterSpacing: 1 }}>STARTING…</span>
+            </div>
+          )}
         </div>
 
         {/* ── RACE TRACKER TABLE ── */}
-        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
           {/* Column header row */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <div style={{ width: 100, flexShrink: 0, fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.45)', letterSpacing: 3 }}>LAP</div>
@@ -1412,7 +1393,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── HISTORY BAR ── */}
-        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const }}>
+        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const }}>
           <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A22799', letterSpacing: 2, flexShrink: 0 }}>HISTORY</span>
           <div style={{ width: 1, height: 24, background: 'rgba(201,162,39,0.3)', flexShrink: 0 }} />
           {state.flippedCards.length === 0 ? (
