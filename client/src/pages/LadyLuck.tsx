@@ -1451,92 +1451,143 @@ export default function LadyLuck() {
     const myPayout    = isWinner ? state.pot : 0;
     const myBetPayout = myBets.filter(b => b.suit === winner).reduce((s, b) => s + Math.floor(b.amount * 2.5), 0);
     const myDelta     = myPayout + myBetPayout - myWager - myBetsTotal;
+    const isRed = (s: string) => s === 'hearts' || s === 'diamonds';
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px', gap: 14 }}>
+      <div style={{
+        minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column',
+        backgroundColor: '#120c08',
+        backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
+        backgroundPosition: 'center top', backgroundAttachment: 'fixed',
+        overflowX: 'hidden',
+      }}>
         <style>{`
-          @keyframes ll-winner-glow { 0%,100%{box-shadow:0 0 20px #C9A227aa,0 0 40px #C9A22740} 50%{box-shadow:0 0 32px #C9A227cc,0 0 60px #C9A22760} }
-          @keyframes ll-result-in { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes ll-res-crown { 0%,100%{opacity:0.8;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
+          @keyframes ll-winner-glow { 0%,100%{box-shadow:0 0 22px #C9A227aa,0 0 44px #C9A22740,0 6px 24px rgba(0,0,0,0.8)} 50%{box-shadow:0 0 38px #C9A227cc,0 0 70px #C9A22760,0 6px 24px rgba(0,0,0,0.8)} }
+          @keyframes ll-result-in { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes ll-title-in  { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
         `}</style>
 
-        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 28, color: isWinner ? '#C9A227' : '#e53935', letterSpacing: 2, animation: 'll-result-in 0.5s ease-out' }}>
-          {isWinner ? '🏆 YOU WIN!' : 'RACE OVER'}
+        {/* ── HEADER ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '14px 14px 10px', flexShrink: 0 }}>
+
+          {/* LEFT — back */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, width: 52 }}>
+            <button onClick={goBack} data-testid="button-results-back"
+              style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>BACK</span>
+          </div>
+
+          {/* CENTER — crown + title */}
+          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+            <img src="/crews/icon-crown.png" alt="" style={{ width: 24, height: 24, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 3px', animation: 'll-res-crown 3s ease-in-out infinite' }} />
+            <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 40, fontWeight: 900, letterSpacing: 4, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 68%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.88, animation: 'll-title-in 0.6s ease-out both' }}>RACE OVER</div>
+          </div>
+
+          {/* RIGHT — CGP box */}
+          <div style={{ flexShrink: 0, width: 52, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 7px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+              <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 9, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 4.5, color: 'rgba(255,255,255,0.28)', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>LOYALTY NEVER LEAVES</div>
+            </div>
+          </div>
         </div>
 
-        {/* Winner Queen */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'll-result-in 0.5s ease-out 0.1s both' }}>
-          <div style={{ fontSize: 22 }}>👑</div>
-          <div style={{ width: 80, height: 112, background: '#fff', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', border: '3px solid #C9A227', animation: 'll-winner-glow 2s ease-in-out infinite' }}>
-            <span style={{ position: 'absolute', top: 5, left: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[winner] }}>Q</span>
-            <span style={{ fontSize: 36, color: SUIT_COLORS[winner] }}>{SUIT_SYMBOLS[winner]}</span>
-            <span style={{ position: 'absolute', bottom: 5, right: 7, fontSize: 14, fontWeight: 800, color: SUIT_COLORS[winner], transform: 'rotate(180deg)' }}>Q</span>
+        {/* ── WINNER CARD ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 14px 10px', animation: 'll-result-in 0.55s ease-out 0.1s both', flexShrink: 0 }}>
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.4)', display: 'block' }} />
+          {/* Large winner parchment card */}
+          <div style={{
+            width: 96, height: 134,
+            background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
+            borderRadius: 12, position: 'relative',
+            border: '3px solid #C9A227',
+            animation: 'll-winner-glow 2.2s ease-in-out infinite',
+          }}>
+            <span style={{ position: 'absolute', top: 6, left: 8, fontSize: 16, fontWeight: 900, color: SUIT_COLORS[winner], fontFamily: 'serif' }}>Q</span>
+            <span style={{ position: 'absolute', top: 24, left: 8, fontSize: 13, color: SUIT_COLORS[winner] }}>{SUIT_SYMBOLS[winner]}</span>
+            <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 44, color: SUIT_COLORS[winner], lineHeight: 1 }}>{SUIT_SYMBOLS[winner]}</span>
+            <span style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 16, fontWeight: 900, color: SUIT_COLORS[winner], fontFamily: 'serif', transform: 'rotate(180deg)' }}>Q</span>
+            <span style={{ position: 'absolute', bottom: 24, right: 8, fontSize: 13, color: SUIT_COLORS[winner], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[winner]}</span>
           </div>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 18, color: '#C9A227', letterSpacing: 1 }}>{QUEEN_NICKNAMES[winner]}</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>
-            {winPlayer?.name ?? 'Unknown'} wins {state.pot.toLocaleString()} chips
+          {/* Queen name */}
+          <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 22, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e,#C9A227)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontVariant: 'small-caps' }}>{QUEEN_NICKNAMES[winner]}</div>
+          {/* Decorative wins line */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 18, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22799)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A22799', letterSpacing: 2 }}>›</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+              {(winPlayer?.name ?? 'Unknown').toUpperCase()} WINS {state.pot.toLocaleString()} CHIPS
+            </span>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A22799', letterSpacing: 2 }}>‹</span>
+            <div style={{ width: 18, height: 1, background: 'linear-gradient(90deg,#C9A22799,transparent)' }} />
           </div>
         </div>
 
-        {/* All 4 Queens final positions */}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', width: '100%', animation: 'll-result-in 0.5s ease-out 0.2s both' }}>
+        {/* ── ALL 4 QUEENS ROW ── */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', padding: '0 14px 10px', animation: 'll-result-in 0.55s ease-out 0.2s both', flexShrink: 0 }}>
           {SUITS.map(suit => {
             const owner   = state.players.find(p => p.suit === suit);
             const pos     = state.positions[suit] ?? 0;
             const isWin   = suit === winner;
             const isYours = myPlayer?.suit === suit;
             return (
-              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <QueenCard suit={suit} isWinner={isWin} playerName={owner?.name} isYours={isYours} />
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: isWin ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{pos}/9</div>
+              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flex: '0 0 calc(25% - 6px)', opacity: isWin ? 1 : 0.55 }}>
+                {/* Parchment queen card */}
+                <div style={{
+                  width: '100%', aspectRatio: '0.72', maxWidth: 72,
+                  background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
+                  borderRadius: 8, position: 'relative',
+                  border: isWin ? '2px solid #C9A227' : `1px solid ${isRed(suit) ? '#e5393550' : 'rgba(255,255,255,0.28)'}`,
+                  boxShadow: isWin ? '0 0 16px #C9A22790, 0 4px 14px rgba(0,0,0,0.7)' : '0 3px 10px rgba(0,0,0,0.55)',
+                }}>
+                  <span style={{ position: 'absolute', top: 3, left: 5, fontSize: 10, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif' }}>Q</span>
+                  <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 26, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+                  <span style={{ position: 'absolute', bottom: 3, right: 5, fontSize: 10, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>Q</span>
+                </div>
+                {/* Queen name */}
+                <div style={{ fontFamily: 'monospace', fontSize: 7, fontWeight: 700, color: isWin ? '#C9A227' : 'rgba(255,255,255,0.45)', letterSpacing: 1, textAlign: 'center', fontVariant: 'small-caps', whiteSpace: 'nowrap' }}>{QUEEN_NICKNAMES[suit]}</div>
+                {/* Player name */}
+                <div style={{ fontFamily: 'monospace', fontSize: 6.5, color: isYours ? '#C9A22799' : 'rgba(255,255,255,0.3)', textAlign: 'center', letterSpacing: 0.5 }}>
+                  {isYours ? '★ ' : ''}{(owner?.name ?? '—').slice(0, 8)}
+                </div>
+                {/* Lap count */}
+                <div style={{ fontFamily: 'monospace', fontSize: 7, color: isWin ? '#C9A22780' : 'rgba(255,255,255,0.22)' }}>{pos}/9</div>
               </div>
             );
           })}
         </div>
 
-        {/* My chips delta */}
-        <div style={{ background: myDelta >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(229,57,53,0.1)', border: `1px solid ${myDelta >= 0 ? '#10b98138' : '#e5393538'}`, borderRadius: 12, padding: '12px 20px', textAlign: 'center', width: '100%', animation: 'll-result-in 0.5s ease-out 0.3s both' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>YOUR RESULT</div>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 24, color: myDelta >= 0 ? '#10b981' : '#e53935', letterSpacing: 1 }}>
-            {myDelta >= 0 ? '+' : ''}{myDelta.toLocaleString()} chips
+        {/* ── YOUR RESULT PANEL ── */}
+        <div style={{ margin: '0 14px 10px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: `1px solid ${myDelta >= 0 ? 'rgba(16,185,129,0.35)' : 'rgba(229,57,53,0.35)'}`, borderRadius: 12, padding: '12px 14px', position: 'relative', overflow: 'hidden', animation: 'll-result-in 0.55s ease-out 0.3s both', flexShrink: 0 }}>
+          {/* Horse watermarks */}
+          <img src="/ladyluck/horses/horse-thoroughbred.png" alt="" style={{ position: 'absolute', left: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', transform: 'scaleX(-1)', pointerEvents: 'none' }} />
+          <img src="/ladyluck/horses/horse-thoroughbred.png" alt="" style={{ position: 'absolute', right: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', pointerEvents: 'none' }} />
+          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.6)', letterSpacing: 3, marginBottom: 5, textAlign: 'center', fontVariant: 'small-caps' }}>YOUR RESULT</div>
+          <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 36, letterSpacing: 2, color: myDelta >= 0 ? '#10b981' : '#e53935', textAlign: 'center', lineHeight: 1 }}>
+            {myDelta >= 0 ? '+' : ''}{myDelta.toLocaleString()}
           </div>
-          {(myWager > 0 || myBetsTotal > 0) && (
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 4 }}>
-              wager {myWager.toLocaleString()} · side bets {myBetsTotal.toLocaleString()} · payout {(myPayout + myBetPayout).toLocaleString()}
-            </div>
-          )}
+          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: 5, letterSpacing: 1 }}>
+            WAGER {myWager.toLocaleString()} · SIDE BETS {myBetsTotal.toLocaleString()} · PAYOUT {(myPayout + myBetPayout).toLocaleString()}
+          </div>
         </div>
 
-        {/* Side bet results */}
-        {state.sideBets.length > 0 && (
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 14px', width: '100%', animation: 'll-result-in 0.5s ease-out 0.35s both' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 8 }}>SIDE BETS</div>
-            {state.sideBets.map((b, i) => {
-              const won    = b.suit === winner;
-              const payout = won ? Math.floor(b.amount * 2.5) : 0;
-              return (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontFamily: 'monospace', fontSize: 10, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span style={{ color: SUIT_BG_COLORS[b.suit] }}>{b.playerName} · {QUEEN_NICKNAMES[b.suit]} · {b.amount.toLocaleString()}</span>
-                  <span style={{ color: won ? '#10b981' : '#e53935', fontWeight: 700 }}>{won ? `+${payout.toLocaleString()}` : `−${b.amount.toLocaleString()}`}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Per-player P&L table */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 14px', width: '100%', animation: 'll-result-in 0.5s ease-out 0.38s both' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 8 }}>ALL PLAYERS</div>
+        {/* ── ALL PLAYERS PANEL ── */}
+        <div style={{ margin: '0 14px 10px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.22)', borderRadius: 12, padding: '10px 14px', animation: 'll-result-in 0.55s ease-out 0.38s both', flexShrink: 0 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.55)', letterSpacing: 3, marginBottom: 8, fontVariant: 'small-caps' }}>ALL PLAYERS</div>
           {state.players.filter(p => p.presence !== 'open').map(p => {
             const won   = p.suit === winner;
             const delta = won ? state.pot - p.wager : -p.wager;
+            const isMe  = p.id === identity.id;
+            const isBot = p.presence === 'bot';
             return (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {p.suit && <span style={{ fontSize: 14, color: SUIT_BG_COLORS[p.suit] }}>{SUIT_SYMBOLS[p.suit]}</span>}
-                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: p.id === identity.id ? '#C9A227' : 'rgba(255,255,255,0.65)' }}>
-                    {p.name}{p.id === identity.id ? ' (you)' : ''}
-                  </span>
-                  {p.presence === 'bot' && <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 3, padding: '1px 3px' }}>BOT</span>}
+                  {p.suit && <span style={{ fontSize: 15, color: isRed(p.suit) ? '#e53935' : '#cccccc', lineHeight: 1 }}>{SUIT_SYMBOLS[p.suit]}</span>}
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: isMe ? '#C9A227' : 'rgba(255,255,255,0.7)' }}>{p.name}</span>
+                  {isMe && <span style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A22799', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 3, padding: '1px 4px', letterSpacing: 1 }}>YOU</span>}
+                  {isBot && <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 3, padding: '1px 4px', letterSpacing: 1 }}>BOT</span>}
                 </div>
                 <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: delta >= 0 ? '#10b981' : '#e53935' }}>
                   {delta >= 0 ? '+' : ''}{delta.toLocaleString()}
@@ -1546,18 +1597,18 @@ export default function LadyLuck() {
           })}
         </div>
 
-        {/* Countdown + leave */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', animation: 'll-result-in 0.5s ease-out 0.45s both' }}>
+        {/* ── NEXT RACE / LEAVE ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 14px 24px', animation: 'll-result-in 0.55s ease-out 0.45s both', flexShrink: 0 }}>
           {state.resultsTimeLeft !== null && state.resultsTimeLeft > 0 && (
-            <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.45)', letterSpacing: 1 }}>
-              Next race starting in <span style={{ color: '#C9A227', fontWeight: 700 }}>{state.resultsTimeLeft}</span>…
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.55)', letterSpacing: 2, textAlign: 'center' }}>
+              NEXT RACE STARTING IN <span style={{ color: '#C9A227', fontWeight: 700 }}>{state.resultsTimeLeft}</span>
             </div>
           )}
           <button
             data-testid="button-leave-table"
             onClick={goBack}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.07)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 24, padding: '13px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer', letterSpacing: 1 }}>
-            Leave Table
+            style={{ width: '100%', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, padding: '13px 0', fontFamily: 'monospace', fontSize: 12, cursor: 'pointer', letterSpacing: 2 }}>
+            LEAVE TABLE
           </button>
         </div>
       </div>
