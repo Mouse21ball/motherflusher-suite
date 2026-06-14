@@ -822,24 +822,41 @@ export default function LadyLuck() {
               const isMe      = p.id === identity.id;
               return (
                 <div key={p.id} style={{
-                  flex: 1, padding: '8px 4px 6px', borderRadius: 10, textAlign: 'center',
+                  flex: 1, padding: '8px 4px 7px', borderRadius: 10, textAlign: 'center',
                   background: isCurrent ? 'rgba(201,162,39,0.16)' : hasPicked ? 'rgba(16,185,129,0.09)' : 'rgba(255,255,255,0.03)',
-                  border: `1.5px solid ${isCurrent ? '#C9A22788' : hasPicked ? '#10b98140' : 'rgba(255,255,255,0.07)'}`,
-                  boxShadow: isCurrent ? '0 0 10px #C9A22730' : 'none',
+                  border: `1.5px solid ${isCurrent ? '#C9A227' : hasPicked ? '#10b98140' : 'rgba(255,255,255,0.07)'}`,
+                  boxShadow: isCurrent ? '0 0 12px #C9A22748, inset 0 0 8px #C9A22712' : 'none',
                   transition: 'all 0.2s',
                 }}>
-                  {/* Icon/symbol area */}
-                  <div style={{ fontSize: 16, lineHeight: 1, marginBottom: 4,
-                    color: hasPicked && p.suit ? SUIT_BG_COLORS[p.suit] : isCurrent ? '#C9A227' : 'rgba(255,255,255,0.3)',
+                  {/* 36px circular avatar */}
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 5px',
+                    border: `1.5px solid ${isCurrent ? '#C9A227' : hasPicked ? '#10b98155' : 'rgba(255,255,255,0.1)'}`,
+                    background: '#0d0d0d', flexShrink: 0,
+                    boxShadow: isCurrent ? '0 0 8px #C9A22755' : 'none',
                   }}>
-                    {isDlr ? (
-                      <span style={{ display: 'inline-block', background: 'rgba(139,0,0,0.7)', border: '1px solid #8B0000', borderRadius: 4, padding: '1px 5px', fontSize: 14 }}>♠</span>
-                    ) : hasPicked && p.suit ? (
-                      SUIT_SYMBOLS[p.suit]
-                    ) : (
-                      <span style={{ fontSize: 13, color: isCurrent ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{idx + 1}</span>
-                    )}
+                    <img
+                      src="/ladyluck/horses/horse-champion.png"
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover',
+                        filter: isMe
+                          ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)'
+                          : hasPicked
+                          ? 'sepia(1) saturate(2) brightness(0.9)'
+                          : 'grayscale(1) brightness(0.45)',
+                      }}
+                    />
                   </div>
+                  {/* Suit symbol if picked */}
+                  {hasPicked && p.suit && (
+                    <div style={{ fontSize: 11, color: SUIT_BG_COLORS[p.suit], lineHeight: 1, marginBottom: 3 }}>
+                      {SUIT_SYMBOLS[p.suit]}
+                    </div>
+                  )}
+                  {/* Dealer badge */}
+                  {isDlr && !hasPicked && (
+                    <div style={{ fontSize: 8, background: 'rgba(139,0,0,0.7)', border: '1px solid #8B000080', borderRadius: 3, padding: '1px 3px', display: 'inline-block', marginBottom: 3 }}>♠</div>
+                  )}
                   <div style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: 1, color: isMe ? '#C9A227' : 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {isDlr ? 'DEALER' : p.name.slice(0, 7).toUpperCase()}
                   </div>

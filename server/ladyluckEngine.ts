@@ -359,7 +359,9 @@ function advancePickIndex(tableId: string, meta: LLTableMeta) {
 
   if (next === state.dealerIndex) {
     const remaining = SUITS.filter(s => !state.claimedSuits.includes(s));
-    if (remaining.length === 1) {
+    const dealerIsBot = state.players[state.dealerIndex]?.presence === 'bot';
+    if (remaining.length === 1 && dealerIsBot) {
+      // Only auto-assign last suit to the dealer if the dealer is a bot
       state.players[state.dealerIndex].suit = remaining[0];
       state.claimedSuits.push(remaining[0]);
       state.currentPickIndex = -1;
@@ -367,6 +369,7 @@ function advancePickIndex(tableId: string, meta: LLTableMeta) {
       scheduleAllBotWagers(tableId);
       return;
     }
+    // Human dealer (or multiple suits remain) — must pick manually
     state.currentPickIndex = next;
   } else {
     state.currentPickIndex = next;
