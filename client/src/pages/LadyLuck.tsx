@@ -441,15 +441,23 @@ export default function LadyLuck() {
 
         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 16 }}>
           <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 2, marginBottom: 10 }}>PLAYERS IN LOBBY</div>
-          {state.players.map(p => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.id === identity.id ? '#C9A227' : '#10b981', flexShrink: 0 }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: p.id === identity.id ? '#C9A227' : '#fff' }}>
-                {p.name}{p.id === identity.id ? ' (you)' : ''}
-              </span>
-              {p.id === state.players[0]?.id && <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: 1 }}>HOST</span>}
-            </div>
-          ))}
+          {state.players.map(p => {
+            const isBot  = p.presence === 'bot';
+            const isMe   = p.id === identity.id;
+            const isHost = p.id === state.players[0]?.id;
+            return (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isBot ? 'rgba(255,255,255,0.2)' : isMe ? '#C9A227' : '#10b981', flexShrink: 0 }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: isBot ? 'rgba(255,255,255,0.35)' : isMe ? '#C9A227' : '#fff', fontStyle: isBot ? 'italic' : 'normal' }}>
+                  {p.name}{isMe ? ' (you)' : ''}
+                </span>
+                {isBot && (
+                  <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.2)', letterSpacing: 1, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 3, padding: '1px 3px' }}>BOT</span>
+                )}
+                {!isBot && isHost && <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: 1 }}>HOST</span>}
+              </div>
+            );
+          })}
           {Array.from({ length: 4 - state.players.length }).map((_, i) => (
             <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
@@ -458,7 +466,11 @@ export default function LadyLuck() {
           ))}
         </div>
 
-        {isHost ? (
+        {state.startingIn !== null ? (
+          <div style={{ background: '#1a1a2e', border: '1px solid #e53935', borderRadius: 24, padding: '14px 0', textAlign: 'center', fontWeight: 800, fontSize: 16, letterSpacing: 2, color: '#e53935', fontFamily: 'monospace' }}>
+            Starting in {state.startingIn}…
+          </div>
+        ) : isHost ? (
           <button
             data-testid="button-ll-start"
             onClick={handleStart}

@@ -17,6 +17,8 @@ interface LLTableMeta {
   state: LadyLuckState;
   connections: Map<string, WebSocket>;
   raceInterval?: ReturnType<typeof setInterval>;
+  botFillTimer?: ReturnType<typeof setTimeout>;
+  countdownTimer?: ReturnType<typeof setInterval>;
   deck: LLCard[];
   hostId: string | null;
 }
@@ -28,6 +30,8 @@ const tables = new Map<string, LLTableMeta>();
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'K'];
+
+const BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 'Cleo', 'Remy'];
 
 function buildDeck(): LLCard[] {
   const deck: LLCard[] = [];
@@ -82,13 +86,139 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     dealerIndex:      0,
     currentPickIndex: 1,
     claimedSuits:     [],
+    startingIn:       null,
   };
-  tables.set(tableId, {
+  const meta: LLTableMeta = {
     state,
     connections: new Map(),
     deck:        [],
     hostId,
+  };
+  tables.set(tableId, meta);
+
+  // Start 10-second bot-fill timer so lonely hosts aren't stuck waiting forever
+  meta.botFillTimer = setTimeout(() => scheduleBotFill(tableId), 10_000);
+}
+
+// ── Bot-fill helpers ──────────────────────────────────────────────────────────
+
+function pickBotName(usedNames: string[]): string {
+  const available = BOT_NAMES.filter(n => !usedNames.includes(n));
+  if (available.length === 0) return `Bot ${usedNames.length + 1}`;
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+function addBotToLobby(tableId: string): void {
+  const meta = tables.get(tableId);
+  if (!meta || meta.state.phase !== 'LOBBY' || meta.state.players.length >= 4) return;
+  const { state } = meta;
+  const name  = pickBotName(state.players.map(p => p.name));
+  const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+  state.players.push({
+    id:        botId,
+    name,
+    chips:     10_000,
+    suit:      null,
+    wager:     0,
+    presence:  'bot',
+    wagered:   false,
+    seatIndex: state.players.length,
   });
+  broadcastState(meta);
+}
+
+function scheduleBotFill(tableId: string): void {
+  const meta = tables.get(tableId);
+  if (!meta || meta.state.phase !== 'LOBBY') return;
+  meta.botFillTimer = undefined;
+
+  // Add one bot immediately, then schedule the rest 2 s apart
+  addBotToLobby(tableId);
+
+  const refill = () => {
+    const m = tables.get(tableId);
+    if (!m || m.state.phase !== 'LOBBY') return;
+    if (m.state.players.length < 4) {
+      addBotToLobby(tableId);
+      m.botFillTimer = setTimeout(refill, 2_000);
+    } else {
+      scheduleCountdown(tableId);
+    }
+  };
+
+  const m = tables.get(tableId);
+  if (!m) return;
+  if (m.state.players.length < 4) {
+    m.botFillTimer = setTimeout(refill, 2_000);
+  } else {
+    scheduleCountdown(tableId);
+  }
+}
+
+function scheduleCountdown(tableId: string): void {
+  const meta = tables.get(tableId);
+  if (!meta || meta.state.phase !== 'LOBBY') return;
+  if (meta.countdownTimer !== undefined) return; // already running
+
+  meta.state.startingIn = 3;
+  broadcastState(meta);
+
+  let ticks = 3;
+  meta.countdownTimer = setInterval(() => {
+    const m = tables.get(tableId);
+    if (!m || m.state.phase !== 'LOBBY') {
+      if (m?.countdownTimer) { clearInterval(m.countdownTimer); m.countdownTimer = undefined; }
+      return;
+    }
+    ticks--;
+    if (ticks <= 0) {
+      clearInterval(m.countdownTimer);
+      m.countdownTimer   = undefined;
+      m.state.startingIn = null;
+      doStart(tableId);
+    } else {
+      m.state.startingIn = ticks;
+      broadcastState(m);
+    }
+  }, 1_000);
+}
+
+/** Internal start — no host/player-count guards, called by auto-fill and handleLLStart */
+function doStart(tableId: string): void {
+  const meta = tables.get(tableId);
+  if (!meta) return;
+  const { state } = meta;
+  if (state.phase !== 'LOBBY') return;
+
+  // Fill any remaining seats with bots (handles manual-start-with-2 case)
+  const count = state.players.length;
+  if (count < 4) {
+    const usedNames = state.players.map(p => p.name);
+    const needed    = 4 - count;
+    for (let i = 0; i < needed; i++) {
+      const name = pickBotName([...usedNames, ...Array.from({ length: i }, (_, k) => state.players[count + k]?.name ?? '')]);
+      const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+      state.players.push({
+        id:        botId,
+        name,
+        chips:     10_000,
+        suit:      null,
+        wager:     0,
+        presence:  'bot',
+        wagered:   false,
+        seatIndex: count + i,
+      });
+    }
+  }
+
+  state.startingIn       = null;
+  state.dealerIndex      = 0;
+  state.currentPickIndex = 1 % state.players.length;
+  state.phase            = 'SELECT';
+  state.claimedSuits     = [];
+
+  broadcastState(meta);
+  scheduleNextBotPick(tableId);
 }
 
 export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] {
@@ -165,31 +295,11 @@ export function handleLLStart(tableId: string, playerId: string): void {
     return;
   }
 
-  const count = state.players.length;
-  if (count < 4) {
-    const botCount = 4 - count;
-    const botNames = ['Lady L.', 'Lucky Lou', 'Wild Card'];
-    for (let i = 0; i < botCount; i++) {
-      state.players.push({
-        id:        `bot_${tableId}_${i}`,
-        name:      botNames[i] ?? `Bot ${i + 1}`,
-        chips:     10000,
-        suit:      null,
-        wager:     0,
-        presence:  'bot',
-        wagered:   false,
-        seatIndex: count + i,
-      });
-    }
-  }
+  // Cancel any pending bot-fill or countdown timers — human host is starting now
+  if (meta.botFillTimer)   { clearTimeout(meta.botFillTimer);   meta.botFillTimer   = undefined; }
+  if (meta.countdownTimer) { clearInterval(meta.countdownTimer); meta.countdownTimer = undefined; }
 
-  state.dealerIndex      = 0;
-  state.currentPickIndex = 1 % state.players.length;
-  state.phase            = 'SELECT';
-  state.claimedSuits     = [];
-
-  broadcastState(meta);
-  scheduleNextBotPick(tableId);
+  doStart(tableId);
 }
 
 // ── ll:select ─────────────────────────────────────────────────────────────────
@@ -449,6 +559,7 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
     s.pot              = 0;
     s.sideBets         = [];
     s.claimedSuits     = [];
+    s.startingIn       = null;
     for (const p of s.players) {
       p.suit    = null;
       p.wager   = 0;
@@ -467,7 +578,9 @@ export function handleLLDisconnect(tableId: string, playerId: string) {
   meta.connections.delete(playerId);
 
   if (meta.connections.size === 0) {
-    if (meta.raceInterval) clearInterval(meta.raceInterval);
+    if (meta.raceInterval)   clearInterval(meta.raceInterval);
+    if (meta.botFillTimer)   { clearTimeout(meta.botFillTimer);   meta.botFillTimer   = undefined; }
+    if (meta.countdownTimer) { clearInterval(meta.countdownTimer); meta.countdownTimer = undefined; }
     setTimeout(() => {
       const m = tables.get(tableId);
       if (m && m.connections.size === 0) tables.delete(tableId);

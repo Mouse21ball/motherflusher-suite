@@ -32,6 +32,8 @@ export interface LadyLuckState {
   dealerIndex: number;
   currentPickIndex: number;
   claimedSuits: LadyLuckSuit[];
+  /** Countdown seconds remaining before auto-start (null when not counting down) */
+  startingIn: number | null;
 }
 
 export const LADY_LUCK_ROOMS: Record<LadyLuckRoom, { minWager: number; maxWager: number; maxSideBet: number }> = {
