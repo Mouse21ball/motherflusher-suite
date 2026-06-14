@@ -1259,7 +1259,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── CARD FLIP AREA ── */}
-        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, minHeight: 120 }}>
+        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, minHeight: 120, background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)', borderRadius: 12, padding: '8px 10px' }}>
           {/* Large current card */}
           <div style={{ flex: '0 0 84px', height: 116, position: 'relative' }}>
             {state.currentCard ? (
@@ -1307,10 +1307,10 @@ export default function LadyLuck() {
         </div>
 
         {/* ── RACE TRACKER TABLE ── */}
-        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
           {/* Column header row */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-            <div style={{ width: 80, flexShrink: 0, fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.45)', letterSpacing: 3 }}>LAP</div>
+            <div style={{ width: 100, flexShrink: 0, fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.45)', letterSpacing: 3 }}>LAP</div>
             <div style={{ flex: 1, display: 'flex', position: 'relative', height: 14 }}>
               {Array.from({ length: 9 }).map((_, i) => (
                 <div key={i} style={{ flex: 1, textAlign: 'center', fontFamily: 'monospace', fontSize: i === 8 ? 12 : 7, color: i === 8 ? '#C9A227' : 'rgba(255,255,255,0.18)', lineHeight: 1 }}>
@@ -1342,11 +1342,11 @@ export default function LadyLuck() {
                 borderLeft: isMe ? '2px solid rgba(201,162,39,0.35)' : '2px solid transparent',
               }}>
                 {/* Left label */}
-                <div style={{ width: 80, flexShrink: 0, paddingLeft: isMe ? 4 : 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 18, color: isRed ? '#e53935' : '#cccccc', lineHeight: 1, flexShrink: 0 }}>{SUIT_SYMBOLS[suit]}</span>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: 8, fontWeight: 700, color: isRed ? '#e5393599' : 'rgba(255,255,255,0.75)', letterSpacing: 1, whiteSpace: 'nowrap' }}>{QUEEN_NICKNAMES[suit].toUpperCase()}</div>
-                    {owner && <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 48 }}>{owner.name}</div>}
+                <div style={{ width: 100, flexShrink: 0, paddingLeft: isMe ? 4 : 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 16, color: isRed ? '#e53935' : '#cccccc', lineHeight: 1, flexShrink: 0 }}>{SUIT_SYMBOLS[suit]}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 7, fontWeight: 700, color: isRed ? '#e5393599' : 'rgba(255,255,255,0.75)', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{QUEEN_NICKNAMES[suit].toUpperCase()}</div>
+                    {owner && <div style={{ fontFamily: 'monospace', fontSize: 6.5, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name}</div>}
                   </div>
                 </div>
 
@@ -1372,11 +1372,11 @@ export default function LadyLuck() {
                     }} />
                   )}
 
-                  {/* Sliding Queen card */}
+                  {/* Sliding Queen card — centred in the correct lap column */}
                   {pos > 0 && (
                     <div style={{
                       position: 'absolute', top: '50%',
-                      left: `calc(${(pos / 9) * 100}% - ${(pos / 9) * 36}px)`,
+                      left: `calc(${((pos - 0.5) / 9) * 100}% - 18px)`,
                       transform: 'translateY(-50%)',
                       transition: 'left 0.5s ease-out',
                       width: 36, height: 50,
@@ -1412,7 +1412,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── HISTORY BAR ── */}
-        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto' }}>
+        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const }}>
           <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A22799', letterSpacing: 2, flexShrink: 0 }}>HISTORY</span>
           <div style={{ width: 1, height: 24, background: 'rgba(201,162,39,0.3)', flexShrink: 0 }} />
           {state.flippedCards.length === 0 ? (
