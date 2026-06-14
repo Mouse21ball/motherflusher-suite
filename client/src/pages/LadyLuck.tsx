@@ -321,10 +321,10 @@ export default function LadyLuck() {
   // ── ROOM SELECTION (no tableId) ─────────────────────────────────────────────
   if (!tableId) {
     const QUEEN_PORTRAITS: Record<string, string> = {
-      spades:   '/cosmetics/avatars/bandana-black.png',
-      hearts:   '/cosmetics/avatars/bandana-red.png',
-      diamonds: '/cosmetics/avatars/classy-girl.png',
-      clubs:    '/cosmetics/avatars/urban-2.png',
+      spades:   '/ladyluck/queens/queen-spades.png',
+      hearts:   '/ladyluck/queens/queen-hearts.png',
+      diamonds: '/ladyluck/queens/queen-diamonds.png',
+      clubs:    '/ladyluck/queens/queen-clubs.png',
     };
     const TIER_ROWS: { id: LadyLuckRoom; color: string; darkBg: string; horseBg: string }[] = [
       { id: 'pony',         color: '#10b981', darkBg: 'rgba(5,46,29,0.9)',  horseBg: 'linear-gradient(135deg,#0a2e18 0%,#1a5c2e 60%,#051a0e 100%)' },
@@ -361,7 +361,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── HERO ── */}
-        <div style={{ position: 'relative', textAlign: 'center', padding: '18px 16px 14px', background: 'linear-gradient(180deg,#1c0e06 0%,#120a04 100%)', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', textAlign: 'center', padding: '18px 16px 14px', backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden' }}>
           {/* Atmospheric radial glow */}
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 70% at 50% 30%, rgba(201,162,39,0.09) 0%, transparent 70%)', pointerEvents: 'none' }} />
           {/* Crown */}
