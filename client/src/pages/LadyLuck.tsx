@@ -1177,7 +1177,7 @@ export default function LadyLuck() {
 
     return (
       <div style={{
-        minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
+        minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
         backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
         backgroundPosition: 'center top', backgroundAttachment: 'fixed',
@@ -1228,7 +1228,7 @@ export default function LadyLuck() {
           {/* RIGHT — CGP box + POT box stacked */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0, alignItems: 'flex-end' }}>
             {/* CGP logo */}
-            <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
               <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
               <div>
                 <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
@@ -1236,7 +1236,7 @@ export default function LadyLuck() {
               </div>
             </div>
             {/* POT */}
-            <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 7, padding: '5px 10px', textAlign: 'center' }}>
+            <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 7, padding: '5px 10px', textAlign: 'center' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.6)', letterSpacing: 3 }}>POT</div>
               <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 20, color: '#C9A227', lineHeight: 1 }}>{state.pot.toLocaleString()}</div>
             </div>
@@ -1244,7 +1244,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── STATUS BAR ── */}
-        <div style={{ margin: '0 14px 8px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px 8px', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           {/* Leader */}
           <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 1 }}>
             {leader
@@ -1264,7 +1264,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── CARD FLIP AREA ── */}
-        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, minHeight: 116, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, padding: '8px 10px' }}>
+        <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, minHeight: 116, background: 'transparent', borderRadius: 12, padding: '8px 10px' }}>
           {state.currentCard ? (
             <div key={flipCount} style={{
               animation: 'll-card-flip 1.6s ease-out forwards',
@@ -1288,7 +1288,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── RACE TRACKER TABLE ── */}
-        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.32)', borderRadius: 14, padding: '10px 12px', flexShrink: 0 }}>
           {/* Column header row */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <div style={{ width: 100, flexShrink: 0, fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.45)', letterSpacing: 3 }}>LAP</div>
@@ -1318,7 +1318,7 @@ export default function LadyLuck() {
             return (
               <div key={suit} style={{
                 display: 'flex', alignItems: 'center', gap: 0, marginBottom: 4,
-                background: isMe ? 'rgba(201,162,39,0.05)' : 'transparent',
+                background: 'transparent',
                 borderRadius: 8, padding: '3px 0',
                 borderLeft: isMe ? '2px solid rgba(201,162,39,0.35)' : '2px solid transparent',
               }}>
@@ -1340,14 +1340,29 @@ export default function LadyLuck() {
                   {/* Finish line */}
                   <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 2, background: '#C9A22790', zIndex: 1 }} />
 
-                  {/* Energy line */}
+                  {/* Lightning trail — wide blur layer (spread glow) */}
+                  {pos > 0 && (
+                    <div style={{
+                      position: 'absolute', top: 'calc(48% - 2px)', left: 0,
+                      width: `calc(${(pos / 9) * 100}% - 4px)`,
+                      height: 8,
+                      background: `linear-gradient(90deg, transparent, ${glowColor}66 44%, ${glowColor}99)`,
+                      filter: 'blur(4px)',
+                      borderRadius: 2, zIndex: 2,
+                      transition: 'width 0.5s ease-out',
+                      pointerEvents: 'none',
+                    }} />
+                  )}
+                  {/* Lightning trail — sharp primary line */}
                   {pos > 0 && (
                     <div style={{
                       position: 'absolute', top: '48%', left: 0,
                       width: `calc(${(pos / 9) * 100}% - 4px)`,
-                      height: 2, background: `linear-gradient(90deg, ${glowColor}30, ${glowColor})`,
-                      boxShadow: `0 0 6px ${glowColor}cc, 0 0 12px ${glowColor}55`,
-                      borderRadius: 1, zIndex: 2,
+                      height: 3,
+                      background: `linear-gradient(90deg, transparent, ${glowColor}70 44%, ${glowColor}cc, ${glowColor})`,
+                      boxShadow: `0 0 8px ${glowColor}, 0 0 20px ${glowColor}e0`,
+                      filter: 'blur(0.5px)',
+                      borderRadius: 2, zIndex: 3,
                       animation: isLeading ? 'll-energy 1.5s ease-in-out infinite' : 'none',
                       transition: 'width 0.5s ease-out',
                     }} />
@@ -1393,7 +1408,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── HISTORY BAR ── */}
-        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const }}>
+        <div style={{ margin: '8px 14px 14px', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const }}>
           <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A22799', letterSpacing: 2, flexShrink: 0 }}>HISTORY</span>
           <div style={{ width: 1, height: 24, background: 'rgba(201,162,39,0.3)', flexShrink: 0 }} />
           {state.flippedCards.length === 0 ? (
