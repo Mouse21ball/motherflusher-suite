@@ -606,7 +606,7 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
     if (p.presence === 'human') {
       try {
         const profile = await storage.getPlayerProfile(p.id);
-        if (profile) p.chips = profile.chips;
+        if (profile) p.chips = profile.chipBalance;
       } catch {}
     }
   }
