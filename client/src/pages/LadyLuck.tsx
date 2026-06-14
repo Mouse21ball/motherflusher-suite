@@ -1641,37 +1641,32 @@ export default function LadyLuck() {
         `}</style>
 
         {/* ── HEADER ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '14px 14px 10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 10px', flexShrink: 0 }}>
           {/* LEFT — back */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, width: 52 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, width: 60 }}>
             <button onClick={goBack} data-testid="button-bet-back"
               style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
             <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>BACK</span>
           </div>
 
-          {/* CENTER — crown + title */}
-          <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-            <img src="/crews/icon-crown.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-bet-crown 3s ease-in-out infinite' }} />
-            <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 34, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.92, marginBottom: 3 }}>LADY LUCK</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <div style={{ width: 20, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.55)', letterSpacing: 2 }}>NEXT RACE</span>
-              <div style={{ width: 20, height: 1, background: 'linear-gradient(90deg,#C9A22780,transparent)' }} />
-            </div>
+          {/* CENTER — crown + title + subtitle */}
+          <div style={{ flex: 1, textAlign: 'center', padding: '0 4px' }}>
+            <img src="/crews/icon-crown.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-bet-crown 3s ease-in-out infinite' }} />
+            <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 28, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 1, marginBottom: 2 }}>LADY LUCK</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.5)', letterSpacing: 3 }}>NEXT RACE</div>
           </div>
 
           {/* RIGHT — CGP box */}
-          <div style={{ flexShrink: 0, width: 52, display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 7px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <div style={{ flexShrink: 0, width: 60, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '5px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
               <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
               <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 9, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
-              <div style={{ fontFamily: 'monospace', fontSize: 4.5, color: 'rgba(255,255,255,0.28)', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>LOYALTY NEVER LEAVES</div>
             </div>
           </div>
         </div>
 
         {/* ── TIMER PANEL ── */}
-        <div style={{ margin: '0 14px 10px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: `1px solid ${isUrgent ? 'rgba(229,57,53,0.55)' : 'rgba(201,162,39,0.4)'}`, borderRadius: 12, padding: '10px 14px', transition: 'border-color 0.3s', flexShrink: 0 }}>
+        <div style={{ margin: '0 14px 10px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', border: `1px solid ${isUrgent ? 'rgba(229,57,53,0.55)' : 'rgba(201,162,39,0.25)'}`, borderRadius: 12, padding: '10px 14px', transition: 'border-color 0.3s', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontFamily: 'monospace', fontSize: 9, color: isUrgent ? '#e53935' : '#C9A227', letterSpacing: 2 }}>PLACE YOUR BET</div>
             <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 28, color: isUrgent ? '#e53935' : '#C9A227', lineHeight: 1, transition: 'color 0.3s', animation: isUrgent ? 'll-bet-urgent 0.8s ease-in-out infinite' : 'none' }}>
@@ -1687,32 +1682,37 @@ export default function LadyLuck() {
         </div>
 
         {/* ── PLAYER STATUS GRID ── */}
-        <div style={{ display: 'flex', gap: 6, margin: '0 14px 10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 5, margin: '0 14px 10px', flexShrink: 0 }}>
           {state.players.map(p => {
             const isOpen = p.presence === 'open';
             const isBot  = p.presence === 'bot';
             const isMe   = p.id === identity.id;
             return (
               <div key={p.id} style={{
-                flex: 1, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
-                background: isOpen ? 'rgba(0,0,0,0.25)' : p.wagered ? 'rgba(16,185,129,0.12)' : 'rgba(0,0,0,0.35)',
-                backdropFilter: 'blur(8px)',
-                border: `1px solid ${isOpen ? 'rgba(255,255,255,0.06)' : p.wagered ? '#10b98140' : 'rgba(201,162,39,0.18)'}`,
+                flex: 1, padding: '7px 4px 6px', borderRadius: 8, textAlign: 'center',
+                background: isOpen ? 'rgba(0,0,0,0.25)' : p.wagered ? 'rgba(16,185,129,0.1)' : 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(12px)',
+                border: `1px solid ${isOpen ? 'rgba(255,255,255,0.07)' : p.wagered ? 'rgba(16,185,129,0.4)' : 'rgba(201,162,39,0.25)'}`,
+                boxShadow: isMe ? 'inset 0 0 0 1px rgba(201,162,39,0.2)' : 'none',
               }}>
                 {isOpen ? (
-                  <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.2)' }}>OPEN</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.18)', letterSpacing: 1 }}>OPEN</div>
                 ) : (
                   <>
                     {p.suit ? (
-                      <div style={{ fontSize: 15, color: betIsRed(p.suit) ? '#e53935' : '#cccccc', lineHeight: 1 }}>{SUIT_SYMBOLS[p.suit]}</div>
+                      <div style={{ fontSize: 18, color: betIsRed(p.suit) ? '#e53935' : '#d0d0d0', lineHeight: 1, marginBottom: 2 }}>{SUIT_SYMBOLS[p.suit]}</div>
                     ) : (
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.18)', lineHeight: '22px' }}>—</div>
+                      <div style={{ height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', border: '1px dashed rgba(201,162,39,0.3)' }} />
+                      </div>
                     )}
-                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.wagered ? '#10b981' : p.suit ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)', marginTop: 1 }}>
-                      {p.wagered ? `✓ ${p.wager.toLocaleString()}` : p.suit ? 'BETTING' : 'PICKING'}
-                    </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: isMe ? '#C9A22790' : 'rgba(255,255,255,0.22)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {isBot ? '🤖' : isMe ? '★' : ''}{p.name.slice(0, 5)}
+                    {p.wagered ? (
+                      <div style={{ fontFamily: 'monospace', fontSize: 6, color: '#10b981', letterSpacing: 0.5, marginBottom: 1 }}>✓ {p.wager.toLocaleString()}</div>
+                    ) : (
+                      <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.suit ? 'rgba(201,162,39,0.5)' : 'rgba(255,255,255,0.2)', letterSpacing: 1, marginBottom: 1 }}>{p.suit ? 'BETTING' : 'PICKING'}</div>
+                    )}
+                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: isMe ? '#C9A22799' : 'rgba(255,255,255,0.28)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: 0.5 }}>
+                      {isMe ? '★' : isBot ? '⚙' : ''}{p.name.slice(0, 6)}
                     </div>
                   </>
                 )}
@@ -1726,7 +1726,7 @@ export default function LadyLuck() {
           {amActive ? (
             myWagered ? (
               /* Locked-in confirmation */
-              <div style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: 12, padding: '18px 14px', textAlign: 'center' }}>
+              <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: 12, padding: '18px 14px', textAlign: 'center' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 20, color: '#10b981', marginBottom: 5 }}>✓</div>
                 <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 16, color: '#10b981', letterSpacing: 2 }}>
                   {mySuit ? SUIT_SYMBOLS[mySuit] : ''} {mySuit ? QUEEN_NICKNAMES[mySuit].toUpperCase() : ''} · {myPlayer?.wager.toLocaleString()} CHIPS
@@ -1737,7 +1737,7 @@ export default function LadyLuck() {
               </div>
             ) : mySuit === null ? (
               /* PICK YOUR QUEEN — CGP card backs */
-              <div style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(201,162,39,0.35)', borderRadius: 14, padding: 14 }}>
+              <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.25)', borderRadius: 14, padding: 14 }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 3, marginBottom: 12, textAlign: 'center' }}>PICK YOUR QUEEN</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {SUITS.map(suit => {
@@ -1752,39 +1752,35 @@ export default function LadyLuck() {
                           flex: 1, padding: 0, borderRadius: 10,
                           cursor: taken ? 'not-allowed' : 'pointer',
                           background: 'transparent', border: 'none',
-                          opacity: taken ? 0.4 : 1,
-                          transition: 'opacity 0.2s, transform 0.15s',
+                          opacity: taken ? 0.38 : 1,
+                          transition: 'opacity 0.2s',
                         }}>
                         {taken ? (
-                          /* Face-up — claimed */
+                          /* Face-up — claimed/revealed */
                           <div style={{
-                            width: '100%', paddingTop: '140%', position: 'relative',
+                            width: '100%', aspectRatio: '0.714',
                             borderRadius: 10,
                             background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
                             border: `2px solid ${betIsRed(suit) ? '#e5393560' : 'rgba(255,255,255,0.25)'}`,
                             boxShadow: '0 4px 12px rgba(0,0,0,0.55)',
-                            overflow: 'hidden',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
                           }}>
-                            <div style={{
-                              position: 'absolute', inset: 0,
-                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-                            }}>
-                              <span style={{ fontSize: 26, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
-                              <span style={{ fontFamily: 'monospace', fontSize: 6.5, color: SUIT_COLORS[suit], letterSpacing: 0.5, textAlign: 'center', padding: '0 4px', lineHeight: 1.3, opacity: 0.8 }}>{QUEEN_NICKNAMES[suit]}</span>
-                            </div>
+                            <span style={{ fontSize: 24, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+                            <span style={{ fontFamily: 'monospace', fontSize: 6, color: SUIT_COLORS[suit], letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.3, opacity: 0.8 }}>{QUEEN_NICKNAMES[suit]}</span>
                           </div>
                         ) : (
                           /* Face-down — CGP card back */
-                          <div style={{
-                            width: '100%', paddingTop: '140%', position: 'relative',
-                            borderRadius: 10,
-                            backgroundImage: "url('/ladyluck/card-back-cgp.png')",
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            border: '2px solid rgba(201,162,39,0.45)',
-                            boxShadow: '0 6px 18px rgba(0,0,0,0.65), 0 0 12px rgba(201,162,39,0.15)',
-                            overflow: 'hidden',
-                          }} />
+                          <img
+                            src="/ladyluck/card-back-cgp.png"
+                            alt="card"
+                            style={{
+                              width: '100%', aspectRatio: '0.714',
+                              borderRadius: 10, display: 'block',
+                              border: '2px solid rgba(201,162,39,0.5)',
+                              boxShadow: '0 6px 20px rgba(0,0,0,0.7), 0 0 14px rgba(201,162,39,0.2)',
+                              objectFit: 'cover',
+                            }}
+                          />
                         )}
                       </button>
                     );
@@ -1793,7 +1789,7 @@ export default function LadyLuck() {
               </div>
             ) : (
               /* Wager control */
-              <div style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: `1px solid ${betIsRed(mySuit) ? 'rgba(229,57,53,0.35)' : 'rgba(201,162,39,0.35)'}`, borderRadius: 14, padding: 14 }}>
+              <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', border: `1px solid ${betIsRed(mySuit) ? 'rgba(229,57,53,0.35)' : 'rgba(201,162,39,0.25)'}`, borderRadius: 14, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>
                     YOUR WAGER · {room.minWager.toLocaleString()}–{room.maxWager.toLocaleString()}
