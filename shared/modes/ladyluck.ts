@@ -38,6 +38,8 @@ export interface LadyLuckState {
   resultsTimeLeft: number | null;
   /** Seconds remaining in BET window (30→0) */
   betTimeLeft: number | null;
+  /** How many spectators are watching this table */
+  spectatorCount: number;
 }
 
 export const LADY_LUCK_ROOMS: Record<LadyLuckRoom, { minWager: number; maxWager: number; maxSideBet: number }> = {

@@ -14,9 +14,18 @@ import {
 
 interface LLCard { rank: string; suit: LadyLuckSuit; }
 
+interface LLSpectator {
+  userId:   string;
+  username: string;
+  avatar:   string;
+  ws:       WebSocket;
+  sideBet?: { suit: LadyLuckSuit; amount: number };
+}
+
 interface LLTableMeta {
   state: LadyLuckState;
   connections: Map<string, WebSocket>;
+  spectators:  Map<string, LLSpectator>;
   raceInterval?: ReturnType<typeof setInterval>;
   botFillTimer?: ReturnType<typeof setTimeout>;
   countdownTimer?: ReturnType<typeof setInterval>;
@@ -65,7 +74,18 @@ function broadcast(meta: LLTableMeta, msg: object) {
 }
 
 function broadcastState(meta: LLTableMeta) {
-  broadcast(meta, { type: 'll:state', state: meta.state });
+  meta.state.spectatorCount = meta.spectators.size;
+  const payload = JSON.stringify({ type: 'll:state', state: meta.state });
+  for (const ws of meta.connections.values()) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(payload); } catch {}
+    }
+  }
+  for (const sp of meta.spectators.values()) {
+    if (sp.ws.readyState === WebSocket.OPEN) {
+      try { sp.ws.send(payload); } catch {}
+    }
+  }
 }
 
 function emptyPositions(): Record<LadyLuckSuit, number> {
@@ -92,10 +112,12 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     startingIn:       null,
     resultsTimeLeft:  null,
     betTimeLeft:      null,
+    spectatorCount:   0,
   };
   const meta: LLTableMeta = {
     state,
     connections: new Map(),
+    spectators:  new Map(),
     deck:        [],
     hostId,
   };
@@ -226,12 +248,21 @@ function doStart(tableId: string): void {
   scheduleNextBotPick(tableId);
 }
 
-export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] {
-  const out: { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] = [];
+export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; playerCount: number; isFull: boolean; spectatorCount: number }[] {
+  const out: { tableId: string; roomType: LadyLuckRoom; playerCount: number; isFull: boolean; spectatorCount: number }[] = [];
   for (const [tableId, meta] of tables.entries()) {
     const { phase } = meta.state;
     if (phase === 'LOBBY' || phase === 'SELECT' || phase === 'WAGER' || phase === 'RESULTS' || phase === 'BET') {
-      out.push({ tableId, roomType: meta.state.roomType, playerCount: meta.state.players.filter(p => p.presence !== 'open').length });
+      const activePlayers = meta.state.players.filter(p => p.presence !== 'open').length;
+      const openSlots     = meta.state.players.filter(p => p.presence === 'open').length;
+      const isFull        = activePlayers >= 4 && openSlots === 0 && phase !== 'LOBBY';
+      out.push({
+        tableId,
+        roomType:       meta.state.roomType,
+        playerCount:    activePlayers,
+        isFull,
+        spectatorCount: meta.spectators.size,
+      });
     }
   }
   return out;
@@ -541,6 +572,74 @@ export async function handleLLSideBet(
   return { ok: true };
 }
 
+// ── ll:spectate ───────────────────────────────────────────────────────────────
+
+export function handleLLSpectate(
+  tableId:  string,
+  userId:   string,
+  username: string,
+  avatar:   string,
+  ws:       WebSocket,
+): void {
+  const meta = tables.get(tableId);
+  if (!meta) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_not_found' })); } catch {}
+    return;
+  }
+  meta.spectators.set(userId, { userId, username, avatar, ws });
+  broadcastState(meta); // updates spectatorCount + sends state to everyone incl. new spectator
+}
+
+// ── ll:spectator_sidebet ──────────────────────────────────────────────────────
+
+export async function handleLLSpectatorSideBet(
+  tableId: string,
+  userId:  string,
+  suit:    LadyLuckSuit,
+  amount:  number,
+  ws:      WebSocket,
+): Promise<void> {
+  const meta = tables.get(tableId);
+  if (!meta) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_not_found' })); } catch {}
+    return;
+  }
+  const { state } = meta;
+  if (state.phase !== 'BET' && state.phase !== 'WAGER') {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'wrong_phase' })); } catch {}
+    return;
+  }
+  const spectator = meta.spectators.get(userId);
+  if (!spectator) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'not_spectating' })); } catch {}
+    return;
+  }
+  if (spectator.sideBet) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'bet_already_placed' })); } catch {}
+    return;
+  }
+  if (amount < 100 || amount > 2000) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'invalid_amount' })); } catch {}
+    return;
+  }
+  const ok = await storage.debitChipsForBuyin(userId, amount);
+  if (!ok) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'insufficient_chips' })); } catch {}
+    return;
+  }
+  spectator.sideBet = { suit, amount };
+  try { ws.send(JSON.stringify({ type: 'll:spectator_bet_confirmed', suit, amount })); } catch {}
+}
+
+// ── ll:spectator_leave ────────────────────────────────────────────────────────
+
+export function handleLLSpectatorLeave(tableId: string, userId: string): void {
+  const meta = tables.get(tableId);
+  if (!meta) return;
+  meta.spectators.delete(userId);
+  broadcastState(meta); // update spectatorCount for all
+}
+
 // ── Race ──────────────────────────────────────────────────────────────────────
 
 function startRace(tableId: string) {
@@ -624,6 +723,39 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
         }
       }
     }
+  }
+
+  // ── Spectator side bet payouts ──────────────────────────────────────────────
+  let spectatorGrossPayout = 0;
+  let spectatorTotalRake   = 0;
+  for (const spectator of meta.spectators.values()) {
+    if (!spectator.sideBet) continue;
+    const { suit, amount } = spectator.sideBet;
+    if (suit === winningSuit) {
+      const gross                        = Math.floor(amount * 2.5);
+      const { winnerPot: net, rake: spRake } = applyRake(gross);
+      spectatorGrossPayout += gross;
+      spectatorTotalRake   += spRake;
+      try {
+        await storage.addChipsToPlayer(spectator.userId, net, { reason: 'other', source: 'ladyluck_spectator_win' });
+      } catch (e) {
+        console.error('[LadyLuck] Failed to credit spectator side bet:', e);
+      }
+      try { spectator.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: true, grossPayout: gross, netPayout: net })); } catch {}
+    } else {
+      try { spectator.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: false, suit: winningSuit })); } catch {}
+    }
+    spectator.sideBet = undefined;
+  }
+  if (spectatorTotalRake > 0) {
+    storage.logHouseRake({
+      tableId,
+      gameMode:     'spectator_sidebet',
+      handOrRaceId: null,
+      grossPot:     spectatorGrossPayout,
+      rakeAmount:   spectatorTotalRake,
+      netPot:       spectatorGrossPayout - spectatorTotalRake,
+    }).catch(console.error);
   }
 
   // ── Update chip totals for human players so RESULTS UI shows live balances ─

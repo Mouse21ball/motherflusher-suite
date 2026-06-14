@@ -163,26 +163,38 @@ function QueenCard({
   );
 }
 
-// ── Room counts hook ───────────────────────────────────────────────────────────
+// ── Room data hook ─────────────────────────────────────────────────────────────
 
-function useLLRoomCounts() {
-  const [counts, setCounts] = useState<Record<LadyLuckRoom, number>>({ pony: 0, thoroughbred: 0, champion: 0 });
+interface LLRoomData {
+  counts:      Record<LadyLuckRoom, number>;
+  fullTableId: Record<LadyLuckRoom, string | null>;
+}
+
+function useLLRoomData(): LLRoomData {
+  const [data, setData] = useState<LLRoomData>({
+    counts:      { pony: 0, thoroughbred: 0, champion: 0 },
+    fullTableId: { pony: null, thoroughbred: null, champion: null },
+  });
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(apiUrl('/api/ladyluck/tables'));
         if (!res.ok) return;
-        const data: { tableId: string; roomType: LadyLuckRoom; playerCount: number }[] = await res.json();
-        const c: Record<LadyLuckRoom, number> = { pony: 0, thoroughbred: 0, champion: 0 };
-        for (const t of data) c[t.roomType] = (c[t.roomType] ?? 0) + t.playerCount;
-        setCounts(c);
+        const tables: { tableId: string; roomType: LadyLuckRoom; playerCount: number; isFull?: boolean }[] = await res.json();
+        const counts:      Record<LadyLuckRoom, number>      = { pony: 0, thoroughbred: 0, champion: 0 };
+        const fullTableId: Record<LadyLuckRoom, string|null> = { pony: null, thoroughbred: null, champion: null };
+        for (const t of tables) {
+          counts[t.roomType] = (counts[t.roomType] ?? 0) + t.playerCount;
+          if (t.isFull && !fullTableId[t.roomType]) fullTableId[t.roomType] = t.tableId;
+        }
+        setData({ counts, fullTableId });
       } catch {}
     };
     load();
     const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, []);
-  return counts;
+  return data;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -204,7 +216,7 @@ export default function LadyLuck() {
 
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
-  const roomCounts = useLLRoomCounts();
+  const { counts: roomCounts, fullTableId } = useLLRoomData();
 
   // ── WebSocket connection ────────────────────────────────────────────────────
   useEffect(() => {
@@ -478,7 +490,16 @@ export default function LadyLuck() {
                       {roomCounts[id] > 0 ? `${roomCounts[id]} players online` : 'No active tables'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {fullTableId[id] && (
+                      <button
+                        data-testid={`button-watch-${id}`}
+                        onClick={() => navigate(`/ladyluck/spectate?t=${fullTableId[id]}`)}
+                        style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 9, padding: '10px 10px', fontWeight: 700, fontSize: 11, cursor: 'pointer', letterSpacing: 0.5, lineHeight: 1 }}
+                      >
+                        👁 WATCH
+                      </button>
+                    )}
                     <button data-testid={`button-join-${id}`}
                       onClick={() => handleJoinRoom(id)}
                       disabled={joining}

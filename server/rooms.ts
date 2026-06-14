@@ -37,6 +37,9 @@ import {
   handleLLSideBet,
   handleLLStart,
   handleLLDisconnect,
+  handleLLSpectate,
+  handleLLSpectatorSideBet,
+  handleLLSpectatorLeave,
 } from './ladyluckEngine';
 
 // ─── Rollout gate ─────────────────────────────────────────────────────────────
@@ -322,9 +325,11 @@ export function initRooms(httpServer: Server): WebSocketServer {
     authWs.sessionExpiresAt      = (req as any).sessionExpiresAt      as Date;
     const remoteIp = req.socket?.remoteAddress ?? 'unknown';
 
-    let roomId:        string | null = null;
-    let playerId:      string | null = null;
-    let engineSeatPid: string | null = null; // seat label assigned by the engine (e.g. "p1")
+    let roomId:           string | null      = null;
+    let playerId:         string | null      = null;
+    let engineSeatPid:    string | null      = null; // seat label assigned by the engine (e.g. "p1")
+    let spectatorTableId: string | undefined = undefined;
+    let spectatorUserId:  string | undefined = undefined;
 
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
@@ -629,12 +634,50 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }).catch(() => {});
         return;
       }
+
+      const spectatorMsg = llMsg as { type: string; tableId?: string; userId?: string; username?: string; suit?: string; amount?: number };
+
+      if (spectatorMsg.type === 'll:spectate') {
+        const tid      = spectatorMsg.tableId;
+        const uid      = spectatorMsg.userId;
+        const username = spectatorMsg.username || 'Spectator';
+        if (!tid || !uid) return;
+        spectatorTableId = tid;
+        spectatorUserId  = uid;
+        const profile    = await storage.getPlayerProfile(uid).catch(() => null);
+        const avatar     = (profile as any)?.avatarId ?? '';
+        handleLLSpectate(tid, uid, username, avatar, ws);
+        return;
+      }
+
+      if (spectatorMsg.type === 'll:spectator_sidebet') {
+        const tid    = spectatorMsg.tableId;
+        const uid    = spectatorMsg.userId;
+        const suit   = spectatorMsg.suit;
+        const amount = spectatorMsg.amount;
+        if (!tid || !uid || !suit || amount == null) return;
+        if (spectatorTableId !== tid || spectatorUserId !== uid) return;
+        handleLLSpectatorSideBet(tid, uid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount, ws).catch(() => {});
+        return;
+      }
+
+      if (spectatorMsg.type === 'll:spectator_leave') {
+        const tid = spectatorMsg.tableId;
+        const uid = spectatorMsg.userId;
+        if (!tid || !uid) return;
+        handleLLSpectatorLeave(tid, uid);
+        spectatorTableId = undefined;
+        spectatorUserId  = undefined;
+        return;
+      }
     });
 
     ws.on('close', () => {
       clearInterval(pingTimer);
       clearInterval(sessionCheckTimer);
-      if (roomId && playerId) {
+      if (spectatorTableId && spectatorUserId) {
+        handleLLSpectatorLeave(spectatorTableId, spectatorUserId);
+      } else if (roomId && playerId) {
         handleLLDisconnect(roomId, playerId);
         releasePlayer(playerId, roomId);
         clearSeatOwner(roomId, playerId);
