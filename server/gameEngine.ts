@@ -11,6 +11,7 @@ import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent } from '../shared/gameTypes';
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
+import { applyRake } from './utils/rake';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
@@ -657,13 +658,25 @@ function resolveShowdown(table: AuthTable): void {
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
 
     const s = table.state;
-    const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
+    const grossPot = s.pot;
+    const { winnerPot, rake } = applyRake(grossPot);
+    if (rake > 0) {
+      storage.logHouseRake({
+        tableId:      table.tableId,
+        gameMode:     'badugi',
+        handOrRaceId: String(table.handId),
+        grossPot,
+        rakeAmount:   rake,
+        netPot:       winnerPot,
+      }).catch(console.error);
+    }
+    const result = BadugiMode.resolveShowdown(s.players, winnerPot, '__server__');
 
     const winner = result.players.find(p => p.isWinner)?.id ?? 'unknown';
     engineLog('PHASE', table.tableId, {
       from: 'SHOWDOWN',
       to: 'RESOLVE',
-      pot: s.pot,
+      pot: winnerPot,
       winner,
     });
 
@@ -706,12 +719,23 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
   if (nonFolded.length === 1) {
     const winner = nonFolded[0];
     const pot = s.pot;
+    const { winnerPot, rake } = applyRake(pot);
+    if (rake > 0) {
+      storage.logHouseRake({
+        tableId:      table.tableId,
+        gameMode:     'badugi',
+        handOrRaceId: String(table.handId),
+        grossPot:     pot,
+        rakeAmount:   rake,
+        netPot:       winnerPot,
+      }).catch(console.error);
+    }
     const newPlayers = s.players.map(p =>
       p.id === winner.id
-        ? { ...p, chips: p.chips + pot, isWinner: true, hasActed: true }
+        ? { ...p, chips: p.chips + winnerPot, isWinner: true, hasActed: true }
         : { ...p, isWinner: false }
     );
-    const winMsg = `${winner.name} wins $${pot} (all opponents folded)`;
+    const winMsg = `${winner.name} wins $${winnerPot} (all opponents folded)`;
     table.state = {
       ...s,
       players: newPlayers,
@@ -725,9 +749,9 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
       ].slice(-10),
     };
     engineLog('PHASE', table.tableId, {
-      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot,
+      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot: winnerPot,
     });
-    console.log(`[CGP][server] win-by-fold badugi:${table.tableId} winner=${winner.id} pot=$${pot} from=${s.phase}`);
+    console.log(`[CGP][server] win-by-fold badugi:${table.tableId} winner=${winner.id} pot=$${winnerPot} (rake=$${rake}) from=${s.phase}`);
 
     for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
     table.botTimers.clear();

@@ -179,6 +179,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/rake-stats", requireAdmin, async (_req, res) => {
+    try {
+      const stats = await storage.getRakeStats();
+      res.json(stats);
+    } catch (err) {
+      console.error("Rake stats error:", err);
+      res.status(500).json({ error: "Failed to load rake stats" });
+    }
+  });
+
   // ── Table management ──────────────────────────────────────────────────────
 
   // POST /api/tables — register a new table

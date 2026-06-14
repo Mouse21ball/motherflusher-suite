@@ -23,6 +23,7 @@ import {
   playerReports,
   type PlayerReport,
   adminActions,
+  houseRakeLogs,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
@@ -67,6 +68,8 @@ export interface IStorage {
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   recordChipTransaction(params: { playerId: string; beforeBalance: number; amountChange: number; afterBalance: number; reason: ChipTxReason; source: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   verifyPlayerBalanceConsistency(playerId: string): Promise<{ consistent: boolean; currentBalance: number; computedBalance: number; drift: number }>;
+  logHouseRake(params: { tableId: string; gameMode: string; handOrRaceId?: string | null; grossPot: number; rakeAmount: number; netPot: number }): Promise<void>;
+  getRakeStats(): Promise<{ totalAllTime: number; byMode: Record<string, number>; today: number; thisWeek: number }>;
   // ── Avatar & customisation ─────────────────────────────────────────────────
   updatePlayerAvatar(id: string, avatarId: string | null): Promise<void>;
   // ── Display name change (90-day cooldown) ──────────────────────────────────
@@ -771,6 +774,66 @@ export class MemStorage implements IStorage {
         metadata:      opts?.metadata ?? null,
       });
     });
+  }
+
+  // ── House Rake ─────────────────────────────────────────────────────────────
+
+  async logHouseRake(params: {
+    tableId: string;
+    gameMode: string;
+    handOrRaceId?: string | null;
+    grossPot: number;
+    rakeAmount: number;
+    netPot: number;
+  }): Promise<void> {
+    await db.insert(houseRakeLogs).values({
+      tableId:      params.tableId,
+      gameMode:     params.gameMode,
+      handOrRaceId: params.handOrRaceId ?? null,
+      grossPot:     params.grossPot,
+      rakeAmount:   params.rakeAmount,
+      netPot:       params.netPot,
+    });
+  }
+
+  async getRakeStats(): Promise<{ totalAllTime: number; byMode: Record<string, number>; today: number; thisWeek: number }> {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart  = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const [totalRow] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${houseRakeLogs.rakeAmount}), 0)` })
+      .from(houseRakeLogs);
+
+    const [todayRow] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${houseRakeLogs.rakeAmount}), 0)` })
+      .from(houseRakeLogs)
+      .where(gte(houseRakeLogs.createdAt, todayStart));
+
+    const [weekRow] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${houseRakeLogs.rakeAmount}), 0)` })
+      .from(houseRakeLogs)
+      .where(gte(houseRakeLogs.createdAt, weekStart));
+
+    const modeRows = await db
+      .select({
+        mode:  houseRakeLogs.gameMode,
+        total: sql<string>`COALESCE(SUM(${houseRakeLogs.rakeAmount}), 0)`,
+      })
+      .from(houseRakeLogs)
+      .groupBy(houseRakeLogs.gameMode);
+
+    const byMode: Record<string, number> = {};
+    for (const row of modeRows) {
+      byMode[row.mode] = Number(row.total);
+    }
+
+    return {
+      totalAllTime: Number(totalRow?.total ?? 0),
+      byMode,
+      today:    Number(todayRow?.total ?? 0),
+      thisWeek: Number(weekRow?.total  ?? 0),
+    };
   }
 
   // ── Avatar ─────────────────────────────────────────────────────────────────

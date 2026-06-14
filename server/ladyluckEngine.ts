@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import { storage } from './storage';
+import { applyRake } from './utils/rake';
 import {
   LadyLuckState,
   LadyLuckPlayer,
@@ -591,10 +592,22 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
   state.phase  = 'RESULTS';
 
   // ── Payout ─────────────────────────────────────────────────────────────────
+  const grossPot = state.pot;
+  const { winnerPot, rake } = applyRake(grossPot);
+  if (rake > 0) {
+    storage.logHouseRake({
+      tableId,
+      gameMode:     'ladyluck',
+      handOrRaceId: null,
+      grossPot,
+      rakeAmount:   rake,
+      netPot:       winnerPot,
+    }).catch(console.error);
+  }
   const winnerPlayer = state.players.find(p => p.suit === winningSuit);
   if (winnerPlayer && winnerPlayer.presence === 'human') {
     try {
-      await storage.addChipsToPlayer(winnerPlayer.id, state.pot, { reason: 'other', source: 'ladyluck_win' });
+      await storage.addChipsToPlayer(winnerPlayer.id, winnerPot, { reason: 'other', source: 'ladyluck_win' });
     } catch (e) {
       console.error('[LadyLuck] Failed to credit winner chips:', e);
     }

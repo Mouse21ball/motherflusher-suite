@@ -10,6 +10,13 @@ import type { MeResponse } from "@/components/admin/types";
 
 // ── Analytics helpers (preserved from original) ──────────────────────────────
 
+interface RakeStats {
+  totalAllTime: number;
+  byMode: Record<string, number>;
+  today: number;
+  thisWeek: number;
+}
+
 interface DailyStats {
   date: string;
   uniquePlayers: number;
@@ -24,6 +31,7 @@ const MODE_NAMES: Record<string, string> = {
   dead7:      "Dead 7",
   fifteen35:  "15 / 35",
   suitspoker: "Suits & Poker",
+  ladyluck:   "Lady Luck",
 };
 
 function formatDuration(ms: number): string {
@@ -48,6 +56,17 @@ function AnalyticsTab({ meIsAdmin }: { meIsAdmin: boolean }) {
     queryFn: async () => {
       const res = await apiFetch("/api/analytics/stats");
       if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: meIsAdmin,
+    refetchInterval: 30000,
+  });
+
+  const { data: rakeStats } = useQuery<RakeStats>({
+    queryKey: ["/api/admin/rake-stats"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/admin/rake-stats");
+      if (!res.ok) throw new Error("Failed to fetch rake stats");
       return res.json();
     },
     enabled: meIsAdmin,
@@ -97,6 +116,43 @@ function AnalyticsTab({ meIsAdmin }: { meIsAdmin: boolean }) {
           </div>
         </div>
       )}
+
+      {/* ── HOUSE RAKE ── */}
+      <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden" data-testid="section-rake">
+        <div className="px-4 py-3 border-b border-white/[0.06]">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">House Rake</p>
+        </div>
+        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div data-testid="rake-stat-alltime">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">All Time</p>
+            <p className="text-2xl font-mono font-bold text-amber-400">{(rakeStats?.totalAllTime ?? 0).toLocaleString()}</p>
+          </div>
+          <div data-testid="rake-stat-today">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Today</p>
+            <p className="text-2xl font-mono font-bold">{(rakeStats?.today ?? 0).toLocaleString()}</p>
+          </div>
+          <div data-testid="rake-stat-week">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">This Week</p>
+            <p className="text-2xl font-mono font-bold">{(rakeStats?.thisWeek ?? 0).toLocaleString()}</p>
+          </div>
+          <div data-testid="rake-stat-modes">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Modes</p>
+            <div className="space-y-1">
+              {rakeStats && Object.keys(rakeStats.byMode).length > 0
+                ? Object.entries(rakeStats.byMode)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([mode, amt]) => (
+                      <div key={mode} className="flex items-center justify-between gap-2" data-testid={`rake-mode-${mode}`}>
+                        <span className="text-[10px] font-mono text-white/60">{MODE_NAMES[mode] || mode}</span>
+                        <span className="text-[10px] font-mono font-bold">{amt.toLocaleString()}</span>
+                      </div>
+                    ))
+                : <p className="text-[10px] font-mono text-white/30">No data yet</p>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-white/[0.06]">

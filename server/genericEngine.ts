@@ -8,6 +8,7 @@ import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { engineLog } from './engineLog';
+import { applyRake } from './utils/rake';
 import {
   scheduleGenericSave,
   loadPersistedGenericTables,
@@ -921,7 +922,19 @@ function resolveShowdown(table: GenericTable): void {
   setTimeout(() => {
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
     const s = table.state;
-    const result = table.mode.resolveShowdown(s.players, s.pot, '__server__', s.communityCards);
+    const grossPot = s.pot;
+    const { winnerPot, rake } = applyRake(grossPot);
+    if (rake > 0) {
+      storage.logHouseRake({
+        tableId:      table.tableId,
+        gameMode:     table.modeId,
+        handOrRaceId: String(table.handId),
+        grossPot,
+        rakeAmount:   rake,
+        netPot:       winnerPot,
+      }).catch(console.error);
+    }
+    const result = table.mode.resolveShowdown(s.players, winnerPot, '__server__', s.communityCards);
 
     table.state = {
       ...s,
@@ -969,12 +982,23 @@ function resolveByFold(table: GenericTable): boolean {
   if (nonFolded.length === 1) {
     const winner = nonFolded[0];
     const pot = s.pot;
+    const { winnerPot, rake } = applyRake(pot);
+    if (rake > 0) {
+      storage.logHouseRake({
+        tableId:      table.tableId,
+        gameMode:     table.modeId,
+        handOrRaceId: String(table.handId),
+        grossPot:     pot,
+        rakeAmount:   rake,
+        netPot:       winnerPot,
+      }).catch(console.error);
+    }
     const newPlayers = s.players.map(p =>
       p.id === winner.id
-        ? { ...p, chips: p.chips + pot, isWinner: true, hasActed: true }
+        ? { ...p, chips: p.chips + winnerPot, isWinner: true, hasActed: true }
         : { ...p, isWinner: false }
     );
-    const winMsg = `${winner.name} wins $${pot} (all opponents folded)`;
+    const winMsg = `${winner.name} wins $${winnerPot} (all opponents folded)`;
     table.state = {
       ...s,
       players: newPlayers,
@@ -988,9 +1012,9 @@ function resolveByFold(table: GenericTable): boolean {
       ].slice(-10),
     };
     engineLog('PHASE', `${table.modeId}:${table.tableId}`, {
-      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot,
+      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot: winnerPot,
     });
-    console.log(`[CGP][server] win-by-fold ${table.modeId}:${table.tableId} winner=${winner.id} pot=$${pot} from=${s.phase}`);
+    console.log(`[CGP][server] win-by-fold ${table.modeId}:${table.tableId} winner=${winner.id} pot=$${winnerPot} (rake=$${rake}) from=${s.phase}`);
 
     // Cancel any pending bot timers — they would early-return on phase mismatch
     // anyway, but clearing prevents leaked timers in long-running tables.

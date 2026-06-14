@@ -466,3 +466,27 @@ export const questProgress = pgTable("quest_progress", {
 ]);
 
 export type QuestProgressRow = typeof questProgress.$inferSelect;
+
+// ─── House Rake Log (append-only) ─────────────────────────────────────────────
+// One row per hand/race where rake was collected. Never deleted.
+export const houseRakeLogs = pgTable("house_rake_logs", {
+  id:           serial("id").primaryKey(),
+  tableId:      text("table_id").notNull(),
+  gameMode:     text("game_mode").notNull(),
+  handOrRaceId: text("hand_or_race_id"),
+  grossPot:     integer("gross_pot").notNull(),
+  rakeAmount:   integer("rake_amount").notNull(),
+  netPot:       integer("net_pot").notNull(),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("house_rake_logs_mode_idx").on(table.gameMode),
+  index("house_rake_logs_created_idx").on(table.createdAt),
+]);
+
+export const insertHouseRakeLogSchema = createInsertSchema(houseRakeLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertHouseRakeLog = z.infer<typeof insertHouseRakeLogSchema>;
+export type HouseRakeLog = typeof houseRakeLogs.$inferSelect;
