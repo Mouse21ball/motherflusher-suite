@@ -210,7 +210,7 @@ export default function LadyLuck() {
 
     const connect = async () => {
       try {
-        const tokenRes = await fetch(apiUrl('/api/auth/ws-token'), { credentials: 'include' });
+        const tokenRes = await apiFetch('/api/auth/ws-token');
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
 

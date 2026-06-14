@@ -709,6 +709,16 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/auth/ws-token
+  // Returns the caller's session token so the client can attach it to the
+  // WebSocket upgrade URL (?token=…). requireAuth has already validated the
+  // token; we read it back from the header and echo it to the caller.
+  app.get("/api/auth/ws-token", requireAuth, (req, res) => {
+    const raw   = req.headers["x-session-token"];
+    const token = Array.isArray(raw) ? raw[0] : (raw ?? null);
+    res.json({ token });
+  });
+
   // POST /api/auth/guest-init
   // Bootstrap endpoint for new guest players who have no session token yet.
   // Accepts { profileId, displayName? } in the request body (never in the URL).
