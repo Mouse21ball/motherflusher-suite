@@ -549,59 +549,177 @@ export default function LadyLuck() {
 
   // ── IN-TABLE LOBBY ──────────────────────────────────────────────────────────
   if (state.phase === 'LOBBY') {
-    const isHost = state.players[0]?.id === identity.id;
+    const isHost    = state.players[0]?.id === identity.id;
+    const canStart  = state.players.length >= 2;
+    const tierColor = roomCfg.color;
+
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={goBack} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>← Back</button>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
-          <div style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 10, color: roomCfg.color, letterSpacing: 2, textTransform: 'uppercase' }}>{state.roomType}</div>
-        </div>
+      <div style={{
+        minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
+        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundPosition: 'center', backgroundAttachment: 'fixed', background: '#120c08',
+      }}>
+        <style>{`@keyframes ll-lob-pulse { 0%,100%{opacity:0.7} 50%{opacity:1} }`}</style>
 
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 16 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 2, marginBottom: 10 }}>PLAYERS IN LOBBY</div>
-          {state.players.map(p => {
-            const isBot  = p.presence === 'bot';
-            const isMe   = p.id === identity.id;
-            const isHost = p.id === state.players[0]?.id;
-            return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isBot ? 'rgba(255,255,255,0.2)' : isMe ? '#C9A227' : '#10b981', flexShrink: 0 }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 13, color: isBot ? 'rgba(255,255,255,0.35)' : isMe ? '#C9A227' : '#fff', fontStyle: isBot ? 'italic' : 'normal' }}>
-                  {p.name}{isMe ? ' (you)' : ''}
-                </span>
-                {isBot && (
-                  <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.2)', letterSpacing: 1, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 3, padding: '1px 3px' }}>BOT</span>
-                )}
-                {!isBot && isHost && <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: 1 }}>HOST</span>}
-              </div>
-            );
-          })}
-          {Array.from({ length: 4 - state.players.length }).map((_, i) => (
-            <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.18)' }}>Open seat</span>
-            </div>
-          ))}
-        </div>
+        {/* ── HERO HEADER ── */}
+        <div style={{ position: 'relative', padding: '14px 14px 18px', textAlign: 'center', overflow: 'hidden' }}>
+          {/* gradient overlay */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.6) 0%,rgba(0,0,0,0.15) 60%,rgba(0,0,0,0.55) 100%)', pointerEvents: 'none' }} />
 
-        {state.startingIn !== null ? (
-          <div style={{ background: '#1a1a2e', border: '1px solid #e53935', borderRadius: 24, padding: '14px 0', textAlign: 'center', fontWeight: 800, fontSize: 16, letterSpacing: 2, color: '#e53935', fontFamily: 'monospace' }}>
-            Starting in {state.startingIn}…
-          </div>
-        ) : isHost ? (
-          <button
-            data-testid="button-ll-start"
-            onClick={handleStart}
-            disabled={state.players.length < 2}
-            style={{ background: state.players.length >= 2 ? '#e53935' : 'rgba(255,255,255,0.07)', color: '#fff', border: 'none', borderRadius: 24, padding: '14px 0', fontWeight: 800, fontSize: 15, cursor: state.players.length >= 2 ? 'pointer' : 'not-allowed', letterSpacing: 1 }}>
-            {state.players.length >= 2 ? `START GAME (${state.players.length} players)` : 'Waiting for 2+ players…'}
+          {/* Back circle button — top left */}
+          <button onClick={goBack} data-testid="button-lobby-back"
+            style={{ position: 'absolute', top: 14, left: 14, width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+            ←
           </button>
-        ) : (
-          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.3)', padding: 12 }}>
-            Waiting for host to start…
+          <div style={{ position: 'absolute', top: 14, left: 58, fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, paddingTop: 10, zIndex: 2 }}>BACK</div>
+
+          {/* Tier badge — top right */}
+          <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(0,0,0,0.6)', border: `1px solid ${tierColor}55`, borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5, zIndex: 2 }}>
+            <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: '50%', filter: `sepia(1) saturate(3) hue-rotate(${state.roomType === 'pony' ? '100deg' : state.roomType === 'thoroughbred' ? '20deg' : '-10deg'}) brightness(1.1)` }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: tierColor, fontWeight: 700, letterSpacing: 2 }}>{roomCfg.label}</span>
           </div>
-        )}
+
+          {/* Crown */}
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 6px', position: 'relative', zIndex: 1, animation: 'll-lob-pulse 3s ease-in-out infinite' }} />
+
+          {/* Title */}
+          <div style={{
+            fontFamily: 'Anton, Georgia, serif', fontSize: 48, fontWeight: 900, letterSpacing: 3,
+            background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 72%,#C9A227 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            lineHeight: 0.95, marginBottom: 8, position: 'relative', zIndex: 1,
+          }}>LADY LUCK</div>
+
+          {/* Subtitle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A227', letterSpacing: 3, whiteSpace: 'nowrap' }}>PICK YOUR QUEEN. RUN THE RACE.</span>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
+          </div>
+        </div>
+
+        {/* ── PLAYERS IN LOBBY PANEL ── */}
+        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 14, overflow: 'hidden' }}>
+          {/* Panel header */}
+          <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22760)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 4, whiteSpace: 'nowrap' }}>PLAYERS IN LOBBY</span>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22760)' }} />
+          </div>
+          {/* Ornamental divider */}
+          <div style={{ textAlign: 'center', fontSize: 12, color: '#C9A22755', marginBottom: 4, letterSpacing: 6 }}>✦ ✦ ✦</div>
+
+          {/* Player rows */}
+          <div style={{ padding: '0 14px 10px' }}>
+            {state.players.map(p => {
+              const isBot    = p.presence === 'bot';
+              const isMe     = p.id === identity.id;
+              const isPHost  = p.id === state.players[0]?.id;
+              const isActive = !isBot || true; // bots count as active
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}>
+                  {/* Status dot */}
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: isMe ? '#C9A227' : '#C9A22766', flexShrink: 0, boxShadow: isMe ? '0 0 6px #C9A22790' : 'none' }} />
+                  {/* Horse avatar */}
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: `2px solid ${isMe ? '#C9A227' : '#C9A22733'}`, flexShrink: 0, background: '#0d0d0d' }}>
+                    <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : isBot ? 'grayscale(1) brightness(0.5)' : 'sepia(1) saturate(2) hue-rotate(-10deg) brightness(1.0)' }} />
+                  </div>
+                  {/* Name */}
+                  <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 14, color: isMe ? '#C9A227' : 'rgba(255,255,255,0.75)', fontWeight: isMe ? 700 : 400 }}>
+                    {p.name}{isMe ? ' (you)' : ''}
+                    {isBot && <span style={{ marginLeft: 6, fontSize: 9, color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, padding: '1px 4px' }}>BOT</span>}
+                  </span>
+                  {/* Host badge */}
+                  {isPHost && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 12, filter: 'sepia(1) saturate(3) hue-rotate(-10deg)' }}>♛</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 2 }}>HOST</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Open seats */}
+            {Array.from({ length: 4 - state.players.length }).map((_, i) => (
+              <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(201,162,39,0.06)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+                <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.08)', flexShrink: 0, background: '#0d0d0d' }}>
+                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1) brightness(0.28)' }} />
+                </div>
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.22)' }}>Open seat</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── ACTION PANEL ── */}
+        <div style={{ margin: '12px 14px 0', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 14, padding: '16px 14px 14px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+          {/* Corner bracket decorations */}
+          {(['top-left','top-right','bottom-left','bottom-right'] as const).map(corner => (
+            <div key={corner} style={{
+              position: 'absolute',
+              top:    corner.includes('top')    ? 6  : undefined,
+              bottom: corner.includes('bottom') ? 6  : undefined,
+              left:   corner.includes('left')   ? 6  : undefined,
+              right:  corner.includes('right')  ? 6  : undefined,
+              width: 14, height: 14,
+              borderTop:    corner.includes('top')    ? '1px solid #C9A22799' : 'none',
+              borderBottom: corner.includes('bottom') ? '1px solid #C9A22799' : 'none',
+              borderLeft:   corner.includes('left')   ? '1px solid #C9A22799' : 'none',
+              borderRight:  corner.includes('right')  ? '1px solid #C9A22799' : 'none',
+            }} />
+          ))}
+
+          {state.startingIn !== null ? (
+            <>
+              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <div style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: 4, color: '#e53935', fontWeight: 700 }}>
+                STARTING IN {state.startingIn}…
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22750)' }} />
+                <div style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #C9A22760', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
+                </div>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22750)' }} />
+              </div>
+            </>
+          ) : isHost && canStart ? (
+            <>
+              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <button
+                data-testid="button-ll-start"
+                onClick={handleStart}
+                style={{ background: 'linear-gradient(180deg,#d4a820 0%,#8B6914 100%)', color: '#000', border: 'none', borderRadius: 10, padding: '13px 40px', fontWeight: 900, fontSize: 14, cursor: 'pointer', letterSpacing: 2, fontFamily: 'monospace', boxShadow: '0 2px 14px #C9A22755' }}>
+                START GAME ({state.players.length} PLAYERS)
+              </button>
+            </>
+          ) : (
+            <>
+              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: 4, color: '#C9A227', marginBottom: 10 }}>
+                {isHost ? 'WAITING FOR 2+ PLAYERS...' : 'WAITING FOR HOST TO START...'}
+              </div>
+              {/* Ornamental divider with horse medallion */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22750)' }} />
+                <div style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #C9A22760', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
+                </div>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22750)' }} />
+              </div>
+              {/* Hidden start button (required for host even when canStart=false) */}
+              {isHost && (
+                <button
+                  data-testid="button-ll-start"
+                  onClick={handleStart}
+                  disabled={true}
+                  style={{ display: 'none' }}
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
     );
   }
