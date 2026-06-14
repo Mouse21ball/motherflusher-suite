@@ -297,6 +297,21 @@ export default function LadyLuck() {
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
+  // Auto-pick the last remaining suit when human player is the dealer and all others have picked
+  useEffect(() => {
+    if (!state || state.phase !== 'SELECT') return;
+    const myIdx = state.players.findIndex(p => p.id === identity.id);
+    if (myIdx === -1 || myIdx !== state.dealerIndex) return;
+    const remaining = SUITS.filter(s => !state.claimedSuits.includes(s));
+    if (remaining.length !== 1) return;
+    // currentPickIndex must be pointing at us (the dealer)
+    if (state.currentPickIndex !== myIdx) return;
+    const timer = setTimeout(() => {
+      send({ type: 'll:select', tableId, playerId: identity.id, suit: remaining[0] });
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [state?.phase, state?.claimedSuits.length, state?.currentPickIndex]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Handlers ────────────────────────────────────────────────────────────────
   const goBack = () => { setTableId(null); setState(null); navigate('/ladyluck'); };
 

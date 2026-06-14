@@ -216,8 +216,8 @@ function doStart(tableId: string): void {
   }
 
   state.startingIn       = null;
-  state.dealerIndex      = 0;
-  state.currentPickIndex = 1 % state.players.length;
+  state.dealerIndex      = Math.floor(Math.random() * state.players.length);
+  state.currentPickIndex = (state.dealerIndex + 1) % state.players.length;
   state.phase            = 'SELECT';
   state.claimedSuits     = [];
 
