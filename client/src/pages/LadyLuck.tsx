@@ -180,6 +180,8 @@ export default function LadyLuck() {
   const [tableId, setTableId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('t'));
   const [state, setState]     = useState<LadyLuckState | null>(null);
   const [connected, setConnected] = useState(false);
+  const [wsError, setWsError]     = useState<string | null>(null);
+  const [connTimedOut, setConnTimedOut] = useState(false);
   const [flipAnim, setFlipAnim]   = useState<LadyLuckSuit | null>(null);
   const [joining, setJoining]     = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -198,25 +200,37 @@ export default function LadyLuck() {
     let ws: WebSocket | null = null;
     let alive = true;
 
+    setWsError(null);
+    setConnTimedOut(false);
+
+    // 5-second connection timeout
+    const timeoutId = setTimeout(() => {
+      if (alive && !state) setConnTimedOut(true);
+    }, 5000);
+
     const connect = async () => {
       try {
         const tokenRes = await fetch(apiUrl('/api/auth/ws-token'), { credentials: 'include' });
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
 
+        console.log('[ladyluck] WS connecting, tableId from state:', tableId, '| wsUrl:', wsUrl(token));
         ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;
 
         ws.onopen = () => {
           if (!alive) { ws?.close(); return; }
           setConnected(true);
-          ws?.send(JSON.stringify({ type: 'll:join', tableId, playerId: identity.id, name: identity.name }));
+          const joinMsg = { type: 'll:join', tableId, playerId: identity.id, name: identity.name };
+          console.log('[ladyluck] WS open — sending ll:join with tableId:', tableId, '| full msg:', joinMsg);
+          ws?.send(JSON.stringify(joinMsg));
         };
 
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data as string);
             if (msg.type === 'll:state') {
+              clearTimeout(timeoutId);
               setState(msg.state as LadyLuckState);
               setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
             }
@@ -236,15 +250,35 @@ export default function LadyLuck() {
               let c = 8; setCountdown(c);
               const id = setInterval(() => { c--; setCountdown(c); if (c <= 0) clearInterval(id); }, 1000);
             }
+            if (msg.type === 'll:error') {
+              const errMsg = (msg.message as string) ?? 'unknown_error';
+              console.error('[ladyluck] ll:error received:', errMsg, '| tableId sent:', tableId);
+              setWsError(errMsg);
+            }
           } catch {}
         };
 
-        ws.onclose = () => { if (!alive) return; setConnected(false); };
-      } catch {}
+        ws.onerror = (ev) => {
+          if (!alive) return;
+          console.error('[ladyluck] ws.onerror fired:', ev);
+          setWsError('WebSocket connection error');
+        };
+
+        ws.onclose = (ev) => {
+          if (!alive) return;
+          setConnected(false);
+          if (!state) {
+            console.warn('[ladyluck] WS closed before state received — code:', ev.code, 'reason:', ev.reason);
+          }
+        };
+      } catch (err) {
+        console.error('[ladyluck] connect() threw:', err);
+        setWsError(err instanceof Error ? err.message : String(err));
+      }
     };
 
     connect();
-    return () => { alive = false; ws?.close(); };
+    return () => { alive = false; clearTimeout(timeoutId); ws?.close(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableId]);
 
@@ -356,10 +390,36 @@ export default function LadyLuck() {
 
   // ── Connecting ──────────────────────────────────────────────────────────────
   if (!state) {
+    const showError = wsError || connTimedOut;
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>{connected ? 'Joining table…' : 'Connecting…'}</div>
-        <button onClick={goBack} style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to rooms</button>
+      <div style={{ minHeight: '100dvh', background: '#0d0d16', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14, padding: '0 24px' }}>
+        {showError ? (
+          <>
+            <div style={{ fontSize: 28 }}>⚠️</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#ff6b6b', textAlign: 'center' }}>
+              {wsError
+                ? `Connection error: ${wsError}`
+                : 'Connection timed out — server did not respond'}
+            </div>
+            <button
+              data-testid="button-conn-back"
+              onClick={goBack}
+              style={{ background: '#e53935', color: '#fff', border: 'none', borderRadius: 22, padding: '10px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+              ← Back to rooms
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+              {connected ? 'Joining table…' : 'Connecting…'}
+            </div>
+            <button
+              onClick={goBack}
+              style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              ← Back to rooms
+            </button>
+          </>
+        )}
       </div>
     );
   }
