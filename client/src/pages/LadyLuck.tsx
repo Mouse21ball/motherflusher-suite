@@ -84,7 +84,10 @@ function FaceDownCard({
           width: 72, height: 100, borderRadius: 9, position: 'relative', overflow: 'hidden', flexShrink: 0,
           background: peeked
             ? 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)'
-            : 'radial-gradient(ellipse at 38% 32%, #2e1f0a 0%, #150f04 55%, #0b0804 100%)',
+            : undefined,
+          backgroundImage: peeked ? undefined : "url('/ladyluck/card-back-cgp.png')",
+          backgroundSize: peeked ? undefined : 'cover',
+          backgroundPosition: peeked ? undefined : 'center',
           border: canPick
             ? '2px solid #C9A227'
             : peeked ? `2px solid ${isRed ? '#e53935' : 'rgba(255,255,255,0.5)'}` : '1.5px solid #C9A22748',
@@ -104,21 +107,11 @@ function FaceDownCard({
             <span style={{ position: 'absolute', bottom: 14, right: 5, fontSize: 9, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[suit]}</span>
           </>
         ) : (
-          <>
-            {/* Filigree border inset */}
-            <div style={{ position: 'absolute', inset: 4, border: '1px solid #C9A22730', borderRadius: 5, pointerEvents: 'none' }} />
-            {/* Crown medallion */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-52%)', textAlign: 'center' }}>
-              <div style={{ fontSize: 18, lineHeight: 1, filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)', marginBottom: 3 }}>♛</div>
-              <div style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A22799', letterSpacing: 2, lineHeight: 1 }}>CGP</div>
+          canPick && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(201,162,39,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', fontWeight: 700, letterSpacing: 1 }}>PICK</span>
             </div>
-            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: 5, color: '#C9A22766', letterSpacing: 1 }}>LOYALTY NEVER LEAVES</div>
-            {canPick && (
-              <div style={{ position: 'absolute', top: 0, inset: 0, background: 'rgba(201,162,39,0.08)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', fontWeight: 700, letterSpacing: 1 }}>PICK</span>
-              </div>
-            )}
-          </>
+          )
         )}
       </div>
       {!claimed && suit && !peeked && (
