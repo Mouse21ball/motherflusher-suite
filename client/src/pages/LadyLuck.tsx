@@ -1063,21 +1063,13 @@ export default function LadyLuck() {
                   <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.18)' }}>OPEN</div>
                 ) : (
                   <>
-                    {isMe && p.suit ? (
+                    {p.suit ? (
                       <div style={{ fontSize: 15, color: SUIT_BG_COLORS[p.suit] }}>{SUIT_SYMBOLS[p.suit]}</div>
-                    ) : p.suit ? (
-                      <div style={{
-                        width: 14, height: 20, margin: '0 auto', borderRadius: 2,
-                        background: 'repeating-linear-gradient(45deg,#151528 0px,#151528 3px,#1d1d3a 3px,#1d1d3a 6px)',
-                        border: '1px solid rgba(255,255,255,0.14)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 7, color: 'rgba(255,255,255,0.18)',
-                      }}>◆</div>
                     ) : (
                       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.18)', lineHeight: '22px' }}>—</div>
                     )}
-                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.wagered ? '#10b981' : p.suit ? (isMe ? 'rgba(255,255,255,0.35)' : '#C9A22770') : 'rgba(255,255,255,0.2)', marginTop: 1 }}>
-                      {p.wagered ? `✓ ${p.wager.toLocaleString()}` : p.suit ? (isMe ? 'BETTING' : 'LOCKED') : 'PICKING'}
+                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.wagered ? '#10b981' : p.suit ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)', marginTop: 1 }}>
+                      {p.wagered ? `✓ ${p.wager.toLocaleString()}` : p.suit ? 'BETTING' : 'PICKING'}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 6, color: isMe ? '#C9A22790' : 'rgba(255,255,255,0.18)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {isBot ? '🤖' : isMe ? '★' : ''}{p.name.slice(0, 5)}
@@ -1123,43 +1115,49 @@ export default function LadyLuck() {
                         transition: 'opacity 0.2s, transform 0.15s',
                         transform: taken ? 'none' : undefined,
                       }}>
-                      {/* Card back face */}
-                      <div style={{
-                        width: '100%',
-                        paddingTop: '140%',
-                        position: 'relative',
-                        borderRadius: 10,
-                        background: 'repeating-linear-gradient(45deg,#121224 0px,#121224 6px,#1a1a34 6px,#1a1a34 12px)',
-                        border: `2px solid ${taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
-                        boxShadow: taken ? 'none' : '0 4px 14px rgba(0,0,0,0.5)',
-                        overflow: 'hidden',
-                      }}>
-                        {/* Inner border frame */}
+                      {taken ? (
+                        /* Face-up — suit revealed, claimed */
                         <div style={{
-                          position: 'absolute', inset: 4, borderRadius: 7,
-                          border: `1px solid ${taken ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)'}`,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                          width: '100%', paddingTop: '140%', position: 'relative',
+                          borderRadius: 10,
+                          background: '#0d0d1e',
+                          border: `2px solid ${SUIT_BG_COLORS[suit]}`,
+                          boxShadow: 'none',
+                          opacity: 0.55,
+                          overflow: 'hidden',
                         }}>
-                          {/* Diamond chain pattern */}
-                          <span style={{ fontSize: 18, color: taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
-                          <span style={{ fontSize: 9, color: taken ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.10)', lineHeight: 1 }}>◆</span>
-                          <span style={{ fontSize: 18, color: taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
-                        </div>
-                        {/* TAKEN overlay */}
-                        {taken && (
                           <div style={{
-                            position: 'absolute', inset: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(0,0,0,0.30)',
+                            position: 'absolute', inset: 4, borderRadius: 7,
+                            border: `1px solid ${SUIT_BG_COLORS[suit]}40`,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
                           }}>
-                            <span style={{
-                              fontFamily: 'monospace', fontSize: 8, letterSpacing: 2,
-                              color: 'rgba(255,255,255,0.38)',
-                              background: 'rgba(0,0,0,0.5)', padding: '3px 5px', borderRadius: 4,
-                            }}>TAKEN</span>
+                            <span style={{ fontSize: 28, color: SUIT_BG_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+                            <span style={{ fontFamily: 'monospace', fontSize: 7, color: SUIT_BG_COLORS[suit], letterSpacing: 1, opacity: 0.8, textAlign: 'center', padding: '0 4px', lineHeight: 1.3 }}>
+                              {QUEEN_NICKNAMES[suit]}
+                            </span>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        /* Face-down card back — available */
+                        <div style={{
+                          width: '100%', paddingTop: '140%', position: 'relative',
+                          borderRadius: 10,
+                          background: 'repeating-linear-gradient(45deg,#121224 0px,#121224 6px,#1a1a34 6px,#1a1a34 12px)',
+                          border: '2px solid rgba(255,255,255,0.18)',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            position: 'absolute', inset: 4, borderRadius: 7,
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                          }}>
+                            <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
+                            <span style={{ fontSize: 9,  color: 'rgba(255,255,255,0.10)', lineHeight: 1 }}>◆</span>
+                            <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
+                          </div>
+                        </div>
+                      )}
                     </button>
                   );
                 })}
