@@ -326,15 +326,15 @@ export default function LadyLuck() {
       diamonds: '/ladyluck/queens/queen-diamonds.png',
       clubs:    '/ladyluck/queens/queen-clubs.png',
     };
-    const TIER_ROWS: { id: LadyLuckRoom; color: string; darkBg: string; horseBg: string }[] = [
-      { id: 'pony',         color: '#10b981', darkBg: 'rgba(5,46,29,0.9)',  horseBg: 'linear-gradient(135deg,#0a2e18 0%,#1a5c2e 60%,#051a0e 100%)' },
-      { id: 'thoroughbred', color: '#d97706', darkBg: 'rgba(46,29,5,0.9)', horseBg: 'linear-gradient(135deg,#2e1a05 0%,#5c3a0a 60%,#1a0e02 100%)' },
-      { id: 'champion',     color: '#dc2626', darkBg: 'rgba(46,5,5,0.9)',  horseBg: 'linear-gradient(135deg,#2e0808 0%,#5c1010 60%,#1a0404 100%)' },
+    const TIER_ROWS: { id: LadyLuckRoom; color: string; horseBg: string }[] = [
+      { id: 'pony',         color: '#10b981', horseBg: 'linear-gradient(135deg,rgba(10,46,24,0.8) 0%,rgba(26,92,46,0.85) 60%,rgba(5,26,14,0.75) 100%)' },
+      { id: 'thoroughbred', color: '#d97706', horseBg: 'linear-gradient(135deg,rgba(46,26,5,0.8) 0%,rgba(92,58,10,0.85) 60%,rgba(26,14,2,0.75) 100%)' },
+      { id: 'champion',     color: '#dc2626', horseBg: 'linear-gradient(135deg,rgba(46,8,8,0.8) 0%,rgba(92,16,16,0.85) 60%,rgba(26,4,4,0.75) 100%)' },
     ];
     const chipBalance = (() => { try { const v = localStorage.getItem('cgp_balance'); return v ? Number(v).toLocaleString() : '—'; } catch { return '—'; } })();
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#120c08', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
+      <div style={{ minHeight: '100dvh', background: '#120c08', backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
         <style>{`
           @keyframes ll-glow-pulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
           @keyframes ll-fade-up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -361,11 +361,11 @@ export default function LadyLuck() {
         </div>
 
         {/* ── HERO ── */}
-        <div style={{ position: 'relative', textAlign: 'center', padding: '18px 16px 14px', backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden' }}>
-          {/* Atmospheric radial glow */}
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 70% at 50% 30%, rgba(201,162,39,0.09) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          {/* Crown */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', animation: 'll-glow-pulse 3s ease-in-out infinite', marginBottom: 4, position: 'relative' }} />
+        <div style={{ position: 'relative', textAlign: 'center', padding: '18px 16px 14px', overflow: 'hidden' }}>
+          {/* Dark gradient overlay for title legibility */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.7) 100%)', pointerEvents: 'none' }} />
+          {/* Crown — centered above title */}
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', animation: 'll-glow-pulse 3s ease-in-out infinite', display: 'block', margin: '0 auto 8px', position: 'relative', zIndex: 1 }} />
           {/* LADY LUCK title */}
           <div style={{
             fontFamily: 'Anton, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 3,
@@ -393,7 +393,7 @@ export default function LadyLuck() {
         </div>
 
         {/* ── QUEEN CARDS ── */}
-        <div style={{ padding: '10px 12px 6px', display: 'flex', gap: 7, animation: 'll-fade-up 0.4s ease-out' }}>
+        <div style={{ padding: '10px 12px 6px', display: 'flex', gap: 7, animation: 'll-fade-up 0.4s ease-out', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,215,0,0.15)', borderBottom: '1px solid rgba(255,215,0,0.15)' }}>
           {SUITS.map(suit => {
             const isSel   = selectedQueenPreview === suit;
             const pip     = SUIT_BG_COLORS[suit];
@@ -428,18 +428,19 @@ export default function LadyLuck() {
 
         {/* ── RACE TIERS ── */}
         <div style={{ padding: '6px 12px 0', display: 'flex', flexDirection: 'column', gap: 8, animation: 'll-fade-up 0.4s ease-out 0.1s both' }}>
-          {TIER_ROWS.map(({ id, color, darkBg, horseBg }) => {
+          {TIER_ROWS.map(({ id, color, horseBg }) => {
             const cfg = ROOM_CFGS[id];
             return (
               <div key={id} data-testid={`card-room-${id}`} style={{
-                background: darkBg, border: `1px solid ${color}45`,
+                background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,215,0,0.15)',
                 borderRadius: 14, overflow: 'hidden', display: 'flex', alignItems: 'stretch',
                 boxShadow: `0 2px 14px ${color}18`,
               }}>
                 {/* Horse portrait */}
                 <div style={{ width: 84, flexShrink: 0, background: horseBg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                   <span style={{ fontSize: 48, lineHeight: 1, filter: `drop-shadow(0 0 10px ${color}70)`, transform: 'scaleX(-1)', opacity: 0.88 }}>🐎</span>
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg,transparent 55%,${darkBg})` }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent 55%,rgba(0,0,0,0.5))' }} />
                 </div>
                 {/* Info + button */}
                 <div style={{ flex: 1, padding: '11px 10px 11px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -474,7 +475,7 @@ export default function LadyLuck() {
         )}
 
         {/* ── RULES FOOTER ── */}
-        <div style={{ margin: '10px 12px', background: 'rgba(201,162,39,0.06)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ margin: '10px 12px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src="/crews/icon-crown.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.1)', flexShrink: 0 }} />
           <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.72)', lineHeight: 1.75 }}>
             4 Queens race to 9 card flips. Pick clockwise — dealer gets last. Wager chips, place side bets.{' '}
