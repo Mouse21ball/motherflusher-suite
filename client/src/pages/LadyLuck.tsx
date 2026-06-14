@@ -1179,7 +1179,7 @@ export default function LadyLuck() {
       <div style={{
         minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
         backgroundPosition: 'center top', backgroundAttachment: 'fixed',
         overflowX: 'hidden',
       }}>
