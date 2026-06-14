@@ -1063,12 +1063,21 @@ export default function LadyLuck() {
                   <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.18)' }}>OPEN</div>
                 ) : (
                   <>
-                    {p.suit
-                      ? <div style={{ fontSize: 15, color: SUIT_BG_COLORS[p.suit] }}>{SUIT_SYMBOLS[p.suit]}</div>
-                      : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.18)', lineHeight: '22px' }}>—</div>
-                    }
-                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.wagered ? '#10b981' : p.suit ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)', marginTop: 1 }}>
-                      {p.wagered ? `✓ ${p.wager.toLocaleString()}` : p.suit ? 'BETTING' : 'PICKING'}
+                    {isMe && p.suit ? (
+                      <div style={{ fontSize: 15, color: SUIT_BG_COLORS[p.suit] }}>{SUIT_SYMBOLS[p.suit]}</div>
+                    ) : p.suit ? (
+                      <div style={{
+                        width: 14, height: 20, margin: '0 auto', borderRadius: 2,
+                        background: 'repeating-linear-gradient(45deg,#151528 0px,#151528 3px,#1d1d3a 3px,#1d1d3a 6px)',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 7, color: 'rgba(255,255,255,0.18)',
+                      }}>◆</div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.18)', lineHeight: '22px' }}>—</div>
+                    )}
+                    <div style={{ fontFamily: 'monospace', fontSize: 6, color: p.wagered ? '#10b981' : p.suit ? (isMe ? 'rgba(255,255,255,0.35)' : '#C9A22770') : 'rgba(255,255,255,0.2)', marginTop: 1 }}>
+                      {p.wagered ? `✓ ${p.wager.toLocaleString()}` : p.suit ? (isMe ? 'BETTING' : 'LOCKED') : 'PICKING'}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 6, color: isMe ? '#C9A22790' : 'rgba(255,255,255,0.18)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {isBot ? '🤖' : isMe ? '★' : ''}{p.name.slice(0, 5)}
@@ -1093,7 +1102,7 @@ export default function LadyLuck() {
               </div>
             </div>
           ) : mySuit === null ? (
-            /* Suit picker */
+            /* Suit picker — face-down card backs */
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 14 }}>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', letterSpacing: 2, marginBottom: 12 }}>PICK YOUR QUEEN</div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -1106,20 +1115,51 @@ export default function LadyLuck() {
                       disabled={taken}
                       onClick={() => handleSelectSuit(suit)}
                       style={{
-                        flex: 1, padding: '14px 4px', borderRadius: 12,
+                        flex: 1, padding: 0, borderRadius: 10,
                         cursor: taken ? 'not-allowed' : 'pointer',
-                        background: taken ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-                        border: `2px solid ${taken ? 'rgba(255,255,255,0.06)' : SUIT_BG_COLORS[suit]}`,
-                        opacity: taken ? 0.28 : 1,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                        transition: 'opacity 0.2s',
+                        background: 'transparent',
+                        border: 'none',
+                        opacity: taken ? 0.45 : 1,
+                        transition: 'opacity 0.2s, transform 0.15s',
+                        transform: taken ? 'none' : undefined,
                       }}>
-                      <span style={{ fontSize: 26, color: taken ? 'rgba(255,255,255,0.2)' : SUIT_BG_COLORS[suit] }}>
-                        {SUIT_SYMBOLS[suit]}
-                      </span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.38)', lineHeight: 1.2 }}>
-                        {QUEEN_NICKNAMES[suit].split(' ')[0]}
-                      </span>
+                      {/* Card back face */}
+                      <div style={{
+                        width: '100%',
+                        paddingTop: '140%',
+                        position: 'relative',
+                        borderRadius: 10,
+                        background: 'repeating-linear-gradient(45deg,#121224 0px,#121224 6px,#1a1a34 6px,#1a1a34 12px)',
+                        border: `2px solid ${taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
+                        boxShadow: taken ? 'none' : '0 4px 14px rgba(0,0,0,0.5)',
+                        overflow: 'hidden',
+                      }}>
+                        {/* Inner border frame */}
+                        <div style={{
+                          position: 'absolute', inset: 4, borderRadius: 7,
+                          border: `1px solid ${taken ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)'}`,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                        }}>
+                          {/* Diamond chain pattern */}
+                          <span style={{ fontSize: 18, color: taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
+                          <span style={{ fontSize: 9, color: taken ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.10)', lineHeight: 1 }}>◆</span>
+                          <span style={{ fontSize: 18, color: taken ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>◆</span>
+                        </div>
+                        {/* TAKEN overlay */}
+                        {taken && (
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.30)',
+                          }}>
+                            <span style={{
+                              fontFamily: 'monospace', fontSize: 8, letterSpacing: 2,
+                              color: 'rgba(255,255,255,0.38)',
+                              background: 'rgba(0,0,0,0.5)', padding: '3px 5px', borderRadius: 4,
+                            }}>TAKEN</span>
+                          </div>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
