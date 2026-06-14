@@ -53,65 +53,84 @@ function FaceDownCard({
   onPick?: () => void;
 }) {
   const [peeked, setPeeked] = useState(false);
+  const isRed = suit === 'hearts' || suit === 'diamonds';
 
   if (claimed && suit) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <div style={{
-          width: 72, height: 100, background: '#fff', borderRadius: 10,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          border: `2px solid ${SUIT_COLORS[suit]}`, position: 'relative',
-          boxShadow: `0 0 12px ${SUIT_COLORS[suit] === '#e53935' ? '#e5393540' : '#ffffff20'}, 0 2px 8px rgba(0,0,0,0.5)`,
-          animation: 'll-card-appear 0.4s ease-out',
-        }}>
-          <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
-          <span style={{ fontSize: 28, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-          <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
-        </div>
-        {claimedBy && <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)', textAlign: 'center', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{claimedBy}</span>}
+      <div style={{
+        width: 72, height: 100,
+        background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
+        borderRadius: 9,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        border: `2px solid ${isRed ? '#e53935' : 'rgba(255,255,255,0.55)'}`,
+        position: 'relative', flexShrink: 0,
+        boxShadow: `0 0 16px ${isRed ? '#e5393555' : '#ffffff25'}, 0 3px 10px rgba(0,0,0,0.6)`,
+        animation: 'll-card-appear 0.4s ease-out',
+      }}>
+        <span style={{ position: 'absolute', top: 3, left: 5, fontSize: 11, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif' }}>Q</span>
+        <span style={{ position: 'absolute', top: 14, left: 5, fontSize: 9, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+        <span style={{ fontSize: 32, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+        <span style={{ position: 'absolute', bottom: 3, right: 5, fontSize: 11, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>Q</span>
+        <span style={{ position: 'absolute', bottom: 14, right: 5, fontSize: 9, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[suit]}</span>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
       <div
         onClick={canPick ? onPick : undefined}
         style={{
-          width: 72, height: 100,
-          background: peeked ? '#fff' : 'linear-gradient(135deg, #1a237e 0%, #0d1362 100%)',
-          borderRadius: 10,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          border: canPick ? '2px solid #e53935' : peeked ? '2px solid #C9A227' : '2px solid rgba(255,255,255,0.12)',
-          boxShadow: canPick ? '0 0 14px #e5393550, 0 2px 8px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.5)',
+          width: 72, height: 100, borderRadius: 9, position: 'relative', overflow: 'hidden', flexShrink: 0,
+          background: peeked
+            ? 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)'
+            : 'radial-gradient(ellipse at 38% 32%, #2e1f0a 0%, #150f04 55%, #0b0804 100%)',
+          border: canPick
+            ? '2px solid #C9A227'
+            : peeked ? `2px solid ${isRed ? '#e53935' : 'rgba(255,255,255,0.5)'}` : '1.5px solid #C9A22748',
+          boxShadow: canPick
+            ? '0 0 18px #C9A22755, 0 3px 10px rgba(0,0,0,0.6)'
+            : '0 3px 10px rgba(0,0,0,0.6)',
           cursor: canPick ? 'pointer' : 'default',
-          position: 'relative',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }}
       >
         {peeked && suit ? (
           <>
-            <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit] }}>Q</span>
-            <span style={{ fontSize: 28, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
-            <span style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 12, fontWeight: 800, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>Q</span>
+            <span style={{ position: 'absolute', top: 3, left: 5, fontSize: 11, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif' }}>Q</span>
+            <span style={{ position: 'absolute', top: 14, left: 5, fontSize: 9, color: SUIT_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</span>
+            <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 32, color: SUIT_COLORS[suit], lineHeight: 1 }}>{SUIT_SYMBOLS[suit]}</span>
+            <span style={{ position: 'absolute', bottom: 3, right: 5, fontSize: 11, fontWeight: 900, color: SUIT_COLORS[suit], fontFamily: 'serif', transform: 'rotate(180deg)' }}>Q</span>
+            <span style={{ position: 'absolute', bottom: 14, right: 5, fontSize: 9, color: SUIT_COLORS[suit], transform: 'rotate(180deg)' }}>{SUIT_SYMBOLS[suit]}</span>
           </>
         ) : (
           <>
-            <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.12)' }}>?</span>
-            {canPick && <span style={{ position: 'absolute', bottom: 6, fontSize: 9, fontFamily: 'monospace', color: '#e53935', fontWeight: 700, letterSpacing: 1 }}>PICK</span>}
+            {/* Filigree border inset */}
+            <div style={{ position: 'absolute', inset: 4, border: '1px solid #C9A22730', borderRadius: 5, pointerEvents: 'none' }} />
+            {/* Crown medallion */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-52%)', textAlign: 'center' }}>
+              <div style={{ fontSize: 18, lineHeight: 1, filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)', marginBottom: 3 }}>♛</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A22799', letterSpacing: 2, lineHeight: 1 }}>CGP</div>
+            </div>
+            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: 5, color: '#C9A22766', letterSpacing: 1 }}>LOYALTY NEVER LEAVES</div>
+            {canPick && (
+              <div style={{ position: 'absolute', top: 0, inset: 0, background: 'rgba(201,162,39,0.08)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#C9A227', fontWeight: 700, letterSpacing: 1 }}>PICK</span>
+              </div>
+            )}
           </>
         )}
       </div>
       {!claimed && suit && !peeked && (
         <button
           onClick={() => setPeeked(true)}
-          style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.25)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 1, padding: '1px 4px' }}
+          style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(201,162,39,0.45)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 2, padding: '1px 4px' }}
         >
           PEEK
         </button>
       )}
       {peeked && suit && !claimed && (
-        <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#C9A227', letterSpacing: 1 }}>PEEKED</span>
+        <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#C9A22799', letterSpacing: 1 }}>PEEKED</span>
       )}
     </div>
   );
@@ -727,44 +746,102 @@ export default function LadyLuck() {
 
   // ── SELECT ──────────────────────────────────────────────────────────────────
   if (state.phase === 'SELECT') {
-    const myIdx      = state.players.findIndex(p => p.id === identity.id);
-    const isMyTurn   = myIdx !== -1 && state.currentPickIndex === myIdx;
-    const isDealer   = myIdx === state.dealerIndex;
-    const pickerPlayer = state.players[state.currentPickIndex] ?? null;
+    const myIdx          = state.players.findIndex(p => p.id === identity.id);
+    const isMyTurn       = myIdx !== -1 && state.currentPickIndex === myIdx;
+    const isDealer       = myIdx === state.dealerIndex;
+    const pickerPlayer   = state.players[state.currentPickIndex] ?? null;
     const dealerAutoGets = isDealer && state.claimedSuits.length >= state.players.length - 1;
+    const tierHorseImg   = `/ladyluck/horses/horse-${state.roomType}.png`;
+    const tierColor      = roomCfg.color;
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column', padding: 16, gap: 12 }}>
+      <div style={{
+        minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
+        backgroundColor: '#120c08',
+        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundPosition: 'center', backgroundAttachment: 'fixed',
+      }}>
         <style>{`
-          @keyframes ll-card-appear { from{opacity:0;transform:scale(0.85) rotateY(-20deg)} to{opacity:1;transform:scale(1) rotateY(0deg)} }
-          @keyframes ll-your-turn-pulse { 0%,100%{box-shadow:0 0 0 0 #e5393530} 50%{box-shadow:0 0 0 8px #e5393510} }
+          @keyframes ll-card-appear { from{opacity:0;transform:scale(0.88) rotateY(-18deg)} to{opacity:1;transform:scale(1) rotateY(0deg)} }
+          @keyframes ll-sel-pulse   { 0%,100%{opacity:0.7} 50%{opacity:1} }
         `}</style>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 22, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CHOOSE YOUR QUEEN</div>
+        {/* ── HERO HEADER ── */}
+        <div style={{ position: 'relative', padding: '14px 14px 16px', textAlign: 'center', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,rgba(0,0,0,0.15) 60%,rgba(0,0,0,0.6) 100%)', pointerEvents: 'none' }} />
+
+          {/* Back circle button */}
+          <button onClick={goBack} data-testid="button-select-back"
+            style={{ position: 'absolute', top: 14, left: 14, width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+            ←
+          </button>
+          <div style={{ position: 'absolute', top: 14, left: 58, fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, paddingTop: 10, zIndex: 2 }}>BACK</div>
+
+          {/* Tier badge */}
+          <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(0,0,0,0.6)', border: `1px solid ${tierColor}55`, borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5, zIndex: 2 }}>
+            <img src={tierHorseImg} alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: '50%', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: tierColor, fontWeight: 700, letterSpacing: 2 }}>{roomCfg.label}</span>
+          </div>
+
+          {/* Crown */}
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 5px', position: 'relative', zIndex: 1, animation: 'll-sel-pulse 3s ease-in-out infinite' }} />
+
+          {/* Title */}
+          <div style={{
+            fontFamily: 'Anton, Georgia, serif', fontSize: 44, fontWeight: 900, letterSpacing: 3,
+            background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 72%,#C9A227 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            lineHeight: 0.95, marginBottom: 7, position: 'relative', zIndex: 1,
+          }}>LADY LUCK</div>
+
+          {/* Subtitle with diamond divider */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 6 }}>
+              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 7, color: '#C9A227', letterSpacing: 3 }}>CHOOSE YOUR QUEEN</span>
+              <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
+            </div>
+            <div style={{ fontSize: 10, color: '#C9A22755', letterSpacing: 4, textAlign: 'center' }}>◆ ◆ ◆</div>
+          </div>
         </div>
 
-        {/* Pick order row */}
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.28)', letterSpacing: 2, marginBottom: 8 }}>PICK ORDER</div>
+        {/* ── PICK ORDER PANEL ── */}
+        <div style={{ margin: '0 14px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.28)', borderRadius: 14, padding: '10px 12px 12px' }}>
+          {/* Panel header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22755)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A227', letterSpacing: 4 }}>✦ PICK ORDER ✦</span>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22755)' }} />
+          </div>
+          {/* 4 cells */}
           <div style={{ display: 'flex', gap: 6 }}>
             {state.players.map((p, idx) => {
               const isCurrent = idx === state.currentPickIndex;
               const isDlr     = idx === state.dealerIndex;
               const hasPicked = p.suit !== null;
+              const isMe      = p.id === identity.id;
               return (
                 <div key={p.id} style={{
-                  flex: 1, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
-                  background: isCurrent ? 'rgba(201,162,39,0.15)' : hasPicked ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${isCurrent ? '#C9A22770' : hasPicked ? '#10b98135' : 'rgba(255,255,255,0.05)'}`,
+                  flex: 1, padding: '8px 4px 6px', borderRadius: 10, textAlign: 'center',
+                  background: isCurrent ? 'rgba(201,162,39,0.16)' : hasPicked ? 'rgba(16,185,129,0.09)' : 'rgba(255,255,255,0.03)',
+                  border: `1.5px solid ${isCurrent ? '#C9A22788' : hasPicked ? '#10b98140' : 'rgba(255,255,255,0.07)'}`,
+                  boxShadow: isCurrent ? '0 0 10px #C9A22730' : 'none',
+                  transition: 'all 0.2s',
                 }}>
-                  <div style={{ fontSize: hasPicked && p.suit ? 15 : 10, color: isCurrent ? '#C9A227' : hasPicked ? '#10b981' : 'rgba(255,255,255,0.35)' }}>
-                    {hasPicked && p.suit ? SUIT_SYMBOLS[p.suit] : isDlr ? '🎴' : `${idx + 1}`}
+                  {/* Icon/symbol area */}
+                  <div style={{ fontSize: 16, lineHeight: 1, marginBottom: 4,
+                    color: hasPicked && p.suit ? SUIT_BG_COLORS[p.suit] : isCurrent ? '#C9A227' : 'rgba(255,255,255,0.3)',
+                  }}>
+                    {isDlr ? (
+                      <span style={{ display: 'inline-block', background: 'rgba(139,0,0,0.7)', border: '1px solid #8B0000', borderRadius: 4, padding: '1px 5px', fontSize: 14 }}>♠</span>
+                    ) : hasPicked && p.suit ? (
+                      SUIT_SYMBOLS[p.suit]
+                    ) : (
+                      <span style={{ fontSize: 13, color: isCurrent ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{idx + 1}</span>
+                    )}
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 7, color: p.id === identity.id ? '#C9A227' : 'rgba(255,255,255,0.3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {isDlr ? 'DEALER' : p.name.slice(0, 6)}
+                  <div style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: 1, color: isMe ? '#C9A227' : 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isDlr ? 'DEALER' : p.name.slice(0, 7).toUpperCase()}
                   </div>
                 </div>
               );
@@ -772,49 +849,66 @@ export default function LadyLuck() {
           </div>
         </div>
 
-        {/* Status */}
-        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 12, minHeight: 20 }}>
+        {/* ── STATUS LINE ── */}
+        <div style={{ textAlign: 'center', padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: 2, minHeight: 28 }}>
           {state.currentPickIndex === -1 ? (
-            <span style={{ color: '#10b981' }}>All Queens assigned — moving to wager…</span>
+            <span style={{ color: '#10b981' }}>ALL QUEENS ASSIGNED — MOVING TO WAGER…</span>
           ) : dealerAutoGets ? (
-            <span style={{ color: '#C9A227' }}>You're the dealer — you get the last Queen! 🎴</span>
+            <span style={{ color: '#C9A227' }}>YOU'RE THE DEALER — LAST QUEEN IS YOURS ♛</span>
           ) : isMyTurn ? (
-            <span style={{ color: '#e53935', fontWeight: 700 }}>YOUR TURN — Pick a Queen!</span>
+            <span style={{ color: '#C9A227', fontWeight: 700 }}>YOUR TURN — PICK A QUEEN</span>
           ) : pickerPlayer ? (
-            <span style={{ color: 'rgba(255,255,255,0.38)' }}>Waiting for {pickerPlayer.name}…</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,rgba(201,162,39,0.3))' }} />
+              <span style={{ color: 'rgba(201,162,39,0.65)' }}>WAITING FOR {pickerPlayer.name.toUpperCase()}…</span>
+              <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,rgba(201,162,39,0.3))' }} />
+            </div>
           ) : null}
         </div>
 
-        {/* 4 cards */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', paddingBottom: 20, animation: isMyTurn ? 'll-your-turn-pulse 1.5s ease-in-out infinite' : 'none', borderRadius: 14 }}>
+        {/* ── CARDS ROW ── */}
+        <div style={{ margin: '0 14px', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
           {SUITS.map(suit => {
-            const claimer  = state.players.find(p => p.suit === suit);
+            const claimer   = state.players.find(p => p.suit === suit);
             const isClaimed = state.claimedSuits.includes(suit);
             const canPick   = isMyTurn && !isClaimed;
+            const isRed     = suit === 'hearts' || suit === 'diamonds';
+
             return (
-              <div key={suit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <FaceDownCard
-                  suit={suit}
-                  claimed={isClaimed}
-                  claimedBy={claimer?.name}
-                  canPick={canPick}
-                  onPick={() => handleSelectSuit(suit)}
-                />
-                {isClaimed && (
-                  <div style={{ fontFamily: 'monospace', fontSize: 8, color: SUIT_BG_COLORS[suit] === '#e53935' ? '#e53935' : 'rgba(255,255,255,0.5)', textAlign: 'center', letterSpacing: 0.5 }}>
-                    {QUEEN_NICKNAMES[suit]}
-                  </div>
+              <div key={suit} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                {/* Card */}
+                {isClaimed ? (
+                  <FaceDownCard suit={suit} claimed={true} canPick={false} />
+                ) : (
+                  <FaceDownCard suit={suit} claimed={false} canPick={canPick} onPick={() => handleSelectSuit(suit)} />
+                )}
+                {/* Player avatar */}
+                <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', border: `1.5px solid ${isClaimed ? (isRed ? '#e5393580' : 'rgba(255,255,255,0.4)') : 'rgba(255,255,255,0.1)'}`, flexShrink: 0, background: '#0d0d0d' }}>
+                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isClaimed ? (claimer?.id === identity.id ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : 'sepia(1) saturate(2) brightness(0.9)') : 'grayscale(1) brightness(0.25)' }} />
+                </div>
+                {/* Name / queen nickname */}
+                {isClaimed && claimer ? (
+                  <>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, color: claimer.id === identity.id ? '#C9A227' : 'rgba(255,255,255,0.6)', textAlign: 'center', letterSpacing: 0.5, lineHeight: 1.3, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {claimer.name}
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 7, color: isRed ? '#e53935' : 'rgba(255,255,255,0.45)', textAlign: 'center', letterSpacing: 0.5 }}>
+                      {QUEEN_NICKNAMES[suit]}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.18)', letterSpacing: 1 }}>—</div>
                 )}
               </div>
             );
           })}
         </div>
 
-        {!isMyTurn && state.currentPickIndex !== -1 && (
-          <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.18)' }}>
-            Tap PEEK to privately preview a suit
-          </div>
-        )}
+        {/* ── HINT FOOTER ── */}
+        <div style={{ margin: '10px 14px 14px', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16, opacity: 0.6 }}>👁</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.65)', letterSpacing: 3 }}>TAP PEEK TO PRIVATELY PREVIEW A SUIT</span>
+        </div>
       </div>
     );
   }
