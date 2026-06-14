@@ -213,6 +213,7 @@ export default function LadyLuck() {
   const [sideBetSuit, setSideBetSuit]             = useState<LadyLuckSuit | null>(null);
   const [sideBetAmt, setSideBetAmt]               = useState(0);
   const [selectedQueenPreview, setSelectedQueenPreview] = useState<LadyLuckSuit | null>(null);
+  const [showRules, setShowRules] = useState(false);
 
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
@@ -385,17 +386,17 @@ export default function LadyLuck() {
             style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.7)', fontSize: 10, cursor: 'pointer', fontFamily: 'monospace', letterSpacing: 1, flexShrink: 0 }}>
             ← BACK
           </button>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-            <span style={{ fontSize: 11, opacity: 0.7 }}>⚙</span>
+          <button onClick={() => navigate('/shop')} data-testid="button-cgp-shop"
+            style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 3 }}>CGP SHOP</span>
-          </div>
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(201,162,39,0.12)', border: '1px solid rgba(201,162,39,0.22)', borderRadius: 14, padding: '4px 8px' }}>
-              <span style={{ fontSize: 10 }}>⚙</span>
+              <span style={{ fontSize: 10 }}>🪙</span>
               <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', fontWeight: 700 }}>{chipBalance}</span>
             </div>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>💬</div>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>?</div>
+            <button onClick={() => setShowRules(true)} data-testid="button-rules"
+              style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>?</button>
           </div>
         </div>
 
@@ -534,23 +535,59 @@ export default function LadyLuck() {
         {/* ── BOTTOM NAV ── */}
         <div style={{ marginTop: 'auto', background: 'rgba(8,6,4,0.97)', borderTop: '1px solid rgba(201,162,39,0.18)', display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {([
-            { label: 'HOME',    icon: '⌂',   path: '/',      active: true,  badge: 0 },
-            { label: 'LOBBY',   icon: '☆',   path: '/',      active: false, badge: 0 },
-            { label: 'HISTORY', icon: '🏆',  path: '/',      active: false, badge: 2 },
-            { label: 'MORE',    icon: '···', path: '/',      active: false, badge: 0 },
-          ] as { label: string; icon: string; path: string; active: boolean; badge: number }[]).map(item => (
+            { label: 'HOME',    icon: '⌂',  path: '/',                 active: false },
+            { label: 'LOBBY',   icon: '☆',  path: '/ladyluck',         active: true  },
+            { label: 'HISTORY', icon: '🏆', path: '/ladyluck/history', active: false },
+          ] as { label: string; icon: string; path: string; active: boolean }[]).map(item => (
             <button key={item.label}
               data-testid={`button-nav-${item.label.toLowerCase()}`}
               onClick={() => navigate(item.path)}
               style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
               <span style={{ fontSize: 16, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.icon}</span>
               <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: 1, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.label}</span>
-              {item.badge > 0 && (
-                <div style={{ position: 'absolute', top: 6, right: '22%', width: 14, height: 14, borderRadius: '50%', background: '#e53935', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700 }}>{item.badge}</div>
-              )}
             </button>
           ))}
         </div>
+
+        {/* ── RULES MODAL ── */}
+        {showRules && (
+          <div onClick={() => setShowRules(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px' }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: 'rgba(18,12,8,0.96)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 18, padding: '22px 20px 18px', maxWidth: 360, width: '100%', boxShadow: '0 0 40px rgba(201,162,39,0.18), 0 8px 32px rgba(0,0,0,0.8)' }}>
+              {/* Crown + title */}
+              <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                <img src="/crews/icon-crown.png" alt="" style={{ width: 42, height: 42, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 10px' }} />
+                <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 22, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 60%,#7a5a10 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                  LADY LUCK
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.6)', letterSpacing: 3, marginTop: 4 }}>HOW TO PLAY</div>
+              </div>
+              {/* Rules list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                {[
+                  { icon: '♛', text: '4 Queens race to 9 card flips. Each flip reveals a card that advances one queen.' },
+                  { icon: '🃏', text: 'Cards flip one at a time from a shuffled deck. The suit on the card earns a flip for that queen.' },
+                  { icon: '💰', text: 'Pick your queen and wager chips before the race begins. First to 9 flips wins the pot.' },
+                  { icon: '🎲', text: 'Side bets: pick any suit to win 2.5× your bet if that queen finishes first.' },
+                  { icon: '👑', text: 'Selection order goes clockwise — the dealer picks last. Choose wisely.' },
+                ].map(({ icon, text }) => (
+                  <div key={icon} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>{text}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Divider */}
+              <div style={{ height: 1, background: 'linear-gradient(90deg,transparent,rgba(201,162,39,0.35),transparent)', marginBottom: 14 }} />
+              {/* Close button */}
+              <button onClick={() => setShowRules(false)} data-testid="button-rules-close"
+                style={{ width: '100%', background: 'rgba(201,162,39,0.12)', border: '1px solid rgba(201,162,39,0.35)', borderRadius: 10, padding: '11px 0', fontFamily: 'monospace', fontSize: 11, color: '#C9A227', cursor: 'pointer', letterSpacing: 2 }}>
+                GOT IT
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

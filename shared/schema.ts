@@ -490,3 +490,28 @@ export const insertHouseRakeLogSchema = createInsertSchema(houseRakeLogs).omit({
 
 export type InsertHouseRakeLog = z.infer<typeof insertHouseRakeLogSchema>;
 export type HouseRakeLog = typeof houseRakeLogs.$inferSelect;
+
+// ─── Lady Luck Race Results (append-only) ─────────────────────────────────────
+export interface LLSeatResult {
+  playerId:   string;
+  playerName: string;
+  pickedSuit: string;
+  wager:      number;
+  won:        boolean;
+  chipChange: number;
+}
+
+export const ladyluckRaceResults = pgTable("ladyluck_race_results", {
+  id:           serial("id").primaryKey(),
+  tableId:      text("table_id").notNull(),
+  roomType:     text("room_type").notNull(),
+  winningSuit:  text("winning_suit").notNull(),
+  flippedCards: jsonb("flipped_cards").notNull().$type<{ rank: string; suit: string }[]>(),
+  seatResults:  jsonb("seat_results").notNull().$type<LLSeatResult[]>(),
+  playedAt:     timestamp("played_at").defaultNow().notNull(),
+}, (table) => [
+  index("ll_race_results_played_idx").on(table.playedAt),
+  index("ll_race_results_room_idx").on(table.roomType),
+]);
+
+export type LadyLuckRaceResult = typeof ladyluckRaceResults.$inferSelect;

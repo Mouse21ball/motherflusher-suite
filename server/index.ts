@@ -12,7 +12,7 @@ import { generalApiRateLimit } from "./middleware/rateLimits";
 import { seedCosmeticItems } from "./storage";
 import { db } from "./db";
 import { purchaseTransactions, playerProfiles } from "../shared/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -131,6 +131,26 @@ app.use((req, res, next) => {
 (async () => {
   await seedCosmeticItems();
   console.log('[seed] Cosmetic items checked/seeded.');
+
+  // Ensure ladyluck_race_results table exists (direct SQL to avoid interactive db:push)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ladyluck_race_results (
+        id            SERIAL PRIMARY KEY,
+        table_id      TEXT        NOT NULL,
+        room_type     TEXT        NOT NULL,
+        winning_suit  TEXT        NOT NULL,
+        flipped_cards JSONB       NOT NULL,
+        seat_results  JSONB       NOT NULL,
+        played_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS ll_race_results_played_idx ON ladyluck_race_results (played_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS ll_race_results_room_idx   ON ladyluck_race_results (room_type)`);
+    console.log('[startup] ladyluck_race_results table ensured.');
+  } catch (tableErr: any) {
+    console.error('[startup] Failed to ensure ladyluck_race_results table:', tableErr.message);
+  }
 
   // ONE-TIME CLEANUP (2026-05-30): Reset purchase_transaction rows that were marked
   // "rejected" due to the missing googleapis bundle crash (all rows from the era before

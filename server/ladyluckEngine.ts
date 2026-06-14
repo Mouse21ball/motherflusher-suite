@@ -758,6 +758,29 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
     }).catch(console.error);
   }
 
+  // ── Log race result for history/stats ──────────────────────────────────────
+  try {
+    const seatResults = state.players
+      .filter(p => p.presence === 'human')
+      .map(p => ({
+        playerId:   p.id,
+        playerName: p.name,
+        pickedSuit: p.suit ?? 'none',
+        wager:      p.wager,
+        won:        p.suit === winningSuit,
+        chipChange: p.suit === winningSuit ? winnerPot - p.wager : -p.wager,
+      }));
+    await storage.logLadyLuckRace({
+      tableId,
+      roomType:     state.roomType,
+      winningSuit,
+      flippedCards: state.flippedCards,
+      seatResults,
+    });
+  } catch (e) {
+    console.error('[LadyLuck] Failed to log race result:', e);
+  }
+
   // ── Update chip totals for human players so RESULTS UI shows live balances ─
   for (const p of state.players) {
     if (p.presence === 'human') {

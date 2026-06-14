@@ -2703,6 +2703,21 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/ladyluck/history?playerId=X&limit=20
+  app.get("/api/ladyluck/history", async (req, res) => {
+    try {
+      const playerId = (req.query.playerId as string | undefined)?.trim();
+      const limit    = Math.min(parseInt((req.query.limit as string) ?? "20", 10) || 20, 50);
+      const [personal, stats] = await Promise.all([
+        playerId ? storage.getLadyLuckPersonalHistory(playerId, limit) : Promise.resolve([]),
+        storage.getLadyLuckStats(),
+      ]);
+      res.json({ personal, stats });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/admin/audit-log?limit=&offset=&actionType=&adminId=
   app.get("/api/admin/audit-log", requireAdmin, async (req, res) => {
     try {

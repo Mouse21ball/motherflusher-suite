@@ -24,6 +24,8 @@ import {
   type PlayerReport,
   adminActions,
   houseRakeLogs,
+  ladyluckRaceResults,
+  type LLSeatResult,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
@@ -216,6 +218,23 @@ export interface IStorage {
   removeAgent(crewId: string, ownerId: string, targetPlayerId: string): Promise<void>;
   getPublicClubs(): Promise<{ id: string; name: string; clubId: string; memberCount: number; chipBank: number; inviteCode: string }[]>;
   getClubChipRequests(crewId: string, options: { pendingOnly: boolean; playerId?: string }): Promise<{ id: number; playerId: string; playerName: string; amount: number; status: string; requestedAt: Date; resolvedAt: Date | null }[]>;
+  // ── Lady Luck Race History ──────────────────────────────────────────────────
+  logLadyLuckRace(params: {
+    tableId: string;
+    roomType: string;
+    winningSuit: string;
+    flippedCards: { rank: string; suit: string }[];
+    seatResults: LLSeatResult[];
+  }): Promise<void>;
+  getLadyLuckPersonalHistory(playerId: string, limit: number): Promise<{
+    id: number; tableId: string; roomType: string; winningSuit: string; playedAt: Date;
+    myResult: { pickedSuit: string; wager: number; won: boolean; chipChange: number } | null;
+  }[]>;
+  getLadyLuckStats(): Promise<{
+    queens: Record<string, number>;
+    totalRaces: number;
+    cards: Record<string, Record<string, number>>;
+  }>;
 }
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
@@ -3029,6 +3048,72 @@ export class MemStorage implements IStorage {
       .orderBy(desc(adminActions.createdAt))
       .limit(opts.limit)
       .offset(opts.offset);
+  }
+
+  // ── Lady Luck Race History ──────────────────────────────────────────────────
+
+  async logLadyLuckRace(params: {
+    tableId: string;
+    roomType: string;
+    winningSuit: string;
+    flippedCards: { rank: string; suit: string }[];
+    seatResults: LLSeatResult[];
+  }): Promise<void> {
+    await db.insert(ladyluckRaceResults).values({
+      tableId:      params.tableId,
+      roomType:     params.roomType,
+      winningSuit:  params.winningSuit,
+      flippedCards: params.flippedCards,
+      seatResults:  params.seatResults,
+    });
+  }
+
+  async getLadyLuckPersonalHistory(playerId: string, limit: number): Promise<{
+    id: number; tableId: string; roomType: string; winningSuit: string; playedAt: Date;
+    myResult: { pickedSuit: string; wager: number; won: boolean; chipChange: number } | null;
+  }[]> {
+    const rows = await db
+      .select()
+      .from(ladyluckRaceResults)
+      .where(sql`${ladyluckRaceResults.seatResults} @> ${JSON.stringify([{ playerId }])}::jsonb`)
+      .orderBy(desc(ladyluckRaceResults.playedAt))
+      .limit(limit);
+
+    return rows.map(row => {
+      const seats = row.seatResults as LLSeatResult[];
+      const seat  = seats.find(s => s.playerId === playerId) ?? null;
+      return {
+        id:          row.id,
+        tableId:     row.tableId,
+        roomType:    row.roomType,
+        winningSuit: row.winningSuit,
+        playedAt:    row.playedAt,
+        myResult:    seat ? { pickedSuit: seat.pickedSuit, wager: seat.wager, won: seat.won, chipChange: seat.chipChange } : null,
+      };
+    });
+  }
+
+  async getLadyLuckStats(): Promise<{
+    queens: Record<string, number>;
+    totalRaces: number;
+    cards: Record<string, Record<string, number>>;
+  }> {
+    const rows = await db
+      .select({ winningSuit: ladyluckRaceResults.winningSuit, flippedCards: ladyluckRaceResults.flippedCards })
+      .from(ladyluckRaceResults);
+
+    const queens: Record<string, number> = { spades: 0, hearts: 0, diamonds: 0, clubs: 0 };
+    const cards:  Record<string, Record<string, number>> = {};
+
+    for (const row of rows) {
+      queens[row.winningSuit] = (queens[row.winningSuit] ?? 0) + 1;
+      for (const card of (row.flippedCards as { rank: string; suit: string }[])) {
+        if (!cards[card.rank]) cards[card.rank] = { spades: 0, hearts: 0, diamonds: 0, clubs: 0 };
+        cards[card.rank][card.suit] = (cards[card.rank][card.suit] ?? 0) + 1;
+      }
+    }
+
+    return { queens, totalRaces: rows.length, cards };
   }
 }
 
