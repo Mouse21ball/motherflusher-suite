@@ -556,8 +556,9 @@ export default function LadyLuck() {
     return (
       <div style={{
         minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
+        backgroundColor: '#120c08',
         backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
-        backgroundPosition: 'center', backgroundAttachment: 'fixed', background: '#120c08',
+        backgroundPosition: 'center', backgroundAttachment: 'fixed',
       }}>
         <style>{`@keyframes ll-lob-pulse { 0%,100%{opacity:0.7} 50%{opacity:1} }`}</style>
 
