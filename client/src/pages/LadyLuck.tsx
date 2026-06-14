@@ -186,8 +186,9 @@ export default function LadyLuck() {
   const [joining, setJoining]     = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [wagerAmt, setWagerAmt]   = useState(0);
-  const [sideBetSuit, setSideBetSuit] = useState<LadyLuckSuit | null>(null);
-  const [sideBetAmt, setSideBetAmt]   = useState(0);
+  const [sideBetSuit, setSideBetSuit]             = useState<LadyLuckSuit | null>(null);
+  const [sideBetAmt, setSideBetAmt]               = useState(0);
+  const [selectedQueenPreview, setSelectedQueenPreview] = useState<LadyLuckSuit | null>(null);
 
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
@@ -319,67 +320,188 @@ export default function LadyLuck() {
 
   // ── ROOM SELECTION (no tableId) ─────────────────────────────────────────────
   if (!tableId) {
+    const QUEEN_PORTRAITS: Record<string, string> = {
+      spades:   '/cosmetics/avatars/bandana-black.png',
+      hearts:   '/cosmetics/avatars/bandana-red.png',
+      diamonds: '/cosmetics/avatars/classy-girl.png',
+      clubs:    '/cosmetics/avatars/urban-2.png',
+    };
+    const TIER_ROWS: { id: LadyLuckRoom; color: string; darkBg: string; horseBg: string }[] = [
+      { id: 'pony',         color: '#10b981', darkBg: 'rgba(5,46,29,0.9)',  horseBg: 'linear-gradient(135deg,#0a2e18 0%,#1a5c2e 60%,#051a0e 100%)' },
+      { id: 'thoroughbred', color: '#d97706', darkBg: 'rgba(46,29,5,0.9)', horseBg: 'linear-gradient(135deg,#2e1a05 0%,#5c3a0a 60%,#1a0e02 100%)' },
+      { id: 'champion',     color: '#dc2626', darkBg: 'rgba(46,5,5,0.9)',  horseBg: 'linear-gradient(135deg,#2e0808 0%,#5c1010 60%,#1a0404 100%)' },
+    ];
+    const chipBalance = (() => { try { const v = localStorage.getItem('cgp_balance'); return v ? Number(v).toLocaleString() : '—'; } catch { return '—'; } })();
+
     return (
-      <div style={{ minHeight: '100dvh', background: '#0d0d16', color: '#fff', display: 'flex', flexDirection: 'column' }}>
-        <style>{`@keyframes ll-card-appear { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }`}</style>
+      <div style={{ minHeight: '100dvh', background: '#120c08', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
+        <style>{`
+          @keyframes ll-glow-pulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
+          @keyframes ll-fade-up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        `}</style>
 
-        {/* Header */}
-        <div style={{ padding: '16px 16px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* ── HEADER ── */}
+        <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(201,162,39,0.15)', position: 'sticky', top: 0, zIndex: 10 }}>
           <button onClick={() => navigate('/')} data-testid="button-back-home"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}>
-            ← Home
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.7)', fontSize: 10, cursor: 'pointer', fontFamily: 'monospace', letterSpacing: 1, flexShrink: 0 }}>
+            ← BACK
           </button>
-          <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 26, color: '#e53935', letterSpacing: 2 }}>LADY LUCK</div>
-        </div>
-        <div style={{ padding: '4px 16px 12px', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 2 }}>PICK YOUR QUEEN. RUN THE RACE.</div>
-
-        {/* Queen nicknames preview */}
-        <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px' }}>
-          {SUITS.map(suit => (
-            <div key={suit} style={{
-              flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${SUIT_BG_COLORS[suit] === '#e53935' ? '#e5393528' : 'rgba(255,255,255,0.07)'}`,
-              borderRadius: 10, padding: '8px 6px', textAlign: 'center',
-            }}>
-              <div style={{ fontSize: 20, color: SUIT_BG_COLORS[suit] }}>{SUIT_SYMBOLS[suit]}</div>
-              <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.45)', marginTop: 3, lineHeight: 1.4 }}>{QUEEN_NICKNAMES[suit]}</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <span style={{ fontSize: 11, opacity: 0.7 }}>⚙</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 3 }}>CGP SHOP</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(201,162,39,0.12)', border: '1px solid rgba(201,162,39,0.22)', borderRadius: 14, padding: '4px 8px' }}>
+              <span style={{ fontSize: 10 }}>⚙</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', fontWeight: 700 }}>{chipBalance}</span>
             </div>
-          ))}
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>💬</div>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>?</div>
+          </div>
         </div>
 
-        {/* Room cards */}
-        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {(Object.entries(ROOM_CFGS) as [LadyLuckRoom, typeof ROOM_CFGS[LadyLuckRoom]][]).map(([id, cfg]) => (
-            <div key={id} data-testid={`card-room-${id}`}
-              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.color}44`, borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 19, color: cfg.color, letterSpacing: 1 }}>{cfg.label}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>WAGER {cfg.range} CHIPS</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 2 }}>SIDE BET MAX {cfg.sideBetMax.toLocaleString()} · PAYS 2.5×</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.18)', marginTop: 3 }}>
-                  {roomCounts[id] > 0 ? `${roomCounts[id]} players online` : 'No active tables'}
+        {/* ── HERO ── */}
+        <div style={{ position: 'relative', textAlign: 'center', padding: '18px 16px 14px', background: 'linear-gradient(180deg,#1c0e06 0%,#120a04 100%)', overflow: 'hidden' }}>
+          {/* Atmospheric radial glow */}
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 70% at 50% 30%, rgba(201,162,39,0.09) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          {/* Crown */}
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', animation: 'll-glow-pulse 3s ease-in-out infinite', marginBottom: 4, position: 'relative' }} />
+          {/* LADY LUCK title */}
+          <div style={{
+            fontFamily: 'Anton, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 3,
+            background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 72%,#C9A227 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            lineHeight: 0.95, marginBottom: 8, position: 'relative',
+          }}>
+            LADY LUCK
+          </div>
+          {/* Subtitle with decorative lines */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', position: 'relative' }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A227', letterSpacing: 3, whiteSpace: 'nowrap' }}>PICK YOUR QUEEN. RUN THE RACE.</span>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
+          </div>
+          {/* LOYALTY NEVER LEAVES — right side vertical banner */}
+          <div style={{
+            position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%) rotate(90deg)',
+            fontFamily: 'monospace', fontSize: 6, letterSpacing: 3, color: '#C9A22788',
+            background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(201,162,39,0.18)',
+            padding: '3px 7px', whiteSpace: 'nowrap', borderRadius: 3, transformOrigin: 'center center',
+          }}>
+            LOYALTY NEVER LEAVES
+          </div>
+        </div>
+
+        {/* ── QUEEN CARDS ── */}
+        <div style={{ padding: '10px 12px 6px', display: 'flex', gap: 7, animation: 'll-fade-up 0.4s ease-out' }}>
+          {SUITS.map(suit => {
+            const isSel   = selectedQueenPreview === suit;
+            const pip     = SUIT_BG_COLORS[suit];
+            return (
+              <button key={suit}
+                data-testid={`button-queen-preview-${suit}`}
+                onClick={() => setSelectedQueenPreview(isSel ? null : suit as LadyLuckSuit)}
+                style={{ flex: 1, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <div style={{
+                  width: '100%', aspectRatio: '2/3', borderRadius: 10, overflow: 'hidden', position: 'relative',
+                  border: `2px solid ${isSel ? pip : 'rgba(255,255,255,0.12)'}`,
+                  boxShadow: isSel ? `0 0 18px ${pip}55, 0 0 5px ${pip}30` : '0 3px 10px rgba(0,0,0,0.7)',
+                  background: '#0d0d1e', transition: 'border-color 0.2s, box-shadow 0.2s',
+                }}>
+                  {/* Suit pip corner */}
+                  <div style={{ position: 'absolute', top: 4, left: 5, fontSize: 10, color: pip, fontWeight: 900, lineHeight: 1, zIndex: 2, textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                    {SUIT_SYMBOLS[suit]}
+                  </div>
+                  {/* Portrait */}
+                  <img src={QUEEN_PORTRAITS[suit]} alt={QUEEN_NICKNAMES[suit]}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', filter: 'brightness(0.82) contrast(1.1)' }} />
+                  {/* Bottom gradient */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 45%,rgba(0,0,0,0.75) 100%)', pointerEvents: 'none' }} />
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 6, letterSpacing: 0.5, color: isSel ? pip : 'rgba(255,255,255,0.52)', textAlign: 'center', textTransform: 'uppercase', lineHeight: 1.3 }}>
+                  {QUEEN_NICKNAMES[suit].toUpperCase()}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── RACE TIERS ── */}
+        <div style={{ padding: '6px 12px 0', display: 'flex', flexDirection: 'column', gap: 8, animation: 'll-fade-up 0.4s ease-out 0.1s both' }}>
+          {TIER_ROWS.map(({ id, color, darkBg, horseBg }) => {
+            const cfg = ROOM_CFGS[id];
+            return (
+              <div key={id} data-testid={`card-room-${id}`} style={{
+                background: darkBg, border: `1px solid ${color}45`,
+                borderRadius: 14, overflow: 'hidden', display: 'flex', alignItems: 'stretch',
+                boxShadow: `0 2px 14px ${color}18`,
+              }}>
+                {/* Horse portrait */}
+                <div style={{ width: 84, flexShrink: 0, background: horseBg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                  <span style={{ fontSize: 48, lineHeight: 1, filter: `drop-shadow(0 0 10px ${color}70)`, transform: 'scaleX(-1)', opacity: 0.88 }}>🐎</span>
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg,transparent 55%,${darkBg})` }} />
+                </div>
+                {/* Info + button */}
+                <div style={{ flex: 1, padding: '11px 10px 11px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 17, color, letterSpacing: 1, lineHeight: 1 }}>{cfg.label}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>WAGER {cfg.range} CHIPS</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, color: `${color}99`, marginTop: 2 }}>SIDE BET MAX {cfg.sideBetMax.toLocaleString()} · PAYS 2.5×</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.28)', marginTop: 3 }}>
+                      {roomCounts[id] > 0 ? `${roomCounts[id]} players online` : 'No active tables'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <button data-testid={`button-join-${id}`}
+                      onClick={() => handleJoinRoom(id)}
+                      disabled={joining}
+                      style={{ background: color, color: '#fff', border: 'none', borderRadius: 9, padding: '10px 13px', fontWeight: 800, fontSize: 12, cursor: joining ? 'not-allowed' : 'pointer', letterSpacing: 1, opacity: joining ? 0.55 : 1, lineHeight: 1, boxShadow: `0 2px 8px ${color}55` }}>
+                      JOIN
+                    </button>
+                    <span style={{ color, fontSize: 15, fontWeight: 700, lineHeight: 1 }}>›</span>
+                  </div>
                 </div>
               </div>
-              <button
-                data-testid={`button-join-${id}`}
-                onClick={() => handleJoinRoom(id)}
-                disabled={joining}
-                style={{ background: cfg.color, color: '#fff', border: 'none', borderRadius: 22, padding: '10px 20px', fontWeight: 800, fontSize: 13, cursor: joining ? 'not-allowed' : 'pointer', letterSpacing: 1, opacity: joining ? 0.6 : 1, flexShrink: 0 }}>
-                JOIN
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
+        {/* join error */}
         {joinError && (
-          <div style={{ margin: '12px 16px 0', background: 'rgba(229,57,53,0.12)', border: '1px solid #e5393560', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b' }}>
+          <div style={{ margin: '8px 12px 0', background: 'rgba(229,57,53,0.12)', border: '1px solid #e5393560', borderRadius: 10, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: '#ff6b6b' }}>
             ✕ {joinError}
           </div>
         )}
 
-        <div style={{ margin: '14px 16px 24px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, padding: '10px 14px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)', lineHeight: 1.8 }}>
-            4 Queens race to 9 card flips. Pick clockwise — dealer gets last. Wager chips, place side bets. First to 9 wins the pot. Side bets pay 2.5×.
+        {/* ── RULES FOOTER ── */}
+        <div style={{ margin: '10px 12px', background: 'rgba(201,162,39,0.06)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/crews/icon-crown.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.1)', flexShrink: 0 }} />
+          <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.72)', lineHeight: 1.75 }}>
+            4 Queens race to 9 card flips. Pick clockwise — dealer gets last. Wager chips, place side bets.{' '}
+            <span style={{ color: '#C9A227', fontWeight: 700 }}>FIRST TO 9 WINS THE POT. SIDE BETS PAY 2.5×.</span>
           </div>
+          <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', border: '1px solid rgba(201,162,39,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anton, Impact, sans-serif', fontSize: 10, color: '#C9A227', letterSpacing: 1 }}>CGP</div>
+        </div>
+
+        {/* ── BOTTOM NAV ── */}
+        <div style={{ marginTop: 'auto', background: 'rgba(8,6,4,0.97)', borderTop: '1px solid rgba(201,162,39,0.18)', display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {([
+            { label: 'HOME',    icon: '⌂',   path: '/',      active: true,  badge: 0 },
+            { label: 'LOBBY',   icon: '☆',   path: '/',      active: false, badge: 0 },
+            { label: 'HISTORY', icon: '🏆',  path: '/',      active: false, badge: 2 },
+            { label: 'MORE',    icon: '···', path: '/',      active: false, badge: 0 },
+          ] as { label: string; icon: string; path: string; active: boolean; badge: number }[]).map(item => (
+            <button key={item.label}
+              data-testid={`button-nav-${item.label.toLowerCase()}`}
+              onClick={() => navigate(item.path)}
+              style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
+              <span style={{ fontSize: 16, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.icon}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: 1, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.label}</span>
+              {item.badge > 0 && (
+                <div style={{ position: 'absolute', top: 6, right: '22%', width: 14, height: 14, borderRadius: '50%', background: '#e53935', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#fff', fontWeight: 700 }}>{item.badge}</div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
     );
