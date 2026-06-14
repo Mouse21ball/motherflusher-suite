@@ -355,13 +355,22 @@ export function handleLLSelect(tableId: string, playerId: string, suit: LadyLuck
 function advancePickIndex(tableId: string, meta: LLTableMeta) {
   const { state } = meta;
   const count = state.players.length;
-  const next  = (state.currentPickIndex + 1) % count;
+
+  // If all suits are claimed (including just now), transition immediately to WAGER
+  const remaining = SUITS.filter(s => !state.claimedSuits.includes(s));
+  if (remaining.length === 0) {
+    state.currentPickIndex = -1;
+    state.phase = 'WAGER';
+    scheduleAllBotWagers(tableId);
+    return;
+  }
+
+  const next = (state.currentPickIndex + 1) % count;
 
   if (next === state.dealerIndex) {
-    const remaining = SUITS.filter(s => !state.claimedSuits.includes(s));
     const dealerIsBot = state.players[state.dealerIndex]?.presence === 'bot';
     if (remaining.length === 1 && dealerIsBot) {
-      // Only auto-assign last suit to the dealer if the dealer is a bot
+      // Auto-assign last suit to bot dealer
       state.players[state.dealerIndex].suit = remaining[0];
       state.claimedSuits.push(remaining[0]);
       state.currentPickIndex = -1;
@@ -369,7 +378,7 @@ function advancePickIndex(tableId: string, meta: LLTableMeta) {
       scheduleAllBotWagers(tableId);
       return;
     }
-    // Human dealer (or multiple suits remain) — must pick manually
+    // Human dealer with suits remaining — must pick manually
     state.currentPickIndex = next;
   } else {
     state.currentPickIndex = next;
