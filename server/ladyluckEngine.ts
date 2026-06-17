@@ -71,6 +71,12 @@ function broadcast(meta: LLTableMeta, msg: object) {
       try { ws.send(payload); } catch {}
     }
   }
+  // Bug fix: spectators must also receive ll:flip events during the race
+  for (const sp of meta.spectators.values()) {
+    if (sp.ws.readyState === WebSocket.OPEN) {
+      try { sp.ws.send(payload); } catch {}
+    }
+  }
 }
 
 function broadcastState(meta: LLTableMeta) {
@@ -246,6 +252,24 @@ function doStart(tableId: string): void {
 
   broadcastState(meta);
   scheduleNextBotPick(tableId);
+}
+
+/** Find an existing joinable LOBBY table for this tier, or create a brand-new one.
+ *  Runs synchronously — safe from race conditions in Node.js's single-threaded runtime. */
+export function findOrCreateLLTable(roomType: LadyLuckRoom, hostId: string): string {
+  for (const [tableId, meta] of tables.entries()) {
+    if (
+      meta.state.roomType === roomType &&
+      meta.state.phase === 'LOBBY' &&
+      meta.state.players.filter(p => p.presence !== 'open').length < 4
+    ) {
+      return tableId; // reuse existing open lobby
+    }
+  }
+  // No joinable table found — create a fresh one
+  const tableId = `ll_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  createLLTable(tableId, roomType, hostId);
+  return tableId;
 }
 
 export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; playerCount: number; isFull: boolean; spectatorCount: number }[] {
@@ -587,7 +611,28 @@ export function handleLLSpectate(
     return;
   }
   meta.spectators.set(userId, { userId, username, avatar, ws });
-  broadcastState(meta); // updates spectatorCount + sends state to everyone incl. new spectator
+  // Bug fix: only push the current state to the NEW spectator — do NOT call
+  // broadcastState() here because that would send ll:state to all existing players
+  // during a RACE, resetting their client-side card-flip animation state and
+  // freezing the race for everyone.
+  meta.state.spectatorCount = meta.spectators.size;
+  const payload = JSON.stringify({ type: 'll:state', state: meta.state });
+  if (ws.readyState === WebSocket.OPEN) {
+    try { ws.send(payload); } catch {}
+  }
+  // Nudge existing players/spectators with the updated spectator count only
+  const countMsg = JSON.stringify({ type: 'll:spectator_count', count: meta.spectators.size });
+  for (const pWs of meta.connections.values()) {
+    if (pWs.readyState === WebSocket.OPEN) {
+      try { pWs.send(countMsg); } catch {}
+    }
+  }
+  for (const sp of meta.spectators.values()) {
+    if (sp.userId === userId) continue; // already sent full state above
+    if (sp.ws.readyState === WebSocket.OPEN) {
+      try { sp.ws.send(countMsg); } catch {}
+    }
+  }
 }
 
 // ── ll:spectator_sidebet ──────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ const verifyPlayWebhook         = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_PLAY
 const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
-import { createLLTable, getLLActiveTables } from "./ladyluckEngine";
+import { createLLTable, getLLActiveTables, findOrCreateLLTable } from "./ladyluckEngine";
 import { filterChatMessage } from "./chatFilter";
 import {
   STRIPES_PACKS,
@@ -2678,15 +2678,16 @@ export async function registerRoutes(
 
   // ── Lady Luck endpoints ──────────────────────────────────────────────────────
 
-  // POST /api/ladyluck/tables — create a Lady Luck table
+  // POST /api/ladyluck/tables — find-or-create a Lady Luck table for this tier
   app.post("/api/ladyluck/tables", requireAuth, async (req, res) => {
     try {
       const { roomType } = z.object({
         roomType: z.enum(['pony', 'thoroughbred', 'champion']),
       }).parse(req.body);
-      const tableId = `ll_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const hostId  = req.sessionPlayerId!;
-      createLLTable(tableId, roomType, hostId);
+      // Bug fix: reuse an existing open LOBBY table for this tier instead of always
+      // creating a fresh one — this is how multiplayer matchmaking works correctly.
+      const tableId = findOrCreateLLTable(roomType, hostId);
       res.json({ tableId });
     } catch (err: any) {
       if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' }); return; }

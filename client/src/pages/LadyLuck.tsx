@@ -259,6 +259,9 @@ export default function LadyLuck() {
               setState(msg.state as LadyLuckState);
               setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
             }
+            if (msg.type === 'll:spectator_count') {
+              setState(prev => prev ? { ...prev, spectatorCount: msg.count as number } : prev);
+            }
             if (msg.type === 'll:flip') {
               const flippedSuit = (msg.card as { suit: LadyLuckSuit }).suit;
               setFlipAnim(flippedSuit);

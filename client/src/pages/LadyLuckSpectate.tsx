@@ -199,6 +199,9 @@ export default function LadyLuckSpectate() {
           try {
             const msg = JSON.parse(e.data as string);
             if (msg.type === 'll:state')  setState(msg.state as LadyLuckState);
+            if (msg.type === 'll:spectator_count') {
+              setState(prev => prev ? { ...prev, spectatorCount: msg.count as number } : prev);
+            }
             if (msg.type === 'll:error')  {
               if (msg.message === 'table_not_found') setNotFound(true);
               else setError(msg.message);
