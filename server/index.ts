@@ -7,6 +7,8 @@ import { initRooms } from "./rooms";
 import { initEngine } from "./gameEngine";
 import { initGenericEngine } from "./genericEngine";
 import { flushAllPending, flushAllGenericPending } from "./tablePersistence";
+import { flushAllLadyLuckPending } from "./ladyluckPersistence";
+import { initLadyLuckEngine } from "./ladyluckEngine";
 import { startGuestResetJob } from "./guestReset";
 import { generalApiRateLimit } from "./middleware/rateLimits";
 import { seedCosmeticItems } from "./storage";
@@ -20,6 +22,7 @@ function onShutdown(signal: string): void {
   console.log(`[server] ${signal} received — flushing persistence...`);
   flushAllPending();
   flushAllGenericPending();
+  flushAllLadyLuckPending();
   process.exit(0);
 }
 process.once('SIGTERM', () => onShutdown('SIGTERM'));
@@ -200,6 +203,7 @@ app.use((req, res, next) => {
 
   initEngine();              // restore persisted Badugi tables before WS server opens
   initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
+  await initLadyLuckEngine(); // restore persisted Lady Luck tables + refund crash wagers
   initRooms(httpServer);
   startGuestResetJob();      // hourly guest-account 24h reset
 

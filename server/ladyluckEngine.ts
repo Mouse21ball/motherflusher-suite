@@ -9,6 +9,7 @@ import {
   LADY_LUCK_ROOMS,
   SUITS,
 } from '../shared/modes/ladyluck';
+import { scheduleLLSave, loadPersistedLadyLuckTables } from './ladyluckPersistence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface LLSpectator {
 }
 
 interface LLTableMeta {
+  tableId: string;
   state: LadyLuckState;
   connections: Map<string, WebSocket>;
   spectators:  Map<string, LLSpectator>;
@@ -100,6 +102,7 @@ function broadcastState(meta: LLTableMeta) {
   if (serializeMs > 1 || sendMs > 1 || sentCount > 0) {
     console.log(`[LL-TIMING-SERVER] broadcastState — JSON.stringify=${serializeMs}ms, ws.send x${sentCount}=${sendMs}ms`);
   }
+  scheduleLLSave(meta.tableId, meta.state, meta.deck, meta.hostId);
 }
 
 function emptyPositions(): Record<LadyLuckSuit, number> {
@@ -129,6 +132,7 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     spectatorCount:   0,
   };
   const meta: LLTableMeta = {
+    tableId,
     state,
     connections: new Map(),
     spectators:  new Map(),
@@ -1016,5 +1020,20 @@ export function handleLLDisconnect(tableId: string, playerId: string) {
       const m = tables.get(tableId);
       if (m && m.connections.size === 0) tables.delete(tableId);
     }, 30_000);
+  }
+}
+
+// ── Boot restore ──────────────────────────────────────────────────────────────
+// Called on server startup. Reads .data/ladyluck_tables.json, issues Postgres
+// refunds for any wagers that were in-flight at crash time, then recreates each
+// surviving table as a fresh LOBBY so bot-fill and matchmaking can resume.
+
+export async function initLadyLuckEngine(): Promise<void> {
+  const entries = await loadPersistedLadyLuckTables();
+  for (const { tableId, roomType, hostId } of entries) {
+    if (!tables.has(tableId)) {
+      createLLTable(tableId, roomType, hostId ?? 'system');
+      console.log(`[LL-RECOVERY] recreated tableId=${tableId} roomType=${roomType} as fresh LOBBY`);
+    }
   }
 }

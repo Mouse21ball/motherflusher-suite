@@ -590,6 +590,17 @@ export function initRooms(httpServer: Server): WebSocketServer {
       if (llMsg.type === 'll:join') {
         const tid = llMsg.tableId; const pid = llMsg.playerId; const name = llMsg.name;
         if (!tid || !pid) return;
+        // Identity verification: claimed playerId must match the authenticated session.
+        // Without this check a malicious client could join as any other player by UUID,
+        // loading that player's chip balance and controlling their seat.
+        if (pid !== authWs.authenticatedPlayerId) {
+          console.log(
+            `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
+            `claimed_pid=${pid} msg=ll:join ip=${remoteIp} — REJECTED (identity mismatch)`,
+          );
+          try { ws.send(JSON.stringify({ type: 'll:error', message: 'Identity mismatch — cannot join as another player.' })); } catch {}
+          return;
+        }
         roomId   = tid;
         playerId = pid;
         setSeatOwner(tid, pid, authWs.authenticatedPlayerId);
