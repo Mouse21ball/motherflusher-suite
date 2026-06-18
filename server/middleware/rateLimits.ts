@@ -116,3 +116,19 @@ export const reportRateLimit = rateLimit({
     req.get('X-Session-Token') ?? ipKeyGenerator(req.ip ?? ''),
   handler:         makeHandler('You have submitted too many reports. Try again later.'),
 });
+
+// ─── g) Lady Luck table creation — 5 per player per 60 seconds ───────────────
+// findOrCreateLLTable reuses existing LOBBY tables, so a regular user joining
+// a game never creates more than one new table per session. This limit only
+// fires for automation / spam that exhausts LOBBY slots faster than bots fill
+// them.  Keyed by session token so authenticated players can't evade via proxy.
+
+export const ladyLuckTableCreateLimit = rateLimit({
+  windowMs:        60 * 1000,
+  limit:           5,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    (req: Request) =>
+    req.get('X-Session-Token') ?? ipKeyGenerator(req.ip ?? ''),
+  handler:         makeHandler('Too many table creation attempts. Please wait a moment.'),
+});

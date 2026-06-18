@@ -8,6 +8,7 @@ import {
   purchaseVerificationRateLimit,
   generalApiRateLimit,
   reportRateLimit,
+  ladyLuckTableCreateLimit,
 } from "./middleware/rateLimits";
 import { z } from "zod";
 import {
@@ -2681,7 +2682,7 @@ export async function registerRoutes(
   // ── Lady Luck endpoints ──────────────────────────────────────────────────────
 
   // POST /api/ladyluck/tables — find-or-create a Lady Luck table for this tier
-  app.post("/api/ladyluck/tables", requireAuth, async (req, res) => {
+  app.post("/api/ladyluck/tables", requireAuth, ladyLuckTableCreateLimit, async (req, res) => {
     const t0 = Date.now();
     console.log(`[LL-TIMING-SERVER] POST /api/ladyluck/tables — request received, requireAuth passed at ${t0}`);
     try {
