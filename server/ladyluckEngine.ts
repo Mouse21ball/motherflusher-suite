@@ -81,16 +81,24 @@ function broadcast(meta: LLTableMeta, msg: object) {
 
 function broadcastState(meta: LLTableMeta) {
   meta.state.spectatorCount = meta.spectators.size;
+  const serializeStart = Date.now();
   const payload = JSON.stringify({ type: 'll:state', state: meta.state });
+  const serializeMs = Date.now() - serializeStart;
+  const sendStart = Date.now();
+  let sentCount = 0;
   for (const ws of meta.connections.values()) {
     if (ws.readyState === WebSocket.OPEN) {
-      try { ws.send(payload); } catch {}
+      try { ws.send(payload); sentCount++; } catch {}
     }
   }
   for (const sp of meta.spectators.values()) {
     if (sp.ws.readyState === WebSocket.OPEN) {
-      try { sp.ws.send(payload); } catch {}
+      try { sp.ws.send(payload); sentCount++; } catch {}
     }
+  }
+  const sendMs = Date.now() - sendStart;
+  if (serializeMs > 1 || sendMs > 1 || sentCount > 0) {
+    console.log(`[LL-TIMING-SERVER] broadcastState — JSON.stringify=${serializeMs}ms, ws.send x${sentCount}=${sendMs}ms`);
   }
 }
 
@@ -301,7 +309,11 @@ export function handleLLJoin(
   chips: number,
   ws: WebSocket,
 ): void {
+  const joinStart = Date.now();
+  const t0 = joinStart;
+
   const meta = tables.get(tableId);
+  console.log(`[LL-TIMING-SERVER] handleLLJoin — tables.get(tableId) took ${Date.now() - t0}ms, found=${!!meta}`);
   if (!meta) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'table_not_found' })); } catch {}
     return;
@@ -310,6 +322,7 @@ export function handleLLJoin(
 
   meta.connections.set(playerId, ws);
 
+  const t1 = Date.now();
   const existing = state.players.find(p => p.id === playerId);
   if (!existing) {
     if (state.phase === 'LOBBY') {
@@ -354,9 +367,13 @@ export function handleLLJoin(
     existing.chips = chips;
   }
 
+  console.log(`[LL-TIMING-SERVER] handleLLJoin — player lookup+append took ${Date.now() - t1}ms (existing=${!!existing})`);
+
   if (!meta.hostId) meta.hostId = playerId;
 
+  const broadcastStart = Date.now();
   broadcastState(meta);
+  console.log(`[LL-TIMING-SERVER] handleLLJoin — broadcastState call took ${Date.now() - broadcastStart}ms, total handleLLJoin=${Date.now() - joinStart}ms`);
 }
 
 // ── ll:start ──────────────────────────────────────────────────────────────────

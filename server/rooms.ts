@@ -298,8 +298,11 @@ export function initRooms(httpServer: Server): WebSocketServer {
         return;
       }
 
+      const sessionLookupStart = Date.now();
       storage.getSession(token)
         .then(session => {
+          const sessionLookupMs = Date.now() - sessionLookupStart;
+          console.log(`[LL-TIMING-SERVER] verifyClient — storage.getSession took ${sessionLookupMs}ms, found=${!!session}`);
           if (!session) {
             console.warn(`[WS AUTH] ${at} ip=${ip} reason=invalid_or_expired_token — rejected`);
             done(false, 401, 'Unauthorized');
@@ -308,6 +311,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           // Attach authenticated identity to request for use in connection handler
           (info.req as any).authenticatedPlayerId = session.playerId;
           (info.req as any).sessionExpiresAt      = session.expiresAt;
+          console.log(`[LL-TIMING-SERVER] verifyClient — done(true) called, HTTP 101 upgrade proceeding at ${Date.now()} (total verifyClient=${Date.now() - sessionLookupStart + sessionLookupMs}ms)`);
           done(true);
         })
         .catch(err => {
@@ -320,6 +324,8 @@ export function initRooms(httpServer: Server): WebSocketServer {
   setInterval(pruneRooms, 60 * 60 * 1000);
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    const connectedAt = Date.now();
+    console.log(`[LL-TIMING-SERVER] wss.on('connection') fired at ${connectedAt}`);
     const authWs = ws as AuthenticatedWs;
     authWs.authenticatedPlayerId = (req as any).authenticatedPlayerId as string;
     authWs.sessionExpiresAt      = (req as any).sessionExpiresAt      as Date;
@@ -334,6 +340,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
     }, 25000);
+    console.log(`[LL-TIMING-SERVER] wss.on('connection') — ping timer setup complete, took ${Date.now() - connectedAt}ms`);
 
     // ── Session expiration check ─────────────────────────────────────────────
     // Fires every 60 s. If the session has expired mid-game, the server sends

@@ -724,8 +724,10 @@ export async function registerRoutes(
   // WebSocket upgrade URL (?token=…). requireAuth has already validated the
   // token; we read it back from the header and echo it to the caller.
   app.get("/api/auth/ws-token", requireAuth, (req, res) => {
+    const t0  = Date.now();
     const raw   = req.headers["x-session-token"];
     const token = Array.isArray(raw) ? raw[0] : (raw ?? null);
+    console.log(`[LL-TIMING-SERVER] GET /api/auth/ws-token — requireAuth+header-read took ${Date.now() - t0}ms`);
     res.json({ token });
   });
 
@@ -2680,14 +2682,19 @@ export async function registerRoutes(
 
   // POST /api/ladyluck/tables — find-or-create a Lady Luck table for this tier
   app.post("/api/ladyluck/tables", requireAuth, async (req, res) => {
+    const t0 = Date.now();
+    console.log(`[LL-TIMING-SERVER] POST /api/ladyluck/tables — request received, requireAuth passed at ${t0}`);
     try {
       const { roomType } = z.object({
         roomType: z.enum(['pony', 'thoroughbred', 'champion']),
       }).parse(req.body);
       const hostId  = req.sessionPlayerId!;
+      const t1 = Date.now();
+      console.log(`[LL-TIMING-SERVER] POST /api/ladyluck/tables — Zod parse took ${t1 - t0}ms`);
       // Bug fix: reuse an existing open LOBBY table for this tier instead of always
       // creating a fresh one — this is how multiplayer matchmaking works correctly.
       const tableId = findOrCreateLLTable(roomType, hostId);
+      console.log(`[LL-TIMING-SERVER] POST /api/ladyluck/tables — findOrCreateLLTable took ${Date.now() - t1}ms, tableId=${tableId}, total=${Date.now() - t0}ms`);
       res.json({ tableId });
     } catch (err: any) {
       if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' }); return; }

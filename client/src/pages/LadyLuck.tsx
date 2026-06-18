@@ -235,18 +235,25 @@ export default function LadyLuck() {
 
     const connect = async () => {
       try {
+        const wsTimingStart = Date.now();
+        console.log(`[LL-TIMING] GET /api/auth/ws-token starting at ${wsTimingStart}`);
         const tokenRes = await apiFetch('/api/auth/ws-token');
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
+        console.log(`[LL-TIMING] GET /api/auth/ws-token resolved at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
 
+        console.log(`[LL-TIMING] new WebSocket() called at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
         console.log('[ladyluck] WS connecting, tableId from state:', tableId, '| wsUrl:', wsUrl(token));
         ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;
+        const wsCreatedAt = Date.now();
 
         ws.onopen = () => {
           if (!alive) { ws?.close(); return; }
           setConnected(true);
+          console.log(`[LL-TIMING] ws.onopen fired at ${Date.now()} (+${Date.now() - wsCreatedAt}ms after new WebSocket())`);
           const joinMsg = { type: 'll:join', tableId, playerId: identity.id, name: identity.name };
+          console.log(`[LL-TIMING] ll:join sent at ${Date.now()}`);
           console.log('[ladyluck] WS open — sending ll:join with tableId:', tableId, '| full msg:', joinMsg);
           ws?.send(JSON.stringify(joinMsg));
         };
@@ -255,6 +262,7 @@ export default function LadyLuck() {
           try {
             const msg = JSON.parse(e.data as string);
             if (msg.type === 'll:state') {
+              console.log(`[LL-TIMING] first ll:state received at ${Date.now()} (+${Date.now() - wsCreatedAt}ms after new WebSocket())`);
               clearTimeout(timeoutId);
               setState(msg.state as LadyLuckState);
               setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
@@ -332,6 +340,8 @@ export default function LadyLuck() {
   const goBack = () => { setTableId(null); setState(null); navigate('/ladyluck'); };
 
   const handleJoinRoom = async (roomType: LadyLuckRoom) => {
+    const llStart = Date.now();
+    console.log(`[LL-TIMING] JOIN tapped at ${llStart} (+0ms)`);
     setJoining(true); setJoinError(null);
     try {
       const res = await apiFetch('/api/ladyluck/tables', {
@@ -344,6 +354,7 @@ export default function LadyLuck() {
         throw new Error(msg);
       }
       const { tableId: tid } = await res.json() as { tableId: string };
+      console.log(`[LL-TIMING] POST /api/ladyluck/tables resolved tableId=${tid} at ${Date.now()} (+${Date.now() - llStart}ms)`);
       setTableId(tid);
       navigate(`/ladyluck?t=${tid}`, { replace: true });
     } catch (err) {
