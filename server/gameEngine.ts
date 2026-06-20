@@ -890,8 +890,7 @@ function resetToAnte(table: AuthTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
-    storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: String(table.handId) }).catch(() => {});
     if (isWinner) storage.awardWinStripes(identityId).catch(() => {});
     storage.incrementHandsPlayed(identityId, 'badugi').catch(() => {});
   }
@@ -1608,8 +1607,8 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       // handId increment), so equality means hand-end already wrote for this hand.
       const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
       if (lastSynced !== table.handId) {
-        const bankrollAtDisc = table.seatBankroll.get(seat) ?? 0;
-        storage.syncPlayerChips(identityId, bankrollAtDisc + player.chips).catch(() => {});
+        const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
+        storage.syncPlayerChips(identityId, player.chips - prevChips).catch(() => {});
       }
     }
 

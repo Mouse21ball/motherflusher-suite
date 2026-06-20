@@ -62,7 +62,7 @@ export interface IStorage {
   getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
   getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
   setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
-  syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void>;
+  syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   deletePlayer(id: string): Promise<void>;
@@ -697,7 +697,7 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
-  async syncPlayerChips(id: string, chips: number, handResult?: { won: boolean; deltaChips?: number }): Promise<void> {
+  async syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void> {
     await db.transaction(async (tx) => {
       const rows = await tx
         .select({ chipBalance: playerProfiles.chipBalance })
@@ -705,13 +705,13 @@ export class MemStorage implements IStorage {
         .where(eq(playerProfiles.id, id))
         .limit(1);
       const before = rows[0]?.chipBalance ?? 0;
-      const delta  = chips - before;
+      const after  = before + sessionDelta;
 
       if (handResult) {
         await tx
           .update(playerProfiles)
           .set({
-            chipBalance: chips,
+            chipBalance: sql`${playerProfiles.chipBalance} + ${sessionDelta}`,
             updatedAt: new Date(),
             handsPlayed: sql`${playerProfiles.handsPlayed} + 1`,
             handsWon: handResult.won
@@ -725,17 +725,19 @@ export class MemStorage implements IStorage {
       } else {
         await tx
           .update(playerProfiles)
-          .set({ chipBalance: chips, updatedAt: new Date() })
+          .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${sessionDelta}`, updatedAt: new Date() })
           .where(eq(playerProfiles.id, id));
       }
 
       await this._insertChipLedger(tx, {
         playerId:      id,
         beforeBalance: before,
-        amountChange:  delta,
-        afterBalance:  chips,
+        amountChange:  sessionDelta,
+        afterBalance:  after,
         reason:        handResult ? 'hand_win' : 'other',
         source:        handResult ? 'gameEngine' : 'syncOnDisconnect',
+        gameId:        handResult?.gameId ?? null,
+        handId:        handResult?.handId ?? null,
       });
     });
   }
@@ -2619,7 +2621,7 @@ export class MemStorage implements IStorage {
         reason, beforeState: before, metadata: { amount, actualDebit: debit },
       }).returning();
       await tx.update(playerProfiles)
-        .set({ chipBalance: afterBalance, updatedAt: new Date() })
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${debit}`, updatedAt: new Date() })
         .where(eq(playerProfiles.id, targetPlayerId));
       await this._insertChipLedger(tx, {
         playerId: targetPlayerId, beforeBalance: target.chipBalance,

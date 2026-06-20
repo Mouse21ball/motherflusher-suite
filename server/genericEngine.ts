@@ -1158,8 +1158,7 @@ function resetToAnte(table: GenericTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    const bankrollAtSync = table.seatBankroll.get(p.id) ?? 0;
-    storage.syncPlayerChips(identityId, bankrollAtSync + p.chips, { won: isWinner, deltaChips }).catch(() => {});
+    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: String(table.handId) }).catch(() => {});
     storage.incrementHandsPlayed(identityId, table.modeId).catch(() => {});
 
     // Crew chip-win tracking + win-Stripes: accumulate only genuine gameplay wins (not bonuses).
@@ -1751,8 +1750,8 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
       if (player) {
         const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
         if (lastSynced !== table.handId) {
-          const bankrollAtDisc = table.seatBankroll.get(seat) ?? 0;
-          storage.syncPlayerChips(identityId, bankrollAtDisc + player.chips).catch(() => {});
+          const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
+          storage.syncPlayerChips(identityId, player.chips - prevChips).catch(() => {});
         }
       }
 
