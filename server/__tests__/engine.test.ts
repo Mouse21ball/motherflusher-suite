@@ -329,13 +329,21 @@ await (async () => {
   const testId = `__test_engine_${Date.now()}`;
   try {
     await storage.getOrCreatePlayer(testId, 'TestBot');
+    // Read initial balance — new players may have a non-zero default.
+    const initial = (await storage.getPlayerProfile(testId))!.chipBalance;
+
+    // Hand 1: player netted +7777 chips this session. Delta applied on top of initial.
     await storage.syncPlayerChips(testId, 7777);
     const profile = await storage.getPlayerProfile(testId);
-    assert(profile?.chipBalance === 7777, `round-trip: wrote 7777, read back ${profile?.chipBalance}`);
+    assert(profile?.chipBalance === initial + 7777,
+      `round-trip: applied +7777 delta, expected ${initial + 7777}, got ${profile?.chipBalance}`);
 
-    await storage.syncPlayerChips(testId, 3333, { won: true, deltaChips: 100 });
+    // Hand 2: player won +100 chips. sessionDelta and deltaChips are both 100.
+    // Expected new balance: (initial + 7777) + 100.
+    await storage.syncPlayerChips(testId, 100, { won: true, deltaChips: 100 });
     const profile2 = await storage.getPlayerProfile(testId);
-    assert(profile2?.chipBalance === 3333, `round-trip with handResult: wrote 3333, read back ${profile2?.chipBalance}`);
+    assert(profile2?.chipBalance === initial + 7777 + 100,
+      `round-trip with handResult: applied +100 delta, expected ${initial + 7777 + 100}, got ${profile2?.chipBalance}`);
     assert((profile2?.handsPlayed ?? 0) >= 1, `handsPlayed incremented (got ${profile2?.handsPlayed})`);
     assert((profile2?.handsWon ?? 0) >= 1, `handsWon incremented on win (got ${profile2?.handsWon})`);
   } finally {
@@ -561,18 +569,25 @@ await (async () => {
   const playerId = `__test_bankroll_persist_${Date.now()}`;
   try {
     await storage.getOrCreatePlayer(playerId, 'TestWinner');
-    // Simulate winning a big hand → syncPlayerChips called by resetToAnte
-    await storage.syncPlayerChips(playerId, 8500, { won: true, deltaChips: 7500 });
+    // Read initial balance — new players may have a non-zero default.
+    const initial = (await storage.getPlayerProfile(playerId))!.chipBalance;
+
+    // Session 1: player broke even with a 1000-chip in-game stack. Delta = +1000.
+    await storage.syncPlayerChips(playerId, 1000);
+    // Session 2: player won 7500 chips in a hand. Delta = +7500. sessionDelta === deltaChips.
+    // Expected balance: initial + 1000 + 7500.
+    await storage.syncPlayerChips(playerId, 7500, { won: true, deltaChips: 7500 });
+    const expected = initial + 1000 + 7500;
 
     // Simulate server restart: getOrCreatePlayer returns EXISTING row (no reset)
     const returned = await storage.getOrCreatePlayer(playerId, 'TestWinner');
-    assert(returned.chipBalance === 8500,
-      `returning player still has 8500 after simulated logout/restart (got ${returned.chipBalance})`);
+    assert(returned.chipBalance === expected,
+      `returning player balance is ${expected} after simulated logout/restart (got ${returned.chipBalance})`);
 
     // Explicit read-back via getPlayerProfile
     const direct = await storage.getPlayerProfile(playerId);
-    assert(direct?.chipBalance === 8500,
-      `getPlayerProfile returns 8500 (got ${direct?.chipBalance})`);
+    assert(direct?.chipBalance === expected,
+      `getPlayerProfile returns ${expected} (got ${direct?.chipBalance})`);
   } finally {
     try { await storage.deletePlayer(playerId); } catch {}
   }
@@ -587,15 +602,21 @@ await (async () => {
   const bonusId = `__test_bankroll_bonus_${Date.now()}`;
   try {
     await storage.getOrCreatePlayer(bonusId, 'BonusTest');
+    // Read initial balance — new players may have a non-zero default.
+    const initial = (await storage.getPlayerProfile(bonusId))!.chipBalance;
+
+    // Player netted +3000 chips during their session. Delta applied on top of initial.
     await storage.syncPlayerChips(bonusId, 3000);
 
-    // Simulate daily reward (200) + hourly bonus (100) credited to DB
+    // Simulate daily reward (200) + hourly bonus (100) credited to DB while NOT at a table.
+    // Both use addChipsToPlayer (relative increment), so they survive regardless of sync timing.
     await storage.addChipsToPlayer(bonusId, 200);
     await storage.addChipsToPlayer(bonusId, 100);
 
+    const expected = initial + 3000 + 300;
     const profile = await storage.getPlayerProfile(bonusId);
-    assert(profile?.chipBalance === 3300,
-      `after two bonus grants, balance is 3300 (got ${profile?.chipBalance})`);
+    assert(profile?.chipBalance === expected,
+      `after session sync (+3000) and two bonus grants (+300), balance is ${expected} (got ${profile?.chipBalance})`);
   } finally {
     try { await storage.deletePlayer(bonusId); } catch {}
   }
@@ -610,21 +631,23 @@ await (async () => {
   const registeredId = `__test_bankroll_auth_${Date.now()}`;
   const guestId      = `__test_bankroll_guest_${Date.now()}`;
   try {
-    // Registered player with big balance
+    // Registered player: read initial balance, then net +15000 this session.
     await storage.getOrCreatePlayer(registeredId, 'RegPlayer');
+    const regInitial = (await storage.getPlayerProfile(registeredId))!.chipBalance;
     await storage.syncPlayerChips(registeredId, 15000);
 
-    // Guest player with low balance
+    // Guest player: read initial balance, then net +500 this session.
     await storage.getOrCreatePlayer(guestId, 'GuestPlayer');
+    const guestInitial = (await storage.getPlayerProfile(guestId))!.chipBalance;
     await storage.syncPlayerChips(guestId, 500);
 
-    // Each profile stays independent — guest write doesn't touch registered row
+    // Each profile stays independent — guest write doesn't touch registered row.
     const reg   = await storage.getPlayerProfile(registeredId);
     const guest = await storage.getPlayerProfile(guestId);
-    assert(reg?.chipBalance === 15000,
-      `registered balance unchanged at 15000 (got ${reg?.chipBalance})`);
-    assert(guest?.chipBalance === 500,
-      `guest balance stays at 500 (got ${guest?.chipBalance})`);
+    assert(reg?.chipBalance === regInitial + 15000,
+      `registered balance is ${regInitial + 15000} (got ${reg?.chipBalance})`);
+    assert(guest?.chipBalance === guestInitial + 500,
+      `guest balance is ${guestInitial + 500} (got ${guest?.chipBalance})`);
   } finally {
     try { await storage.deletePlayer(registeredId); } catch {}
     try { await storage.deletePlayer(guestId); } catch {}

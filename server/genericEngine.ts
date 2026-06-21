@@ -333,8 +333,10 @@ interface GenericTable {
   // Per-seat session stats (in-memory, this table session only).
   sessionStats: Map<string, SessionStat>;
   // ── Buy-in Slider ─────────────────────────────────────────────────────────
-  // Chips held outside the table (DB balance minus buyinChips). Always added
-  // back to player.chips in syncPlayerChips calls so the DB total stays right.
+  // Chips held outside the table (DB balance minus buyinChips) at the time the
+  // player joined. Used only for the mid-session rebuy feature; no longer involved
+  // in chip sync — syncPlayerChips now applies a relative per-hand delta so
+  // out-of-band balance changes (admin grants, bonuses) are never overwritten.
   seatBankroll: Map<string, number>;
   // ── Time Bank ─────────────────────────────────────────────────────────────
   // Number of subscription time-bank uses consumed this session (gold_pro cap = 1).
