@@ -2990,40 +2990,81 @@ export class MemStorage implements IStorage {
   }
 
   async grantChipLoan(playerId: string): Promise<{ success: boolean; error?: string; newBalance?: number }> {
-    const [profile] = await db
-      .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
-      .from(playerProfiles)
-      .where(eq(playerProfiles.id, playerId))
-      .limit(1);
-    if (!profile) return { success: false, error: 'player_not_found' };
-    if (profile.chipLoanBalance > 0) return { success: false, error: 'existing_loan' };
-    if (profile.chipBalance > 500) return { success: false, error: 'not_broke' };
+    return await db.transaction(async (tx) => {
+      // Read eligibility and snapshot inside the transaction to make check-and-write atomic.
+      // Any concurrent addChipsToPlayer/adminGrantChips between the old SELECT and UPDATE
+      // would have caused an absolute-SET overwrite. The relative SQL below prevents that.
+      const [profile] = await tx
+        .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!profile) return { success: false, error: 'player_not_found' };
+      if (profile.chipLoanBalance > 0) return { success: false, error: 'existing_loan' };
+      if (profile.chipBalance > 500) return { success: false, error: 'not_broke' };
 
-    const loanAmount = 1000;
-    const newBalance = profile.chipBalance + loanAmount;
-    await db.update(playerProfiles)
-      .set({ chipBalance: newBalance, chipLoanBalance: loanAmount, chipLoanGrantedAt: new Date(), updatedAt: new Date() })
-      .where(eq(playerProfiles.id, playerId));
-    return { success: true, newBalance };
+      const loanAmount    = 1000;
+      const beforeBalance = profile.chipBalance;
+      const afterBalance  = beforeBalance + loanAmount;
+
+      await tx.update(playerProfiles)
+        .set({
+          chipBalance:       sql`${playerProfiles.chipBalance} + ${loanAmount}`,
+          chipLoanBalance:   loanAmount,
+          chipLoanGrantedAt: new Date(),
+          updatedAt:         new Date(),
+        })
+        .where(eq(playerProfiles.id, playerId));
+
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance,
+        amountChange: loanAmount,
+        afterBalance,
+        reason: 'other',
+        source: 'chip_loan_grant',
+      });
+
+      return { success: true, newBalance: afterBalance };
+    });
   }
 
   async repayChipLoan(playerId: string, chipsEarned: number): Promise<number> {
-    const [profile] = await db
-      .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
-      .from(playerProfiles)
-      .where(eq(playerProfiles.id, playerId))
-      .limit(1);
-    if (!profile || profile.chipLoanBalance <= 0) return chipsEarned;
+    return await db.transaction(async (tx) => {
+      // Read loan state and balance snapshot inside the transaction so the relative
+      // deduct below cannot race with a concurrent syncPlayerChips or adminGrantChips
+      // that commits between our old standalone SELECT and UPDATE.
+      const [profile] = await tx
+        .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .limit(1);
+      if (!profile || profile.chipLoanBalance <= 0) return chipsEarned;
 
-    const repayAmount = Math.min(profile.chipLoanBalance, chipsEarned);
-    const newLoanBalance = profile.chipLoanBalance - repayAmount;
-    const newChipBalance = profile.chipBalance - repayAmount;
+      const repayAmount    = Math.min(profile.chipLoanBalance, chipsEarned);
+      const newLoanBalance = profile.chipLoanBalance - repayAmount;
+      const beforeBalance  = profile.chipBalance;
+      const afterBalance   = beforeBalance - repayAmount;
 
-    await db.update(playerProfiles)
-      .set({ chipBalance: newChipBalance, chipLoanBalance: newLoanBalance, updatedAt: new Date() })
-      .where(eq(playerProfiles.id, playerId));
+      await tx.update(playerProfiles)
+        .set({
+          chipBalance:    sql`${playerProfiles.chipBalance} - ${repayAmount}`,
+          chipLoanBalance: newLoanBalance,
+          updatedAt:       new Date(),
+        })
+        .where(eq(playerProfiles.id, playerId));
 
-    return chipsEarned - repayAmount;
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance,
+        amountChange: -repayAmount,
+        afterBalance,
+        reason: 'other',
+        source: 'chip_loan_repayment',
+      });
+
+      return chipsEarned - repayAmount;
+    });
   }
 
   async getAdminAuditLog(opts: { limit: number; offset: number; actionType?: string; adminId?: string }): Promise<AdminAuditLogEntry[]> {

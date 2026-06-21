@@ -35,6 +35,9 @@ interface LLTableMeta {
   betInterval?: ReturnType<typeof setInterval>;
   deck: LLCard[];
   hostId: string | null;
+  /** Per-player/spectator lock: IDs currently awaiting a wager/sidebet debit.
+   *  Prevents double-submission through the async debitChipsForBuyin TOCTOU window. */
+  wagerLock: Set<string>;
 }
 
 // ── In-memory tables ──────────────────────────────────────────────────────────
@@ -138,6 +141,7 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     spectators:  new Map(),
     deck:        [],
     hostId,
+    wagerLock:   new Set(),
   };
   tables.set(tableId, meta);
 
@@ -506,14 +510,22 @@ export async function handleLLWager(
   if (amount < room.minWager) return { ok: false, error: 'below_min' };
   if (amount > room.maxWager) return { ok: false, error: 'above_max' };
 
-  if (player.presence === 'human') {
-    const ok = await storage.debitChipsForBuyin(playerId, amount);
-    if (!ok) return { ok: false, error: 'insufficient_chips' };
-  }
+  // Synchronous lock: set before any await so a second concurrent submission
+  // sees it and is rejected immediately — no double-debit from rapid taps or two tabs.
+  if (meta.wagerLock.has(playerId)) return { ok: false, error: 'already_processing' };
+  meta.wagerLock.add(playerId);
+  try {
+    if (player.presence === 'human') {
+      const ok = await storage.debitChipsForBuyin(playerId, amount);
+      if (!ok) return { ok: false, error: 'insufficient_chips' };
+    }
 
-  player.wager   = amount;
-  player.wagered = true;
-  state.pot     += amount;
+    player.wager   = amount;
+    player.wagered = true;
+    state.pot     += amount;
+  } finally {
+    meta.wagerLock.delete(playerId);
+  }
 
   broadcastState(meta);
   checkAllWagered(tableId);
@@ -601,17 +613,25 @@ export async function handleLLSideBet(
   const room = LADY_LUCK_ROOMS[state.roomType];
   if (amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
 
-  if (player.presence === 'human') {
-    const ok = await storage.debitChipsForBuyin(playerId, amount);
-    if (!ok) return { ok: false, error: 'insufficient_chips' };
-  }
+  // Synchronous lock: prevents double-submission from rapid taps or two tabs
+  // charging the same player twice for one side bet.
+  if (meta.wagerLock.has(playerId)) return { ok: false, error: 'already_processing' };
+  meta.wagerLock.add(playerId);
+  try {
+    if (player.presence === 'human') {
+      const ok = await storage.debitChipsForBuyin(playerId, amount);
+      if (!ok) return { ok: false, error: 'insufficient_chips' };
+    }
 
-  state.sideBets.push({
-    playerId:   player.id,
-    playerName: player.name,
-    suit,
-    amount,
-  });
+    state.sideBets.push({
+      playerId:   player.id,
+      playerName: player.name,
+      suit,
+      amount,
+    });
+  } finally {
+    meta.wagerLock.delete(playerId);
+  }
 
   broadcastState(meta);
   return { ok: true };
@@ -688,13 +708,25 @@ export async function handleLLSpectatorSideBet(
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'invalid_amount' })); } catch {}
     return;
   }
-  const ok = await storage.debitChipsForBuyin(userId, amount);
-  if (!ok) {
-    try { ws.send(JSON.stringify({ type: 'll:error', message: 'insufficient_chips' })); } catch {}
+
+  // Synchronous lock: prevents double-submission charging the spectator twice for
+  // one side bet (rapid double-tap / network retry) before the flag is set.
+  if (meta.wagerLock.has(userId)) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'already_processing' })); } catch {}
     return;
   }
-  spectator.sideBet = { suit, amount };
-  try { ws.send(JSON.stringify({ type: 'll:spectator_bet_confirmed', suit, amount })); } catch {}
+  meta.wagerLock.add(userId);
+  try {
+    const ok = await storage.debitChipsForBuyin(userId, amount);
+    if (!ok) {
+      try { ws.send(JSON.stringify({ type: 'll:error', message: 'insufficient_chips' })); } catch {}
+      return;
+    }
+    spectator.sideBet = { suit, amount };
+    try { ws.send(JSON.stringify({ type: 'll:spectator_bet_confirmed', suit, amount })); } catch {}
+  } finally {
+    meta.wagerLock.delete(userId);
+  }
 }
 
 // ── ll:spectator_leave ────────────────────────────────────────────────────────
@@ -887,6 +919,16 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
 function startNextRound(tableId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
+
+  // If no live connections remain the race finished while everyone was disconnected.
+  // Payouts were already credited by resolveRace; clean up the table now rather than
+  // starting a new round nobody can join or see.
+  if (meta.connections.size === 0) {
+    clearAllTimers(meta);
+    tables.delete(tableId);
+    return;
+  }
+
   const { state } = meta;
 
   const nonActive = state.players.length;
@@ -972,6 +1014,24 @@ function startNextRound(tableId: string) {
         if (p.presence === 'human') {
           const ok = await storage.debitChipsForBuyin(p.id, room.minWager);
           if (!ok) { p.presence = 'open'; continue; }
+          // Re-check presence after the async debit — handleLLDisconnect may have run
+          // during the await and already set this player to 'open'. If so chips were
+          // already taken from the DB but the player is gone; refund immediately.
+          if (p.presence !== 'human') {
+            console.warn(
+              `[LL] betInterval auto-wager: playerId=${p.id} disconnected during debit ` +
+              `— refunding ${room.minWager} chips (tableId=${tableId})`,
+            );
+            await storage.addChipsToPlayer(p.id, room.minWager, {
+              reason:   'other',
+              source:   'lady_luck_auto_wager_refund',
+              gameId:   tableId,
+              metadata: { refundReason: 'disconnect_during_auto_wager', amount: room.minWager },
+            }).catch(err =>
+              console.error(`[LL] auto-wager refund failed playerId=${p.id}:`, err),
+            );
+            continue;
+          }
         }
         p.wager   = room.minWager;
         p.wagered = true;
@@ -1015,11 +1075,30 @@ export function handleLLDisconnect(tableId: string, playerId: string) {
   }
 
   if (meta.connections.size === 0) {
-    clearAllTimers(meta);
-    setTimeout(() => {
-      const m = tables.get(tableId);
-      if (m && m.connections.size === 0) tables.delete(tableId);
-    }, 30_000);
+    // If a RACE is in progress with wagered participants (bots or this disconnected
+    // human), keep raceInterval alive so it can resolve naturally and credit payouts.
+    // Bot players have no WebSocket and are never in meta.connections, so a single
+    // human disconnecting from a 1-human + N-bot table used to incorrectly kill the
+    // race and strand the wager until the next server restart.
+    const racingWithStakes =
+      meta.state.phase === 'RACE' &&
+      meta.state.players.some(p => p.presence !== 'open' && p.wagered);
+
+    if (racingWithStakes) {
+      // Preserve raceInterval — clear everything else that is no longer useful.
+      if (meta.botFillTimer)    { clearTimeout(meta.botFillTimer);     meta.botFillTimer    = undefined; }
+      if (meta.countdownTimer)  { clearInterval(meta.countdownTimer);  meta.countdownTimer  = undefined; }
+      if (meta.resultsInterval) { clearInterval(meta.resultsInterval); meta.resultsInterval = undefined; }
+      if (meta.betInterval)     { clearInterval(meta.betInterval);     meta.betInterval     = undefined; }
+      // raceInterval keeps running; after resolveRace → startNextRound detects no
+      // connections and cleans up the table (see startNextRound guard below).
+    } else {
+      clearAllTimers(meta);
+      setTimeout(() => {
+        const m = tables.get(tableId);
+        if (m && m.connections.size === 0) tables.delete(tableId);
+      }, 30_000);
+    }
   }
 }
 
