@@ -65,6 +65,7 @@ export interface IStorage {
   syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
+  getPlayerActiveTable(id: string): Promise<string | null>;
   deletePlayer(id: string): Promise<void>;
   getPlayerIsAdmin(id: string): Promise<boolean>;
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
@@ -756,6 +757,15 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
+  async getPlayerActiveTable(id: string): Promise<string | null> {
+    const rows = await db
+      .select({ activeTableId: playerProfiles.activeTableId })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, id))
+      .limit(1);
+    return rows[0]?.activeTableId ?? null;
+  }
+
   async deletePlayer(id: string): Promise<void> {
     await db.delete(playerProfiles).where(eq(playerProfiles.id, id));
   }
@@ -1199,7 +1209,7 @@ export class MemStorage implements IStorage {
       await tx
         .update(playerProfiles)
         .set({
-          chipBalance:        newChipBalance,
+          chipBalance:        sql`${playerProfiles.chipBalance} + ${chipsAwarded}`,
           stripes:            newStripesBalance,
           lastBonusClaimedAt: now,
           bonusStreakDay:     newStreakDay,

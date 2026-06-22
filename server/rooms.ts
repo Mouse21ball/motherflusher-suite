@@ -413,6 +413,24 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
         const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled, crewId: room.crewId };
 
+        // ── Cross-table seat guard ───────────────────────────────────────────
+        // Reject joins if the player is already seated at a different table.
+        // NOTE: Lady Luck uses handleLLJoin (a separate path, not routed here)
+        // and is intentionally excluded — its spectator-wager seat dynamics
+        // require a different approach handled within ladyluckEngine.ts.
+        if (identityId && (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi'))) {
+          const activeTable = await storage.getPlayerActiveTable(identityId);
+          if (activeTable && activeTable !== tableId) {
+            try {
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Already seated at another table. Please leave that table first.',
+              }));
+            } catch {}
+            return;
+          }
+        }
+
         let assignedSeat: string | null = null;
         if (room.isAuthoritative) {
           assignedSeat = addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);

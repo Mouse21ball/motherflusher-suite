@@ -21,10 +21,11 @@ import type { LadyLuckState, LadyLuckSuit, LadyLuckRoom } from '../shared/modes/
 interface LLCard { rank: string; suit: LadyLuckSuit; }
 
 interface PersistedLLEntry {
-  state:   LadyLuckState;
-  deck:    LLCard[];
-  hostId:  string | null;
-  savedAt: number;
+  state:         LadyLuckState;
+  deck:          LLCard[];
+  hostId:        string | null;
+  savedAt:       number;
+  refundIssued?: boolean;
 }
 
 type StoreFile = Record<string, PersistedLLEntry>;
@@ -164,6 +165,19 @@ export async function loadPersistedLadyLuckTables(): Promise<RestoredLLEntry[]> 
     }
 
     // ── WAGER / BET / RACE — wagers may be committed; refund before restore ──
+
+    // If refundIssued is already set, a previous boot wrote chips back to DB
+    // but crashed before pruning this entry. Skip refund to prevent double-credit.
+    if (entry.refundIssued) {
+      console.log(
+        `[LL-RECOVERY] tableId=${tableId} phase=${phase} — ` +
+        `refundIssued=true; skipping refund (already issued on previous boot)`,
+      );
+      results.push({ tableId, roomType: state.roomType, hostId });
+      handled.add(tableId);
+      continue;
+    }
+
     const wageredHumans = state.players.filter(
       p => p.presence === 'human' && p.wagered && p.wager > 0,
     );
@@ -178,6 +192,19 @@ export async function loadPersistedLadyLuckTables(): Promise<RestoredLLEntry[]> 
         `[LL-RECOVERY] tableId=${tableId} phase=${phase} — ` +
         `${wageredHumans.length} human wager(s) to refund`,
       );
+
+      // Write the idempotency flag synchronously BEFORE any DB call.
+      // If the server crashes between here and the addChipsToPlayer calls,
+      // the next boot will see refundIssued=true and skip the refund.
+      try {
+        const storeSnapshot = readStore();
+        if (storeSnapshot[tableId]) {
+          storeSnapshot[tableId] = { ...storeSnapshot[tableId], refundIssued: true };
+          writeStore(storeSnapshot);
+        }
+      } catch (flagErr) {
+        console.error(`[LL-RECOVERY] WARNING: could not write refundIssued flag for tableId=${tableId}:`, flagErr);
+      }
 
       for (const p of wageredHumans) {
         try {
