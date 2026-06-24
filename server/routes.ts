@@ -56,7 +56,11 @@ import {
 } from "./billing";
 import { randomBytes } from "crypto";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient(): Resend {
+  const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
+  if (!key) throw new Error("[resend] RESEND_API_KEY / Resend_key_secret not set");
+  return new Resend(key);
+}
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -823,7 +827,7 @@ export async function registerRoutes(
 
       const resetUrl = `https://chainggangpoker.com/reset-password?token=${token}`;
 
-      await resend.emails.send({
+      await getResendClient().emails.send({
         from:    "Chain Gang Poker <onboarding@resend.dev>",
         to:      email.trim().toLowerCase(),
         subject: "Reset your Chain Gang Poker password",
