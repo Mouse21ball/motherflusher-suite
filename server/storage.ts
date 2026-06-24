@@ -62,6 +62,9 @@ export interface IStorage {
   getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
   getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
   setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
+  setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
+  getPlayerByResetToken(token: string): Promise<PlayerProfile | undefined>;
+  clearPasswordResetToken(id: string): Promise<void>;
   syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
@@ -643,6 +646,8 @@ export class MemStorage implements IStorage {
       isDeleted:                      false,
       chipLoanBalance:                0,
       chipLoanGrantedAt:              null,
+      passwordResetToken:             null,
+      passwordResetExpires:           null,
       createdAt: now,
       updatedAt: now,
     };
@@ -695,6 +700,29 @@ export class MemStorage implements IStorage {
     await db
       .update(playerProfiles)
       .set({ email, passwordHash, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  async setPasswordResetToken(id: string, token: string, expires: Date): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ passwordResetToken: token, passwordResetExpires: expires, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, id));
+  }
+
+  async getPlayerByResetToken(token: string): Promise<PlayerProfile | undefined> {
+    const rows = await db
+      .select()
+      .from(playerProfiles)
+      .where(eq(playerProfiles.passwordResetToken, token))
+      .limit(1);
+    return rows[0];
+  }
+
+  async clearPasswordResetToken(id: string): Promise<void> {
+    await db
+      .update(playerProfiles)
+      .set({ passwordResetToken: null, passwordResetExpires: null, updatedAt: new Date() })
       .where(eq(playerProfiles.id, id));
   }
 

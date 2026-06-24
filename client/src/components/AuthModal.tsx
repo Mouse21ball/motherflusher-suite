@@ -250,6 +250,16 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
             {busy ? '…' : tab === 'login' ? 'Log In' : 'Create Account'}
           </button>
 
+          {tab === 'login' && (
+            <a
+              href="/forgot-password"
+              className="text-[10px] font-mono text-white/25 hover:text-white/45 text-center transition-colors -mt-1"
+              data-testid="link-auth-forgot-password"
+            >
+              Forgot password?
+            </a>
+          )}
+
           {tab === 'register' && (
             <p className="text-[10px] font-mono text-white/25 text-center leading-relaxed">
               By creating an account you agree to our{' '}

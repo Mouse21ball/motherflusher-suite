@@ -9,7 +9,9 @@ import {
   generalApiRateLimit,
   reportRateLimit,
   ladyLuckTableCreateLimit,
+  forgotPasswordRateLimit,
 } from "./middleware/rateLimits";
+import { Resend } from "resend";
 import { z } from "zod";
 import {
   getActiveBadugiTables,
@@ -52,6 +54,9 @@ import {
   handleSubscriptionRecovered,
   handleSubscriptionRefund,
 } from "./billing";
+import { randomBytes } from "crypto";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── In-memory table registry ─────────────────────────────────────────────────
 // Ephemeral — lives for the server process lifetime.
@@ -792,6 +797,136 @@ export async function registerRoutes(
       } else {
         console.error("Guest init error:", err);
         res.status(500).json({ error: "Failed to initialize guest session" });
+      }
+    }
+  });
+
+  // POST /api/auth/forgot-password
+  // Public — accepts email, generates a reset token, sends email via Resend.
+  // Always returns 200 with a generic message to prevent email enumeration.
+  app.post("/api/auth/forgot-password", forgotPasswordRateLimit, async (req, res) => {
+    const GENERIC_OK = "If that email exists you will receive a reset link.";
+    try {
+      const schema = z.object({ email: z.string().email() });
+      const { email } = schema.parse(req.body);
+
+      const profile = await storage.getPlayerByEmail(email.trim().toLowerCase());
+      if (!profile || !profile.passwordHash) {
+        // No account or guest account — still return 200 to prevent enumeration
+        res.json({ message: GENERIC_OK });
+        return;
+      }
+
+      const token   = randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await storage.setPasswordResetToken(profile.id, token, expires);
+
+      const resetUrl = `https://chainggangpoker.com/reset-password?token=${token}`;
+
+      await resend.emails.send({
+        from:    "Chain Gang Poker <onboarding@resend.dev>",
+        to:      email.trim().toLowerCase(),
+        subject: "Reset your Chain Gang Poker password",
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset Your Password</title>
+</head>
+<body style="margin:0;padding:0;background-color:#05050A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#05050A;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#0D0D14;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:40px 32px;">
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <div style="font-size:48px;line-height:1;">♛</div>
+              <p style="margin:8px 0 0;font-size:11px;font-family:monospace;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.3);">⛓️ Chain Gang Poker</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-bottom:20px;">
+              <h1 style="margin:0;font-size:24px;font-weight:700;color:#F0B829;letter-spacing:-0.02em;">Reset Your Password</h1>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <p style="margin:0;font-size:14px;line-height:1.6;color:rgba(255,255,255,0.55);">
+                Someone requested a password reset for your account.<br />
+                This link expires in <strong style="color:rgba(255,255,255,0.75);">1 hour</strong>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-bottom:36px;">
+              <a href="${resetUrl}"
+                style="display:inline-block;padding:14px 36px;background-color:#F0B829;color:#05050A;font-weight:700;font-size:14px;text-decoration:none;border-radius:12px;letter-spacing:0.06em;text-transform:uppercase;box-shadow:0 4px 20px rgba(240,184,41,0.35);">
+                Reset Password
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center">
+              <p style="margin:0;font-size:11px;font-family:monospace;color:rgba(255,255,255,0.2);line-height:1.6;">
+                If you didn't request this, ignore this email.<br />
+                <em>Loyalty Never Leaves.</em>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+      });
+
+      res.json({ message: GENERIC_OK });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid email address." });
+      } else {
+        console.error("[forgot-password] error:", err);
+        // Still return generic OK — don't leak internal errors to caller
+        res.json({ message: GENERIC_OK });
+      }
+    }
+  });
+
+  // POST /api/auth/reset-password
+  // Public — validates token, hashes new password, clears token.
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const schema = z.object({
+        token:       z.string().min(1),
+        newPassword: z.string().min(8, "Password must be at least 8 characters"),
+      });
+      const { token, newPassword } = schema.parse(req.body);
+
+      const profile = await storage.getPlayerByResetToken(token);
+      if (!profile || !profile.passwordResetExpires) {
+        res.status(400).json({ error: "Invalid or expired reset link." });
+        return;
+      }
+
+      if (profile.passwordResetExpires < new Date()) {
+        await storage.clearPasswordResetToken(profile.id);
+        res.status(400).json({ error: "Invalid or expired reset link." });
+        return;
+      }
+
+      const hash = await hashPassword(newPassword);
+      await storage.setPlayerAuth(profile.id, profile.email!, hash);
+      await storage.clearPasswordResetToken(profile.id);
+
+      res.json({ message: "Password reset successfully." });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: err.issues[0]?.message ?? "Invalid request." });
+      } else {
+        console.error("[reset-password] error:", err);
+        res.status(500).json({ error: "Password reset failed. Please try again." });
       }
     }
   });

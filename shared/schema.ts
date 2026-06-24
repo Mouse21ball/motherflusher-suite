@@ -59,6 +59,9 @@ export const playerProfiles = pgTable("player_profiles", {
   // ── Chip loan ───────────────────────────────────────────────────────────────
   chipLoanBalance:      integer("chip_loan_balance").notNull().default(0),
   chipLoanGrantedAt:    timestamp("chip_loan_granted_at"),
+  // ── Password reset ──────────────────────────────────────────────────────────
+  passwordResetToken:   text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 });
@@ -85,6 +88,8 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   isDeleted:                      true,
   chipLoanBalance:                true,
   chipLoanGrantedAt:              true,
+  passwordResetToken:             true,
+  passwordResetExpires:           true,
   createdAt:                      true,
   updatedAt:                      true,
 });

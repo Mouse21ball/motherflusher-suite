@@ -29,6 +29,8 @@ import Crews from "@/pages/Crews";
 import LadyLuck from "@/pages/LadyLuck";
 import LadyLuckSpectate from "@/pages/LadyLuckSpectate";
 import LadyLuckHistory from "@/pages/LadyLuckHistory";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 // ── Diamond Elite background manager ─────────────────────────────────────────
 // Adds/removes the `diamond-elite-bg` body class based on active subscription.
@@ -66,6 +68,8 @@ function Router() {
         <Route path="/terms" component={Terms}/>
         <Route path="/privacy" component={Privacy}/>
         <Route path="/delete-account" component={DeleteAccount}/>
+        <Route path="/forgot-password" component={ForgotPassword}/>
+        <Route path="/reset-password" component={ResetPassword}/>
         <Route component={NotFound} />
       </Switch>
     </ErrorBoundary>

@@ -469,6 +469,12 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               data-testid="button-login-submit">
               {busy ? '…' : 'Log In'}
             </button>
+            <a href="/forgot-password"
+              className="text-[11px] font-mono text-center transition-colors"
+              style={{ color: 'rgba(255,255,255,0.22)' }}
+              data-testid="link-forgot-password">
+              Forgot password?
+            </a>
             <button type="button" onClick={() => { setMode('register'); setError(null); }}
               className="text-[11px] font-mono text-white/25 hover:text-white/45 text-center transition-colors"
               data-testid="button-switch-to-register">

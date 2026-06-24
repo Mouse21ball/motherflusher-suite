@@ -117,6 +117,17 @@ export const reportRateLimit = rateLimit({
   handler:         makeHandler('You have submitted too many reports. Try again later.'),
 });
 
+// ─── g) Forgot password — 3 per IP per 15 minutes ────────────────────────────
+// Low limit: email sending is expensive and this endpoint is unauthenticated.
+
+export const forgotPasswordRateLimit = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  limit:           3,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler:         makeHandler('Too many reset attempts. Please try again later.'),
+});
+
 // ─── g) Lady Luck table creation — 5 per player per 60 seconds ───────────────
 // findOrCreateLLTable reuses existing LOBBY tables, so a regular user joining
 // a game never creates more than one new table per session. This limit only
