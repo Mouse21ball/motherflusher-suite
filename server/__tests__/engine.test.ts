@@ -546,14 +546,14 @@ await (async () => {
 
   const newId = `__test_bankroll_new_${Date.now()}`;
   try {
-    // New player: getOrCreatePlayer should assign exactly 1000 starter chips
+    // New player: getOrCreatePlayer should assign exactly 25,000 starter chips
     const profile = await storage.getOrCreatePlayer(newId, 'TestNew');
-    assert(profile.chipBalance === 1000,
-      `new player starts with 1000 chips (got ${profile.chipBalance})`);
+    assert(profile.chipBalance === 25000,
+      `new player starts with 25000 chips (got ${profile.chipBalance})`);
 
     // Second call (idempotent): chips must not be doubled
     const profile2 = await storage.getOrCreatePlayer(newId, 'TestNew');
-    assert(profile2.chipBalance === 1000,
+    assert(profile2.chipBalance === 25000,
       `second getOrCreate does not re-grant chips (got ${profile2.chipBalance})`);
   } finally {
     try { await storage.deletePlayer(newId); } catch {}
