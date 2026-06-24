@@ -827,7 +827,7 @@ export async function registerRoutes(
 
       const resetUrl = `https://chainggangpoker.com/reset-password?token=${token}`;
 
-      await getResendClient().emails.send({
+      const resendResult = await getResendClient().emails.send({
         from:    "Chain Gang Poker <onboarding@resend.dev>",
         to:      email.trim().toLowerCase(),
         subject: "Reset your Chain Gang Poker password",
@@ -885,12 +885,14 @@ export async function registerRoutes(
 </body>
 </html>`,
       });
+      console.log("RESEND-DEBUG send result:", JSON.stringify(resendResult));
 
       res.json({ message: GENERIC_OK });
     } catch (err: any) {
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid email address." });
       } else {
+        console.log("RESEND-DEBUG send error:", err?.message, err?.stack);
         console.error("[forgot-password] error:", err);
         // Still return generic OK — don't leak internal errors to caller
         res.json({ message: GENERIC_OK });
