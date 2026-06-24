@@ -828,7 +828,7 @@ export async function registerRoutes(
       const resetUrl = `https://chainggangpoker.com/reset-password?token=${token}`;
 
       const resendResult = await getResendClient().emails.send({
-        from:    "Chain Gang Poker <onboarding@resend.dev>",
+        from:    "Chain Gang Poker <noreply@chainggangpoker.com>",
         to:      email.trim().toLowerCase(),
         subject: "Reset your Chain Gang Poker password",
         html: `<!DOCTYPE html>
