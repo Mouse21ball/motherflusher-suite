@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { CardType } from '@/lib/poker/types';
-import { getDeckThemeClass, getDeckTheme } from '@/lib/deckTheme';
 
 /* ── Suit icon SVGs (self-contained) ─────────────────────────────────────── */
 
@@ -77,10 +76,9 @@ function CardFace({ card, dimmed, glowColor }: { card: CardType; dimmed?: boolea
 /* ── Card back ──────────────────────────────────────────────────────────── */
 
 function CardBack() {
-  const themeClass = getDeckThemeClass(getDeckTheme());
   return (
-    <div className={cn(themeClass, 'w-full h-full rounded-[10px] overflow-hidden')} style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-      <img src="/card-back.png" alt="" className="w-full h-full object-cover" />
+    <div className="w-full h-full rounded-[10px] overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.55)', border: '1px solid rgba(201,162,39,0.2)' }}>
+      <img src="/ladyluck/card-back-cgp.png" alt="" className="w-full h-full object-cover" />
     </div>
   );
 }

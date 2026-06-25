@@ -94,22 +94,22 @@ export function OpponentSeat({
   const hasFlush = flushIndices.size > 0;
 
   const seatBorder = isActive
-    ? '1.5px solid rgba(201,162,39,0.8)'
+    ? '1.5px solid rgba(201,162,39,0.7)'
     : isWinner
-    ? '1.5px solid rgba(201,162,39,0.6)'
-    : '1px solid rgba(255,255,255,0.1)';
+    ? '1.5px solid rgba(201,162,39,0.55)'
+    : '1px solid rgba(255,255,255,0.08)';
 
   const seatGlow = isActive
-    ? '0 0 16px rgba(201,162,39,0.4)'
+    ? '0 0 20px rgba(201,162,39,0.35), 0 4px 16px rgba(0,0,0,0.5)'
     : isWinner
-    ? '0 0 20px rgba(201,162,39,0.5)'
-    : 'none';
+    ? '0 0 24px rgba(201,162,39,0.45), 0 4px 16px rgba(0,0,0,0.5)'
+    : '0 4px 16px rgba(0,0,0,0.4)';
 
   return (
     <motion.div
       animate={{
-        opacity: isFolded ? 0.4 : 1,
-        scale: isWinner ? 1.04 : 1,
+        opacity: isFolded ? 0.38 : 1,
+        scale: isWinner ? 1.05 : 1,
       }}
       transition={{ duration: 0.3 }}
       style={{
@@ -118,11 +118,12 @@ export function OpponentSeat({
         alignItems: 'center',
         gap: 4,
         padding: '8px 10px',
-        borderRadius: '12px',
-        background: 'rgba(0,0,0,0.5)',
+        borderRadius: '14px',
+        background: 'rgba(0,0,0,0.45)',
         border: seatBorder,
         boxShadow: seatGlow,
-        backdropFilter: 'blur(6px)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         minWidth: 80,
         position: 'relative',
       }}

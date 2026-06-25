@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
 import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
@@ -214,8 +214,20 @@ function FlushedUpGameUI() {
   // isRewardAvailable used in bust modal flow
   void isRewardAvailable;
 
+  /* Full-screen background image — fixed so it doesn't scroll */
+  const bgStyle: React.CSSProperties = {
+    backgroundImage: "url('/ladyluck/ladyluck-bg.png')",
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed',
+  };
+
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root" data-mode={MODE_ID}>
+    <div
+      className="min-h-[100dvh] flex flex-col selection:bg-primary/30 game-page-root"
+      style={bgStyle}
+      data-mode={MODE_ID}
+    >
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
       <GameStatusBar
@@ -284,11 +296,24 @@ function FlushedUpGameUI() {
       )}
 
       {!effectiveSpectator && (
-        <div
-          className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}
-        >
-          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none">
+          {/* frosted glass panel that contains the action controls */}
+          <div
+            className="pointer-events-auto w-full max-w-md mx-auto mb-3 sm:mb-4 mx-auto rounded-2xl overflow-hidden"
+            style={{
+              background: 'rgba(0,0,0,0.45)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              paddingLeft: '8px',
+              paddingRight: '8px',
+              paddingBottom: '8px',
+              paddingTop: '4px',
+            }}
+          >
             <ActionControls
               phase={state.phase}
               currentBet={state.currentBet}
@@ -312,11 +337,17 @@ function FlushedUpGameUI() {
       )}
 
       {isPrebuyIn && (
-        <div
-          className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}
-        >
-          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none">
+          <div
+            className="pointer-events-auto w-full max-w-md mx-auto mb-3 sm:mb-4 rounded-2xl overflow-hidden px-2 pt-1 pb-2"
+            style={{
+              background: 'rgba(0,0,0,0.45)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
+            }}
+          >
             <button
               data-testid="button-crew-buyin"
               onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
