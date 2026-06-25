@@ -207,11 +207,12 @@ app.use((req, res, next) => {
   initRooms(httpServer);
   startGuestResetJob();      // hourly guest-account 24h reset
 
-  // General API safety-net limiter — applied AFTER the logging middleware so
+  // General API safety-net limiter — scoped to /api/ only so Vite's static
+  // asset requests are never counted.  Applied AFTER the logging middleware so
   // that requests are logged before being rejected, and BEFORE route definitions
-  // so every uncategorized endpoint inherits this floor.  Simulation endpoints
-  // (/api/billing/test/*) are skipped — they're X-Test-Secret gated already.
-  app.use(generalApiRateLimit);
+  // so every uncategorized API endpoint inherits this floor.  Simulation
+  // endpoints (/api/billing/test/*) are skipped — they're X-Test-Secret gated.
+  app.use('/api', generalApiRateLimit);
 
   await registerRoutes(httpServer, app);
 
