@@ -18,6 +18,7 @@ import { BadugiMode } from '../../shared/modes/badugi';
 import { Dead7Mode } from '../../shared/modes/dead7';
 import { Fifteen35Mode } from '../../shared/modes/fifteen35';
 import { SuitsPokerMode } from '../../shared/modes/suitspoker';
+import { FlushedUpMode, evaluateFlushedUpHand, compareFlushedUpHands } from '../../shared/modes/flushedUp';
 
 let failures = 0;
 let passes = 0;
@@ -679,6 +680,125 @@ section('Bankroll persistence — table chips and DB bankroll stay synced after 
   const bustResult: HandResult = { seatChips: 0, won: false, delta: -1000 };
   assert(syncedBalance(1000, bustResult) === 0,
     'bust: DB written value is 0 (not reset to default)');
+}
+
+// ─── FlushedUpMode — evaluateFlushedUpHand ──────────────────────────────────
+section('FlushedUpMode — evaluateFlushedUpHand');
+{
+  const mc = makeCard;
+
+  // 5-card flush
+  const flush5 = [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('10','hearts')];
+  const r5 = evaluateFlushedUpHand(flush5);
+  assert(r5.isFlush, '5-card flush: isFlush=true');
+  assert(r5.suitCount === 5, '5-card flush: suitCount=5');
+  assert(r5.rankValues[0] === 14, '5-card flush: top rank is A (14)');
+
+  // 4-card flush group
+  const four4 = [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('2','clubs')];
+  const r4 = evaluateFlushedUpHand(four4);
+  assert(!r4.isFlush, '4-suited: not flush');
+  assert(r4.suitCount === 4, '4-suited: suitCount=4');
+  assert(r4.bestSuit === 'hearts', '4-suited: bestSuit=hearts');
+
+  // 1-card per suit: suitCount=1
+  const one1 = [mc('A','hearts'), mc('K','diamonds'), mc('Q','clubs'), mc('J','spades'), mc('2','hearts')];
+  const r1 = evaluateFlushedUpHand(one1);
+  assert(r1.suitCount === 2, 'mixed suits: suitCount=2 (hearts has A+2)');
+
+  // compareFlushedUpHands: flush > 4-suited
+  const cmp = compareFlushedUpHands(r5, r4);
+  assert(cmp > 0, 'flush beats 4-suited');
+  const cmp2 = compareFlushedUpHands(r4, r5);
+  assert(cmp2 < 0, '4-suited loses to flush');
+
+  // tie-break by rank: A-K-Q-J-10 > A-K-Q-J-9
+  const flush5b = [mc('A','spades'), mc('K','spades'), mc('Q','spades'), mc('J','spades'), mc('9','spades')];
+  const r5b = evaluateFlushedUpHand(flush5b);
+  assert(compareFlushedUpHands(r5, r5b) > 0, 'A-K-Q-J-10 flush beats A-K-Q-J-9 flush');
+}
+
+// ─── FlushedUpMode — resolveShowdown chip conservation ───────────────────────
+section('FlushedUpMode — resolveShowdown chip conservation');
+{
+  const mc = makeCard;
+
+  // Two players, one has a flush, other has 4-suited — flush wins
+  const p1 = makePlayer('p1', {
+    chips: 975,
+    totalBet: 25,
+    cards: [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('10','hearts')],
+  });
+  const p2 = makePlayer('p2', {
+    chips: 975,
+    totalBet: 25,
+    cards: [mc('A','spades'), mc('K','spades'), mc('Q','spades'), mc('J','spades'), mc('2','clubs')],
+  });
+  const pot = 50;
+  const result = FlushedUpMode.resolveShowdown([p1, p2], pot, 'p1', []);
+  const totalChipsAfter = result.players.reduce((s, p) => s + p.chips, 0);
+  const totalChipsBefore = p1.chips + p2.chips + pot;
+  assert(totalChipsAfter === totalChipsBefore, `flush win: chip conservation (${totalChipsAfter} === ${totalChipsBefore})`);
+  const winner = result.players.find(p => p.isWinner);
+  assert(winner?.id === 'p1', 'flush beats 4-suited: p1 wins');
+
+  // Split pot: identical hands
+  const p3 = makePlayer('p3', {
+    chips: 975,
+    totalBet: 25,
+    cards: [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('10','hearts')],
+  });
+  const p4 = makePlayer('p4', {
+    chips: 975,
+    totalBet: 25,
+    cards: [mc('A','spades'), mc('K','spades'), mc('Q','spades'), mc('J','spades'), mc('10','spades')],
+  });
+  const splitResult = FlushedUpMode.resolveShowdown([p3, p4], 50, 'p3', []);
+  const splitTotal = splitResult.players.reduce((s, p) => s + p.chips, 0);
+  assert(splitTotal === p3.chips + p4.chips + 50, `split pot chip conservation (${splitTotal})`);
+  assert(splitResult.players.filter(p => p.isWinner).length === 2, 'split: both players win');
+
+  // Fold scenario: sole survivor wins entire pot
+  const p5 = makePlayer('p5', { chips: 975, totalBet: 25, cards: [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('10','hearts')] });
+  const p6 = makePlayer('p6', { chips: 975, totalBet: 25, status: 'folded', cards: [] });
+  const foldResult = FlushedUpMode.resolveShowdown([p5, p6], 50, 'p5', []);
+  const foldTotal = foldResult.players.reduce((s, p) => s + p.chips, 0);
+  assert(foldTotal === p5.chips + p6.chips + 50, `fold scenario chip conservation (${foldTotal})`);
+  assert(foldResult.players.find(p => p.id === 'p5')?.isWinner, 'sole survivor wins');
+}
+
+// ─── FlushedUpMode — botAction draw phases ───────────────────────────────────
+section('FlushedUpMode — botAction draw limits');
+{
+  const mc = makeCard;
+
+  function makeState(phase: string, cards: CardType[]): GameState {
+    const bot = makePlayer('p1', { chips: 975, cards });
+    const human = makePlayer('p2', { chips: 975, cards: [mc('2','clubs'), mc('3','diamonds'), mc('4','hearts'), mc('5','spades'), mc('6','clubs')] });
+    return {
+      tableId: 'test', phase: phase as GamePhase,
+      pot: 50, currentBet: 0, minBet: 25, raisesThisRound: 0,
+      activePlayerId: 'p1',
+      players: [bot, human],
+      communityCards: [],
+      messages: [], chatMessages: [],
+      deck: Array.from({ length: 20 }, (_, i) => mc(String(Math.max(2, i % 13 + 2)) as CardType['rank'], 'clubs')),
+      discardPile: [],
+    } as unknown as GameState;
+  }
+
+  // DRAW_1: bot has 4 hearts + 1 club → should discard 1 (the non-heart), max allowed is 3
+  const mixed4 = [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('2','clubs')];
+  const s1 = makeState('DRAW_1', mixed4);
+  const r1 = FlushedUpMode.botAction!(s1, 'p1');
+  const drawn1 = r1.stateUpdates?.players?.[0];
+  assert(drawn1 !== undefined, 'DRAW_1 botAction returns player state');
+
+  // DRAW_3: bot should stand pat with a 5-card flush
+  const flush5 = [mc('A','hearts'), mc('K','hearts'), mc('Q','hearts'), mc('J','hearts'), mc('10','hearts')];
+  const s3 = makeState('DRAW_3', flush5);
+  const r3 = FlushedUpMode.botAction!(s3, 'p1');
+  assert(r3.message.includes('stood pat'), 'flush bot stands pat in DRAW_3');
 }
 
 // ─── Summary ────────────────────────────────────────────────────────────────

@@ -113,6 +113,7 @@ const MODES = [
   { id: 'dead7',      name: 'DEAD 7',        tagline: 'Snitches get stitches', path: '/dead7',      color: '#ef4444', icon: '/mode-icon-dead7.png'     },
   { id: 'fifteen35',  name: '15 / 35',       tagline: 'Hit or go home',        path: '/fifteen35',  color: '#f59e0b', icon: '/mode-icon-fifteen35.png' },
   { id: 'suitspoker', name: 'SUITS & POKER', tagline: 'Two paths, one winner', path: '/suitspoker', color: '#3b82f6', icon: '/mode-icon-suits.png'     },
+  { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: '/mode-icon-suits.png'     },
   { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your Queen. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
 ] as const;
 
@@ -121,7 +122,8 @@ const MODE_CARD_CONFIGS = [
   { id: 'badugi',     bg: '/modes/bg-badugi.png',               color: '#4CAF50', btnText: 'white', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
   { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'PICK A SIDE.'          },
   { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
-  { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.' },
+  { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.'       },
+  { id: 'flushedup',  bg: '/modes/bg-suits.png',                color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP',    subtitle: 'CHASE THE FLUSH.'      },
   { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR QUEEN. RUN THE RACE.', directNav: true },
 ];
 
@@ -141,6 +143,7 @@ const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: stri
   dead7:       { name: 'Dead 7',        abbrev: 'D7', color: '#ef4444', path: '/dead7',      icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
   fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35',  icon: '/mode-icon-fifteen35.png', stakes: '$50 ante' },
   suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker', icon: '/mode-icon-suits.png',     stakes: '$50 ante' },
+  flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: '/mode-icon-suits.png',     stakes: '$25 ante' },
 };
 
 function phaseLabel(phase: string): string {
@@ -160,6 +163,7 @@ const LIVE_TABS = [
   { id: 'dead7',       label: 'Dead 7' },
   { id: 'fifteen35',   label: '15/35'  },
   { id: 'suits_poker', label: 'Suits'  },
+  { id: 'flushed_up',  label: 'Flush'  },
 ] as const;
 
 // LiveTablesSection kept for reference / join handler usage
@@ -440,7 +444,7 @@ export default function Home() {
 
   const MODE_ENGINE_ID: Record<string, string> = {
     badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
-    suitspoker: 'suits_poker',
+    suitspoker: 'suits_poker', flushedup: 'flushed_up',
   };
 
   const navigateToMode = useCallback(async (modeId: string, path: string) => {

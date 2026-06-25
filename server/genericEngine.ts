@@ -7,6 +7,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
+import { FlushedUpMode } from '../shared/modes/flushedUp';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import {
@@ -24,6 +25,7 @@ const MODE_REGISTRY: Record<string, GameMode> = {
   dead7: Dead7Mode,
   fifteen35: Fifteen35Mode,
   suits_poker: SuitsPokerMode,
+  flushed_up: FlushedUpMode,
   // swing_poker removed — Mother Flusher is no longer an active game mode
 };
 
