@@ -3,15 +3,20 @@ import { AnimatedCard } from './AnimatedCard';
 import type { CardType } from '@/lib/poker/types';
 
 /* ── Fan layout math ─────────────────────────────────────────────────────── */
+/*
+ * Subtle fan: outer cards tilt only slightly, vertical arc is minimal.
+ * span reduced from 24° → 14° for 5 cards; yOffset reduced accordingly.
+ */
 
 function fanParams(index: number, total: number): { rotation: number; yOffset: number } {
   if (total <= 1) return { rotation: 0, yOffset: 0 };
-  const span = total === 2 ? 10 : total === 3 ? 16 : total <= 5 ? 24 : 30;
+  const span = total === 2 ? 6 : total === 3 ? 10 : total <= 5 ? 14 : 18;
   const spread = span / (total - 1);
   const rotation = -span / 2 + index * spread;
   const mid = (total - 1) / 2;
   const dist = index - mid;
-  const yOffset = dist * dist * 2.8;
+  /* Small arc — dist² × 1 gives outer-card dip of ~4 px for 5-card hand */
+  const yOffset = dist * dist * 1.0;
   return { rotation, yOffset };
 }
 
@@ -55,14 +60,15 @@ export function CardHand({
   drawingIndices,
   discardingIndices,
   isShowdown,
-  cardWidth = 56,
-  cardHeight = 80,
+  cardWidth = 58,
+  cardHeight = 81,
 }: CardHandProps) {
   const isShowdownPhase = isShowdown;
   const flushIndices = isShowdownPhase ? detectFlushCards(cards) : new Set<number>();
   const hasFlush = flushIndices.size > 0;
 
-  const gap = Math.max(4, 8 - Math.max(0, cards.length - 4));
+  /* Tighter gap for wider cards; still readable */
+  const gap = Math.max(3, 6 - Math.max(0, cards.length - 4));
 
   return (
     <motion.div
@@ -73,8 +79,8 @@ export function CardHand({
         alignItems: 'flex-end',
         justifyContent: 'center',
         gap,
-        paddingTop: 32,
-        paddingBottom: 8,
+        paddingTop: 18,
+        paddingBottom: 6,
         position: 'relative',
       }}
     >
@@ -84,8 +90,8 @@ export function CardHand({
         const isDraw = drawingIndices.includes(index);
         const isDiscarding = discardingIndices.includes(index);
         const isSelected = selectedIndices.includes(index);
-        const dealDelay = index * 120;
-        const drawDelay = drawingIndices.indexOf(index) * 150;
+        const dealDelay = index * 110;
+        const drawDelay = drawingIndices.indexOf(index) * 140;
         const discardDelay = discardingIndices.indexOf(index) * 50;
 
         const isFlushCard = hasFlush && flushIndices.has(index);

@@ -53,8 +53,8 @@ export function OpponentSeat({
   isWinner = false,
   isFolded = false,
   isShowdown,
-  cardWidth = 32,
-  cardHeight = 46,
+  cardWidth = 22,
+  cardHeight = 31,
 }: OpponentSeatProps) {
   const prevCardCountRef = useRef(cards.length);
   const [badge, setBadge] = useState<DiscardBadge>(null);
@@ -93,39 +93,40 @@ export function OpponentSeat({
   const flushIndices = isShowdownPhase ? detectFlushCards(cards) : new Set<number>();
   const hasFlush = flushIndices.size > 0;
 
+  /* Border: always gold, brighter when active/winner */
   const seatBorder = isActive
-    ? '1.5px solid rgba(201,162,39,0.7)'
+    ? '1.5px solid rgba(201,162,39,0.75)'
     : isWinner
-    ? '1.5px solid rgba(201,162,39,0.55)'
-    : '1px solid rgba(255,255,255,0.08)';
+    ? '1.5px solid rgba(201,162,39,0.6)'
+    : '1px solid rgba(201,162,39,0.22)';
 
   const seatGlow = isActive
-    ? '0 0 20px rgba(201,162,39,0.35), 0 4px 16px rgba(0,0,0,0.5)'
+    ? '0 0 18px rgba(201,162,39,0.3), 0 4px 14px rgba(0,0,0,0.5)'
     : isWinner
-    ? '0 0 24px rgba(201,162,39,0.45), 0 4px 16px rgba(0,0,0,0.5)'
-    : '0 4px 16px rgba(0,0,0,0.4)';
+    ? '0 0 22px rgba(201,162,39,0.4), 0 4px 14px rgba(0,0,0,0.5)'
+    : '0 3px 12px rgba(0,0,0,0.45)';
 
   return (
     <motion.div
       animate={{
-        opacity: isFolded ? 0.38 : 1,
-        scale: isWinner ? 1.05 : 1,
+        opacity: isFolded ? 0.35 : 1,
+        scale: isWinner ? 1.04 : 1,
       }}
       transition={{ duration: 0.3 }}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 4,
-        padding: '8px 10px',
-        borderRadius: '14px',
-        background: 'rgba(0,0,0,0.45)',
+        gap: 3,
+        padding: '6px 8px',
+        borderRadius: '12px',
+        background: 'rgba(0,0,0,0.4)',
         border: seatBorder,
         boxShadow: seatGlow,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        minWidth: 80,
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         position: 'relative',
+        minWidth: 0,
       }}
     >
       {/* Discard / stood-pat badge */}
@@ -146,7 +147,7 @@ export function OpponentSeat({
               border: '1px solid rgba(201,162,39,0.5)',
               borderRadius: '6px',
               padding: '3px 8px',
-              fontSize: '9px',
+              fontSize: '8px',
               fontFamily: 'monospace',
               letterSpacing: '0.12em',
               color: '#C9A227',
@@ -162,11 +163,11 @@ export function OpponentSeat({
       {/* Dealer chip */}
       {isDealer && (
         <div style={{
-          position: 'absolute', top: -8, right: -8,
-          width: 18, height: 18, borderRadius: '50%',
+          position: 'absolute', top: -7, right: -7,
+          width: 16, height: 16, borderRadius: '50%',
           background: 'linear-gradient(135deg, #C9A227, #A07C10)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '8px', fontWeight: 700, color: '#000',
+          fontSize: '7px', fontWeight: 700, color: '#000',
           border: '1px solid rgba(255,220,100,0.6)',
           boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
           fontFamily: 'monospace',
@@ -179,8 +180,8 @@ export function OpponentSeat({
           animate={{ opacity: [1, 0.4, 1] }}
           transition={{ duration: 0.9, repeat: Infinity }}
           style={{
-            position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)',
-            width: 6, height: 6, borderRadius: '50%',
+            position: 'absolute', top: -5, left: '50%', transform: 'translateX(-50%)',
+            width: 5, height: 5, borderRadius: '50%',
             background: '#C9A227',
             boxShadow: '0 0 8px rgba(201,162,39,0.9)',
           }}
@@ -189,17 +190,21 @@ export function OpponentSeat({
 
       {/* Player name */}
       <div style={{
-        fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.85)',
-        fontWeight: 600, letterSpacing: '0.05em', maxWidth: 72,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        fontSize: '9px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.82)',
+        fontWeight: 600, letterSpacing: '0.04em',
+        maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
         {name}
       </div>
 
       {/* Cards row */}
-      <div style={{ display: 'flex', gap: 2, alignItems: 'center', paddingTop: 2 }}>
+      <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         {cards.length === 0 && (
-          <div style={{ width: cardWidth, height: cardHeight, borderRadius: '6px', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.1)' }} />
+          <div style={{
+            width: cardWidth, height: cardHeight, borderRadius: '4px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px dashed rgba(255,255,255,0.08)',
+          }} />
         )}
         {cards.map((card, i) => {
           const isDraw = drawingIndices.includes(i);
@@ -229,8 +234,8 @@ export function OpponentSeat({
       {/* Chip count */}
       {status !== 'sitting_out' && (
         <div style={{
-          fontSize: '10px', fontFamily: 'monospace',
-          color: 'rgba(201,162,39,0.9)', letterSpacing: '0.05em',
+          fontSize: '9px', fontFamily: 'monospace',
+          color: 'rgba(201,162,39,0.85)', letterSpacing: '0.04em',
           fontWeight: 600,
         }}>
           {chips.toLocaleString()}

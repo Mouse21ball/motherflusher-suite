@@ -214,12 +214,12 @@ function FlushedUpGameUI() {
   // isRewardAvailable used in bust modal flow
   void isRewardAvailable;
 
-  /* Full-screen background image — fixed so it doesn't scroll */
+  /* Full-screen background image — cover, no fixed-attachment (breaks mobile) */
   const bgStyle: React.CSSProperties = {
+    backgroundColor: '#0B0B0D',
     backgroundImage: "url('/ladyluck/ladyluck-bg.png')",
     backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'fixed',
+    backgroundPosition: 'center top',
   };
 
   return (
@@ -264,7 +264,7 @@ function FlushedUpGameUI() {
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
-      <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 overflow-x-hidden">
+      <main className="flex-1 min-h-0 flex flex-col pt-12 sm:pt-14 pb-52 overflow-x-hidden">
         <FlushedUpTable
           state={state}
           myId={myId}

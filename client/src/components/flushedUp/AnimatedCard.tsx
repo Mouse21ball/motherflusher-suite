@@ -47,7 +47,7 @@ function CardFace({ card, dimmed, glowColor }: { card: CardType; dimmed?: boolea
     <div
       style={{
         width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
-        borderRadius: '10px',
+        borderRadius: '8px',
         background: 'linear-gradient(160deg, #ffffff 0%, #f4f0e8 60%, #ede8de 100%)',
         opacity: dimmed ? 0.5 : 1,
         boxShadow: glowColor
@@ -62,13 +62,13 @@ function CardFace({ card, dimmed, glowColor }: { card: CardType; dimmed?: boolea
         <SuitIcon suit={card.suit} size={12} />
       </div>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <SuitIcon suit={card.suit} size={52} />
+        <SuitIcon suit={card.suit} size={48} />
       </div>
       <div style={{ position: 'absolute', bottom: 3, right: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, transform: 'rotate(180deg)', lineHeight: 1 }}>
         <span style={{ color: rankColor, fontSize: '13px', fontWeight: 700, fontFamily: 'Georgia, serif', lineHeight: 1 }}>{card.rank}</span>
         <SuitIcon suit={card.suit} size={12} />
       </div>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '35%', background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 100%)', pointerEvents: 'none', borderRadius: '10px 10px 0 0' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '35%', background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 100%)', pointerEvents: 'none', borderRadius: '8px 8px 0 0' }} />
     </div>
   );
 }
@@ -77,7 +77,7 @@ function CardFace({ card, dimmed, glowColor }: { card: CardType; dimmed?: boolea
 
 function CardBack() {
   return (
-    <div className="w-full h-full rounded-[10px] overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.55)', border: '1px solid rgba(201,162,39,0.2)' }}>
+    <div className="w-full h-full rounded-[8px] overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.55)', border: '1px solid rgba(201,162,39,0.2)' }}>
       <img src="/ladyluck/card-back-cgp.png" alt="" className="w-full h-full object-cover" />
     </div>
   );
@@ -149,8 +149,8 @@ export function AnimatedCard({
   wasHiddenBeforeShowdown = false,
   isFlushCard = false,
   isNonFlushCard = false,
-  width = 56,
-  height = 80,
+  width = 58,
+  height = 81,
   className,
 }: AnimatedCardProps) {
   /* Whether we're in the "flying in from deck" animation */
@@ -168,12 +168,11 @@ export function AnimatedCard({
   }, [isShowdown, wasHiddenBeforeShowdown]);
 
   /* Selected lift amount */
-  const selectedLift = isSelected ? -30 : 0;
-  const hoverLift = -20;
+  const selectedLift = isSelected ? -28 : 0;
 
   /* Deck origin offset (where cards fly from) */
   const DECK_X = 0;
-  const DECK_Y = -420;
+  const DECK_Y = -400;
 
   /* Glow for flush cards */
   const glowColor = isFlushCard && card && !isHidden ? suitGlowColor(card.suit) : undefined;
@@ -185,8 +184,8 @@ export function AnimatedCard({
     return (
       <motion.div
         className={className}
-        initial={{ x: 0, y: 0, rotate: fanRotation, scale: 1, opacity: 1 }}
-        animate={{ x: (Math.random() - 0.5) * 60, y: -600, rotate: discardRotation, scale: 0.7, opacity: 0 }}
+        initial={{ x: 0, y: fanY, rotate: fanRotation, scale: 1, opacity: 1 }}
+        animate={{ x: (Math.random() - 0.5) * 60, y: -500, rotate: discardRotation, scale: 0.7, opacity: 0 }}
         transition={{ duration: 0.22, delay: discardDelay / 1000, ease: [0.4, 0, 0.8, 0.2] }}
         style={{ width, height, flexShrink: 0, transformOrigin: 'center bottom', willChange: 'transform, opacity' }}
       >
@@ -209,7 +208,7 @@ export function AnimatedCard({
         }}
         animate={{
           x: 0,
-          y: [DECK_Y, DECK_Y * 0.3, 0],
+          y: [DECK_Y, DECK_Y * 0.3, fanY],
           scale: [0.6, 1.08, 1.0],
           rotate: [null, fanRotation * 0.5, fanRotation],
           opacity: [0, 1, 1],
@@ -226,8 +225,6 @@ export function AnimatedCard({
           width, height, flexShrink: 0,
           transformOrigin: 'center center',
           willChange: 'transform, opacity',
-          rotate: fanRotation,
-          translateY: fanY,
         }}
       >
         {isHidden || !card ? <CardBack /> : <CardFace card={card} dimmed={cardDimmed} glowColor={glowColor} />}
@@ -278,41 +275,60 @@ export function AnimatedCard({
   }
 
   /* ─── Idle / selected ───────────────────────────────────────────────── */
+  /*
+   * Key fix: `style.rotate` handles the fan angle; `animate.y` handles BOTH
+   * the arc offset (fanY) and the selection lift. Previously `style.translateY`
+   * was also set which double-applied the arc offset.
+   *
+   * The inner floating motion.div gets `pointerEvents:'none'` so it never
+   * swallows the click that should bubble up to the outer wrapper's onClick.
+   */
   return (
     <motion.div
-      className={cn(isSelectable && 'cursor-pointer', className)}
+      className={cn(isSelectable && 'cursor-pointer select-none', className)}
       style={{
-        width, height, flexShrink: 0,
+        width,
+        height,
+        flexShrink: 0,
         rotate: fanRotation,
-        translateY: fanY,
+        /* ← NO translateY here — fanY is handled via animate.y below */
         transformOrigin: 'center bottom',
         willChange: 'transform',
         position: 'relative',
+        touchAction: 'manipulation', /* faster tap, no 300ms delay */
       }}
       animate={{
-        y: selectedLift + fanY,
-        scale: isSelected ? 1.06 : 1,
-        filter: isSelected ? 'drop-shadow(0 0 12px rgba(220,40,40,0.9))' : 'none',
+        y: selectedLift + fanY,       /* arc offset + lift combined */
+        scale: isSelected ? 1.05 : 1,
+        filter: isSelected
+          ? 'drop-shadow(0 0 10px rgba(220,40,40,0.85))'
+          : 'none',
       }}
-      whileHover={isSelectable ? { y: hoverLift + fanY, scale: 1.08, transition: { duration: 0.15 } } : undefined}
-      whileTap={isSelectable ? { scale: 0.97 } : undefined}
-      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+      whileHover={isSelectable
+        ? { y: -16 + fanY, scale: 1.07, transition: { duration: 0.14 } }
+        : undefined}
+      whileTap={isSelectable ? { scale: 0.95 } : undefined}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       onClick={isSelectable ? onSelect : undefined}
     >
-      {/* Floating idle for hero non-selected cards */}
+      {/* Gentle idle float — pointerEvents:none so clicks reach outer div */}
       {!isSelected && (
         <motion.div
-          style={{ width: '100%', height: '100%' }}
-          animate={{ y: [0, -4, 0] }}
-          transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
+          style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+          animate={{ y: [0, -3, 0] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
         >
-          {isHidden || !card ? <CardBack /> : <CardFace card={card} dimmed={cardDimmed} glowColor={glowColor} />}
+          {isHidden || !card
+            ? <CardBack />
+            : <CardFace card={card} dimmed={cardDimmed} glowColor={glowColor} />}
         </motion.div>
       )}
 
       {isSelected && (
         <div style={{ width: '100%', height: '100%' }}>
-          {isHidden || !card ? <CardBack /> : <CardFace card={card} dimmed={cardDimmed} glowColor={cardDimmed ? undefined : 'rgba(220,40,40,0.6)'} />}
+          {isHidden || !card
+            ? <CardBack />
+            : <CardFace card={card} dimmed={cardDimmed} glowColor={cardDimmed ? undefined : 'rgba(220,40,40,0.55)'} />}
         </div>
       )}
 
@@ -324,14 +340,14 @@ export function AnimatedCard({
           exit={{ scale: 0, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           style={{
-            position: 'absolute', top: -8, right: -8,
-            width: 20, height: 20, borderRadius: '50%',
+            position: 'absolute', top: -7, right: -7,
+            width: 18, height: 18, borderRadius: '50%',
             background: '#dc2020',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '12px', fontWeight: 700, color: '#fff',
+            fontSize: '11px', fontWeight: 700, color: '#fff',
             boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
-            zIndex: 10,
-            lineHeight: 1,
+            zIndex: 10, lineHeight: 1,
+            pointerEvents: 'none',
           }}
         >
           ✕
