@@ -264,7 +264,7 @@ function FlushedUpGameUI() {
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
-      <main className="flex-1 min-h-0 flex flex-col pt-12 sm:pt-14 pb-52 overflow-x-hidden">
+      <main className="flex-1 min-h-0 flex flex-col pt-12 sm:pt-14 pb-52">
         <FlushedUpTable
           state={state}
           myId={myId}
