@@ -29,6 +29,10 @@ import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
 import { qualifiesForSuits } from '@shared/modes/suitspoker';
+import { ShowdownReveal } from '@/components/game/ShowdownReveal';
+import type { WinnerData, HeroRevealData } from '@/components/game/ShowdownReveal';
+import { evaluateBadugi } from '@shared/modes/badugi';
+import { evaluateDead7 } from '@shared/modes/dead7';
 
 // ── Unified game UI shell ─────────────────────────────────────────────────────
 
@@ -225,6 +229,57 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
   const phaseHint = getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot });
 
+  // ── Premium ShowdownReveal: Badugi, Dead 7, Suits Poker ──────────────────
+  const REVEAL_MODES = ['badugi', 'dead7', 'suitspoker'];
+  const showReveal = state.phase === 'SHOWDOWN' && REVEAL_MODES.includes(modeId);
+
+  /** Compute a human-readable hand rank label per mode. */
+  function handLabelForMode(player: typeof me, mode: string): string {
+    if (!player?.cards?.length) return '';
+    const cards = player.cards.map(c => ({ ...c, isHidden: false }));
+    if (mode === 'badugi') {
+      return evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
+    }
+    if (mode === 'dead7') {
+      return evaluateDead7(cards as Parameters<typeof evaluateDead7>[0])?.description ?? '';
+    }
+    if (mode === 'suitspoker') {
+      const decl = player.declaration;
+      if (decl === 'SUITS') return player.score?.lowEval?.description ?? player.score?.description ?? '';
+      return player.score?.highEval?.description ?? player.score?.description ?? '';
+    }
+    return '';
+  }
+
+  const revealWinners: WinnerData[] = showReveal
+    ? state.players
+        .filter(p => (p as unknown as { isWinner?: boolean }).isWinner)
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          cards: (p.cards ?? []).map(c => ({ ...c, isHidden: false })),
+          handRankLabel: handLabelForMode(p, modeId),
+          potShare: 0,
+        }))
+    : [];
+
+  const revealHeroData: HeroRevealData = showReveal && me
+    ? {
+        id: me.id,
+        cards: (me.cards ?? []).map(c => ({ ...c, isHidden: false })),
+        handRankLabel: handLabelForMode(me, modeId),
+      }
+    : { id: myId, cards: [], handRankLabel: '' };
+
+  const heroWonReveal = revealWinners.some(w => w.id === myId);
+
+  // Parse pot amount from resolution message ("Name wins $1234 with …")
+  const resMsg = state.messages.find(m => (m as unknown as { isResolution?: boolean }).isResolution);
+  const potMatch = resMsg?.text?.match(/\$(\d+)/);
+  const revealPotAmount = potMatch ? parseInt(potMatch[1], 10) : Math.abs(state.heroChipChange ?? 0);
+
+  const cardsPerHandForMode = modeId === 'suitspoker' ? 5 : 4;
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root" data-mode={modeId}>
       {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
@@ -420,6 +475,18 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}
       />
+
+      {/* Premium showdown reveal — Badugi, Dead 7, Suits Poker */}
+      {showReveal && (
+        <ShowdownReveal
+          cardsPerHand={cardsPerHandForMode}
+          winners={revealWinners}
+          heroData={revealHeroData}
+          heroWon={heroWonReveal}
+          potAmount={revealPotAmount}
+          onComplete={() => {}}
+        />
+      )}
     </div>
   );
 }
