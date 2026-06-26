@@ -357,8 +357,21 @@ export function AnimatedCard({
       */}
       {isSelectable && onSelect && (
         <div
-          onClick={() => {
-            console.log('[FlushedUp] card tapped — isSelectable:', isSelectable, 'onSelect fn:', !!onSelect);
+          onPointerDown={(e) => {
+            /*
+             * CRITICAL: stop propagation on pointerdown so the parent
+             * motion.div never receives it.  framer-motion v12 attaches an
+             * internal pointerdown listener to every motion element for
+             * gesture bookkeeping — even without whileTap/drag props.  If
+             * that listener fires it can absorb the touch stream and
+             * silently cancel the child's synthetic click event on mobile.
+             * Stopping propagation here cuts off gesture tracking at the
+             * source; the onClick below then fires cleanly on pointer-up.
+             */
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
             onSelect();
           }}
           style={{
@@ -367,6 +380,7 @@ export function AnimatedCard({
             zIndex: 10,
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent',
+            cursor: 'pointer',
           } as React.CSSProperties}
         />
       )}
