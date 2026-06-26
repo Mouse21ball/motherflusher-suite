@@ -20,6 +20,7 @@ import { trackModePlay } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { isRewardAvailable } from '@/lib/dailyReward';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
+import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
 import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 
@@ -275,6 +276,11 @@ function FlushedUpGameUI() {
         />
       </main>
 
+      {/* Full-screen showdown overlay — replaces table + controls during SHOWDOWN */}
+      {state.phase === 'SHOWDOWN' && (
+        <ShowdownScreen state={state} myId={myId} />
+      )}
+
       {xpToast && xpToast.xpGained > 0 && (
         <XPToast
           key={xpToast.id}
@@ -295,7 +301,7 @@ function FlushedUpGameUI() {
         />
       )}
 
-      {!effectiveSpectator && (
+      {!effectiveSpectator && state.phase !== 'SHOWDOWN' && (
         <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none">
           {/* frosted glass panel that contains the action controls */}
           <div
