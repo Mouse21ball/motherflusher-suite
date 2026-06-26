@@ -276,10 +276,9 @@ export function FlushedUpTable({
     ...state.players.slice(0, myIndex),
   ].filter(p => p.id !== myId);
 
-  /* Up to 4 opponent panels, fill remainder with empty slots */
-  const activeOpps = reorderedOpps.filter(p => p.presence !== 'reserved').slice(0, 4);
-  const totalSlots = 4;
-  const emptyCount = Math.max(0, totalSlots - activeOpps.length);
+  /* Always show 4 opponent slots: reserved seats render as OPEN panels inside the grid */
+  const gridOpps  = reorderedOpps.slice(0, 4);
+  const emptyCount = Math.max(0, 4 - gridOpps.length);
 
   /* Winner overlay */
   const [winnerData, setWinnerData] = useState<{ name: string; pot: number; isHero: boolean } | null>(null);
@@ -323,7 +322,10 @@ export function FlushedUpTable({
         padding: '8px 10px 4px',
         flexShrink: 0,
       }}>
-        {activeOpps.map((opp) => {
+        {gridOpps.map((opp) => {
+          if (opp.presence === 'reserved' || opp.presence === 'open') {
+            return <EmptyPanel key={opp.id} />;
+          }
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
           return (
             <OpponentPanel

@@ -211,8 +211,9 @@ export function FlushedUpActionBar({
         {isWaiting && (
           <div style={{
             textAlign: 'center', padding: '10px 0',
-            fontSize: 10, fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.35)', letterSpacing: '0.18em',
+            fontSize: 16, fontFamily: 'monospace',
+            color: 'rgba(255,255,255,0.9)', letterSpacing: '0.18em',
+            textShadow: '0 1px 8px rgba(0,0,0,0.8)',
           }}>
             {openSeatsCount > 0 && !isClubTable
               ? `WAITING FOR ${openSeatsCount} MORE PLAYER${openSeatsCount > 1 ? 'S' : ''}...`

@@ -129,6 +129,9 @@ const JOIN_WINDOW_MS = 30_000;
 const RECONNECT_TIMEOUT_MS = 90_000;
 // Bot names: per-table, derived from tableId+seatId via getBotName().
 
+// ─── Flushed Up bot names ─────────────────────────────────────────────────────
+const FLUSHED_UP_BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 'Cleo', 'Remy'];
+
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 function makeInitialPlayers(isClubTable = false): Player[] {
@@ -227,6 +230,100 @@ function scheduleStagedBotFill(key: string, tableId: string, capturedJoinWindowE
         if (convertOneReservedToBot(t3)) broadcastState(t3);
       }, 60_000);
     }, 30_000);
+  }, 10_000);
+}
+
+// ─── Flushed Up auto-start ────────────────────────────────────────────────────
+// Internal helper: transitions a WAITING Flushed Up table straight into ANTE.
+function autoStartHand(table: GenericTable): void {
+  if (table.state.phase !== 'WAITING') return;
+  convertReservedToBots(table);
+  const freshPlayers = table.state.players;
+  const activePlayers = freshPlayers.filter(p => p.status === 'active');
+  if (activePlayers.length < 2) return;
+  table.handId += 1;
+  const dealerIdx   = getDealerIndex(freshPlayers);
+  const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
+  table.state = addMsg(
+    { ...table.state, phase: 'ANTE', activePlayerId: freshPlayers[firstActIdx].id },
+    'Ante up!',
+  );
+  engineLog('TABLE_CREATE', `${table.modeId}:${table.tableId}`, { source: 'autoStart', handId: table.handId });
+  broadcastState(table);
+  scheduleNextBot(table);
+  scheduleGenericSave(tableKey(table.modeId, table.tableId), table.state, table.handId);
+}
+
+// Bot fill following the Lady Luck pattern:
+//   10 s → add 1 bot; then 1 bot every 2 s until all seats filled;
+//   3 s after the table is full (or already has 2+ active players) → auto-start.
+function scheduleFlushedUpBotFill(key: string): void {
+  const t0 = tables.get(key);
+  if (!t0) return;
+
+  const fillOne = () => {
+    const t = tables.get(key);
+    if (!t || t.state.phase !== 'WAITING' || t.crewId || !t.botsEnabled) return;
+
+    const reserved = t.state.players.filter(p => p.presence === 'reserved');
+    const active   = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+
+    if (reserved.length === 0) {
+      if (active.length >= 2) {
+        t.botFillTimer = setTimeout(() => {
+          const t2 = tables.get(key);
+          if (!t2 || t2.state.phase !== 'WAITING') return;
+          t2.botFillTimer = undefined;
+          autoStartHand(t2);
+        }, 3_000);
+      }
+      return;
+    }
+
+    // Seat one bot with a Flushed Up name
+    const first = reserved[0];
+    const usedNames = t.state.players.filter(p => p.presence === 'bot').map(p => p.name);
+    const botName = FLUSHED_UP_BOT_NAMES.find(n => !usedNames.includes(n))
+      ?? FLUSHED_UP_BOT_NAMES[Math.floor(Math.random() * FLUSHED_UP_BOT_NAMES.length)];
+    t.state = {
+      ...t.state,
+      players: t.state.players.map(p =>
+        p.id === first.id
+          ? { ...p, presence: 'bot' as const, status: 'active' as const, name: botName }
+          : p,
+      ),
+    };
+    broadcastState(t);
+
+    const reservedNow = t.state.players.filter(p => p.presence === 'reserved');
+    const activeNow   = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+
+    if (reservedNow.length > 0) {
+      t.botFillTimer = setTimeout(fillOne, 2_000);
+    } else if (activeNow.length >= 2) {
+      t.botFillTimer = setTimeout(() => {
+        const t2 = tables.get(key);
+        if (!t2 || t2.state.phase !== 'WAITING') return;
+        t2.botFillTimer = undefined;
+        autoStartHand(t2);
+      }, 3_000);
+    }
+  };
+
+  t0.botFillTimer = setTimeout(() => {
+    const t = tables.get(key);
+    if (!t || t.state.phase !== 'WAITING') return;
+    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+    if (active.length >= 2) {
+      t.botFillTimer = setTimeout(() => {
+        const t2 = tables.get(key);
+        if (!t2 || t2.state.phase !== 'WAITING') return;
+        t2.botFillTimer = undefined;
+        autoStartHand(t2);
+      }, 3_000);
+    } else {
+      fillOne();
+    }
   }, 10_000);
 }
 
@@ -353,6 +450,8 @@ interface GenericTable {
   // it. The fired callback only acts when its captured token still equals the
   // current one — kills any stale post-clear ghost timers (architect H-2).
   turnTimerGen?: number;
+  // Flushed Up bot-fill / auto-start timer (mirrors LLTableMeta.botFillTimer).
+  botFillTimer?: ReturnType<typeof setTimeout>;
 }
 
 // Indexed by `${modeId}:${tableId}`
@@ -1481,7 +1580,11 @@ function getOrCreateTable(
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
     if (!isPrivate && !quickPlay && botsEnabled) {
-      scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
+      if (modeId === 'flushed_up') {
+        scheduleFlushedUpBotFill(key);
+      } else {
+        scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
+      }
     }
   } else {
     // Refresh crewId and botsEnabled from options so a restored table (which
@@ -1613,6 +1716,16 @@ export function addGenericConnection(
       };
     }),
   };
+
+  // For restored Flushed Up tables: start the bot-fill timer when the first
+  // human joins so they aren't stuck waiting forever after a server restart.
+  if (
+    modeId === 'flushed_up' && !isNew && !isReconnect &&
+    !table.botFillTimer && table.state.phase === 'WAITING' &&
+    !table.crewId && table.botsEnabled
+  ) {
+    scheduleFlushedUpBotFill(key);
+  }
 
   // ── Persist identity and load chips ────────────────────────────────────────
   // Load canonical chip balance from DB for:
@@ -1904,6 +2017,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      // Cancel any pending Flushed Up bot-fill / auto-start timer
+      if (table.botFillTimer) { clearTimeout(table.botFillTimer); table.botFillTimer = undefined; }
       // Close join window — fill any still-open seats with bots before the hand starts.
       // Club tables: convertReservedToBots returns immediately (crewId guard), reserved seats
       // stay as-is. Minimum 1 human is always present (the player pressing start), so we
