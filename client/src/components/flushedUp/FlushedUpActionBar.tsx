@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FlushedUpActionBarProps {
@@ -78,6 +78,16 @@ export function FlushedUpActionBar({
   onStay, onDraw, onAction, onRebuy,
 }: FlushedUpActionBarProps) {
   const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  // Auto-post ante when it's the player's turn — mirrors Controls.tsx behaviour.
+  const autoAnteFired = useRef(false);
+  useEffect(() => {
+    if (phase !== 'ANTE') { autoAnteFired.current = false; return; }
+    if (isMyTurn && !locked && !autoAnteFired.current) {
+      autoAnteFired.current = true;
+      onAction('ante');
+    }
+  }, [phase, isMyTurn, locked, onAction]);
 
   const canAct = isMyTurn && !locked;
   const callAmount = currentBet - myBet;

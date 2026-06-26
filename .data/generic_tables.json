@@ -44387,5 +44387,123 @@
     },
     "handId": 2,
     "savedAt": 1782508479369
+  },
+  "flushed_up:FHP6Y2": {
+    "state": {
+      "tableId": "FHP6Y2",
+      "phase": "ANTE",
+      "pot": 75,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 25000,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false,
+          "subscriptionTier": null
+        },
+        {
+          "id": "p2",
+          "name": "BluffMaster",
+          "presence": "bot",
+          "chips": 14495,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "TexHoldEmJoe",
+          "presence": "bot",
+          "chips": 6201,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "StackChaserX",
+          "presence": "bot",
+          "chips": 9950,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "FoldKing",
+          "presence": "bot",
+          "chips": 9279,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "5mjerc3r",
+          "text": "New hand.",
+          "time": 1782509199504
+        },
+        {
+          "id": "641fgyc9",
+          "text": "TexHoldEmJoe paid $25 Ante",
+          "time": 1782509199844,
+          "isResolution": false
+        },
+        {
+          "id": "061zd6id",
+          "text": "StackChaserX paid $25 Ante",
+          "time": 1782509200777,
+          "isResolution": false
+        },
+        {
+          "id": "zi45b9cj",
+          "text": "FoldKing paid $25 Ante",
+          "time": 1782509201616,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "usnbcbq9",
+          "senderId": "p2",
+          "senderName": "BluffMaster",
+          "text": "Easy money.",
+          "time": 1782509194990
+        }
+      ],
+      "deck": [],
+      "discardPile": []
+    },
+    "handId": 3,
+    "savedAt": 1782509203626
   }
 }
