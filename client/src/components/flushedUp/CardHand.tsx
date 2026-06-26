@@ -99,7 +99,7 @@ export function CardHand({
 
         const needsAnimation = isDeal || isDraw || isDiscarding;
 
-        if (isSelectable && !needsAnimation) {
+        if (isSelectable) {
           return (
             <div
               key={index}
