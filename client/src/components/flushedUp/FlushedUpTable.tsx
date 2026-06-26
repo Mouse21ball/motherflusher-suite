@@ -5,6 +5,36 @@ import { CardHand } from './CardHand';
 import { OpponentSeat } from './OpponentSeat';
 import { WinnerOverlay } from './WinnerOverlay';
 import type { CardAnimState } from './useCardAnimations';
+import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
+import type { FlushedUpEval } from '@shared/modes/flushedUp';
+
+/* ── Showdown helpers ─────────────────────────────────────────────────────── */
+
+function suitGlowColor(suit: string): string {
+  if (suit === 'hearts' || suit === 'diamonds') return 'rgba(196,30,58,0.85)';
+  if (suit === 'spades') return 'rgba(100,130,210,0.85)';
+  return 'rgba(30,150,70,0.85)';
+}
+
+function rankLabel(v: number): string {
+  if (v === 14) return 'A';
+  if (v === 13) return 'K';
+  if (v === 12) return 'Q';
+  if (v === 11) return 'J';
+  return String(v);
+}
+
+function showdownLabel(ev: FlushedUpEval): string {
+  const SYM: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+  const sym = SYM[ev.bestSuit] ?? '';
+  if (ev.isFlush) {
+    const top = rankLabel(ev.rankValues[0] ?? 14);
+    return `5-Card Flush ${sym} ${top}-high`;
+  }
+  if (ev.suitCount <= 1) return 'No Flush';
+  const top = rankLabel(ev.rankValues[0] ?? 14);
+  return `${ev.suitCount}-Card ${sym} ${top}-high`;
+}
 
 /* ── Animated pot counter ─────────────────────────────────────────────────── */
 
@@ -82,6 +112,15 @@ export function FlushedUpTable({
   animState,
 }: FlushedUpTableProps) {
   const me = state.players.find(p => p.id === myId);
+  const isShowdown = state.phase === 'SHOWDOWN';
+
+  /* Hero showdown hand evaluation + winner/loser state */
+  const heroHandEval: FlushedUpEval | null = isShowdown && me && me.cards.length > 0
+    ? evaluateFlushedUpHand(me.cards.map(c => ({ ...c, isHidden: false })))
+    : null;
+  const heroIsWinner = !!me?.isWinner;
+  const heroIsLoser  = isShowdown && !heroIsWinner && me?.status !== 'folded';
+  const heroGlowColor = heroIsWinner && heroHandEval ? suitGlowColor(heroHandEval.bestSuit) : null;
 
   /* Reorder: player left of hero first, wrap around, max 4 opponents */
   const myIndex = state.players.findIndex(p => p.id === myId);
@@ -251,18 +290,47 @@ export function FlushedUpTable({
 
         {/* Hero cards — float directly on background, no backing panel */}
         {me && me.cards.length > 0 ? (
-          <CardHand
-            cards={me.cards}
-            selectedIndices={selectedCardIndices}
-            onCardClick={onCardClick}
-            isSelectable={isDrawPhase}
-            dealingIndices={animState.dealingIndices}
-            drawingIndices={animState.drawingIndices}
-            discardingIndices={animState.discardingIndices}
-            isShowdown={state.phase === 'SHOWDOWN'}
-            cardWidth={heroCardW}
-            cardHeight={heroCardH}
-          />
+          <>
+            {/* Winner: suit-glow filter; loser: 60% opacity + desaturate */}
+            <div style={{
+              opacity: heroIsLoser ? 0.6 : 1,
+              filter: heroGlowColor
+                ? `drop-shadow(0 0 14px ${heroGlowColor}) drop-shadow(0 0 6px ${heroGlowColor})`
+                : 'none',
+              transition: 'opacity 0.4s ease, filter 0.4s ease',
+            }}>
+              <CardHand
+                cards={me.cards}
+                selectedIndices={selectedCardIndices}
+                onCardClick={onCardClick}
+                isSelectable={isDrawPhase}
+                dealingIndices={animState.dealingIndices}
+                drawingIndices={animState.drawingIndices}
+                discardingIndices={animState.discardingIndices}
+                isShowdown={isShowdown}
+                cardWidth={heroCardW}
+                cardHeight={heroCardH}
+              />
+            </div>
+
+            {/* Hand rank label — showdown only */}
+            {isShowdown && heroHandEval && me.status !== 'folded' && (
+              <div style={{
+                marginTop: 3,
+                fontSize: '9px',
+                fontFamily: 'monospace',
+                color: heroIsWinner ? '#C9A227' : 'rgba(255,255,255,0.36)',
+                fontWeight: heroIsWinner ? 700 : 400,
+                letterSpacing: '0.08em',
+                textAlign: 'center',
+                textShadow: heroIsWinner
+                  ? '0 0 10px rgba(201,162,39,0.7), 0 1px 6px rgba(0,0,0,0.9)'
+                  : '0 1px 6px rgba(0,0,0,0.9)',
+              }}>
+                {showdownLabel(heroHandEval)}
+              </div>
+            )}
+          </>
         ) : (
           /* Empty ghost slots */
           <div style={{ display: 'flex', gap: 5, paddingTop: 18, paddingBottom: 6 }}>

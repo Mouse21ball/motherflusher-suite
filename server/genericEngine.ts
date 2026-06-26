@@ -961,7 +961,7 @@ function resolveShowdown(table: GenericTable): void {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       resetToAnte(table);
       broadcastState(table);
-    }, 2500);
+    }, 5500);
   }, 650);
 }
 

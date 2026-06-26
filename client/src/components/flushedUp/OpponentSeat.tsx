@@ -2,12 +2,42 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { PlayingCard } from '@/components/game/Card';
 import type { CardType } from '@/lib/poker/types';
+import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
+import type { FlushedUpEval } from '@shared/modes/flushedUp';
 
 /* ── Badge ───────────────────────────────────────────────────────────────── */
 
 type DiscardBadge = { type: 'discard'; count: number } | { type: 'pat' } | null;
 const badgeLabel = (b: DiscardBadge) =>
   !b ? '' : b.type === 'pat' ? 'STOOD PAT' : `DISCARDED ${b.count}`;
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+function suitGlowColor(suit: string): string {
+  if (suit === 'hearts' || suit === 'diamonds') return 'rgba(196,30,58,0.85)';
+  if (suit === 'spades') return 'rgba(100,130,210,0.85)';
+  return 'rgba(30,150,70,0.85)';
+}
+
+function rankLabel(v: number): string {
+  if (v === 14) return 'A';
+  if (v === 13) return 'K';
+  if (v === 12) return 'Q';
+  if (v === 11) return 'J';
+  return String(v);
+}
+
+function showdownLabel(ev: FlushedUpEval): string {
+  const SYM: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+  const sym = SYM[ev.bestSuit] ?? '';
+  if (ev.isFlush) {
+    const top = rankLabel(ev.rankValues[0] ?? 14);
+    return `5-Card Flush ${sym} ${top}-high`;
+  }
+  if (ev.suitCount <= 1) return 'No Flush';
+  const top = rankLabel(ev.rankValues[0] ?? 14);
+  return `${ev.suitCount}-Card ${sym} ${top}-high`;
+}
 
 /* ── Props ───────────────────────────────────────────────────────────────── */
 
@@ -24,12 +54,6 @@ interface OpponentSeatProps {
 }
 
 /* ── OpponentSeat ────────────────────────────────────────────────────────── */
-/*
- * FIX 3 — Opponent card thumbnails:
- * Cards are rendered as small 24×36 px thumbnails — plain card-back images
- * during play, shared PlayingCard at showdown. This avoids the AnimatedCard
- * overhead and the size distortion from the old 28–32 px animated approach.
- */
 
 export function OpponentSeat({
   name,
@@ -56,26 +80,53 @@ export function OpponentSeat({
     }
   }, [cards.length]);
 
+  /* Showdown hand evaluation ─────────────────────────────────────────────── */
+  const handEval: FlushedUpEval | null = isShowdown && cards.length > 0
+    ? evaluateFlushedUpHand(cards.map(c => ({ ...c, isHidden: false })))
+    : null;
+
+  const isLoser = isShowdown && !isWinner && !isFolded;
+  const glowColor = isWinner && handEval ? suitGlowColor(handEval.bestSuit) : null;
+
+  /* Card dimensions — larger at showdown for full legibility */
+  const CARD_W = isShowdown ? 34 : 24;
+  const CARD_H = isShowdown ? 48 : 36;
+
+  /* Panel border */
   const border = isActive
     ? '1.5px solid rgba(255,215,0,0.65)'
+    : (isWinner && isShowdown)
+    ? '2px solid rgba(201,162,39,0.92)'
     : isWinner
     ? '1.5px solid rgba(255,215,0,0.5)'
     : '1px solid rgba(255,215,0,0.15)';
 
-  const glow = isActive
+  /* Box-shadow strings for winner pulse */
+  const baseGlow = isActive
     ? '0 0 16px rgba(201,162,39,0.28), 0 4px 14px rgba(0,0,0,0.5)'
     : isWinner
     ? '0 0 20px rgba(201,162,39,0.38), 0 4px 14px rgba(0,0,0,0.5)'
     : '0 3px 12px rgba(0,0,0,0.45)';
 
-  /* Card thumbnail: 24 px wide, 36 px tall (2:3 ratio) */
-  const CARD_W = 24;
-  const CARD_H = 36;
+  const winnerGlowDim  = '0 0 20px rgba(201,162,39,0.38), 0 4px 14px rgba(0,0,0,0.5)';
+  const winnerGlowBrgt = '0 0 48px rgba(201,162,39,0.85), 0 0 18px rgba(201,162,39,0.4), 0 4px 18px rgba(0,0,0,0.5)';
 
   return (
     <motion.div
-      animate={{ opacity: isFolded ? 0.3 : 1, scale: isWinner ? 1.04 : 1 }}
-      transition={{ duration: 0.3 }}
+      animate={{
+        opacity: isFolded ? 0.3 : isLoser ? 0.6 : 1,
+        scale: isWinner && isShowdown ? 1.04 : 1,
+        boxShadow: isWinner && isShowdown
+          ? [winnerGlowDim, winnerGlowBrgt, winnerGlowDim]
+          : baseGlow,
+      }}
+      transition={{
+        opacity: { duration: 0.35 },
+        scale: { duration: 0.35 },
+        boxShadow: isWinner && isShowdown
+          ? { duration: 1.4, repeat: Infinity, ease: 'easeInOut' }
+          : { duration: 0.35 },
+      }}
       style={{
         position: 'relative',
         display: 'flex',
@@ -88,9 +139,7 @@ export function OpponentSeat({
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
         border,
-        boxShadow: glow,
         minWidth: 0,
-        /* Fixed width so all 5 thumbnails + name always fit without overflow */
         width: CARD_W * 5 + 2 * 4 + 14,
       }}
     >
@@ -159,10 +208,9 @@ export function OpponentSeat({
         {name}
       </div>
 
-      {/* Card thumbnails — 24 px wide, single row */}
+      {/* Card thumbnails */}
       <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'nowrap' }}>
         {cards.length === 0 ? (
-          /* Placeholder row when no cards yet */
           Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
@@ -177,19 +225,36 @@ export function OpponentSeat({
         ) : (
           cards.map((card, i) => {
             const showFace = isShowdown && !card.isHidden && card.rank != null;
-            return showFace ? (
-              /* Revealed at showdown — use shared PlayingCard */
-              <div
-                key={i}
-                style={{ width: CARD_W, height: CARD_H, flexShrink: 0, overflow: 'hidden', borderRadius: '3px' }}
-              >
-                <PlayingCard
-                  card={card}
-                  className="!w-full !h-full !rounded-[3px] !shrink-0"
-                />
-              </div>
-            ) : (
-              /* Hidden (normal play) — plain card-back image, no animation overhead */
+            if (showFace) {
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: CARD_W,
+                    height: CARD_H,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    borderRadius: '4px',
+                    /* Gold hairline border on all revealed cards */
+                    border: '1px solid rgba(201,162,39,0.38)',
+                    /* Winner: suit-color glow; otherwise: standard shadow */
+                    boxShadow: glowColor
+                      ? `0 0 12px ${glowColor}, 0 0 5px ${glowColor}`
+                      : '0 1px 4px rgba(0,0,0,0.55)',
+                    /* Non-winner: desaturate + darken */
+                    filter: isLoser ? 'brightness(0.62) saturate(0.45)' : 'none',
+                    transition: 'filter 0.4s, box-shadow 0.4s',
+                  }}
+                >
+                  <PlayingCard
+                    card={card}
+                    className="!w-full !h-full !rounded-[4px] !shrink-0"
+                  />
+                </div>
+              );
+            }
+            /* Hidden (during play) — card-back thumbnail */
+            return (
               <img
                 key={i}
                 src="/card-back.png"
@@ -208,6 +273,26 @@ export function OpponentSeat({
           })
         )}
       </div>
+
+      {/* Hand rank label — showdown only, non-folded players */}
+      {isShowdown && handEval && !isFolded && (
+        <div style={{
+          fontSize: '8px',
+          fontFamily: 'monospace',
+          color: isWinner ? '#C9A227' : 'rgba(255,255,255,0.36)',
+          fontWeight: isWinner ? 700 : 400,
+          letterSpacing: '0.05em',
+          textAlign: 'center',
+          maxWidth: CARD_W * 5 + 8,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          lineHeight: 1.2,
+          textShadow: isWinner ? '0 0 8px rgba(201,162,39,0.6)' : 'none',
+        }}>
+          {showdownLabel(handEval)}
+        </div>
+      )}
 
       {/* Chip count */}
       {status !== 'sitting_out' && (

@@ -28,7 +28,7 @@ export function WinnerOverlay({ show, winnerName, potAmount, isHeroWinner, onDon
   useEffect(() => {
     if (!show) return;
     if (onDone) {
-      const t = setTimeout(onDone, 3500);
+      const t = setTimeout(onDone, 5500);
       return () => clearTimeout(t);
     }
   }, [show, onDone]);
