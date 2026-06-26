@@ -33,6 +33,8 @@ import { ShowdownReveal } from '@/components/game/ShowdownReveal';
 import type { WinnerData, HeroRevealData } from '@/components/game/ShowdownReveal';
 import { evaluateBadugi } from '@shared/modes/badugi';
 import { evaluateDead7 } from '@shared/modes/dead7';
+import { BadugiFullPage } from '@/components/badugi/BadugiFullPage';
+import { Dead7FullPage } from '@/components/dead7/Dead7FullPage';
 
 // ── Unified game UI shell ─────────────────────────────────────────────────────
 
@@ -509,7 +511,7 @@ function BadugiServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerBadugi(tableId);
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  return <BadugiFullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
 // Server engine modeId mapping (UI modeId → server engine modeId)
@@ -524,6 +526,9 @@ function GenericServerGame({ modeId }: { modeId: string }) {
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
   const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerMode(tableId, engineId);
+  if (modeId === 'dead7') {
+    return <Dead7FullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  }
   return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
 }
 
