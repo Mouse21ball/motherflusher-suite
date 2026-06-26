@@ -321,7 +321,7 @@ function FlushedUpGameUI() {
               pot={state.pot}
               chips={me?.chips ?? 0}
               onAction={handleControlAction}
-              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
+              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING' || (!effectiveSpectator && isDrawPhase)}
               locked={actionLocked}
               selectedCardsCount={selectedCardIndices.length}
               openSeatsCount={isClubTable ? 0 : openSeatsCount}

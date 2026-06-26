@@ -311,6 +311,25 @@ export function FlushedUpTable({
               : `${selectedCardIndices.length} SELECTED · TAP DRAW`}
           </motion.div>
         )}
+
+        {/* ── DEBUG INDICATOR — visible on-device during draw phases only ── */}
+        {/* Remove this block once card tap is confirmed working on mobile   */}
+        {isDrawPhase && (
+          <div style={{
+            marginTop: 4,
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            color: 'rgba(255, 80, 80, 0.9)',
+            letterSpacing: '0.08em',
+            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+            background: 'rgba(0,0,0,0.4)',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: '1px solid rgba(255,80,80,0.3)',
+          }}>
+            PHASE: {state.phase} · SELECTED: {selectedCardIndices.length}
+          </div>
+        )}
       </div>
 
       {/* ── Winner overlay ─────────────────────────────────────────────── */}
