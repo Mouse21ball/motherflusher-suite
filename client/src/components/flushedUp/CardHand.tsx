@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AnimatedCard } from './AnimatedCard';
 import { PlayingCard } from '@/components/game/Card';
 import type { CardType } from '@/lib/poker/types';
@@ -44,18 +44,6 @@ interface CardHandProps {
 }
 
 /* ─── CardHand ───────────────────────────────────────────────────────────── */
-/*
- * During draw phases (isSelectable=true), interactive cards are rendered as
- * plain <div> elements with CSS transitions — ZERO framer-motion on the
- * tappable layer. This is the only approach that reliably fires onClick on
- * Android Chrome when framer-motion is anywhere in the ancestor tree.
- *
- * Cards that are currently animating (deal fly-in, draw fly-in, discard
- * fly-out) still use AnimatedCard so their entrance/exit animations play.
- * Once those animations finish the card is replaced by the plain div.
- *
- * Outside draw phases AnimatedCard is used for all cards as before.
- */
 
 export function CardHand({
   cards,
@@ -69,6 +57,16 @@ export function CardHand({
   cardWidth = 58,
   cardHeight = 81,
 }: CardHandProps) {
+  // Alias so the user-specified name matches throughout this component.
+  const toggleCardSelection = onCardClick;
+
+  // Confirm the function ref is valid on every render where isSelectable=true.
+  useEffect(() => {
+    if (isSelectable) {
+      console.log('[FlushedUp] toggleCardSelection ref:', typeof toggleCardSelection, toggleCardSelection);
+    }
+  }, [isSelectable, toggleCardSelection]);
+
   const flushIndices = isShowdown ? detectFlushCards(cards) : new Set<number>();
   const hasFlush = flushIndices.size > 0;
 
@@ -99,36 +97,36 @@ export function CardHand({
         const isFlushCard    = hasFlush && flushIndices.has(index);
         const isNonFlushCard = hasFlush && !flushIndices.has(index);
 
-        /*
-         * Draw-phase interactive path:
-         * Use a plain <div> with CSS transitions — no framer-motion at all.
-         * Cards currently mid-animation (dealing in, drawing in, discarding)
-         * still use AnimatedCard so their entrance/exit plays correctly.
-         */
         const needsAnimation = isDeal || isDraw || isDiscarding;
 
         if (isSelectable && !needsAnimation) {
           return (
-            <div
+            <button
               key={index}
-              onClick={() => {
-                console.log(
-                  `[FlushedUp] card tap index=${index}`,
-                  `was_selected=${isSelected}`,
-                  `total_selected=${selectedIndices.length}`,
-                );
-                onCardClick(index);
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('CARD TAPPED index', index);
+                toggleCardSelection(index);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                console.log('CARD TOUCH END index', index);
+                toggleCardSelection(index);
               }}
               style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                display: 'inline-block',
+                position: 'relative',
                 width: cardWidth,
                 height: cardHeight,
                 flexShrink: 0,
-                cursor: 'pointer',
-                /*
-                 * Fan rotation + selection lift in a single CSS transform.
-                 * When selected: lift 30 px toward viewer (subtract from yOffset).
-                 * transformOrigin 'center bottom' keeps the fan pivot correct.
-                 */
                 transform: isSelected
                   ? `rotate(${rotation}deg) translateY(${yOffset - 30}px)`
                   : `rotate(${rotation}deg) translateY(${yOffset}px)`,
@@ -137,20 +135,16 @@ export function CardHand({
                   ? '0 0 16px rgba(220,38,38,0.85), 0 0 32px rgba(220,38,38,0.35)'
                   : 'none',
                 transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                /* Mobile: remove 300 ms tap delay, suppress grey flash */
-                touchAction: 'manipulation',
-                WebkitTapHighlightColor: 'transparent',
-                position: 'relative',
                 borderRadius: '8px',
-                /* Ensure pointer events are not blocked by parent transforms */
-                isolation: 'isolate',
               } as React.CSSProperties}
             >
-              {/* Shared PlayingCard — same as all other CGP game modes */}
-              <PlayingCard
-                card={card.isHidden ? undefined : card}
-                className="!w-full !h-full !rounded-[8px] !shrink-0"
-              />
+              {/* Card face — pointer-events:none so only the button catches touches */}
+              <div style={{ pointerEvents: 'none', width: '100%', height: '100%' }}>
+                <PlayingCard
+                  card={card.isHidden ? undefined : card}
+                  className="!w-full !h-full !rounded-[8px] !shrink-0"
+                />
+              </div>
 
               {/* Selection ✕ badge */}
               {isSelected && (
@@ -169,7 +163,7 @@ export function CardHand({
                   ✕
                 </div>
               )}
-            </div>
+            </button>
           );
         }
 
@@ -183,7 +177,7 @@ export function CardHand({
             fanY={yOffset}
             isSelected={isSelected}
             isSelectable={isSelectable && !isDiscarding}
-            onSelect={() => onCardClick(index)}
+            onSelect={() => toggleCardSelection(index)}
             isDeal={isDeal}
             dealDelay={dealDelay}
             isDraw={isDraw}

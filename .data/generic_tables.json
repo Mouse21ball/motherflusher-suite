@@ -40777,5 +40777,124 @@
     },
     "handId": 4,
     "savedAt": 1782434369088
+  },
+  "flushed_up:WG2Z8F": {
+    "state": {
+      "tableId": "WG2Z8F",
+      "phase": "ANTE",
+      "pot": 77,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 45688,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false,
+          "subscriptionTier": null
+        },
+        {
+          "id": "p2",
+          "name": "BigJ47",
+          "presence": "bot",
+          "chips": 7700,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "AceMurphy",
+          "presence": "bot",
+          "chips": 17579,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p4",
+          "name": "DeuceMonk",
+          "presence": "bot",
+          "chips": 7421,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "KingstonRiley",
+          "presence": "bot",
+          "chips": 7343,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "jgfbkblp",
+          "text": "New hand.",
+          "time": 1782436767918
+        },
+        {
+          "id": "jqjsm4m3",
+          "text": "AceMurphy paid $25 Ante",
+          "time": 1782436769239,
+          "isResolution": false
+        },
+        {
+          "id": "eg7q8ayb",
+          "text": "DeuceMonk paid $25 Ante",
+          "time": 1782436769882,
+          "isResolution": false
+        },
+        {
+          "id": "wi6u7dkh",
+          "text": "KingstonRiley paid $25 Ante",
+          "time": 1782436770301,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "s182lum2",
+          "senderId": "p2",
+          "senderName": "BigJ47",
+          "text": "Ante up.",
+          "time": 1782436606751
+        }
+      ],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1782436772311
   }
 }
