@@ -421,13 +421,22 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (identityId && (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi'))) {
           const activeTable = await storage.getPlayerActiveTable(identityId);
           if (activeTable && activeTable !== tableId) {
-            try {
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Already seated at another table. Please leave that table first.',
-              }));
-            } catch {}
-            return;
+            // After a server restart the in-memory rooms Map is wiped but the DB
+            // still holds stale activeTableId records.  If the previously-active
+            // table's room no longer exists in memory the record is stale — clear
+            // it and let the player join instead of locking them out indefinitely.
+            if (!rooms.has(activeTable)) {
+              storage.clearPlayerActiveTable(identityId).catch(() => {});
+              // fall through and allow the join
+            } else {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Already seated at another table. Please leave that table first.',
+                }));
+              } catch {}
+              return;
+            }
           }
         }
 
