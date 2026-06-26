@@ -2,11 +2,12 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { CardHand } from './CardHand';
-import { OpponentSeat } from './OpponentSeat';
 import { WinnerOverlay } from './WinnerOverlay';
 import type { CardAnimState } from './useCardAnimations';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
+import { getAvatarForSeat } from '@shared/engine/avatarMap';
+import { getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 
 /* ── Showdown helpers ─────────────────────────────────────────────────────── */
 
@@ -36,47 +37,12 @@ function showdownLabel(ev: FlushedUpEval): string {
   return `${ev.suitCount}-Card ${sym} ${top}-high`;
 }
 
-/* ── Animated pot counter ─────────────────────────────────────────────────── */
-
-function AnimatedPot({ pot }: { pot: number }) {
-  const spring = useSpring(pot, { stiffness: 80, damping: 20 });
-  const display = useTransform(spring, v => Math.round(v).toLocaleString());
-  useEffect(() => { spring.set(pot); }, [pot, spring]);
-
-  return (
-    <div style={{
-      background: 'rgba(0,0,0,0.4)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      border: '1px solid rgba(201,162,39,0.22)',
-      textAlign: 'center',
-      padding: '5px 16px',
-      borderRadius: '20px',
-      boxShadow: '0 2px 14px rgba(0,0,0,0.4)',
-    }}>
-      <div style={{
-        fontSize: '8px', fontFamily: 'monospace',
-        color: 'rgba(201,162,39,0.5)', letterSpacing: '0.22em', textTransform: 'uppercase',
-      }}>
-        POT
-      </div>
-      <motion.div style={{
-        fontSize: '14px', fontFamily: 'monospace', fontWeight: 700,
-        color: '#C9A227', letterSpacing: '0.08em',
-        display: 'inline-block',
-      }}>
-        {display}
-      </motion.div>
-    </div>
-  );
-}
-
 /* ── Phase label ─────────────────────────────────────────────────────────── */
 
 function phaseLabel(phase: string): string {
   const map: Record<string, string> = {
-    WAITING:  'WAITING',
-    ANTE:     'ANTE',
+    WAITING:  'WAITING FOR PLAYERS',
+    ANTE:     'POSTING ANTE',
     DEAL:     'DEALING',
     BET_1:    'FIRST BET',
     DRAW_1:   'DRAW 1 · UP TO 3',
@@ -88,6 +54,188 @@ function phaseLabel(phase: string): string {
     SHOWDOWN: 'SHOWDOWN',
   };
   return map[phase] ?? phase.replace(/_/g, ' ');
+}
+
+/* ── Animated pot counter ─────────────────────────────────────────────────── */
+
+function AnimatedPot({ pot }: { pot: number }) {
+  const spring = useSpring(pot, { stiffness: 80, damping: 20 });
+  const display = useTransform(spring, v => Math.round(v).toLocaleString());
+  useEffect(() => { spring.set(pot); }, [pot, spring]);
+
+  return (
+    <div style={{
+      background: 'rgba(0,0,0,0.55)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      border: '1px solid rgba(124,58,237,0.35)',
+      boxShadow: '0 0 20px rgba(124,58,237,0.2), 0 2px 12px rgba(0,0,0,0.5)',
+      textAlign: 'center',
+      padding: '6px 22px',
+      borderRadius: 50,
+    }}>
+      <div style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+        POT
+      </div>
+      <motion.div style={{
+        fontSize: 18, fontFamily: 'monospace', fontWeight: 800,
+        color: '#fff', letterSpacing: '0.05em', display: 'inline-block',
+      }}>
+        {display}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ── Opponent panel ───────────────────────────────────────────────────────── */
+
+interface OppPanelProps {
+  name: string;
+  chips: number;
+  cardCount: number;
+  status: string;
+  isActive: boolean;
+  isWinner: boolean;
+  isDealer: boolean;
+  seatNum: number;
+}
+
+function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isDealer, seatNum }: OppPanelProps) {
+  const isFolded = status === 'folded';
+  const avatarSrc = getAvatarForSeat(seatNum);
+  const initials = getAvatarInitials(name);
+  const avatarBg = getAvatarColor(name);
+
+  const panelStyle: React.CSSProperties = {
+    background: isFolded
+      ? 'rgba(5,3,15,0.6)'
+      : isWinner
+        ? 'rgba(10,5,30,0.8)'
+        : 'rgba(8,4,20,0.75)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    borderRadius: 14,
+    border: isWinner
+      ? '1px solid rgba(168,85,247,0.8)'
+      : isActive
+        ? '1px solid rgba(124,58,237,0.65)'
+        : '1px solid rgba(255,255,255,0.07)',
+    boxShadow: isWinner
+      ? '0 0 16px rgba(168,85,247,0.4)'
+      : isActive
+        ? '0 0 10px rgba(124,58,237,0.25)'
+        : '0 2px 10px rgba(0,0,0,0.4)',
+    padding: '8px 8px 6px',
+    opacity: isFolded ? 0.45 : 1,
+    transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 5,
+  };
+
+  return (
+    <div style={panelStyle}>
+      {/* Top row: avatar + name + dealer chip */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Circular avatar */}
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+          border: isActive ? '1.5px solid rgba(124,58,237,0.7)' : '1.5px solid rgba(255,255,255,0.1)',
+          background: avatarBg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: isActive ? '0 0 8px rgba(124,58,237,0.5)' : 'none',
+        }}>
+          <img
+            src={avatarSrc}
+            alt={name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+
+        {/* Name + active indicator */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 3,
+            overflow: 'hidden',
+          }}>
+            {isActive && (
+              <motion.div
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 0.85, repeat: Infinity }}
+                style={{ width: 5, height: 5, borderRadius: '50%', background: '#a855f7', flexShrink: 0 }}
+              />
+            )}
+            <span style={{
+              fontSize: 10, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)',
+              fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {name}
+            </span>
+            {isDealer && (
+              <div style={{
+                width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, #C9A227, #A07C10)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace',
+              }}>D</div>
+            )}
+          </div>
+          {/* Chips */}
+          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(201,162,39,0.75)', fontWeight: 600, marginTop: 1 }}>
+            {chips.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Card backs row OR folded label */}
+      {isFolded ? (
+        <div style={{
+          fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)',
+          letterSpacing: '0.18em', textAlign: 'center',
+        }}>
+          FOLDED
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
+          {Array.from({ length: Math.max(cardCount, 5) }).map((_, i) => (
+            <div key={i} style={{
+              width: 14, height: 20, borderRadius: 3, flexShrink: 0,
+              background: 'linear-gradient(145deg, rgba(75,30,130,0.7), rgba(40,15,80,0.9))',
+              border: '1px solid rgba(124,58,237,0.4)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* Winner badge */}
+      {isWinner && (
+        <div style={{
+          fontSize: 7, fontFamily: 'monospace', color: '#a855f7',
+          letterSpacing: '0.18em', textAlign: 'center', fontWeight: 700,
+        }}>
+          ★ WINNER
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Empty seat panel ─────────────────────────────────────────────────────── */
+function EmptyPanel() {
+  return (
+    <div style={{
+      background: 'rgba(5,3,12,0.4)',
+      borderRadius: 14,
+      border: '1px dashed rgba(255,255,255,0.05)',
+      padding: '8px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: 68,
+    }}>
+      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.12)', letterSpacing: '0.2em' }}>OPEN</span>
+    </div>
+  );
 }
 
 /* ── Props ───────────────────────────────────────────────────────────────── */
@@ -114,7 +262,6 @@ export function FlushedUpTable({
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
 
-  /* Hero showdown hand evaluation + winner/loser state */
   const heroHandEval: FlushedUpEval | null = isShowdown && me && me.cards.length > 0
     ? evaluateFlushedUpHand(me.cards.map(c => ({ ...c, isHidden: false })))
     : null;
@@ -122,12 +269,17 @@ export function FlushedUpTable({
   const heroIsLoser  = isShowdown && !heroIsWinner && me?.status !== 'folded';
   const heroGlowColor = heroIsWinner && heroHandEval ? suitGlowColor(heroHandEval.bestSuit) : null;
 
-  /* Reorder: player left of hero first, wrap around, max 4 opponents */
+  /* Reorder opponents: player left of hero first, wrap around */
   const myIndex = state.players.findIndex(p => p.id === myId);
   const reorderedOpps = [
     ...state.players.slice(myIndex + 1),
     ...state.players.slice(0, myIndex),
-  ].filter(p => p.id !== myId).slice(0, 4);
+  ].filter(p => p.id !== myId);
+
+  /* Up to 4 opponent panels, fill remainder with empty slots */
+  const activeOpps = reorderedOpps.filter(p => p.presence !== 'reserved').slice(0, 4);
+  const totalSlots = 4;
+  const emptyCount = Math.max(0, totalSlots - activeOpps.length);
 
   /* Winner overlay */
   const [winnerData, setWinnerData] = useState<{ name: string; pot: number; isHero: boolean } | null>(null);
@@ -151,67 +303,48 @@ export function FlushedUpTable({
     prevPhaseRef.current = state.phase;
   }, [state.phase, state.players, state.pot, myId]);
 
-  /* Card sizes: opponent cards very small to fit panel; hero cards at proper ratio */
-  const oppCardW = 22;   /* 22 × 31 ≈ 0.71 ratio */
-  const oppCardH = 31;
-  const heroCardW = 58;  /* 58 × 81 = 0.716 ≈ 0.714 ratio ✓ */
-  const heroCardH = 81;
+  const heroCardW = 54;
+  const heroCardH = 76;
 
   return (
-    /*
-     * Layout: flex column
-     *   top    — opponent panels in a centered flex-wrap row
-     *   middle — pot + phase label, fills remaining space
-     *   bottom — hero hand + identity
-     */
     <div style={{
       position: 'relative',
       width: '100%',
-      flex: 1,
+      height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      minHeight: 420,
+      overflow: 'hidden',
     }}>
-
-      {/* ── Opponents — top row, flex-wrap ────────────────────────────────── */}
+      {/* ── Opponent 2×2 grid ──────────────────────────────────────────── */}
       <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        gap: 6,
-        padding: '10px 10px 0',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 7,
+        padding: '8px 10px 4px',
+        flexShrink: 0,
       }}>
-        {reorderedOpps.map((opp) => {
-          if (opp.presence === 'reserved') {
-            return (
-              <div key={opp.id} style={{
-                padding: '5px 10px', borderRadius: '10px',
-                border: '1px dashed rgba(255,255,255,0.06)',
-                minWidth: 52, textAlign: 'center',
-              }}>
-                <div style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.15)' }}>OPEN</div>
-              </div>
-            );
-          }
+        {activeOpps.map((opp) => {
+          const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
           return (
-            <OpponentSeat
+            <OpponentPanel
               key={opp.id}
               name={opp.name}
               chips={opp.chips}
-              cards={opp.cards}
+              cardCount={opp.cards.length}
               status={opp.status}
-              isDealer={opp.isDealer}
               isActive={state.activePlayerId === opp.id}
               isWinner={!!opp.isWinner}
-              isFolded={opp.status === 'folded'}
-              isShowdown={state.phase === 'SHOWDOWN'}
+              isDealer={!!opp.isDealer}
+              seatNum={seatNum}
             />
           );
         })}
+        {Array.from({ length: emptyCount }).map((_, i) => (
+          <EmptyPanel key={`empty-${i}`} />
+        ))}
       </div>
 
-      {/* ── Centre — phase label + pot, grows to fill middle ─────────────── */}
+      {/* ── Centre — phase label + pot ────────────────────────────────── */}
       <div style={{
         flex: 1,
         display: 'flex',
@@ -220,7 +353,7 @@ export function FlushedUpTable({
         justifyContent: 'center',
         gap: 8,
         pointerEvents: 'none',
-        paddingBottom: 8,
+        padding: '4px 0',
       }}>
         <motion.div
           key={state.phase}
@@ -228,72 +361,73 @@ export function FlushedUpTable({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
           style={{
-            fontSize: '9px', fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.35)',
-            letterSpacing: '0.2em', textTransform: 'uppercase',
-            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+            fontSize: 8, fontFamily: 'monospace',
+            color: 'rgba(168,85,247,0.6)',
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            textShadow: '0 0 12px rgba(124,58,237,0.4)',
           }}
         >
           {phaseLabel(state.phase)}
         </motion.div>
-        {state.pot > 0 && <AnimatedPot pot={state.pot} />}
-      </div>
 
-      {/* ── Hero area — bottom, no backing panel, cards float on background ── */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        paddingBottom: 10,
-      }}>
-        {/* Hero identity row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+        {state.pot > 0 && <AnimatedPot pot={state.pot} />}
+
+        {/* Hero identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {me?.isDealer && (
             <div style={{
-              width: 16, height: 16, borderRadius: '50%',
+              width: 14, height: 14, borderRadius: '50%',
               background: 'linear-gradient(135deg, #C9A227, #A07C10)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '7px', fontWeight: 700, color: '#000', fontFamily: 'monospace',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
+              fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace',
             }}>D</div>
           )}
           {state.activePlayerId === myId && state.phase !== 'WAITING' && (
             <motion.div
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ duration: 0.85, repeat: Infinity }}
-              style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: '#C9A227',
-                boxShadow: '0 0 8px rgba(201,162,39,0.9)',
-              }}
+              style={{ width: 5, height: 5, borderRadius: '50%', background: '#a855f7' }}
             />
           )}
           <span style={{
-            fontSize: '11px', fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.82)', fontWeight: 600,
-            letterSpacing: '0.04em',
-            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+            fontSize: 11, fontFamily: 'monospace',
+            color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: '0.06em',
+            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
           }}>
             {me?.name ?? 'You'}
           </span>
-          {me && me.chips > 0 && (
-            <span style={{
-              fontSize: '10px', fontFamily: 'monospace',
-              color: 'rgba(201,162,39,0.82)', fontWeight: 600,
-              letterSpacing: '0.06em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-            }}>
-              {me.chips.toLocaleString()}
-            </span>
-          )}
         </div>
+      </div>
 
-        {/* Hero cards — float directly on background, no backing panel */}
+      {/* ── Hero hand ─────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        paddingBottom: 8, flexShrink: 0,
+      }}>
+        {/* Selection badge */}
+        {isDrawPhase && selectedCardIndices.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              marginBottom: 4,
+              padding: '3px 12px',
+              borderRadius: 20,
+              background: 'rgba(124,58,237,0.25)',
+              border: '1px solid rgba(168,85,247,0.4)',
+              fontSize: 9, fontFamily: 'monospace',
+              color: '#c084fc', letterSpacing: '0.14em',
+            }}
+          >
+            {selectedCardIndices.length} SELECTED · TAP DRAW
+          </motion.div>
+        )}
+
+        {/* Cards with glow on showdown */}
         {me && me.cards.length > 0 ? (
           <>
-            {/* Winner: suit-glow filter; loser: 60% opacity + desaturate */}
             <div style={{
-              opacity: heroIsLoser ? 0.6 : 1,
+              opacity: heroIsLoser ? 0.55 : 1,
               filter: heroGlowColor
                 ? `drop-shadow(0 0 14px ${heroGlowColor}) drop-shadow(0 0 6px ${heroGlowColor})`
                 : 'none',
@@ -313,87 +447,40 @@ export function FlushedUpTable({
               />
             </div>
 
-            {/* Hand rank label — showdown only */}
+            {/* Showdown hand rank */}
             {isShowdown && heroHandEval && me.status !== 'folded' && (
               <div style={{
                 marginTop: 3,
-                fontSize: '9px',
-                fontFamily: 'monospace',
-                color: heroIsWinner ? '#C9A227' : 'rgba(255,255,255,0.36)',
+                fontSize: 9, fontFamily: 'monospace',
+                color: heroIsWinner ? '#a855f7' : 'rgba(255,255,255,0.3)',
                 fontWeight: heroIsWinner ? 700 : 400,
-                letterSpacing: '0.08em',
-                textAlign: 'center',
-                textShadow: heroIsWinner
-                  ? '0 0 10px rgba(201,162,39,0.7), 0 1px 6px rgba(0,0,0,0.9)'
-                  : '0 1px 6px rgba(0,0,0,0.9)',
+                letterSpacing: '0.08em', textAlign: 'center',
+                textShadow: heroIsWinner ? '0 0 10px rgba(168,85,247,0.7)' : '0 1px 6px rgba(0,0,0,0.9)',
               }}>
                 {showdownLabel(heroHandEval)}
               </div>
             )}
           </>
         ) : (
-          /* Empty ghost slots */
-          <div style={{ display: 'flex', gap: 5, paddingTop: 18, paddingBottom: 6 }}>
+          /* Ghost card slots */
+          <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} style={{
-                width: heroCardW, height: heroCardH, borderRadius: '8px',
-                border: '1px dashed rgba(255,255,255,0.08)',
+                width: heroCardW, height: heroCardH, borderRadius: 8,
+                border: '1px dashed rgba(124,58,237,0.15)',
               }} />
             ))}
           </div>
         )}
 
-        {/* Hero current-bet chip */}
-        {me && me.bet > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            style={{
-              marginTop: 3,
-              fontSize: '9px', fontFamily: 'monospace',
-              color: 'rgba(255,255,255,0.4)', letterSpacing: '0.12em',
-              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-            }}
-          >
-            BET {me.bet.toLocaleString()}
-          </motion.div>
-        )}
-
-        {/* Draw phase instruction */}
-        {isDrawPhase && (
-          <motion.div
-            key={state.phase}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            style={{
-              marginTop: 5,
-              fontSize: '9px', fontFamily: 'monospace',
-              color: 'rgba(201,162,39,0.6)', letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              textShadow: '0 1px 6px rgba(0,0,0,0.9)',
-            }}
-          >
-            {selectedCardIndices.length === 0
-              ? 'TAP CARDS TO DISCARD'
-              : `${selectedCardIndices.length} SELECTED · TAP DRAW`}
-          </motion.div>
-        )}
-
-        {/* ── DEBUG INDICATOR — visible on-device during draw phases only ── */}
-        {/* Remove this block once card tap is confirmed working on mobile   */}
+        {/* Debug indicator (draw phases only, remove after on-device testing) */}
         {isDrawPhase && (
           <div style={{
-            marginTop: 4,
-            fontSize: '10px',
-            fontFamily: 'monospace',
-            color: 'rgba(255, 80, 80, 0.9)',
-            letterSpacing: '0.08em',
-            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-            background: 'rgba(0,0,0,0.4)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            border: '1px solid rgba(255,80,80,0.3)',
+            marginTop: 3,
+            fontSize: 9, fontFamily: 'monospace',
+            color: 'rgba(255,80,80,0.8)', letterSpacing: '0.08em',
+            background: 'rgba(0,0,0,0.4)', padding: '2px 8px',
+            borderRadius: 4, border: '1px solid rgba(255,80,80,0.25)',
           }}>
             PHASE: {state.phase} · SELECTED: {selectedCardIndices.length}
           </div>

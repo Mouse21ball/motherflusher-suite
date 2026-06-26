@@ -3,8 +3,6 @@ import { useLocation } from 'wouter';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
 import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
 import { FEATURES } from '@/lib/featureFlags';
-import { GameStatusBar } from '@/components/game/GameStatusBar';
-import { ActionControls } from '@/components/game/Controls';
 import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
@@ -20,6 +18,7 @@ import { trackModePlay } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { isRewardAvailable } from '@/lib/dailyReward';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
+import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
 import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
@@ -45,6 +44,105 @@ function getDrawLimit(phase: string): number {
   if (phase === 'DRAW_3') return 1;
   return 0;
 }
+
+/* ── Custom header ───────────────────────────────────────────────────────── */
+
+interface HeaderProps {
+  onBack: () => void;
+  onOpenChat: () => void;
+  chatUnread: number;
+  humanCount: number;
+}
+
+function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderProps) {
+  return (
+    <div style={{
+      flexShrink: 0,
+      height: 52,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 12px',
+      background: 'rgba(5,2,15,0.7)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
+      borderBottom: '1px solid rgba(124,58,237,0.15)',
+    }}>
+      {/* Left: back button */}
+      <button
+        onClick={onBack}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          background: 'rgba(124,58,237,0.12)',
+          border: '1px solid rgba(124,58,237,0.25)',
+          borderRadius: 8, padding: '5px 10px',
+          color: 'rgba(255,255,255,0.8)', fontSize: 11, fontFamily: 'monospace',
+          fontWeight: 600, letterSpacing: '0.1em', cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+        data-testid="button-back"
+      >
+        ← BACK
+      </button>
+
+      {/* Center: title */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+        <div style={{
+          fontSize: 7, fontFamily: 'monospace', fontWeight: 700,
+          color: '#a855f7', letterSpacing: '0.24em', textTransform: 'uppercase',
+          background: 'rgba(124,58,237,0.15)', padding: '1px 7px', borderRadius: 4,
+          border: '1px solid rgba(124,58,237,0.3)',
+        }}>
+          NEW MODE
+        </div>
+        <div style={{
+          fontSize: 16, fontFamily: 'monospace', fontWeight: 900,
+          background: 'linear-gradient(90deg, #c084fc, #a855f7, #7c3aed)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          letterSpacing: '0.08em', lineHeight: 1,
+        }}>
+          FLUSH RUSH
+        </div>
+      </div>
+
+      {/* Right: chat + human count */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {humanCount > 1 && (
+          <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.1em' }}>
+            {humanCount}P
+          </span>
+        )}
+        <button
+          onClick={onOpenChat}
+          style={{
+            position: 'relative',
+            background: 'rgba(124,58,237,0.12)',
+            border: '1px solid rgba(124,58,237,0.25)',
+            borderRadius: 8, padding: '5px 9px',
+            color: 'rgba(255,255,255,0.7)', fontSize: 14, cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          data-testid="button-chat-header"
+        >
+          💬
+          {chatUnread > 0 && (
+            <div style={{
+              position: 'absolute', top: -4, right: -4,
+              width: 14, height: 14, borderRadius: '50%',
+              background: '#a855f7', border: '1.5px solid #0d0a1a',
+              fontSize: 7, fontWeight: 700, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {chatUnread > 9 ? '9+' : chatUnread}
+            </div>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main game UI ────────────────────────────────────────────────────────── */
 
 function FlushedUpGameUI() {
   const tableId = useTableId();
@@ -137,7 +235,10 @@ function FlushedUpGameUI() {
         triggerDiscard(selectedCardIndices);
         sounds.cardDiscard();
       }
-      setTimeout(() => handleAction(action, selectedCardIndices), 280);
+      setTimeout(() => {
+        handleAction(action, selectedCardIndices);
+        setSelectedCardIndices([]);
+      }, 280);
     } else {
       handleAction(action, amount);
     }
@@ -150,6 +251,22 @@ function FlushedUpGameUI() {
       lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
     }
   }, [selectedCardIndices, triggerDiscard, handleAction, sounds]);
+
+  /* STAY = draw with empty indices (stand pat) */
+  const handleStay = useCallback(() => {
+    sounds.unlock();
+    sounds.chipClink();
+    setSelectedCardIndices([]);
+    setTimeout(() => handleAction('draw', []), 50);
+    setActionLocked(true);
+    if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+    lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
+  }, [handleAction, sounds]);
+
+  /* DRAW = use selected indices */
+  const handleDraw = useCallback(() => {
+    handleControlAction('draw');
+  }, [handleControlAction]);
 
   const handleSendMessage = (text: string) => handleAction('chat', text);
 
@@ -212,43 +329,43 @@ function FlushedUpGameUI() {
   }, []);
 
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
-  // isRewardAvailable used in bust modal flow
   void isRewardAvailable;
 
-  /* Full-screen background image — cover, no fixed-attachment (breaks mobile) */
-  const bgStyle: React.CSSProperties = {
-    backgroundColor: '#0B0B0D',
-    backgroundImage: "url('/ladyluck/ladyluck-bg.png')",
-    backgroundSize: 'cover',
-    backgroundPosition: 'center top',
-  };
+  const handleBack = useCallback(() => {
+    if (me) saveChips(MODE_ID, me.chips);
+    navigate('/');
+  }, [me, navigate]);
 
+  /* ── Render ─────────────────────────────────────────────────────────── */
   return (
     <div
-      className="min-h-[100dvh] flex flex-col selection:bg-primary/30 game-page-root"
-      style={bgStyle}
+      style={{
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#0d0a1a',
+        backgroundImage: "url('/flushedup/flushedup-bg.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        overflow: 'hidden',
+      }}
       data-mode={MODE_ID}
     >
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
-      <GameStatusBar
-        modeId={MODE_ID}
-        gameState={state}
-        chips={me?.chips ?? 0}
-        stripes={serverProfile?.stripes ?? 0}
-        phase={state.phase}
-        onForfeit={() => { if (me) saveChips(MODE_ID, me.chips); }}
-        sessionStats={effectiveSpectator ? undefined : sessionStats}
-        tableId={tableId}
-        humanCount={humanCount}
-        onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
+      {/* ── Custom header ─────────────────────────────────────────── */}
+      <FlushedUpHeader
+        onBack={handleBack}
+        onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
+        humanCount={humanCount}
       />
 
+      {/* ── Spectator / join-confirm banners ─────────────────────── */}
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
 
       {showJoinConfirm && (
-        <div className="w-full px-3 flex justify-center pt-14" aria-live="polite">
+        <div style={{ padding: '2px 0', textAlign: 'center' }} aria-live="polite">
           <span className="text-[10px] font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
             ✓ Joined table
           </span>
@@ -256,7 +373,7 @@ function FlushedUpGameUI() {
       )}
 
       {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
-        <div className="flex justify-center pt-1">
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
           <SpectatorWatchingBadge count={state.spectatorCount} />
         </div>
       )}
@@ -265,7 +382,8 @@ function FlushedUpGameUI() {
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
 
-      <main className="flex-1 min-h-0 flex flex-col pt-12 sm:pt-14 pb-52">
+      {/* ── Main table area ───────────────────────────────────────── */}
+      <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FlushedUpTable
           state={state}
           myId={myId}
@@ -276,11 +394,64 @@ function FlushedUpGameUI() {
         />
       </main>
 
-      {/* Full-screen showdown overlay — replaces table + controls during SHOWDOWN */}
+      {/* ── Bottom bar: action controls + stats ──────────────────── */}
+      {!effectiveSpectator && state.phase !== 'SHOWDOWN' && (
+        <div style={{
+          flexShrink: 0,
+          background: 'rgba(5,2,15,0.75)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderTop: '1px solid rgba(124,58,237,0.18)',
+        }}>
+          <FlushedUpActionBar
+            phase={state.phase}
+            isDrawPhase={!effectiveSpectator && isDrawPhase}
+            selectedCount={selectedCardIndices.length}
+            drawLimit={drawLimit}
+            isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
+            chips={me?.chips ?? 0}
+            currentBet={state.currentBet}
+            myBet={me?.bet ?? 0}
+            pot={state.pot}
+            ante={25}
+            humanCount={humanCount}
+            openSeatsCount={isClubTable ? 0 : openSeatsCount}
+            isClubTable={isClubTable}
+            locked={actionLocked}
+            onStay={handleStay}
+            onDraw={handleDraw}
+            onAction={handleControlAction}
+            onRebuy={() => handleControlAction('rebuy', 1000)}
+          />
+        </div>
+      )}
+
+      {/* ── Pre buy-in bar ────────────────────────────────────────── */}
+      {isPrebuyIn && (
+        <div style={{ flexShrink: 0, padding: '8px 12px 12px' }}>
+          <button
+            data-testid="button-crew-buyin"
+            onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
+            style={{
+              width: '100%', padding: '14px 0', borderRadius: 14,
+              fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+              color: '#fff', border: 'none', cursor: 'pointer',
+              boxShadow: '0 0 20px rgba(124,58,237,0.5)',
+            }}
+          >
+            BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
+          </button>
+        </div>
+      )}
+
+      {/* ── Full-screen showdown overlay ──────────────────────────── */}
       {state.phase === 'SHOWDOWN' && (
         <ShowdownScreen state={state} myId={myId} />
       )}
 
+      {/* ── XP toast ─────────────────────────────────────────────── */}
       {xpToast && xpToast.xpGained > 0 && (
         <XPToast
           key={xpToast.id}
@@ -292,6 +463,7 @@ function FlushedUpGameUI() {
         />
       )}
 
+      {/* ── Emote row ────────────────────────────────────────────── */}
       {!effectiveSpectator && (
         <ChatEmoteRow
           onReact={(emoji) => handleAction('reaction', emoji)}
@@ -301,71 +473,7 @@ function FlushedUpGameUI() {
         />
       )}
 
-      {!effectiveSpectator && state.phase !== 'SHOWDOWN' && (
-        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none">
-          {/* frosted glass panel that contains the action controls */}
-          <div
-            className="pointer-events-auto w-full max-w-md mx-auto mb-3 sm:mb-4 mx-auto rounded-2xl overflow-hidden"
-            style={{
-              background: 'rgba(0,0,0,0.45)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              paddingLeft: '8px',
-              paddingRight: '8px',
-              paddingBottom: '8px',
-              paddingTop: '4px',
-            }}
-          >
-            <ActionControls
-              phase={state.phase}
-              currentBet={state.currentBet}
-              myBet={me?.bet ?? 0}
-              pot={state.pot}
-              chips={me?.chips ?? 0}
-              onAction={handleControlAction}
-              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
-              locked={actionLocked}
-              selectedCardsCount={selectedCardIndices.length}
-              openSeatsCount={isClubTable ? 0 : openSeatsCount}
-              humanCount={humanCount}
-              isClubTable={isClubTable}
-              myDeclaration={me?.declaration ?? null}
-              turnDeadline={state.turnDeadline ?? null}
-              modeId={MODE_ID}
-              tableId={tableId}
-            />
-          </div>
-        </div>
-      )}
-
-      {isPrebuyIn && (
-        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none">
-          <div
-            className="pointer-events-auto w-full max-w-md mx-auto mb-3 sm:mb-4 rounded-2xl overflow-hidden px-2 pt-1 pb-2"
-            style={{
-              background: 'rgba(0,0,0,0.45)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
-            }}
-          >
-            <button
-              data-testid="button-crew-buyin"
-              onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
-              className="w-full py-3.5 rounded-xl font-mono font-bold text-sm tracking-widest uppercase"
-              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em' }}
-            >
-              BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* ── Chat ─────────────────────────────────────────────────── */}
       <ChatBox
         messages={state.chatMessages}
         myId={myId}
@@ -378,6 +486,7 @@ function FlushedUpGameUI() {
         myProfileId={serverProfile?.profileId}
       />
 
+      {/* ── Bust out modal ────────────────────────────────────────── */}
       <BustOutModal
         open={showBustModal}
         lifetimeBusts={lifetimeBusts}
