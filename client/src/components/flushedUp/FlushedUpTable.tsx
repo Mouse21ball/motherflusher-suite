@@ -167,8 +167,6 @@ export function FlushedUpTable({
               isWinner={!!opp.isWinner}
               isFolded={opp.status === 'folded'}
               isShowdown={state.phase === 'SHOWDOWN'}
-              cardWidth={oppCardW}
-              cardHeight={oppCardH}
             />
           );
         })}

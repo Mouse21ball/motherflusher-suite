@@ -1,24 +1,13 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
-import { AnimatedCard } from './AnimatedCard';
+import { PlayingCard } from '@/components/game/Card';
 import type { CardType } from '@/lib/poker/types';
-
-/* ── Flush detection ─────────────────────────────────────────────────────── */
-
-function detectFlushCards(cards: CardType[]): Set<number> {
-  const counts: Record<string, number> = {};
-  for (const c of cards) {
-    if (!c.isHidden) counts[c.suit] = (counts[c.suit] ?? 0) + 1;
-  }
-  const flushSuit = Object.entries(counts).find(([, n]) => n >= 5)?.[0];
-  if (!flushSuit) return new Set();
-  return new Set(cards.map((c, i) => (c.suit === flushSuit ? i : -1)).filter(i => i >= 0));
-}
 
 /* ── Badge ───────────────────────────────────────────────────────────────── */
 
 type DiscardBadge = { type: 'discard'; count: number } | { type: 'pat' } | null;
-const badgeLabel = (b: DiscardBadge) => (!b ? '' : b.type === 'pat' ? 'STOOD PAT' : `DISCARDED ${b.count}`);
+const badgeLabel = (b: DiscardBadge) =>
+  !b ? '' : b.type === 'pat' ? 'STOOD PAT' : `DISCARDED ${b.count}`;
 
 /* ── Props ───────────────────────────────────────────────────────────────── */
 
@@ -32,11 +21,15 @@ interface OpponentSeatProps {
   isWinner?: boolean;
   isFolded?: boolean;
   isShowdown: boolean;
-  cardWidth?: number;
-  cardHeight?: number;
 }
 
 /* ── OpponentSeat ────────────────────────────────────────────────────────── */
+/*
+ * FIX 3 — Opponent card thumbnails:
+ * Cards are rendered as small 24×36 px thumbnails — plain card-back images
+ * during play, shared PlayingCard at showdown. This avoids the AnimatedCard
+ * overhead and the size distortion from the old 28–32 px animated approach.
+ */
 
 export function OpponentSeat({
   name,
@@ -48,13 +41,9 @@ export function OpponentSeat({
   isWinner = false,
   isFolded = false,
   isShowdown,
-  cardWidth = 28,
-  cardHeight = 39,
 }: OpponentSeatProps) {
   const prevCountRef = useRef(cards.length);
   const [badge, setBadge] = useState<DiscardBadge>(null);
-  const [discardingIndices, setDiscardingIndices] = useState<number[]>([]);
-  const [drawingIndices] = useState<number[]>([]);
 
   useEffect(() => {
     const prev = prevCountRef.current;
@@ -62,22 +51,11 @@ export function OpponentSeat({
     prevCountRef.current = curr;
     if (prev > curr) {
       const discarded = prev - curr;
-      const indices = Array.from({ length: discarded }, (_, i) => curr + i);
-      setDiscardingIndices(indices);
       setBadge({ type: 'discard', count: discarded });
-      setTimeout(() => { setDiscardingIndices([]); setBadge(null); }, 1800);
+      setTimeout(() => setBadge(null), 1800);
     }
   }, [cards.length]);
 
-  const flushIndices = isShowdown ? detectFlushCards(cards) : new Set<number>();
-  const hasFlush = flushIndices.size > 0;
-
-  /* FIX 3 — Frosted glass styling ─────────────────────────────────────── */
-  /*
-   * Always gold border (brighter when active/winner).
-   * Explicit WebkitBackdropFilter for Safari / iOS compatibility.
-   * borderRadius: 16px, background rgba(0,0,0,0.35), blur 14px.
-   */
   const border = isActive
     ? '1.5px solid rgba(255,215,0,0.65)'
     : isWinner
@@ -90,6 +68,10 @@ export function OpponentSeat({
     ? '0 0 20px rgba(201,162,39,0.38), 0 4px 14px rgba(0,0,0,0.5)'
     : '0 3px 12px rgba(0,0,0,0.45)';
 
+  /* Card thumbnail: 24 px wide, 36 px tall (2:3 ratio) */
+  const CARD_W = 24;
+  const CARD_H = 36;
+
   return (
     <motion.div
       animate={{ opacity: isFolded ? 0.3 : 1, scale: isWinner ? 1.04 : 1 }}
@@ -100,14 +82,16 @@ export function OpponentSeat({
         flexDirection: 'column',
         alignItems: 'center',
         gap: 3,
-        padding: '6px 8px',
-        borderRadius: '16px',
+        padding: '5px 7px',
+        borderRadius: '14px',
         background: 'rgba(0,0,0,0.35)',
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
         border,
         boxShadow: glow,
         minWidth: 0,
+        /* Fixed width so all 5 thumbnails + name always fit without overflow */
+        width: CARD_W * 5 + 2 * 4 + 14,
       }}
     >
       {/* Discard badge */}
@@ -169,38 +153,60 @@ export function OpponentSeat({
         fontSize: '9px', fontFamily: 'monospace',
         color: 'rgba(255,255,255,0.82)',
         fontWeight: 600, letterSpacing: '0.04em',
-        maxWidth: 80, overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        maxWidth: CARD_W * 5 + 2 * 4,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
         {name}
       </div>
 
-      {/* Cards — 28–32 px wide each so all 5 fit without wrapping */}
+      {/* Card thumbnails — 24 px wide, single row */}
       <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'nowrap' }}>
-        {cards.length === 0 && (
-          <div style={{
-            width: cardWidth, height: cardHeight, borderRadius: '4px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px dashed rgba(255,255,255,0.07)',
-          }} />
+        {cards.length === 0 ? (
+          /* Placeholder row when no cards yet */
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: CARD_W, height: CARD_H, borderRadius: '3px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px dashed rgba(255,255,255,0.08)',
+                flexShrink: 0,
+              }}
+            />
+          ))
+        ) : (
+          cards.map((card, i) => {
+            const showFace = isShowdown && !card.isHidden && card.rank != null;
+            return showFace ? (
+              /* Revealed at showdown — use shared PlayingCard */
+              <div
+                key={i}
+                style={{ width: CARD_W, height: CARD_H, flexShrink: 0, overflow: 'hidden', borderRadius: '3px' }}
+              >
+                <PlayingCard
+                  card={card}
+                  className="!w-full !h-full !rounded-[3px] !shrink-0"
+                />
+              </div>
+            ) : (
+              /* Hidden (normal play) — plain card-back image, no animation overhead */
+              <img
+                key={i}
+                src="/card-back.png"
+                alt=""
+                style={{
+                  width: CARD_W,
+                  height: CARD_H,
+                  objectFit: 'cover',
+                  borderRadius: '3px',
+                  flexShrink: 0,
+                  display: 'block',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                }}
+              />
+            );
+          })
         )}
-        {cards.map((card, i) => (
-          <AnimatedCard
-            key={i}
-            card={card}
-            isHidden={card.isHidden}
-            isDraw={drawingIndices.includes(i)}
-            drawDelay={drawingIndices.indexOf(i) * 100}
-            isDiscarding={discardingIndices.includes(i)}
-            discardDelay={discardingIndices.indexOf(i) * 50}
-            isShowdown={isShowdown}
-            wasHiddenBeforeShowdown={isShowdown && card.isHidden !== true}
-            isFlushCard={hasFlush && flushIndices.has(i)}
-            isNonFlushCard={hasFlush && !flushIndices.has(i)}
-            width={cardWidth}
-            height={cardHeight}
-          />
-        ))}
       </div>
 
       {/* Chip count */}
