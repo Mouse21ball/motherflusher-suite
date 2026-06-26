@@ -207,6 +207,55 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     );
   }
 
+  /* ── Draw phases bypass isMyTurn — all seated players draw simultaneously ─ */
+  /* This block intentionally sits before the !isMyTurn guard so Draw/Stay    */
+  /* buttons always render during draw phases regardless of activePlayerId.    */
+  const isDrawPhase = phase === 'DRAW' || phase === 'DRAW_1' || phase === 'DRAW_2' || phase === 'DRAW_3';
+  if (isDrawPhase) {
+    let maxDiscards = 2;
+    if (phase === 'DRAW_1') maxDiscards = 3;
+    if (phase === 'DRAW_2') maxDiscards = 2;
+    if (phase === 'DRAW_3') maxDiscards = 1;
+
+    return (
+      <div key={`${phase}-draw`} className={`${panelClass} anim-decision-ready`}>
+        {phaseHint && (
+          <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(201,162,39,0.04)', border: '1px solid rgba(201,162,39,0.10)' }}>
+            <span className="text-[11px] leading-snug font-mono tracking-wide" style={{ color: 'rgba(201,162,39,0.65)' }}>{phaseHint}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="text-[10px] font-mono text-white/30 tracking-[0.15em] uppercase">
+            {selectedCardsCount > 0
+              ? <span>Drawing <span className="text-[#C9A227]/70 font-bold">{selectedCardsCount}</span> card{selectedCardsCount !== 1 ? 's' : ''}</span>
+              : 'Tap cards to draw — or Stay'}
+          </div>
+          {selectedCardsCount > 0 && (
+            <span className="text-[10px] font-mono text-white/20">{selectedCardsCount}/{maxDiscards} max</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => { sfx.check(); onAction('draw'); }}
+            variant="outline"
+            className="flex-1 btn-casino-neutral"
+            data-testid="button-stay"
+          >
+            Stay
+          </Button>
+          <Button
+            onClick={() => { sfx.drawCards(); onAction('draw'); }}
+            disabled={selectedCardsCount === 0}
+            className="flex-1 btn-casino-gold"
+            data-testid="button-draw"
+          >
+            Draw {selectedCardsCount > 0 ? selectedCardsCount : ''}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isMyTurn) {
     return (
       <div className={`${panelClass} flex items-center justify-center min-h-[88px]`}>
@@ -368,49 +417,6 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
       </div>
     );
   }
-
-  const isDrawPhase = phase === 'DRAW' || phase === 'DRAW_1' || phase === 'DRAW_2' || phase === 'DRAW_3';
-  if (isDrawPhase) {
-    let maxDiscards = 2;
-    if (phase === 'DRAW_1') maxDiscards = 3;
-    if (phase === 'DRAW_2') maxDiscards = 2;
-    if (phase === 'DRAW_3') maxDiscards = 1;
-
-    return (
-      <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset`}>
-        {hintEl}
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="text-[10px] font-mono text-white/30 tracking-[0.15em] uppercase">
-            {selectedCardsCount > 0
-              ? <span>Drawing <span className="text-[#C9A227]/70 font-bold">{selectedCardsCount}</span> card{selectedCardsCount !== 1 ? 's' : ''}</span>
-              : 'Tap cards to draw — or Stay'}
-          </div>
-          {selectedCardsCount > 0 && (
-            <span className="text-[10px] font-mono text-white/20">{selectedCardsCount}/{maxDiscards} max</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => { sfx.check(); onAction('draw'); }}
-            variant="outline"
-            className="flex-1 btn-casino-neutral"
-            data-testid="button-stay"
-          >
-            Stay
-          </Button>
-          <Button
-            onClick={() => { sfx.drawCards(); onAction('draw'); }}
-            disabled={selectedCardsCount === 0}
-            className="flex-1 btn-casino-gold"
-            data-testid="button-draw"
-          >
-            Draw {selectedCardsCount > 0 ? selectedCardsCount : ''}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
 
   if (phase === 'DECLARE_AND_BET' && !pendingDeclaration) {
     const declOpts = declarationOptions || defaultDeclarationOptions;
