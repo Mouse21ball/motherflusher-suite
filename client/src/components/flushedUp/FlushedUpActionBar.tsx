@@ -14,6 +14,7 @@ interface FlushedUpActionBarProps {
   ante: number;
   humanCount: number;
   openSeatsCount: number;
+  activeCount: number;
   isClubTable: boolean;
   locked: boolean;
   onStay: () => void;
@@ -73,7 +74,7 @@ function TutorialPanel() {
 export function FlushedUpActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
   chips, currentBet, myBet, pot,
-  ante, humanCount, openSeatsCount, isClubTable, locked,
+  ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
   onStay, onDraw, onAction, onRebuy,
 }: FlushedUpActionBarProps) {
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -209,15 +210,46 @@ export function FlushedUpActionBar({
 
         {/* Waiting phase */}
         {isWaiting && (
-          <div style={{
-            textAlign: 'center', padding: '10px 0',
-            fontSize: 16, fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.9)', letterSpacing: '0.18em',
-            textShadow: '0 1px 8px rgba(0,0,0,0.8)',
-          }}>
-            {openSeatsCount > 0 && !isClubTable
-              ? `WAITING FOR ${openSeatsCount} MORE PLAYER${openSeatsCount > 1 ? 'S' : ''}...`
-              : 'WAITING FOR NEXT HAND...'}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingTop: 4 }}>
+            <button
+              disabled={activeCount < 2}
+              onClick={activeCount >= 2 ? () => onAction('start') : undefined}
+              data-testid="button-deal-me-in"
+              style={{
+                width: '100%',
+                padding: '14px 8px',
+                borderRadius: 12,
+                fontSize: 15,
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: activeCount >= 2 ? 'pointer' : 'not-allowed',
+                border: 'none',
+                outline: 'none',
+                WebkitTapHighlightColor: 'transparent',
+                background: activeCount >= 2
+                  ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
+                  : 'rgba(50,20,80,0.45)',
+                color: activeCount >= 2 ? '#fff' : 'rgba(255,255,255,0.28)',
+                boxShadow: activeCount >= 2
+                  ? '0 0 24px rgba(124,58,237,0.6), 0 4px 16px rgba(0,0,0,0.4)'
+                  : 'none',
+                opacity: activeCount >= 2 ? 1 : 0.65,
+                transition: 'all 0.2s',
+              }}
+            >
+              {activeCount >= 2 ? 'DEAL ME IN' : 'NEED 1 MORE PLAYER'}
+            </button>
+            <div style={{
+              textAlign: 'center',
+              fontSize: 11,
+              fontFamily: 'monospace',
+              color: 'rgba(255,255,255,0.38)',
+              letterSpacing: '0.14em',
+            }}>
+              or wait for players to join
+            </div>
           </div>
         )}
 

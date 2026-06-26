@@ -293,6 +293,7 @@ function FlushedUpGameUI() {
   const hasNeverPurchased = !localStorage.getItem('cgp_first_purchase_complete');
   const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
   const humanCount = state.players.filter(p => p.presence === 'human').length;
+  const activeCount = state.players.filter(p => p.presence === 'bot' || p.presence === 'human').length;
 
   const handleBorrowChips = async () => {
     const pid = serverProfile?.profileId;
@@ -416,6 +417,7 @@ function FlushedUpGameUI() {
             ante={25}
             humanCount={humanCount}
             openSeatsCount={isClubTable ? 0 : openSeatsCount}
+            activeCount={activeCount}
             isClubTable={isClubTable}
             locked={actionLocked}
             onStay={handleStay}
