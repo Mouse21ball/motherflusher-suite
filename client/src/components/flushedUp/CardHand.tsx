@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AnimatedCard } from './AnimatedCard';
 import { PlayingCard } from '@/components/game/Card';
 import type { CardType } from '@/lib/poker/types';
@@ -101,27 +101,11 @@ export function CardHand({
 
         if (isSelectable && !needsAnimation) {
           return (
-            <button
+            <div
               key={index}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                console.log('CARD TAPPED index', index);
-                toggleCardSelection(index);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                console.log('CARD TOUCH END index', index);
-                toggleCardSelection(index);
-              }}
+              onClick={() => toggleCardSelection(index)}
               style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                margin: 0,
                 cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-                touchAction: 'manipulation',
                 display: 'inline-block',
                 position: 'relative',
                 width: cardWidth,
@@ -136,10 +120,9 @@ export function CardHand({
                   : 'none',
                 transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 borderRadius: '8px',
-              } as React.CSSProperties}
+              }}
             >
-              {/* Card face — pointer-events:none so only the button catches touches */}
-              <div style={{ pointerEvents: 'none', width: '100%', height: '100%' }}>
+              <div style={{ width: '100%', height: '100%' }}>
                 <PlayingCard
                   card={card.isHidden ? undefined : card}
                   className="!w-full !h-full !rounded-[8px] !shrink-0"
@@ -163,7 +146,7 @@ export function CardHand({
                   ✕
                 </div>
               )}
-            </button>
+            </div>
           );
         }
 

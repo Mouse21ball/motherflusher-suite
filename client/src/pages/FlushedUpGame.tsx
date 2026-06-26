@@ -21,6 +21,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { isRewardAvailable } from '@/lib/dailyReward';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
+import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 
 const MODE_ID = 'flushed_up';
 const ENGINE_ID = 'flushed_up';
@@ -105,6 +106,10 @@ function FlushedUpGameUI() {
     });
   }, [effectiveSpectator, isDrawPhase, drawLimit, sounds]);
 
+  const heroCards = me?.cards ?? [];
+  const { dealingIndices, drawingIndices, discardingIndices, triggerDiscard } =
+    useCardAnimations(heroCards, state.phase);
+
   const prevPhaseRef = useRef(state.phase);
   useEffect(() => {
     const prev = prevPhaseRef.current;
@@ -127,8 +132,11 @@ function FlushedUpGameUI() {
   const handleControlAction = useCallback((action: string, amount?: number | unknown) => {
     sounds.unlock();
     if (action === 'draw') {
-      if (selectedCardIndices.length > 0) sounds.cardDiscard();
-      handleAction(action, selectedCardIndices);
+      if (selectedCardIndices.length > 0) {
+        triggerDiscard(selectedCardIndices);
+        sounds.cardDiscard();
+      }
+      setTimeout(() => handleAction(action, selectedCardIndices), 280);
     } else {
       handleAction(action, amount);
     }
@@ -140,7 +148,7 @@ function FlushedUpGameUI() {
       if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
       lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
     }
-  }, [selectedCardIndices, handleAction, sounds]);
+  }, [selectedCardIndices, triggerDiscard, handleAction, sounds]);
 
   const handleSendMessage = (text: string) => handleAction('chat', text);
 
@@ -263,8 +271,7 @@ function FlushedUpGameUI() {
           selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
           onCardClick={handleCardClick}
           isDrawPhase={!effectiveSpectator && isDrawPhase}
-          modeId={MODE_ID}
-          sessionNetProfit={sessionStats?.netProfit ?? 0}
+          animState={{ dealingIndices, drawingIndices, discardingIndices }}
         />
       </main>
 
