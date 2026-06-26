@@ -21,9 +21,11 @@ import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import type { GameState } from '@shared/gameTypes';
 
-const HOLD_MS = 6000;
-const CARD_W  = 75;
-const CARD_H  = Math.round(CARD_W / 0.714); // ≈ 105 px
+const HOLD_MS       = 6000;
+const WIN_CARD_W    = 58;                            // winner panel & hero win view
+const WIN_CARD_H    = Math.round(WIN_CARD_W / 0.714); // ≈ 81 px
+const YOU_CARD_W    = 52;                            // YOU HAD panel
+const YOU_CARD_H    = Math.round(YOU_CARD_W / 0.714); // ≈ 73 px
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -82,26 +84,30 @@ function CardRow({
   cards,
   glowColor,
   dim = false,
+  cardW,
+  cardH,
 }: {
   cards: AnyCard[];
   glowColor?: string | null;
   dim?: boolean;
+  cardW: number;
+  cardH: number;
 }) {
   return (
     <div style={{
-      display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'nowrap',
+      display: 'flex', gap: 5, justifyContent: 'center', flexWrap: 'nowrap',
       filter: dim ? 'brightness(0.65) saturate(0.4)' : 'none',
     }}>
       {cards.map((card, i) => (
         <div
           key={i}
           style={{
-            width: CARD_W, height: CARD_H, flexShrink: 0,
-            borderRadius: 8, overflow: 'hidden',
+            width: cardW, height: cardH, flexShrink: 0,
+            borderRadius: 6, overflow: 'hidden',
             border: '1px solid rgba(201,162,39,0.4)',
             boxShadow: glowColor
-              ? `0 0 24px ${glowColor}, 0 0 10px ${glowColor}, 0 2px 10px rgba(0,0,0,0.7)`
-              : '0 2px 10px rgba(0,0,0,0.7)',
+              ? `0 0 18px ${glowColor}, 0 0 7px ${glowColor}, 0 2px 8px rgba(0,0,0,0.7)`
+              : '0 2px 8px rgba(0,0,0,0.7)',
           }}
         >
           <PlayingCard
@@ -199,8 +205,8 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
           : 'rgba(7,7,9,0.98)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '16px 12px',
-        overflowY: 'auto',
+        padding: '12px 12px 16px',
+        overflowY: 'hidden',
       }}
     >
       {heroIsWinner ? (
@@ -239,13 +245,15 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
             <CardRow
               cards={(me.cards as AnyCard[])}
               glowColor={heroGlowColor}
+              cardW={WIN_CARD_W}
+              cardH={WIN_CARD_H}
             />
           ) : null}
 
           {/* Hand rank label */}
           {heroEval && (
             <div style={{
-              fontSize: 15, fontFamily: 'monospace', fontWeight: 700,
+              fontSize: 13, fontFamily: 'monospace', fontWeight: 700,
               color: '#C9A227', letterSpacing: '0.1em',
               textShadow: '0 0 14px rgba(201,162,39,0.55)',
             }}>
@@ -256,7 +264,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
           {/* Animated chip counter */}
           {potAmount > 0 && (
             <div style={{
-              fontSize: 24, fontFamily: 'monospace', fontWeight: 800,
+              fontSize: 21, fontFamily: 'monospace', fontWeight: 800,
               color: '#C9A227', letterSpacing: '0.08em',
               textShadow: '0 0 18px rgba(201,162,39,0.4)',
             }}>
@@ -276,12 +284,12 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
           {/* ── Winner panel ──────────────────────────────────────────── */}
           {primaryWinner && (
             <div style={{
-              width: '100%', padding: '14px 10px',
-              borderRadius: 16,
+              width: '100%', padding: '12px',
+              borderRadius: 14,
               background: 'rgba(201,162,39,0.07)',
               border: '1.5px solid rgba(201,162,39,0.38)',
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 10,
+              alignItems: 'center', gap: 8,
             }}>
               <div style={{
                 fontSize: 10, fontFamily: 'monospace', fontWeight: 800,
@@ -290,9 +298,9 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
                 WINNER
               </div>
               <div style={{
-                fontSize: 22, fontFamily: 'monospace', fontWeight: 800,
+                fontSize: 20, fontFamily: 'monospace', fontWeight: 800,
                 color: '#FFFFFF', letterSpacing: '0.05em',
-                textShadow: '0 2px 14px rgba(0,0,0,0.8)',
+                textShadow: '0 2px 12px rgba(0,0,0,0.8)',
               }}>
                 {primaryWinner.name}
               </div>
@@ -302,14 +310,16 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
                 <CardRow
                   cards={(primaryWinner.cards as AnyCard[])}
                   glowColor={winnerGlowColor}
+                  cardW={WIN_CARD_W}
+                  cardH={WIN_CARD_H}
                 />
               ) : null}
 
               {externalWinnerEval && (
                 <div style={{
-                  fontSize: 14, fontFamily: 'monospace', fontWeight: 700,
+                  fontSize: 13, fontFamily: 'monospace', fontWeight: 700,
                   color: '#C9A227', letterSpacing: '0.09em',
-                  textShadow: '0 0 12px rgba(201,162,39,0.45)',
+                  textShadow: '0 0 10px rgba(201,162,39,0.45)',
                 }}>
                   {handLabel(externalWinnerEval)}
                 </div>
@@ -320,12 +330,12 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
           {/* ── Hero hand panel ───────────────────────────────────────── */}
           {me?.cards?.length ? (
             <div style={{
-              width: '100%', padding: '12px 10px',
-              borderRadius: 16,
+              width: '100%', padding: '10px',
+              borderRadius: 12,
               background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.09)',
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 10,
+              alignItems: 'center', gap: 8,
             }}>
               <div style={{
                 fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
@@ -339,11 +349,13 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
                 cards={(me.cards as AnyCard[])}
                 glowColor={null}
                 dim={true}
+                cardW={YOU_CARD_W}
+                cardH={YOU_CARD_H}
               />
 
               {heroEval && (
                 <div style={{
-                  fontSize: 13, fontFamily: 'monospace', fontWeight: 400,
+                  fontSize: 12, fontFamily: 'monospace', fontWeight: 400,
                   color: 'rgba(255,255,255,0.36)', letterSpacing: '0.09em',
                 }}>
                   {handLabel(heroEval)}
