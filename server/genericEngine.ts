@@ -8,6 +8,7 @@ import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { FlushedUpMode } from '../shared/modes/flushedUp';
+import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import {
@@ -26,6 +27,7 @@ const MODE_REGISTRY: Record<string, GameMode> = {
   fifteen35: Fifteen35Mode,
   suits_poker: SuitsPokerMode,
   flushed_up: FlushedUpMode,
+  kamikaze: KamikazeMode,
   // swing_poker removed — Mother Flusher is no longer an active game mode
 };
 
@@ -813,10 +815,43 @@ function advanceToNextPhase(table: GenericTable): void {
 
   engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: prevPhase, to: nextPhase });
 
-  // ── DECLARE (Dead7 only): auto-fold any active player without a valid hand ───
+  // ── DECLARE (Dead7 / Kamikaze): auto-fold any active player without a valid hand ──
   // In Dead7, a valid hand means qualifying high or qualifying low (no 7s, no dup ranks).
+  // In Kamikaze, a valid hand means 3+2+1 suit distribution with no paired ranks.
   // Bots handle this themselves via botAction; we intercept here for human players
   // so they are never shown a declaration prompt with a dead/invalid hand.
+  if (nextPhase === 'DECLARE' && table.modeId === 'kamikaze') {
+    const declPlayers = [...table.state.players];
+    const foldMsgs: string[] = [];
+    let anyAutoFolded = false;
+    for (let i = 0; i < declPlayers.length; i++) {
+      const p = declPlayers[i];
+      if (p.status !== 'active') continue;
+      const ev = evaluateKamikaze(p.cards.map(c => ({ ...c, isHidden: false })));
+      if (!ev.isValid) {
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
+        foldMsgs.push(`${p.name} has no qualifying hand — auto-folded`);
+        anyAutoFolded = true;
+      }
+    }
+    if (anyAutoFolded) {
+      let st = { ...table.state, players: declPlayers };
+      for (const msg of foldMsgs) st = addMsg(st, msg);
+      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
+      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
+      table.state = st;
+      if (isPhaseRoundOver(table.state)) {
+        const fenced = table.handId;
+        const fencedPhase = table.state.phase;
+        setTimeout(() => {
+          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
+          advanceToNextPhase(table);
+          broadcastState(table);
+          scheduleNextBot(table);
+        }, 450);
+      }
+    }
+  }
   if (nextPhase === 'DECLARE' && table.modeId === 'dead7') {
     const declPlayers = [...table.state.players];
     const foldMsgs: string[] = [];

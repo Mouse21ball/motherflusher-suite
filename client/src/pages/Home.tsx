@@ -114,6 +114,7 @@ const MODES = [
   { id: 'fifteen35',  name: '15 / 35',       tagline: 'Hit or go home',        path: '/fifteen35',  color: '#f59e0b', icon: '/mode-icon-fifteen35.png' },
   { id: 'suitspoker', name: 'SUITS & POKER', tagline: 'Two paths, one winner', path: '/suitspoker', color: '#3b82f6', icon: '/mode-icon-suits.png'     },
   { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: '/mode-icon-suits.png'     },
+  { id: 'kamikaze',   name: 'KAMIKAZE',      tagline: '3+2+1. High or Low.',   path: '/kamikaze',   color: '#ef4444', icon: '/mode-icon-dead7.png'     },
   { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your Queen. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
 ] as const;
 
@@ -124,6 +125,7 @@ const MODE_CARD_CONFIGS = [
   { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
   { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.'       },
   { id: 'flushedup',  bg: '/modes/bg-suits.png',                color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP',    subtitle: 'CHASE THE FLUSH.'      },
+  { id: 'kamikaze',   bg: '/modes/bg-kamikaze.png',             color: '#ef4444', btnText: 'white', title: 'KAMIKAZE',      subtitle: '3+2+1. HIGH OR LOW.'   },
   { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR QUEEN. RUN THE RACE.', directNav: true },
 ];
 
@@ -144,6 +146,7 @@ const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: stri
   fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35',  icon: '/mode-icon-fifteen35.png', stakes: '$50 ante' },
   suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker', icon: '/mode-icon-suits.png',     stakes: '$50 ante' },
   flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: '/mode-icon-suits.png',     stakes: '$25 ante' },
+  kamikaze:    { name: 'Kamikaze',      abbrev: 'KZ', color: '#ef4444', path: '/kamikaze',   icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
 };
 
 function phaseLabel(phase: string): string {
@@ -164,6 +167,7 @@ const LIVE_TABS = [
   { id: 'fifteen35',   label: '15/35'  },
   { id: 'suits_poker', label: 'Suits'  },
   { id: 'flushed_up',  label: 'Flush'  },
+  { id: 'kamikaze',    label: 'Kamikaze' },
 ] as const;
 
 // LiveTablesSection kept for reference / join handler usage

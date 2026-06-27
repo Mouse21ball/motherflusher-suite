@@ -264,4 +264,16 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
     proTip: "Your hole cards are used with 3 community cards from any legal path. The path choice is automatic — focus on whether your cards build a poker hand or a flush run.",
     accentColor: "from-cyan-800/60 to-[#141417]",
   },
+  kamikaze: {
+    title: "Kamikaze",
+    objective: "Build a 6-card hand with exactly 3+2+1 suit distribution and no paired ranks. Then declare HIGH (highest card in your 3-suit) or LOW (lowest card, Ace = 1). Pot splits between the two sides.",
+    steps: [
+      "Receive 6 face-down cards",
+      "3 draw rounds: swap up to 3 / 2 / 1 cards",
+      "One final betting round after draws",
+      "Declare HIGH or LOW — each side picks a winner",
+    ],
+    proTip: "Your 3-card suit determines everything. For HIGH, keep the highest possible rank in that suit. For LOW, protect a low Ace (counts as 1). Hands without 3+2+1 distribution are auto-folded before the declare.",
+    accentColor: "from-red-900/60 to-[#000000]",
+  },
 };

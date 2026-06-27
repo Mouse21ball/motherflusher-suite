@@ -249,6 +249,41 @@ export const MODE_INFO: Record<string, ModeInfo> = {
       },
     ],
   },
+  kamikaze: {
+    abbrev: "KZ",
+    name: "Kamikaze",
+    accentClass: "text-red-400",
+    borderClass: "border-red-500/20",
+    rules: [
+      {
+        heading: "Goal",
+        items: [
+          "Build a 6-card hand with exactly 3+2+1 suit distribution",
+          "All 6 card ranks must be unique — no pairs allowed",
+          "The 3-card suit determines your HIGH and LOW values",
+        ],
+      },
+      {
+        heading: "Play",
+        items: [
+          "6 cards dealt face-down",
+          "3 draw rounds: discard up to 3 / 2 / 1 cards",
+          "After draws, one final betting round",
+          "Declare HIGH (highest rank in 3-card suit) or LOW (lowest rank, Ace = 1)",
+        ],
+      },
+      {
+        heading: "Showdown",
+        items: [
+          "Only valid 3+2+1 hands with no pairs qualify",
+          "Invalid hands are auto-folded before the declare phase",
+          "HIGH vs LOW: pot splits between each side's winner",
+          "Same side only: best hand wins everything",
+          "5% house rake on every pot",
+        ],
+      },
+    ],
+  },
 };
 
 export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, sessionStats, tableId }: GameHeaderProps) {

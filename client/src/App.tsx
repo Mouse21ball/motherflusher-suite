@@ -16,6 +16,7 @@ import Dead7Game from "@/pages/Dead7Game";
 import Fifteen35Game from "@/pages/Fifteen35Game";
 import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import FlushedUpGame from "@/pages/FlushedUpGame";
+import KamikazeGame from "@/pages/KamikazeGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
@@ -62,6 +63,7 @@ function Router() {
         <Route path="/fifteen35" component={Fifteen35Game}/>
         <Route path="/suitspoker" component={SuitsPokerGame}/>
         <Route path="/flushedup" component={FlushedUpGame}/>
+        <Route path="/kamikaze" component={KamikazeGame}/>
         <Route path="/ladyluck/history" component={LadyLuckHistory}/>
         <Route path="/ladyluck/spectate" component={LadyLuckSpectate}/>
         <Route path="/ladyluck" component={LadyLuck}/>
