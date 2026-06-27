@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
+import { FEATURES } from '@/lib/featureFlags';
 import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
 import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
@@ -33,13 +34,15 @@ function useTableId() {
   return tableId;
 }
 
+/* ── Header ──────────────────────────────────────────────────────────────── */
 interface HeaderProps {
   onBack: () => void;
   onOpenChat: () => void;
   chatUnread: number;
+  humanCount: number;
 }
 
-function BonecrusherHeader({ onBack, onOpenChat, chatUnread }: HeaderProps) {
+function BonecrusherHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderProps) {
   return (
     <div style={{
       flexShrink: 0, height: 52,
@@ -66,6 +69,9 @@ function BonecrusherHeader({ onBack, onOpenChat, chatUnread }: HeaderProps) {
           background: 'rgba(217,119,6,0.12)', padding: '1px 7px', borderRadius: 4,
         }}>
           CHAIN GANG POKER
+          {humanCount > 1 && (
+            <span style={{ marginLeft: 5, color: '#fbbf24' }}>{humanCount}P</span>
+          )}
         </div>
         <div style={{
           fontSize: 17, fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7',
@@ -101,6 +107,10 @@ function BonecrusherHeader({ onBack, onOpenChat, chatUnread }: HeaderProps) {
   );
 }
 
+/* ── Server-mode gate (same pattern as KamikazeGame) ────────────────────── */
+const serverEnabled = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
+
+/* ── Main game UI ────────────────────────────────────────────────────────── */
 function BonecrusherGameUI() {
   const tableId = useTableId();
   const [, navigate] = useLocation();
@@ -110,7 +120,7 @@ function BonecrusherGameUI() {
   const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost } =
     useServerMode(tableId, ENGINE_ID);
 
-  void sessionStats;
+  void sessionStats; void lastWsType;
 
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -129,16 +139,31 @@ function BonecrusherGameUI() {
     boughtInInitRef.current = true;
     if (!isClubTable) setHasBoughtIn(true);
   }, [lastWsAt, isClubTable]);
-  const isPrebuyIn = isClubTable && !hasBoughtIn;
+  const isPrebuyIn       = isClubTable && !hasBoughtIn;
   const effectiveSpectator = isSpectator || isPrebuyIn;
 
-  const me = state.players.find(p => p.id === myId);
+  const me    = state.players.find(p => p.id === myId);
   const phase = state.phase;
   const isMyTurn = state.activePlayerId === myId || phase === 'WAITING' || phase === 'DECLARE';
 
   const isDiscardPhase = phase === 'DISCARD_2' || phase === 'SELECT_5';
   const isFlipPhase    = phase === 'REVEAL_1' || phase.startsWith('FLIP_');
 
+  /* ── Action locking (prevents double-fires, same as KamikazeGame) ──────── */
+  const [actionLocked, setActionLocked] = useState(false);
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleControlAction = useCallback((action: string, amount?: number | unknown) => {
+    handleAction(action, amount);
+    const PASSIVE = ['restart', 'rebuy', 'chat', 'reaction', 'ante'];
+    if (!PASSIVE.includes(action)) {
+      setActionLocked(true);
+      if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+      lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
+    }
+  }, [handleAction]);
+
+  /* ── Card selection ──────────────────────────────────────────────────────── */
   const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set());
   const [flippedByHero, setFlippedByHero] = useState<Set<number>>(new Set());
 
@@ -170,26 +195,27 @@ function BonecrusherGameUI() {
   const handleDiscard = useCallback(() => {
     if (selectedCards.size !== 2) return;
     const indices = Array.from(selectedCards);
-    handleAction('discard', indices);
+    handleControlAction('discard', indices);
     setSelectedCards(new Set());
-  }, [selectedCards, handleAction]);
+  }, [selectedCards, handleControlAction]);
 
   const handleFlip = useCallback(() => {
     if (selectedCards.size !== 1) return;
     const [idx] = Array.from(selectedCards);
-    handleAction('flip', idx);
+    handleControlAction('flip', idx);
     setFlippedByHero(prev => new Set([...prev, idx]));
     setSelectedCards(new Set());
-  }, [selectedCards, handleAction, flippedByHero]);
+  }, [selectedCards, handleControlAction]);
 
   const handleDeclare = useCallback((d: 'HIGH' | 'LOW' | 'SWING') => {
-    handleAction('declare', d);
-  }, [handleAction]);
+    handleControlAction('declare', d);
+  }, [handleControlAction]);
 
+  /* ── Bust out logic ──────────────────────────────────────────────────────── */
   const [bustDismissed, setBustDismissed] = useState(false);
-  const heroBust = !!me && me.chips <= 0 && !effectiveSpectator && me.status !== 'active';
+  const heroBust        = !!me && me.chips <= 0 && !effectiveSpectator && me.status !== 'active';
   const bustEligiblePhase = me?.status === 'sitting_out' || phase === 'WAITING' || phase === 'SHOWDOWN';
-  const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
+  const showBustModal   = heroBust && bustEligiblePhase && !bustDismissed;
   useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
 
   const bustCountedRef = useRef(false);
@@ -204,22 +230,24 @@ function BonecrusherGameUI() {
     if (!heroBust) bustCountedRef.current = false;
   }, [heroBust, bustEligiblePhase]);
 
-  const lifetimeBusts = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
-  const sessionBusts  = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
-  const hasNeverPurchased = !localStorage.getItem('cgp_first_purchase_complete');
-  const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
-  const humanCount = state.players.filter(p => p.presence === 'human').length;
+  const lifetimeBusts      = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
+  const sessionBusts       = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
+  const hasNeverPurchased  = !localStorage.getItem('cgp_first_purchase_complete');
+  const openSeatsCount     = state.players.filter(p => p.presence === 'reserved').length;
+  const humanCount         = state.players.filter(p => p.presence === 'human').length;
+  const activeCount        = state.players.filter(p => p.presence === 'bot' || p.presence === 'human').length;
 
   const handleBorrowChips = async () => {
     const pid = serverProfile?.profileId;
     if (!pid) return;
     try {
-      const res = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
+      const res  = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.success) { handleAction('rebuy', 1000); setBustDismissed(true); refetchProfile(); }
     } catch { /* silent */ }
   };
 
+  /* ── Chat ────────────────────────────────────────────────────────────────── */
   const [chatOpen, setChatOpen] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const prevChatLenRef = useRef(state.chatMessages.length);
@@ -230,6 +258,7 @@ function BonecrusherGameUI() {
   }, [state.chatMessages.length, chatOpen]);
   useEffect(() => { if (chatOpen) setChatUnread(0); }, [chatOpen]);
 
+  void isRewardAvailable;
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }, [me, navigate]);
 
@@ -257,6 +286,7 @@ function BonecrusherGameUI() {
         onBack={handleBack}
         onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
+        humanCount={humanCount}
       />
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
@@ -289,30 +319,33 @@ function BonecrusherGameUI() {
 
       {!effectiveSpectator && !showShowdown && (
         <div style={{
-          flexShrink: 0, padding: '10px 12px 20px',
+          flexShrink: 0,
           background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
           borderTop: '1px solid rgba(217,119,6,0.2)',
         }}>
           <BonecrusherActionBar
             phase={phase}
+            isMyTurn={isMyTurn}
             chips={me?.chips ?? 0}
             currentBet={state.currentBet}
             myBet={me?.bet ?? 0}
             pot={state.pot}
-            minBet={state.minBet ?? 25}
+            ante={25}
+            humanCount={humanCount}
+            openSeatsCount={isClubTable ? 0 : openSeatsCount}
+            activeCount={activeCount}
+            isClubTable={isClubTable}
+            locked={actionLocked}
             selectedCards={selectedCards}
             flipCount={flippedByHero.size}
             declaration={me?.declaration ?? null}
-            isMyTurn={isMyTurn}
-            onAnte={() => handleAction('ante')}
-            onFold={() => handleAction('fold')}
-            onCheck={() => handleAction('check')}
-            onCall={() => handleAction('call')}
-            onRaise={(amount) => handleAction('raise', amount)}
+            myHasActed={me?.hasActed ?? false}
             onDiscard={handleDiscard}
             onFlip={handleFlip}
             onDeclare={handleDeclare}
+            onAction={handleControlAction}
+            onRebuy={() => handleControlAction('rebuy', 1000)}
           />
         </div>
       )}
@@ -370,5 +403,13 @@ function BonecrusherGameUI() {
 }
 
 export default function BonecrusherGame() {
+  if (!serverEnabled) {
+    return (
+      <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a0702' }}>
+        <p style={{ color: '#d97706', fontFamily: 'monospace', fontSize: 16, fontWeight: 700, letterSpacing: '0.1em' }}>BONECRUSHER</p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace', fontSize: 13, marginTop: 8 }}>Server mode required. Set VITE_BADUGI_ALPHA=true</p>
+      </div>
+    );
+  }
   return <BonecrusherGameUI />;
 }
