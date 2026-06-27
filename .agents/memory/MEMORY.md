@@ -1,2 +1,3 @@
 - [Spectator mode — Lady Luck](spectator-ladyluck.md) — spectators use a separate Map in LLTableMeta (not connections); ll:spectate/ll:spectator_sidebet/ll:spectator_leave WS prefix; broadcastState sends to both maps.
 - [House rake implementation](rake-impl.md) — 5% rake via applyRake() in server/utils/rake.ts; logHouseRake() in storage; all engines patched; spectator_sidebet raked separately.
+- [DECLARE phase bot scheduling](declare-bot-scheduling.md) — bot actions for DECLARE must return a computed nextPlayerId or multi-bot declare stalls after first bot.

@@ -224,7 +224,14 @@ export const KamikazeMode: GameMode = {
       }
       const activePlayers = newPlayers.filter(p => p.status === 'active');
       const roundOver = activePlayers.every(p => p.hasActed);
-      return { stateUpdates: { players: newPlayers }, message, roundOver, nextPlayerId: undefined };
+      // Compute nextPlayerId so the engine schedules each remaining undeclared bot in turn.
+      // Without this, multi-bot DECLARE stalls after the first declaration.
+      let declNextPlayerId: string | undefined;
+      if (!roundOver) {
+        const nextUndeclared = newPlayers.find(p => p.status === 'active' && !p.hasActed);
+        declNextPlayerId = nextUndeclared?.id;
+      }
+      return { stateUpdates: { players: newPlayers }, message, roundOver, nextPlayerId: declNextPlayerId };
 
     } else if (isDrawPhase) {
       const maxDiscard = discardLimitForPhase(state.phase);
