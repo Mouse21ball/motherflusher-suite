@@ -9,6 +9,7 @@ import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { FlushedUpMode } from '../shared/modes/flushedUp';
 import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
+import { BonecrusherMode } from '../shared/modes/bonecrusher';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import {
@@ -28,6 +29,7 @@ const MODE_REGISTRY: Record<string, GameMode> = {
   suits_poker: SuitsPokerMode,
   flushed_up: FlushedUpMode,
   kamikaze: KamikazeMode,
+  bonecrusher: BonecrusherMode,
   // swing_poker removed — Mother Flusher is no longer an active game mode
 };
 
@@ -107,8 +109,10 @@ function isPhaseRoundOver(state: GameState): boolean {
     return players.filter(p => p.status === 'active').every(p => p.hasActed);
   }
 
-  // Draw phases, HIT phases, DECLARE phases
-  if (phase.startsWith('DRAW') || phase.startsWith('HIT_') || phase === 'DECLARE') {
+  // Draw phases, HIT phases, DECLARE phases, Bonecrusher action phases
+  if (phase.startsWith('DRAW') || phase.startsWith('HIT_') || phase === 'DECLARE' ||
+      phase === 'DISCARD_2' || phase === 'SELECT_5' ||
+      phase === 'REVEAL_1' || phase.startsWith('FLIP_')) {
     const active = players.filter(p => p.status === 'active');
     // For fifteen35 hit phases: also done if all are STAY or BUST
     if (phase.startsWith('HIT_')) {
@@ -769,7 +773,9 @@ function advanceToNextPhase(table: GenericTable): void {
   const isBetRound     = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
   const isDrawRound    = nextPhase.startsWith('DRAW') || nextPhase.startsWith('HIT_');
   const isDeclare      = nextPhase === 'DECLARE';
-  const isRevealPhase  = nextPhase.startsWith('REVEAL_');
+  const isRevealPhase  = nextPhase.startsWith('REVEAL_') || nextPhase.startsWith('STREET_') ||
+                         nextPhase === 'DISCARD_2' || nextPhase === 'SELECT_5' ||
+                         nextPhase.startsWith('FLIP_');
   const skipAllIn      = !isDeclare && !isDrawRound;
 
   const dealerIdx = getDealerIndex(state.players);
@@ -814,6 +820,11 @@ function advanceToNextPhase(table: GenericTable): void {
   }, nextPhase.replace(/_/g, ' '));
 
   engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: prevPhase, to: nextPhase });
+
+  // ── Bonecrusher: clear public card indices when entering SELECT_5 ─────────
+  if (nextPhase === 'SELECT_5') {
+    table.publicCardIndicesPerPlayer = {};
+  }
 
   // ── DECLARE (Dead7 / Kamikaze): auto-fold any active player without a valid hand ──
   // In Dead7, a valid hand means qualifying high or qualifying low (no 7s, no dup ranks).
@@ -924,17 +935,32 @@ function advanceToNextPhase(table: GenericTable): void {
     return;
   }
 
-  // Auto-transition phases (REVEAL_*)
+  // Auto-transition phases (REVEAL_*, STREET_*)
   if (isRevealPhase) {
     const autoTrans = mode.getAutoTransition ? mode.getAutoTransition(nextPhase as GamePhase) : null;
     if (autoTrans) {
       const fenced = table.handId;
+      const capturedNext = nextPhase;
       broadcastState(table);
       setTimeout(() => {
         if (table.handId !== fenced) return;
+        const prevPlayers = table.state.players;
         const result = autoTrans.action(table.state);
         if (result.stateUpdates) {
           table.state = addMsg({ ...table.state, ...result.stateUpdates }, result.message || '');
+        }
+        // Track STREET_ dealt cards as public for bonecrusher
+        if (capturedNext.startsWith('STREET_') && result.stateUpdates && (result.stateUpdates as any).players) {
+          const pub = { ...table.publicCardIndicesPerPlayer };
+          for (const np of ((result.stateUpdates as any).players as Player[])) {
+            const op = prevPlayers.find(p => p.id === np.id);
+            if (!op || np.cards.length <= op.cards.length) continue;
+            const prevPub = pub[np.id] ?? [];
+            const newIdxs: number[] = [];
+            for (let i = op.cards.length; i < np.cards.length; i++) newIdxs.push(i);
+            pub[np.id] = [...prevPub, ...newIdxs];
+          }
+          table.publicCardIndicesPerPlayer = pub;
         }
         if (result.advancePhase) {
           advanceToNextPhase(table);
@@ -1477,6 +1503,15 @@ function executeBotAction(table: GenericTable, botId: string): void {
     }
 
     engineLog('BOT', `${table.modeId}:${table.tableId}`, { bot: botId, action: message ?? '?', phase: table.state.phase });
+
+    // Apply publicIndices from bot action (bonecrusher reveal/flip phases)
+    if (result.publicIndices) {
+      const pub = { ...table.publicCardIndicesPerPlayer };
+      for (const [pid, idxs] of Object.entries(result.publicIndices)) {
+        pub[pid] = [...(pub[pid] ?? []), ...idxs];
+      }
+      table.publicCardIndicesPerPlayer = pub;
+    }
 
     // Track public hit cards in 15/35 (all hit cards are face-up for everyone)
     if (table.state.phase.startsWith('HIT_') && stateUpdates.players) {
@@ -2322,6 +2357,61 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         currentBet: newCurrentBet,
       };
       table.state = addMsg(newState, indices.length > 0 ? `${player.name} draws ${indices.length}` : `${player.name} stands pat`);
+      table.actionLock = false;
+      afterHumanAction(table, false);
+      return;
+    }
+
+    // ── discard (bonecrusher DISCARD_2 / SELECT_5) ───────────────────────────
+    else if (action === 'discard' && (s.phase === 'DISCARD_2' || s.phase === 'SELECT_5')) {
+      const indices: number[] = Array.isArray(payload)
+        ? (payload as number[]).filter(i => typeof i === 'number').sort((a, b) => b - a)
+        : [];
+      if (indices.length !== 2) { table.actionLock = false; return; }
+      const player = newPlayers[playerIdx];
+      const newCards = [...player.cards];
+      const newDiscard = [...(s.discardPile || [])];
+      // Build new pub indices: after removing cards at indices, remaining indices shift
+      const oldPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
+      for (const idx of indices) {
+        if (idx < 0 || idx >= newCards.length) { table.actionLock = false; return; }
+        newDiscard.push(newCards[idx]);
+        newCards.splice(idx, 1);
+      }
+      // Remap pub indices: shift down for removed positions
+      const removedSet = new Set(indices);
+      const newPub: number[] = [];
+      for (const pi of oldPub) {
+        if (removedSet.has(pi)) continue;
+        const shift = indices.filter(ri => ri < pi).length;
+        newPub.push(pi - shift);
+      }
+      table.publicCardIndicesPerPlayer = { ...table.publicCardIndicesPerPlayer, [playerId]: newPub };
+      newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
+      table.state = addMsg({
+        ...s,
+        players: newPlayers,
+        discardPile: newDiscard,
+      }, `${player.name} discarded ${indices.length} cards`);
+      table.actionLock = false;
+      afterHumanAction(table, false);
+      return;
+    }
+
+    // ── flip (bonecrusher REVEAL_1 / FLIP_1-4) ───────────────────────────────
+    else if (action === 'flip' && (s.phase === 'REVEAL_1' || s.phase.startsWith('FLIP_'))) {
+      const idx = typeof payload === 'number' ? payload : -1;
+      if (idx < 0) { table.actionLock = false; return; }
+      const player = newPlayers[playerIdx];
+      if (idx >= player.cards.length) { table.actionLock = false; return; }
+      const existingPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
+      if (existingPub.includes(idx)) { table.actionLock = false; return; }
+      table.publicCardIndicesPerPlayer = {
+        ...table.publicCardIndicesPerPlayer,
+        [playerId]: [...existingPub, idx],
+      };
+      newPlayers[playerIdx] = { ...player, hasActed: true };
+      table.state = addMsg({ ...s, players: newPlayers }, `${player.name} revealed a card`);
       table.actionLock = false;
       afterHumanAction(table, false);
       return;

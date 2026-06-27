@@ -249,6 +249,40 @@ export const MODE_INFO: Record<string, ModeInfo> = {
       },
     ],
   },
+  bonecrusher: {
+    abbrev: "BC",
+    name: "Bonecrusher",
+    accentClass: "text-amber-400",
+    borderClass: "border-amber-500/20",
+    rules: [
+      {
+        heading: "Goal",
+        items: [
+          "Build the best 5-card hand from 6 dealt cards",
+          "Declare HIGH (best standard poker hand) or LOW (best A-to-5 lowball hand)",
+          "SWING = compete for BOTH halves — must win both or get nothing",
+        ],
+      },
+      {
+        heading: "Play",
+        items: [
+          "Dealt 6 face-down cards — discard 2, then reveal 1",
+          "3 street cards dealt face-up (one per round with betting)",
+          "7 cards → select best 5, then flip 4 face-up one per round (1 stays hidden)",
+          "Declare HIGH / LOW / SWING",
+        ],
+      },
+      {
+        heading: "Showdown",
+        items: [
+          "Pot splits — HIGH half to best standard poker hand, LOW half to best lowball",
+          "SWING winners who take both halves scoop the whole pot",
+          "SWING losers (miss one side) forfeit their half to the other declared winners",
+          "5% house rake on every pot",
+        ],
+      },
+    ],
+  },
   kamikaze: {
     abbrev: "KZ",
     name: "Kamikaze",

@@ -107,7 +107,17 @@ export type GamePhase =
   | 'BET_6'
   | 'BET_7'
   | 'BET_8'
-  | 'REVEAL_LOWER_CENTER';
+  | 'REVEAL_LOWER_CENTER'
+  | 'DISCARD_2'
+  | 'REVEAL_1'
+  | 'STREET_1'
+  | 'STREET_2'
+  | 'STREET_3'
+  | 'SELECT_5'
+  | 'FLIP_1'
+  | 'FLIP_2'
+  | 'FLIP_3'
+  | 'FLIP_4';
 
 export interface ChatMessage {
   id: string;
@@ -179,6 +189,7 @@ export interface GameMode {
     message?: string;
     roundOver: boolean;
     nextPlayerId?: string;
+    publicIndices?: Record<string, number[]>;
   } | null;
 
   getAutoTransition: (phase: GamePhase) => {

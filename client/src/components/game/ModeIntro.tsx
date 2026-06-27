@@ -264,6 +264,18 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
     proTip: "Your hole cards are used with 3 community cards from any legal path. The path choice is automatic — focus on whether your cards build a poker hand or a flush run.",
     accentColor: "from-cyan-800/60 to-[#141417]",
   },
+  bonecrusher: {
+    title: "Bonecrusher",
+    objective: "6 cards dealt face-down. Discard 2 permanently, reveal 1. Receive 3 community street cards one at a time. Choose your best 5, then flip 4 face-up. Declare HIGH (best standard hand), LOW (best A-5 lowball), or SWING (need both).",
+    steps: [
+      "Receive 6 face-down cards — discard 2, reveal 1",
+      "3 street rounds: one new card + betting each street",
+      "Select your best 5 cards (discard 2), then flip 4 face-up over 4 rounds",
+      "Declare HIGH, LOW, or SWING — pot splits between each side's winner",
+    ],
+    proTip: "SWING is high risk, high reward — you must win BOTH the high and the low half, or you get nothing. If you miss one side, the pot goes to the opposing declared players. Only go SWING if your hand dominates both directions.",
+    accentColor: "from-amber-900/60 to-[#0a0702]",
+  },
   kamikaze: {
     title: "Kamikaze",
     objective: "Build a 6-card hand with exactly 3+2+1 suit distribution and no paired ranks. Then declare HIGH (highest card in your 3-suit) or LOW (lowest card, Ace = 1). Pot splits between the two sides.",
