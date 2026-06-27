@@ -2,6 +2,7 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { PlayingCard } from '@/components/game/Card';
+import { CardHand } from '@/components/flushedUp/CardHand';
 import { WinnerOverlay } from '@/components/flushedUp/WinnerOverlay';
 import { evaluateBonecrusher } from '@shared/modes/bonecrusher';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
@@ -286,38 +287,19 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
         )}
 
         {me && me.cards.length > 0 ? (
-          <div style={{ opacity: heroIsLoser ? 0.55 : 1, transition: 'opacity 0.4s ease', display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {me.cards.map((card, i) => {
-              const isSelected       = selectedCards.has(i);
-              const isFlipped        = flippedByHero.has(i);
-              const clickableDiscard = isDiscardPhase && !isFlipped;
-              const clickableFlip    = isFlipPhase && !isFlipped;
-              const clickable        = clickableDiscard || clickableFlip;
-              const borderColor      = isSelected && isDiscardPhase
-                ? 'rgba(239,68,68,0.85)'
-                : isSelected && isFlipPhase
-                  ? AMB
-                  : isFlipped
-                    ? aA(0.6)
-                    : clickable
-                      ? aA(0.3)
-                      : 'rgba(255,255,255,0.1)';
-              return (
-                <motion.div key={i}
-                  animate={{ y: isSelected && isDiscardPhase ? -8 : 0, scale: isSelected ? 1.05 : 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  onClick={() => clickable && onCardClick(i)}
-                  style={{
-                    width: CARD_W, height: CARD_H, borderRadius: 7, overflow: 'hidden',
-                    cursor: clickable ? 'pointer' : 'default', flexShrink: 0,
-                    border: `${isSelected ? 2 : 1}px solid ${borderColor}`,
-                    boxShadow: isSelected && isDiscardPhase ? '0 0 16px rgba(239,68,68,0.5)' : isFlipped ? `0 0 10px ${aA(0.3)}` : 'none',
-                    opacity: isSelected && isDiscardPhase ? 0.65 : 1,
-                  }}>
-                  <PlayingCard card={{ ...card, isHidden: false }} className="!w-full !h-full !rounded-none !shrink-0" />
-                </motion.div>
-              );
-            })}
+          <div style={{ opacity: heroIsLoser ? 0.55 : 1, transition: 'opacity 0.4s ease' }}>
+            <CardHand
+              cards={me.cards.map(c => ({ ...c, isHidden: false }))}
+              selectedIndices={Array.from(selectedCards)}
+              onCardClick={onCardClick}
+              isSelectable={isDiscardPhase || isFlipPhase}
+              dealingIndices={[]}
+              drawingIndices={[]}
+              discardingIndices={[]}
+              isShowdown={isShowdown}
+              cardWidth={CARD_W}
+              cardHeight={CARD_H}
+            />
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>
