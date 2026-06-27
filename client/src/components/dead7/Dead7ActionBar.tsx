@@ -23,6 +23,8 @@ interface Dead7ActionBarProps {
   activeCount: number;
   isClubTable: boolean;
   locked: boolean;
+  myDeclaration?: string | null;
+  myHasActed?: boolean;
   onStandPat: () => void;
   onDraw: () => void;
   onAction: (action: string, amount?: number | unknown) => void;
@@ -63,6 +65,7 @@ export function Dead7ActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
   chips, currentBet, myBet, pot,
   ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
+  myDeclaration, myHasActed,
   onStandPat, onDraw, onAction, onRebuy,
 }: Dead7ActionBarProps) {
   void pot; void openSeatsCount;
@@ -83,6 +86,7 @@ export function Dead7ActionBar({
   const raiseAmount = Math.max(callAmount > 0 ? callAmount * 2 : 50, 50);
   const isBetPhase  = phase.startsWith('BET_');
   const isWaiting   = phase === 'WAITING';
+  const isDeclare   = phase === 'DECLARE';
 
   const base: React.CSSProperties = {
     flex: 1, padding: '13px 8px', borderRadius: 12, fontSize: 13,
@@ -165,7 +169,61 @@ export function Dead7ActionBar({
           </div>
         )}
 
-        {!isDrawPhase && !isBetPhase && !isWaiting && (
+        {/* Declare phase — HIGH vs LOW */}
+        {isDeclare && (
+          myHasActed ? (
+            <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 9, fontFamily: 'monospace', color: R(0.55), letterSpacing: '0.2em' }}>YOU DECLARED</div>
+              <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
+                color: myDeclaration === 'HIGH' ? '#ef4444' : 'rgba(255,255,255,0.6)',
+                textShadow: myDeclaration === 'HIGH' ? '0 0 16px rgba(239,68,68,0.7)' : 'none' }}>
+                {myDeclaration ?? '—'}
+              </div>
+              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.28)', letterSpacing: '0.14em' }}>
+                Waiting for other players…
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 9, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.22em', textAlign: 'center', paddingTop: 4 }}>
+                DECLARE HIGH OR LOW
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => onAction('declare', { declaration: 'HIGH' })}
+                  data-testid="button-declare-high"
+                  style={{ flex: 1, padding: '16px 8px', borderRadius: 12, fontSize: 16, fontFamily: 'monospace', fontWeight: 900,
+                    letterSpacing: '0.14em', textTransform: 'uppercase', border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #7a5500, #C9A227)',
+                    color: '#fff', boxShadow: '0 0 22px rgba(201,162,39,0.55), 0 4px 14px rgba(0,0,0,0.4)',
+                    WebkitTapHighlightColor: 'transparent' }}>
+                  HIGH
+                </button>
+                <button
+                  onClick={() => onAction('declare', { declaration: 'LOW' })}
+                  data-testid="button-declare-low"
+                  style={{ flex: 1, padding: '16px 8px', borderRadius: 12, fontSize: 16, fontFamily: 'monospace', fontWeight: 900,
+                    letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer',
+                    background: 'rgba(10,4,4,0.9)', color: 'rgba(255,255,255,0.75)',
+                    border: `2px solid ${R(0.35)}`, boxShadow: `0 0 10px ${R(0.12)}`,
+                    WebkitTapHighlightColor: 'transparent' }}>
+                  LOW
+                </button>
+              </div>
+              <button
+                onClick={() => onAction('declare', { declaration: 'FOLD' })}
+                data-testid="button-declare-fold"
+                style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontFamily: 'monospace',
+                  fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer',
+                  background: 'rgba(30,10,10,0.7)', color: 'rgba(255,100,100,0.5)',
+                  border: '1px solid rgba(200,50,50,0.15)', WebkitTapHighlightColor: 'transparent' }}>
+                FOLD
+              </button>
+            </div>
+          )
+        )}
+
+        {!isDrawPhase && !isBetPhase && !isWaiting && !isDeclare && (
           <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: R(0.5), letterSpacing: '0.18em' }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>

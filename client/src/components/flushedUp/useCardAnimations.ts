@@ -38,13 +38,26 @@ export function useCardAnimations(heroCards: CardType[], phase: string) {
     }
 
     if (prevLen === 0 && currLen > 0) {
-      const indices = Array.from({ length: currLen }, (_, i) => i);
-      setDealingIndices(indices);
-      const clearAt = currLen * 120 + 500;
-      const t = setTimeout(() => setDealingIndices([]), clearAt);
+      // Only animate as a fresh deal when coming from a pre-game phase.
+      // Mid-game the server may briefly send cards:[] before re-populating
+      // (e.g. between DRAW and BET phases). In that case suppress the animation
+      // so kept cards don't fly back in as if freshly dealt.
+      const fromPreGame =
+        prevPhase === 'WAITING' || prevPhase === 'ANTE' ||
+        prevPhase === 'DEAL'    || prevPhase === '';
+      if (fromPreGame) {
+        const indices = Array.from({ length: currLen }, (_, i) => i);
+        setDealingIndices(indices);
+        const clearAt = currLen * 120 + 500;
+        const t = setTimeout(() => setDealingIndices([]), clearAt);
+        prevCardsRef.current = heroCards;
+        prevPhaseRef.current = phase;
+        return () => clearTimeout(t);
+      }
+      // Mid-game blank → refill: just record the new cards, no animation
       prevCardsRef.current = heroCards;
       prevPhaseRef.current = phase;
-      return () => clearTimeout(t);
+      return;
     }
 
     if (prevLen > 0 && currLen > 0 && prevLen === currLen) {

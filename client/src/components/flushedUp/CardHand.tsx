@@ -115,10 +115,11 @@ export function CardHand({
                   ? `rotate(${rotation}deg) translateY(${yOffset - 30}px)`
                   : `rotate(${rotation}deg) translateY(${yOffset}px)`,
                 transformOrigin: 'center bottom',
+                border: isSelected ? '2px solid #a855f7' : '2px solid transparent',
                 boxShadow: isSelected
-                  ? '0 0 16px rgba(220,38,38,0.85), 0 0 32px rgba(220,38,38,0.35)'
+                  ? '0 0 12px rgba(168,85,247,0.95), 0 0 28px rgba(168,85,247,0.55)'
                   : 'none',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
                 borderRadius: '8px',
               }}
             >
@@ -135,10 +136,10 @@ export function CardHand({
                   style={{
                     position: 'absolute', top: -7, right: -7,
                     width: 18, height: 18, borderRadius: '50%',
-                    background: '#dc2020',
+                    background: '#a855f7',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '11px', fontWeight: 700, color: '#fff',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                    boxShadow: '0 0 8px rgba(168,85,247,0.8)',
                     zIndex: 20, lineHeight: 1,
                     pointerEvents: 'none',
                   }}

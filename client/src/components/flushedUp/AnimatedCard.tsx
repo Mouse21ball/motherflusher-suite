@@ -234,7 +234,7 @@ export function AnimatedCard({
   const selectedLift = isSelected ? -28 : 0;
 
   const filterValue = isSelected
-    ? 'drop-shadow(0 0 10px rgba(210,30,30,0.9)) drop-shadow(0 0 4px rgba(210,30,30,0.6))'
+    ? 'drop-shadow(0 0 12px rgba(168,85,247,0.95)) drop-shadow(0 0 6px rgba(168,85,247,0.7))'
     : glowColor
     ? `drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 0 4px ${glowColor})`
     : 'none';
@@ -269,10 +269,10 @@ export function AnimatedCard({
           style={{
             position: 'absolute', top: -7, right: -7,
             width: 18, height: 18, borderRadius: '50%',
-            background: '#dc2020',
+            background: '#a855f7',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 700, color: '#fff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+            boxShadow: '0 0 8px rgba(168,85,247,0.8)',
             zIndex: 20, lineHeight: 1,
             pointerEvents: 'none',
           }}

@@ -258,6 +258,8 @@ export function BadugiFullPage({
             openSeatsCount={isClubTable ? 0 : openSeatsCount}
             activeCount={activeCount} isClubTable={isClubTable}
             locked={actionLocked}
+            myDeclaration={me?.declaration ?? null}
+            myHasActed={state.phase === 'DECLARE' ? (me?.hasActed ?? false) : false}
             onStandPat={handleStandPat} onDraw={handleDraw}
             onAction={handleControlAction}
             onRebuy={() => handleControlAction('rebuy', 1000)}
