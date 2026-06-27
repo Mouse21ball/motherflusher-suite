@@ -352,12 +352,15 @@ export const BonecrusherMode: GameMode = {
 
     let nextPlayerId: string | undefined;
     if (!roundOver) {
-      const dealerIdx = state.players.findIndex(p => p.isDealer);
-      const next = getNextActivePlayerIndex(newPlayers, dealerIdx >= 0 ? dealerIdx : 0, !isDrawPhase);
-      const candidate = newPlayers[next];
-      if (candidate && (isDrawPhase ? !candidate.hasActed : (!candidate.hasActed || candidate.bet < newCurrentBet))) {
-        nextPlayerId = candidate.id;
+      let nextIdx = (bIdx + 1) % newPlayers.length;
+      let count = 0;
+      while (count < newPlayers.length) {
+        const p = newPlayers[nextIdx];
+        if (p.status === 'active' && (isDrawPhase || p.chips > 0) && (!p.hasActed || (!isDrawPhase && p.bet < newCurrentBet))) break;
+        nextIdx = (nextIdx + 1) % newPlayers.length;
+        count++;
       }
+      nextPlayerId = newPlayers[nextIdx].id;
     }
 
     return {
