@@ -169,7 +169,7 @@ function BonecrusherGameUI() {
 
   useEffect(() => {
     setSelectedCards(new Set());
-    if (phase === 'DISCARD_2' || phase === 'REVEAL_1') {
+    if (phase === 'DISCARD_2' || phase === 'REVEAL_1' || phase === 'FLIP_1') {
       setFlippedByHero(new Set());
     }
   }, [phase]);
