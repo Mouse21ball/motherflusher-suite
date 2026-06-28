@@ -1,1 +1,41 @@
-{}
+{
+  "ll_mqye2hsl_g0pxh": {
+    "state": {
+      "phase": "LOBBY",
+      "players": [
+        {
+          "id": "bot_n6a0kqy",
+          "name": "Vega",
+          "chips": 10000,
+          "suit": null,
+          "wager": 0,
+          "presence": "bot",
+          "wagered": false,
+          "seatIndex": 0
+        }
+      ],
+      "positions": {
+        "spades": 0,
+        "hearts": 0,
+        "diamonds": 0,
+        "clubs": 0
+      },
+      "flippedCards": [],
+      "currentCard": null,
+      "winner": null,
+      "pot": 0,
+      "sideBets": [],
+      "roomType": "pony",
+      "dealerIndex": 0,
+      "currentPickIndex": 1,
+      "claimedSuits": [],
+      "startingIn": null,
+      "resultsTimeLeft": null,
+      "betTimeLeft": null,
+      "spectatorCount": 0
+    },
+    "deck": [],
+    "hostId": "e16666fa-6cd7-4b89-a7a1-c79ca2f67eda",
+    "savedAt": 1782687985198
+  }
+}

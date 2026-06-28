@@ -219,7 +219,7 @@ function BoxChevyGameUI() {
   }, [handleControlAction]);
 
   const handleDeal = useCallback(() => {
-    handleControlAction('restart');
+    handleControlAction('start');
   }, [handleControlAction]);
 
   /* ── Bust out logic ──────────────────────────────────────────────────────── */
