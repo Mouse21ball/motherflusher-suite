@@ -98,8 +98,8 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
 
   return (
     <div style={{
-      background: isFolded ? 'rgba(0,0,0,0.5)' : 'rgba(8,5,0,0.85)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      background: isFolded ? 'rgba(5,3,0,0.55)' : isWinner ? 'rgba(20,10,0,0.72)' : 'rgba(0,0,0,0.40)',
+      backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
       borderRadius: 14, border: `1px solid ${borderCol}`,
       boxShadow: `0 0 12px ${glowCol}`,
       padding: '8px 8px 6px', opacity: isFolded ? 0.45 : 1,
@@ -142,13 +142,17 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
       {isFolded ? (
         <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
       ) : (
-        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {cards.length > 0 ? cards.map((card, i) => (
-            <div key={i} style={{ width: 14, height: 20, borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
-              <PlayingCard card={card} className="!w-full !h-full !rounded-none !shrink-0" />
-            </div>
-          )) : Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ width: 14, height: 20, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.9)', border: `1px solid ${aA(0.35)}` }} />
+        <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'nowrap' }}>
+          {cards.length > 0 ? cards.map((card, i) =>
+            card.isHidden ? (
+              <div key={i} style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.3)}` }} />
+            ) : (
+              <div key={i} style={{ width: 28, height: 40, borderRadius: 4, flexShrink: 0, overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
+                <PlayingCard card={card} className="!w-full !h-full !rounded-none !shrink-0" />
+              </div>
+            )
+          ) : Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.35)}` }} />
           ))}
         </div>
       )}

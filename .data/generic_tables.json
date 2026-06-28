@@ -47145,5 +47145,118 @@
     },
     "handId": 5,
     "savedAt": 1782603987047
+  },
+  "bonecrusher:L8XRJE": {
+    "state": {
+      "tableId": "L8XRJE",
+      "phase": "ANTE",
+      "pot": 50,
+      "currentBet": 0,
+      "minBet": 50,
+      "raisesThisRound": 0,
+      "activePlayerId": "p1",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Open",
+          "presence": "reserved",
+          "chips": 22586,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false,
+          "subscriptionTier": null
+        },
+        {
+          "id": "p2",
+          "name": "NightOwlNate",
+          "presence": "bot",
+          "chips": 28584,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p3",
+          "name": "BackdoorBob",
+          "presence": "bot",
+          "chips": 28584,
+          "bet": 0,
+          "totalBet": 0,
+          "cards": [],
+          "status": "active",
+          "isDealer": true,
+          "declaration": null,
+          "hasActed": false
+        },
+        {
+          "id": "p4",
+          "name": "SteveSandbag",
+          "presence": "bot",
+          "chips": 9950,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        },
+        {
+          "id": "p5",
+          "name": "LimitLuke",
+          "presence": "bot",
+          "chips": 9975,
+          "bet": 0,
+          "totalBet": 25,
+          "cards": [],
+          "status": "active",
+          "isDealer": false,
+          "declaration": null,
+          "hasActed": true
+        }
+      ],
+      "communityCards": [],
+      "messages": [
+        {
+          "id": "sxiokcev",
+          "text": "New hand.",
+          "time": 1782610215592
+        },
+        {
+          "id": "i6g34798",
+          "text": "SteveSandbag paid $25 ante",
+          "time": 1782610216012,
+          "isResolution": false
+        },
+        {
+          "id": "0y42yyre",
+          "text": "LimitLuke paid $25 ante",
+          "time": 1782610216547,
+          "isResolution": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "s3pwnqwg",
+          "senderId": "p3",
+          "senderName": "BackdoorBob",
+          "text": "Variance is a beast.",
+          "time": 1782610136816
+        }
+      ],
+      "deck": [],
+      "discardPile": [],
+      "turnDeadline": null
+    },
+    "handId": 5,
+    "savedAt": 1782610218555
   }
 }
