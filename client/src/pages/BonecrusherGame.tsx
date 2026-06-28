@@ -268,7 +268,7 @@ function BonecrusherGameUI() {
     <div style={{
       height: '100dvh', display: 'flex', flexDirection: 'column',
       backgroundColor: '#0a0702',
-      backgroundImage: "url('/backgrounds/bonecrusher-bg.jpg')",
+      backgroundImage: "url('/backgrounds/bonecrusher-bg.png')",
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
 

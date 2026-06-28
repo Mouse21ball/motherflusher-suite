@@ -271,7 +271,7 @@ function KamikazeGameUI() {
     <div style={{
       height: '100dvh', display: 'flex', flexDirection: 'column',
       backgroundColor: '#000000',
-      backgroundImage: "url('/modes/bg-kamikaze.png')",
+      backgroundImage: "url('/backgrounds/kamikaze-bg.png')",
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
