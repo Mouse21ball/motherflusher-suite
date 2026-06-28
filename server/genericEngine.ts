@@ -10,6 +10,7 @@ import { SuitsPokerMode } from '../shared/modes/suitspoker';
 import { FlushedUpMode } from '../shared/modes/flushedUp';
 import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
 import { BonecrusherMode } from '../shared/modes/bonecrusher';
+import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/modes/boxchevy';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import {
@@ -30,6 +31,7 @@ const MODE_REGISTRY: Record<string, GameMode> = {
   flushed_up: FlushedUpMode,
   kamikaze: KamikazeMode,
   bonecrusher: BonecrusherMode,
+  box_chevy: BoxChevyMode,
   // swing_poker removed — Mother Flusher is no longer an active game mode
 };
 
@@ -886,6 +888,45 @@ function advanceToNextPhase(table: GenericTable): void {
       if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
       table.state = st;
       // If all were auto-folded, schedule phase advance explicitly
+      if (isPhaseRoundOver(table.state)) {
+        const fenced = table.handId;
+        const fencedPhase = table.state.phase;
+        setTimeout(() => {
+          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
+          advanceToNextPhase(table);
+          broadcastState(table);
+          scheduleNextBot(table);
+        }, 450);
+      }
+    }
+  }
+
+  // ── DECLARE (Box Chevy): auto-fold players without a made hand ───────────
+  // A made hand requires all 10 combined cards (5 hole + 5 community) to have
+  // unique ranks. Any player with a duplicate rank across hole+community is
+  // auto-folded here before the declare prompt is shown.
+  if (nextPhase === 'DECLARE' && table.modeId === 'box_chevy') {
+    const comm = table.state.communityCards ?? [];
+    const declPlayers = [...table.state.players];
+    const foldMsgs: string[] = [];
+    let anyAutoFolded = false;
+    for (let i = 0; i < declPlayers.length; i++) {
+      const p = declPlayers[i];
+      if (p.status !== 'active') continue;
+      const holeCards = p.cards.map(c => ({ ...c, isHidden: false }));
+      const commCards = comm.map(c => ({ ...c, isHidden: false }));
+      if (!hasMadeHandBoxChevy(holeCards, commCards)) {
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
+        foldMsgs.push(`${p.name} has no made hand — auto-folded`);
+        anyAutoFolded = true;
+      }
+    }
+    if (anyAutoFolded) {
+      let st = { ...table.state, players: declPlayers };
+      for (const msg of foldMsgs) st = addMsg(st, msg);
+      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
+      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
+      table.state = st;
       if (isPhaseRoundOver(table.state)) {
         const fenced = table.handId;
         const fencedPhase = table.state.phase;

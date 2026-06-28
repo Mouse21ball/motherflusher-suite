@@ -249,6 +249,40 @@ export const MODE_INFO: Record<string, ModeInfo> = {
       },
     ],
   },
+  box_chevy: {
+    abbrev: "BX",
+    name: "Box Chevy",
+    accentClass: "text-blue-400",
+    borderClass: "border-blue-500/20",
+    rules: [
+      {
+        heading: "Goal",
+        items: [
+          "5 hole cards + 5 shared community cards (always face-up) = 10 total",
+          "All 10 combined cards must have unique ranks — no pairs anywhere",
+          "Declare HIGH (best 5-card poker hand) or LOW (best A-to-5 lowball) or SWING",
+        ],
+      },
+      {
+        heading: "Play",
+        items: [
+          "Community cards dealt face-up at the start — same for all players",
+          "Draw 1: discard up to 3 hole cards and replace from deck",
+          "Draw 2: discard up to 2, Draw 3: discard up to 1",
+          "Betting round after each draw round, then declare",
+        ],
+      },
+      {
+        heading: "Showdown",
+        items: [
+          "No pair across all 10 cards required — invalid hands are auto-folded",
+          "HIGH and LOW split the pot; SWING must win BOTH or forfeits",
+          "Best 5-card hand chosen from all 10 for HIGH; best lowball for LOW",
+          "5% house rake on every pot",
+        ],
+      },
+    ],
+  },
   bonecrusher: {
     abbrev: "BC",
     name: "Bonecrusher",

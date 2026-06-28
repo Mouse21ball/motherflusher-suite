@@ -264,6 +264,18 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
     proTip: "Your hole cards are used with 3 community cards from any legal path. The path choice is automatic — focus on whether your cards build a poker hand or a flush run.",
     accentColor: "from-cyan-800/60 to-[#141417]",
   },
+  box_chevy: {
+    title: "Box Chevy",
+    objective: "5 hole cards + 5 shared community cards (always visible). Three draw rounds let you swap up to 3/2/1 hole cards. All 10 combined cards must have unique ranks to qualify. Declare HIGH, LOW, or SWING.",
+    steps: [
+      "5 hole cards dealt to you, 5 community cards face-up in the center",
+      "Draw 1: discard up to 3 hole cards, get replacements",
+      "Draw 2: discard up to 2, Draw 3: discard up to 1",
+      "No pair across all 10 cards = made hand. Declare HIGH / LOW / SWING",
+    ],
+    proTip: "The community cards are visible from the start — use them to decide which hole cards to keep. If a hole card shares a rank with any community card, discard it immediately. Without a made hand (unique ranks across all 10), you're auto-folded.",
+    accentColor: "from-blue-900/60 to-[#0a1628]",
+  },
   bonecrusher: {
     title: "Bonecrusher",
     objective: "6 cards dealt face-down. Discard 2 permanently, reveal 1. Receive 3 community street cards one at a time. Choose your best 5, then flip 4 face-up. Declare HIGH (best standard hand), LOW (best A-5 lowball), or SWING (need both).",

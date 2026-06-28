@@ -2,3 +2,4 @@
 - [House rake implementation](rake-impl.md) — 5% rake via applyRake() in server/utils/rake.ts; logHouseRake() in storage; all engines patched; spectator_sidebet raked separately.
 - [DECLARE phase bot scheduling](declare-bot-scheduling.md) — bot actions for DECLARE must return a computed nextPlayerId or multi-bot declare stalls after first bot.
 - [Bonecrusher mode architecture](bonecrusher-arch.md) — 6-card game: DISCARD_2→REVEAL_1→BET_1→STREET_1/2/3→BET_2-4→SELECT_5→FLIP_1-4→BET_5-8→DECLARE→SHOWDOWN; REVEAL_1 type narrowing needs (phase as string) cast; BotPersonalityTraits needs all fields (use botPersonality(botId)).
+- [Box Chevy mode architecture](box-chevy-arch.md) — 5+5 community card draw game; DRAW_1/2/3 use existing 'draw' action handler; made-hand check (unique ranks across all 10) auto-folds before DECLARE; TS narrowing issue: use (phase as string).startsWith() after early-return else-if branches.

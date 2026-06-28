@@ -18,6 +18,7 @@ import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import FlushedUpGame from "@/pages/FlushedUpGame";
 import KamikazeGame from "@/pages/KamikazeGame";
 import BonecrusherGame from "@/pages/BonecrusherGame";
+import BoxChevyGame from "@/pages/BoxChevyGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
@@ -66,6 +67,7 @@ function Router() {
         <Route path="/flushedup" component={FlushedUpGame}/>
         <Route path="/kamikaze" component={KamikazeGame}/>
         <Route path="/bonecrusher" component={BonecrusherGame}/>
+        <Route path="/box-chevy" component={BoxChevyGame}/>
         <Route path="/ladyluck/history" component={LadyLuckHistory}/>
         <Route path="/ladyluck/spectate" component={LadyLuckSpectate}/>
         <Route path="/ladyluck" component={LadyLuck}/>

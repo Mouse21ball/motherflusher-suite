@@ -116,6 +116,7 @@ const MODES = [
   { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: '/mode-icon-suits.png'     },
   { id: 'kamikaze',   name: 'KAMIKAZE',      tagline: '3+2+1. High or Low.',   path: '/kamikaze',   color: '#ef4444', icon: '/mode-icon-dead7.png'     },
   { id: 'bonecrusher', name: 'BONECRUSHER', tagline: '6 cards. High/Low/Swing.', path: '/bonecrusher', color: '#d97706', icon: '/mode-icon-dead7.png'     },
+  { id: 'box_chevy',  name: 'BOX CHEVY',   tagline: '10 cards. No pairs. Swing.', path: '/box-chevy',  color: '#3b82f6', icon: '/mode-icon-dead7.png'     },
   { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your Queen. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
 ] as const;
 
@@ -128,6 +129,7 @@ const MODE_CARD_CONFIGS = [
   { id: 'flushedup',  bg: '/modes/bg-suits.png',                color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP',    subtitle: 'CHASE THE FLUSH.'      },
   { id: 'kamikaze',   bg: '/modes/bg-kamikaze.png',             color: '#ef4444', btnText: 'white', title: 'KAMIKAZE',      subtitle: '3+2+1. HIGH OR LOW.'   },
   { id: 'bonecrusher', bg: '/modes/bg-kamikaze.png',           color: '#d97706', btnText: 'white', title: 'BONECRUSHER',   subtitle: '6 CARDS. HIGH / LOW / SWING.' },
+  { id: 'box_chevy',  bg: '/modes/bg-kamikaze.png',           color: '#3b82f6', btnText: 'white', title: 'BOX CHEVY',     subtitle: '10 CARDS. NO PAIRS. SWING.' },
   { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR QUEEN. RUN THE RACE.', directNav: true },
 ];
 
@@ -150,6 +152,7 @@ const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: stri
   flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: '/mode-icon-suits.png',     stakes: '$25 ante' },
   kamikaze:    { name: 'Kamikaze',      abbrev: 'KZ', color: '#ef4444', path: '/kamikaze',   icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
   bonecrusher: { name: 'Bonecrusher',   abbrev: 'BC', color: '#d97706', path: '/bonecrusher', icon: '/mode-icon-dead7.png',    stakes: '$25 ante' },
+  box_chevy:   { name: 'Box Chevy',     abbrev: 'BX', color: '#3b82f6', path: '/box-chevy',   icon: '/mode-icon-dead7.png',    stakes: '$25 ante' },
 };
 
 function phaseLabel(phase: string): string {
@@ -172,6 +175,7 @@ const LIVE_TABS = [
   { id: 'flushed_up',  label: 'Flush'  },
   { id: 'kamikaze',    label: 'Kamikaze' },
   { id: 'bonecrusher', label: 'Bonecrusher' },
+  { id: 'box_chevy',   label: 'Box Chevy'   },
 ] as const;
 
 // LiveTablesSection kept for reference / join handler usage
