@@ -191,14 +191,10 @@ function BoxChevyGameUI() {
   const handleCheck = useCallback(() => handleControlAction('check'), [handleControlAction]);
   const handleCall  = useCallback(() => handleControlAction('call'),  [handleControlAction]);
 
-  const [raiseAmt, setRaiseAmt] = useState(50);
-  void setRaiseAmt; // used by ActionBar which re-declares locally
 
-  const handleRaise = useCallback(() => {
-    const callAmt = Math.min((me?.chips ?? 0), (state.currentBet ?? 0) - (me?.bet ?? 0));
-    const minRaise = callAmt + 50;
-    handleControlAction('raise', minRaise);
-  }, [handleControlAction, me, state.currentBet]);
+  const handleRaise = useCallback((amt: number) => {
+    handleControlAction('raise', amt);
+  }, [handleControlAction]);
 
   const handleDraw = useCallback(() => {
     const indices = Array.from(selectedCards).sort((a, b) => a - b);
@@ -397,6 +393,9 @@ function BoxChevyGameUI() {
           maxSelect={maxSelect}
           communityCards={state.communityCards ?? []}
           heroCards={(me?.cards ?? []).map(c => ({ ...c, isHidden: false }))}
+          humanCount={humanCount}
+          declaration={me?.declaration ?? null}
+          myHasActed={!!me?.declaration}
           onFold={handleFold}
           onCheck={handleCheck}
           onCall={handleCall}
@@ -406,6 +405,7 @@ function BoxChevyGameUI() {
           onDeclare={handleDeclare}
           onAnte={handleAnte}
           onDeal={handleDeal}
+          onRebuy={() => handleAction('rebuy', 1000)}
           actionLocked={actionLocked}
         />
       )}
