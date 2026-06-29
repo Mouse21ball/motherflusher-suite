@@ -202,6 +202,9 @@ export const Dead7Mode: GameMode = {
       const raisesSoFar = state.raisesThisRound ?? 0;
       const activeOpponents = state.players.filter(p => p.id !== botId && p.status === 'active').length;
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
+      // Never fold in BET_1 / BET_2 unless the hand is nearly hopeless — draws remain.
+      if (state.phase === 'BET_1' || state.phase === 'BET_2') strength = Math.max(strength, 0.15);
+
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };

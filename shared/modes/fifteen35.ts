@@ -273,6 +273,18 @@ export const Fifteen35Mode: GameMode = {
     }
 
     if (!resolution.hadAnyWinner) {
+      console.warn('[CGP][15/35][ROLLOVER] FALSE ROLLOVER DETECTED — full player dump:');
+      for (const p of finalPlayers) {
+        const { total } = bestTotal(p.cards);
+        console.warn(
+          `[CGP][15/35][ROLLOVER]   ${p.id}(${p.name}) status=${p.status}` +
+          ` declaration=${p.declaration ?? 'none'} total=${total}` +
+          ` low=${qualifiesLow(total)} high=${qualifiesHigh(total)}` +
+          ` chips=${p.chips} totalBet=${p.totalBet ?? 0}` +
+          ` cards=[${p.cards.map(c => c.rank + c.suit).join(',')}]`
+        );
+      }
+      console.warn(`[CGP][15/35][ROLLOVER] hadAnyWinner=${resolution.hadAnyWinner} rolledOver=${resolution.rolledOver} sidePots=${sidePots.length}`);
       messages.push(`No qualifying hands. $${resolution.rolledOver} rolls over!`);
       return { players: finalPlayers, pot: resolution.rolledOver, messages };
     }

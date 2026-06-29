@@ -6,6 +6,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  errorMessage?: string;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -14,12 +15,16 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, errorMessage: error.message };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    console.error('[CGP][ErrorBoundary] Render crash caught — preventing black screen:', {
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    });
   }
 
   render() {
@@ -27,6 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background text-white/80 p-8 gap-4">
           <p className="text-lg font-sans font-semibold">Something went wrong.</p>
+          {this.state.errorMessage && (
+            <p className="text-xs font-mono text-white/40 max-w-sm text-center">{this.state.errorMessage}</p>
+          )}
           <button
             className="px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm font-mono transition-colors"
             onClick={() => this.setState({ hasError: false })}

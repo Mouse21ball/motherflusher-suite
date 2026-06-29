@@ -71,6 +71,17 @@ export const BadugiMode: GameMode = {
       if (p.id === myId) {
         cards.sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
       }
+      // Duplicate detection — log every deal so dupes are caught in the server console.
+      const allRanks = cards.map(c => c.rank);
+      const allSuits = cards.map(c => c.suit);
+      const dupRank  = allRanks.find((r, i) => allRanks.indexOf(r) !== i);
+      const dupSuit  = allSuits.find((s, i) => allSuits.indexOf(s) !== i);
+      const handStr  = cards.map(c => c.rank + c.suit).join(',');
+      if (dupRank || dupSuit) {
+        console.warn(`[CGP][Badugi][DEAL] *** DUPLICATE hand for ${p.name}: [${handStr}] dupRank=${dupRank ?? 'none'} dupSuit=${dupSuit ?? 'none'}`);
+      } else {
+        console.log(`[CGP][Badugi][DEAL] ${p.name}: [${handStr}]`);
+      }
       return { ...p, cards };
     });
     return { players: newPlayers, communityCards: [], deck: freshDeck };
@@ -301,6 +312,9 @@ export const BadugiMode: GameMode = {
 
       const raisesSoFar = state.raisesThisRound ?? 0;
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
+      // Never fold in BET_1 / BET_2 unless the hand is nearly hopeless — draws remain.
+      if (hasDrawsLeft) strength = Math.max(strength, 0.15);
+
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
         heroWeak, largePot, earlyPressure, passiveExtra,
         activeOpponents, stackRisk, slowPlay,

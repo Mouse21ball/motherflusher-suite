@@ -224,7 +224,24 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
 
   if (!visible || resolutionMessages.length === 0) return null;
 
-  const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
+  let result: ClassifiedResult;
+  try {
+    result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
+  } catch (err) {
+    console.error('[CGP][ResolutionOverlay] classifyResult crashed — suppressing to avoid black screen:', err, { resolutionMessages, heroPlayer, heroChipChange });
+    return null;
+  }
+
+  console.log('[CGP][ResolutionOverlay]', {
+    isWinner: heroPlayer?.isWinner,
+    isLoser: heroPlayer?.isLoser,
+    status: heroPlayer?.status,
+    heroChipChange,
+    resultType: result.type,
+    primary: result.primary,
+    secondary: result.secondary,
+  });
+
   const isWin  = result.type === 'win';
   const isLoss = result.type === 'loss';
   const isFold = result.type === 'fold';

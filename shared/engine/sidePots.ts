@@ -97,6 +97,7 @@ export function resolveSplitPots(
     const lowIds = opts.findLow ? opts.findLow(eligible) : [];
 
     if (highIds.length === 0 && lowIds.length === 0) {
+      console.warn(`[CGP][sidePots] no winner for pot $${pot.amount} eligible=[${pot.eligibleIds.join(',')}] — rolling over`);
       rolledOver += pot.amount;
       continue;
     }

@@ -123,9 +123,11 @@ function App() {
         {/* Screen-edge vignette — always on top, no pointer events */}
         <div className="cgp-vignette" aria-hidden="true" />
         <DiamondBackground />
-        <WelcomeGate>
-          <Router />
-        </WelcomeGate>
+        <ErrorBoundary>
+          <WelcomeGate>
+            <Router />
+          </WelcomeGate>
+        </ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );
