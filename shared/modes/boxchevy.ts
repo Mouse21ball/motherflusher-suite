@@ -157,20 +157,21 @@ export const BoxChevyMode: GameMode = {
       return { ...p, cards };
     });
 
-    // Deal 5 community cards with unique ranks among themselves only.
-    // Hole card ranks are NOT excluded — players manage their own duplicates
-    // during the draw phases.
-    const commRanks = new Set<string>();
+    // Deal exactly 5 community cards. Only check: rank must not already appear
+    // among community cards already picked this loop. No cross-check against
+    // hole cards. With 27+ cards remaining and 13 possible ranks there are
+    // always enough unique-ranked cards to fill all 5 slots.
+    const commRanksSeen = new Set<string>();
     const communityCards: CardType[] = [];
-    const remainder: CardType[] = [];
-    for (const card of d) {
-      if (communityCards.length < 5 && !commRanks.has(card.rank)) {
+    let ci = 0;
+    while (communityCards.length < 5 && ci < d.length) {
+      const card = d[ci++];
+      if (!commRanksSeen.has(card.rank)) {
         communityCards.push({ ...card, isHidden: false });
-        commRanks.add(card.rank);
-      } else {
-        remainder.push(card);
+        commRanksSeen.add(card.rank);
       }
     }
+    const remainder = d.slice(ci);
 
     return { players: newPlayers, communityCards, deck: remainder };
   },
