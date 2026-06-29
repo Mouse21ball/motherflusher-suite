@@ -71,16 +71,13 @@ export const BadugiMode: GameMode = {
       if (p.id === myId) {
         cards.sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
       }
-      // Duplicate detection — log every deal so dupes are caught in the server console.
-      const allRanks = cards.map(c => c.rank);
-      const allSuits = cards.map(c => c.suit);
-      const dupRank  = allRanks.find((r, i) => allRanks.indexOf(r) !== i);
-      const dupSuit  = allSuits.find((s, i) => allSuits.indexOf(s) !== i);
-      const handStr  = cards.map(c => c.rank + c.suit).join(',');
-      if (dupRank || dupSuit) {
-        console.warn(`[CGP][Badugi][DEAL] *** DUPLICATE hand for ${p.name}: [${handStr}] dupRank=${dupRank ?? 'none'} dupSuit=${dupSuit ?? 'none'}`);
-      } else {
-        console.log(`[CGP][Badugi][DEAL] ${p.name}: [${handStr}]`);
+      // Duplicate CARD detection — same rank+suit appearing twice in one hand.
+      // (Duplicate rank or suit alone is normal Badugi gameplay; this only fires for real deck errors.)
+      const handStr = cards.map(c => c.rank + c.suit).join(',');
+      const cardKeys = cards.map(c => `${c.rank}${c.suit}`);
+      const dupCard  = cardKeys.find((k, i) => cardKeys.indexOf(k) !== i);
+      if (dupCard) {
+        console.warn(`[CGP][Badugi][DEAL] *** SAME CARD TWICE for ${p.name}: [${handStr}] — ${dupCard} appears more than once`);
       }
       return { ...p, cards };
     });
