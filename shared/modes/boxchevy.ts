@@ -156,8 +156,28 @@ export const BoxChevyMode: GameMode = {
       const cards = d.splice(0, 5).map(c => ({ ...c, isHidden: true }));
       return { ...p, cards };
     });
-    const communityCards = d.splice(0, 5).map(c => ({ ...c, isHidden: false }));
-    return { players: newPlayers, communityCards, deck: d };
+
+    // Build the set of ranks already used by all hole cards.
+    // Community cards must have unique ranks across all 10 combined cards.
+    const usedRanks = new Set<string>(
+      newPlayers.flatMap(p => p.cards.map(c => c.rank))
+    );
+
+    // Walk the remaining deck and take up to 5 community cards whose ranks
+    // are not already in usedRanks (and not duplicate among themselves).
+    // Cards that are skipped stay in the remainder deck.
+    const communityCards: CardType[] = [];
+    const remainder: CardType[] = [];
+    for (const card of d) {
+      if (communityCards.length < 5 && !usedRanks.has(card.rank)) {
+        communityCards.push({ ...card, isHidden: false });
+        usedRanks.add(card.rank);
+      } else {
+        remainder.push(card);
+      }
+    }
+
+    return { players: newPlayers, communityCards, deck: remainder };
   },
 
   getAutoTransition(_phase: GamePhase) {

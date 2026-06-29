@@ -1,58 +1,11 @@
 import { CardType, GameState } from '@/lib/poker/types';
 import { hasMadeHand } from '../../../../shared/modes/boxchevy';
+import { PlayingCard } from '@/components/game/Card';
 
-const NVY  = '#0f1c2e';
 const SLV  = '#94a3b8';
-const BLU  = '#3b82f6';
 const ACT  = '#60a5fa';
 const nvA  = (a: number) => `rgba(15,28,46,${a})`;
 const blA  = (a: number) => `rgba(59,130,246,${a})`;
-
-const SUITS_SYMBOL: Record<string, string> = { hearts:'♥', diamonds:'♦', clubs:'♣', spades:'♠' };
-const SUITS_COLOR:  Record<string, string> = { hearts:'#f87171', diamonds:'#f87171', clubs:SLV, spades:SLV };
-
-interface CardProps {
-  card: CardType;
-  size?: 'sm' | 'md' | 'lg';
-  selected?: boolean;
-  onClick?: () => void;
-}
-
-function PlayingCard({ card, size = 'md', selected, onClick }: CardProps) {
-  const dims = size === 'sm' ? { w: 26, h: 38, fs: 10 } : size === 'lg' ? { w: 40, h: 58, fs: 14 } : { w: 34, h: 50, fs: 12 };
-  if (card.isHidden) {
-    return (
-      <div style={{
-        width: dims.w, height: dims.h, borderRadius: 5,
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f1c2e 100%)',
-        border: `1px solid ${nvA(0.8)}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        <div style={{ fontSize: dims.fs - 2, color: blA(0.4) }}>◈</div>
-      </div>
-    );
-  }
-  const color = SUITS_COLOR[card.suit] ?? SLV;
-  const sym   = SUITS_SYMBOL[card.suit] ?? '?';
-  return (
-    <div onClick={onClick} style={{
-      width: dims.w, height: dims.h, borderRadius: 5, cursor: onClick ? 'pointer' : 'default',
-      background: selected
-        ? `linear-gradient(135deg, ${blA(0.25)} 0%, ${nvA(0.9)} 100%)`
-        : `linear-gradient(135deg, rgba(255,255,255,0.97) 0%, rgba(240,244,248,0.95) 100%)`,
-      border: selected ? `2px solid ${ACT}` : `1px solid rgba(0,0,0,0.18)`,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 1, flexShrink: 0,
-      boxShadow: selected ? `0 0 8px ${blA(0.5)}` : '0 1px 3px rgba(0,0,0,0.25)',
-      transform: selected ? 'translateY(-4px)' : undefined,
-      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
-    }}>
-      <div style={{ fontSize: dims.fs, fontWeight: 700, color, lineHeight: 1 }}>{card.rank}</div>
-      <div style={{ fontSize: dims.fs - 1, color, lineHeight: 1 }}>{sym}</div>
-    </div>
-  );
-}
 
 function PipRow({ count }: { count: number }) {
   return (
@@ -114,7 +67,9 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
         <div style={{ fontSize: 8, textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>FOLDED</div>
       ) : isShowdown && player.cards.some(c => !c.isHidden) ? (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {player.cards.map((c, i) => <PlayingCard key={i} card={c} size="sm" />)}
+          {player.cards.map((c, i) => (
+            <PlayingCard key={i} card={c} className="!w-[26px] !h-[38px]" />
+          ))}
         </div>
       ) : (
         <PipRow count={player.cards.length || 5} />
@@ -126,16 +81,14 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
 interface BoxChevyTableProps {
   state: GameState;
   myId: string;
-  selectedCards: Set<number>;
-  onCardClick: (idx: number) => void;
   phase: string;
   isDrawPhase: boolean;
 }
 
-export function BoxChevyTable({ state, myId, selectedCards, onCardClick, phase, isDrawPhase }: BoxChevyTableProps) {
+export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTableProps) {
   const me          = state.players.find(p => p.id === myId);
   const opponents   = state.players.filter(p => p.id !== myId);
-  const communityCards: CardType[] = state.communityCards ?? [];
+  const communityCards: CardType[] = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
 
   const heroCards = (me?.cards ?? []).map(c => ({ ...c, isHidden: false }));
   const madeHand  = communityCards.length > 0 && heroCards.length > 0
@@ -145,50 +98,53 @@ export function BoxChevyTable({ state, myId, selectedCards, onCardClick, phase, 
   const pot = state.pot;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Opponent grid — up to 4 */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: opponents.length <= 2 ? `repeat(${opponents.length}, 1fr)` : 'repeat(2, 1fr)',
-        gap: 6,
+        gap: 8,
       }}>
         {opponents.slice(0, 4).map(opp => (
           <OpponentPanel key={opp.id} player={opp} phase={phase} />
         ))}
       </div>
 
-      {/* Community cards */}
+      {/* Community cards — largest, most prominent element */}
       <div style={{
-        borderRadius: 12,
-        background: 'rgba(0,0,0,0.45)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        border: `1px solid ${nvA(0.7)}`,
-        padding: '8px 12px',
+        borderRadius: 14,
+        background: 'rgba(0,0,0,0.50)',
+        backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+        border: `1px solid rgba(96,165,250,0.30)`,
+        padding: '10px 12px 14px',
       }}>
         <div style={{
-          fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
-          color: ACT, textAlign: 'center', marginBottom: 6, textTransform: 'uppercase',
+          fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.22em',
+          color: ACT, textAlign: 'center', marginBottom: 10, textTransform: 'uppercase',
         }}>
           ◈ COMMUNITY CARDS ◈
         </div>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'flex-end' }}>
           {communityCards.length > 0 ? (
-            communityCards.map((c, i) => <PlayingCard key={i} card={c} size="md" />)
+            communityCards.map((c, i) => (
+              <PlayingCard key={i} card={c} className="!w-[58px] !h-[84px] sm:!w-[68px] sm:!h-[96px]" />
+            ))
           ) : (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} style={{
-                width: 34, height: 50, borderRadius: 5,
-                border: `1px dashed ${nvA(0.6)}`,
-                background: nvA(0.3),
+                width: 58, height: 84, borderRadius: 8,
+                border: `1px dashed ${nvA(0.5)}`,
+                background: nvA(0.25),
+                flexShrink: 0,
               }} />
             ))
           )}
         </div>
       </div>
 
-      {/* Pot + Phase label */}
+      {/* Pot + phase + made-hand indicator */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
         fontFamily: 'monospace', fontSize: 11,
       }}>
         <div style={{ color: SLV }}>
@@ -207,33 +163,6 @@ export function BoxChevyTable({ state, myId, selectedCards, onCardClick, phase, 
         )}
         <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em' }}>
           {phase.replace(/_/g, ' ')}
-        </div>
-      </div>
-
-      {/* Hero hole cards */}
-      <div style={{
-        borderRadius: 12,
-        background: nvA(0.5),
-        backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-        border: `1px solid ${blA(0.25)}`,
-        padding: '8px 12px',
-      }}>
-        <div style={{
-          fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
-          color: SLV, textAlign: 'center', marginBottom: 6, textTransform: 'uppercase',
-        }}>
-          YOUR HAND {isDrawPhase && <span style={{ color: ACT }}>— TAP TO DISCARD</span>}
-        </div>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-          {heroCards.map((c, i) => (
-            <PlayingCard
-              key={i}
-              card={c}
-              size="lg"
-              selected={selectedCards.has(i)}
-              onClick={isDrawPhase ? () => onCardClick(i) : undefined}
-            />
-          ))}
         </div>
       </div>
     </div>

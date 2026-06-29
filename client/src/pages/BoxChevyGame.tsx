@@ -17,6 +17,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
+import { CardHand } from '@/components/flushedUp/CardHand';
 
 const MODE_ID   = 'box_chevy';
 const ENGINE_ID = 'box_chevy';
@@ -320,8 +321,6 @@ function BoxChevyGameUI() {
         <BoxChevyTable
           state={state}
           myId={myId}
-          selectedCards={selectedCards}
-          onCardClick={handleCardClick}
           phase={phase}
           isDrawPhase={isDrawPhase}
         />
@@ -350,6 +349,40 @@ function BoxChevyGameUI() {
           chatUnread={chatUnread}
         />
       </main>
+
+      {/* Hero hand — pinned just above action bar, closer to controls */}
+      {!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 && (
+        <div style={{
+          flexShrink: 0,
+          background: 'rgba(9,22,40,0.92)',
+          backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+          borderTop: `1px solid rgba(59,130,246,0.20)`,
+          paddingTop: 6, paddingBottom: 2, paddingLeft: 12, paddingRight: 12,
+        }}>
+          <div style={{
+            fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
+            color: 'rgba(148,163,184,0.7)', textAlign: 'center', marginBottom: 2,
+            textTransform: 'uppercase',
+          }}>
+            YOUR HAND
+            {isDrawPhase && isMyTurn && (
+              <span style={{ color: ACT, marginLeft: 6 }}>— TAP TO DISCARD</span>
+            )}
+          </div>
+          <CardHand
+            cards={(me?.cards ?? []).map(c => ({ ...c, isHidden: false }))}
+            selectedIndices={Array.from(selectedCards)}
+            onCardClick={handleCardClick}
+            isSelectable={isDrawPhase && isMyTurn && !effectiveSpectator}
+            dealingIndices={[]}
+            drawingIndices={[]}
+            discardingIndices={[]}
+            isShowdown={phase === 'SHOWDOWN'}
+            cardWidth={52}
+            cardHeight={73}
+          />
+        </div>
+      )}
 
       {!effectiveSpectator && !showShowdown && (
         <BoxChevyActionBar
