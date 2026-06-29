@@ -221,24 +221,60 @@ function convertOneReservedToBot(table: GenericTable): boolean {
   return true;
 }
 
-function scheduleStagedBotFill(key: string, tableId: string, capturedJoinWindowEndsAt: number): void {
-  setTimeout(() => {
-    const t = tables.get(key);
-    if (!t || !t.botsEnabled || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
-    if (convertOneReservedToBot(t)) broadcastState(t);
+// ─── Universal bot fill + auto-start ─────────────────────────────────────────
+// Used by every non-Flushed-Up mode (Dead7, Fifteen35, SuitsPoker, Kamikaze,
+// Bonecrusher, BoxChevy).  Mirrors the Flushed-Up scheduler:
+//   8 s → seat first bot (or auto-start if 2+ players already present)
+//   every 1.5 s → seat next bot until human-count cap is reached
+//   2 s after cap → autoStartHand (which fills any remaining reserved seats)
+// Uses table.botFillTimer so the human "Start" click can cancel it cleanly.
+function scheduleUniversalBotFill(key: string): void {
+  const t0 = tables.get(key);
+  if (!t0) return;
+  if (t0.botFillTimer) { clearTimeout(t0.botFillTimer); t0.botFillTimer = undefined; }
 
-    setTimeout(() => {
+  const scheduleAutoStart = (t: GenericTable) => {
+    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+    if (active.length < 2) return;
+    t.botFillTimer = setTimeout(() => {
       const t2 = tables.get(key);
-      if (!t2 || t2.crewId || !t2.botsEnabled || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
-      if (convertOneReservedToBot(t2)) broadcastState(t2);
+      if (!t2 || t2.state.phase !== 'WAITING') return;
+      t2.botFillTimer = undefined;
+      autoStartHand(t2);
+    }, 2_000);
+  };
 
-      setTimeout(() => {
-        const t3 = tables.get(key);
-        if (!t3 || t3.crewId || !t3.botsEnabled || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
-        if (convertOneReservedToBot(t3)) broadcastState(t3);
-      }, 60_000);
-    }, 30_000);
-  }, 10_000);
+  const fillOne = () => {
+    const t = tables.get(key);
+    if (!t || t.state.phase !== 'WAITING' || t.crewId || !t.botsEnabled) return;
+
+    const added = convertOneReservedToBot(t);
+    if (added) broadcastState(t);
+
+    // Check if we can still add another bot
+    const reserved   = t.state.players.filter(p => p.presence === 'reserved');
+    const humanCount = t.state.players.filter(p => p.presence === 'human').length;
+    const botCount   = t.state.players.filter(p => p.presence === 'bot').length;
+    const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
+    const canAddMore = reserved.length > 0 && botCount < maxBots;
+
+    if (canAddMore) {
+      t.botFillTimer = setTimeout(fillOne, 1_500);
+    } else {
+      scheduleAutoStart(t);
+    }
+  };
+
+  t0.botFillTimer = setTimeout(() => {
+    const t = tables.get(key);
+    if (!t || t.state.phase !== 'WAITING') return;
+    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+    if (active.length >= 2) {
+      scheduleAutoStart(t);
+    } else {
+      fillOne();
+    }
+  }, 8_000);
 }
 
 // ─── Flushed Up auto-start ────────────────────────────────────────────────────
@@ -1704,7 +1740,7 @@ function getOrCreateTable(
       if (modeId === 'flushed_up') {
         scheduleFlushedUpBotFill(key);
       } else {
-        scheduleStagedBotFill(key, tableId, joinWindowEndsAt);
+        scheduleUniversalBotFill(key);
       }
     }
   } else {
@@ -1838,14 +1874,20 @@ export function addGenericConnection(
     }),
   };
 
-  // For restored Flushed Up tables: start the bot-fill timer when the first
-  // human joins so they aren't stuck waiting forever after a server restart.
+  // For any restored table: restart the bot-fill + auto-start timer when the
+  // first new human joins and the table is still in WAITING.  Without this,
+  // the timer that ran at table-create has already expired (or never ran for
+  // tables restored after a server restart) and bots never fill.
   if (
-    modeId === 'flushed_up' && !isNew && !isReconnect &&
+    !isNew && !isReconnect &&
     !table.botFillTimer && table.state.phase === 'WAITING' &&
-    !table.crewId && table.botsEnabled
+    !table.crewId && table.botsEnabled && !isPrivate
   ) {
-    scheduleFlushedUpBotFill(key);
+    if (modeId === 'flushed_up') {
+      scheduleFlushedUpBotFill(key);
+    } else {
+      scheduleUniversalBotFill(key);
+    }
   }
 
   // ── Persist identity and load chips ────────────────────────────────────────

@@ -194,33 +194,79 @@ function convertOneReservedToBot(table: AuthTable): boolean {
   return true;
 }
 
-// ─── Staged bot fill ──────────────────────────────────────────────────────────
-// +1 bot after 10 s · +1 after 40 s total · +1 after 100 s total.
-// Each stage aborts if:
-//   • the table was removed
-//   • the join window was closed (start pressed) — joinWindowEndsAt resets to 0
-//   • the hand already started (phase !== 'WAITING')
-// If a human claimed the seat before the timer fires, convertOneReservedToBot
-// skips their seat and targets the next reserved slot.
+// ─── Auto-start helper (mirrors the 'start' action handler) ──────────────────
+// Called by the bot-fill timer after enough players are seated.
+function autoStartBadugiHand(table: AuthTable): void {
+  if (table.state.phase !== 'WAITING') return;
+  convertReservedToBots(table);
+  const freshPlayers = table.state.players;
+  const active = freshPlayers.filter(p => p.status === 'active');
+  if (active.length < 2) return;
+  table.handId += 1;
+  const dealerIdx   = getDealerIndex(freshPlayers);
+  const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
+  table.state = addMsg({
+    ...table.state,
+    phase: 'ANTE',
+    activePlayerId: freshPlayers[firstActIdx].id,
+  }, 'Ante up!');
+  console.log(`[badugi] autoStartBadugiHand tableId=${table.tableId} handId=${table.handId}`);
+  broadcastState(table);
+  scheduleNextBot(table);
+  armTurnTimerBadugi(table);
+}
 
-function scheduleStagedBotFill(tableId: string, capturedJoinWindowEndsAt: number): void {
-  setTimeout(() => {
-    const t = tables.get(tableId);
-    if (!t || !t.botsEnabled || t.joinWindowEndsAt !== capturedJoinWindowEndsAt || t.state.phase !== 'WAITING') return;
-    if (convertOneReservedToBot(t)) broadcastState(t);
+// ─── Bot fill + auto-start ─────────────────────────────────────────────────────
+// 8 s → seat first bot (or auto-start if 2+ players already present)
+// every 1.5 s → seat next bot until human-count cap is reached
+// 2 s after cap → autoStartBadugiHand (which fills any remaining reserved seats)
+// Uses table.botFillTimer so the human "Start" click can cancel it cleanly.
+function scheduleBadugiBotFill(tableId: string): void {
+  const t0 = tables.get(tableId);
+  if (!t0) return;
+  if (t0.botFillTimer) { clearTimeout(t0.botFillTimer); t0.botFillTimer = undefined; }
 
-    setTimeout(() => {
+  const scheduleAutoStart = (t: AuthTable) => {
+    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+    if (active.length < 2) return;
+    t.botFillTimer = setTimeout(() => {
       const t2 = tables.get(tableId);
-      if (!t2 || t2.crewId || !t2.botsEnabled || t2.joinWindowEndsAt !== capturedJoinWindowEndsAt || t2.state.phase !== 'WAITING') return;
-      if (convertOneReservedToBot(t2)) broadcastState(t2);
+      if (!t2 || t2.state.phase !== 'WAITING') return;
+      t2.botFillTimer = undefined;
+      autoStartBadugiHand(t2);
+    }, 2_000);
+  };
 
-      setTimeout(() => {
-        const t3 = tables.get(tableId);
-        if (!t3 || t3.crewId || !t3.botsEnabled || t3.joinWindowEndsAt !== capturedJoinWindowEndsAt || t3.state.phase !== 'WAITING') return;
-        if (convertOneReservedToBot(t3)) broadcastState(t3);
-      }, 60_000);
-    }, 30_000);
-  }, 10_000);
+  const fillOne = () => {
+    const t = tables.get(tableId);
+    if (!t || t.state.phase !== 'WAITING' || t.crewId || !t.botsEnabled) return;
+
+    const added = convertOneReservedToBot(t);
+    if (added) broadcastState(t);
+
+    const reserved   = t.state.players.filter(p => p.presence === 'reserved');
+    const humanCount = t.state.players.filter(p => p.presence === 'human').length;
+    const botCount   = t.state.players.filter(p => p.presence === 'bot').length;
+    const maxBots    = humanCount >= 3 ? 0 : humanCount >= 2 ? 1 : 2;
+    const canAddMore = reserved.length > 0 && botCount < maxBots;
+
+    if (canAddMore) {
+      t.botFillTimer = setTimeout(fillOne, 1_500);
+    } else {
+      scheduleAutoStart(t);
+    }
+  };
+
+  t0.botFillTimer = setTimeout(() => {
+    const t = tables.get(tableId);
+    if (!t || t.state.phase !== 'WAITING') return;
+    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
+    if (active.length >= 2) {
+      scheduleAutoStart(t);
+    } else {
+      fillOne();
+    }
+  }, 8_000);
 }
 
 function makeInitialState(tableId: string, isClubTable = false): GameState {
@@ -326,6 +372,8 @@ interface AuthTable {
   // a late-firing timeout can detect it is stale and abort cleanly.
   turnTimerGen: number;
   turnTimer: ReturnType<typeof setTimeout> | null;
+  // Bot fill + auto-start timer handle. Cleared when a human presses Start.
+  botFillTimer?: ReturnType<typeof setTimeout>;
   // ── Buy-in Slider ─────────────────────────────────────────────────────────
   seatBankroll: Map<string, number>;
   // ── Time Bank ─────────────────────────────────────────────────────────────
@@ -1340,7 +1388,7 @@ export function getOrCreateBadugiTable(
     tables.set(tableId, table);
     engineLog('TABLE_CREATE', tableId, { source: 'new', joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
     if (!isPrivate && !quickPlay && botsEnabled) {
-      scheduleStagedBotFill(tableId, joinWindowEndsAt);
+      scheduleBadugiBotFill(tableId);
     }
   } else {
     // Refresh crewId and botsEnabled from options so a restored table (which
@@ -1543,6 +1591,18 @@ export function addBadugiConnection(
         storage.setPlayerActiveTable(identityId, tableId, seat, 'badugi').catch(() => {});
       }).catch(() => {});
     }
+  }
+
+  // For any restored table: restart the bot-fill + auto-start timer when the
+  // first new human joins and the table is still in WAITING. Without this, the
+  // timer that ran at table-create has already expired (or never ran for tables
+  // restored after a server restart) and bots never fill.
+  if (
+    !isNew && !isReconnect &&
+    !table.botFillTimer && table.state.phase === 'WAITING' &&
+    !table.crewId && table.botsEnabled && !isPrivate
+  ) {
+    scheduleBadugiBotFill(tableId);
   }
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
@@ -1756,6 +1816,8 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      // Cancel any pending bot-fill / auto-start timer so it doesn't fire later.
+      if (table.botFillTimer) { clearTimeout(table.botFillTimer); table.botFillTimer = undefined; }
       // Close join window — fill any still-open seats with bots before the hand starts.
       // Club tables: convertReservedToBots returns immediately (crewId guard), reserved seats
       // stay as-is. Minimum 1 human is always present (the player pressing start), so we
