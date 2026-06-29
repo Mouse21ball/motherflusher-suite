@@ -2368,6 +2368,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // ── draw ─────────────────────────────────────────────────────────────────
     else if (action === 'draw') {
       const indices: number[] = Array.isArray(payload) ? payload : [];
+      const drawCap = s.phase === 'DRAW_1' ? 3 : s.phase === 'DRAW_2' ? 2 : s.phase === 'DRAW_3' ? 1 : 0;
+      if (indices.length > drawCap) { table.actionLock = false; return; }
       const player = newPlayers[playerIdx];
       const newCards = [...player.cards];
       const newDiscard = [...(s.discardPile || [])];
