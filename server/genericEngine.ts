@@ -1187,7 +1187,7 @@ function resolveShowdown(table: GenericTable): void {
 function resolveByFold(table: GenericTable): boolean {
   const s = table.state;
   // Only fire mid-hand. WAITING/SHOWDOWN/ANTE/DEAL handle themselves.
-  if (s.phase === 'WAITING' || s.phase === 'SHOWDOWN' || s.phase === 'ANTE' || s.phase === 'DEAL') {
+  if (s.phase === 'WAITING' || s.phase === 'SHOWDOWN' || s.phase === 'ANTE' || s.phase === 'DEAL' || s.phase === 'DECLARE') {
     return false;
   }
 

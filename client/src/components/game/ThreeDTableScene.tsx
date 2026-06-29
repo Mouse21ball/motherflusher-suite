@@ -224,7 +224,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
         <div className={cn(
           "relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-black/50",
           isActive && !isShowdown
-            ? "ring-2 ring-[#C9A227]/80 ring-offset-1 ring-offset-black"
+            ? "ring-2 ring-[#a855f7]/80 ring-offset-1 ring-offset-black"
             : "ring-1 ring-white/15",
         )}>
           <img

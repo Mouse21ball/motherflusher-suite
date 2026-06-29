@@ -3,7 +3,11 @@ import type { CardType } from '@/lib/poker/types';
 
 function cardsEqual(a: CardType, b: CardType): boolean {
   if (a.isHidden && b.isHidden) return true;
-  if (a.isHidden !== b.isHidden) return false;
+  // Card was hidden then revealed — same card, just flipped face-up. Don't
+  // treat as a new card arriving from the deck (would wrongly trigger draw anim).
+  if (a.isHidden && !b.isHidden) return true;
+  // Shouldn't happen for hero cards, but treat visible→hidden as a change.
+  if (!a.isHidden && b.isHidden) return false;
   return a.rank === b.rank && a.suit === b.suit;
 }
 

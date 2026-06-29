@@ -186,7 +186,7 @@ export function BadugiActionBar({
 
         {/* Declare phase — HIGH vs LOW */}
         {isDeclare && (
-          myHasActed ? (
+          !!myDeclaration ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <div style={{ fontSize: 9, fontFamily: 'monospace', color: G(0.55), letterSpacing: '0.2em' }}>YOU DECLARED</div>
               <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',

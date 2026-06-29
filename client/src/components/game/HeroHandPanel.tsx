@@ -164,7 +164,7 @@ function CardFan({
                 activeSizeClass,
                 "relative transition-all duration-200",
                 isSelected && "-translate-y-2 scale-105",
-                isSelected && "ring-2 ring-[#C9A227]/80 rounded-sm shadow-[0_0_16px_rgba(201,162,39,0.45)]",
+                isSelected && "ring-2 ring-[#a855f7]/80 rounded-sm shadow-[0_0_16px_rgba(168,85,247,0.55)]",
               )}>
                 <PlayingCard
                   card={{ ...card, isHidden: !isShowdownPhase && card.isHidden }}
