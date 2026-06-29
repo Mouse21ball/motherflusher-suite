@@ -134,7 +134,7 @@ function isPhaseRoundOver(state: GameState): boolean {
 
 // ─── Join window ──────────────────────────────────────────────────────────────
 const JOIN_WINDOW_MS = 30_000;
-const RECONNECT_TIMEOUT_MS = 90_000;
+const RECONNECT_TIMEOUT_MS = 60_000;
 // Bot names: per-table, derived from tableId+seatId via getBotName().
 
 // ─── Flushed Up bot names ─────────────────────────────────────────────────────
@@ -2050,6 +2050,22 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
     if (intentional) {
       releaseSeat(table, seat);
     } else {
+      // Convert disconnected human to bot immediately so the game continues.
+      // On reconnect the seat's presence is restored to 'human'.
+      const phase = table.state.phase;
+      const isMidHand = phase !== 'WAITING' && phase !== 'SHOWDOWN';
+      const disconnectedPlayer = table.state.players.find(p => p.id === seat);
+      if (isMidHand && disconnectedPlayer && disconnectedPlayer.presence === 'human') {
+        table.state = {
+          ...table.state,
+          players: table.state.players.map(p =>
+            p.id === seat ? { ...p, presence: 'bot' as const } : p
+          ),
+        };
+        broadcastState(table);
+        scheduleNextBot(table);
+      }
+
       const capturedSession = sessionId;
       const timer = setTimeout(() => {
         const t = tables.get(key);

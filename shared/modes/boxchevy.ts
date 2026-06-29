@@ -464,7 +464,10 @@ export const BoxChevyMode: GameMode = {
       isWinner: winnerSet.has(p.id) || undefined,
     }));
 
-    return { players: result, pot: 0, messages };
+    const awardedPot = Object.values(deltas).reduce((s, v) => s + v, 0);
+    const remainingPot = pot - awardedPot;
+    if (remainingPot > 0) messages.push(`No qualifying hands — $${remainingPot} rolls over`);
+    return { players: result, pot: remainingPot, messages };
   },
 
   getNextPhase: undefined,

@@ -180,24 +180,31 @@ function BonecrusherGameUI() {
   const handleCardClick = useCallback((idx: number) => {
     if (effectiveSpectator || !isMyTurn) return;
     if (isDiscardPhase) {
+      const maxSelect = phase === 'SELECT_5' ? 5 : 2;
       setSelectedCards(prev => {
         const next = new Set(prev);
         if (next.has(idx)) { next.delete(idx); return next; }
-        if (next.size < 2) { next.add(idx); return next; }
+        if (next.size < maxSelect) { next.add(idx); return next; }
         return prev;
       });
     } else if (isFlipPhase) {
       if (flippedByHero.has(idx)) return;
       setSelectedCards(new Set([idx]));
     }
-  }, [effectiveSpectator, isMyTurn, isDiscardPhase, isFlipPhase, flippedByHero]);
+  }, [effectiveSpectator, isMyTurn, isDiscardPhase, isFlipPhase, flippedByHero, phase]);
 
   const handleDiscard = useCallback(() => {
-    if (selectedCards.size !== 2) return;
-    const indices = Array.from(selectedCards);
-    handleControlAction('discard', indices);
+    if (phase === 'SELECT_5') {
+      if (selectedCards.size !== 5) return;
+      const allIndices = (me?.cards ?? []).map((_, i) => i);
+      const discardIndices = allIndices.filter(i => !selectedCards.has(i));
+      handleControlAction('discard', discardIndices);
+    } else {
+      if (selectedCards.size !== 2) return;
+      handleControlAction('discard', Array.from(selectedCards));
+    }
     setSelectedCards(new Set());
-  }, [selectedCards, handleControlAction]);
+  }, [phase, selectedCards, me, handleControlAction]);
 
   const handleFlip = useCallback(() => {
     if (selectedCards.size !== 1) return;

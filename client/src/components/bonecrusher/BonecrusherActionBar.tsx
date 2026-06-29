@@ -97,7 +97,7 @@ export function BonecrusherActionBar({
   const checkCallBtn: React.CSSProperties = { ...base, background: canAct ? 'linear-gradient(135deg, #1e3a5f, #1d4ed8)' : B(0.2), color: canAct ? '#93c5fd' : 'rgba(255,255,255,0.2)', border: `1px solid ${B(0.3)}`, boxShadow: canAct ? `0 0 10px ${B(0.25)}` : 'none', opacity: canAct ? 1 : 0.5 };
   const raiseBtn: React.CSSProperties = { ...base, flex: 0.9, background: canAct ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : B(0.2), color: canAct ? '#fff' : 'rgba(255,255,255,0.2)', boxShadow: canAct ? `0 0 14px ${B(0.4)}` : 'none', opacity: canAct && chips > raiseAmount ? 1 : 0.4 };
 
-  const discardReady = selectedCards.size === 2;
+  const discardReady = phase === 'SELECT_5' ? selectedCards.size === 5 : selectedCards.size === 2;
   const discardBtn: React.CSSProperties = { ...base, background: canAct && discardReady ? 'linear-gradient(135deg, #991b1b, #ef4444)' : R(0.2), color: canAct && discardReady ? '#fff' : 'rgba(255,255,255,0.25)', boxShadow: canAct && discardReady ? `0 0 18px ${R(0.5)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none' };
   const stayBtn: React.CSSProperties = { ...base, background: 'rgba(8,8,8,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: `1px solid ${A(0.35)}`, opacity: canAct ? 1 : 0.5 };
   const flipReady = selectedCards.size === 1;
@@ -114,7 +114,7 @@ export function BonecrusherActionBar({
             <button style={discardBtn} disabled={!canAct || !discardReady} onClick={canAct && discardReady ? onDiscard : undefined} data-testid="button-discard">
               {discardReady
                 ? (phase === 'DISCARD_2' ? 'DISCARD 2' : 'KEEP BEST 5')
-                : `SELECT ${2 - selectedCards.size} MORE`}
+                : `SELECT ${(phase === 'SELECT_5' ? 5 : 2) - selectedCards.size} MORE`}
             </button>
           </div>
         )}

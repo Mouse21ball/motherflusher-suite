@@ -405,6 +405,9 @@ export const KamikazeMode: GameMode = {
       return p;
     });
 
-    return { players: finalPlayers, pot: 0, messages };
+    const awardedPot = Object.values(deltas).reduce((s, v) => s + v, 0);
+    const remainingPot = pot - awardedPot;
+    if (remainingPot > 0) messages.push(`No qualifying hands — $${remainingPot} rolls over`);
+    return { players: finalPlayers, pot: remainingPot, messages };
   },
 };
