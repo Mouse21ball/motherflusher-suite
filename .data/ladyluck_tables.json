@@ -1,41 +1,273 @@
 {
   "ll_mqye2hsl_g0pxh": {
     "state": {
-      "phase": "LOBBY",
+      "phase": "RESULTS",
       "players": [
         {
-          "id": "bot_n6a0kqy",
-          "name": "Vega",
+          "id": "bot_t0wghck",
+          "name": "Bones",
           "chips": 10000,
-          "suit": null,
-          "wager": 0,
+          "suit": "clubs",
+          "wager": 500,
           "presence": "bot",
-          "wagered": false,
+          "wagered": true,
           "seatIndex": 0
+        },
+        {
+          "id": "bot_zonxxi6",
+          "name": "Rosie",
+          "chips": 10000,
+          "suit": "spades",
+          "wager": 200,
+          "presence": "bot",
+          "wagered": true,
+          "seatIndex": 1
+        },
+        {
+          "id": "bot_pah26ig",
+          "name": "Remy",
+          "chips": 10000,
+          "suit": "hearts",
+          "wager": 400,
+          "presence": "bot",
+          "wagered": true,
+          "seatIndex": 2
+        },
+        {
+          "id": "bot_7mt9yuz",
+          "name": "Cleo",
+          "chips": 10000,
+          "suit": "diamonds",
+          "wager": 500,
+          "presence": "bot",
+          "wagered": true,
+          "seatIndex": 3
         }
       ],
       "positions": {
-        "spades": 0,
-        "hearts": 0,
-        "diamonds": 0,
-        "clubs": 0
+        "spades": 8,
+        "hearts": 9,
+        "diamonds": 8,
+        "clubs": 6
       },
-      "flippedCards": [],
-      "currentCard": null,
-      "winner": null,
-      "pot": 0,
+      "flippedCards": [
+        {
+          "rank": "5",
+          "suit": "hearts"
+        },
+        {
+          "rank": "6",
+          "suit": "clubs"
+        },
+        {
+          "rank": "9",
+          "suit": "spades"
+        },
+        {
+          "rank": "J",
+          "suit": "hearts"
+        },
+        {
+          "rank": "4",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "7",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "5",
+          "suit": "spades"
+        },
+        {
+          "rank": "7",
+          "suit": "hearts"
+        },
+        {
+          "rank": "2",
+          "suit": "hearts"
+        },
+        {
+          "rank": "5",
+          "suit": "clubs"
+        },
+        {
+          "rank": "7",
+          "suit": "clubs"
+        },
+        {
+          "rank": "6",
+          "suit": "spades"
+        },
+        {
+          "rank": "5",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "8",
+          "suit": "spades"
+        },
+        {
+          "rank": "10",
+          "suit": "hearts"
+        },
+        {
+          "rank": "4",
+          "suit": "clubs"
+        },
+        {
+          "rank": "J",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "9",
+          "suit": "clubs"
+        },
+        {
+          "rank": "10",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "10",
+          "suit": "spades"
+        },
+        {
+          "rank": "J",
+          "suit": "spades"
+        },
+        {
+          "rank": "K",
+          "suit": "spades"
+        },
+        {
+          "rank": "8",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "3",
+          "suit": "hearts"
+        },
+        {
+          "rank": "3",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "A",
+          "suit": "clubs"
+        },
+        {
+          "rank": "A",
+          "suit": "spades"
+        },
+        {
+          "rank": "6",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "6",
+          "suit": "hearts"
+        },
+        {
+          "rank": "K",
+          "suit": "hearts"
+        },
+        {
+          "rank": "8",
+          "suit": "hearts"
+        }
+      ],
+      "currentCard": {
+        "rank": "8",
+        "suit": "hearts"
+      },
+      "winner": "hearts",
+      "pot": 1600,
       "sideBets": [],
       "roomType": "pony",
-      "dealerIndex": 0,
-      "currentPickIndex": 1,
-      "claimedSuits": [],
+      "dealerIndex": 2,
+      "currentPickIndex": -1,
+      "claimedSuits": [
+        "diamonds",
+        "clubs",
+        "spades",
+        "hearts"
+      ],
       "startingIn": null,
       "resultsTimeLeft": null,
       "betTimeLeft": null,
       "spectatorCount": 0
     },
-    "deck": [],
+    "deck": [
+      {
+        "rank": "9",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "2",
+        "suit": "spades"
+      },
+      {
+        "rank": "K",
+        "suit": "clubs"
+      },
+      {
+        "rank": "2",
+        "suit": "clubs"
+      },
+      {
+        "rank": "10",
+        "suit": "clubs"
+      },
+      {
+        "rank": "3",
+        "suit": "spades"
+      },
+      {
+        "rank": "7",
+        "suit": "spades"
+      },
+      {
+        "rank": "9",
+        "suit": "hearts"
+      },
+      {
+        "rank": "4",
+        "suit": "hearts"
+      },
+      {
+        "rank": "A",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "2",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "K",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "8",
+        "suit": "clubs"
+      },
+      {
+        "rank": "3",
+        "suit": "clubs"
+      },
+      {
+        "rank": "A",
+        "suit": "hearts"
+      },
+      {
+        "rank": "J",
+        "suit": "clubs"
+      },
+      {
+        "rank": "4",
+        "suit": "spades"
+      }
+    ],
     "hostId": "e16666fa-6cd7-4b89-a7a1-c79ca2f67eda",
-    "savedAt": 1782687985198
+    "savedAt": 1782691408839
   }
 }
