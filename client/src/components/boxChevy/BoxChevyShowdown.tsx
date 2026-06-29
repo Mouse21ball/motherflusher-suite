@@ -1,8 +1,10 @@
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { GameState, CardType } from '@/lib/poker/types';
 import { evaluateBoxChevy } from '../../../../shared/modes/boxchevy';
+import { PlayingCard } from '@/components/game/Card';
 
 const SLV  = '#94a3b8';
-const BLU  = '#3b82f6';
 const ACT  = '#60a5fa';
 const nvA  = (a: number) => `rgba(15,28,46,${a})`;
 const blA  = (a: number) => `rgba(59,130,246,${a})`;
@@ -39,10 +41,35 @@ function SmallCard({ card }: { card: CardType }) {
 }
 
 function declColor(d: string | null | undefined) {
-  if (d === 'HIGH')  return { color: ACT,     bg: blA(0.15),              border: blA(0.45)              };
+  if (d === 'HIGH')  return { color: ACT,      bg: blA(0.15),               border: blA(0.45)               };
   if (d === 'LOW')   return { color: '#86efac', bg: 'rgba(134,239,172,0.12)', border: 'rgba(134,239,172,0.4)' };
-  if (d === 'SWING') return { color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.4)'  };
+  if (d === 'SWING') return { color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.4)'  };
   return { color: SLV, bg: nvA(0.4), border: nvA(0.6) };
+}
+
+const COUNTDOWN_SECS = 8;
+
+function CountdownRing({ value, max }: { value: number; max: number }) {
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const progress = value / max;
+  return (
+    <svg width={58} height={58} viewBox="0 0 58 58">
+      <circle cx="29" cy="29" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+      <circle
+        cx="29" cy="29" r={r} fill="none"
+        stroke={value <= 2 ? '#f87171' : value <= 4 ? '#fbbf24' : '#60a5fa'}
+        strokeWidth="4" strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={circ * (1 - progress)}
+        style={{ transform: 'rotate(-90deg)', transformOrigin: '29px 29px', transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
+      />
+      <text x="29" y="34" textAnchor="middle" fontFamily="monospace" fontWeight="700" fontSize="16"
+        fill={value <= 2 ? '#f87171' : value <= 4 ? '#fbbf24' : '#e2e8f0'}>
+        {value}
+      </text>
+    </svg>
+  );
 }
 
 interface BoxChevyShowdownProps {
@@ -56,52 +83,136 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
   const players = state.players.map(p => ({ ...p, cards: p.cards.map(c => ({ ...c, isHidden: false })) }));
   const me = players.find(p => p.id === myId);
 
+  /* ── Countdown ────────────────────────────────────────────────────────── */
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECS);
+  const onContinueRef = useRef(onContinue);
+  onContinueRef.current = onContinue;
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(iv); onContinueRef.current(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
   const activePlayers = players.filter(p =>
     p.status !== 'folded' && p.declaration && p.declaration !== 'FOLD'
   );
-
   const winners = players.filter(p => p.isWinner);
+  const primaryWinner = winners[0] ?? null;
 
   const resolutionMessages = (state.messages ?? [])
     .filter(m => m.isResolution || m.text.includes('wins') || m.text.includes('SWING') || m.text.includes('HIGH') || m.text.includes('LOW'))
     .slice(-5);
 
+  void me;
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 90,
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+      background: 'rgba(0,0,0,0.80)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
     }}>
-      <div style={{
-        width: '100%', maxWidth: 500,
-        background: `linear-gradient(180deg, #0f1c2e 0%, #091628 100%)`,
-        border: `1px solid ${blA(0.3)}`,
-        borderBottom: 'none',
-        borderRadius: '16px 16px 0 0',
-        padding: '16px 14px 28px',
-        display: 'flex', flexDirection: 'column', gap: 12,
-        maxHeight: '85vh', overflowY: 'auto',
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.22em',
-            color: blA(0.7), textTransform: 'uppercase', marginBottom: 2,
-          }}>
-            BOX CHEVY · SHOWDOWN
-          </div>
-          {winners.length > 0 && (
+      <motion.div
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 0,  opacity: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        style={{
+          width: '100%', maxWidth: 500,
+          background: `linear-gradient(180deg, #0f1c2e 0%, #091628 100%)`,
+          border: `1px solid ${blA(0.3)}`,
+          borderBottom: 'none',
+          borderRadius: '16px 16px 0 0',
+          padding: '16px 14px 28px',
+          display: 'flex', flexDirection: 'column', gap: 12,
+          maxHeight: '90vh', overflowY: 'auto',
+        }}
+      >
+        {/* Header + countdown */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ flex: 1 }}>
             <div style={{
-              fontSize: 15, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em',
-              color: '#fbbf24',
+              fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.22em',
+              color: blA(0.7), textTransform: 'uppercase', marginBottom: 2,
             }}>
-              {winners.map(w => w.name).join(' & ')} WIN{winners.length > 1 ? '' : 'S'}!
+              BOX CHEVY · SHOWDOWN
             </div>
-          )}
+            {winners.length > 0 && (
+              <div style={{
+                fontSize: 15, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em',
+                color: '#fbbf24',
+              }}>
+                {winners.map(w => w.name).join(' & ')} WIN{winners.length > 1 ? '' : 'S'}!
+              </div>
+            )}
+          </div>
+          <CountdownRing value={countdown} max={COUNTDOWN_SECS} />
         </div>
 
-        {/* Community cards */}
+        {/* Winner combined 10-card display */}
+        {primaryWinner && communityCards.length > 0 && (
+          <div style={{
+            borderRadius: 12,
+            background: 'rgba(251,191,36,0.07)',
+            border: '1px solid rgba(251,191,36,0.3)',
+            padding: '10px 12px',
+          }}>
+            <div style={{
+              fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
+              color: '#fbbf24', textAlign: 'center', marginBottom: 8,
+            }}>
+              🏆 {primaryWinner.name.toUpperCase()} — WINNING HAND
+            </div>
+            {/* Hole cards row */}
+            <div style={{
+              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)',
+              letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
+            }}>
+              HOLE CARDS
+            </div>
+            <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 8 }}>
+              {primaryWinner.cards.map((c, i) => (
+                <PlayingCard key={i} card={c} className="!w-[36px] !h-[52px]" />
+              ))}
+            </div>
+            {/* Community cards row */}
+            <div style={{
+              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)',
+              letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
+            }}>
+              COMMUNITY CARDS
+            </div>
+            <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+              {communityCards.map((c, i) => (
+                <PlayingCard key={i} card={c} className="!w-[36px] !h-[52px]" />
+              ))}
+            </div>
+            {/* Hand descriptions */}
+            {(() => {
+              const ev = evaluateBoxChevy(primaryWinner.cards, communityCards);
+              return (
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                  {(primaryWinner.declaration === 'HIGH' || primaryWinner.declaration === 'SWING') && ev.isMade && (
+                    <span style={{ fontSize: 10, color: ACT, fontFamily: 'monospace', fontWeight: 700 }}>
+                      ▲ {ev.highName}
+                    </span>
+                  )}
+                  {(primaryWinner.declaration === 'LOW' || primaryWinner.declaration === 'SWING') && ev.isMade && (
+                    <span style={{ fontSize: 10, color: '#86efac', fontFamily: 'monospace', fontWeight: 700 }}>
+                      ▼ {ev.lowDesc}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Community cards reference */}
         <div style={{
           borderRadius: 10, background: nvA(0.6), border: `1px solid ${nvA(0.8)}`,
           padding: '8px 10px',
@@ -117,7 +228,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           </div>
         </div>
 
-        {/* Player results */}
+        {/* All player results */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {activePlayers.map(p => {
             const isMe = p.id === myId;
@@ -133,7 +244,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: isMe ? ACT : '#e2e8f0' }}>
-                    {p.name} {isMe ? '(YOU)' : ''}
+                    {p.name}{isMe ? ' (YOU)' : ''}
                   </span>
                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                     {isWin && (
@@ -155,14 +266,10 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {(p.declaration === 'HIGH' || p.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 9, color: ACT, fontFamily: 'monospace' }}>
-                      ▲ {ev.highName}
-                    </span>
+                    <span style={{ fontSize: 9, color: ACT, fontFamily: 'monospace' }}>▲ {ev.highName}</span>
                   )}
                   {(p.declaration === 'LOW' || p.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 9, color: '#86efac', fontFamily: 'monospace' }}>
-                      ▼ {ev.lowDesc}
-                    </span>
+                    <span style={{ fontSize: 9, color: '#86efac', fontFamily: 'monospace' }}>▼ {ev.lowDesc}</span>
                   )}
                   {!ev.isMade && (
                     <span style={{ fontSize: 9, color: '#fca5a5', fontFamily: 'monospace' }}>✗ No made hand</span>
@@ -171,7 +278,6 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
               </div>
             );
           })}
-          {/* Show folded players briefly */}
           {players.filter(p => p.status === 'folded').map(p => (
             <div key={p.id} style={{
               borderRadius: 8, background: nvA(0.3), border: `1px solid ${nvA(0.5)}`,
@@ -198,20 +304,25 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           </div>
         )}
 
-        {/* Continue */}
-        <button
-          onClick={onContinue}
-          data-testid="button-continue"
-          style={{
-            width: '100%', padding: '13px', borderRadius: 10,
-            background: blA(0.18), border: `1px solid ${blA(0.5)}`,
-            color: ACT, fontSize: 13, fontWeight: 700, fontFamily: 'monospace',
-            letterSpacing: '0.12em', cursor: 'pointer',
-          }}
-        >
-          CONTINUE
-        </button>
-      </div>
+        {/* Continue button + countdown label */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button
+            onClick={onContinue}
+            data-testid="button-continue"
+            style={{
+              width: '100%', padding: '13px', borderRadius: 10,
+              background: blA(0.18), border: `1px solid ${blA(0.5)}`,
+              color: ACT, fontSize: 13, fontWeight: 700, fontFamily: 'monospace',
+              letterSpacing: '0.12em', cursor: 'pointer',
+            }}
+          >
+            CONTINUE
+          </button>
+          <div style={{ textAlign: 'center', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em' }}>
+            Auto-advancing in {countdown}s…
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
