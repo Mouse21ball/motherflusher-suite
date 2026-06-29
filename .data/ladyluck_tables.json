@@ -4,119 +4,75 @@
       "phase": "RESULTS",
       "players": [
         {
-          "id": "bot_317490s",
-          "name": "Vega",
+          "id": "bot_08qy7r5",
+          "name": "Slick",
           "chips": 10000,
-          "suit": "spades",
-          "wager": 500,
+          "suit": "clubs",
+          "wager": 200,
           "presence": "bot",
           "wagered": true,
           "seatIndex": 0
         },
         {
-          "id": "bot_j79r4ie",
-          "name": "Cleo",
+          "id": "bot_wy11s6x",
+          "name": "Duke",
           "chips": 10000,
-          "suit": "diamonds",
-          "wager": 400,
+          "suit": "hearts",
+          "wager": 300,
           "presence": "bot",
           "wagered": true,
           "seatIndex": 1
         },
         {
-          "id": "bot_22j2gm7",
-          "name": "Slick",
+          "id": "bot_xa2f8ru",
+          "name": "Remy",
           "chips": 10000,
-          "suit": "hearts",
-          "wager": 400,
+          "suit": "spades",
+          "wager": 500,
           "presence": "bot",
           "wagered": true,
           "seatIndex": 2
         },
         {
-          "id": "bot_djikjff",
-          "name": "Remy",
+          "id": "bot_ah0l6lx",
+          "name": "Cleo",
           "chips": 10000,
-          "suit": "clubs",
-          "wager": 400,
+          "suit": "diamonds",
+          "wager": 300,
           "presence": "bot",
           "wagered": true,
           "seatIndex": 3
         }
       ],
       "positions": {
-        "spades": 6,
+        "spades": 9,
         "hearts": 5,
-        "diamonds": 6,
-        "clubs": 9
+        "diamonds": 4,
+        "clubs": 5
       },
       "flippedCards": [
         {
-          "rank": "3",
-          "suit": "diamonds"
-        },
-        {
-          "rank": "9",
-          "suit": "clubs"
-        },
-        {
-          "rank": "10",
-          "suit": "diamonds"
-        },
-        {
-          "rank": "7",
-          "suit": "spades"
-        },
-        {
-          "rank": "2",
+          "rank": "6",
           "suit": "spades"
         },
         {
           "rank": "5",
-          "suit": "spades"
-        },
-        {
-          "rank": "3",
-          "suit": "clubs"
-        },
-        {
-          "rank": "5",
-          "suit": "hearts"
-        },
-        {
-          "rank": "7",
           "suit": "diamonds"
-        },
-        {
-          "rank": "4",
-          "suit": "spades"
-        },
-        {
-          "rank": "A",
-          "suit": "spades"
-        },
-        {
-          "rank": "7",
-          "suit": "hearts"
         },
         {
           "rank": "8",
           "suit": "diamonds"
         },
         {
-          "rank": "9",
-          "suit": "diamonds"
+          "rank": "5",
+          "suit": "clubs"
         },
         {
-          "rank": "3",
-          "suit": "hearts"
-        },
-        {
-          "rank": "J",
+          "rank": "4",
           "suit": "spades"
         },
         {
-          "rank": "J",
+          "rank": "10",
           "suit": "clubs"
         },
         {
@@ -124,53 +80,85 @@
           "suit": "clubs"
         },
         {
-          "rank": "K",
+          "rank": "3",
           "suit": "clubs"
+        },
+        {
+          "rank": "4",
+          "suit": "hearts"
+        },
+        {
+          "rank": "5",
+          "suit": "hearts"
+        },
+        {
+          "rank": "7",
+          "suit": "spades"
         },
         {
           "rank": "6",
-          "suit": "clubs"
-        },
-        {
-          "rank": "10",
           "suit": "hearts"
         },
         {
-          "rank": "4",
-          "suit": "clubs"
+          "rank": "K",
+          "suit": "spades"
         },
         {
-          "rank": "J",
-          "suit": "diamonds"
+          "rank": "3",
+          "suit": "spades"
         },
         {
           "rank": "8",
-          "suit": "clubs"
+          "suit": "spades"
         },
         {
-          "rank": "4",
+          "rank": "7",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "10",
+          "suit": "hearts"
+        },
+        {
+          "rank": "9",
           "suit": "hearts"
         },
         {
           "rank": "10",
+          "suit": "spades"
+        },
+        {
+          "rank": "9",
           "suit": "clubs"
+        },
+        {
+          "rank": "4",
+          "suit": "diamonds"
+        },
+        {
+          "rank": "5",
+          "suit": "spades"
+        },
+        {
+          "rank": "J",
+          "suit": "spades"
         }
       ],
       "currentCard": {
-        "rank": "10",
-        "suit": "clubs"
+        "rank": "J",
+        "suit": "spades"
       },
-      "winner": "clubs",
-      "pot": 1700,
+      "winner": "spades",
+      "pot": 1300,
       "sideBets": [],
       "roomType": "pony",
-      "dealerIndex": 0,
+      "dealerIndex": 3,
       "currentPickIndex": -1,
       "claimedSuits": [
-        "diamonds",
-        "hearts",
         "clubs",
-        "spades"
+        "hearts",
+        "spades",
+        "diamonds"
       ],
       "startingIn": null,
       "resultsTimeLeft": null,
@@ -180,58 +168,38 @@
     "deck": [
       {
         "rank": "8",
-        "suit": "spades"
-      },
-      {
-        "rank": "K",
-        "suit": "hearts"
-      },
-      {
-        "rank": "6",
-        "suit": "spades"
-      },
-      {
-        "rank": "9",
-        "suit": "spades"
-      },
-      {
-        "rank": "6",
-        "suit": "diamonds"
-      },
-      {
-        "rank": "A",
-        "suit": "diamonds"
-      },
-      {
-        "rank": "A",
-        "suit": "hearts"
-      },
-      {
-        "rank": "6",
-        "suit": "hearts"
+        "suit": "clubs"
       },
       {
         "rank": "10",
-        "suit": "spades"
+        "suit": "diamonds"
+      },
+      {
+        "rank": "K",
+        "suit": "clubs"
       },
       {
         "rank": "4",
-        "suit": "diamonds"
+        "suit": "clubs"
       },
       {
-        "rank": "3",
-        "suit": "spades"
+        "rank": "7",
+        "suit": "hearts"
       },
       {
         "rank": "2",
-        "suit": "diamonds"
-      },
-      {
-        "rank": "9",
         "suit": "hearts"
       },
       {
         "rank": "K",
+        "suit": "hearts"
+      },
+      {
+        "rank": "9",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "A",
         "suit": "spades"
       },
       {
@@ -239,35 +207,67 @@
         "suit": "hearts"
       },
       {
-        "rank": "K",
-        "suit": "diamonds"
+        "rank": "9",
+        "suit": "spades"
       },
       {
         "rank": "2",
         "suit": "clubs"
-      },
-      {
-        "rank": "2",
-        "suit": "hearts"
       },
       {
         "rank": "8",
         "suit": "hearts"
       },
       {
+        "rank": "3",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "A",
+        "suit": "hearts"
+      },
+      {
+        "rank": "J",
+        "suit": "diamonds"
+      },
+      {
         "rank": "7",
         "suit": "clubs"
       },
       {
-        "rank": "5",
+        "rank": "A",
         "suit": "diamonds"
       },
       {
-        "rank": "5",
+        "rank": "J",
         "suit": "clubs"
+      },
+      {
+        "rank": "6",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "6",
+        "suit": "clubs"
+      },
+      {
+        "rank": "2",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "2",
+        "suit": "spades"
+      },
+      {
+        "rank": "K",
+        "suit": "diamonds"
+      },
+      {
+        "rank": "3",
+        "suit": "hearts"
       }
     ],
     "hostId": "e16666fa-6cd7-4b89-a7a1-c79ca2f67eda",
-    "savedAt": 1782730531567
+    "savedAt": 1782750906480
   }
 }
