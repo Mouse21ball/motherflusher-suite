@@ -157,21 +157,16 @@ export const BoxChevyMode: GameMode = {
       return { ...p, cards };
     });
 
-    // Build the set of ranks already used by all hole cards.
-    // Community cards must have unique ranks across all 10 combined cards.
-    const usedRanks = new Set<string>(
-      newPlayers.flatMap(p => p.cards.map(c => c.rank))
-    );
-
-    // Walk the remaining deck and take up to 5 community cards whose ranks
-    // are not already in usedRanks (and not duplicate among themselves).
-    // Cards that are skipped stay in the remainder deck.
+    // Deal 5 community cards with unique ranks among themselves only.
+    // Hole card ranks are NOT excluded — players manage their own duplicates
+    // during the draw phases.
+    const commRanks = new Set<string>();
     const communityCards: CardType[] = [];
     const remainder: CardType[] = [];
     for (const card of d) {
-      if (communityCards.length < 5 && !usedRanks.has(card.rank)) {
+      if (communityCards.length < 5 && !commRanks.has(card.rank)) {
         communityCards.push({ ...card, isHidden: false });
-        usedRanks.add(card.rank);
+        commRanks.add(card.rank);
       } else {
         remainder.push(card);
       }
