@@ -14,7 +14,10 @@ workflows:
         VITE_API_BASE_URL: https://chaing-gang-poker.replit.app
     scripts:
       - name: Install npm dependencies
-        script: npm ci
+        script: |
+          rm -f package-lock.json
+          unset NPM_CONFIG_REGISTRY
+          npm install --registry https://registry.npmjs.org/
 
       - name: Build web app
         script: npm run build
@@ -41,7 +44,10 @@ workflows:
         VITE_API_BASE_URL: https://chaing-gang-poker.replit.app
     scripts:
       - name: Install npm dependencies
-        script: npm ci
+        script: |
+          rm -f package-lock.json
+          unset NPM_CONFIG_REGISTRY
+          npm install --registry https://registry.npmjs.org/
 
       - name: Build web app
         script: npm run build
