@@ -65,3 +65,9 @@ id = "_jlqWkb8zd0W31lYot1J7"
 uri = "file://client/public/cgp-wallpaper-luxury.png"
 type = "image"
 title = "CGP Luxury Poker Room Wallpaper (9:16)"
+
+[[outputs]]
+id = "w9LY_dkdUmsbaXtAMoqC_"
+uri = "file://PROJECT_AUDIT.md"
+type = "text"
+title = "Chain Gang Poker — Project Audit Report"
