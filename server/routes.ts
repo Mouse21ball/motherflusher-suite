@@ -4,6 +4,7 @@ import { storage, hashPassword, verifyPassword } from "./storage";
 import {
   loginRateLimit,
   registrationRateLimit,
+  guestInitRateLimit,
   dailyBonusRateLimit,
   purchaseVerificationRateLimit,
   generalApiRateLimit,
@@ -750,7 +751,7 @@ export async function registerRoutes(
   // POST /api/auth/login instead.
   // This endpoint intentionally has no requireAuth so brand-new guests can
   // bootstrap their first session. UUID entropy (122 bits) prevents brute-force.
-  app.post("/api/auth/guest-init", registrationRateLimit, async (req, res) => {
+  app.post("/api/auth/guest-init", guestInitRateLimit, async (req, res) => {
     try {
       const guestInitSchema = z.object({
         profileId:   z.string().uuid(),

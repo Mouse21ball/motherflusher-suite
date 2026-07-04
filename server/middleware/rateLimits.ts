@@ -42,7 +42,9 @@ const loginLongLimiter = rateLimit({
 export const loginRateLimit = [loginShortLimiter, loginLongLimiter];
 
 // ─── b) Registration ──────────────────────────────────────────────────────────
-// 3 attempts per IP per hour — covers both /auth/register and /auth/guest-init.
+// 3 attempts per IP per hour — covers /auth/register only (email/password
+// account creation). See guestInitRateLimit below for the separate, more
+// generous limiter applied to /auth/guest-init.
 
 export const registrationRateLimit = rateLimit({
   windowMs:        60 * 60 * 1000,
@@ -50,6 +52,23 @@ export const registrationRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders:   false,
   handler:         makeHandler('Too many registration attempts.'),
+});
+
+// ─── b2) Guest bootstrap — 30 per IP per hour ─────────────────────────────────
+// Deliberately separate from registrationRateLimit. Guest-init creates a
+// lightweight, low-risk guest profile (no email/password) and is the very
+// first request every new visitor makes — including many real visitors who
+// share a public IP behind CGNAT (mobile carriers, corporate/school Wi-Fi).
+// Sharing the strict 3/hour registration bucket with guest-init silently
+// hard-blocked the 4th+ legitimate guest behind a shared IP, which looked
+// like "guest auth is broken" on the public production domain while never
+// showing up in dev (single-machine testing rarely hits 3 requests/hour).
+export const guestInitRateLimit = rateLimit({
+  windowMs:        60 * 60 * 1000,
+  limit:           30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler:         makeHandler('Too many session attempts. Please try again shortly.'),
 });
 
 // ─── c) Daily bonus claim ─────────────────────────────────────────────────────
