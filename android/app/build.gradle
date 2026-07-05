@@ -7,7 +7,11 @@ android {
         applicationId "com.dgmentertainment.poker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+<<<<<<< HEAD
         versionCode 10
+=======
+        versionCode 9
+>>>>>>> dd16613 (Update app icons and version number for Android builds)
         versionName "1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
