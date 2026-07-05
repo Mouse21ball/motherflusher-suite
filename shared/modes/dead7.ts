@@ -82,7 +82,7 @@ const compareLowHands = (a: number[], b: number[]): number => {
 export const Dead7Mode: GameMode = {
   id: 'dead7',
   name: 'Dead 7',
-  phases: ['WAITING','ANTE','DEAL','DRAW_1','BET_1','DRAW_2','BET_2','DRAW_3','DECLARE','BET_3','SHOWDOWN'],
+  phases: ['WAITING','ANTE','DEAL','DRAW_1','BET_1','DRAW_2','BET_2','DRAW_3','BET_3','DECLARE','SHOWDOWN'],
 
   deal: (deck: CardType[], players: Player[], myId: string) => {
     const freshDeck = [...deck];
@@ -254,12 +254,21 @@ export const Dead7Mode: GameMode = {
     const totalAwardable = totalSidePotAmount(sidePots);
 
     if (activePlayers.length === 1) {
+      // The sole survivor is the only player left who can claim any money in
+      // the pot — every other contributor has folded. Award the FULL pot
+      // (totalAwardable), not just the side-pot slices the survivor was
+      // technically "eligible" for by contribution level. Awarding only the
+      // eligible slices left the remainder (a folded bigger-stack's excess
+      // contribution) stranded in the returned `pot`, which resetToAnte()
+      // then silently discards once a winner is flagged — chips vanishing
+      // from the game entirely on exactly the big multi-way / all-in pots
+      // that would trigger side-pot creation.
       const sole = activePlayers[0];
-      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
+      const award = totalAwardable;
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
       finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
       messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
-      return { players: finalPlayers, pot: totalAwardable - award, messages };
+      return { players: finalPlayers, pot: 0, messages };
     }
 
     type QualifiedPlayer = Player & { eval7: Dead7Eval };
