@@ -39,6 +39,11 @@ export default defineConfig({
   // Read .env files from the project root (not client/) so VITE_* vars in
   // .env.local are picked up by the browser bundle.
   envDir: path.resolve(import.meta.dirname),
+  define: {
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
+      process.env.VITE_API_BASE_URL ?? ''
+    ),
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
