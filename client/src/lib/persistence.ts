@@ -36,6 +36,11 @@ export interface PlayerIdentity {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// In-memory fallback for environments where localStorage is unavailable (e.g.
+// iOS Safari private browsing, which throws on localStorage.setItem with quota=0).
+// Survives SPA navigations within the same page load.
+let _memoryIdentity: PlayerIdentity | null = null;
+
 function safePersist(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -60,13 +65,31 @@ function readChipsMap(): Record<string, number> {
 // Returns the existing identity, or creates one from the legacy name key.
 // Migrates the old `poker_table_player_name` and `poker_table_analytics_id`
 // into a single identity object on first call.
+//
+// Memory fallback: if localStorage is unavailable (iOS Safari private browsing),
+// we keep the identity in a module-level variable so the same UUID is returned
+// for the entire page session rather than creating a new UUID on every call.
 export function ensurePlayerIdentity(): PlayerIdentity {
+  // 1. Try localStorage
   const existing = safeRead<PlayerIdentity>(IDENTITY_KEY);
-  if (existing && existing.id && existing.name) return existing;
+  if (existing && existing.id && existing.name) {
+    _memoryIdentity = existing; // keep memory in sync
+    return existing;
+  }
 
-  // Migrate from legacy keys if present
-  const legacyName = localStorage.getItem('poker_table_player_name') ?? 'Player';
-  const legacyId   = localStorage.getItem('poker_table_analytics_id') ?? crypto.randomUUID();
+  // 2. Fall back to in-memory (localStorage unavailable)
+  if (_memoryIdentity && _memoryIdentity.id && _memoryIdentity.name) {
+    return _memoryIdentity;
+  }
+
+  // 3. Create a new identity (first ever visit or storage cleared)
+  let legacyName = 'Player';
+  const newId   = crypto.randomUUID();
+  let legacyId: string = newId;
+  try {
+    legacyName = localStorage.getItem('poker_table_player_name') ?? 'Player';
+    legacyId   = localStorage.getItem('poker_table_analytics_id') ?? newId;
+  } catch {}
 
   const identity: PlayerIdentity = {
     id: legacyId,
@@ -75,15 +98,17 @@ export function ensurePlayerIdentity(): PlayerIdentity {
     createdAt: Date.now(),
   };
 
+  _memoryIdentity = identity;
   safePersist(IDENTITY_KEY, identity);
   return identity;
 }
 
 export function getPlayerIdentity(): PlayerIdentity | null {
-  return safeRead<PlayerIdentity>(IDENTITY_KEY);
+  return safeRead<PlayerIdentity>(IDENTITY_KEY) ?? _memoryIdentity;
 }
 
 export function savePlayerIdentity(identity: PlayerIdentity): void {
+  _memoryIdentity = identity; // always update memory copy
   safePersist(IDENTITY_KEY, identity);
   // Keep legacy name key in sync for any code that still reads it directly
   try { localStorage.setItem('poker_table_player_name', identity.name); } catch {}
