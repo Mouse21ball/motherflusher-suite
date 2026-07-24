@@ -235,7 +235,16 @@ function scheduleUniversalBotFill(key: string): void {
 
   const scheduleAutoStart = (t: GenericTable) => {
     const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
-    if (active.length < 2) return;
+    if (active.length < 2) {
+      // Not enough active players yet — try one more fill pass before giving up.
+      // This guards against the case where convertOneReservedToBot returned false
+      // on the previous tick (e.g. player disconnected mid-fill, changing humanCount).
+      const hasReserved = t.state.players.some(p => p.presence === 'reserved');
+      if (hasReserved && t.botsEnabled && !t.crewId) {
+        t.botFillTimer = setTimeout(fillOne, 1_500);
+      }
+      return;
+    }
     t.botFillTimer = setTimeout(() => {
       const t2 = tables.get(key);
       if (!t2 || t2.state.phase !== 'WAITING') return;
@@ -1874,15 +1883,19 @@ export function addGenericConnection(
     }),
   };
 
-  // For any restored table: restart the bot-fill + auto-start timer when the
-  // first new human joins and the table is still in WAITING.  Without this,
-  // the timer that ran at table-create has already expired (or never ran for
-  // tables restored after a server restart) and bots never fill.
+  // Restart the bot-fill + auto-start timer whenever a human joins or reconnects
+  // to a WAITING table that has no active fill timer.  This covers:
+  //   • tables restored after a server restart (timer never ran)
+  //   • original timer already fired but game didn't start (edge-case: player
+  //     disconnected mid-fill, changing humanCount and aborting scheduleAutoStart)
+  //   • iOS Safari reconnects where a new sessionId is generated each time
+  // We intentionally omit !isReconnect so returning players also get bots.
   if (
-    !isNew && !isReconnect &&
+    !isNew &&
     !table.botFillTimer && table.state.phase === 'WAITING' &&
     !table.crewId && table.botsEnabled && !isPrivate
   ) {
+    console.log(`[botFill] re-scheduling fill for ${modeId}:${tableId} isReconnect=${isReconnect}`);
     if (modeId === 'flushed_up') {
       scheduleFlushedUpBotFill(key);
     } else {

@@ -228,7 +228,14 @@ function scheduleBadugiBotFill(tableId: string): void {
 
   const scheduleAutoStart = (t: AuthTable) => {
     const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
-    if (active.length < 2) return;
+    if (active.length < 2) {
+      // Not enough active players yet — try one more fill pass before giving up.
+      const hasReserved = t.state.players.some(p => p.presence === 'reserved');
+      if (hasReserved && t.botsEnabled && !t.crewId) {
+        t.botFillTimer = setTimeout(fillOne, 1_500);
+      }
+      return;
+    }
     t.botFillTimer = setTimeout(() => {
       const t2 = tables.get(tableId);
       if (!t2 || t2.state.phase !== 'WAITING') return;
@@ -1593,15 +1600,16 @@ export function addBadugiConnection(
     }
   }
 
-  // For any restored table: restart the bot-fill + auto-start timer when the
-  // first new human joins and the table is still in WAITING. Without this, the
-  // timer that ran at table-create has already expired (or never ran for tables
-  // restored after a server restart) and bots never fill.
+  // Restart the bot-fill + auto-start timer whenever a human joins or reconnects
+  // to a WAITING table that has no active fill timer.  Intentionally omits
+  // !isReconnect so iOS Safari reconnects (which may generate new sessionIds)
+  // and any other returning player also get bots scheduled.
   if (
-    !isNew && !isReconnect &&
+    !isNew &&
     !table.botFillTimer && table.state.phase === 'WAITING' &&
     !table.crewId && table.botsEnabled && !isPrivate
   ) {
+    console.log(`[botFill] re-scheduling badugi fill for ${tableId} isReconnect=${isReconnect}`);
     scheduleBadugiBotFill(tableId);
   }
 

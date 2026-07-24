@@ -300,10 +300,24 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       ws.onerror = () => ws.close();
     }
 
+    // iOS Safari kills WebSocket connections when the tab is backgrounded.
+    // On visibility restored, force an immediate reconnect instead of waiting
+    // for the onclose → 3-8 s delay to fire (which may never fire while hidden).
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+      const ws = wsRef.current;
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        if (reconnRef.current) { clearTimeout(reconnRef.current); reconnRef.current = null; }
+        connect();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     connect();
 
     return () => {
       mountedRef.current = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnRef.current) { clearTimeout(reconnRef.current); reconnRef.current = null; }
       const ss = sessionStatsRef.current;
       if (ss.handsPlayed > 0) {
