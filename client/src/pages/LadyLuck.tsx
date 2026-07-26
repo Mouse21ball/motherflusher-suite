@@ -224,16 +224,20 @@ export default function LadyLuck() {
     if (!tableId) return;
     let ws: WebSocket | null = null;
     let alive = true;
+    let stateReceived = false;
+    let reconnTimerId: ReturnType<typeof setTimeout> | null = null;
 
     setWsError(null);
     setConnTimedOut(false);
 
-    // 5-second connection timeout
+    // 15-second connection timeout — Android Chrome on a slow network or a cold
+    // Replit server can easily take >5 s for token fetch + WS handshake + first message.
     const timeoutId = setTimeout(() => {
-      if (alive && !state) setConnTimedOut(true);
-    }, 5000);
+      if (alive && !stateReceived) setConnTimedOut(true);
+    }, 15000);
 
     const connect = async () => {
+      if (!alive) return;
       try {
         const wsTimingStart = Date.now();
         console.log(`[LL-TIMING] GET /api/auth/ws-token starting at ${wsTimingStart}`);
@@ -241,6 +245,8 @@ export default function LadyLuck() {
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
         console.log(`[LL-TIMING] GET /api/auth/ws-token resolved at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
+
+        if (!alive) return;
 
         console.log(`[LL-TIMING] new WebSocket() called at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
         console.log('[ladyluck] WS connecting, tableId from state:', tableId, '| wsUrl:', wsUrl(token));
@@ -262,8 +268,8 @@ export default function LadyLuck() {
           try {
             const msg = JSON.parse(e.data as string);
             if (msg.type === 'll:state') {
-              console.log(`[LL-TIMING] first ll:state received at ${Date.now()} (+${Date.now() - wsCreatedAt}ms after new WebSocket())`);
-              clearTimeout(timeoutId);
+              console.log(`[LL-TIMING] ll:state received at ${Date.now()} (+${Date.now() - wsCreatedAt}ms after new WebSocket())`);
+              if (!stateReceived) { clearTimeout(timeoutId); stateReceived = true; }
               setState(msg.state as LadyLuckState);
               setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
             }
@@ -294,25 +300,51 @@ export default function LadyLuck() {
 
         ws.onerror = (ev) => {
           if (!alive) return;
+          // Don't surface the error yet — onclose fires next and will trigger reconnect
           console.error('[ladyluck] ws.onerror fired:', ev);
-          setWsError('WebSocket connection error');
         };
 
         ws.onclose = (ev) => {
           if (!alive) return;
           setConnected(false);
-          if (!state) {
-            console.warn('[ladyluck] WS closed before state received — code:', ev.code, 'reason:', ev.reason);
+          console.warn('[ladyluck] WS closed — code:', ev.code, 'reason:', ev.reason, 'stateReceived:', stateReceived);
+          // Reconnect unless the server sent a deliberate auth/policy close (4001+).
+          // This fixes iOS Safari silently dropping the TCP connection mid-race, which
+          // left the client frozen on "RACE STARTING…" with no flip messages arriving.
+          if (ev.code < 4001) {
+            reconnTimerId = setTimeout(() => { if (alive) connect(); }, 2000 + Math.random() * 1000);
+          } else {
+            setWsError('Connection closed by server');
           }
         };
       } catch (err) {
+        if (!alive) return;
         console.error('[ladyluck] connect() threw:', err);
         setWsError(err instanceof Error ? err.message : String(err));
       }
     };
 
+    // iOS Safari kills WebSocket connections when the tab is backgrounded.
+    // Force an immediate reconnect when visibility is restored rather than
+    // waiting for the delayed onclose → reconnect timer.
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+      const currentWs = wsRef.current;
+      if (!currentWs || currentWs.readyState === WebSocket.CLOSED || currentWs.readyState === WebSocket.CLOSING) {
+        if (reconnTimerId) { clearTimeout(reconnTimerId); reconnTimerId = null; }
+        if (alive) connect();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     connect();
-    return () => { alive = false; clearTimeout(timeoutId); ws?.close(); };
+    return () => {
+      alive = false;
+      clearTimeout(timeoutId);
+      if (reconnTimerId) clearTimeout(reconnTimerId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      ws?.close();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableId]);
 
