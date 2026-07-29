@@ -384,6 +384,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
               selectableCards={isDrawPhase}
               sessionNetProfit={sessionStats?.netProfit ?? 0}
               isShowdown={state.phase === 'SHOWDOWN'}
+              communityCards={state.communityCards}
             />
           </div>
         )}

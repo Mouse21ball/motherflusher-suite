@@ -92,11 +92,12 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
   // Always build exactly 12 slots so the layout never jumps when cards are revealed.
   // Undefined entries render as placeholder boxes (same fixed size as a card slot).
   const slots = Array.from({ length: 12 }, (_, i) => cc[i]);
-  const sideA  = slots.slice(0, 3);
-  const sideB  = slots.slice(3, 6);
-  const center = slots.slice(6, 9);
-  const lower  = slots.slice(9, 11);
-  const final  = slots.slice(11, 12);
+  const sideA = slots.slice(0, 3);   // Path A exclusive: indices 0-2
+  const sideB = slots.slice(3, 6);   // Path B exclusive: indices 3-5
+  // Shared center displayed as 3 pairs of 2 — indices 6-11
+  const pair1 = slots.slice(6,  8);  // indices 6, 7
+  const pair2 = slots.slice(8,  10); // indices 8, 9
+  const pair3 = slots.slice(10, 12); // indices 10, 11
   const isUsed = (idx: number) =>
     phase === 'SHOWDOWN' &&
     players.some(p =>
@@ -106,6 +107,7 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
 
   return (
     <div className="flex items-start justify-center gap-3 sm:gap-6 scale-[0.82] sm:scale-100 origin-center card-depth-shadow">
+      {/* Side A — Path A exclusive cards */}
       <div className="flex flex-col items-center gap-1">
         <span className="text-[7px] sm:text-[9px] text-amber-400/60 font-mono uppercase tracking-wider mb-0.5">Side A</span>
         <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
@@ -113,22 +115,26 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
         </div>
         <span className="text-[6px] sm:text-[7px] text-white/30 font-mono">← path</span>
       </div>
+
+      {/* Center — 3 pairs shared by both paths */}
       <div className="flex flex-col items-center gap-1">
         <span className="text-[7px] sm:text-[9px] text-green-400/60 font-mono uppercase tracking-wider mb-0.5">Center</span>
         <div className="flex flex-col items-center gap-1">
           <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
-            {center.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(6 + i)} />)}
+            {pair1.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(6 + i)} />)}
           </div>
           <div className="w-px h-1 bg-white/10" />
           <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
-            {lower.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(9 + i)} />)}
+            {pair2.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(8 + i)} />)}
           </div>
           <div className="w-px h-1 bg-white/10" />
           <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
-            {final.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(11 + i)} />)}
+            {pair3.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(10 + i)} />)}
           </div>
         </div>
       </div>
+
+      {/* Side B — Path B exclusive cards */}
       <div className="flex flex-col items-center gap-1">
         <span className="text-[7px] sm:text-[9px] text-cyan-400/60 font-mono uppercase tracking-wider mb-0.5">Side B</span>
         <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">

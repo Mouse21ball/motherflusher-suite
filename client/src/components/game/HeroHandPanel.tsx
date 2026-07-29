@@ -3,7 +3,8 @@ import { PlayingCard } from "./Card";
 import { evaluateBadugi } from "@/lib/poker/modes/badugi";
 import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
-import { evaluateSuitsScore, evaluatePokerHand } from "@shared/modes/suitspoker";
+import { evaluateSuitsScore, evaluatePokerHand, evaluateBestSuitsOnPath, PATH_A_INDICES, PATH_B_INDICES } from "@shared/modes/suitspoker";
+import type { CardType } from "@/lib/poker/types";
 import { getHeroAvatar } from "@shared/engine/avatarMap";
 import type { Player, GamePhase } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
@@ -12,17 +13,17 @@ import { cn } from "@/lib/utils";
 
 const INACTIVE_PHASES = new Set(['SHOWDOWN','WAITING','ANTE','DEAL']);
 
-function computeQualifier(modeId: string, player: Player, phase: GamePhase) {
+function computeQualifier(modeId: string, player: Player, phase: GamePhase, communityCards?: CardType[]) {
   const inactive = INACTIVE_PHASES.has(phase);
   const cards = player.cards;
 
-  if (inactive || !cards.length) return { label: qualifierLabel(modeId), status: '', isMade: false };
+  if (inactive || !cards.length) return { label: qualifierLabel(modeId), status: '', isMade: false, liveSuitsScore: null as number | null };
 
   if (modeId === 'badugi') {
     const ev = evaluateBadugi(cards);
     const isMade = !!ev?.isValidBadugi;
     const status = isMade && ev ? `✓ ${ev.description}` : '✗ No Badugi yet';
-    return { label: 'QUALIFIER', status, isMade };
+    return { label: 'QUALIFIER', status, isMade, liveSuitsScore: null as number | null };
   }
 
   if (modeId === 'dead7') {
@@ -31,7 +32,7 @@ function computeQualifier(modeId: string, player: Player, phase: GamePhase) {
     const status = ev?.isDead
       ? '✗ Dead — has a 7'
       : isMade ? `✓ ${ev!.description}` : '✗ No qualifier yet';
-    return { label: 'HAND', status, isMade };
+    return { label: 'HAND', status, isMade, liveSuitsScore: null as number | null };
   }
 
   if (modeId === 'fifteen35') {
@@ -47,20 +48,30 @@ function computeQualifier(modeId: string, player: Player, phase: GamePhase) {
     } else {
       status = '✗ No qualifier yet';
     }
-    return { label: 'TOTAL', status, isMade };
+    return { label: 'TOTAL', status, isMade, liveSuitsScore: null as number | null };
   }
 
   if (modeId === 'suitspoker') {
     const pokerEv = evaluatePokerHand(cards);
-    const suitsScore = evaluateSuitsScore(cards);
-    const suitsQualifies = suitsScore >= 40;
+    // Compute best suits score across both paths using visible community cards.
+    // evaluateBestSuitsOnPath filters hidden cards automatically, so this updates
+    // live as cards are revealed each round.
+    const cc = communityCards ?? [];
+    const suitsA = evaluateBestSuitsOnPath(cards, cc, PATH_A_INDICES);
+    const suitsB = evaluateBestSuitsOnPath(cards, cc, PATH_B_INDICES);
+    const bestSuits = suitsA.score >= suitsB.score ? suitsA : suitsB;
+    // Fall back to hole-cards-only score when no community cards visible yet
+    const holeSuitsScore = evaluateSuitsScore(cards);
+    const liveSuitsScore = bestSuits.score > 0 ? bestSuits.score : holeSuitsScore;
+    // Per-spec: qualification = 5 cards of the same suit on any path
+    const suitsQualifies = bestSuits.valid;
     const isMade = !!pokerEv || suitsQualifies;
     const pokerLabel = pokerEv?.description ?? 'High Card';
-    const suitsLabel = `Suits ${suitsScore}${suitsQualifies ? '' : ' (need 40+)'}`;
-    return { label: 'HAND', status: `${pokerLabel} · ${suitsLabel}`, isMade };
+    const suitsLabel = `Suits ${liveSuitsScore}${suitsQualifies ? '' : ' (need 5 of one suit)'}`;
+    return { label: 'HAND', status: `${pokerLabel} · ${suitsLabel}`, isMade, liveSuitsScore, suitsQualifies };
   }
 
-  return { label: qualifierLabel(modeId), status: '', isMade: false };
+  return { label: qualifierLabel(modeId), status: '', isMade: false, liveSuitsScore: null as number | null };
 }
 
 function qualifierLabel(modeId: string) {
@@ -100,6 +111,7 @@ interface HeroHandPanelProps {
   selectableCards: boolean;
   sessionNetProfit?: number;
   isShowdown?: boolean;
+  communityCards?: CardType[];
 }
 
 // ── Shared sub-components ────────────────────────────────────────────────────
@@ -243,6 +255,76 @@ function HeroAvatar({ size = 'md' }: { size?: 'sm' | 'md' | '3col' }) {
   );
 }
 
+// ── Live Suits Score Badge (Suits & Poker only) ───────────────────────────────
+// Shows the hero's best running suits total across both paths, updating live
+// as community cards are revealed. Beginner-friendly: always visible, big number.
+
+function SuitsScoreBadge({
+  score, isShowdownPhase, player, pokerStatus, isMade, qualified,
+}: {
+  score: number;
+  isShowdownPhase: boolean;
+  player: Player;
+  pokerStatus: string;
+  isMade: boolean;
+  qualified: boolean;
+}) {
+  const qualifies = qualified;
+  // Extract just the poker hand part (everything before " · Suits")
+  const pokerPart = pokerStatus.split(' · ')[0] ?? pokerStatus;
+
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      {/* Small poker hand label */}
+      <span className={cn(
+        "font-mono leading-tight break-words text-[10px]",
+        isMade ? "text-emerald-400/70" : "text-white/35",
+      )}>
+        {pokerPart || '—'}
+      </span>
+
+      {/* Prominent suits score */}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-blue-400/60 leading-none">
+          BEST SUITS
+        </span>
+        <div className="flex items-baseline gap-1">
+          <span className={cn(
+            "text-2xl sm:text-3xl font-mono font-black tabular-nums leading-none",
+            qualifies ? "text-blue-300" : "text-white/55",
+          )}>
+            {score}
+          </span>
+          <span className={cn(
+            "text-[10px] font-mono leading-none mb-0.5",
+            qualifies ? "text-blue-400/60" : "text-white/30",
+          )}>
+            pts
+          </span>
+        </div>
+        <span className={cn(
+          "text-[9px] font-mono leading-none",
+          qualifies ? "text-blue-400/70" : "text-white/30",
+        )}>
+          {qualifies ? "✓ qualifies" : `need ${40 - score} more`}
+        </span>
+      </div>
+
+      {/* Showdown result */}
+      {isShowdownPhase && player.isWinner && (
+        <span className="mt-0.5 text-[10px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
+          ✓ Winner
+        </span>
+      )}
+      {isShowdownPhase && player.isLoser && !player.isWinner && (
+        <span className="mt-0.5 text-[10px] font-mono text-red-400/60 uppercase tracking-wider">
+          ✗ Lost
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DeclarationBadge({ declaration }: { declaration: string }) {
   return (
     <span className={cn(
@@ -266,10 +348,11 @@ export function HeroHandPanel({
   player, modeId, phase,
   selectedCardIndices, onCardClick, selectableCards,
   sessionNetProfit = 0, isShowdown = false,
+  communityCards,
 }: HeroHandPanelProps) {
   const qualifier = useMemo(
-    () => computeQualifier(modeId, player, phase),
-    [modeId, player, phase]
+    () => computeQualifier(modeId, player, phase, communityCards),
+    [modeId, player, phase, communityCards]
   );
 
   const cards = player.cards;
@@ -388,9 +471,20 @@ export function HeroHandPanel({
               )}
             </div>
 
-            {/* Column 3: Qualifier / Total */}
+            {/* Column 3: Qualifier / Total — Suits Poker gets a live suits score badge */}
             <div className="px-3 py-3 pb-4 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
-              <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} compact />
+              {modeId === 'suitspoker' && qualifier.liveSuitsScore !== null ? (
+                <SuitsScoreBadge
+                  score={qualifier.liveSuitsScore}
+                  qualified={(qualifier as any).suitsQualifies ?? false}
+                  isShowdownPhase={isShowdownPhase}
+                  player={player}
+                  pokerStatus={qualifier.status}
+                  isMade={qualifier.isMade}
+                />
+              ) : (
+                <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} compact />
+              )}
             </div>
 
           </div>

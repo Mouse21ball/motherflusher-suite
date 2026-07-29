@@ -36,7 +36,8 @@ export function classifyResult(
   heroPlayer?: HeroPlayerLike | null,
   heroChipChange?: number,
 ): ClassifiedResult {
-  const texts = messages.map(m => m.text);
+  // Filter out suitspoker two-panel tags — they are handled separately in the overlay
+  const texts = messages.map(m => m.text).filter(t => !t.startsWith('SP_POKER|') && !t.startsWith('SP_SUITS|'));
   const isSplit = texts.some(t => /Split Pot/i.test(t));
   const net = heroChipChange ?? 0;
   const absNet = Math.abs(net);

@@ -9,6 +9,8 @@ function suitsCardValue(rank: string): number {
   return parseInt(rank, 10);
 }
 
+// Raw suit-point total for the best single suit in the supplied cards.
+// Does NOT enforce the 5-card minimum — use qualifiesForSuits() for that.
 export function evaluateSuitsScore(cards: CardType[]): number {
   if (!cards || cards.length === 0) return 0;
   const suitTotals: Record<string, number> = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
@@ -19,8 +21,14 @@ export function evaluateSuitsScore(cards: CardType[]): number {
   return Math.max(suitTotals.hearts, suitTotals.diamonds, suitTotals.clubs, suitTotals.spades);
 }
 
+// Per-spec: a player qualifies for the suits pot only if they have ≥5 visible
+// cards of the same suit.  Points are irrelevant for qualification.
 export function qualifiesForSuits(cards: CardType[]): boolean {
-  return evaluateSuitsScore(cards) >= 40;
+  const counts: Record<string, number> = {};
+  for (const c of cards) {
+    if (!c.isHidden) counts[c.suit] = (counts[c.suit] || 0) + 1;
+  }
+  return Object.values(counts).some(n => n >= 5);
 }
 
 export function evaluatePokerHand(cards: CardType[]): { description: string; tier: number } | null {
@@ -61,8 +69,8 @@ function eval5Cards(cards: CardType[]): { value: number; name: string } {
   return { value: kicker, name: 'High Card' };
 }
 
-const PATH_A_INDICES = [0, 1, 2, 6, 7, 8, 9, 10, 11];
-const PATH_B_INDICES = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+export const PATH_A_INDICES = [0, 1, 2, 6, 7, 8, 9, 10, 11];
+export const PATH_B_INDICES = [3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 interface CE { card: CardType; index: number; type: 'hole' | 'comm'; }
 
@@ -84,7 +92,7 @@ function evaluateBestPokerOnPath(holeCards: CardType[], communityCards: CardType
   return best;
 }
 
-function evaluateBestSuitsOnPath(holeCards: CardType[], communityCards: CardType[], pathIndices: number[]): { score: number; valid: boolean; suit: string; holeIndices: number[]; commIndices: number[] } {
+export function evaluateBestSuitsOnPath(holeCards: CardType[], communityCards: CardType[], pathIndices: number[]): { score: number; valid: boolean; suit: string; holeIndices: number[]; commIndices: number[] } {
   const allEntries = getVisibleEntries(holeCards, communityCards, pathIndices);
   const bySuit: Record<string, CE[]> = {};
   for (const entry of allEntries) { const s = entry.card.suit; if (!bySuit[s]) bySuit[s] = []; bySuit[s].push(entry); }
@@ -107,19 +115,21 @@ function spEvaluateHand(player: Player, communityCards: CardType[]) {
   const suitsB = evaluateBestSuitsOnPath(player.cards, communityCards, PATH_B_INDICES);
   let bestPoker = pokerA;
   if (pokerB && (!pokerA || pokerB.value > pokerA.value)) bestPoker = pokerB;
-  let bestSuits = suitsA.score >= suitsB.score ? suitsA : suitsB;
+  const bestSuits = suitsA.score >= suitsB.score ? suitsA : suitsB;
   const suitSymbols: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
-  const swingOnA = pokerA !== null && suitsA.valid, swingOnB = pokerB !== null && suitsB.valid;
-  let swingPokerValue = 0, swingSuitsScore = 0;
-  if (swingOnA && swingOnB) { const scoreA = (pokerA?.value || 0) + suitsA.score, scoreB = (pokerB?.value || 0) + suitsB.score; if (scoreA >= scoreB) { swingPokerValue = pokerA?.value || 0; swingSuitsScore = suitsA.score; } else { swingPokerValue = pokerB?.value || 0; swingSuitsScore = suitsB.score; } }
-  else if (swingOnA) { swingPokerValue = pokerA?.value || 0; swingSuitsScore = suitsA.score; }
-  else if (swingOnB) { swingPokerValue = pokerB?.value || 0; swingSuitsScore = suitsB.score; }
   return {
     high: bestPoker?.name || 'No Hand',
-    low: bestSuits.valid ? `${suitSymbols[bestSuits.suit] || ''}${bestSuits.score}pts` : 'No Suits',
+    low: bestSuits.valid ? `${suitSymbols[bestSuits.suit] || ''}${bestSuits.score} pts` : 'No Suits',
     highEval: bestPoker ? { description: bestPoker.name, usedHoleCardIndices: bestPoker.holeIndices, usedCommunityCardIndices: bestPoker.commIndices } : { description: 'No Hand', usedHoleCardIndices: [] as number[], usedCommunityCardIndices: [] as number[] },
-    lowEval: bestSuits.valid ? { description: `${suitSymbols[bestSuits.suit] || ''}${bestSuits.score}pts`, usedHoleCardIndices: bestSuits.holeIndices, usedCommunityCardIndices: bestSuits.commIndices } : { description: 'No Suits', usedHoleCardIndices: [] as number[], usedCommunityCardIndices: [] as number[] },
-    description: 'Evaluated', isValidBadugi: bestSuits.valid, pokerValue: bestPoker?.value || 0, suitsScore: bestSuits.score, suitsValid: bestSuits.valid, swingPokerValue, swingSuitsScore
+    lowEval: bestSuits.valid ? { description: `${suitSymbols[bestSuits.suit] || ''}${bestSuits.score} pts`, usedHoleCardIndices: bestSuits.holeIndices, usedCommunityCardIndices: bestSuits.commIndices } : { description: 'No Suits', usedHoleCardIndices: [] as number[], usedCommunityCardIndices: [] as number[] },
+    description: 'Evaluated',
+    isValidBadugi: bestSuits.valid,
+    pokerValue: bestPoker?.value || 0,
+    suitsScore: bestSuits.score,
+    suitsValid: bestSuits.valid,
+    // Legacy fields kept for compatibility
+    swingPokerValue: bestPoker?.value || 0,
+    swingSuitsScore: bestSuits.score,
   };
 }
 
@@ -155,7 +165,7 @@ export const SuitsPokerMode: GameMode = {
       const evaluation = spEvaluateHand(bot, state.communityCards);
       const cardsToKeep = new Set<number>();
       if ((evaluation?.pokerValue || 0) > 1000000) evaluation?.highEval.usedHoleCardIndices.forEach(idx => cardsToKeep.add(idx));
-      if (evaluation?.suitsValid && (evaluation?.suitsScore || 0) > 25) evaluation?.lowEval.usedHoleCardIndices.forEach(idx => cardsToKeep.add(idx));
+      if (evaluation?.suitsValid && (evaluation?.suitsScore || 0) > 0) evaluation?.lowEval.usedHoleCardIndices.forEach(idx => cardsToKeep.add(idx));
       const suitCounts: Record<string, number[]> = {};
       bot.cards.forEach((c, i) => { if (!suitCounts[c.suit]) suitCounts[c.suit] = []; suitCounts[c.suit].push(i); });
       const bestSuitGroup = Object.values(suitCounts).sort((a, b) => b.length - a.length)[0];
@@ -177,12 +187,12 @@ export const SuitsPokerMode: GameMode = {
       const evaluation = spEvaluateHand(bot, state.communityCards);
       let declaration: Declaration = bot.declaration;
       if (phase === 'DECLARE_AND_BET') {
+        // Use path-based suits evaluation (requires 5 same-suit cards on a path)
+        const hasSuits = evaluation?.suitsValid ?? false;
         const isStrongPoker = (evaluation?.pokerValue || 0) >= 2000000;
-        const isDecentSuits = qualifiesForSuits(bot.cards);
-        const isStrongSuits = qualifiesForSuits(bot.cards) && (evaluation?.suitsScore || 0) >= 45;
+        const isStrongSuits = hasSuits && (evaluation?.suitsScore || 0) >= 45;
         if (isStrongPoker && isStrongSuits) declaration = 'SWING';
-        else if (isDecentSuits && !isStrongPoker) declaration = 'SUITS';
-        else if (isStrongPoker && !isDecentSuits) declaration = 'POKER';
+        else if (hasSuits && !isStrongPoker) declaration = 'SUITS';
         else declaration = 'POKER';
       }
       const pokerStrength = Math.min((evaluation?.pokerValue || 0) / 5000000, 1);
@@ -206,9 +216,6 @@ export const SuitsPokerMode: GameMode = {
   },
 
   getAutoTransition: (phase) => {
-    // P7: lightweight phase-progression instrumentation — surfaces the
-    // sequence of reveal phases in the server log so a stuck phase is
-    // immediately visible from logs alone.
     if (phase === 'REVEAL_TOP_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_TOP_ROW → BET_1'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i < 6 ? { ...c, isHidden: false } : c) }, message: 'Side A & Side B flops revealed!', advancePhase: true }; } };
     if (phase === 'REVEAL_SECOND_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_SECOND_ROW → BET_2'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i >= 6 && i <= 8) ? { ...c, isHidden: false } : c) }, message: 'Center flop revealed!', advancePhase: true }; } };
     if (phase === 'REVEAL_LOWER_CENTER') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_LOWER_CENTER → BET_3'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 9 || i === 10) ? { ...c, isHidden: false } : c) }, message: 'Lower center cards revealed!', advancePhase: true }; } };
@@ -218,127 +225,209 @@ export const SuitsPokerMode: GameMode = {
 
   evaluateHand: (player, communityCards) => spEvaluateHand(player, communityCards),
 
+  // ─── resolveShowdown ───────────────────────────────────────────────────────
+  // TWO POTS: each half of the total.
+  // POKER POT — declared POKER or SWING; best 5-card standard poker hand wins.
+  // SUITS POT — declared SUITS or SWING AND have ≥5 cards of the same suit on
+  //             any path; best 5-card same-suit point total wins.
+  // SWING — must win BOTH sides simultaneously; all-or-nothing.  A player who
+  //         loses either side wins nothing from either pot.
+  // UNCONTESTED — if no qualified SUITS contestant, POKER winner takes both;
+  //               if no qualified POKER contestant, SUITS winner takes both.
+  // SHOWDOWN DISPLAY — messages carry SP_POKER|name|hand|amount and
+  //                    SP_SUITS|name|hand|amount tags for the client overlay.
   resolveShowdown: (players, pot, myId, communityCards) => {
     const cc = communityCards || [];
-    let finalPlayers: Player[] = players.map(p => { if (p.status === 'folded') return p; const cards = p.cards.map(c => ({ ...c, isHidden: false })); return { ...p, cards, score: spEvaluateHand({ ...p, cards }, cc) || undefined }; });
-    // Validate SUITS / SWING qualifiers — downgrade to FOLD if score < 40
-    finalPlayers = finalPlayers.map(p => {
+    const suitSymbols: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+
+    // ── 1. Reveal all cards, compute full path-aware hand evaluations ──────
+    const finalPlayers: Player[] = players.map(p => {
       if (p.status === 'folded') return p;
-      if (p.declaration === 'SUITS' || p.declaration === 'SWING') {
-        if (!qualifiesForSuits(p.cards)) {
-          if (p.declaration === 'SWING') {
-            return { ...p, declaration: 'POKER' as Declaration };
-          } else {
-            return { ...p, status: 'folded' as 'folded', declaration: null };
-          }
-        }
-      }
-      return p;
+      const cards = p.cards.map(c => ({ ...c, isHidden: false }));
+      return { ...p, cards, score: spEvaluateHand({ ...p, cards }, cc) || undefined };
     });
+
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
     const messages: string[] = [];
 
+    // ── 2. Side-pot setup ─────────────────────────────────────────────────
     let sidePots: SidePot[] = computeSidePots(finalPlayers);
     if (sidePots.length === 0 && pot > 0) {
       sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
     }
     const totalAwardable = totalSidePotAmount(sidePots);
 
+    // ── 3. Sole survivor ──────────────────────────────────────────────────
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
       const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
-      sole.chips += award; sole.isWinner = true;
-      messages.push(`${sole.name} wins $${award} (last player standing)`);
+      sole.chips += award;
+      sole.isWinner = true;
+      const ph = Math.floor(award / 2);
+      const sh = award - ph;
+      messages.push(`SP_POKER|${sole.name}|—|${ph}`);
+      messages.push(`SP_SUITS|${sole.name}|—|${sh}`);
       return { players: finalPlayers, pot: totalAwardable - award, messages };
     }
 
-    const findPokerWinner = (contenders: Player[]): Player[] => { let bestVal = -1, winners: Player[] = []; for (const p of contenders) { const val = p.declaration === 'SWING' ? (p.score?.swingPokerValue || 0) : (p.score?.pokerValue || 0); if (val > bestVal) { bestVal = val; winners = [p]; } else if (val === bestVal && val > 0) winners.push(p); } return winners; };
-    const findSuitsWinner = (contenders: Player[]): Player[] => { let bestVal = 0, winners: Player[] = []; for (const p of contenders) { const val = p.declaration === 'SWING' ? (p.score?.swingSuitsScore || 0) : (p.score?.suitsScore || 0); const valid = p.declaration === 'SWING' ? ((p.score?.swingSuitsScore || 0) > 0) : (p.score?.suitsValid || false); if (!valid) continue; if (val > bestVal) { bestVal = val; winners = [p]; } else if (val === bestVal && val > 0) winners.push(p); } return winners; };
+    // ── 4. Winner-selection helpers ───────────────────────────────────────
 
-    const deltas: Record<string, number> = {};
-    const swingScoopIds = new Set<string>();
+    // Best poker hand — returns players with the highest pokerValue > 0
+    const findPokerWinner = (contenders: Player[]): Player[] => {
+      let best = 0;
+      const winners: Player[] = [];
+      for (const p of contenders) {
+        const val = p.score?.pokerValue ?? 0;
+        if (val <= 0) continue;
+        if (val > best) { best = val; winners.length = 0; winners.push(p); }
+        else if (val === best) winners.push(p);
+      }
+      return winners;
+    };
+
+    // Best suits hand — player MUST have suitsValid (≥5 same-suit cards on a path)
+    const findSuitsWinner = (contenders: Player[]): Player[] => {
+      let best = 0;
+      const winners: Player[] = [];
+      for (const p of contenders) {
+        if (!p.score?.suitsValid) continue; // no 5-card same-suit combo → disqualified
+        const val = p.score.suitsScore ?? 0;
+        if (val > best) { best = val; winners.length = 0; winners.push(p); }
+        else if (val === best && val > 0) winners.push(p);
+      }
+      return winners;
+    };
+
+    // ── 5. Distribute across side pots ───────────────────────────────────
+    const pokerDeltas: Record<string, number> = {};
+    const suitsDeltas: Record<string, number> = {};
+
+    const dist = (record: Record<string, number>, ids: string[], amount: number) => {
+      if (!ids.length || !amount) return;
+      const share = Math.floor(amount / ids.length);
+      let rem = amount - share * ids.length;
+      for (const id of ids) { record[id] = (record[id] || 0) + share + (rem-- > 0 ? 1 : 0); }
+    };
+
     const pokerWinIds = new Set<string>();
     const suitsWinIds = new Set<string>();
-    const failedSwingsAnnounced = new Set<string>();
+    const swingScoopIds = new Set<string>();
     let rolledOver = 0;
     let anyWinner = false;
 
-    const distribute = (ids: string[], amount: number) => {
-      if (ids.length === 0 || amount === 0) return;
-      const share = Math.floor(amount / ids.length);
-      let rem = amount - share * ids.length;
-      for (const id of ids) {
-        const award = share + (rem > 0 ? 1 : 0);
-        deltas[id] = (deltas[id] || 0) + award;
-        if (rem > 0) rem--;
-      }
-    };
-
     for (const sp of sidePots) {
       const eligible = activePlayers.filter(p => sp.eligibleIds.includes(p.id));
-      let pokerCands = eligible.filter(p => p.declaration === 'POKER' || p.declaration === 'SWING');
-      let suitsCands = eligible.filter(p => p.declaration === 'SUITS' || p.declaration === 'SWING');
+      const pokerHalf = Math.floor(sp.amount / 2);
+      const suitsHalf = sp.amount - pokerHalf;
+
+      // All declared contestants (SWING competes on both sides)
+      const pokerCands = eligible.filter(p => p.declaration === 'POKER' || p.declaration === 'SWING');
+      const suitsCands = eligible.filter(p => p.declaration === 'SUITS' || p.declaration === 'SWING');
+
       let pokerW = findPokerWinner(pokerCands);
       let suitsW = findSuitsWinner(suitsCands);
 
-      const swingIds = eligible.filter(p => p.declaration === 'SWING').map(p => p.id);
-      const successfulSwings = swingIds.filter(sid =>
-        pokerW.some(w => w.id === sid) && suitsW.some(w => w.id === sid));
+      // ── SWING: all-or-nothing ──────────────────────────────────────────
+      const swingIds = new Set(eligible.filter(p => p.declaration === 'SWING').map(p => p.id));
+      const successfulSwings = [...swingIds].filter(id =>
+        pokerW.some(w => w.id === id) && suitsW.some(w => w.id === id)
+      );
 
       if (successfulSwings.length > 0) {
-        distribute(successfulSwings, sp.amount);
-        successfulSwings.forEach(id => swingScoopIds.add(id));
+        // SWING player(s) scoop the full side pot
+        dist(pokerDeltas, successfulSwings, pokerHalf);
+        dist(suitsDeltas, successfulSwings, suitsHalf);
+        successfulSwings.forEach(id => { swingScoopIds.add(id); pokerWinIds.add(id); suitsWinIds.add(id); });
         anyWinner = true;
         continue;
       }
 
-      // Failed SWINGs disqualified from this pot.
-      for (const sid of swingIds) {
-        if (!failedSwingsAnnounced.has(sid)) {
-          const fp = finalPlayers.find(p => p.id === sid)!;
-          messages.push(`${fp.name} fails SWING`);
-          failedSwingsAnnounced.add(sid);
-        }
+      // Failed SWINGs — removed from both sides, win nothing
+      if (swingIds.size > 0) {
+        const names = eligible.filter(p => swingIds.has(p.id)).map(p => p.name).join(', ');
+        messages.push(`${names} fail${swingIds.size === 1 ? 's' : ''} SWING`);
+        pokerW = findPokerWinner(pokerCands.filter(p => !swingIds.has(p.id)));
+        suitsW = findSuitsWinner(suitsCands.filter(p => !swingIds.has(p.id)));
       }
-      pokerCands = pokerCands.filter(p => !swingIds.includes(p.id));
-      suitsCands = suitsCands.filter(p => !swingIds.includes(p.id));
-      pokerW = findPokerWinner(pokerCands);
-      suitsW = findSuitsWinner(suitsCands);
 
-      if (pokerW.length === 0 && suitsW.length === 0) { rolledOver += sp.amount; continue; }
-      let pokerShare = 0, suitsShare = 0;
-      if (pokerW.length > 0 && suitsW.length > 0) {
-        pokerShare = Math.floor(sp.amount / 2);
-        suitsShare = sp.amount - pokerShare;
-      } else if (pokerW.length > 0) pokerShare = sp.amount;
-      else suitsShare = sp.amount;
-      distribute(pokerW.map(w => w.id), pokerShare);
-      distribute(suitsW.map(w => w.id), suitsShare);
+      if (!pokerW.length && !suitsW.length) { rolledOver += sp.amount; continue; }
+
+      anyWinner = true;
+
+      if (pokerW.length && suitsW.length) {
+        // ── Both sides contested: normal 50/50 split ──
+        dist(pokerDeltas, pokerW.map(w => w.id), pokerHalf);
+        dist(suitsDeltas, suitsW.map(w => w.id), suitsHalf);
+      } else if (pokerW.length) {
+        // ── Uncontested suits: poker winner takes both pots ──
+        dist(pokerDeltas, pokerW.map(w => w.id), pokerHalf);
+        dist(suitsDeltas, pokerW.map(w => w.id), suitsHalf);
+        suitsW = pokerW; // poker winner also awarded the suits pot
+      } else {
+        // ── Uncontested poker: suits winner takes both pots ──
+        dist(pokerDeltas, suitsW.map(w => w.id), pokerHalf);
+        dist(suitsDeltas, suitsW.map(w => w.id), suitsHalf);
+        pokerW = suitsW; // suits winner also awarded the poker pot
+      }
+
       pokerW.forEach(w => pokerWinIds.add(w.id));
       suitsW.forEach(w => suitsWinIds.add(w.id));
-      anyWinner = true;
     }
 
     if (!anyWinner) {
-      messages.push(`No qualifiers. $${rolledOver} rolls over!`);
+      messages.push(`No qualifiers — $${rolledOver} rolls over`);
       return { players: finalPlayers, pot: rolledOver, messages };
     }
 
-    const awardedTotal = totalAwardable - rolledOver;
-    if (swingScoopIds.size > 0 && swingScoopIds.size > 1) messages.push(`Split Pot — ${swingScoopIds.size} SWING scoops split $${awardedTotal}`);
-    else if (pokerWinIds.size > 0 && suitsWinIds.size > 0) messages.push(`Split Pot — POKER/SUITS split $${awardedTotal}`);
-
-    for (const id of Object.keys(deltas)) {
-      const fp = finalPlayers.find(p => p.id === id);
-      if (!fp) continue;
-      const award = deltas[id];
-      fp.chips += award;
-      fp.isWinner = true;
-      if (swingScoopIds.has(id)) messages.push(`${fp.name} SCOOPS $${award} with SWING!`);
-      else if (pokerWinIds.has(id)) messages.push(`${fp.name} wins POKER — $${award} (${fp.score?.high})`);
-      else if (suitsWinIds.has(id)) messages.push(`${fp.name} wins SUITS — $${award} (${fp.score?.low})`);
+    // ── 6. Apply deltas, set winner/loser ─────────────────────────────────
+    const allIds = new Set([...Object.keys(pokerDeltas), ...Object.keys(suitsDeltas)]);
+    for (const id of allIds) {
+      const p = finalPlayers.find(fp => fp.id === id);
+      if (!p) continue;
+      p.chips += (pokerDeltas[id] || 0) + (suitsDeltas[id] || 0);
+      p.isWinner = true;
     }
     finalPlayers.forEach(p => { if (p.status !== 'folded' && !p.isWinner) p.isLoser = true; });
+
+    // ── 7. Display messages ────────────────────────────────────────────────
+    // SP_POKER|name|handDesc|amount  and  SP_SUITS|name|handDesc|amount
+    // The overlay detects these to render its two-panel showdown display.
+    const totalPokerPot = Object.values(pokerDeltas).reduce((s, v) => s + v, 0);
+    const totalSuitsPot = Object.values(suitsDeltas).reduce((s, v) => s + v, 0);
+
+    // Determine per-side winners for display
+    const resolvedPokerWinners = [...pokerWinIds].map(id => finalPlayers.find(p => p.id === id)!).filter(Boolean);
+    const resolvedSuitsWinners = [...suitsWinIds].map(id => finalPlayers.find(p => p.id === id)!).filter(Boolean);
+
+    // Poker panel
+    if (resolvedPokerWinners.length) {
+      const names = resolvedPokerWinners.map(p => p.name).join(' & ');
+      // Pick the best poker hand description from the poker winners
+      let handDesc = 'High Card';
+      let bestVal = 0;
+      for (const w of resolvedPokerWinners) {
+        if ((w.score?.pokerValue ?? 0) > bestVal) { bestVal = w.score!.pokerValue!; handDesc = w.score?.high ?? 'High Card'; }
+      }
+      // Is this uncontested (suits winner also won poker pot)?
+      const isUncontested = resolvedPokerWinners.every(w => suitsWinIds.has(w.id)) && suitsWinIds.size > 0 && pokerWinIds.size === suitsWinIds.size;
+      const pokerDesc = isUncontested && !swingScoopIds.has(resolvedPokerWinners[0].id) ? `${handDesc} (uncontested suits)` : handDesc;
+      messages.push(`SP_POKER|${names}|${pokerDesc}|${totalPokerPot}`);
+    }
+
+    // Suits panel
+    if (resolvedSuitsWinners.length) {
+      const names = resolvedSuitsWinners.map(p => p.name).join(' & ');
+      let suitsDesc = '—';
+      let bestScore = 0;
+      for (const w of resolvedSuitsWinners) {
+        if ((w.score?.suitsScore ?? 0) > bestScore) { bestScore = w.score!.suitsScore!; suitsDesc = w.score?.low ?? '—'; }
+      }
+      // Uncontested poker: suits winner also won poker pot, no poker hand needed
+      const isUncontested = resolvedSuitsWinners.every(w => pokerWinIds.has(w.id)) && pokerWinIds.size > 0 && pokerWinIds.size === suitsWinIds.size;
+      const displayDesc = (isUncontested && !swingScoopIds.has(resolvedSuitsWinners[0].id)) ? `${suitsDesc} (uncontested poker)` : suitsDesc;
+      messages.push(`SP_SUITS|${names}|${displayDesc}|${totalSuitsPot}`);
+    }
+
     return { players: finalPlayers, pot: rolledOver, messages };
   }
 };
