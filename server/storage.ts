@@ -186,6 +186,7 @@ export interface IStorage {
   getPlayerBanStatus(id: string): Promise<BanStatus | null>;
   clearExpiredBan(playerId: string): Promise<void>;
   deletePlayerSessions(playerId: string): Promise<void>;
+  listMembers(limit: number, offset: number): Promise<PlayerSearchResult[]>;
   searchPlayers(query: string): Promise<PlayerSearchResult[]>;
   getPlayerFullDetails(id: string): Promise<AdminPlayerDetails | null>;
   getPlayerChipHistory(playerId: string, limit: number, offset: number): Promise<ChipTransaction[]>;
@@ -2522,6 +2523,29 @@ export class MemStorage implements IStorage {
 
   async deletePlayerSessions(playerId: string): Promise<void> {
     await db.delete(sessions).where(eq(sessions.playerId, playerId));
+  }
+
+  async listMembers(limit: number, offset: number): Promise<PlayerSearchResult[]> {
+    const rows = await db
+      .select({
+        id:          playerProfiles.id,
+        displayName: playerProfiles.displayName,
+        email:       playerProfiles.email,
+        chipBalance: playerProfiles.chipBalance,
+        stripes:     playerProfiles.stripes,
+        isAdmin:     playerProfiles.isAdmin,
+        bannedAt:    playerProfiles.bannedAt,
+        isDeleted:   playerProfiles.isDeleted,
+        createdAt:   playerProfiles.createdAt,
+      })
+      .from(playerProfiles)
+      .orderBy(desc(playerProfiles.createdAt))
+      .limit(limit)
+      .offset(offset);
+    return rows.map(r => ({
+      ...r,
+      isBanned: r.bannedAt !== null,
+    }));
   }
 
   async searchPlayers(query: string): Promise<PlayerSearchResult[]> {

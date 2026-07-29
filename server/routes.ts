@@ -2606,6 +2606,18 @@ export async function registerRoutes(
   const adminReasonSchema = z.object({ reason: z.string().min(10, "Reason must be at least 10 characters") });
   const adminAmountSchema  = adminReasonSchema.extend({ amount: z.number().int().min(1) });
 
+  // GET /api/admin/members?limit=50&offset=0  — paginated member list, newest first
+  app.get("/api/admin/members", requireAdmin, async (req, res) => {
+    try {
+      const limit  = Math.min(parseInt((req.query.limit  as string) ?? "50", 10) || 50, 200);
+      const offset = parseInt((req.query.offset as string) ?? "0",  10) || 0;
+      const members = await storage.listMembers(limit, offset);
+      res.json({ members, limit, offset });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/admin/players/search?q=  — search players by name / email / UUID
   app.get("/api/admin/players/search", requireAdmin, async (req, res) => {
     try {

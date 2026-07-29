@@ -6,7 +6,95 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlayerSearch } from "@/components/admin/PlayerSearch";
 import { PlayerPanel } from "@/components/admin/PlayerPanel";
 import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
-import type { MeResponse } from "@/components/admin/types";
+import type { MeResponse, PlayerSearchResult } from "@/components/admin/types";
+
+// ── Member list component ─────────────────────────────────────────────────────
+
+interface MemberListResponse {
+  members: PlayerSearchResult[];
+  limit:   number;
+  offset:  number;
+}
+
+function MemberList({ onSelect, selectedId }: { onSelect: (id: string) => void; selectedId: string | null }) {
+  const [offset, setOffset] = useState(0);
+  const PAGE = 20;
+
+  const { data, isLoading, isError } = useQuery<MemberListResponse>({
+    queryKey: ["admin", "members", offset],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/admin/members?limit=${PAGE}&offset=${offset}`);
+      if (!res.ok) throw new Error("Failed to load members");
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  const members = data?.members ?? [];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-white/30">
+          Members {offset > 0 ? `(${offset + 1}–${offset + members.length})` : `(newest first)`}
+        </p>
+        <div className="flex gap-2">
+          {offset > 0 && (
+            <button onClick={() => setOffset(o => Math.max(0, o - PAGE))}
+              className="text-[10px] font-mono text-white/40 hover:text-white/70 px-2 py-0.5 border border-white/10 rounded"
+            >← prev</button>
+          )}
+          {members.length === PAGE && (
+            <button onClick={() => setOffset(o => o + PAGE)}
+              className="text-[10px] font-mono text-white/40 hover:text-white/70 px-2 py-0.5 border border-white/10 rounded"
+            >next →</button>
+          )}
+        </div>
+      </div>
+
+      {isLoading && <p className="text-white/40 text-xs font-mono py-2">Loading…</p>}
+      {isError   && <p className="text-red-400 text-xs font-mono py-2">Failed to load</p>}
+
+      {!isLoading && members.length > 0 && (
+        <div className="border border-white/[0.08] rounded-lg overflow-hidden" data-testid="list-members">
+          {members.map(p => (
+            <button
+              key={p.id}
+              data-testid={`row-member-${p.id}`}
+              onClick={() => onSelect(p.id)}
+              className={[
+                "w-full text-left px-3 py-2 flex items-center gap-2 transition-colors",
+                "border-b border-white/[0.05] last:border-b-0 text-sm",
+                selectedId === p.id
+                  ? "bg-yellow-400/10 border-l-2 border-l-yellow-400"
+                  : "hover:bg-white/[0.04]",
+              ].join(" ")}
+            >
+              <span className="flex-1 min-w-0">
+                <span className="block font-mono text-white truncate">{p.displayName}</span>
+                {p.email && (
+                  <span className="block font-mono text-[10px] text-white/35 truncate">{p.email}</span>
+                )}
+              </span>
+              <span className="flex flex-col items-end shrink-0 gap-0.5">
+                <span className="font-mono text-[10px] text-white/40">
+                  ${p.chipBalance.toLocaleString()}
+                </span>
+                <span className="font-mono text-[10px] text-white/25">
+                  {new Date(p.createdAt).toLocaleDateString()}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && members.length === 0 && (
+        <p className="text-white/20 font-mono text-xs py-2">No members yet</p>
+      )}
+    </div>
+  );
+}
 
 // ── Analytics helpers (preserved from original) ──────────────────────────────
 
@@ -285,29 +373,35 @@ export default function Admin() {
 
           {/* Players tab */}
           <TabsContent value="players">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search panel */}
-              <div className="lg:w-72 shrink-0">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Search Players</p>
-                <PlayerSearch
-                  onSelect={id => setSelectedId(id)}
-                  selectedId={selectedId}
-                />
-              </div>
-
-              {/* Detail panel */}
-              <div className="flex-1 min-w-0">
-                {selectedId ? (
-                  <PlayerPanel
-                    key={selectedId}
-                    playerId={selectedId}
-                    meId={me.profileId}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center py-16 border border-white/[0.06] rounded-lg" data-testid="text-player-placeholder">
-                    <p className="text-white/20 font-mono text-sm">Select a player to view details</p>
+            <div className="flex flex-col gap-4">
+              {/* Member list + search side-by-side on large screens */}
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Left: member list + search */}
+                <div className="lg:w-80 shrink-0 flex flex-col gap-4">
+                  <MemberList onSelect={id => setSelectedId(id)} selectedId={selectedId} />
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Search Players</p>
+                    <PlayerSearch
+                      onSelect={id => setSelectedId(id)}
+                      selectedId={selectedId}
+                    />
                   </div>
-                )}
+                </div>
+
+                {/* Detail panel */}
+                <div className="flex-1 min-w-0">
+                  {selectedId ? (
+                    <PlayerPanel
+                      key={selectedId}
+                      playerId={selectedId}
+                      meId={me.profileId}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center py-16 border border-white/[0.06] rounded-lg" data-testid="text-player-placeholder">
+                      <p className="text-white/20 font-mono text-sm">Select a player to view details</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </TabsContent>

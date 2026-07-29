@@ -301,6 +301,17 @@ export default function Home() {
 
   const { profile: serverProfile, refetch } = useServerProfile();
 
+  // ── Guest nudge banner (show once per device for unauthenticated guests) ─────
+  const [guestNudgeDismissed, setGuestNudgeDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem('cgp_guest_nudge_dismissed') === '1'; } catch { return false; }
+  });
+  const isGuestUser   = serverProfile !== null && serverProfile !== undefined && serverProfile.hasAuth === false;
+  const showGuestNudge = isGuestUser && !guestNudgeDismissed;
+  const dismissGuestNudge = () => {
+    try { localStorage.setItem('cgp_guest_nudge_dismissed', '1'); } catch {}
+    setGuestNudgeDismissed(true);
+  };
+
   const chipMap    = getAllChips();
   const stats      = getPlayerStats();
   const totalChips = Object.values(chipMap).reduce((a, b) => a + b, 0);
@@ -577,6 +588,30 @@ export default function Home() {
       {/* ── Scrollable content ────────────────────────────────────────────────── */}
       <div style={{ flex: 1, paddingBottom: 140 }}>
         <div style={{ width: '100%', maxWidth: 512, margin: '0 auto' }}>
+
+          {/* ══ GUEST NUDGE BANNER ═══════════════════════════════════════════════ */}
+          {showGuestNudge && (
+            <div data-testid="banner-guest-nudge"
+              style={{ margin: '10px 14px 2px', padding: '12px 14px 12px 16px', background: 'linear-gradient(135deg,rgba(201,162,39,0.12),rgba(10,10,16,0.80))', border: '1px solid rgba(201,162,39,0.30)', borderLeft: '3px solid #C9A227', borderRadius: 12, display: 'flex', alignItems: 'flex-start', gap: 12, backdropFilter: 'blur(12px)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: '#C9A227', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>
+                  LOCK IN YOUR SPOT
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.70)', lineHeight: 1.4 }}>
+                  You're playing as a guest. Create a free account and your chips, stats, and streak never disappear.
+                </div>
+                <button
+                  onClick={() => navigate('/profile')}
+                  data-testid="btn-guest-nudge-cta"
+                  style={{ marginTop: 8, padding: '6px 14px', background: '#C9A227', color: '#0A0A10', fontFamily: 'monospace', fontWeight: 800, fontSize: 11, letterSpacing: '0.06em', borderRadius: 6, border: 'none', cursor: 'pointer' }}>
+                  CREATE ACCOUNT
+                </button>
+              </div>
+              <button onClick={dismissGuestNudge} data-testid="btn-guest-nudge-dismiss"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.30)', fontSize: 18, lineHeight: 1, padding: 2, flexShrink: 0 }}
+                aria-label="Dismiss">✕</button>
+            </div>
+          )}
 
           {/* ══ PLAYER AREA — floating, no box ═══════════════════════════════════ */}
           <button onClick={() => navigate('/profile')} data-testid="button-profile-strip"

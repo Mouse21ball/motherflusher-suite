@@ -1670,8 +1670,10 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
     const skipAllIn      = !isDrawPhase && !isDeclarePhase;
     const myIdx   = s.players.findIndex(p => p.id === s.activePlayerId);
     let nextIdx: number;
-    if (s.phase === 'DECLARE') {
-      // Advance to the next active player who has NOT yet declared.
+    if (s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET') {
+      // Advance to the next active player who has NOT yet declared / declared+bet.
+      // This correctly skips all-in players that were auto-declared before the
+      // human's turn, preventing the turn from cycling back to already-acted players.
       nextIdx = myIdx;
       for (let i = 1; i <= s.players.length; i++) {
         const idx = (myIdx + i) % s.players.length;
@@ -2439,7 +2441,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // ── draw ─────────────────────────────────────────────────────────────────
     else if (action === 'draw') {
       const indices: number[] = Array.isArray(payload) ? payload : [];
-      const drawCap = s.phase === 'DRAW_1' ? 3 : s.phase === 'DRAW_2' ? 2 : s.phase === 'DRAW_3' ? 1 : 0;
+      const drawCap = s.phase === 'DRAW_1' ? 3 : s.phase === 'DRAW_2' ? 2 : s.phase === 'DRAW_3' ? 1 : s.phase === 'DRAW' ? 2 : 0;
       if (indices.length > drawCap) { table.actionLock = false; return; }
       const player = newPlayers[playerIdx];
       const newCards = [...player.cards];
