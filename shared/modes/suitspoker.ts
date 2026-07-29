@@ -69,8 +69,15 @@ function eval5Cards(cards: CardType[]): { value: number; name: string } {
   return { value: kicker, name: 'High Card' };
 }
 
-export const PATH_A_INDICES = [0, 1, 2, 6, 7, 8, 9, 10, 11];
-export const PATH_B_INDICES = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+// Board layout (15 community cards):
+//   Side A  : indices 0, 1, 2                             = 3 cards (single row, left)
+//   Side B  : indices 3, 4, 5                             = 3 cards (single row, right)
+//   Center  : indices 6,7,8 / 9,10 / 11,12 / 13,14       = 9 cards (4 rows, middle)
+//
+// PATH_A = Side A (0-2) + Center (6-14)  — never includes Side B
+// PATH_B = Side B (3-5) + Center (6-14)  — never includes Side A
+export const PATH_A_INDICES = [0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+export const PATH_B_INDICES = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 interface CE { card: CardType; index: number; type: 'hole' | 'comm'; }
 
@@ -141,7 +148,7 @@ export const SuitsPokerMode: GameMode = {
   deal: (deck, players, myId) => {
     const newDeck = [...deck];
     const newPlayers = players.map(p => { if (p.status !== 'active') return p; return { ...p, cards: newDeck.splice(0, 5).map(c => ({ ...c, isHidden: p.id !== myId })) }; });
-    const communityCards = newDeck.splice(0, 12).map(c => ({ ...c, isHidden: true }));
+    const communityCards = newDeck.splice(0, 15).map(c => ({ ...c, isHidden: true }));
     return { players: newPlayers, communityCards, deck: newDeck };
   },
 
@@ -216,10 +223,14 @@ export const SuitsPokerMode: GameMode = {
   },
 
   getAutoTransition: (phase) => {
-    if (phase === 'REVEAL_TOP_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_TOP_ROW → BET_1'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i < 6 ? { ...c, isHidden: false } : c) }, message: 'Side A & Side B flops revealed!', advancePhase: true }; } };
-    if (phase === 'REVEAL_SECOND_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_SECOND_ROW → BET_2'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i >= 6 && i <= 8) ? { ...c, isHidden: false } : c) }, message: 'Center flop revealed!', advancePhase: true }; } };
-    if (phase === 'REVEAL_LOWER_CENTER') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_LOWER_CENTER → BET_3'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 9 || i === 10) ? { ...c, isHidden: false } : c) }, message: 'Lower center cards revealed!', advancePhase: true }; } };
-    if (phase === 'REVEAL_FACTOR_CARD') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_FACTOR_CARD → DECLARE_AND_BET'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i === 11 ? { ...c, isHidden: false } : c) }, message: 'Final card revealed!', advancePhase: true }; } };
+    // REVEAL_TOP_ROW: Side A (0-2) + Side B (3-5) + Center row 1 (6-8) — all visible before the draw
+    if (phase === 'REVEAL_TOP_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_TOP_ROW → DRAW'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => i < 9 ? { ...c, isHidden: false } : c) }, message: 'Side A, Side B & Center row 1 revealed!', advancePhase: true }; } };
+    // REVEAL_SECOND_ROW: Center row 2 (9-10)
+    if (phase === 'REVEAL_SECOND_ROW') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_SECOND_ROW → BET_2'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 9 || i === 10) ? { ...c, isHidden: false } : c) }, message: 'Center row 2 revealed!', advancePhase: true }; } };
+    // REVEAL_LOWER_CENTER: Center row 3 (11-12)
+    if (phase === 'REVEAL_LOWER_CENTER') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_LOWER_CENTER → BET_3'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 11 || i === 12) ? { ...c, isHidden: false } : c) }, message: 'Center row 3 revealed!', advancePhase: true }; } };
+    // REVEAL_FACTOR_CARD: Center row 4 (13-14)
+    if (phase === 'REVEAL_FACTOR_CARD') return { delay: 1000, action: (state) => { console.log('[CGP][suits_poker] auto-transition REVEAL_FACTOR_CARD → DECLARE_AND_BET'); return { stateUpdates: { communityCards: state.communityCards.map((c, i) => (i === 13 || i === 14) ? { ...c, isHidden: false } : c) }, message: 'Center row 4 revealed!', advancePhase: true }; } };
     return null;
   },
 
