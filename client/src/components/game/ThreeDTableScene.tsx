@@ -84,7 +84,8 @@ function getRingPosition(seatIndex: number): string {
 // ── Community card sub-components ─────────────────────────────────────────────
 
 function CommunityCardSlot({ card, selected }: { card?: import("@/lib/poker/types").CardType; selected?: boolean }) {
-  if (!card) return <div className="w-[46px] h-[66px] sm:w-[62px] sm:h-[88px] rounded-lg bg-white/[0.03] border border-white/[0.04]" />;
+  // Pass undefined through to PlayingCard — it renders a face-down card back for !card,
+  // so all 15 center slots remain visible even when game state has fewer cards.
   return <PlayingCard card={card} selected={selected} className="w-[46px] h-[66px] sm:w-[62px] sm:h-[88px]" />;
 }
 
