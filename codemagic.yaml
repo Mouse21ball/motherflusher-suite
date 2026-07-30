@@ -33,8 +33,6 @@ workflows:
   ios-release:
     name: Chain Gang Poker — iOS Release IPA
     max_build_duration: 60
-    integrations:
-      app_store_connect: Codemagic
     environment:
       ios_signing:
         distribution_type: app_store
