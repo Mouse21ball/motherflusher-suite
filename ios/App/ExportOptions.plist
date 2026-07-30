@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store</string>
+    <string>app-store-connect</string>
     <key>teamID</key>
     <string>UU223WQACF</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>com.dgmentertainment.poker</key>
-        <string>chain-gang-poker-app-store</string>
+        <string>5f47cf20-ca3d-4c7d-b806-f49e1ba9b4dd</string>
     </dict>
     <key>signingStyle</key>
     <string>manual</string>
