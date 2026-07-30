@@ -3,7 +3,20 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>development</string>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>UU223WQACF</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.dgmentertainment.poker</key>
+        <string>chain-gang-poker-app-store</string>
+    </dict>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
     <key>compileBitcode</key>
     <false/>
 </dict>

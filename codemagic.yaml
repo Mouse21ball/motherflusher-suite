@@ -33,7 +33,12 @@ workflows:
   ios-release:
     name: Chain Gang Poker — iOS Release IPA
     max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dgmentertainment.poker
       xcode: latest
       cocoapods: default
       node: 20
@@ -56,7 +61,7 @@ workflows:
       - name: Install CocoaPods
         script: cd ios/App && pod install
 
-      - name: Build unsigned IPA
+      - name: Build signed IPA for App Store
         script: |
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
@@ -65,12 +70,19 @@ workflows:
             -sdk iphoneos \
             -archivePath ios/App/App.xcarchive \
             archive \
-            CODE_SIGNING_ALLOWED=NO
+            DEVELOPMENT_TEAM=UU223WQACF \
+            CODE_SIGN_STYLE=Manual \
+            "CODE_SIGN_IDENTITY=iPhone Distribution" \
+            "PROVISIONING_PROFILE_SPECIFIER=chain-gang-poker-app-store"
           xcodebuild \
             -exportArchive \
             -archivePath ios/App/App.xcarchive \
             -exportPath ios/App/output \
-            -exportOptionsPlist ios/App/ExportOptions.plist \
-            CODE_SIGNING_ALLOWED=NO
+            -exportOptionsPlist ios/App/ExportOptions.plist
     artifacts:
       - ios/App/output/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
