@@ -34,6 +34,9 @@ workflows:
     name: Chain Gang Poker — iOS Release IPA
     max_build_duration: 60
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dgmentertainment.poker
       xcode: latest
       cocoapods: default
       node: 20
@@ -64,11 +67,8 @@ workflows:
             -configuration Release \
             -sdk iphoneos \
             -archivePath ios/App/App.xcarchive \
-            archive \
-            DEVELOPMENT_TEAM=UU223WQACF \
-            CODE_SIGN_STYLE=Manual \
-            "CODE_SIGN_IDENTITY=iPhone Distribution" \
-            "PROVISIONING_PROFILE_SPECIFIER=chain-gang-poker-app-store"
+            -allowProvisioningUpdates \
+            archive
           xcodebuild \
             -exportArchive \
             -archivePath ios/App/App.xcarchive \
