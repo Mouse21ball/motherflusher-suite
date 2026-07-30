@@ -91,12 +91,15 @@ workflows:
             -archivePath ios/App/App.xcarchive \
             -exportPath ios/App/output \
             -exportOptionsPlist ios/App/ExportOptions.plist
+      - name: Publish to App Store Connect
+        script: |
+          echo $APP_STORE_CONNECT_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
+          app-store-connect publish \
+            --path ios/App/output/*.ipa \
+            --key-id $APP_STORE_CONNECT_KEY_IDENTIFIER \
+            --issuer-id $APP_STORE_CONNECT_ISSUER_ID \
+            --private-key @file:/tmp/auth_key.p8 \
+            --testflight
     artifacts:
       - ios/App/output/*.ipa
       - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
