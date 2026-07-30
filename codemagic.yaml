@@ -93,7 +93,8 @@ workflows:
             -exportOptionsPlist ios/App/ExportOptions.plist
       - name: Publish to App Store Connect
         script: |
-          echo $APP_STORE_CONNECT_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
+          echo $APP_STORE_CONNECT_PRIVATE_KEY | openssl base64 -d -A > /tmp/auth_key.p8
+          cat /tmp/auth_key.p8
           app-store-connect publish \
             --path ios/App/output/*.ipa \
             --key-id 4984MJ9J5J \
