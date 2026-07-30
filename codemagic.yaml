@@ -32,8 +32,6 @@ workflows:
 
   ios-release:
     name: iOS Release
-    integrations:
-      app_store_connect: Codemagic
     environment:
       ios_signing:
         distribution_type: app_store
@@ -73,5 +71,7 @@ workflows:
       - ios/App/output/*.ipa
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
