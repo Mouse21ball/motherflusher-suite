@@ -31,76 +31,47 @@ workflows:
       - android/app/build/outputs/bundle/release/app-release.aab
 
   ios-release:
-    name: Chain Gang Poker — iOS Release IPA
-    max_build_duration: 60
+    name: iOS Release
+    integrations:
+      app_store_connect: Codemagic
     environment:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.dgmentertainment.poker
+      vars:
+        BUNDLE_ID: com.dgmentertainment.poker
+        VITE_API_BASE_URL: https://chainggangpoker.com
+        VITE_SHARE_ORIGIN: https://chainggangpoker.com
       xcode: latest
       cocoapods: default
       node: 20
-      vars:
-        VITE_API_BASE_URL: https://chainggangpoker.com
-        VITE_SHARE_ORIGIN: https://chainggangpoker.com
     scripts:
       - name: Install npm dependencies
         script: |
           rm -f package-lock.json
           unset NPM_CONFIG_REGISTRY
           npm install --registry https://registry.npmjs.org/
-
       - name: Build web app
         script: npm run build
-
       - name: Capacitor sync iOS
         script: npx cap sync ios
-
       - name: Install CocoaPods
         script: cd ios/App && pod install
-
-      - name: Find provisioning profile UUID
-        script: |
-          PROFILE_UUID=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "*.mobileprovision" | while read f; do
-            uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$f")" 2>/dev/null)
-            echo "$uuid"
-          done | head -1)
-          echo "Resolved PROFILE_UUID: $PROFILE_UUID"
-          echo "PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
-
       - name: Build signed IPA for App Store
         script: |
-          # Patch ExportOptions.plist to use the installed profile UUID at runtime
-          /usr/libexec/PlistBuddy \
-            -c "Set :provisioningProfiles:com.dgmentertainment.poker $PROFILE_UUID" \
-            ios/App/ExportOptions.plist
-          xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+          xcode-project use-profiles
+          xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Release \
-            -sdk iphoneos \
             -archivePath ios/App/App.xcarchive \
-            -allowProvisioningUpdates \
-            archive \
-            DEVELOPMENT_TEAM=UU223WQACF \
-            CODE_SIGN_STYLE=Manual \
-            "CODE_SIGN_IDENTITY=iPhone Distribution" \
-            "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_UUID"
-          xcodebuild \
-            -exportArchive \
+            archive
+          xcodebuild -exportArchive \
             -archivePath ios/App/App.xcarchive \
-            -exportPath ios/App/output \
-            -exportOptionsPlist ios/App/ExportOptions.plist
-      - name: Publish to App Store Connect
-        script: |
-          echo $APP_STORE_CONNECT_PRIVATE_KEY | openssl base64 -d -A > /tmp/auth_key.p8
-          cat /tmp/auth_key.p8
-          app-store-connect publish \
-            --path ios/App/output/*.ipa \
-            --key-id 4984MJ9J5J \
-            --issuer-id c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
-            --private-key @file:/tmp/auth_key.p8 \
-            --testflight
+            -exportOptionsPlist ios/App/ExportOptions.plist \
+            -exportPath ios/App/output
     artifacts:
       - ios/App/output/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
