@@ -70,11 +70,11 @@ workflows:
       - name: Upload to App Store Connect
         script: |
           mkdir -p /Users/builder/.appstoreconnect/private_keys
-          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 -d > /Users/builder/.appstoreconnect/private_keys/AuthKey_4984MJ9J5J.p8
+          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 -d > /Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8
           xcrun altool --upload-app \
             --type ios \
             --file /Users/builder/clone/ios/App/output/App.ipa \
-            --apiKey 4984MJ9J5J \
+            --apiKey Q46H98VAD4 \
             --apiIssuer c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
             --verbose
     artifacts:
