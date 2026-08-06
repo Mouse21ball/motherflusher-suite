@@ -32,6 +32,8 @@ workflows:
 
   ios-release:
     name: iOS Release
+    integrations:
+      app_store_connect: Codemagic
     environment:
       ios_signing:
         distribution_type: app_store
@@ -50,7 +52,7 @@ workflows:
         script: npx cap sync ios
       - name: Install CocoaPods
         script: cd ios/App && pod install
-      - name: Build signed IPA for App Store
+      - name: Build signed IPA
         script: |
           xcode-project use-profiles
           xcodebuild -workspace ios/App/App.xcworkspace \
@@ -66,7 +68,5 @@ workflows:
       - ios/App/output/*.ipa
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         submit_to_testflight: true
