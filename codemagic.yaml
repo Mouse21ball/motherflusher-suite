@@ -33,6 +33,8 @@ workflows:
   ios-release:
     name: iOS Release
     environment:
+      groups:
+        - app_store_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.dgmentertainment.poker
@@ -40,9 +42,6 @@ workflows:
         BUNDLE_ID: com.dgmentertainment.poker
         VITE_API_BASE_URL: https://chainggangpoker.com
         VITE_SHARE_ORIGIN: https://chainggangpoker.com
-        APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
       xcode: latest
       cocoapods: default
       node: 20
@@ -70,16 +69,11 @@ workflows:
             -archivePath ios/App/App.xcarchive \
             -exportOptionsPlist ios/App/ExportOptions.plist \
             -exportPath ios/App/output
-      - name: Upload to App Store Connect
-        script: |
-          mkdir -p /Users/builder/.appstoreconnect/private_keys
-          python3 -c "
-          import base64, os
-          k = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY','')
-          b = base64.b64decode(k)
-          open('/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8','wb').write(b)
-          print('wrote',len(b),'bytes')
-          "
-          app-store-connect publish --path /Users/builder/clone/ios/App/output/App.ipa --key-id Q46H98VAD4 --issuer-id c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 --private-key @file:/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8 --testflight
     artifacts:
       - ios/App/output/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
