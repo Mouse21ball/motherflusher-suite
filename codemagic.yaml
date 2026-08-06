@@ -79,15 +79,13 @@ workflows:
           os.makedirs(os.path.dirname(key_path), exist_ok=True)
           with open(key_path, 'wb') as f:
               f.write(key_bytes)
-          print("Key written successfully")
-          with open(key_path, 'r') as f:
-              print(f.read()[:50])
+          print("Key written")
           EOF
-          xcrun altool --upload-app \
-            --type ios \
-            --file /Users/builder/clone/ios/App/output/App.ipa \
-            --apiKey Q46H98VAD4 \
-            --apiIssuer c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
-            --verbose
+          app-store-connect publish \
+            --path /Users/builder/clone/ios/App/output/App.ipa \
+            --key-id Q46H98VAD4 \
+            --issuer-id c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
+            --private-key @file:/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8 \
+            --testflight
     artifacts:
       - ios/App/output/*.ipa
