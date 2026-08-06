@@ -1,0 +1,27 @@
+name: Upload iOS to App Store
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'URL to download the IPA from Codemagic artifacts'
+        required: true
+
+jobs:
+  upload:
+    runs-on: macos-latest
+    steps:
+      - name: Download IPA
+        run: curl -L "${{ github.event.inputs.ipa_url }}" -o App.ipa
+
+      - name: Write API Key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8
+
+      - name: Upload to App Store Connect
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file App.ipa \
+            --apiKey Q46H98VAD4 \
+            --apiIssuer c6f2ea72-aabb-42c2-b0a6-93189e5b51a3
