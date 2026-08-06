@@ -40,6 +40,9 @@ workflows:
         BUNDLE_ID: com.dgmentertainment.poker
         VITE_API_BASE_URL: https://chainggangpoker.com
         VITE_SHARE_ORIGIN: https://chainggangpoker.com
+        APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
       xcode: latest
       cocoapods: default
       node: 20
