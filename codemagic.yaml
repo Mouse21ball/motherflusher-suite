@@ -70,16 +70,23 @@ workflows:
       - name: Upload to App Store Connect
         script: |
           python3 << 'EOF'
-          import base64
-          import os
+          import base64, os
 
           key_b64 = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY', '')
-          key_bytes = base64.b64decode(key_b64)
+          key_bytes = base64.b64decode(key_b64 + '==')
+          key_str = key_bytes.decode('utf-8')
+
           key_path = '/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8'
           os.makedirs(os.path.dirname(key_path), exist_ok=True)
-          with open(key_path, 'wb') as f:
-              f.write(key_bytes)
-          print("Key written")
+
+          with open(key_path, 'w', newline='\n') as f:
+              f.write(key_str)
+
+          with open(key_path, 'r') as f:
+              content = f.read()
+          print("File contents:")
+          print(content)
+          print("Length:", len(content))
           EOF
           app-store-connect publish \
             --path /Users/builder/clone/ios/App/output/App.ipa \
