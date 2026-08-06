@@ -67,5 +67,27 @@ workflows:
             -archivePath ios/App/App.xcarchive \
             -exportOptionsPlist ios/App/ExportOptions.plist \
             -exportPath ios/App/output
+      - name: Upload to App Store Connect
+        script: |
+          python3 << 'EOF'
+          import base64
+          import os
+
+          key_b64 = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY', '')
+          key_bytes = base64.b64decode(key_b64)
+          key_path = '/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8'
+          os.makedirs(os.path.dirname(key_path), exist_ok=True)
+          with open(key_path, 'wb') as f:
+              f.write(key_bytes)
+          print("Key written successfully")
+          with open(key_path, 'r') as f:
+              print(f.read()[:50])
+          EOF
+          xcrun altool --upload-app \
+            --type ios \
+            --file /Users/builder/clone/ios/App/output/App.ipa \
+            --apiKey Q46H98VAD4 \
+            --apiIssuer c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
+            --verbose
     artifacts:
       - ios/App/output/*.ipa
