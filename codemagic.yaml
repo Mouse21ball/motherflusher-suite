@@ -72,30 +72,14 @@ workflows:
             -exportPath ios/App/output
       - name: Upload to App Store Connect
         script: |
-          python3 << 'EOF'
+          mkdir -p /Users/builder/.appstoreconnect/private_keys
+          python3 -c "
           import base64, os
-
-          key_b64 = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY', '')
-          key_bytes = base64.b64decode(key_b64 + '==')
-          key_str = key_bytes.decode('utf-8')
-
-          key_path = '/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8'
-          os.makedirs(os.path.dirname(key_path), exist_ok=True)
-
-          with open(key_path, 'w', newline='\n') as f:
-              f.write(key_str)
-
-          with open(key_path, 'r') as f:
-              content = f.read()
-          print("File contents:")
-          print(content)
-          print("Length:", len(content))
-          EOF
-          app-store-connect publish \
-            --path /Users/builder/clone/ios/App/output/App.ipa \
-            --key-id Q46H98VAD4 \
-            --issuer-id c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 \
-            --private-key @file:/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8 \
-            --testflight
+          k = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY','')
+          b = base64.b64decode(k)
+          open('/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8','wb').write(b)
+          print('wrote',len(b),'bytes')
+          "
+          app-store-connect publish --path /Users/builder/clone/ios/App/output/App.ipa --key-id Q46H98VAD4 --issuer-id c6f2ea72-aabb-42c2-b0a6-93189e5b51a3 --private-key @file:/Users/builder/.appstoreconnect/private_keys/AuthKey_Q46H98VAD4.p8 --testflight
     artifacts:
       - ios/App/output/*.ipa
