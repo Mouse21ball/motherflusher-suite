@@ -33,18 +33,11 @@ workflows:
   ios-release:
     name: iOS Release
     environment:
-      groups:
-        - app_store_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.dgmentertainment.poker
-      vars:
-        BUNDLE_ID: com.dgmentertainment.poker
-        VITE_API_BASE_URL: https://chainggangpoker.com
-        VITE_SHARE_ORIGIN: https://chainggangpoker.com
       xcode: latest
       cocoapods: default
-      node: 20
     scripts:
       - name: Install npm dependencies
         script: |
