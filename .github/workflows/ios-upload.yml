@@ -19,6 +19,12 @@ jobs:
           file App.ipa
           ls -la App.ipa
 
+      - name: Check downloaded file
+        run: |
+          ls -la App.ipa
+          file App.ipa
+          head -c 100 App.ipa | xxd
+
       - name: Write API Key
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
