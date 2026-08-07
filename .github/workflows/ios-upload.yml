@@ -13,7 +13,6 @@ jobs:
       - name: Download IPA
         run: |
           curl -L \
-            -H "x-auth-token: ${{ secrets.CODEMAGIC_API_TOKEN }}" \
             "${{ github.event.inputs.ipa_url }}" \
             -o App.ipa
           file App.ipa
