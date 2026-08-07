@@ -11,7 +11,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download IPA
-        run: curl -L "${{ github.event.inputs.ipa_url }}" -o App.ipa
+        run: |
+          curl -L \
+            -H "x-auth-token: ${{ secrets.CODEMAGIC_API_TOKEN }}" \
+            "${{ github.event.inputs.ipa_url }}" \
+            -o App.ipa
+          file App.ipa
+          ls -la App.ipa
 
       - name: Write API Key
         run: |
