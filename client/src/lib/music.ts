@@ -15,7 +15,6 @@ const STORAGE_KEY           = 'cgp_music_muted';
 const VOLUME_STORAGE_KEY    = 'cgp_music_volume';
 const POSITION_STORAGE_KEY  = 'cgp_music_pos';
 const DEFAULT_VOLUME        = 0.3;
-const PREVIEW_VOL           = 0.5;
 const POS_SAVE_INTERVAL_MS  = 5_000;   // save position every 5 s while playing
 const POS_MAX_AGE_MS        = 3_600_000; // discard saved position older than 1 h
 
@@ -143,6 +142,7 @@ class MusicManager {
     this._volume = clamped;
     this.writeVolume(clamped);
     if (this.audio) this.audio.volume = clamped;
+    if (this.previewAudio) this.previewAudio.volume = clamped;
     this.notify();
   }
 
@@ -204,7 +204,7 @@ class MusicManager {
     this.stopPreview();
 
     const el = new Audio(url);
-    el.volume  = PREVIEW_VOL;
+    el.volume  = this._volume;
     el.preload = 'auto';
     el.addEventListener('error', () => {
       this.stopPreview();
