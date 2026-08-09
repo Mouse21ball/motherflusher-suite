@@ -21,10 +21,14 @@ interface MusicStoreProps {
 
 export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId }: MusicStoreProps) {
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [muted,        setMuted]        = useState(() => music.muted);
+  const [volume,       setVolume]       = useState(() => music.volume);
 
-  // Stay in sync with the singleton's preview state (auto-stops after 15 s)
+  // Stay in sync with the singleton state (preview stops, mute, volume)
   useEffect(() => music.subscribe(() => {
     setPreviewingId(music.previewingId);
+    setMuted(music.muted);
+    setVolume(music.volume);
   }), []);
 
   function handlePreview(trackId: string, audioPath: string, previewPath: string) {
@@ -41,10 +45,54 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
       <div style={{ padding: '12px 0 10px', textAlign: 'center' }}>
         <p style={{
           fontSize: 11, color: 'rgba(255,255,255,0.35)',
-          fontFamily: 'monospace', letterSpacing: '0.05em', margin: 0,
+          fontFamily: 'monospace', letterSpacing: '0.05em', margin: '0 0 10px',
         }}>
           2 FREE tracks included • 14 tracks at ◆ {COST} Stripes each
         </p>
+
+        {/* Volume control row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', borderRadius: 10,
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          {/* Mute toggle icon */}
+          <button
+            onClick={() => music.toggleMute()}
+            title={muted ? 'Unmute' : 'Mute'}
+            style={{
+              background: 'none', border: 'none', padding: 0,
+              cursor: 'pointer', flexShrink: 0, lineHeight: 1,
+              fontSize: 15, color: muted ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.70)',
+            }}
+          >
+            {muted ? '🔇' : volume < 0.4 ? '🔈' : '🔊'}
+          </button>
+
+          {/* Slider */}
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={e => {
+              const v = parseFloat(e.target.value);
+              if (muted && v > 0) music.setMuted(false);
+              music.setVolume(v);
+            }}
+            style={{ flex: 1, cursor: 'pointer', accentColor: '#C9A227' }}
+          />
+
+          {/* Percentage label */}
+          <span style={{
+            fontSize: 10, fontFamily: 'monospace', minWidth: 28, textAlign: 'right',
+            color: 'rgba(255,255,255,0.35)',
+          }}>
+            {muted ? '0%' : `${Math.round(volume * 100)}%`}
+          </span>
+        </div>
       </div>
 
       {/* Active track list */}

@@ -11,14 +11,16 @@
  * across sessions.
  */
 
-const STORAGE_KEY = 'cgp_music_muted';
-const VOLUME       = 0.3;
-const PREVIEW_VOL  = 0.5;
+const STORAGE_KEY        = 'cgp_music_muted';
+const VOLUME_STORAGE_KEY = 'cgp_music_volume';
+const DEFAULT_VOLUME     = 0.3;
+const PREVIEW_VOL        = 0.5;
 
 class MusicManager {
   private audio: HTMLAudioElement | null       = null;
   private currentUrl: string | null            = null;
   private _muted: boolean;
+  private _volume: number;
   /** True once the first user gesture has unlocked the audio context */
   private unlocked = false;
 
@@ -30,7 +32,8 @@ class MusicManager {
   private listeners = new Set<() => void>();
 
   constructor() {
-    this._muted = this.readMuted();
+    this._muted  = this.readMuted();
+    this._volume = this.readVolume();
 
     // Queue playback start on first user gesture (browser autoplay policy).
     const unlock = () => {
@@ -58,6 +61,19 @@ class MusicManager {
     try { localStorage.setItem(STORAGE_KEY, v ? '1' : '0'); } catch {}
   }
 
+  private readVolume(): number {
+    try {
+      const raw = localStorage.getItem(VOLUME_STORAGE_KEY);
+      if (raw === null) return DEFAULT_VOLUME;
+      const parsed = parseFloat(raw);
+      return isNaN(parsed) ? DEFAULT_VOLUME : Math.min(1, Math.max(0, parsed));
+    } catch { return DEFAULT_VOLUME; }
+  }
+
+  private writeVolume(v: number): void {
+    try { localStorage.setItem(VOLUME_STORAGE_KEY, String(v)); } catch {}
+  }
+
   // ── Subscriptions ────────────────────────────────────────────────────────────
 
   subscribe(fn: () => void): () => void {
@@ -73,8 +89,23 @@ class MusicManager {
 
   get muted(): boolean { return this._muted; }
 
+  /** Current background volume, 0–1. */
+  get volume(): number { return this._volume; }
+
   /** ID of the track currently being previewed, or null. */
   get previewingId(): string | null { return this._previewingId; }
+
+  /**
+   * Set background music volume (0–1). Persists to localStorage.
+   * Has no effect on preview clips.
+   */
+  setVolume(v: number): void {
+    const clamped = Math.min(1, Math.max(0, v));
+    this._volume = clamped;
+    this.writeVolume(clamped);
+    if (this.audio) this.audio.volume = clamped;
+    this.notify();
+  }
 
   /**
    * Set the background track to play (or null for silence).
@@ -170,7 +201,7 @@ class MusicManager {
     }
     const el = new Audio(url);
     el.loop    = true;
-    el.volume  = VOLUME;
+    el.volume  = this._volume;
     el.preload = 'auto';
     // Silently ignore 404 / autoplay errors (file not uploaded yet)
     el.addEventListener('error', () => {}, { once: true });
