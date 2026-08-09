@@ -122,14 +122,35 @@ class MusicManager {
 
     this.currentUrl = url;
 
-    // Tear down previous element
+    if (!url) {
+      // Track cleared (e.g. route unmount): pause but keep the audio element
+      // intact so the same track can resume seamlessly if re-equipped.
+      this.audio?.pause();
+      return;
+    }
+
+    // Check if the existing audio element already has this URL loaded.
+    // This handles the case where a route transition temporarily sets the
+    // URL to null and then back to the same track — we can resume in place
+    // rather than restarting from the beginning.
     if (this.audio) {
+      const resolvedUrl = (() => {
+        try { return new URL(url, window.location.href).href; } catch { return url; }
+      })();
+      if (this.audio.src === resolvedUrl || this.audio.src === url) {
+        // Same track is already loaded — just resume from current position
+        if (this.unlocked && !this._muted) {
+          this.audio.play().catch(() => {});
+        }
+        return;
+      }
+      // Different track: tear down the old element
       this.audio.pause();
       this.audio.src = '';
       this.audio = null;
     }
 
-    if (url && this.unlocked && !this._muted) {
+    if (this.unlocked && !this._muted) {
       this.startAudio(url);
     }
   }
