@@ -43,7 +43,7 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
           fontSize: 11, color: 'rgba(255,255,255,0.35)',
           fontFamily: 'monospace', letterSpacing: '0.05em', margin: 0,
         }}>
-          2 FREE tracks included • 7 tracks at ◆ {COST} Stripes each
+          2 FREE tracks included • 14 tracks at ◆ {COST} Stripes each
         </p>
       </div>
 
