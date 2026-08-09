@@ -238,6 +238,166 @@ app.use((req, res, next) => {
     res.send('google-site-verification: google617a2c28516b9bb1.html');
   });
 
+  // ── Privacy Policy ──────────────────────────────────────────────────────────
+  // Registered before serveStatic / Vite catch-all so the SPA doesn't intercept.
+  app.get('/privacy', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Chain Gang Poker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0e;
+      color: #d4d4d8;
+      line-height: 1.7;
+      padding: 24px 16px 64px;
+    }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    .logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #C9A227;
+      margin-bottom: 32px;
+    }
+    h1 {
+      font-size: clamp(22px, 5vw, 30px);
+      font-weight: 700;
+      color: #f4f4f5;
+      margin-bottom: 8px;
+    }
+    .meta {
+      font-size: 13px;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 40px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f4f4f5;
+      margin: 36px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    p { margin-bottom: 12px; font-size: 15px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 15px; margin-bottom: 6px; }
+    a { color: #C9A227; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .footer {
+      margin-top: 56px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 13px;
+      color: rgba(255,255,255,0.30);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Chain Gang Poker</div>
+
+    <h1>Privacy Policy</h1>
+    <p class="meta">DGM Entertainment LLC &nbsp;·&nbsp; Last updated: August 2026</p>
+
+    <p>
+      This Privacy Policy describes how DGM Entertainment LLC ("we", "us", or "our")
+      collects, uses, and protects your information when you play Chain Gang Poker.
+      By using the app, you agree to the practices described here.
+    </p>
+
+    <h2>Information We Collect</h2>
+    <p>We collect the following information when you create an account or play the game:</p>
+    <ul>
+      <li><strong>Email address</strong> — used for account login and password recovery</li>
+      <li><strong>Username and User ID</strong> — used to identify you within the game</li>
+      <li><strong>Purchase history</strong> — records of in-app purchases made through your app store account</li>
+      <li><strong>Gameplay activity</strong> — game results, chip balances, and feature usage to provide and improve the service</li>
+    </ul>
+    <p>We do not collect payment card numbers. All payment processing is handled by Google Play or the Apple App Store.</p>
+
+    <h2>How We Use Your Information</h2>
+    <ul>
+      <li>To create and manage your account</li>
+      <li>To provide the game service, including multiplayer features and leaderboards</li>
+      <li>To process and verify in-app purchases</li>
+      <li>To send account-related emails (e.g. password reset)</li>
+      <li>To diagnose technical issues and improve the game over time</li>
+    </ul>
+
+    <h2>In-App Purchases</h2>
+    <p>
+      Purchases made within Chain Gang Poker are processed entirely by
+      <strong>Google Play</strong> or the <strong>Apple App Store</strong>, depending
+      on your device. We receive a transaction receipt to verify and apply your purchase,
+      but we do not store your payment card details or billing address.
+      Please review Google's and Apple's privacy policies for information on how they
+      handle your payment data.
+    </p>
+
+    <h2>Data Sharing</h2>
+    <p>
+      <strong>We do not sell your personal data to third parties.</strong>
+      We do not share your information with advertisers or data brokers.
+      We may share data only as required by law or to protect the rights and safety of
+      our users.
+    </p>
+
+    <h2>Data Retention</h2>
+    <p>
+      We retain your account information for as long as your account is active.
+      If you wish to delete your account and associated data, please contact us at
+      the email address below.
+    </p>
+
+    <h2>Security</h2>
+    <p>
+      We use industry-standard practices to protect your information, including
+      encrypted connections (HTTPS) and hashed password storage. No method of
+      transmission over the internet is 100% secure, and we cannot guarantee
+      absolute security.
+    </p>
+
+    <h2>Children's Privacy</h2>
+    <p>
+      Chain Gang Poker is not directed at children under the age of 13.
+      We do not knowingly collect personal information from children under 13.
+      If you believe a child has provided us with personal information, please
+      contact us and we will delete it promptly.
+    </p>
+
+    <h2>Changes to This Policy</h2>
+    <p>
+      We may update this Privacy Policy from time to time. When we do, we will
+      update the "Last updated" date at the top. Continued use of the app after
+      changes are posted constitutes your acceptance of the revised policy.
+    </p>
+
+    <h2>Contact Us</h2>
+    <p>
+      If you have any questions or requests regarding this Privacy Policy, please
+      contact us at:<br />
+      <a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a>
+    </p>
+    <p>
+      <strong>DGM Entertainment LLC</strong>
+    </p>
+
+    <div class="footer">
+      &copy; 2026 DGM Entertainment LLC. All rights reserved.
+      &nbsp;·&nbsp; <a href="/">Back to Chain Gang Poker</a>
+    </div>
+  </div>
+</body>
+</html>`);
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
