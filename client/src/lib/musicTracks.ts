@@ -42,14 +42,12 @@ export const MUSIC_CATALOG: MusicTrackDef[] = [
   { id: 'music_built_in_the_dark',      title: 'Built In The Dark',      audioPath: '/audio/built-in-the-dark.mp3',      previewPath: '/audio/built-in-the-dark.mp3'      },
   { id: 'music_if_heaven_had_a_hallway',title: 'If Heaven Had a Hallway',audioPath: '/audio/if-heaven-had-a-hallway.mp3',previewPath: '/audio/if-heaven-had-a-hallway.mp3'},
   { id: 'music_weight_of_my_words',     title: 'Weight of My Words',     audioPath: '/audio/weight-of-my-words.mp3',     previewPath: '/audio/weight-of-my-words.mp3'     },
+  { id: 'music_bricks_dont_lie',        title: "Bricks Don't Lie",       audioPath: '/audio/bricks-dont-lie.mp3',        previewPath: '/audio/bricks-dont-lie.mp3'        },
+  { id: 'music_forged',                 title: 'Forged',                 audioPath: '/audio/forged.mp3',                 previewPath: '/audio/forged.mp3'                 },
+  { id: 'music_the_war_inside',         title: 'The War Inside',         audioPath: '/audio/the-war-inside.mp3',         previewPath: '/audio/the-war-inside.mp3'         },
 ];
 
-// ── Coming soon — display-only placeholders ───────────────────────────────────
-export const COMING_SOON_TRACKS: ComingSoonTrackDef[] = [
-  { title: 'Forged'           },
-  { title: "Bricks Don't Lie" },
-  { title: 'The War Inside'   },
-];
+export const COMING_SOON_TRACKS: ComingSoonTrackDef[] = [];
 
 /** IDs of tracks that are free for all players (no purchase required) */
 export const FREE_MUSIC_IDS = new Set(

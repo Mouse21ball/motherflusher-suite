@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { MUSIC_CATALOG, COMING_SOON_TRACKS } from '@/lib/musicTracks';
+import { MUSIC_CATALOG } from '@/lib/musicTracks';
 import { music } from '@/lib/music';
 
 interface MusicStoreProps {
@@ -186,59 +186,6 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
             </div>
           );
         })}
-      </div>
-
-      {/* Coming soon section */}
-      <div style={{ marginTop: 20 }}>
-        <div style={{
-          fontSize: 10, fontFamily: 'monospace', letterSpacing: '0.10em',
-          color: 'rgba(255,255,255,0.18)', textTransform: 'uppercase',
-          marginBottom: 8, paddingLeft: 2,
-        }}>
-          More Tracks Coming Soon
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {COMING_SOON_TRACKS.map((track, i) => (
-            <div
-              key={track.title}
-              style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          10,
-                padding:      '8px 12px',
-                borderRadius: 12,
-                background:   'rgba(255,255,255,0.02)',
-                border:       '1px solid rgba(255,255,255,0.04)',
-                opacity:      0.45,
-              }}
-            >
-              <span style={{
-                fontSize: 10, fontFamily: 'monospace',
-                color: 'rgba(255,255,255,0.15)',
-                minWidth: 18, textAlign: 'right',
-              }}>
-                {String(MUSIC_CATALOG.length + i + 1).padStart(2, '0')}
-              </span>
-              <span style={{ fontSize: 12, minWidth: 16, textAlign: 'center' }}>🔒</span>
-              <div style={{
-                flex: 1, fontSize: 12,
-                color: 'rgba(255,255,255,0.35)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {track.title}
-              </div>
-              <span style={{
-                fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.25)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                padding: '2px 7px', borderRadius: 6, flexShrink: 0,
-              }}>
-                SOON
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Insufficient Stripes hint */}

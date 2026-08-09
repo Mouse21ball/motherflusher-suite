@@ -470,7 +470,10 @@ export async function seedMusicTracks(): Promise<void> {
     { id: 'music_everything_a_test',       category: 'music', displayName: 'Everything a Test',       description: 'Stay sharp. Life keeps score.',                              stripesCost: 500, assetPath: '', colorValue: null, active: true },
     { id: 'music_built_in_the_dark',       category: 'music', displayName: 'Built In The Dark',       description: 'Nobody watched. You built anyway.',                          stripesCost: 500, assetPath: '', colorValue: null, active: true },
     { id: 'music_if_heaven_had_a_hallway', category: 'music', displayName: 'If Heaven Had a Hallway', description: 'A walk between worlds, between decisions.',                   stripesCost: 500, assetPath: '', colorValue: null, active: true },
-    { id: 'music_weight_of_my_words',      category: 'music', displayName: 'Weight of My Words',      description: 'Say what you mean. Mean what you say.',                      stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_weight_of_my_words',      category: 'music', displayName: 'Weight of My Words',      description: 'Say what you mean. Mean what you say.',      stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_bricks_dont_lie',         category: 'music', displayName: "Bricks Don't Lie",        description: 'The foundation never forgets.',              stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_forged',                  category: 'music', displayName: 'Forged',                  description: 'Pressure makes what lasts.',                 stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_the_war_inside',          category: 'music', displayName: 'The War Inside',           description: 'The hardest fight is the one no one sees.',  stripesCost: 500, assetPath: '', colorValue: null, active: true },
   ]).onConflictDoNothing();
 }
 
