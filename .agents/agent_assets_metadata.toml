@@ -71,3 +71,171 @@ id = "w9LY_dkdUmsbaXtAMoqC_"
 uri = "file://PROJECT_AUDIT.md"
 type = "text"
 title = "Chain Gang Poker — Project Audit Report"
+
+[[outputs]]
+id = "Ecv3m0A0qJUxsc30ANesF"
+uri = "file://client/public/audio/chain-gang-poker_2.mp3"
+type = "audio"
+title = "chain-gang-poker"
+description = "Generated music: Gritty blues-rock instrumental with a slow swagger, heavy bass groove, dirty guitar riffs, and a late-night poker table atmosphere. Dark Southern mood, 70s soul influence."
+
+[[outputs]]
+id = "YYfOT6-KFIT5zuV92dyVb"
+uri = "file://client/public/audio/no-halfway_2.mp3"
+type = "audio"
+title = "no-halfway"
+description = "Generated music: Hard-driving hip-hop instrumental, aggressive trap beat with heavy 808s, dark synth pads, determined and relentless energy, no compromise attitude."
+
+[[outputs]]
+id = "rp-zJFD2dNOiBFSzKCVff"
+uri = "file://client/public/audio/the-mask_2.mp3"
+type = "audio"
+title = "the-mask"
+description = "Generated music: Mysterious dark electronic instrumental, pulsing synth bass, eerie pads, masked identity theme, sleek and dangerous, underground club energy."
+
+[[outputs]]
+id = "RU9rEKrJJ3XeeT5mAnWtX"
+uri = "file://client/public/audio/chain-gang-nights_2.mp3"
+type = "audio"
+title = "chain-gang-nights"
+description = "Generated music: Dark smoky blues instrumental, slow and brooding, minor key harmonica and slide guitar, midnight jail house atmosphere, tension and quiet menace."
+
+[[outputs]]
+id = "-uivrOZ0IVVEJClP9YOov"
+uri = "file://client/public/audio/if-heaven-had-a-hallway_2.mp3"
+type = "audio"
+title = "if-heaven-had-a-hallway"
+description = "Generated music: Ethereal soulful instrumental, heavenly choir pads, warm gospel-influenced melody, spiritual and uplifting but with an undercurrent of struggle, cinematic."
+
+[[outputs]]
+id = "A3LqCvN0xl1Q8qHrekwSz"
+uri = "file://client/public/audio/bricks-dont-lie_2.mp3"
+type = "audio"
+title = "bricks-dont-lie"
+description = "Generated music: Hard street hip-hop instrumental, concrete and steel aesthetic, heavy drums, tough bass groove, uncompromising urban survivalist energy, no-nonsense beat."
+
+[[outputs]]
+id = "d7EINWM5Nz0WcJo00tcEK"
+uri = "file://client/public/audio/borrowed-time_2.mp3"
+type = "audio"
+title = "borrowed-time"
+description = "Generated music: Tense cinematic instrumental, slow burning suspense, sparse piano over dark strings, ticking clock feel, dramatic and foreboding atmosphere."
+
+[[outputs]]
+id = "I9W12uJKAe1CTAX5B2mVd"
+uri = "file://client/public/audio/blood-by-choice_2.mp3"
+type = "audio"
+title = "blood-by-choice"
+description = "Generated music: Heavy aggressive instrumental, thunderous drums, distorted bass, war-like energy, brotherhood and sacrifice theme, dark metal-influenced hip-hop fusion."
+
+[[outputs]]
+id = "J9qd42V3UcZjCCfzxnDkz"
+uri = "file://client/public/audio/everything-a-test_2.mp3"
+type = "audio"
+title = "everything-a-test"
+description = "Generated music: Focused determined instrumental, steady uptempo beat, sharp hi-hats, motivational dark energy, overcoming adversity theme, cinematic hip-hop."
+
+[[outputs]]
+id = "mK30M0sAEu570FDZsRByx"
+uri = "file://client/public/audio/prove-the-shadow_2.mp3"
+type = "audio"
+title = "prove-the-shadow"
+description = "Generated music: Moody atmospheric hip-hop instrumental, lo-fi textured beats, dark ambient pads, introspective and shadowy, quiet intensity with deep bass."
+
+[[outputs]]
+id = "WTfyFUUdM9GAXbT4_v4-8"
+uri = "file://client/public/audio/before-you-judge_2.mp3"
+type = "audio"
+title = "before-you-judge"
+description = "Generated music: Soulful introspective hip-hop instrumental, warm keys, smooth bass groove, reflective and dignified, old school soul influence with modern production."
+
+[[outputs]]
+id = "r6cjktvLj4R9GnLZ-SInh"
+uri = "file://client/public/audio/the-war-inside_2.mp3"
+type = "audio"
+title = "the-war-inside"
+description = "Generated music: Intense internal conflict instrumental, dramatic strings tension, cinematic hip-hop beat, psychological warfare theme, haunting melody, building intensity and release."
+
+[[outputs]]
+id = "-rGJNyYI8rUNY6nV-rmIv"
+uri = "file://client/public/audio/chain-gang-poker_3.mp3"
+type = "audio"
+title = "chain-gang-poker"
+description = "Generated music: Gritty blues-rock instrumental with a slow swagger, heavy bass groove, dirty guitar riffs, and a late-night poker table atmosphere. Dark Southern mood, 70s soul influence."
+
+[[outputs]]
+id = "C-20KSmyw8gMxrWK_lyet"
+uri = "file://client/public/audio/no-halfway_3.mp3"
+type = "audio"
+title = "no-halfway"
+description = "Generated music: Hard-driving hip-hop instrumental, aggressive trap beat with heavy 808s, dark synth pads, determined and relentless energy, no compromise attitude."
+
+[[outputs]]
+id = "SgoSM9M6zcTLReh0Q6h-L"
+uri = "file://client/public/audio/chain-gang-nights_3.mp3"
+type = "audio"
+title = "chain-gang-nights"
+description = "Generated music: Dark smoky blues instrumental, slow and brooding, minor key harmonica and slide guitar, midnight jail house atmosphere, tension and quiet menace."
+
+[[outputs]]
+id = "EA96tnmrx-qF6zpaEVv0q"
+uri = "file://client/public/audio/the-mask_3.mp3"
+type = "audio"
+title = "the-mask"
+description = "Generated music: Mysterious dark electronic instrumental, pulsing synth bass, eerie pads, masked identity theme, sleek and dangerous, underground club energy."
+
+[[outputs]]
+id = "XBVbs2gE0Tavdq1_dXxZ0"
+uri = "file://client/public/audio/everything-a-test_3.mp3"
+type = "audio"
+title = "everything-a-test"
+description = "Generated music: Focused determined instrumental, steady uptempo beat, sharp hi-hats, motivational dark energy, overcoming adversity theme, cinematic hip-hop."
+
+[[outputs]]
+id = "w9ttqrGiEjB_hUy3VVJNM"
+uri = "file://client/public/audio/blood-by-choice_3.mp3"
+type = "audio"
+title = "blood-by-choice"
+description = "Generated music: Heavy aggressive instrumental, thunderous drums, distorted bass, war-like energy, brotherhood and sacrifice theme, dark metal-influenced hip-hop fusion."
+
+[[outputs]]
+id = "vRudLiu_kpUSaXQW1S3_3"
+uri = "file://client/public/audio/as-bad-as-air_2.mp3"
+type = "audio"
+title = "as-bad-as-air"
+description = "Generated music: Raw gritty street hip-hop instrumental, hard snares, deep 808 bass, smoky and dangerous atmosphere, urban night scene, minimal but hard-hitting."
+
+[[outputs]]
+id = "BpgJsX2I90fGOy2vtWdkV"
+uri = "file://client/public/audio/prove-the-shadow_3.mp3"
+type = "audio"
+title = "prove-the-shadow"
+description = "Generated music: Moody atmospheric hip-hop instrumental, lo-fi textured beats, dark ambient pads, introspective and shadowy, quiet intensity with deep bass."
+
+[[outputs]]
+id = "A5N4yhqzeuvmVAnDp-q3v"
+uri = "file://client/public/audio/before-you-judge_3.mp3"
+type = "audio"
+title = "before-you-judge"
+description = "Generated music: Soulful introspective hip-hop instrumental, warm keys, smooth bass groove, reflective and dignified, old school soul influence with modern production."
+
+[[outputs]]
+id = "KIQjQW110ZwKe1nfn_Xss"
+uri = "file://client/public/audio/weight-of-my-words_2.mp3"
+type = "audio"
+title = "weight-of-my-words"
+description = "Generated music: Heavy deliberate hip-hop instrumental, slow measured beat, deep resonant bass, spoken word atmosphere, gravitas and conviction, dark and thoughtful."
+
+[[outputs]]
+id = "CpeyidXrZwKQdSmLF3ReL"
+uri = "file://client/public/audio/forged_2.mp3"
+type = "audio"
+title = "forged"
+description = "Generated music: Powerful industrial hip-hop instrumental, hammering percussion, metallic textures, forge and fire imagery, transformation through hardship, relentless driving energy."
+
+[[outputs]]
+id = "jx0XkXC2Un8uRVub855ou"
+uri = "file://client/public/audio/built-in-the-dark_2.mp3"
+type = "audio"
+title = "built-in-the-dark"
+description = "Generated music: Dark atmospheric instrumental, slow creeping bass line, distant industrial sounds, midnight construction energy, built from nothing theme, ominous and powerful."
