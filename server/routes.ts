@@ -723,6 +723,9 @@ export async function registerRoutes(
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
         isAdmin:                 profile.isAdmin,
         welcomeKitClaimed:       profile.welcomeKitClaimed,
+        equippedLobbyTrack:    (profile as any).equippedLobbyTrack    ?? null,
+        equippedGameTrack:     (profile as any).equippedGameTrack     ?? null,
+        equippedLadyLuckTrack: (profile as any).equippedLadyLuckTrack ?? null,
       });
     } catch (err) {
       console.error("Auth me error:", err);
@@ -1257,6 +1260,46 @@ export async function registerRoutes(
       if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid category" }); return; }
       console.error("[cosmetics] unequip error:", err);
       res.status(500).json({ error: "Unequip failed" });
+    }
+  });
+
+  // ── Music ────────────────────────────────────────────────────────────────────
+
+  // GET /api/players/:id/music — returns equipped track IDs per context
+  app.get("/api/players/:id/music", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const equipped = await storage.getMusicEquipped(req.params.id as string);
+      res.json({ equipped });
+    } catch (err) {
+      console.error("[music] get equipped error:", err);
+      res.status(500).json({ error: "Failed to load music settings" });
+    }
+  });
+
+  // Tracks that are free for all players — no inventory check required.
+  const FREE_MUSIC_IDS = new Set(['music_chain_gang_poker', 'music_chain_gang_nights']);
+
+  // POST /api/players/:id/music/equip — assign a track to a context
+  app.post("/api/players/:id/music/equip", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const { context, track_id } = z.object({
+        context:  z.enum(['lobby', 'game', 'ladyluck']),
+        track_id: z.string().nullable(),
+      }).parse(req.body);
+
+      // Free tracks are always equippable; paid tracks require ownership.
+      if (track_id !== null && !FREE_MUSIC_IDS.has(track_id)) {
+        const inv = await storage.getPlayerInventory(req.params.id as string);
+        const owns = inv.items.some((i: any) => i.id === track_id && i.category === 'music');
+        if (!owns) { res.status(403).json({ error: "Track not owned" }); return; }
+      }
+
+      await storage.setEquippedMusicTrack(req.params.id as string, context, track_id);
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err?.name === 'ZodError') { res.status(400).json({ error: "Invalid request" }); return; }
+      console.error("[music] equip error:", err);
+      res.status(500).json({ error: "Failed to equip track" });
     }
   });
 

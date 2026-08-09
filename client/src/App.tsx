@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
+import { music } from "@/lib/music";
+import { MUSIC_CATALOG } from "@/lib/musicTracks";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
@@ -36,16 +38,46 @@ import LadyLuckHistory from "@/pages/LadyLuckHistory";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 
-// ── Diamond Elite background manager ─────────────────────────────────────────
-// Adds/removes the `diamond-elite-bg` body class based on active subscription.
-// Must live inside QueryClientProvider so useServerProfile can fetch.
-function DiamondBackground() {
+// ── Combined profile-driven manager ──────────────────────────────────────────
+// Single useServerProfile call handles both Diamond Elite background and
+// context-aware music playback. Merged to avoid duplicate guest-init races.
+const LADY_LUCK_PREFIX = '/ladyluck';
+const GAME_ROUTE_PREFIXES = [
+  '/badugi', '/dead7', '/fifteen35', '/suitspoker',
+  '/flushedup', '/kamikaze', '/bonecrusher', '/box-chevy', '/ladyluck',
+];
+
+function ProfileManager() {
+  const [location] = useLocation();
   const { profile } = useServerProfile();
+
+  // ── Diamond Elite background ─────────────────────────────────────────────
   useEffect(() => {
     const isDiamond = profile?.activeSubscriptionTier === 'diamond_elite';
     document.body.classList.toggle('diamond-elite-bg', isDiamond);
     return () => { document.body.classList.remove('diamond-elite-bg'); };
   }, [profile?.activeSubscriptionTier]);
+
+  // ── Music: resolve track URL from profile + route ────────────────────────
+  useEffect(() => {
+    const isLadyLuck = location === LADY_LUCK_PREFIX
+      || location.startsWith(LADY_LUCK_PREFIX + '/')
+      || location.startsWith(LADY_LUCK_PREFIX + '?');
+    const isGame = !isLadyLuck && GAME_ROUTE_PREFIXES.some(
+      p => location === p || location.startsWith(p + '?')
+    );
+
+    let trackId: string | null = null;
+    if (isLadyLuck)  trackId = profile?.equippedLadyLuckTrack ?? null;
+    else if (isGame) trackId = profile?.equippedGameTrack     ?? null;
+    else             trackId = profile?.equippedLobbyTrack    ?? null;
+
+    const url = trackId
+      ? (MUSIC_CATALOG.find(t => t.id === trackId)?.audioPath ?? null)
+      : null;
+    music.setTrackUrl(url);
+  }, [location, profile?.equippedLobbyTrack, profile?.equippedGameTrack, profile?.equippedLadyLuckTrack]);
+
   return null;
 }
 
@@ -122,7 +154,7 @@ function App() {
         <Toaster />
         {/* Screen-edge vignette — always on top, no pointer events */}
         <div className="cgp-vignette" aria-hidden="true" />
-        <DiamondBackground />
+        <ProfileManager />
         <ErrorBoundary>
           <WelcomeGate>
             <Router />

@@ -38,6 +38,10 @@ export interface ServerProfile {
   // ── Admin ──────────────────────────────────────────────────────────────────
   isAdmin?:                boolean;        // true only for admin accounts
   welcomeKitClaimed?:      boolean;        // false until new-player kit is claimed
+  // ── Music ──────────────────────────────────────────────────────────────────
+  equippedLobbyTrack:      string | null;  // cosmetic item id or null
+  equippedGameTrack:       string | null;
+  equippedLadyLuckTrack:   string | null;
 }
 
 interface UseServerProfileResult {

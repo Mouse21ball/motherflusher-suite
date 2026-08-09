@@ -37,6 +37,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
+import { MusicButton } from '@/components/MusicButton';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
 
@@ -540,6 +541,7 @@ export default function Home() {
             style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <img src="/dock-leaderboard.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
           </button>
+          <MusicButton size={36} />
         </div>
 
         {/* Center: logo */}

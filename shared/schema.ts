@@ -27,6 +27,10 @@ export const playerProfiles = pgTable("player_profiles", {
   equippedAvatarId:     text("equipped_avatar_id"),           // premium avatar override
   equippedFrameId:      text("equipped_frame_id"),            // decorative border
   equippedNameColorId:  text("equipped_name_color_id"),       // colored display name
+  // ── Equipped music tracks (per context) ────────────────────────────────────
+  equippedLobbyTrack:    text("equipped_lobby_track"),         // cosmetic_item id of track
+  equippedGameTrack:     text("equipped_game_track"),
+  equippedLadyLuckTrack: text("equipped_lady_luck_track"),
   // ── Name change cooldown (90 days) ─────────────────────────────────────────
   lastNameChangeAt:     timestamp("last_name_change_at"),     // null → never changed
   // ── Guest reset tracking ────────────────────────────────────────────────────
@@ -75,6 +79,9 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   equippedAvatarId:               true,
   equippedFrameId:                true,
   equippedNameColorId:            true,
+  equippedLobbyTrack:             true,
+  equippedGameTrack:              true,
+  equippedLadyLuckTrack:          true,
   activeSubscriptionTier:         true,
   subscriptionExpiresAt:          true,
   subscriptionLastStripesGrantAt: true,

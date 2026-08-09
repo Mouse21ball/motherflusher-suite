@@ -8,10 +8,16 @@ import { ensurePlayerIdentity } from '@/lib/persistence';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiFetch } from '@/lib/session';
 import { apiUrl } from '@/lib/apiConfig';
+import { MusicStore } from '@/components/MusicStore';
+import { MyMusic } from '@/components/MyMusic';
+import type { MusicContext } from '@/components/MyMusic';
+import { MUSIC_TRACK_IDS, FREE_MUSIC_IDS } from '@/lib/musicTracks';
+import { music } from '@/lib/music';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CosmeticCategory = 'avatar' | 'frame' | 'name_color';
+type ShopTab = CosmeticCategory | 'music';
 
 interface CatalogItem {
   id:          string;
@@ -163,10 +169,11 @@ function StateBadge({ state }: { state: 'buy' | 'owned' | 'equipped' }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const TABS: { id: CosmeticCategory; label: string }[] = [
+const TABS: { id: ShopTab; label: string }[] = [
   { id: 'avatar',     label: 'Avatars' },
   { id: 'frame',      label: 'Frames' },
   { id: 'name_color', label: 'Name Colors' },
+  { id: 'music',      label: '♪ Music' },
 ];
 
 export default function CosmeticsStore() {
@@ -174,7 +181,7 @@ export default function CosmeticsStore() {
   const identity       = ensurePlayerIdentity();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
 
-  const [tab,          setTab]          = useState<CosmeticCategory>('avatar');
+  const [tab,          setTab]          = useState<ShopTab>('avatar');
   const [catalog,      setCatalog]      = useState<CatalogItem[]>([]);
   const [inventory,    setInventory]    = useState<InventoryItem[]>([]);
   const [equipped,     setEquipped]     = useState<EquippedState>({ avatarId: null, frameId: null, nameColorId: null });
@@ -184,6 +191,11 @@ export default function CosmeticsStore() {
   const [purchasing,   setPurchasing]   = useState(false);
   const [equipping,    setEquipping]    = useState(false);
   const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null);
+  // ── Music-specific state ────────────────────────────────────────────────────
+  const [musicEquipped,    setMusicEquipped]    = useState<{ lobby: string | null; game: string | null; ladyluck: string | null }>({ lobby: null, game: null, ladyluck: null });
+  const [musicEquipping,   setMusicEquipping]   = useState(false);
+  const [musicPurchasing,  setMusicPurchasing]  = useState(false);
+  const [musicPurchasingId, setMusicPurchasingId] = useState<string | null>(null);
 
   const stripes = serverProfile?.stripes ?? 0;
 
@@ -191,9 +203,10 @@ export default function CosmeticsStore() {
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [catRes, invRes] = await Promise.all([
+      const [catRes, invRes, musicRes] = await Promise.all([
         apiFetch(apiUrl('/api/cosmetics/catalog')),
         apiFetch(apiUrl(`/api/players/${identity.id}/inventory`)),
+        apiFetch(apiUrl(`/api/players/${identity.id}/music`)),
       ]);
       if (catRes.ok) {
         const data = await catRes.json() as { items: CatalogItem[] };
@@ -203,6 +216,10 @@ export default function CosmeticsStore() {
         const data = await invRes.json() as { items: InventoryItem[]; equipped: EquippedState };
         setInventory(data.items ?? []);
         setEquipped(data.equipped ?? { avatarId: null, frameId: null, nameColorId: null });
+      }
+      if (musicRes.ok) {
+        const md = await musicRes.json() as { equipped: typeof musicEquipped };
+        setMusicEquipped(md.equipped ?? { lobby: null, game: null, ladyluck: null });
       }
     } catch {
       // silent
@@ -314,8 +331,64 @@ export default function CosmeticsStore() {
     }
   }
 
+  // ── Music: buy a track ─────────────────────────────────────────────────────
+  async function handleMusicBuy(trackId: string) {
+    setMusicPurchasing(true);
+    setMusicPurchasingId(trackId);
+    try {
+      const res = await apiFetch(apiUrl(`/api/players/${identity.id}/cosmetics/purchase`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cosmetic_item_id: trackId }),
+      });
+      if (res.ok) {
+        await fetchData();
+        refetchProfile();
+        showToast('Track unlocked! Go to My Library to equip it.', true);
+      } else if (res.status === 402) {
+        showToast('Not enough Stripes — visit the Shop to get more.', false);
+      } else if (res.status === 409) {
+        showToast('You already own this track.', false);
+      } else {
+        showToast('Purchase failed.', false);
+      }
+    } catch {
+      showToast('Could not connect to server.', false);
+    } finally {
+      setMusicPurchasing(false);
+      setMusicPurchasingId(null);
+    }
+  }
+
+  // ── Music: equip a track to a context ──────────────────────────────────────
+  async function handleMusicEquip(context: MusicContext, trackId: string | null) {
+    setMusicEquipping(true);
+    try {
+      const res = await apiFetch(apiUrl(`/api/players/${identity.id}/music/equip`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context, track_id: trackId }),
+      });
+      if (res.ok) {
+        const updated = { ...musicEquipped, [context]: trackId };
+        setMusicEquipped(updated);
+        // Update live playback if this context is currently active
+        // (MusicManager in App will re-read profile on next refetch;
+        //  we also update music directly for instant feedback)
+        music.setTrackUrl(null); // will be re-set by MusicManager on next profile load
+        refetchProfile();
+      }
+    } catch { /* silent */ }
+    finally { setMusicEquipping(false); }
+  }
+
   const isGuest = !serverProfile?.hasAuth;
-  const visibleItems = catalog.filter(i => i.category === tab);
+  // Free tracks are always owned — union of inventory music + free set
+  const ownedMusicIds = new Set([
+    ...inventory.filter(i => MUSIC_TRACK_IDS.has(i.id)).map(i => i.id),
+    ...FREE_MUSIC_IDS,
+  ]);
+  const visibleItems = tab === 'music' ? [] : catalog.filter(i => i.category === (tab as CosmeticCategory));
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -437,12 +510,38 @@ export default function CosmeticsStore() {
         ))}
       </div>
 
-      {/* ── Item grid ─────────────────────────────────────────────────────── */}
+      {/* ── Item grid / Music panel ───────────────────────────────────────── */}
       <div
         className="flex-1 px-4 pt-3 pb-24"
         style={{ borderTop: '1px solid rgba(201,162,39,0.12)' }}
       >
-        {loadingData ? (
+        {tab === 'music' ? (
+          /* ── Music tab ─────────────────────────────────────────────────── */
+          <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <MusicStore
+              ownedIds={ownedMusicIds}
+              stripes={stripes}
+              onBuy={handleMusicBuy}
+              purchasing={musicPurchasing}
+              purchasingId={musicPurchasingId}
+            />
+            <div>
+              <div style={{
+                fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em',
+                color: 'rgba(201,162,39,0.70)', textTransform: 'uppercase',
+                marginBottom: 10, paddingLeft: 2,
+              }}>
+                ◆ My Library
+              </div>
+              <MyMusic
+                ownedIds={ownedMusicIds}
+                equipped={musicEquipped}
+                onEquip={handleMusicEquip}
+                equipping={musicEquipping}
+              />
+            </div>
+          </div>
+        ) : loadingData ? (
           <div className="flex items-center justify-center py-20">
             <span className="text-xs font-mono" style={{ color: 'rgba(201,162,39,0.40)' }}>Loading…</span>
           </div>

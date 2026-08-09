@@ -24,6 +24,7 @@ import { getContextualHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
+import { MusicButton } from "@/components/MusicButton";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
@@ -333,6 +334,11 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       {import.meta.env.DEV && (
         <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
       )}
+
+      {/* Music toggle — fixed top-left corner */}
+      <div className="fixed top-12 sm:top-14 left-3 z-30">
+        <MusicButton size={32} />
+      </div>
 
       {/* Host controls — shown when there is a known host (private or any table with host set) */}
       {hostId && tableId && tableSettings && sendHostAction && (

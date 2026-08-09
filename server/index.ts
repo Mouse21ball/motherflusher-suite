@@ -11,7 +11,7 @@ import { flushAllLadyLuckPending } from "./ladyluckPersistence";
 import { initLadyLuckEngine } from "./ladyluckEngine";
 import { startGuestResetJob } from "./guestReset";
 import { generalApiRateLimit } from "./middleware/rateLimits";
-import { seedCosmeticItems } from "./storage";
+import { seedCosmeticItems, seedMusicTracks } from "./storage";
 import { db } from "./db";
 import { purchaseTransactions, playerProfiles } from "../shared/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -133,6 +133,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await seedCosmeticItems();
+  await seedMusicTracks();
   console.log('[seed] Cosmetic items checked/seeded.');
 
   // Ensure ladyluck_race_results table exists (direct SQL to avoid interactive db:push)

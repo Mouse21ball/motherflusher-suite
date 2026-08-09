@@ -121,6 +121,9 @@ export interface IStorage {
   purchaseCosmetic(playerId: string, cosmeticItemId: string): Promise<PurchaseCosmeticResult>;
   equipCosmetic(playerId: string, cosmeticItemId: string): Promise<EquipResult>;
   unequipCosmetic(playerId: string, category: string): Promise<void>;
+  // ── Music ──────────────────────────────────────────────────────────────────
+  getMusicEquipped(playerId: string): Promise<{ lobby: string | null; game: string | null; ladyluck: string | null }>;
+  setEquippedMusicTrack(playerId: string, context: 'lobby' | 'game' | 'ladyluck', trackId: string | null): Promise<void>;
   // ── Subscriptions ──────────────────────────────────────────────────────────
   getSubscriptionByToken(purchaseToken: string): Promise<Subscription | undefined>;
   getPlayerActiveSubscription(playerId: string): Promise<Subscription | undefined>;
@@ -449,6 +452,28 @@ export async function seedCosmeticItems(): Promise<void> {
   ]).onConflictDoNothing();
 }
 
+// ─── Music track seed ─────────────────────────────────────────────────────────
+// Always safe to call at startup — uses onConflictDoNothing.
+export async function seedMusicTracks(): Promise<void> {
+  await db.insert(cosmeticItems).values([
+    // ── Free tracks (stripesCost: 0 — unlocked for all players) ──────────────
+    { id: 'music_chain_gang_poker',  category: 'music', displayName: 'Chain Gang Poker',  description: 'The original Chain Gang anthem. Yours from day one.', stripesCost: 0,   assetPath: '', colorValue: null, active: true },
+    { id: 'music_chain_gang_nights', category: 'music', displayName: 'Chain Gang Nights', description: 'Late-night table vibes. Free for every player.',       stripesCost: 0,   assetPath: '', colorValue: null, active: true },
+    // ── Paid tracks (◆ 500 Stripes each) ─────────────────────────────────────
+    { id: 'music_no_halfway',        category: 'music', displayName: 'No Halfway',        description: 'No shortcuts, no excuses. Pure fire.',                stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_borrowed_time',     category: 'music', displayName: 'Borrowed Time',     description: 'Every hand dealt is time you didn\'t earn.',           stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_the_mask',          category: 'music', displayName: 'The Mask',          description: 'Everyone\'s wearing one. What\'s yours?',             stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_prove_the_shadow',  category: 'music', displayName: 'Prove the Shadow',  description: 'Outrun the doubt. Outlast the dark.',                 stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_blood_by_choice',   category: 'music', displayName: 'Blood by Choice',   description: 'Every decision has a price.',                         stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_as_bad_as_air',     category: 'music', displayName: 'As Bad As Air',     description: 'Everywhere at once. Impossible to avoid.',            stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_before_you_judge',        category: 'music', displayName: 'Before You Judge',        description: 'Walk the road before you call it wrong.',                   stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_everything_a_test',       category: 'music', displayName: 'Everything a Test',       description: 'Stay sharp. Life keeps score.',                              stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_built_in_the_dark',       category: 'music', displayName: 'Built In The Dark',       description: 'Nobody watched. You built anyway.',                          stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_if_heaven_had_a_hallway', category: 'music', displayName: 'If Heaven Had a Hallway', description: 'A walk between worlds, between decisions.',                   stripesCost: 500, assetPath: '', colorValue: null, active: true },
+    { id: 'music_weight_of_my_words',      category: 'music', displayName: 'Weight of My Words',      description: 'Say what you mean. Mean what you say.',                      stripesCost: 500, assetPath: '', colorValue: null, active: true },
+  ]).onConflictDoNothing();
+}
+
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
 
@@ -649,6 +674,9 @@ export class MemStorage implements IStorage {
       chipLoanGrantedAt:              null,
       passwordResetToken:             null,
       passwordResetExpires:           null,
+      equippedLobbyTrack:             null,
+      equippedGameTrack:              null,
+      equippedLadyLuckTrack:          null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1507,6 +1535,35 @@ export class MemStorage implements IStorage {
         .where(eq(playerProfiles.id, playerId));
       console.log(`[cosmetics] unequip player=${playerId} category=${category}`);
     });
+  }
+
+  // ── Music methods ───────────────────────────────────────────────────────────
+
+  async getMusicEquipped(playerId: string): Promise<{ lobby: string | null; game: string | null; ladyluck: string | null }> {
+    const rows = await db
+      .select({
+        equippedLobbyTrack:    playerProfiles.equippedLobbyTrack,
+        equippedGameTrack:     playerProfiles.equippedGameTrack,
+        equippedLadyLuckTrack: playerProfiles.equippedLadyLuckTrack,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+    const p = rows[0] ?? {};
+    return {
+      lobby:    (p as any).equippedLobbyTrack    ?? null,
+      game:     (p as any).equippedGameTrack     ?? null,
+      ladyluck: (p as any).equippedLadyLuckTrack ?? null,
+    };
+  }
+
+  async setEquippedMusicTrack(playerId: string, context: 'lobby' | 'game' | 'ladyluck', trackId: string | null): Promise<void> {
+    const col =
+      context === 'lobby'    ? { equippedLobbyTrack:    trackId, updatedAt: new Date() } :
+      context === 'game'     ? { equippedGameTrack:     trackId, updatedAt: new Date() } :
+                               { equippedLadyLuckTrack: trackId, updatedAt: new Date() };
+    await db.update(playerProfiles).set(col).where(eq(playerProfiles.id, playerId));
+    console.log(`[music] equip player=${playerId} context=${context} track=${trackId}`);
   }
 
   // ── Subscription methods ────────────────────────────────────────────────────
