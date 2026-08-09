@@ -11,10 +11,13 @@
  * across sessions.
  */
 
-const STORAGE_KEY        = 'cgp_music_muted';
-const VOLUME_STORAGE_KEY = 'cgp_music_volume';
-const DEFAULT_VOLUME     = 0.3;
-const PREVIEW_VOL        = 0.5;
+const STORAGE_KEY           = 'cgp_music_muted';
+const VOLUME_STORAGE_KEY    = 'cgp_music_volume';
+const POSITION_STORAGE_KEY  = 'cgp_music_pos';
+const DEFAULT_VOLUME        = 0.3;
+const PREVIEW_VOL           = 0.5;
+const POS_SAVE_INTERVAL_MS  = 5_000;   // save position every 5 s while playing
+const POS_MAX_AGE_MS        = 3_600_000; // discard saved position older than 1 h
 
 class MusicManager {
   private audio: HTMLAudioElement | null       = null;
@@ -30,10 +33,18 @@ class MusicManager {
   private _previewingId: string | null             = null; // track id being previewed
 
   private listeners = new Set<() => void>();
+  private posInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this._muted  = this.readMuted();
     this._volume = this.readVolume();
+
+    // Save position just before the page unloads for maximum accuracy.
+    window.addEventListener('beforeunload', () => {
+      if (this.audio && this.currentUrl && !this.audio.paused) {
+        this.writePosition(this.currentUrl, this.audio.currentTime);
+      }
+    });
 
     // Queue playback start on first user gesture (browser autoplay policy).
     const unlock = () => {
@@ -72,6 +83,34 @@ class MusicManager {
 
   private writeVolume(v: number): void {
     try { localStorage.setItem(VOLUME_STORAGE_KEY, String(v)); } catch {}
+  }
+
+  private readPosition(url: string): number {
+    try {
+      const raw = localStorage.getItem(POSITION_STORAGE_KEY);
+      if (!raw) return 0;
+      const { url: savedUrl, pos, savedAt } = JSON.parse(raw) as { url: string; pos: number; savedAt: number };
+      if (savedUrl !== url) return 0;
+      if (Date.now() - savedAt > POS_MAX_AGE_MS) return 0;
+      return typeof pos === 'number' && pos > 0 ? pos : 0;
+    } catch { return 0; }
+  }
+
+  private writePosition(url: string, pos: number): void {
+    try { localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify({ url, pos, savedAt: Date.now() })); } catch {}
+  }
+
+  private startPositionSave(): void {
+    if (this.posInterval) clearInterval(this.posInterval);
+    this.posInterval = setInterval(() => {
+      if (this.audio && this.currentUrl && !this.audio.paused) {
+        this.writePosition(this.currentUrl, this.audio.currentTime);
+      }
+    }, POS_SAVE_INTERVAL_MS);
+  }
+
+  private stopPositionSave(): void {
+    if (this.posInterval) { clearInterval(this.posInterval); this.posInterval = null; }
   }
 
   // ── Subscriptions ────────────────────────────────────────────────────────────
@@ -145,6 +184,7 @@ class MusicManager {
         return;
       }
       // Different track: tear down the old element
+      this.stopPositionSave();
       this.audio.pause();
       this.audio.src = '';
       this.audio = null;
@@ -216,6 +256,7 @@ class MusicManager {
   // ── Internal ─────────────────────────────────────────────────────────────────
 
   private startAudio(url: string): void {
+    this.stopPositionSave();
     if (this.audio) {
       this.audio.pause();
       this.audio.src = '';
@@ -224,10 +265,18 @@ class MusicManager {
     el.loop    = true;
     el.volume  = this._volume;
     el.preload = 'auto';
+    // Restore saved playback position once metadata is available
+    const savedPos = this.readPosition(url);
+    if (savedPos > 0) {
+      el.addEventListener('loadedmetadata', () => {
+        if (savedPos < el.duration) el.currentTime = savedPos;
+      }, { once: true });
+    }
     // Silently ignore 404 / autoplay errors (file not uploaded yet)
     el.addEventListener('error', () => {}, { once: true });
     this.audio = el;
     el.play().catch(() => {});
+    this.startPositionSave();
   }
 }
 
