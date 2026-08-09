@@ -115,7 +115,7 @@ class MusicManager {
     el.volume  = PREVIEW_VOL;
     el.preload = 'auto';
     el.addEventListener('error', () => {
-      // Fallback: try the audioPath (caller should pass previewPath first)
+      this.stopPreview();
     }, { once: true });
     el.play().catch(() => {});
 

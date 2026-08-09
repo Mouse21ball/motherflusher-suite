@@ -1553,11 +1553,21 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, playerId))
       .limit(1);
     const p = rows[0] ?? {};
-    return {
-      lobby:    (p as any).equippedLobbyTrack    ?? null,
-      game:     (p as any).equippedGameTrack     ?? null,
-      ladyluck: (p as any).equippedLadyLuckTrack ?? null,
-    };
+    const lobby    = (p as any).equippedLobbyTrack    ?? null;
+    const game     = (p as any).equippedGameTrack     ?? null;
+    const ladyluck = (p as any).equippedLadyLuckTrack ?? null;
+
+    // Auto-equip the default free track for brand-new players
+    if (lobby === null && game === null && ladyluck === null) {
+      const DEFAULT = 'music_chain_gang_poker';
+      await db.update(playerProfiles)
+        .set({ equippedLobbyTrack: DEFAULT, equippedGameTrack: DEFAULT, equippedLadyLuckTrack: DEFAULT, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      console.log(`[music] auto-equipped default track for player=${playerId}`);
+      return { lobby: DEFAULT, game: DEFAULT, ladyluck: DEFAULT };
+    }
+
+    return { lobby, game, ladyluck };
   }
 
   async setEquippedMusicTrack(playerId: string, context: 'lobby' | 'game' | 'ladyluck', trackId: string | null): Promise<void> {
