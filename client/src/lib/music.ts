@@ -196,16 +196,33 @@ class MusicManager {
   }
 
   /**
-   * Play a preview clip for `durationMs` milliseconds.
+   * Play a preview clip for `durationMs` milliseconds, starting near the
+   * chorus. Once metadata loads we seek to `startFraction` (0–1) of the
+   * track duration, capped at `maxStartSec` seconds, so shorter tracks
+   * don't seek past their end.
    * Calling again while previewing replaces the current preview.
    * @param trackId  Identifier used to track which item is previewing (for UI state).
    */
-  previewTrack(url: string, trackId: string, durationMs = 15_000): void {
+  previewTrack(
+    url: string,
+    trackId: string,
+    durationMs = 15_000,
+    startFraction = 0.4,
+    maxStartSec   = 75,
+  ): void {
     this.stopPreview();
 
     const el = new Audio(url);
     el.volume  = this._volume;
     el.preload = 'auto';
+
+    // Seek to chorus region once the browser knows the track length.
+    el.addEventListener('loadedmetadata', () => {
+      if (!isFinite(el.duration) || el.duration <= 0) return;
+      const target = Math.min(el.duration * startFraction, maxStartSec, el.duration - 1);
+      if (target > 0) el.currentTime = target;
+    }, { once: true });
+
     el.addEventListener('error', () => {
       this.stopPreview();
     }, { once: true });
