@@ -55,6 +55,8 @@ import {
   handleSubscriptionOnHold,
   handleSubscriptionRecovered,
   handleSubscriptionRefund,
+  verifyAppleAppStorePurchase,
+  type ApplePurchaseData,
 } from "./billing";
 import { randomBytes } from "crypto";
 
@@ -1584,6 +1586,168 @@ export async function registerRoutes(
       } else {
         console.error("[billing] verify-purchase error:", err);
         res.status(500).json({ error: "Purchase processing failed" });
+      }
+    }
+  });
+
+  // POST /api/billing/verify-apple-purchase
+  // Called by the native iOS client after Apple StoreKit returns a transaction.
+  // Verifies the transaction via the App Store Server API, credits Stripes or
+  // club chips, and records an audit row. No server-side acknowledge needed for
+  // Apple consumables — the client calls transaction.finish() to complete StoreKit.
+  app.post("/api/billing/verify-apple-purchase", ...purchaseVerificationRateLimit, requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId:     z.string().min(1),
+        transactionId: z.string().min(1),
+        crewId:        z.string().optional(),
+      });
+      const { productId, transactionId, crewId } = schema.parse(req.body);
+      const playerId = req.sessionPlayerId!;
+
+      // ── Club chip IAP: credits chips directly to the crew bank ────────────────
+      const clubPack = CLUB_CHIP_PACKS[productId];
+      if (clubPack) {
+        if (!crewId) {
+          res.status(400).json({ error: 'crewId required for club chip purchases' });
+          return;
+        }
+        let appleClubData: ApplePurchaseData;
+        try {
+          appleClubData = await verifyAppleAppStorePurchase(transactionId);
+        } catch (verifyErr: any) {
+          res.status(402).json({ error: `Apple purchase verification failed: ${verifyErr.message}` });
+          return;
+        }
+        if (appleClubData.revocationReason !== undefined) {
+          res.status(402).json({ error: 'Apple purchase was refunded or revoked.' });
+          return;
+        }
+        await storage.addChipsToCrewBank(crewId, playerId, clubPack.chips);
+        console.log(`[billing:apple] club-chips: player=${playerId} crewId=${crewId} chips=+${clubPack.chips}`);
+        res.json({ chipsGranted: clubPack.chips, crewId });
+        return;
+      }
+
+      // ── Stripes pack IAP ─────────────────────────────────────────────────────
+      const pack = STRIPES_PACKS[productId];
+      if (!pack) {
+        res.status(400).json({ error: `Unknown product: ${productId}` });
+        return;
+      }
+
+      // Idempotency: use Apple transactionId as the dedup key (stored in purchaseToken column)
+      const existing = await storage.getPurchaseTransactionByToken(transactionId);
+      let txnId: string;
+      if (existing) {
+        if (existing.verificationStatus === 'verified') {
+          res.json({ stripesGranted: existing.stripesGranted, orderId: existing.googleOrderId ?? transactionId, idempotent: true });
+          return;
+        }
+        if (existing.verificationStatus === 'pending') {
+          res.status(409).json({ error: 'Purchase is still being processed. Please wait and try again.' });
+          return;
+        }
+        if (existing.verificationStatus === 'failed_retryable') {
+          await storage.updatePurchaseTransactionStatus(existing.id, 'pending');
+          txnId = existing.id;
+        } else {
+          res.status(409).json({ error: 'Purchase token already used or rejected.' });
+          return;
+        }
+      } else {
+        const txn = await storage.createPurchaseTransaction({
+          playerId,
+          productId,
+          stripesGranted:     pack.stripes,
+          priceUsdCents:      pack.priceCents,
+          purchaseToken:      transactionId,
+          verificationStatus: 'pending',
+        });
+        txnId = txn.id;
+      }
+
+      // Verify with Apple App Store Server API
+      let appleData: ApplePurchaseData;
+      try {
+        appleData = await verifyAppleAppStorePurchase(transactionId);
+      } catch (verifyErr: any) {
+        console.error(`[billing:apple] Verification error: ${verifyErr.message}`);
+        await storage.updatePurchaseTransactionStatus(txnId, 'failed_retryable');
+        res.status(402).json({ error: `Apple purchase verification failed: ${verifyErr.message}` });
+        return;
+      }
+
+      // Reject refunded / revoked purchases
+      if (appleData.revocationReason !== undefined) {
+        await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+        res.status(402).json({ error: 'Apple purchase was refunded or revoked.' });
+        return;
+      }
+
+      // Validate the product ID returned by Apple matches what the client sent
+      if (appleData.productId !== productId) {
+        console.warn(`[billing:apple] productId mismatch: expected=${productId} got=${appleData.productId}`);
+        await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+        res.status(402).json({ error: 'Product ID mismatch in Apple transaction.' });
+        return;
+      }
+
+      // Bind purchase to the authenticated player via appAccountToken (Apple equivalent of
+      // Google's obfuscatedExternalAccountId — set by store.applicationUsername on the client).
+      if (appleData.appAccountToken) {
+        if (appleData.appAccountToken !== playerId) {
+          console.log(
+            `[BILLING_AUTHZ:apple] mismatch: session=${playerId.slice(0, 8)} ` +
+            `appAccountToken=${appleData.appAccountToken.slice(0, 8)} product=${productId}`,
+          );
+          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+          res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
+          return;
+        }
+      } else {
+        // Log a warning but proceed — first-release Apple builds may not always populate this
+        console.warn(`[BILLING_AUTHZ:apple] appAccountToken absent for player=${playerId.slice(0, 8)} product=${productId}`);
+      }
+
+      // Credit Stripes to the player's account
+      await storage.creditStripes(playerId, pack.stripes, `purchase:${productId}`);
+
+      const iapProfile = await storage.getPlayerProfile(playerId);
+      await storage.recordChipTransaction({
+        playerId,
+        beforeBalance: iapProfile?.chipBalance ?? 0,
+        amountChange:  0,
+        afterBalance:  iapProfile?.chipBalance ?? 0,
+        reason:        'iap_purchase',
+        source:        'apple_appstore',
+        metadata:      { productId, transactionId: transactionId.slice(0, 40), environment: appleData.environment },
+      });
+
+      // Mark verified using Apple's originalTransactionId as the orderId
+      await storage.updatePurchaseTransactionStatus(
+        txnId,
+        'verified',
+        appleData.originalTransactionId,
+        new Date(),
+      );
+
+      // No server-side acknowledgement needed for Apple consumables:
+      // the client calls transaction.finish() which tells StoreKit to remove the transaction
+      // from the pending queue and mark it as consumed (equivalent of Google's consume call).
+
+      console.log(
+        `[billing:apple] SUCCESS: player=${playerId} product=${productId} ` +
+        `stripes=${pack.stripes} originalTxn=${appleData.originalTransactionId} env=${appleData.environment}`,
+      );
+
+      res.json({ stripesGranted: pack.stripes, orderId: appleData.originalTransactionId });
+    } catch (err: any) {
+      if (err?.name === 'ZodError') {
+        res.status(400).json({ error: 'Invalid purchase data' });
+      } else {
+        console.error('[billing:apple] verify-apple-purchase error:', err);
+        res.status(500).json({ error: 'Purchase processing failed' });
       }
     }
   });

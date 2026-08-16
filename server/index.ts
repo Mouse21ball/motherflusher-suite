@@ -1,3 +1,15 @@
+import * as Sentry from "@sentry/node";
+
+// Initialize Sentry server-side error tracking.
+// Set SENTRY_DSN in Replit Secrets to enable (completely silent when absent).
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? "development",
+  });
+  console.log("[sentry] initialized (server)");
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
@@ -222,6 +234,12 @@ app.use((req, res, next) => {
   app.use('/api', generalApiRateLimit);
 
   await registerRoutes(httpServer, app);
+
+  // Sentry Express error handler — must come before the custom error handler so
+  // Sentry can capture the error object before it is converted to JSON.
+  if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+  }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

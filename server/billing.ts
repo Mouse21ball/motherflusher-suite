@@ -577,3 +577,145 @@ export async function handleSubscriptionRefund(purchaseToken: string): Promise<v
     `stripes_debited=${sub.stripesGrantedCurrentCycle}`
   );
 }
+
+// ─── Apple App Store Server API ───────────────────────────────────────────────
+// Verifies Apple IAP consumables via the App Store Server API (REST v1, JWT auth).
+// No new packages required — JWT signing uses Node's built-in `crypto` module.
+//
+// Required env vars (set in Replit Secrets when Apple credentials are available):
+//   APPLE_KEY_ID      — 10-character key ID from App Store Connect → Users & Access → Keys
+//   APPLE_ISSUER_ID   — Issuer UUID shown at the top of the Keys page
+//   APPLE_PRIVATE_KEY — Full ES256 PEM private key (contents of the downloaded .p8 file)
+//   APPLE_BUNDLE_ID   — App bundle identifier, e.g. com.dgmentertainment.chaingangpoker
+//
+// If any credential is missing the function throws a clear error (logged but never crashes
+// the server). The route handler catches it and returns HTTP 402 to the client.
+
+import crypto from 'crypto';
+
+function getAppleCredentials(): { keyId: string; issuerId: string; privateKey: string; bundleId: string } | null {
+  const keyId      = process.env.APPLE_KEY_ID;
+  const issuerId   = process.env.APPLE_ISSUER_ID;
+  const privateKey = process.env.APPLE_PRIVATE_KEY;
+  const bundleId   = process.env.APPLE_BUNDLE_ID;
+  if (!keyId || !issuerId || !privateKey || !bundleId) {
+    const missing = (['APPLE_KEY_ID', 'APPLE_ISSUER_ID', 'APPLE_PRIVATE_KEY', 'APPLE_BUNDLE_ID'] as const)
+      .filter(k => !process.env[k]);
+    console.warn(`[billing:apple] Apple IAP disabled — missing env vars: ${missing.join(', ')}`);
+    return null;
+  }
+  return { keyId, issuerId, privateKey, bundleId };
+}
+
+/** Build an App Store Server API JWT signed with ES256 via Node's built-in crypto. */
+function buildAppleJWT(keyId: string, issuerId: string, privateKeyPem: string, bundleId: string): string {
+  const header  = Buffer.from(JSON.stringify({ alg: 'ES256', kid: keyId, typ: 'JWT' })).toString('base64url');
+  const now     = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(JSON.stringify({
+    iss: issuerId, iat: now, exp: now + 3600,
+    aud: 'appstoreconnect-v1', bid: bundleId,
+  })).toString('base64url');
+  const signer = crypto.createSign('SHA256');
+  signer.update(`${header}.${payload}`);
+  signer.end();
+  // dsaEncoding: 'ieee-p1363' produces the compact r||s signature format required by JWA ES256
+  const sig = signer.sign({ key: privateKeyPem, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  return `${header}.${payload}.${sig}`;
+}
+
+/** Decode a JWS string (Apple-signed transaction info) without re-verifying Apple's signature.
+ *  The payload is fetched over HTTPS from Apple's own servers so the transport provides trust. */
+function decodeAppleJWS(jws: string): Record<string, unknown> {
+  const parts = jws.split('.');
+  if (parts.length !== 3) throw new Error('Invalid JWS format (expected 3 dot-separated segments)');
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+}
+
+export interface ApplePurchaseData {
+  transactionId:         string;
+  originalTransactionId: string;
+  productId:             string;
+  bundleId:              string;
+  purchaseDate:          number;   // epoch ms
+  quantity:              number;
+  type:                  string;   // "Consumable" | "Non-Consumable" | "Auto-Renewable Subscription" | etc.
+  revocationReason?:     number;   // present when Apple has refunded / revoked the purchase
+  appAccountToken?:      string;   // UUID sent by the client via store.applicationUsername (links to player)
+  environment:           'Sandbox' | 'Production';
+}
+
+/**
+ * Verifies an Apple App Store transaction via the App Store Server API.
+ * Tries production first; automatically falls back to sandbox for TestFlight / dev builds.
+ * Returns parsed transaction data on success; throws a descriptive Error on any failure.
+ *
+ * When Apple credentials are not configured the thrown message says exactly which env vars to set.
+ * The route catches it and returns HTTP 402 so the server never crashes at startup or at runtime.
+ */
+export async function verifyAppleAppStorePurchase(transactionId: string): Promise<ApplePurchaseData> {
+  console.log(`[billing:apple] verify start: transactionId=${transactionId.slice(0, 20)}…`);
+
+  const creds = getAppleCredentials();
+  if (!creds) {
+    throw new Error(
+      'Apple IAP credentials not configured — set APPLE_KEY_ID, APPLE_ISSUER_ID, ' +
+      'APPLE_PRIVATE_KEY, and APPLE_BUNDLE_ID in Replit Secrets',
+    );
+  }
+
+  const jwt = buildAppleJWT(creds.keyId, creds.issuerId, creds.privateKey, creds.bundleId);
+
+  // Try production first; fall back to sandbox for TestFlight and development builds.
+  const endpoints: { env: 'Production' | 'Sandbox'; base: string }[] = [
+    { env: 'Production', base: 'https://api.storekit.itunes.apple.com'         },
+    { env: 'Sandbox',    base: 'https://api.storekit-sandbox.itunes.apple.com' },
+  ];
+
+  let lastErr: Error | null = null;
+  for (const { env, base } of endpoints) {
+    const url  = `${base}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+
+    if (resp.status === 404) {
+      lastErr = new Error(`Transaction not found on Apple ${env}`);
+      continue; // try the other environment
+    }
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(`Apple App Store Server API (${env}) returned ${resp.status}: ${body.slice(0, 200)}`);
+    }
+
+    const body = await resp.json() as { signedTransactionInfo?: string };
+    if (!body.signedTransactionInfo) {
+      throw new Error(`Apple API (${env}) response missing signedTransactionInfo field`);
+    }
+
+    const tx = decodeAppleJWS(body.signedTransactionInfo) as Record<string, any>;
+
+    if (tx['bundleId'] !== creds.bundleId) {
+      throw new Error(
+        `Apple transaction bundleId mismatch: expected ${creds.bundleId}, got ${tx['bundleId']}`,
+      );
+    }
+
+    console.log(
+      `[billing:apple] verified (${env}): product=${tx['productId']} ` +
+      `type=${tx['type']} revoked=${tx['revocationReason'] ?? 'none'}`,
+    );
+
+    return {
+      transactionId:         tx['transactionId']         ?? transactionId,
+      originalTransactionId: tx['originalTransactionId'] ?? transactionId,
+      productId:             tx['productId']             ?? '',
+      bundleId:              tx['bundleId']              ?? '',
+      purchaseDate:          tx['purchaseDate']          ?? Date.now(),
+      quantity:              tx['quantity']              ?? 1,
+      type:                  tx['type']                  ?? 'Consumable',
+      revocationReason:      tx['revocationReason'],
+      appAccountToken:       tx['appAccountToken'],
+      environment:           env,
+    };
+  }
+
+  throw lastErr ?? new Error(`Apple transaction ${transactionId} not found on any Apple environment`);
+}

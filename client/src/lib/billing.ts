@@ -123,12 +123,19 @@ class NativeBillingPlugin implements BillingPlugin {
     store.applicationUsername = () => ensurePlayerIdentity().id;
     store.obfuscator = 'disabled';
 
-    // Register all consumable Stripes packs
+    // Register all consumable Stripes packs (both platforms share the same product IDs)
     store.register(
       STRIPES_PRODUCT_IDS.map(id => ({
         id,
         type:     ProductType.CONSUMABLE,
         platform: Platform.GOOGLE_PLAY,
+      }))
+    );
+    store.register(
+      STRIPES_PRODUCT_IDS.map(id => ({
+        id,
+        type:     ProductType.CONSUMABLE,
+        platform: Platform.APPLE_APPSTORE,
       }))
     );
 
@@ -140,6 +147,13 @@ class NativeBillingPlugin implements BillingPlugin {
         platform: Platform.GOOGLE_PLAY,
       }))
     );
+    store.register(
+      CLUB_CHIP_PRODUCT_IDS.map(id => ({
+        id,
+        type:     ProductType.CONSUMABLE,
+        platform: Platform.APPLE_APPSTORE,
+      }))
+    );
 
     // Register all subscription products
     store.register(
@@ -147,6 +161,13 @@ class NativeBillingPlugin implements BillingPlugin {
         id,
         type:     ProductType.PAID_SUBSCRIPTION,
         platform: Platform.GOOGLE_PLAY,
+      }))
+    );
+    store.register(
+      SUBSCRIPTION_PRODUCT_IDS.map(id => ({
+        id,
+        type:     ProductType.PAID_SUBSCRIPTION,
+        platform: Platform.APPLE_APPSTORE,
       }))
     );
 
@@ -157,10 +178,15 @@ class NativeBillingPlugin implements BillingPlugin {
       console.error("[billing] store error:", err.code, err.message);
     });
 
-    // Central approved handler — fires for every Google-approved transaction.
-    // Server verification must succeed before transaction.finish() is called to
-    // acknowledge the purchase to Google (required within 3 days for consumables).
+    // ── Google Play approved handler ──────────────────────────────────────────
+    // Fires only for Google Play transactions. Server verification must succeed
+    // before transaction.finish() is called to acknowledge to Google (required
+    // within 3 days for consumables, otherwise Google auto-refunds).
     store.when().approved(async (transaction) => {
+      // Skip non-Google transactions — Apple transactions are handled by the
+      // separate handler registered below.
+      if (transaction.platform !== Platform.GOOGLE_PLAY) return;
+
       const productId = transaction.products[0]?.id ?? "";
       if (!productId) return;
 
@@ -234,7 +260,75 @@ class NativeBillingPlugin implements BillingPlugin {
       }
     });
 
-    await store.initialize([Platform.GOOGLE_PLAY]);
+    // ── Apple App Store approved handler ─────────────────────────────────────
+    // Fires only for Apple AppStore transactions. Posts the Apple transactionId
+    // to the server for App Store Server API verification, then calls
+    // transaction.finish() to tell StoreKit the purchase is consumed.
+    // (No separate server acknowledge needed — finish() IS the acknowledgement.)
+    store.when().approved(async (transaction) => {
+      if (transaction.platform !== Platform.APPLE_APPSTORE) return;
+
+      const productId = transaction.products[0]?.id ?? "";
+      if (!productId) return;
+
+      // transaction.transactionId is the cross-platform field the Apple adapter
+      // populates with the StoreKit transactionIdentifier. SKTransaction also
+      // exposes originalTransactionId as a fallback for restored purchases.
+      const appleTx      = transaction as unknown as CdvPurchase.AppleAppStore.SKTransaction;
+      const transactionId = transaction.transactionId ?? appleTx.originalTransactionId ?? "";
+      const sessionToken = getSessionToken() ?? "";
+
+      const isStripesPack  = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isClubChipPack = (CLUB_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isConsumable   = isStripesPack || isClubChipPack;
+
+      try {
+        if (isConsumable) {
+          const pendingEntry = this.pending.get(productId);
+          const body: Record<string, unknown> = { productId, transactionId };
+          if (isClubChipPack && pendingEntry?.crewId) body.crewId = pendingEntry.crewId;
+          const resp = await fetch(apiUrl("/api/billing/verify-apple-purchase"), {
+            method:  "POST",
+            headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
+            body:    JSON.stringify(body),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            this.pending.get(productId)?.reject(
+              new Error((err as any).error ?? `Apple verification failed: ${resp.status}`)
+            );
+            return;
+          }
+          const data = await resp.json() as {
+            stripesGranted?: number; orderId?: string;
+            chipsGranted?:   number; crewId?:  string;
+          };
+          // finish() tells StoreKit the consumable is processed — equivalent of Google's consume call.
+          await transaction.finish();
+          this.pending.get(productId)?.resolve({
+            productId,
+            purchaseToken:  transactionId,
+            orderId:        data.orderId        ?? '',
+            stripesGranted: data.stripesGranted ?? 0,
+            chipsGranted:   data.chipsGranted,
+            crewId:         data.crewId,
+          });
+        } else {
+          // Apple subscription: verify on the server (future implementation)
+          // For now, finish the transaction so it doesn't stay pending.
+          await transaction.finish();
+          this.pending.get(productId)?.reject(
+            new Error("Apple subscription purchase not yet supported — use the Android app.")
+          );
+        }
+      } catch (err) {
+        this.pending.get(productId)?.reject(err);
+      } finally {
+        this.pending.delete(productId);
+      }
+    });
+
+    await store.initialize([Platform.GOOGLE_PLAY, Platform.APPLE_APPSTORE]);
     this.initialized = true;
   }
 
