@@ -2791,8 +2791,8 @@ export function incrementGenericTimeBankSessionUsed(tableId: string, modeId: str
 // Fifteen35, SuitsPoker) from disk so active players reconnecting
 // after a server restart find their table intact with chips preserved.
 
-export function initGenericEngine(): void {
-  const restored = loadPersistedGenericTables();
+export async function initGenericEngine(): Promise<void> {
+  const restored = await loadPersistedGenericTables();
   for (const { modeId, tableId, state, handId } of restored) {
     const mode = MODE_REGISTRY[modeId];
     if (!mode) continue; // skip unknown modes (e.g. leftover from a removed mode)

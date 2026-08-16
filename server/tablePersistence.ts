@@ -1,8 +1,11 @@
-// ─── Authoritative Badugi table persistence ───────────────────────────────────
-// Writes table state to .data/badugi_tables.json after each hand mutation
-// (debounced 2 s per table). On server restart, tables are restored with
-// chips intact; any in-progress hand resets to WAITING so the player can
-// press Start cleanly. This is the correct alpha recovery strategy.
+// ─── Authoritative Badugi + Generic table persistence ────────────────────────
+// After every player action (bet, call, raise, fold, check, draw, declare)
+// state is written to Postgres immediately — fire-and-forget, non-blocking —
+// so a crash loses at most ONE action, not the whole hand.
+//
+// JSON files (.data/*.json) are kept as a 2-second-debounced local backup.
+// On startup, both sources are compared per-table; whichever has the newer
+// savedAt timestamp wins.
 //
 // Only game state is persisted — connections and bot timers are runtime-only.
 
@@ -10,6 +13,9 @@ import fs from 'fs';
 import path from 'path';
 import type { GameState } from '../shared/gameTypes';
 import { engineLog } from './engineLog';
+import { db } from './db';
+import { gameTableSnapshots } from '../shared/schema';
+import { eq, inArray } from 'drizzle-orm';
 
 const DATA_DIR  = path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'badugi_tables.json');
@@ -30,6 +36,8 @@ interface PendingWrite {
 }
 
 const pending = new Map<string, PendingWrite>();
+
+// ─── File helpers ─────────────────────────────────────────────────────────────
 
 function ensureDir(): void {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -53,6 +61,74 @@ function writeStore(store: StoreFile): void {
   }
 }
 
+// ─── Postgres helpers — fire-and-forget, never block the caller ───────────────
+
+/**
+ * Immediately upsert a snapshot to Postgres.  The promise is NOT awaited —
+ * this function returns void and handles errors internally so the action
+ * handler is never blocked.
+ */
+function saveToDb(
+  persistKey: string,
+  modeId: string,
+  tableId: string,
+  handId: number,
+  state: GameState,
+): void {
+  const dataJson = { state, handId, savedAt: Date.now() } as Record<string, unknown>;
+  db.insert(gameTableSnapshots)
+    .values({ persistKey, modeId, tableId, handId, dataJson, savedAt: new Date() })
+    .onConflictDoUpdate({
+      target: gameTableSnapshots.persistKey,
+      set: { handId, dataJson, savedAt: new Date() },
+    })
+    .catch(err =>
+      engineLog('ERROR', persistKey, { msg: 'db-snapshot-upsert-failed', err: String(err) }),
+    );
+}
+
+/** Fire-and-forget Postgres delete. */
+function deleteFromDb(persistKey: string): void {
+  db.delete(gameTableSnapshots)
+    .where(eq(gameTableSnapshots.persistKey, persistKey))
+    .catch(err =>
+      engineLog('ERROR', persistKey, { msg: 'db-snapshot-delete-failed', err: String(err) }),
+    );
+}
+
+/** Async load of all DB snapshots matching the given mode IDs (used at startup). */
+async function loadAllFromDb(
+  modeIds: string[],
+): Promise<Record<string, PersistedEntry & { tableId: string; modeId: string }>> {
+  try {
+    const rows = await db
+      .select()
+      .from(gameTableSnapshots)
+      .where(inArray(gameTableSnapshots.modeId, modeIds));
+
+    const cutoff = Date.now() - TABLE_EXPIRY_MS;
+    const result: Record<string, PersistedEntry & { tableId: string; modeId: string }> = {};
+
+    for (const row of rows) {
+      const data = row.dataJson as { state: GameState; handId: number; savedAt: number };
+      if (!data?.state) continue;
+      const savedAt = typeof data.savedAt === 'number' ? data.savedAt : row.savedAt.getTime();
+      if (savedAt < cutoff) continue;
+      result[row.persistKey] = {
+        state:   data.state,
+        handId:  data.handId ?? row.handId,
+        savedAt,
+        tableId: row.tableId,
+        modeId:  row.modeId,
+      };
+    }
+    return result;
+  } catch (err) {
+    console.error('[PERSIST] db load failed (falling back to JSON):', err);
+    return {};
+  }
+}
+
 // ─── Load all tables on startup ───────────────────────────────────────────────
 
 export interface RestoredTable {
@@ -61,13 +137,28 @@ export interface RestoredTable {
   handId: number;
 }
 
-export function loadPersistedTables(): RestoredTable[] {
-  const store = readStore();
+export async function loadPersistedTables(): Promise<RestoredTable[]> {
+  const [dbEntries, store] = await Promise.all([
+    loadAllFromDb(['badugi']),
+    Promise.resolve(readStore()),
+  ]);
+
   const cutoff = Date.now() - TABLE_EXPIRY_MS;
+  const allKeys = new Set([...Object.keys(dbEntries), ...Object.keys(store)]);
   const results: RestoredTable[] = [];
 
-  for (const [tableId, entry] of Object.entries(store)) {
-    if (entry.savedAt < cutoff) continue; // prune stale tables
+  for (const tableId of allKeys) {
+    const dbEntry   = dbEntries[tableId];
+    const jsonEntry = store[tableId];
+
+    // Prefer whichever source has the more-recent savedAt
+    let entry: PersistedEntry | undefined;
+    if (dbEntry && jsonEntry) {
+      entry = dbEntry.savedAt >= jsonEntry.savedAt ? dbEntry : jsonEntry;
+    } else {
+      entry = dbEntry ?? jsonEntry;
+    }
+    if (!entry || entry.savedAt < cutoff) continue;
 
     const { state, handId } = sanitizeForRestore(tableId, entry.state, entry.handId);
     results.push({ tableId, state, handId });
@@ -89,12 +180,6 @@ function sanitizeForRestore(tableId: string, state: GameState, handId: number): 
   }
 
   // Mid-hand or SHOWDOWN: reset to WAITING, return bets, preserve net chips.
-  //
-  // Bet-return rule: if pot > 0 there is money in play that was never distributed.
-  //   chips_safe = p.chips + p.totalBet  (restores the player to their pre-hand balance)
-  //   sum(totalBet for all players) == pot, so returning all totalBets zeroes the pot.
-  // If pot == 0 the hand resolved before the crash (e.g. SHOWDOWN already ran and
-  //   distributed winnings, then resetToAnte timed out). Chips are already correct.
   const returnBets = state.pot > 0;
   const restoredPlayers = state.players.map(p => ({
     ...p,
@@ -136,17 +221,19 @@ function sanitizeForRestore(tableId: string, state: GameState, handId: number): 
   };
 }
 
-// ─── Debounced save ───────────────────────────────────────────────────────────
+// ─── Debounced save (Badugi) ──────────────────────────────────────────────────
 
 export function scheduleSave(tableId: string, state: GameState, handId: number): void {
+  // ── Immediate Postgres write — durable before this call returns ──────────
+  saveToDb(tableId, 'badugi', tableId, handId, state);
+
+  // ── Debounced JSON file write — 2 s local backup (unchanged) ────────────
   const existing = pending.get(tableId);
   if (existing) clearTimeout(existing.timer);
-
   const timer = setTimeout(() => {
     pending.delete(tableId);
     flush(tableId, state, handId);
   }, SAVE_DEBOUNCE_MS);
-
   pending.set(tableId, { timer, state, handId });
 }
 
@@ -177,6 +264,9 @@ export function deletePersistedTable(tableId: string): void {
   const p = pending.get(tableId);
   if (p) { clearTimeout(p.timer); pending.delete(tableId); }
 
+  // Remove from Postgres immediately
+  deleteFromDb(tableId);
+
   try {
     const store = readStore();
     if (!store[tableId]) return;
@@ -186,9 +276,11 @@ export function deletePersistedTable(tableId: string): void {
   } catch { /* non-critical */ }
 }
 
-// ─── Generic mode persistence (Dead7, Fifteen35, SuitsPoker) ──────────────────
-// Uses a separate file so Badugi and generic tables are isolated.
+// ─── Generic mode persistence (Dead7, Fifteen35, SuitsPoker, Kamikaze…) ───────
+// Uses a separate JSON file so Badugi and generic tables are isolated.
 // Keys in the file are `${modeId}:${tableId}` composite strings.
+// Postgres uses the same `game_table_snapshots` table with the modeId column
+// set to the actual mode slug (e.g. 'kamikaze', 'dead7', 'suits_poker').
 
 const GENERIC_DATA_FILE = path.join(DATA_DIR, 'generic_tables.json');
 const genericPending = new Map<string, PendingWrite>();
@@ -218,17 +310,53 @@ export interface RestoredGenericTable {
   handId: number;
 }
 
-export function loadPersistedGenericTables(): RestoredGenericTable[] {
-  const store = readGenericStore();
+// All mode IDs served by the generic engine — kept in sync with MODE_REGISTRY
+const GENERIC_MODE_IDS = [
+  'dead7', 'fifteen35', 'suits_poker', 'flushed_up',
+  'kamikaze', 'bonecrusher', 'box_chevy',
+];
+
+export async function loadPersistedGenericTables(): Promise<RestoredGenericTable[]> {
+  const [dbEntries, store] = await Promise.all([
+    loadAllFromDb(GENERIC_MODE_IDS),
+    Promise.resolve(readGenericStore()),
+  ]);
+
   const cutoff = Date.now() - TABLE_EXPIRY_MS;
+  const allKeys = new Set([...Object.keys(dbEntries), ...Object.keys(store)]);
   const results: RestoredGenericTable[] = [];
 
-  for (const [key, entry] of Object.entries(store)) {
-    if (entry.savedAt < cutoff) continue;
-    const colonIdx = key.indexOf(':');
-    if (colonIdx === -1) continue; // skip malformed keys
-    const modeId  = key.slice(0, colonIdx);
-    const tableId = key.slice(colonIdx + 1);
+  for (const key of allKeys) {
+    const dbEntry   = dbEntries[key];
+    const jsonEntry = store[key];
+
+    // Prefer whichever source is newer
+    let entry: PersistedEntry | undefined;
+    let modeId:  string | undefined;
+    let tableId: string | undefined;
+
+    if (dbEntry && jsonEntry) {
+      if (dbEntry.savedAt >= jsonEntry.savedAt) {
+        entry = dbEntry; modeId = dbEntry.modeId; tableId = dbEntry.tableId;
+      } else {
+        entry = jsonEntry;
+      }
+    } else if (dbEntry) {
+      entry = dbEntry; modeId = dbEntry.modeId; tableId = dbEntry.tableId;
+    } else {
+      entry = jsonEntry;
+    }
+
+    if (!entry || entry.savedAt < cutoff) continue;
+
+    // Derive modeId/tableId from the composite key if not from DB
+    if (!modeId || !tableId) {
+      const colonIdx = key.indexOf(':');
+      if (colonIdx === -1) continue;
+      modeId  = key.slice(0, colonIdx);
+      tableId = key.slice(colonIdx + 1);
+    }
+
     const { state, handId } = sanitizeForRestore(key, entry.state, entry.handId);
     results.push({ modeId, tableId, state, handId });
   }
@@ -237,14 +365,21 @@ export function loadPersistedGenericTables(): RestoredGenericTable[] {
 }
 
 export function scheduleGenericSave(persistKey: string, state: GameState, handId: number): void {
+  // Derive modeId and tableId from the composite "modeId:tableId" key
+  const colonIdx = persistKey.indexOf(':');
+  const modeId   = colonIdx !== -1 ? persistKey.slice(0, colonIdx) : 'generic';
+  const tableId  = colonIdx !== -1 ? persistKey.slice(colonIdx + 1) : persistKey;
+
+  // ── Immediate Postgres write — durable before this call returns ──────────
+  saveToDb(persistKey, modeId, tableId, handId, state);
+
+  // ── Debounced JSON file write — 2 s local backup (unchanged) ────────────
   const existing = genericPending.get(persistKey);
   if (existing) clearTimeout(existing.timer);
-
   const timer = setTimeout(() => {
     genericPending.delete(persistKey);
     flushGeneric(persistKey, state, handId);
   }, SAVE_DEBOUNCE_MS);
-
   genericPending.set(persistKey, { timer, state, handId });
 }
 
@@ -270,6 +405,9 @@ function flushGeneric(persistKey: string, state: GameState, handId: number): voi
 export function deletePersistedGenericTable(persistKey: string): void {
   const p = genericPending.get(persistKey);
   if (p) { clearTimeout(p.timer); genericPending.delete(persistKey); }
+
+  // Remove from Postgres immediately
+  deleteFromDb(persistKey);
 
   try {
     const store = readGenericStore();

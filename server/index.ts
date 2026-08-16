@@ -208,8 +208,8 @@ app.use((req, res, next) => {
     console.log('[admin] ADMIN_EMAIL not set — skipping admin grant');
   }
 
-  initEngine();              // restore persisted Badugi tables before WS server opens
-  initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
+  await initEngine();              // restore persisted Badugi tables before WS server opens
+  await initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
   await initLadyLuckEngine(); // restore persisted Lady Luck tables + refund crash wagers
   initRooms(httpServer);
   startGuestResetJob();      // hourly guest-account 24h reset

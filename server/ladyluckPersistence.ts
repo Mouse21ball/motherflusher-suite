@@ -15,6 +15,9 @@ import fs   from 'fs';
 import path from 'path';
 import { storage } from './storage';
 import type { LadyLuckState, LadyLuckSuit, LadyLuckRoom } from '../shared/modes/ladyluck';
+import { db } from './db';
+import { gameTableSnapshots } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +77,26 @@ function writeStore(store: StoreFile): void {
   }
 }
 
+// ─── Postgres helpers — fire-and-forget, never block the action handler ───────
+
+function saveLLToDb(tableId: string, state: LadyLuckState, deck: LLCard[], hostId: string | null): void {
+  const persistKey = `ll:${tableId}`;
+  const dataJson   = { state, deck, hostId, savedAt: Date.now() } as Record<string, unknown>;
+  db.insert(gameTableSnapshots)
+    .values({ persistKey, modeId: 'ladyluck', tableId, handId: 0, dataJson, savedAt: new Date() })
+    .onConflictDoUpdate({
+      target: gameTableSnapshots.persistKey,
+      set:    { dataJson, savedAt: new Date() },
+    })
+    .catch(err => console.error('[ll:PERSIST] db upsert failed:', err));
+}
+
+function deleteLLFromDb(tableId: string): void {
+  db.delete(gameTableSnapshots)
+    .where(eq(gameTableSnapshots.persistKey, `ll:${tableId}`))
+    .catch(err => console.error('[ll:PERSIST] db delete failed:', err));
+}
+
 // ─── Debounced save ───────────────────────────────────────────────────────────
 
 export function scheduleLLSave(
@@ -82,6 +105,10 @@ export function scheduleLLSave(
   deck:    LLCard[],
   hostId:  string | null,
 ): void {
+  // ── Immediate Postgres write — durable before this call returns ──────────
+  saveLLToDb(tableId, state, deck, hostId);
+
+  // ── Debounced JSON file write — 2 s local backup (unchanged) ────────────
   const existing = pending.get(tableId);
   if (existing) clearTimeout(existing.timer);
 
@@ -124,6 +151,10 @@ function flushLLTable(
 export function deleteLLPersistedTable(tableId: string): void {
   const p = pending.get(tableId);
   if (p) { clearTimeout(p.timer); pending.delete(tableId); }
+
+  // Remove from Postgres immediately
+  deleteLLFromDb(tableId);
+
   try {
     const store = readStore();
     if (!store[tableId]) return;

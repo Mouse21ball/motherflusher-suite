@@ -527,3 +527,27 @@ export const ladyluckRaceResults = pgTable("ladyluck_race_results", {
 ]);
 
 export type LadyLuckRaceResult = typeof ladyluckRaceResults.$inferSelect;
+
+// ─── Game Table Snapshots (durable hand/pot state) ────────────────────────────
+// Written to Postgres immediately after every player action across all 9 game
+// modes (fire-and-forget, non-blocking). On restart, whichever source (Postgres
+// or .data/*.json) has the newer savedAt wins per-table.
+//
+// persistKey:
+//   Badugi       → tableId
+//   Generic modes → "modeId:tableId"
+//   Lady Luck    → "ll:tableId"
+
+export const gameTableSnapshots = pgTable("game_table_snapshots", {
+  persistKey: text("persist_key").primaryKey(),
+  modeId:     text("mode_id").notNull(),
+  tableId:    text("table_id").notNull(),
+  handId:     integer("hand_id").notNull(),
+  dataJson:   jsonb("data_json").notNull().$type<Record<string, unknown>>(),
+  savedAt:    timestamp("saved_at").defaultNow().notNull(),
+}, (table) => [
+  index("game_table_snapshots_mode_idx").on(table.modeId),
+  index("game_table_snapshots_saved_idx").on(table.savedAt),
+]);
+
+export type GameTableSnapshot = typeof gameTableSnapshots.$inferSelect;

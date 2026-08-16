@@ -1304,8 +1304,8 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 // Called once at server startup to restore persisted table states.
-export function initEngine(): void {
-  const restored = loadPersistedTables();
+export async function initEngine(): Promise<void> {
+  const restored = await loadPersistedTables();
   for (const { tableId, state, handId } of restored) {
     tables.set(tableId, {
       tableId,
