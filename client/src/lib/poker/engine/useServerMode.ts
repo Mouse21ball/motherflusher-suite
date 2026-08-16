@@ -13,7 +13,7 @@ import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { apiUrl, wsUrl } from '../../apiConfig';
-import { getSessionToken } from '../../session';
+import { apiFetch } from '../../session';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
 
@@ -149,11 +149,16 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   useEffect(() => {
     mountedRef.current = true;
 
-    function connect() {
+    async function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const token    = getSessionToken();
-      const url      = wsUrl(token);
+      // Fetch a short-lived WS ticket — session token stays out of the upgrade URL.
+      let ticket: string | null = null;
+      try {
+        const ticketRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
+        if (ticketRes.ok) { const j = await ticketRes.json(); ticket = j.ticket ?? null; }
+      } catch {}
+      const url = wsUrl(ticket);
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;

@@ -15,6 +15,7 @@ import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { FEATURES } from '../shared/featureFlags';
 import { storage } from './storage';
+import { consumeWsTicket } from './wsTickets';
 import {
   addBadugiConnection,
   removeBadugiConnection,
@@ -288,36 +289,37 @@ export function initRooms(httpServer: Server): WebSocketServer {
     ) => {
       const urlStr = info.req.url ?? '/';
       const qs     = urlStr.includes('?') ? urlStr.split('?')[1] : '';
-      const token  = new URLSearchParams(qs).get('token');
+      const ticket = new URLSearchParams(qs).get('ticket');
       const ip     = info.req.socket?.remoteAddress ?? 'unknown';
       const at     = new Date().toISOString();
 
-      if (!token) {
-        console.warn(`[WS AUTH] ${at} ip=${ip} reason=missing_token — rejected`);
+      if (!ticket) {
+        console.warn(`[WS AUTH] ${at} ip=${ip} reason=missing_ticket — rejected`);
         done(false, 401, 'Unauthorized');
         return;
       }
 
-      const sessionLookupStart = Date.now();
-      storage.getSession(token)
-        .then(session => {
-          const sessionLookupMs = Date.now() - sessionLookupStart;
-          console.log(`[LL-TIMING-SERVER] verifyClient — storage.getSession took ${sessionLookupMs}ms, found=${!!session}`);
-          if (!session) {
-            console.warn(`[WS AUTH] ${at} ip=${ip} reason=invalid_or_expired_token — rejected`);
-            done(false, 401, 'Unauthorized');
-            return;
-          }
-          // Attach authenticated identity to request for use in connection handler
-          (info.req as any).authenticatedPlayerId = session.playerId;
-          (info.req as any).sessionExpiresAt      = session.expiresAt;
-          console.log(`[LL-TIMING-SERVER] verifyClient — done(true) called, HTTP 101 upgrade proceeding at ${Date.now()} (total verifyClient=${Date.now() - sessionLookupStart + sessionLookupMs}ms)`);
-          done(true);
-        })
-        .catch(err => {
-          console.error(`[WS AUTH] ${at} ip=${ip} reason=session_lookup_error msg=${(err as Error).message}`);
-          done(false, 500, 'Internal Error');
-        });
+      // Consume the short-lived ticket synchronously — no DB round-trip needed.
+      // The ticket was issued moments ago by GET /api/auth/ws-ticket (an
+      // authenticated endpoint) and is single-use with a 60-second TTL.
+      const t0       = Date.now();
+      const playerId = consumeWsTicket(ticket);
+      console.log(`[LL-TIMING-SERVER] verifyClient — ticket lookup took ${Date.now() - t0}ms, found=${!!playerId}`);
+
+      if (!playerId) {
+        console.warn(`[WS AUTH] ${at} ip=${ip} reason=invalid_or_expired_ticket — rejected`);
+        done(false, 401, 'Unauthorized');
+        return;
+      }
+
+      // Attach authenticated identity to request for use in the connection handler.
+      // sessionExpiresAt is set 30 days out — the ticket confirmed the session was
+      // valid at issue time; this gives the periodic in-connection expiry check a
+      // realistic window instead of expiring the WS immediately.
+      (info.req as any).authenticatedPlayerId = playerId;
+      (info.req as any).sessionExpiresAt      = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      console.log(`[LL-TIMING-SERVER] verifyClient — done(true), ticket consumed at ${Date.now()}`);
+      done(true);
     },
   });
 

@@ -240,11 +240,11 @@ export default function LadyLuck() {
       if (!alive) return;
       try {
         const wsTimingStart = Date.now();
-        console.log(`[LL-TIMING] GET /api/auth/ws-token starting at ${wsTimingStart}`);
-        const tokenRes = await apiFetch('/api/auth/ws-token');
+        console.log(`[LL-TIMING] GET /api/auth/ws-ticket starting at ${wsTimingStart}`);
+        const tokenRes = await apiFetch('/api/auth/ws-ticket');
         let token: string | null = null;
-        if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
-        console.log(`[LL-TIMING] GET /api/auth/ws-token resolved at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
+        if (tokenRes.ok) { const j = await tokenRes.json(); token = j.ticket ?? null; }
+        console.log(`[LL-TIMING] GET /api/auth/ws-ticket resolved at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
 
         if (!alive) return;
 

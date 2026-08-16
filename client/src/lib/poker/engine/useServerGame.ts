@@ -16,7 +16,7 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 import { apiUrl, wsUrl } from '../../apiConfig';
-import { getSessionToken } from '../../session';
+import { apiFetch } from '../../session';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
 // Persisted in sessionStorage so a page refresh on the same tab gets the same
@@ -151,11 +151,16 @@ export function useServerBadugi(tableId: string) {
     if (!activeFlag) return;
     mountedRef.current = true;
 
-    function connect() {
+    async function connect() {
       if (!mountedRef.current) return;
       const identity = ensurePlayerIdentity();
-      const token    = getSessionToken();
-      const url      = wsUrl(token);
+      // Fetch a short-lived WS ticket — session token stays out of the upgrade URL.
+      let ticket: string | null = null;
+      try {
+        const ticketRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
+        if (ticketRes.ok) { const j = await ticketRes.json(); ticket = j.ticket ?? null; }
+      } catch {}
+      const url = wsUrl(ticket);
       let ws: WebSocket;
       try { ws = new WebSocket(url); } catch { return; }
       wsRef.current = ws;

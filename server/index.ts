@@ -187,19 +187,25 @@ app.use((req, res, next) => {
     console.error('[startup] Failed to run infrastructure-rejection cleanup:', cleanupErr.message);
   }
 
-  // ONE-TIME MIGRATION (2026-06-01): Grant admin status to Detroit's primary account.
+  // Grant admin status to the account identified by the ADMIN_EMAIL env var.
   // Safe to run on every startup — UPDATE is a no-op if isAdmin is already true.
-  try {
-    const adminResult = await db
-      .update(playerProfiles)
-      .set({ isAdmin: true })
-      .where(eq(playerProfiles.email, 'bikerguy1930@gmail.com'))
-      .returning({ id: playerProfiles.id });
-    if (adminResult.length > 0) {
-      console.log('[admin] granted isAdmin=true to bikerguy1930@gmail.com');
+  // If ADMIN_EMAIL is not set, this block is skipped entirely.
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    try {
+      const adminResult = await db
+        .update(playerProfiles)
+        .set({ isAdmin: true })
+        .where(eq(playerProfiles.email, adminEmail))
+        .returning({ id: playerProfiles.id });
+      if (adminResult.length > 0) {
+        console.log(`[admin] granted isAdmin=true to ${adminEmail}`);
+      }
+    } catch (adminErr: any) {
+      console.error(`[admin] Failed to grant admin to ${adminEmail}:`, adminErr.message);
     }
-  } catch (adminErr: any) {
-    console.error('[admin] Failed to grant admin to bikerguy1930@gmail.com:', adminErr.message);
+  } else {
+    console.log('[admin] ADMIN_EMAIL not set — skipping admin grant');
   }
 
   initEngine();              // restore persisted Badugi tables before WS server opens

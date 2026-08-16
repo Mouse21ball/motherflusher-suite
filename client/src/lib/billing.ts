@@ -306,7 +306,7 @@ class NativeBillingPlugin implements BillingPlugin {
   }
 
   openSubscriptionManagement(): void {
-    const pkg = "com.dgmentertainment.chaingangpoker";
+    const pkg = "com.dgmentertainment.poker";
     window.open(`https://play.google.com/store/account/subscriptions?package=${pkg}`, "_blank");
   }
 
@@ -364,7 +364,7 @@ class WebBillingStub implements BillingPlugin {
   }
 
   openSubscriptionManagement(): void {
-    const pkg = "com.dgmentertainment.chaingangpoker";
+    const pkg = "com.dgmentertainment.poker";
     window.open(`https://play.google.com/store/account/subscriptions?package=${pkg}`, "_blank");
   }
 

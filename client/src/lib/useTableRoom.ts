@@ -6,8 +6,8 @@
 
 import { useEffect, useRef } from 'react';
 import { ensurePlayerIdentity } from './persistence';
-import { getSessionToken } from './session';
-import { wsUrl } from './apiConfig';
+import { apiFetch } from './session';
+import { apiUrl, wsUrl } from './apiConfig';
 
 export interface RoomSeat {
   seatId: string;
@@ -36,12 +36,18 @@ export function useTableRoom({ tableId, modeId, seatId = 'p1', onRoomUpdate }: U
   useEffect(() => {
     mountedRef.current = true;
 
-    function connect() {
+    async function connect() {
       if (!mountedRef.current) return;
 
-      const token = getSessionToken();
       const identity = ensurePlayerIdentity();
-      const url = wsUrl(token);
+      // Exchange the authenticated session for a short-lived WS ticket so the
+      // long-lived session token never appears in the WS upgrade URL.
+      let ticket: string | null = null;
+      try {
+        const ticketRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
+        if (ticketRes.ok) { const j = await ticketRes.json(); ticket = j.ticket ?? null; }
+      } catch {}
+      const url = wsUrl(ticket);
 
       let ws: WebSocket;
       try {

@@ -177,9 +177,9 @@ export default function LadyLuckSpectate() {
 
     const connect = async () => {
       try {
-        const tokenRes = await apiFetch('/api/auth/ws-token');
+        const tokenRes = await apiFetch('/api/auth/ws-ticket');
         let token: string | null = null;
-        if (tokenRes.ok) { const j = await tokenRes.json(); token = j.token ?? null; }
+        if (tokenRes.ok) { const j = await tokenRes.json(); token = j.ticket ?? null; }
 
         const ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;

@@ -39,6 +39,7 @@ const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFU
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
 import { createLLTable, getLLActiveTables, findOrCreateLLTable } from "./ladyluckEngine";
+import { issueWsTicket } from "./wsTickets";
 import { filterChatMessage } from "./chatFilter";
 import {
   STRIPES_PACKS,
@@ -733,16 +734,17 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/auth/ws-token
-  // Returns the caller's session token so the client can attach it to the
-  // WebSocket upgrade URL (?token=…). requireAuth has already validated the
-  // token; we read it back from the header and echo it to the caller.
-  app.get("/api/auth/ws-token", requireAuth, (req, res) => {
-    const t0  = Date.now();
-    const raw   = req.headers["x-session-token"];
-    const token = Array.isArray(raw) ? raw[0] : (raw ?? null);
-    console.log(`[LL-TIMING-SERVER] GET /api/auth/ws-token — requireAuth+header-read took ${Date.now() - t0}ms`);
-    res.json({ token });
+  // GET /api/auth/ws-ticket
+  // Issues a short-lived (60 s), single-use WebSocket connection ticket for
+  // the authenticated player. The client passes this ticket in the WS upgrade
+  // URL (?ticket=) instead of the long-lived session token, so the session
+  // credential is never exposed in server access logs or proxy logs.
+  // requireAuth has already validated the session token before this handler runs.
+  app.get("/api/auth/ws-ticket", requireAuth, (req, res) => {
+    const t0     = Date.now();
+    const ticket = issueWsTicket(req.sessionPlayerId!);
+    console.log(`[LL-TIMING-SERVER] GET /api/auth/ws-ticket — issued in ${Date.now() - t0}ms`);
+    res.json({ ticket });
   });
 
   // POST /api/auth/guest-init

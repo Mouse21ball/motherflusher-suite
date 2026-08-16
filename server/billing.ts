@@ -76,6 +76,19 @@ const PACKAGE_NAME = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainme
 const TEST_MODE    = process.env.BILLING_TEST_MODE === "true";
 console.log(`[billing] BILLING_TEST_MODE = ${TEST_MODE}`);
 
+// ── Production safety guard ───────────────────────────────────────────────────
+// Test mode accepts test_ tokens without hitting Google's API, which means
+// anyone who knows the token prefix can credit themselves Stripes for free.
+// This MUST never run in production. Throw at boot so a misconfigured
+// deployment fails loudly rather than silently accepting fake purchases.
+if (process.env.NODE_ENV === 'production' && TEST_MODE) {
+  throw new Error(
+    '[billing] FATAL: BILLING_TEST_MODE=true is set in a production environment. ' +
+    'Test mode bypasses Google Play receipt verification and must never run in ' +
+    'production. Remove BILLING_TEST_MODE or set it to false before deploying.'
+  );
+}
+
 export interface GooglePurchaseData {
   purchaseState:    number;   // 0 = purchased, 1 = canceled, 2 = pending
   orderId:          string;
