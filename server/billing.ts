@@ -586,7 +586,7 @@ export async function handleSubscriptionRefund(purchaseToken: string): Promise<v
 //   APPLE_KEY_ID      — 10-character key ID from App Store Connect → Users & Access → Keys
 //   APPLE_ISSUER_ID   — Issuer UUID shown at the top of the Keys page
 //   APPLE_PRIVATE_KEY — Full ES256 PEM private key (contents of the downloaded .p8 file)
-//   APPLE_BUNDLE_ID   — App bundle identifier, e.g. com.dgmentertainment.chaingangpoker
+//   APPLE_BUNDLE_ID   — App bundle identifier, e.g. com.dgmentertainment.poker
 //
 // If any credential is missing the function throws a clear error (logged but never crashes
 // the server). The route handler catches it and returns HTTP 402 to the client.

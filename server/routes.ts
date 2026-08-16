@@ -2098,7 +2098,7 @@ export async function registerRoutes(
   // We cannot cancel directly from the app — this returns the Play Store deep link
   // for the player to manage their subscription themselves.
   app.post("/api/players/:id/subscription/cancel", requireAuth, requireSelf, async (req, res) => {
-    const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.chaingangpoker";
+    const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME ?? "com.dgmentertainment.poker";
     const deepLink = `https://play.google.com/store/account/subscriptions?sku=&package=${packageName}`;
     res.json({ deepLink, message: "Open Play Store to manage or cancel your subscription." });
   });
