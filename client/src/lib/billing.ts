@@ -66,7 +66,7 @@ export const APPLE_STRIPES_PRODUCT_IDS = [
 
 export const APPLE_SUBSCRIPTION_PRODUCT_IDS = [
   'com.dgmentertainment.poker.goldpro.monthly',
-  'com.dgmentertainment.poker.diamondelite.monthly',
+  'com.dgmentertainment.poker.diamond.monthly',
 ] as const;
 
 export type SubscriptionTier = "gold_pro" | "diamond_elite";

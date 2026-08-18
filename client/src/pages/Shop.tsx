@@ -46,7 +46,7 @@ const APPLE_STRIPES_PACKS = [
 // Used when the iOS purchase flow needs to call the right Apple product.
 const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
   'sub_gold_pro_monthly':      'com.dgmentertainment.poker.goldpro.monthly',
-  'sub_diamond_elite_monthly': 'com.dgmentertainment.poker.diamondelite.monthly',
+  'sub_diamond_elite_monthly': 'com.dgmentertainment.poker.diamond.monthly',
 };
 
 // ── Merch ─────────────────────────────────────────────────────────────────────
