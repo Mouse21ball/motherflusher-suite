@@ -38,6 +38,9 @@ workflows:
         bundle_identifier: com.dgmentertainment.poker
       xcode: latest
       cocoapods: default
+      vars:
+        VITE_API_BASE_URL: https://chainggangpoker.com
+        VITE_SHARE_ORIGIN: https://chainggangpoker.com
     scripts:
       - name: Install npm dependencies
         script: |

@@ -16,13 +16,22 @@
 //   4. Set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON to the full JSON string
 
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
-// Product IDs must match what is registered in Play Console exactly.
+// Google Play product IDs must match Play Console exactly.
+// Apple App Store product IDs must match App Store Connect exactly.
 export const STRIPES_PACKS: Record<string, { stripes: number; priceCents: number }> = {
+  // ── Google Play ──────────────────────────────────────────────────────────────
   stripes_starter_99:  { stripes: 100,   priceCents: 99   },
   stripes_small_499:   { stripes: 550,   priceCents: 499  },
   stripes_medium_999:  { stripes: 1200,  priceCents: 999  },
   stripes_large_2499:  { stripes: 3250,  priceCents: 2499 },
   stripes_mega_9999:   { stripes: 15000, priceCents: 9999 },
+  // ── Apple App Store ─────────────────────────────────────────────────────────
+  'com.dgmentertainment.poker.stripes.starter':  { stripes: 1000,   priceCents: 199  },
+  'com.dgmentertainment.poker.stripes.standard': { stripes: 5000,   priceCents: 499  },
+  'com.dgmentertainment.poker.stripes.popular':  { stripes: 12000,  priceCents: 999  },
+  'com.dgmentertainment.poker.stripes.big':      { stripes: 30000,  priceCents: 1999 },
+  'com.dgmentertainment.poker.stripes.mega':     { stripes: 100000, priceCents: 4999 },
+  'com.dgmentertainment.poker.stripes.ultimate': { stripes: 250000, priceCents: 9999 },
 };
 
 // ─── Club Chip pack catalog ───────────────────────────────────────────────────
@@ -50,6 +59,7 @@ export interface SubscriptionProduct {
 }
 
 export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
+  // ── Google Play ──────────────────────────────────────────────────────────────
   sub_gold_pro_monthly: {
     tier: "gold_pro", billingPeriod: "monthly",
     priceCents: 499, stripesOnStart: 1000, stripesMonthly: 1000,
@@ -68,6 +78,17 @@ export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   sub_diamond_elite_yearly: {
     tier: "diamond_elite", billingPeriod: "yearly",
     priceCents: 5999, stripesOnStart: 2500, stripesMonthly: 2500,
+    dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
+  },
+  // ── Apple App Store ─────────────────────────────────────────────────────────
+  'com.dgmentertainment.poker.goldpro.monthly': {
+    tier: "gold_pro", billingPeriod: "monthly",
+    priceCents: 499, stripesOnStart: 1000, stripesMonthly: 1000,
+    dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
+  },
+  'com.dgmentertainment.poker.diamondelite.monthly': {
+    tier: "diamond_elite", billingPeriod: "monthly",
+    priceCents: 1999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
 };

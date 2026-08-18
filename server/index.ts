@@ -51,12 +51,13 @@ app.set('trust proxy', 1);
 // CORS — must be registered before any routes or body parsers so that
 // preflight OPTIONS requests are handled before they hit auth middleware.
 const ALLOWED_ORIGINS = new Set([
-  'https://localhost',            // Capacitor Android WebView
-  'capacitor://localhost',        // Capacitor iOS WebView
+  'https://localhost',              // Capacitor Android WebView
+  'capacitor://localhost',          // Capacitor iOS WebView
   'https://chaing-gang-poker.replit.app', // production web (Replit domain)
-  'https://chainggangpoker.com',  // production web (custom domain)
-  'http://localhost:5173',        // Vite dev server
-  'http://localhost:5000',        // local server testing
+  'https://chainggangpoker.com',    // production web (custom domain, non-www)
+  'https://www.chainggangpoker.com',// production web (www variant — some browsers add this)
+  'http://localhost:5173',          // Vite dev server
+  'http://localhost:5000',          // local server testing
 ]);
 app.use(cors({
   origin: (origin, callback) => {
@@ -411,6 +412,408 @@ app.use((req, res, next) => {
     </p>
     <p>
       <strong>DGM Entertainment LLC</strong>
+    </p>
+
+    <div class="footer">
+      &copy; 2026 DGM Entertainment LLC. All rights reserved.
+      &nbsp;·&nbsp; <a href="/">Back to Chain Gang Poker</a>
+    </div>
+  </div>
+</body>
+</html>`);
+  });
+
+  // ── Terms of Use ────────────────────────────────────────────────────────────
+  app.get('/terms', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Use — Chain Gang Poker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0e;
+      color: #d4d4d8;
+      line-height: 1.7;
+      padding: 24px 16px 64px;
+    }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    .logo { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #C9A227; margin-bottom: 32px; }
+    h1 { font-size: clamp(22px, 5vw, 30px); font-weight: 700; color: #f4f4f5; margin-bottom: 8px; }
+    .meta { font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 40px; }
+    h2 { font-size: 16px; font-weight: 600; color: #f4f4f5; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    p { margin-bottom: 12px; font-size: 15px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 15px; margin-bottom: 6px; }
+    a { color: #C9A227; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .notice { background: rgba(201,162,39,0.10); border: 1px solid rgba(201,162,39,0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; }
+    .footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: rgba(255,255,255,0.30); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Chain Gang Poker</div>
+    <h1>Terms of Use</h1>
+    <p class="meta">DGM Entertainment LLC &nbsp;·&nbsp; Last updated: August 2026</p>
+
+    <div class="notice">
+      <strong>Not Real Money Gambling.</strong> Chain Gang Poker is a free-to-play social card game.
+      All chips and virtual currency in the game have no real-world monetary value and cannot be
+      exchanged for cash, prizes, or anything of value outside the game. No real money is wagered.
+    </div>
+
+    <h2>1. Acceptance of Terms</h2>
+    <p>
+      By downloading, installing, or playing Chain Gang Poker ("the Game"), you agree to be bound
+      by these Terms of Use ("Terms"). If you do not agree, do not use the Game.
+      These Terms constitute a legal agreement between you and DGM Entertainment LLC ("we", "us", or "our").
+    </p>
+
+    <h2>2. Eligibility</h2>
+    <p>
+      You must be at least 13 years of age to use Chain Gang Poker. If you are between 13 and 18,
+      you represent that a parent or legal guardian has reviewed and agrees to these Terms on your behalf.
+      We do not knowingly collect information from children under 13.
+    </p>
+
+    <h2>3. Description of the Game</h2>
+    <p>
+      Chain Gang Poker is a free-to-play social poker card game offering multiple poker variants
+      for entertainment purposes. The Game uses virtual chips and a virtual currency called Stripes
+      (◆) for in-game play. No real money is wagered at any time.
+    </p>
+
+    <h2>4. Virtual Currency and Virtual Items</h2>
+    <p>
+      The Game contains two types of virtual currency:
+    </p>
+    <ul>
+      <li><strong>Chips</strong> — used to place in-game bets. Awarded for free via daily bonuses,
+        game wins, and promotional events. May also be purchased indirectly via Stripes.</li>
+      <li><strong>Stripes (◆)</strong> — a premium virtual currency used to purchase in-game items,
+        cosmetics, and chip packs. Stripes can be purchased through your app store (Google Play or
+        Apple App Store) or earned through subscriptions and promotions.</li>
+    </ul>
+    <p>
+      <strong>Virtual currency has no real-world value.</strong> Chips and Stripes cannot be
+      transferred, sold, exchanged, or redeemed for real money, goods, or services outside the Game.
+      They are licensed to you, not sold, and remain the property of DGM Entertainment LLC.
+      Virtual currency balances may be reduced, modified, or removed at our discretion, including
+      if your account is terminated for violations of these Terms.
+    </p>
+
+    <h2>5. In-App Purchases</h2>
+    <p>
+      The Game offers optional in-app purchases of Stripes packs through Google Play and the Apple
+      App Store. All purchases are:
+    </p>
+    <ul>
+      <li>Processed by the applicable app store (Google or Apple), not by us directly</li>
+      <li>Final and non-refundable except as required by applicable law or app store policies</li>
+      <li>Subject to the payment terms of the app store through which you make the purchase</li>
+    </ul>
+    <p>
+      To request a refund, contact Google Play or the Apple App Store directly through their
+      standard refund processes. We do not process refunds for in-app purchases.
+    </p>
+
+    <h2>6. Subscription Terms</h2>
+    <p>
+      Chain Gang Poker offers two auto-renewing subscription tiers — <strong>Gold Pro</strong>
+      and <strong>Diamond Elite</strong> — available on a monthly or yearly basis.
+    </p>
+    <ul>
+      <li>Subscriptions automatically renew at the end of each billing period unless cancelled
+        at least 24 hours before the renewal date.</li>
+      <li>Your app store account will be charged for renewal within 24 hours prior to the end
+        of the current period.</li>
+      <li>You may manage or cancel your subscription at any time through your Google Play or
+        Apple App Store account settings.</li>
+      <li>Cancellation takes effect at the end of the current billing period; you retain access
+        to subscription benefits until then.</li>
+      <li>Monthly Stripes grants included with subscriptions are applied at the start of each
+        billing cycle and are non-refundable once credited.</li>
+      <li>We reserve the right to change subscription pricing with reasonable notice. Continued
+        use of a subscription after a price change constitutes acceptance of the new price.</li>
+    </ul>
+
+    <h2>7. No Real Money Gambling</h2>
+    <p>
+      Chain Gang Poker is strictly a social entertainment game. All poker gameplay uses virtual
+      chips only. There is no real-money wagering, no chance to win real money or prizes, and no
+      element of real gambling. The game is intended for adult entertainment and social play.
+    </p>
+    <p>
+      The presence of poker-style mechanics does not constitute gambling under any jurisdiction.
+      If you are uncertain about the laws in your jurisdiction, please seek legal advice before
+      playing.
+    </p>
+
+    <h2>8. Account Terms</h2>
+    <p>You are responsible for:</p>
+    <ul>
+      <li>Maintaining the confidentiality of your account credentials</li>
+      <li>All activity that occurs under your account</li>
+      <li>Providing accurate information when creating your account</li>
+      <li>Notifying us immediately of any unauthorized use of your account</li>
+    </ul>
+    <p>
+      You may not create more than one account, share accounts, or use another player's account.
+    </p>
+
+    <h2>9. Prohibited Conduct</h2>
+    <p>You agree not to:</p>
+    <ul>
+      <li>Use any cheat, bot, exploit, automation, or unauthorized third-party software</li>
+      <li>Harass, abuse, or threaten other players</li>
+      <li>Attempt to manipulate game outcomes through collusion or other means</li>
+      <li>Sell, trade, or transfer your account or virtual currency</li>
+      <li>Reverse-engineer, decompile, or attempt to extract the Game's source code</li>
+      <li>Use the Game for any illegal purpose</li>
+    </ul>
+    <p>
+      Violations may result in suspension or permanent termination of your account and forfeiture
+      of any virtual currency balance without refund.
+    </p>
+
+    <h2>10. Intellectual Property</h2>
+    <p>
+      All content in Chain Gang Poker — including graphics, game modes, code, sounds, and text —
+      is owned by or licensed to DGM Entertainment LLC and protected by applicable intellectual
+      property laws. You may not reproduce, distribute, or create derivative works without our
+      express written permission.
+    </p>
+
+    <h2>11. Disclaimers</h2>
+    <p>
+      The Game is provided "as is" without warranties of any kind, express or implied. We do not
+      warrant that the Game will be uninterrupted, error-free, or free of viruses or other harmful
+      components. We are not responsible for any loss of virtual currency due to technical issues,
+      server outages, or game updates.
+    </p>
+
+    <h2>12. Limitation of Liability</h2>
+    <p>
+      To the fullest extent permitted by applicable law, DGM Entertainment LLC shall not be liable
+      for any indirect, incidental, special, consequential, or punitive damages arising from your
+      use of the Game, including loss of virtual currency or account access.
+    </p>
+
+    <h2>13. Changes to These Terms</h2>
+    <p>
+      We may update these Terms from time to time. When we do, we will revise the "Last updated"
+      date above. Continued use of the Game after changes are posted constitutes your acceptance
+      of the revised Terms.
+    </p>
+
+    <h2>14. Governing Law</h2>
+    <p>
+      These Terms are governed by the laws of the United States. Any disputes shall be resolved
+      in accordance with applicable law.
+    </p>
+
+    <h2>15. Contact</h2>
+    <p>
+      For questions about these Terms, contact us at:<br />
+      <a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a>
+    </p>
+    <p>
+      <strong>DGM Entertainment LLC</strong>
+    </p>
+
+    <div class="footer">
+      &copy; 2026 DGM Entertainment LLC. All rights reserved.
+      &nbsp;·&nbsp; <a href="/privacy">Privacy Policy</a>
+      &nbsp;·&nbsp; <a href="/support">Support</a>
+      &nbsp;·&nbsp; <a href="/">Back to Chain Gang Poker</a>
+    </div>
+  </div>
+</body>
+</html>`);
+  });
+
+  // ── Support ──────────────────────────────────────────────────────────────────
+  app.get('/support', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — Chain Gang Poker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0e;
+      color: #d4d4d8;
+      line-height: 1.7;
+      padding: 24px 16px 64px;
+    }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    .logo { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #C9A227; margin-bottom: 32px; }
+    h1 { font-size: clamp(22px, 5vw, 30px); font-weight: 700; color: #f4f4f5; margin-bottom: 8px; }
+    .meta { font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 40px; }
+    h2 { font-size: 16px; font-weight: 600; color: #f4f4f5; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    h3 { font-size: 14px; font-weight: 600; color: #e4e4e7; margin: 20px 0 6px; }
+    p { margin-bottom: 12px; font-size: 15px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 15px; margin-bottom: 6px; }
+    a { color: #C9A227; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .contact-card {
+      background: rgba(201,162,39,0.08);
+      border: 1px solid rgba(201,162,39,0.25);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 32px;
+    }
+    .contact-card .label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(255,255,255,0.40); margin-bottom: 6px; }
+    .contact-card .email { font-size: 18px; font-weight: 700; color: #C9A227; }
+    .contact-card .note { font-size: 13px; color: rgba(255,255,255,0.40); margin-top: 6px; }
+    .faq-item { margin-bottom: 28px; }
+    .footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: rgba(255,255,255,0.30); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Chain Gang Poker</div>
+    <h1>Support</h1>
+    <p class="meta">DGM Entertainment LLC &nbsp;·&nbsp; We typically respond within 2 business days</p>
+
+    <h2>Contact Us</h2>
+    <div class="contact-card">
+      <div class="label">Email Support</div>
+      <div class="email"><a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a></div>
+      <div class="note">For account issues, purchase problems, bug reports, or any other questions.</div>
+    </div>
+    <p>
+      When contacting support, please include your in-game display name and a description of the
+      issue. For purchase-related issues, include your order confirmation from the app store.
+    </p>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <div class="faq-item">
+      <h3>What is Chain Gang Poker?</h3>
+      <p>
+        Chain Gang Poker is a free-to-play social card game featuring multiple poker variants
+        including classic Texas Hold'em, Kamikaze, Bonecrusher, Box Chevy, Dead 7, Suits Poker,
+        Lady Luck, and Badugi. All gameplay uses virtual chips — no real money is ever wagered.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I create an account?</h3>
+      <p>
+        Open the app and tap <strong>Log In / Register</strong> on the welcome screen. Enter your
+        email address, a display name, and a password (at least 8 characters). Your chips and
+        progress are saved to your account so you can resume on any device.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>I forgot my password. How do I reset it?</h3>
+      <p>
+        Tap <strong>Forgot password?</strong> on the login screen and enter your email address.
+        We'll send you a reset link. If you don't receive it within a few minutes, check your
+        spam folder or contact support.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>What are Stripes (◆)?</h3>
+      <p>
+        Stripes are Chain Gang Poker's premium virtual currency. They can be used to purchase
+        chip packs, cosmetic items, and more. Stripes can be earned through subscriptions and
+        special promotions, or purchased directly through Google Play or the Apple App Store.
+        <strong>Stripes have no real-world monetary value.</strong>
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I buy Stripes?</h3>
+      <p>
+        Open the app and go to the <strong>Shop</strong> tab. Select a Stripes pack and complete
+        the purchase through Google Play or the Apple App Store. Stripes are credited to your
+        account immediately after the purchase is verified.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>What are Gold Pro and Diamond Elite subscriptions?</h3>
+      <p>
+        These are optional auto-renewing subscription tiers that provide monthly Stripes grants,
+        XP boosts, exclusive avatar frames, and other in-game benefits. Subscriptions can be
+        managed or cancelled at any time through your Google Play or Apple App Store account
+        settings. Cancellation takes effect at the end of the current billing period.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I cancel my subscription?</h3>
+      <ul>
+        <li><strong>Android / Google Play:</strong> Open Google Play → tap your profile icon → Payments &amp; subscriptions → Subscriptions → Chain Gang Poker → Cancel.</li>
+        <li><strong>iPhone / iPad / Apple App Store:</strong> Open Settings → tap your Apple ID → Subscriptions → Chain Gang Poker → Cancel Subscription.</li>
+      </ul>
+      <p>You retain subscription benefits until the end of the current billing period.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>I made a purchase but didn't receive my Stripes.</h3>
+      <p>
+        First, wait up to 5 minutes for verification to complete. If Stripes still haven't appeared,
+        try closing and reopening the app. If the issue persists, email us at
+        <a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a> with
+        your display name and your app store order confirmation number.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>I lost my chips. What happened?</h3>
+      <p>
+        Chip balances change during normal gameplay. If you believe chips were lost due to a
+        technical error (not normal gameplay), contact us with your display name, the approximate
+        time the issue occurred, and which game mode you were playing.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I report a player for cheating or harassment?</h3>
+      <p>
+        You can report players directly in the game. During a game, open the player menu and tap
+        <strong>Report</strong>. Reports are reviewed by our team. You can also email
+        <a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a>
+        with the offending player's display name and a description of the incident.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Is this real money gambling?</h3>
+      <p>
+        No. Chain Gang Poker is a social entertainment game. All chips are virtual and have no
+        real-world value. No real money is wagered at any time, and there is no way to win or
+        cash out real money through the game.
+      </p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I delete my account?</h3>
+      <p>
+        Email <a href="mailto:dgm.entertainment2026@gmail.com">dgm.entertainment2026@gmail.com</a>
+        with your display name and the email address on your account, and request account deletion.
+        We will delete your account and associated data within 30 days.
+      </p>
+    </div>
+
+    <h2>Legal</h2>
+    <p>
+      <a href="/terms">Terms of Use</a> &nbsp;·&nbsp; <a href="/privacy">Privacy Policy</a>
     </p>
 
     <div class="footer">

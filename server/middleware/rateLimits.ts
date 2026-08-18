@@ -23,19 +23,35 @@ function makeHandler(errorMessage: string) {
 
 const loginShortLimiter = rateLimit({
   windowMs:               15 * 60 * 1000,
-  limit:                  5,
+  limit:                  10,   // raised from 5 — server-side 5xx also count as failures,
+                                 // and Apple reviewers / shared carrier IPs need more headroom
   skipSuccessfulRequests: true,
   standardHeaders:        true,
   legacyHeaders:          false,
+  // Key by normalised IP + email so different email addresses on the same
+  // shared IP (corporate Wi-Fi, mobile carrier CGNAT, App Review team) each
+  // get their own independent bucket instead of sharing one quota for the
+  // whole IP.  ipKeyGenerator() normalises IPv6 to avoid bypass via address
+  // variants (required by express-rate-limit v7+ when using req.ip in keys).
+  keyGenerator: (req: Request) => {
+    const ip    = ipKeyGenerator(req.ip ?? '');
+    const email = (req.body?.email as string | undefined)?.toLowerCase().trim() ?? '';
+    return `${ip}:${email}`;
+  },
   handler:                makeHandler('Too many login attempts. Try again later.'),
 });
 
 const loginLongLimiter = rateLimit({
   windowMs:               60 * 60 * 1000,
-  limit:                  10,
+  limit:                  20,   // raised from 10 for same reason
   skipSuccessfulRequests: true,
   standardHeaders:        true,
   legacyHeaders:          false,
+  keyGenerator: (req: Request) => {
+    const ip    = ipKeyGenerator(req.ip ?? '');
+    const email = (req.body?.email as string | undefined)?.toLowerCase().trim() ?? '';
+    return `${ip}:${email}`;
+  },
   handler:                makeHandler('Too many login attempts. Try again later.'),
 });
 

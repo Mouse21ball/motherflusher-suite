@@ -5,16 +5,25 @@ import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression
 import { useServerProfile } from '@/lib/useServerProfile';
 import { billing, type ActiveSubscription } from '@/lib/billing';
 
-// ── Chip image lookup ─────────────────────────────────────────────────────────
+// ── Chip image lookup (Google Play IDs + Apple App Store IDs) ─────────────────
 const PACK_CHIP: Record<string, string> = {
+  // Google Play
   stripes_starter_99:  '/chip-starter.png',
   stripes_small_499:   '/chip-popular.png',
   stripes_medium_999:  '/chip-popular.png',
   stripes_large_2499:  '/chip-highroller.png',
   stripes_mega_9999:   '/chip-whale.png',
+  // Apple App Store
+  'com.dgmentertainment.poker.stripes.starter':  '/chip-starter.png',
+  'com.dgmentertainment.poker.stripes.standard': '/chip-popular.png',
+  'com.dgmentertainment.poker.stripes.popular':  '/chip-popular.png',
+  'com.dgmentertainment.poker.stripes.big':      '/chip-highroller.png',
+  'com.dgmentertainment.poker.stripes.mega':     '/chip-whale.png',
+  'com.dgmentertainment.poker.stripes.ultimate': '/chip-whale.png',
 };
 
 // ── Stripes pack definitions ──────────────────────────────────────────────────
+// Google Play packs — used on Android
 const STRIPES_PACKS = [
   { id: 'stripes_starter_99',  name: 'Starter Pack',  stripes: 100,   price: '$0.99',  badge: null as string | null,  featured: false },
   { id: 'stripes_small_499',   name: 'Small Pack',    stripes: 550,   price: '$4.99',  badge: null as string | null,  featured: false },
@@ -22,6 +31,23 @@ const STRIPES_PACKS = [
   { id: 'stripes_large_2499',  name: 'Large Pack',    stripes: 3250,  price: '$24.99', badge: 'BEST VALUE',           featured: true  },
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
+
+// Apple App Store packs — used on iOS (different product IDs and Stripes quantities)
+const APPLE_STRIPES_PACKS = [
+  { id: 'com.dgmentertainment.poker.stripes.starter',  name: 'Starter Pack',  stripes: 1000,   price: '$1.99',  badge: null as string | null, featured: false },
+  { id: 'com.dgmentertainment.poker.stripes.standard', name: 'Standard Pack', stripes: 5000,   price: '$4.99',  badge: null as string | null, featured: false },
+  { id: 'com.dgmentertainment.poker.stripes.popular',  name: 'Popular Pack',  stripes: 12000,  price: '$9.99',  badge: 'BEST STARTER',        featured: false },
+  { id: 'com.dgmentertainment.poker.stripes.big',      name: 'Big Pack',      stripes: 30000,  price: '$19.99', badge: 'BEST VALUE',          featured: true  },
+  { id: 'com.dgmentertainment.poker.stripes.mega',     name: 'Mega Pack',     stripes: 100000, price: '$49.99', badge: null as string | null, featured: false },
+  { id: 'com.dgmentertainment.poker.stripes.ultimate', name: 'Ultimate Pack', stripes: 250000, price: '$99.99', badge: 'WHALE PACK',          featured: false },
+];
+
+// Maps Google Play monthly subscription IDs → Apple App Store equivalent IDs.
+// Used when the iOS purchase flow needs to call the right Apple product.
+const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
+  'sub_gold_pro_monthly':      'com.dgmentertainment.poker.goldpro.monthly',
+  'sub_diamond_elite_monthly': 'com.dgmentertainment.poker.diamondelite.monthly',
+};
 
 // ── Merch ─────────────────────────────────────────────────────────────────────
 const MERCH_ITEMS = [
@@ -167,6 +193,15 @@ export default function Shop() {
   const initials    = getAvatarInitials(profile?.displayName ?? identity.name);
   const avatarColor = getAvatarColor(identity.id);
 
+  // Detect iOS Capacitor runtime — uses Apple product IDs and purchase flow.
+  const isIOS = typeof window !== 'undefined' &&
+    (window as any)?.Capacitor?.getPlatform?.() === 'ios';
+
+  // Show platform-appropriate Stripes packs:
+  // iOS  → Apple App Store product IDs with App Store prices/quantities
+  // Web/Android → Google Play product IDs
+  const activePacks = isIOS ? APPLE_STRIPES_PACKS : STRIPES_PACKS;
+
   // ── Handlers (preserved verbatim) ──────────────────────────────────────────
   async function handlePurchase(productId: string) {
     setPurchaseBusy(productId);
@@ -183,9 +218,21 @@ export default function Shop() {
   }
 
   async function handleSubscribe(tier: TierDef) {
-    const productId = billingPeriod === 'monthly'
-      ? tier.monthlyProductId
-      : tier.yearlyProductId;
+    // On iOS, use Apple App Store product IDs. Apple only offers monthly.
+    let productId: string | null;
+    if (isIOS) {
+      if (billingPeriod === 'yearly') {
+        setSubMsg('Yearly subscriptions are not available on iOS. Please select Monthly.');
+        return;
+      }
+      productId = tier.monthlyProductId
+        ? (APPLE_MONTHLY_SUB_IDS[tier.monthlyProductId] ?? tier.monthlyProductId)
+        : null;
+    } else {
+      productId = billingPeriod === 'monthly'
+        ? tier.monthlyProductId
+        : tier.yearlyProductId;
+    }
     if (!productId) return;
 
     setSubBusy(tier.id);
@@ -471,7 +518,11 @@ export default function Shop() {
 
             {/* Disclaimer */}
             <p className="text-center mt-3 leading-relaxed" style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', fontStyle: 'italic' }}>
-              Subscriptions auto-renew. Cancel anytime via Google Play. Virtual chips and Stripes have no real-world value.
+              Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
+              {' '}
+              <a href="/terms"   target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(201,162,39,0.70)', textDecoration: 'underline' }}>Terms of Use</a>
+              {' · '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(201,162,39,0.70)', textDecoration: 'underline' }}>Privacy Policy</a>
             </p>
           </div>
 
@@ -661,7 +712,11 @@ export default function Shop() {
             </div>
 
             <p className="text-[9px] font-mono text-white/20 text-center mt-3 leading-relaxed">
-              Subscriptions auto-renew. Cancel anytime via Google Play. Virtual chips and Stripes have no real-world value.
+              Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
+              {' '}
+              <a href="/terms"   target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.45)' }}>Terms of Use</a>
+              {' · '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.45)' }}>Privacy Policy</a>
             </p>
           </div>
 
@@ -686,7 +741,7 @@ export default function Shop() {
 
             {/* Pack rows */}
             <div className="flex flex-col" style={{ gap: 10 }}>
-              {STRIPES_PACKS.map(pack => (
+              {activePacks.map(pack => (
                 <div
                   key={pack.id}
                   className="relative"
@@ -699,8 +754,8 @@ export default function Shop() {
                       style={{
                         top: -8,
                         right: 14,
-                        background: pack.id === 'stripes_large_2499' ? '#FF6B1A' : '#FFD700',
-                        color: pack.id === 'stripes_large_2499' ? '#fff' : '#0B0B0D',
+                        background: pack.featured ? '#FF6B1A' : '#FFD700',
+                        color: pack.featured ? '#fff' : '#0B0B0D',
                         padding: '4px 10px',
                         borderRadius: 12,
                         letterSpacing: '0.05em',

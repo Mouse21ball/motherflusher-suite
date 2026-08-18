@@ -1752,6 +1752,72 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/billing/verify-apple-subscription
+  // Called by the native iOS client after an Apple auto-renewable subscription
+  // flow completes. Verifies the Apple transactionId via the App Store Server API,
+  // then activates the subscription tier and credits the initial Stripes grant.
+  // Uses originalTransactionId for idempotency — stable across renewals.
+  // In BILLING_TEST_MODE the Apple API check is skipped so sandbox IAP can be
+  // exercised without real App Store credentials configured in Secrets.
+  app.post("/api/billing/verify-apple-subscription", ...purchaseVerificationRateLimit, requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId:     z.string().min(1),
+        transactionId: z.string().min(1),
+      });
+      const { productId, transactionId } = schema.parse(req.body);
+
+      const product = SUBSCRIPTION_PRODUCTS[productId];
+      if (!product) {
+        res.status(400).json({ error: `Unknown Apple subscription product: ${productId}` });
+        return;
+      }
+
+      const playerId = req.sessionPlayerId!;
+
+      let tokenForRecord = transactionId;
+      if (!TEST_MODE) {
+        let appleData: ApplePurchaseData;
+        try {
+          appleData = await verifyAppleAppStorePurchase(transactionId);
+        } catch (verifyErr: any) {
+          console.error('[billing:apple-sub] Apple API verification failed:', verifyErr.message);
+          res.status(402).json({ error: `Apple subscription verification failed: ${verifyErr.message}` });
+          return;
+        }
+        if (appleData.revocationReason !== undefined) {
+          res.status(402).json({ error: 'Apple subscription was refunded or revoked.' });
+          return;
+        }
+        // Use originalTransactionId so the idempotency key is stable across renewals
+        tokenForRecord = appleData.originalTransactionId ?? transactionId;
+        console.log(
+          `[billing:apple-sub] verified: player=${playerId} product=${productId}` +
+          ` tier=${product.tier} env=${appleData.environment}`
+        );
+      } else {
+        console.log(
+          `[billing:apple-sub] TEST_MODE: skipping Apple verification ` +
+          `player=${playerId} product=${productId}`
+        );
+      }
+
+      const result = await processSubscriptionPurchase(playerId, productId, tokenForRecord);
+
+      res.json({
+        success:        true,
+        idempotent:     result.idempotent,
+        tier:           result.tier,
+        expiresAt:      result.expiresAt.toISOString(),
+        stripesGranted: result.stripesGranted,
+      });
+    } catch (err: any) {
+      if (err?.name === 'ZodError') { res.status(400).json({ error: 'Invalid request' }); return; }
+      console.error('[billing:apple-sub] verify-apple-subscription error:', err);
+      res.status(500).json({ error: err.message ?? 'Subscription activation failed' });
+    }
+  });
+
   // POST /api/billing/play-webhook
   // Unified Google Play Real-Time Developer Notification (RTDN) endpoint.
   // All Play Console notification types (subscription lifecycle, voided purchases,

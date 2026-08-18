@@ -52,6 +52,23 @@ export const SUBSCRIPTION_PRODUCT_IDS = [
 
 export type SubscriptionProductId = typeof SUBSCRIPTION_PRODUCT_IDS[number];
 
+// ─── Apple App Store product catalogs ─────────────────────────────────────────
+// These IDs must match App Store Connect exactly — they differ from Google Play IDs.
+// Apple Stripes packs have different Stripes quantities and price points.
+export const APPLE_STRIPES_PRODUCT_IDS = [
+  'com.dgmentertainment.poker.stripes.starter',
+  'com.dgmentertainment.poker.stripes.standard',
+  'com.dgmentertainment.poker.stripes.popular',
+  'com.dgmentertainment.poker.stripes.big',
+  'com.dgmentertainment.poker.stripes.mega',
+  'com.dgmentertainment.poker.stripes.ultimate',
+] as const;
+
+export const APPLE_SUBSCRIPTION_PRODUCT_IDS = [
+  'com.dgmentertainment.poker.goldpro.monthly',
+  'com.dgmentertainment.poker.diamondelite.monthly',
+] as const;
+
 export type SubscriptionTier = "gold_pro" | "diamond_elite";
 
 export interface ProductInfo {
@@ -123,7 +140,7 @@ class NativeBillingPlugin implements BillingPlugin {
     store.applicationUsername = () => ensurePlayerIdentity().id;
     store.obfuscator = 'disabled';
 
-    // Register all consumable Stripes packs (both platforms share the same product IDs)
+    // Register Google Play Stripes packs
     store.register(
       STRIPES_PRODUCT_IDS.map(id => ({
         id,
@@ -131,15 +148,16 @@ class NativeBillingPlugin implements BillingPlugin {
         platform: Platform.GOOGLE_PLAY,
       }))
     );
+    // Register Apple App Store Stripes packs (different IDs from Google Play)
     store.register(
-      STRIPES_PRODUCT_IDS.map(id => ({
+      APPLE_STRIPES_PRODUCT_IDS.map(id => ({
         id,
         type:     ProductType.CONSUMABLE,
         platform: Platform.APPLE_APPSTORE,
       }))
     );
 
-    // Register all club chip consumable packs
+    // Register club chip consumable packs (Google Play only; no Apple equivalents yet)
     store.register(
       CLUB_CHIP_PRODUCT_IDS.map(id => ({
         id,
@@ -147,15 +165,8 @@ class NativeBillingPlugin implements BillingPlugin {
         platform: Platform.GOOGLE_PLAY,
       }))
     );
-    store.register(
-      CLUB_CHIP_PRODUCT_IDS.map(id => ({
-        id,
-        type:     ProductType.CONSUMABLE,
-        platform: Platform.APPLE_APPSTORE,
-      }))
-    );
 
-    // Register all subscription products
+    // Register Google Play subscription products
     store.register(
       SUBSCRIPTION_PRODUCT_IDS.map(id => ({
         id,
@@ -163,8 +174,9 @@ class NativeBillingPlugin implements BillingPlugin {
         platform: Platform.GOOGLE_PLAY,
       }))
     );
+    // Register Apple App Store subscription products (different IDs from Google Play)
     store.register(
-      SUBSCRIPTION_PRODUCT_IDS.map(id => ({
+      APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => ({
         id,
         type:     ProductType.PAID_SUBSCRIPTION,
         platform: Platform.APPLE_APPSTORE,
@@ -278,7 +290,11 @@ class NativeBillingPlugin implements BillingPlugin {
       const transactionId = transaction.transactionId ?? appleTx.originalTransactionId ?? "";
       const sessionToken = getSessionToken() ?? "";
 
-      const isStripesPack  = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      // Consumable check: Apple Stripes packs + any club chip packs registered for Apple.
+      // Apple subscription products are handled separately below.
+      const isAppleStripesPack = (APPLE_STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isGoogleStripesPack = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isStripesPack  = isAppleStripesPack || isGoogleStripesPack;
       const isClubChipPack = (CLUB_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
       const isConsumable   = isStripesPack || isClubChipPack;
 
@@ -314,12 +330,30 @@ class NativeBillingPlugin implements BillingPlugin {
             crewId:         data.crewId,
           });
         } else {
-          // Apple subscription: verify on the server (future implementation)
-          // For now, finish the transaction so it doesn't stay pending.
+          // Apple subscription — verify with the server, then finish the transaction.
+          const resp = await fetch(apiUrl("/api/billing/verify-apple-subscription"), {
+            method:  "POST",
+            headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
+            body:    JSON.stringify({ productId, transactionId }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            this.pending.get(productId)?.reject(
+              new Error((err as any).error ?? `Apple subscription verification failed: ${resp.status}`)
+            );
+            return;
+          }
+          const data = await resp.json() as SubscriptionResult;
+          // On Apple, finish() removes the transaction from the StoreKit queue.
           await transaction.finish();
-          this.pending.get(productId)?.reject(
-            new Error("Apple subscription purchase not yet supported — use the Android app.")
-          );
+          this.pending.get(productId)?.resolve({
+            productId,
+            purchaseToken:  transactionId,
+            tier:           data.tier,
+            expiresAt:      data.expiresAt,
+            stripesGranted: data.stripesGranted,
+            idempotent:     data.idempotent,
+          });
         }
       } catch (err) {
         this.pending.get(productId)?.reject(err);
@@ -349,7 +383,10 @@ class NativeBillingPlugin implements BillingPlugin {
 
   async purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult> {
     if (!this.initialized) throw new Error("Billing not initialized");
-    const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
+    // Try Apple App Store first (iOS), then Google Play (Android). At runtime only
+    // one platform's products will be loadable, so the other returns undefined.
+    const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.APPLE_APPSTORE)
+                 ?? CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
     if (!product) throw new Error(`Product not found: ${productId}`);
     const offer = product.getOffer();
     if (!offer) throw new Error(`No offer found for: ${productId}`);
@@ -369,7 +406,9 @@ class NativeBillingPlugin implements BillingPlugin {
 
   async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
     if (!this.initialized) throw new Error("Billing not initialized");
-    const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
+    // Try Apple App Store first (iOS), then Google Play (Android).
+    const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.APPLE_APPSTORE)
+                 ?? CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
     if (!product) throw new Error(`Subscription product not found: ${productId}`);
     const offer = product.getOffer();
     if (!offer) throw new Error(`No offer found for: ${productId}`);

@@ -8,25 +8,31 @@
 //
 // Leave unset for web development — relative URLs work as-is.
 
-const _base: string = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
-
 // ── Capacitor safety guard ────────────────────────────────────────────────────
 // If this code is running inside a Capacitor WebView (Android or iOS) but
-// VITE_API_BASE_URL was not injected at build time, every API call would
-// silently resolve against the device's loopback (http://localhost or
-// capacitor://localhost) and fail with a JSON parse error. Throw immediately
-// so the failure is obvious and not buried in individual screen errors.
-if (!_base && typeof window !== 'undefined') {
-  const origin = window.location.origin;
-  if (origin === 'http://localhost' || origin === 'capacitor://localhost') {
-    throw new Error(
-      '[apiConfig] VITE_API_BASE_URL is not set but the app is running inside a ' +
-      'Capacitor WebView (' + origin + '). All API calls would silently fail. ' +
-      'Set VITE_API_BASE_URL=https://your-deployed-backend.replit.app in the ' +
-      'Codemagic (or local) build environment before building the APK/IPA.'
-    );
+// VITE_API_BASE_URL was not injected at build time, fall back to the known
+// production URL so the app stays functional. A missing env var must never
+// crash the app — Apple reviewers and real users must be able to log in even
+// if the Codemagic build forgot to set the variable.
+const PRODUCTION_FALLBACK = 'https://chainggangpoker.com';
+
+const _base: string = (() => {
+  const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+  if (configured) return configured;
+
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin;
+    if (origin === 'http://localhost' || origin === 'capacitor://localhost') {
+      console.warn(
+        '[apiConfig] VITE_API_BASE_URL is not set in this Capacitor build. ' +
+        `Falling back to ${PRODUCTION_FALLBACK}. ` +
+        'Add VITE_API_BASE_URL to the ios-release vars in codemagic.yaml.'
+      );
+      return PRODUCTION_FALLBACK;
+    }
   }
-}
+  return '';
+})();
 
 /** Prefix a backend API path with the configured origin (empty = relative). */
 export function apiUrl(path: string): string {
