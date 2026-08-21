@@ -26,12 +26,11 @@ export const STRIPES_PACKS: Record<string, { stripes: number; priceCents: number
   stripes_large_2499:  { stripes: 3250,  priceCents: 2499 },
   stripes_mega_9999:   { stripes: 15000, priceCents: 9999 },
   // ── Apple App Store ─────────────────────────────────────────────────────────
-  'com.dgmentertainment.poker.stripes.starter':  { stripes: 1000,   priceCents: 199  },
-  'com.dgmentertainment.poker.stripes.standard': { stripes: 5000,   priceCents: 499  },
-  'com.dgmentertainment.poker.stripes.popular':  { stripes: 12000,  priceCents: 999  },
-  'com.dgmentertainment.poker.stripes.big':      { stripes: 30000,  priceCents: 1999 },
-  'com.dgmentertainment.poker.stripes.mega':     { stripes: 100000, priceCents: 4999 },
-  'com.dgmentertainment.poker.stripes.ultimate': { stripes: 250000, priceCents: 9999 },
+  'com.dgmentertainment.poker.stripes.starter':  { stripes: 100,   priceCents: 99   },
+  'com.dgmentertainment.poker.stripes.standard': { stripes: 550,   priceCents: 499  },
+  'com.dgmentertainment.poker.stripes.popular':  { stripes: 1200,  priceCents: 999  },
+  'com.dgmentertainment.poker.stripes.big':      { stripes: 3250,  priceCents: 2499 },
+  'com.dgmentertainment.poker.stripes.mega':     { stripes: 15000, priceCents: 9999 },
 };
 
 // ─── Club Chip pack catalog ───────────────────────────────────────────────────
@@ -88,7 +87,7 @@ export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   },
   'com.dgmentertainment.poker.diamond.monthly': {
     tier: "diamond_elite", billingPeriod: "monthly",
-    priceCents: 1999, stripesOnStart: 2500, stripesMonthly: 2500,
+    priceCents: 999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
 };

@@ -54,14 +54,13 @@ export type SubscriptionProductId = typeof SUBSCRIPTION_PRODUCT_IDS[number];
 
 // ─── Apple App Store product catalogs ─────────────────────────────────────────
 // These IDs must match App Store Connect exactly — they differ from Google Play IDs.
-// Apple Stripes packs have different Stripes quantities and price points.
+// Apple Stripes packs mirror the Google Play display configuration.
 export const APPLE_STRIPES_PRODUCT_IDS = [
   'com.dgmentertainment.poker.stripes.starter',
   'com.dgmentertainment.poker.stripes.standard',
   'com.dgmentertainment.poker.stripes.popular',
   'com.dgmentertainment.poker.stripes.big',
   'com.dgmentertainment.poker.stripes.mega',
-  'com.dgmentertainment.poker.stripes.ultimate',
 ] as const;
 
 export const APPLE_SUBSCRIPTION_PRODUCT_IDS = [
@@ -84,48 +83,40 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
   {
     id: 'com.dgmentertainment.poker.stripes.starter',
     name: 'Starter Pack',
-    price: '$1.99',
-    stripes: 1000,
+    price: '$0.99',
+    stripes: 100,
     badge: null,
     featured: false,
   },
   {
     id: 'com.dgmentertainment.poker.stripes.standard',
-    name: 'Standard Pack',
+    name: 'Small Pack',
     price: '$4.99',
-    stripes: 5000,
+    stripes: 550,
     badge: null,
     featured: false,
   },
   {
     id: 'com.dgmentertainment.poker.stripes.popular',
-    name: 'Popular Pack',
+    name: 'Medium Pack',
     price: '$9.99',
-    stripes: 12000,
+    stripes: 1200,
     badge: 'BEST STARTER',
     featured: false,
   },
   {
     id: 'com.dgmentertainment.poker.stripes.big',
-    name: 'Big Pack',
-    price: '$19.99',
-    stripes: 30000,
+    name: 'Large Pack',
+    price: '$24.99',
+    stripes: 3250,
     badge: 'BEST VALUE',
     featured: true,
   },
   {
     id: 'com.dgmentertainment.poker.stripes.mega',
     name: 'Mega Pack',
-    price: '$49.99',
-    stripes: 100000,
-    badge: null,
-    featured: false,
-  },
-  {
-    id: 'com.dgmentertainment.poker.stripes.ultimate',
-    name: 'Ultimate Pack',
     price: '$99.99',
-    stripes: 250000,
+    stripes: 15000,
     badge: 'WHALE PACK',
     featured: false,
   },
@@ -141,7 +132,7 @@ export const APPLE_SUBSCRIPTION_PRODUCTS = {
   diamondElite: {
     id: 'com.dgmentertainment.poker.diamond.monthly',
     name: 'Diamond Elite',
-    price: '$19.99',
+    price: '$9.99',
     period: 'monthly',
   },
 } as const;

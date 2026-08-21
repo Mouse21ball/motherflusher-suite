@@ -24,7 +24,6 @@ const PACK_CHIP: Record<string, string> = {
   'com.dgmentertainment.poker.stripes.popular':  '/chip-popular.png',
   'com.dgmentertainment.poker.stripes.big':      '/chip-highroller.png',
   'com.dgmentertainment.poker.stripes.mega':     '/chip-whale.png',
-  'com.dgmentertainment.poker.stripes.ultimate': '/chip-whale.png',
 };
 
 // ── Stripes pack definitions ──────────────────────────────────────────────────
