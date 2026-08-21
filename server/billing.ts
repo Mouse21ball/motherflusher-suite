@@ -26,11 +26,11 @@ export const STRIPES_PACKS: Record<string, { stripes: number; priceCents: number
   stripes_large_2499:  { stripes: 3250,  priceCents: 2499 },
   stripes_mega_9999:   { stripes: 15000, priceCents: 9999 },
   // ── Apple App Store ─────────────────────────────────────────────────────────
-  'com.dgmentertainment.poker.stripes.starter':  { stripes: 100,   priceCents: 99   },
-  'com.dgmentertainment.poker.stripes.standard': { stripes: 550,   priceCents: 499  },
-  'com.dgmentertainment.poker.stripes.popular':  { stripes: 1200,  priceCents: 999  },
-  'com.dgmentertainment.poker.stripes.big':      { stripes: 3250,  priceCents: 2499 },
-  'com.dgmentertainment.poker.stripes.mega':     { stripes: 15000, priceCents: 9999 },
+  'com.dgmentertainment.poker.stripes.starter.v2':  { stripes: 100,   priceCents: 99   },
+  'com.dgmentertainment.poker.stripes.standard.v2': { stripes: 550,   priceCents: 499  },
+  'com.dgmentertainment.poker.stripes.popular.v2':  { stripes: 1200,  priceCents: 999  },
+  'com.dgmentertainment.poker.stripes.big.v2':      { stripes: 3250,  priceCents: 2499 },
+  'com.dgmentertainment.poker.stripes.mega.v2':     { stripes: 15000, priceCents: 9999 },
 };
 
 // ─── Club Chip pack catalog ───────────────────────────────────────────────────

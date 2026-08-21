@@ -19,11 +19,11 @@ const PACK_CHIP: Record<string, string> = {
   stripes_large_2499:  '/chip-highroller.png',
   stripes_mega_9999:   '/chip-whale.png',
   // Apple App Store
-  'com.dgmentertainment.poker.stripes.starter':  '/chip-starter.png',
-  'com.dgmentertainment.poker.stripes.standard': '/chip-popular.png',
-  'com.dgmentertainment.poker.stripes.popular':  '/chip-popular.png',
-  'com.dgmentertainment.poker.stripes.big':      '/chip-highroller.png',
-  'com.dgmentertainment.poker.stripes.mega':     '/chip-whale.png',
+  'com.dgmentertainment.poker.stripes.starter.v2':  '/chip-starter.png',
+  'com.dgmentertainment.poker.stripes.standard.v2': '/chip-popular.png',
+  'com.dgmentertainment.poker.stripes.popular.v2':  '/chip-popular.png',
+  'com.dgmentertainment.poker.stripes.big.v2':      '/chip-highroller.png',
+  'com.dgmentertainment.poker.stripes.mega.v2':     '/chip-whale.png',
 };
 
 // ── Stripes pack definitions ──────────────────────────────────────────────────

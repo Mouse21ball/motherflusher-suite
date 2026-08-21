@@ -56,11 +56,11 @@ export type SubscriptionProductId = typeof SUBSCRIPTION_PRODUCT_IDS[number];
 // These IDs must match App Store Connect exactly — they differ from Google Play IDs.
 // Apple Stripes packs mirror the Google Play display configuration.
 export const APPLE_STRIPES_PRODUCT_IDS = [
-  'com.dgmentertainment.poker.stripes.starter',
-  'com.dgmentertainment.poker.stripes.standard',
-  'com.dgmentertainment.poker.stripes.popular',
-  'com.dgmentertainment.poker.stripes.big',
-  'com.dgmentertainment.poker.stripes.mega',
+  'com.dgmentertainment.poker.stripes.starter.v2',
+  'com.dgmentertainment.poker.stripes.standard.v2',
+  'com.dgmentertainment.poker.stripes.popular.v2',
+  'com.dgmentertainment.poker.stripes.big.v2',
+  'com.dgmentertainment.poker.stripes.mega.v2',
 ] as const;
 
 export const APPLE_SUBSCRIPTION_PRODUCT_IDS = [
@@ -81,7 +81,7 @@ export interface AppleStripesShopProduct {
 
 export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
   {
-    id: 'com.dgmentertainment.poker.stripes.starter',
+    id: 'com.dgmentertainment.poker.stripes.starter.v2',
     name: 'Starter Pack',
     price: '$0.99',
     stripes: 100,
@@ -89,7 +89,7 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
     featured: false,
   },
   {
-    id: 'com.dgmentertainment.poker.stripes.standard',
+    id: 'com.dgmentertainment.poker.stripes.standard.v2',
     name: 'Small Pack',
     price: '$4.99',
     stripes: 550,
@@ -97,7 +97,7 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
     featured: false,
   },
   {
-    id: 'com.dgmentertainment.poker.stripes.popular',
+    id: 'com.dgmentertainment.poker.stripes.popular.v2',
     name: 'Medium Pack',
     price: '$9.99',
     stripes: 1200,
@@ -105,7 +105,7 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
     featured: false,
   },
   {
-    id: 'com.dgmentertainment.poker.stripes.big',
+    id: 'com.dgmentertainment.poker.stripes.big.v2',
     name: 'Large Pack',
     price: '$24.99',
     stripes: 3250,
@@ -113,7 +113,7 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
     featured: true,
   },
   {
-    id: 'com.dgmentertainment.poker.stripes.mega',
+    id: 'com.dgmentertainment.poker.stripes.mega.v2',
     name: 'Mega Pack',
     price: '$99.99',
     stripes: 15000,
