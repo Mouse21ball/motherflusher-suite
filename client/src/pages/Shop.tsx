@@ -3,7 +3,12 @@ import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { billing, type ActiveSubscription } from '@/lib/billing';
+import {
+  APPLE_STRIPES_SHOP_PRODUCTS,
+  APPLE_SUBSCRIPTION_PRODUCTS,
+  billing,
+  type ActiveSubscription,
+} from '@/lib/billing';
 
 // ── Chip image lookup (Google Play IDs + Apple App Store IDs) ─────────────────
 const PACK_CHIP: Record<string, string> = {
@@ -32,21 +37,11 @@ const STRIPES_PACKS = [
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
 
-// Apple App Store packs — used on iOS (different product IDs and Stripes quantities)
-const APPLE_STRIPES_PACKS = [
-  { id: 'com.dgmentertainment.poker.stripes.starter',  name: 'Starter Pack',  stripes: 1000,   price: '$1.99',  badge: null as string | null, featured: false },
-  { id: 'com.dgmentertainment.poker.stripes.standard', name: 'Standard Pack', stripes: 5000,   price: '$4.99',  badge: null as string | null, featured: false },
-  { id: 'com.dgmentertainment.poker.stripes.popular',  name: 'Popular Pack',  stripes: 12000,  price: '$9.99',  badge: 'BEST STARTER',        featured: false },
-  { id: 'com.dgmentertainment.poker.stripes.big',      name: 'Big Pack',      stripes: 30000,  price: '$19.99', badge: 'BEST VALUE',          featured: true  },
-  { id: 'com.dgmentertainment.poker.stripes.mega',     name: 'Mega Pack',     stripes: 100000, price: '$49.99', badge: null as string | null, featured: false },
-  { id: 'com.dgmentertainment.poker.stripes.ultimate', name: 'Ultimate Pack', stripes: 250000, price: '$99.99', badge: 'WHALE PACK',          featured: false },
-];
-
 // Maps Google Play monthly subscription IDs → Apple App Store equivalent IDs.
 // Used when the iOS purchase flow needs to call the right Apple product.
 const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
-  'sub_gold_pro_monthly':      'com.dgmentertainment.poker.goldpro.monthly',
-  'sub_diamond_elite_monthly': 'com.dgmentertainment.poker.diamond.monthly',
+  'sub_gold_pro_monthly':      APPLE_SUBSCRIPTION_PRODUCTS.goldPro.id,
+  'sub_diamond_elite_monthly': APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.id,
 };
 
 // ── Merch ─────────────────────────────────────────────────────────────────────
@@ -200,7 +195,15 @@ export default function Shop() {
   // Show platform-appropriate Stripes packs:
   // iOS  → Apple App Store product IDs with App Store prices/quantities
   // Web/Android → Google Play product IDs
-  const activePacks = isIOS ? APPLE_STRIPES_PACKS : STRIPES_PACKS;
+  const activePacks = isIOS ? APPLE_STRIPES_SHOP_PRODUCTS : STRIPES_PACKS;
+
+  // Apple offers monthly subscriptions only. Use the App Store Connect price
+  // for iOS while preserving the separate Google Play catalog on Android.
+  const monthlyPriceFor = (tier: TierDef): string => {
+    if (isIOS && tier.tier === 'gold_pro') return APPLE_SUBSCRIPTION_PRODUCTS.goldPro.price;
+    if (isIOS && tier.tier === 'diamond_elite') return APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.price;
+    return tier.monthlyPrice;
+  };
 
   // ── Handlers (preserved verbatim) ──────────────────────────────────────────
   async function handlePurchase(productId: string) {
@@ -282,7 +285,7 @@ export default function Shop() {
   const eliteTier       = TIER_DEFS[2];
   const eliteCardState  = getCardState(eliteTier);
   const eliteIsActive   = eliteCardState === 'active';
-  const elitePrice      = billingPeriod === 'monthly' ? `${eliteTier.monthlyPrice}/MO` : `${eliteTier.yearlyPrice}/YR`;
+  const elitePrice      = billingPeriod === 'monthly' ? `${monthlyPriceFor(eliteTier)}/MO` : `${eliteTier.yearlyPrice}/YR`;
 
   // ── CTA button renderer for tier cards ─────────────────────────────────────
   function TierCTA({ tier }: { tier: TierDef }) {
@@ -471,7 +474,7 @@ export default function Shop() {
             {/* Price */}
             <div className="flex items-baseline gap-1.5 mb-4">
               <span style={{ fontSize: 28, fontWeight: 900, color: '#9D7DC8' }}>
-                {billingPeriod === 'monthly' ? eliteTier.monthlyPrice : eliteTier.yearlyPrice}
+                {billingPeriod === 'monthly' ? monthlyPriceFor(eliteTier) : eliteTier.yearlyPrice}
               </span>
               <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.70)', fontWeight: 600 }}>
                 {billingPeriod === 'monthly' ? '/MO' : '/YR'}
@@ -534,7 +537,7 @@ export default function Shop() {
 
             {/* Monthly / Yearly toggle */}
             <div className="flex mb-4 rounded-full overflow-hidden mx-auto w-fit" style={{ border: '1px solid rgba(255,215,0,0.30)' }}>
-              {(['monthly', 'yearly'] as const).map(period => (
+              {(isIOS ? (['monthly'] as const) : (['monthly', 'yearly'] as const)).map(period => (
                 <button
                   key={period}
                   onClick={() => setBillingPeriod(period)}
@@ -672,7 +675,7 @@ export default function Shop() {
                         ) : (
                           <div className="flex items-baseline gap-1 mb-1">
                             <span style={{ fontWeight: 900, fontSize: 22, color: '#fff', fontFamily: 'monospace' }}>
-                              {billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice}
+                              {billingPeriod === 'monthly' ? monthlyPriceFor(tier) : tier.yearlyPrice}
                             </span>
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
                               {billingPeriod === 'monthly' ? '/MO' : '/YR'}
