@@ -121,7 +121,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
 
       {/* Card backs or FOLDED label */}
       {isFolded ? (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
+        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
       ) : (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
           {Array.from({ length: cards }).map((_, i) => (
@@ -148,7 +148,7 @@ function EmptyPanel() {
       border: '1px dashed rgba(255,255,255,0.05)',
       padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 74,
     }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.12)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
     </div>
   );
 }

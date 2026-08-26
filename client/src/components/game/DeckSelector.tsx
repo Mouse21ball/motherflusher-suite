@@ -25,7 +25,7 @@ export function DeckSelector({ className }: DeckSelectorProps) {
     <div className={cn("relative", className)}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.04] text-white/30 hover:text-white/55 hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-200 touch-manipulation"
+        className="flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.04] text-white/60 hover:text-white/60 hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-200 touch-manipulation"
         aria-label="Change deck"
         data-testid="button-deck-selector"
       >
@@ -41,7 +41,7 @@ export function DeckSelector({ className }: DeckSelectorProps) {
           />
           <div className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl bg-[#141417] border border-white/[0.06] shadow-2xl overflow-hidden">
             <div className="px-3 py-2 border-b border-white/[0.05]">
-              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25 font-bold">Card Back Style</p>
+              <p className="text-[12px] font-mono uppercase tracking-[0.2em] text-white/60 font-bold">Card Back Style</p>
             </div>
             <div className="p-2 space-y-1">
               {DECK_THEMES.map(t => {
@@ -78,11 +78,11 @@ export function DeckSelector({ className }: DeckSelectorProps) {
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11px] font-medium text-white/70 leading-none">{t.name}</span>
-                        {isActive && <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: t.accentColor }}>Active</span>}
+                        {isActive && <span className="text-[11px] font-mono uppercase tracking-wider" style={{ color: t.accentColor }}>Active</span>}
                       </div>
-                      <span className="text-[10px] text-white/30 leading-none">{t.tagline}</span>
+                      <span className="text-[12px] text-white/60 leading-none">{t.tagline}</span>
                       {isLocked && (
-                        <span className="text-[9px] font-mono" style={{ color: t.accentColor, opacity: 0.6 }}>
+                        <span className="text-[12px] font-mono" style={{ color: t.accentColor, opacity: 0.6 }}>
                           Unlocks at Lv {t.unlockLevel}
                         </span>
                       )}
@@ -92,8 +92,8 @@ export function DeckSelector({ className }: DeckSelectorProps) {
               })}
             </div>
             <div className="px-3 py-2 border-t border-white/[0.05]">
-              <p className="text-[9px] text-white/20 font-mono leading-relaxed">
-                Your current level: <span className="text-white/40">Lv {level}</span>
+              <p className="text-[12px] text-white/60 font-mono leading-relaxed">
+                Your current level: <span className="text-white/60">Lv {level}</span>
               </p>
             </div>
           </div>

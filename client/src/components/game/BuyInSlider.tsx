@@ -90,13 +90,13 @@ export function BuyInSlider({
   return (
     <div className="flex flex-col gap-4 w-full max-w-xs mx-auto" data-testid="buyin-slider-panel">
       <div className="text-center">
-        <p className="text-xs text-white/50 uppercase tracking-widest mb-1">
+        <p className="text-xs text-white/60 uppercase tracking-widest mb-1">
           {currentStack > 0 ? 'Rebuy Amount' : 'Buy-In Amount'}
         </p>
         <p className="text-3xl font-mono font-bold text-white" data-testid="buyin-amount-display">
           {formatChips(amount)}
         </p>
-        <p className="text-sm text-white/40 mt-0.5">{bbAmount} BB</p>
+        <p className="text-sm text-white/60 mt-0.5">{bbAmount} BB</p>
       </div>
 
       <Slider
@@ -109,7 +109,7 @@ export function BuyInSlider({
         data-testid="buyin-slider"
       />
 
-      <div className="flex justify-between text-xs text-white/30 font-mono">
+      <div className="flex justify-between text-xs text-white/60 font-mono">
         <span>{formatChips(effectiveMin)} (20BB)</span>
         <span>{formatChips(effectiveMax)} (200BB)</span>
       </div>
@@ -131,7 +131,7 @@ export function BuyInSlider({
             size="sm"
             onClick={onCancel}
             disabled={loading}
-            className="flex-1 text-white/50 border-white/10"
+            className="flex-1 text-white/60 border-white/10"
             data-testid="buyin-cancel"
           >
             Cancel

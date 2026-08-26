@@ -339,7 +339,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
             }}>
               <div style={{
                 fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
-                color: 'rgba(255,255,255,0.32)', letterSpacing: '0.22em',
+                color: 'rgba(255,255,255,0.6)', letterSpacing: '0.22em',
               }}>
                 YOU HAD
               </div>
@@ -356,7 +356,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
               {heroEval && (
                 <div style={{
                   fontSize: 12, fontFamily: 'monospace', fontWeight: 400,
-                  color: 'rgba(255,255,255,0.36)', letterSpacing: '0.09em',
+                  color: 'rgba(255,255,255,0.6)', letterSpacing: '0.09em',
                 }}>
                   {handLabel(heroEval)}
                 </div>

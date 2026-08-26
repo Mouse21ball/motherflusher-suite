@@ -40,7 +40,7 @@ export function DebugOverlay({ state, myId, lastWsAt, lastWsType }: DebugOverlay
   return (
     <div
       data-testid="debug-overlay"
-      className="fixed top-1 right-1 z-[200] pointer-events-none font-mono text-[10px] leading-tight px-2 py-1.5 rounded border"
+      className="fixed top-1 right-1 z-[200] pointer-events-none font-mono text-[12px] leading-tight px-2 py-1.5 rounded border"
       style={{
         background: 'rgba(0,0,0,0.72)',
         borderColor: stale ? 'rgba(255,80,80,0.6)' : 'rgba(255,255,255,0.12)',
@@ -48,17 +48,17 @@ export function DebugOverlay({ state, myId, lastWsAt, lastWsType }: DebugOverlay
         minWidth: 160,
       }}
     >
-      <div><span className="text-white/40">phase</span> {state.phase}</div>
-      <div><span className="text-white/40">active</span> {activePlayers}/{state.players.length}</div>
-      <div><span className="text-white/40">pot</span> ${state.pot}</div>
-      <div><span className="text-white/40">cb</span> ${state.currentBet} <span className="text-white/40 ml-1">bets</span> ${totalBets}</div>
-      <div><span className="text-white/40">chips</span> ${totalChips}</div>
-      <div><span className="text-white/40">turn</span> {state.activePlayerId ?? '—'} {state.activePlayerId === myId ? '(me)' : ''}</div>
-      <div><span className="text-white/40">raises</span> {state.raisesThisRound ?? 0}</div>
+      <div><span className="text-white/60">phase</span> {state.phase}</div>
+      <div><span className="text-white/60">active</span> {activePlayers}/{state.players.length}</div>
+      <div><span className="text-white/60">pot</span> ${state.pot}</div>
+      <div><span className="text-white/60">cb</span> ${state.currentBet} <span className="text-white/60 ml-1">bets</span> ${totalBets}</div>
+      <div><span className="text-white/60">chips</span> ${totalChips}</div>
+      <div><span className="text-white/60">turn</span> {state.activePlayerId ?? '—'} {state.activePlayerId === myId ? '(me)' : ''}</div>
+      <div><span className="text-white/60">raises</span> {state.raisesThisRound ?? 0}</div>
       <div>
-        <span className="text-white/40">ws</span>{' '}
+        <span className="text-white/60">ws</span>{' '}
         {lastWsType ?? '—'}{' '}
-        <span className={stale ? 'text-red-400' : 'text-white/40'}>
+        <span className={stale ? 'text-red-400' : 'text-white/60'}>
           {ageMs != null ? `${Math.floor(ageMs / 100) / 10}s` : 'never'}
         </span>
       </div>

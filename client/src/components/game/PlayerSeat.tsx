@@ -196,7 +196,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   if (!player) {
     return (
-      <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border border-white/[0.04] bg-[#141417]/40 text-white/20 w-24 h-24", className)}>
+      <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border border-white/[0.04] bg-[#141417]/40 text-white/60 w-24 h-24", className)}>
         <span className="text-xs font-mono uppercase tracking-widest">Empty</span>
       </div>
     );
@@ -245,7 +245,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       className
     )}>
       {player.isDealer && (
-        <div className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[10px] font-bold shadow-sm z-50 border border-[#C9A227]/60">
+        <div className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-[#C9A227] text-[#0B0B0D] flex items-center justify-center text-[12px] font-bold shadow-sm z-50 border border-[#C9A227]/60">
           D
         </div>
       )}
@@ -315,7 +315,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                   <PlayingCard
                     card={throwData.card}
                     isSelfHidden={isSelf && throwData.card.isHidden}
-                    className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]") : undefined}
+                    className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px] md:w-24 md:h-[136px]") : undefined}
                   />
                 </div>
               )}
@@ -330,7 +330,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                   selectable={canSelect}
                   selected={isSelected || (showdownState && player.score && (player.score.highEval?.usedHoleCardIndices.includes(idx) || player.score.lowEval?.usedHoleCardIndices.includes(idx)))}
                   isSelfHidden={isSelf && card.isHidden}
-                  className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px]") : undefined}
+                  className={isSelf ? (heroCardClassName || "w-[68px] h-[96px] sm:w-[84px] sm:h-[118px] md:w-24 md:h-[136px]") : undefined}
                 />
               </div>
             </div>
@@ -413,7 +413,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 isSelf ? "font-semibold text-white/90"
                   : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
                   : player.presence === 'human' ? "font-semibold text-white/85"
-                  : "font-normal text-white/50"
+                  : "font-normal text-white/60"
               )}>
                 {player.name}
               </div>
@@ -430,7 +430,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               sessionDelta > 75
                 ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
                 : sessionDelta < -75
-                ? (isSelf ? "text-red-400/80" : "text-red-400/50")
+                ? (isSelf ? "text-red-400/80" : "text-red-400/60")
                 : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
               chipFlash && (
                 sessionDelta > 75  ? "text-emerald-400 anim-pulse-gold" :

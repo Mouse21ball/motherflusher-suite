@@ -222,13 +222,13 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
           >
             <div>
               <div className="text-sm font-semibold text-white/85 mb-1.5">Block {blockTarget.name}?</div>
-              <p className="text-xs font-mono text-white/40 leading-relaxed">
+              <p className="text-xs font-mono text-white/60 leading-relaxed">
                 You won't see their messages. You can unblock them in Settings.
               </p>
             </div>
             <div className="flex gap-2 pt-1">
               <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all bg-white/[0.05] text-white/40 hover:bg-white/[0.08] active:scale-[0.97]"
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest transition-all bg-white/[0.05] text-white/60 hover:bg-white/[0.08] active:scale-[0.97]"
                 onClick={() => setBlockTarget(null)}
                 data-testid="block-confirm-cancel"
               >Cancel</button>
@@ -258,12 +258,12 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
           >
             <div>
               <div className="text-sm font-semibold text-white/85 mb-1">Report {reportTarget.name}</div>
-              <p className="text-xs font-mono text-white/35 leading-relaxed">
+              <p className="text-xs font-mono text-white/60 leading-relaxed">
                 Our team reviews all reports. False reports may result in account action.
               </p>
             </div>
             <div>
-              <label className="block text-[9px] font-mono uppercase tracking-widest text-white/30 mb-1.5">Reason</label>
+              <label className="block text-[12px] font-mono uppercase tracking-widest text-white/60 mb-1.5">Reason</label>
               <select
                 value={reportReason}
                 onChange={e => setReportReason(e.target.value)}
@@ -276,23 +276,23 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
               </select>
             </div>
             <div>
-              <label className="block text-[9px] font-mono uppercase tracking-widest text-white/30 mb-1.5">Notes (optional)</label>
+              <label className="block text-[12px] font-mono uppercase tracking-widest text-white/60 mb-1.5">Notes (optional)</label>
               <textarea
                 value={reportNotes}
                 onChange={e => setReportNotes(e.target.value)}
                 maxLength={500}
                 rows={3}
                 placeholder="Additional details…"
-                className="w-full rounded-xl px-3 py-2 text-sm font-mono bg-black/40 text-white/65 border border-white/[0.08] focus:outline-none focus:border-white/20 resize-none placeholder:text-white/20"
+                className="w-full rounded-xl px-3 py-2 text-sm font-mono bg-black/40 text-white/65 border border-white/[0.08] focus:outline-none focus:border-white/20 resize-none placeholder:text-white/60"
                 data-testid="report-notes-textarea"
               />
-              <div className="text-right text-[9px] font-mono text-white/20 mt-0.5" data-testid="report-notes-counter">
+              <div className="text-right text-[12px] font-mono text-white/60 mt-0.5" data-testid="report-notes-counter">
                 {reportNotes.length}/500
               </div>
             </div>
             <div className="flex gap-2">
               <button
-                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest bg-white/[0.05] text-white/40 hover:bg-white/[0.08] active:scale-[0.97] transition-all"
+                className="flex-1 h-9 rounded-xl text-xs font-mono font-bold uppercase tracking-widest bg-white/[0.05] text-white/60 hover:bg-white/[0.08] active:scale-[0.97] transition-all"
                 onClick={() => { setReportTarget(null); setReportReason('harassment'); setReportNotes(''); }}
                 data-testid="report-cancel"
               >Cancel</button>
@@ -320,7 +320,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
           <button
             onClick={() => setIsOpen(false)}
             aria-label="Close chat"
-            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/30 hover:text-white/60 active:text-white/60 transition-colors rounded-lg hover:bg-white/[0.04] touch-manipulation"
+            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white/60 active:text-white/60 transition-colors rounded-lg hover:bg-white/[0.04] touch-manipulation"
           >
             <X className="w-4 h-4" />
           </button>
@@ -328,7 +328,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
-            <div className="text-center text-white/20 text-xs font-mono mt-10 tracking-wide">
+            <div className="text-center text-white/60 text-xs font-mono mt-10 tracking-wide">
               No messages yet
             </div>
           ) : (
@@ -337,7 +337,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
               const actable = canAct(msg);
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                  <span className="text-[9px] text-white/25 mb-1 mx-1 font-mono tracking-wide">{msg.senderName}</span>
+                  <span className="text-[12px] text-white/60 mb-1 mx-1 font-mono tracking-wide">{msg.senderName}</span>
                   <div
                     className={`max-w-[85%] px-3.5 py-2 text-sm leading-relaxed select-none ${
                       isMe
@@ -368,14 +368,14 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 bg-[#0B0B0D]/80 border border-white/[0.08] rounded-xl py-2.5 pl-4 pr-10 text-sm text-white/80 placeholder:text-white/20 font-mono focus:outline-none focus:border-[#C9A227]/25 focus:ring-1 focus:ring-[#C9A227]/10 transition-all duration-200"
+              className="flex-1 bg-[#0B0B0D]/80 border border-white/[0.08] rounded-xl py-2.5 pl-4 pr-10 text-sm text-white/80 placeholder:text-white/60 font-mono focus:outline-none focus:border-[#C9A227]/25 focus:ring-1 focus:ring-[#C9A227]/10 transition-all duration-200"
               maxLength={150}
             />
             <button
               type="submit"
               disabled={!inputText.trim()}
               aria-label="Send message"
-              className="absolute right-1.5 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-[#C9A227]/60 hover:text-[#C9A227]/90 disabled:text-white/15 transition-colors rounded-lg hover:bg-[#C9A227]/5 disabled:hover:bg-transparent touch-manipulation"
+              className="absolute right-1.5 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-[#C9A227]/60 hover:text-[#C9A227]/90 disabled:text-white/60 transition-colors rounded-lg hover:bg-[#C9A227]/5 disabled:hover:bg-transparent touch-manipulation"
             >
               <Send className="w-4 h-4" />
             </button>

@@ -483,7 +483,7 @@ export function Fifteen35TableScene({
                   </div>
                   <div
                     className="text-[11px] font-mono"
-                    style={{ color: 'rgba(255,255,255,0.58)' }}
+                    style={{ color: 'rgba(255,255,255,0.6)' }}
                     data-testid="text-waiting-who"
                   >
                     {waitingLabel}

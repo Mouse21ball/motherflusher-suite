@@ -61,7 +61,7 @@ function computeStats(history: HandRecord[]) {
 function StatBox({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="flex flex-col items-center p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-      <div className="text-[10px] text-white/50 font-mono uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-[12px] text-white/60 font-mono uppercase tracking-wider mb-0.5">{label}</div>
       <div className={`text-base font-bold font-mono ${color || "text-white/80"}`}>{value}</div>
     </div>
   );
@@ -82,7 +82,7 @@ export function StatsView({ modeId }: StatsViewProps) {
       <SheetTrigger asChild>
         <button
           aria-label="Stats"
-          className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/50 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
+          className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider px-2.5 py-2 min-h-[36px] rounded-lg border border-white/10 text-white/60 hover:text-white/80 active:text-white/80 hover:border-white/25 hover:bg-white/5 transition-all touch-manipulation"
           data-testid="button-stats"
         >
           <BarChart3 className="w-3.5 h-3.5" />
@@ -96,14 +96,14 @@ export function StatsView({ modeId }: StatsViewProps) {
             <h2 className="text-lg font-bold text-white mb-1" data-testid="text-stats-title">
               {modeId ? MODE_NAMES[modeId] || "Stats" : "Overall Stats"}
             </h2>
-            <p className="text-xs text-white/50 font-mono mb-5">
+            <p className="text-xs text-white/60 font-mono mb-5">
               {stats.total} hands tracked
             </p>
 
             {stats.total === 0 ? (
               <div className="text-center py-12">
-                <p className="text-white/50 text-sm">No stats yet</p>
-                <p className="text-white/40 text-xs mt-1">Play a few hands to see your stats here</p>
+                <p className="text-white/60 text-sm">No stats yet</p>
+                <p className="text-white/60 text-xs mt-1">Play a few hands to see your stats here</p>
               </div>
             ) : (
               <>
@@ -117,14 +117,14 @@ export function StatsView({ modeId }: StatsViewProps) {
                   <StatBox
                     label="Net"
                     value={`${stats.net >= 0 ? "+" : ""}$${stats.net}`}
-                    color={stats.net > 0 ? "text-emerald-400" : stats.net < 0 ? "text-red-400" : "text-white/50"}
+                    color={stats.net > 0 ? "text-emerald-400" : stats.net < 0 ? "text-red-400" : "text-white/60"}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <StatBox label="Wins" value={stats.wins} color="text-emerald-400" />
                   <StatBox label="Losses" value={stats.losses} color="text-red-400" />
-                  <StatBox label="Folds" value={stats.folds} color="text-white/50" />
+                  <StatBox label="Folds" value={stats.folds} color="text-white/60" />
                   <StatBox label="Rollovers" value={stats.rollovers} color="text-amber-400" />
                 </div>
 
@@ -135,28 +135,28 @@ export function StatsView({ modeId }: StatsViewProps) {
                 )}
 
                 <div className="space-y-2 mb-5">
-                  <h3 className="text-xs font-mono text-white/50 uppercase tracking-wider font-bold">Highlights</h3>
+                  <h3 className="text-xs font-mono text-white/60 uppercase tracking-wider font-bold">Highlights</h3>
                   <div className="space-y-1.5">
                     {stats.biggestWin > 0 && (
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                        <span className="text-xs text-white/50">Biggest Win</span>
+                        <span className="text-xs text-white/60">Biggest Win</span>
                         <span className="text-sm font-mono font-bold text-emerald-400">+${stats.biggestWin}</span>
                       </div>
                     )}
                     {stats.biggestLoss < 0 && (
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10">
-                        <span className="text-xs text-white/50">Biggest Loss</span>
+                        <span className="text-xs text-white/60">Biggest Loss</span>
                         <span className="text-sm font-mono font-bold text-red-400">${stats.biggestLoss}</span>
                       </div>
                     )}
                     {stats.biggestPot > 0 && (
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
-                        <span className="text-xs text-white/50">Biggest Pot</span>
+                        <span className="text-xs text-white/60">Biggest Pot</span>
                         <span className="text-sm font-mono font-bold text-white/70">${stats.biggestPot}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
-                      <span className="text-xs text-white/50">Current Stack</span>
+                      <span className="text-xs text-white/60">Current Stack</span>
                       <span className="text-sm font-mono font-bold text-primary">${currentStack}</span>
                     </div>
                   </div>
@@ -164,7 +164,7 @@ export function StatsView({ modeId }: StatsViewProps) {
 
                 {!modeId && Object.keys(stats.byMode).length > 1 && (
                   <div className="space-y-2">
-                    <h3 className="text-xs font-mono text-white/50 uppercase tracking-wider font-bold">By Mode</h3>
+                    <h3 className="text-xs font-mono text-white/60 uppercase tracking-wider font-bold">By Mode</h3>
                     <div className="space-y-1.5">
                       {Object.entries(stats.byMode)
                         .sort((a, b) => b[1].hands - a[1].hands)
@@ -174,10 +174,10 @@ export function StatsView({ modeId }: StatsViewProps) {
                           return (
                             <div key={mId} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
                               <div className="flex justify-between items-center mb-1.5">
-                                <span className={`text-xs font-mono font-bold ${MODE_COLORS[mId] || "text-white/50"}`}>
+                                <span className={`text-xs font-mono font-bold ${MODE_COLORS[mId] || "text-white/60"}`}>
                                   {MODE_NAMES[mId] || mId}
                                 </span>
-                                <span className={`text-xs font-mono font-bold ${data.net > 0 ? "text-emerald-400" : data.net < 0 ? "text-red-400" : "text-white/40"}`}>
+                                <span className={`text-xs font-mono font-bold ${data.net > 0 ? "text-emerald-400" : data.net < 0 ? "text-red-400" : "text-white/60"}`}>
                                   {data.net > 0 ? "+" : ""}{data.net === 0 ? "Even" : `$${data.net}`}
                                 </span>
                               </div>
@@ -188,7 +188,7 @@ export function StatsView({ modeId }: StatsViewProps) {
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-white/45 font-mono shrink-0">
+                                <span className="text-[12px] text-white/60 font-mono shrink-0">
                                   {data.hands}h · {data.wins}w
                                 </span>
                               </div>

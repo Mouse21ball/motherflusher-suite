@@ -191,7 +191,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       {/* Card backs row OR folded label */}
       {isFolded ? (
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)',
+          fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
           letterSpacing: '0.18em', textAlign: 'center',
         }}>
           FOLDED
@@ -233,7 +233,7 @@ function EmptyPanel() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: 68,
     }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.12)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
     </div>
   );
 }

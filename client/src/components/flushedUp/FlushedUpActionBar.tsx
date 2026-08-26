@@ -60,7 +60,7 @@ function TutorialPanel() {
             <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>
               {step.label}
             </span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', textAlign: 'center' }}>
+            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>
               {step.sub}
             </span>
           </div>
@@ -255,7 +255,7 @@ export function FlushedUpActionBar({
               textAlign: 'center',
               fontSize: 11,
               fontFamily: 'monospace',
-              color: 'rgba(255,255,255,0.38)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: '0.14em',
             }}>
               or wait for players to join
@@ -268,7 +268,7 @@ export function FlushedUpActionBar({
           <div style={{
             textAlign: 'center', padding: '10px 0',
             fontSize: 10, fontFamily: 'monospace',
-            color: 'rgba(124,58,237,0.55)', letterSpacing: '0.18em',
+            color: 'rgba(124,58,237,0.6)', letterSpacing: '0.18em',
           }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>
@@ -304,7 +304,7 @@ export function FlushedUpActionBar({
       }}>
         {/* ANTES */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>ANTES</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>ANTES</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             <ChipIcon />{ante}
           </span>
@@ -315,7 +315,7 @@ export function FlushedUpActionBar({
 
         {/* PLAYERS */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>PLAYERS</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             {humanCount}
           </span>
@@ -326,7 +326,7 @@ export function FlushedUpActionBar({
 
         {/* YOUR STACK */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>YOUR STACK</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700 }}>
             <ChipIcon />{chips.toLocaleString()}
           </span>

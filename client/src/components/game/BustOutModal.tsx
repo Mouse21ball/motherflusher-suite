@@ -115,8 +115,8 @@ export function BustOutModal({
       data-testid={testId}
       className={`w-full py-2.5 rounded-xl font-mono text-[11px] uppercase tracking-widest border transition-all
         ${disabled
-          ? "border-white/[0.06] text-white/25 cursor-not-allowed bg-transparent"
-          : "border-white/[0.08] text-white/55 hover:bg-white/[0.06] hover:text-white/80 bg-white/[0.03] active:scale-[0.98]"}`}
+          ? "border-white/[0.06] text-white/60 cursor-not-allowed bg-transparent"
+          : "border-white/[0.08] text-white/60 hover:bg-white/[0.06] hover:text-white/80 bg-white/[0.03] active:scale-[0.98]"}`}
     >
       {label}
     </button>
@@ -183,7 +183,7 @@ export function BustOutModal({
         <div className="text-center mb-4">
           <div className="text-5xl mb-2">💀</div>
           <h2 className="text-xl font-bold text-[#C9A227] tracking-wide">YOU'RE OUT</h2>
-          <p className="text-xs text-white/50 font-mono mt-1">
+          <p className="text-xs text-white/60 font-mono mt-1">
             {sessionBusts > 1 ? `${sessionBusts}× this session` : "Stack hit zero"}
           </p>
         </div>
@@ -199,7 +199,7 @@ export function BustOutModal({
               <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
               <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
-            <p className="text-center text-[10px] text-white/30 font-mono mb-3">Keep rolling — chips on us</p>
+            <p className="text-center text-[12px] text-white/60 font-mono mb-3">Keep rolling — chips on us</p>
             <div className="space-y-2">
               <RebuyBtn testId="button-bust-rebuy" />
               <LoanBtn />
@@ -243,7 +243,7 @@ export function BustOutModal({
               className={`w-full py-4 rounded-xl font-black text-lg tracking-wider mb-3 active:scale-[0.98] flex flex-col items-center gap-0.5 transition-all
                 ${onWatchAd
                   ? "bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] shadow-[0_0_20px_rgba(201,162,39,0.4)]"
-                  : "bg-white/[0.06] border border-white/[0.10] text-white/40 cursor-not-allowed"}`}
+                  : "bg-white/[0.06] border border-white/[0.10] text-white/60 cursor-not-allowed"}`}
             >
               <span>🎬 WATCH AD FOR $500 CHIPS</span>
               {!onWatchAd && <span className="text-[11px] font-bold opacity-70 tracking-wide">Coming Soon</span>}
@@ -268,7 +268,7 @@ export function BustOutModal({
               <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
               <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
-            <p className="text-center text-[10px] text-white/30 font-mono mb-3">
+            <p className="text-center text-[12px] text-white/60 font-mono mb-3">
               Busted {sessionBusts}× this session — chips on us, keep rolling
             </p>
             <div className="space-y-2">

@@ -50,7 +50,7 @@ function TutorialPanel() {
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{step.icon}</span>
             <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#ef4444', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', textAlign: 'center' }}>{step.sub}</span>
+            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>{step.sub}</span>
           </div>
         ))}
       </div>
@@ -129,7 +129,7 @@ export function KamikazeActionBar({
               <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', color: myDeclaration === 'HIGH' ? '#facc15' : '#3b82f6', textShadow: myDeclaration === 'HIGH' ? `0 0 16px ${Y(0.7)}` : `0 0 16px ${B(0.7)}` }}>
                 {myDeclaration ?? '—'}
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.28)', letterSpacing: '0.14em' }}>Waiting for others…</div>
+              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>Waiting for others…</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -145,7 +145,7 @@ export function KamikazeActionBar({
                 </button>
               </div>
               <button onClick={() => onAction('declare', { declaration: 'FOLD' })} data-testid="button-declare-fold"
-                style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', background: 'rgba(20,8,8,0.7)', color: 'rgba(255,100,100,0.5)', border: `1px solid ${R(0.15)}`, WebkitTapHighlightColor: 'transparent' }}>
+                style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', background: 'rgba(20,8,8,0.7)', color: 'rgba(255,100,100,0.6)', border: `1px solid ${R(0.15)}`, WebkitTapHighlightColor: 'transparent' }}>
                 FOLD
               </button>
             </div>
@@ -159,7 +159,7 @@ export function KamikazeActionBar({
               style={{ width: '100%', padding: '14px 8px', borderRadius: 12, fontSize: 15, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: activeCount >= 2 ? 'pointer' : 'not-allowed', border: 'none', outline: 'none', WebkitTapHighlightColor: 'transparent', background: activeCount >= 2 ? 'linear-gradient(135deg, #b91c1c, #ef4444)' : R(0.2), color: activeCount >= 2 ? '#fff' : 'rgba(255,255,255,0.28)', boxShadow: activeCount >= 2 ? `0 0 24px ${R(0.55)}, 0 4px 16px rgba(0,0,0,0.4)` : 'none', opacity: activeCount >= 2 ? 1 : 0.65 }}>
               {activeCount >= 2 ? 'DEAL ME IN' : 'NEED 1 MORE PLAYER'}
             </button>
-            <div style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.38)', letterSpacing: '0.14em' }}>or wait for players to join</div>
+            <div style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>or wait for players to join</div>
           </div>
         )}
 
@@ -182,17 +182,17 @@ export function KamikazeActionBar({
       {/* Stats bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em' }}>ANTES</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>ANTES</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{ante}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em' }}>PLAYERS</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.18em' }}>YOUR STACK</span>
+          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#facc15', fontWeight: 700 }}><ChipIcon />{chips.toLocaleString()}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />

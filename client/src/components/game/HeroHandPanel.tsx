@@ -83,11 +83,11 @@ function qualifierLabel(modeId: string) {
 // ── Card size helpers ─────────────────────────────────────────────────────────
 
 function cardSizeClass(n: number) {
-  if (n <= 2) return 'w-20 h-28 sm:w-24 sm:h-32';
-  if (n <= 3) return 'w-16 h-[104px] sm:w-20 sm:h-28';
-  if (n <= 5) return 'w-12 h-[88px] sm:w-14 sm:h-[96px]';
-  if (n <= 7) return 'w-10 h-[72px] sm:w-12 sm:h-[84px]';
-  return 'w-9 h-[64px] sm:w-10 sm:h-[72px]';
+  if (n <= 2) return 'w-20 h-28 sm:w-24 sm:h-32 md:w-28 md:h-36';
+  if (n <= 3) return 'w-16 h-[104px] sm:w-20 sm:h-28 md:w-24 md:h-32';
+  if (n <= 5) return 'w-12 h-[88px] sm:w-14 sm:h-[96px] md:w-16 md:h-[108px]';
+  if (n <= 7) return 'w-10 h-[72px] sm:w-12 sm:h-[84px] md:w-14 md:h-[96px]';
+  return 'w-9 h-[64px] sm:w-10 sm:h-[72px] md:w-12 md:h-[84px]';
 }
 
 function cardOverlapClass(n: number) {
@@ -117,10 +117,10 @@ interface HeroHandPanelProps {
 // ── Shared sub-components ────────────────────────────────────────────────────
 
 function compactCardSizeClass(n: number) {
-  if (n <= 3) return 'w-12 h-[88px] sm:w-14 sm:h-[96px]';
-  if (n <= 5) return 'w-10 h-[72px] sm:w-12 sm:h-[84px]';
-  if (n <= 7) return 'w-9 h-[64px] sm:w-10 sm:h-[72px]';
-  return 'w-8 h-[56px] sm:w-9 sm:h-[64px]';
+  if (n <= 3) return 'w-12 h-[88px] sm:w-14 sm:h-[96px] md:w-16 md:h-[108px]';
+  if (n <= 5) return 'w-10 h-[72px] sm:w-12 sm:h-[84px] md:w-14 md:h-[96px]';
+  if (n <= 7) return 'w-9 h-[64px] sm:w-10 sm:h-[72px] md:w-12 md:h-[84px]';
+  return 'w-8 h-[56px] sm:w-9 sm:h-[64px] md:w-11 md:h-[76px]';
 }
 
 function compactCardOverlapClass(n: number) {
@@ -153,7 +153,7 @@ function CardFan({
   return (
     <div className="flex flex-col items-center gap-2">
       {isDrawPhase && (
-        <span className="text-[9px] font-mono uppercase tracking-widest text-[#C9A227]/55">
+        <span className="text-[12px] font-mono uppercase tracking-widest text-[#C9A227]/60">
           Tap to discard
         </span>
       )}
@@ -189,7 +189,7 @@ function CardFan({
         })}
         {n > MAX_VISIBLE_CARDS && (
           <div className={cn(
-            "relative flex items-center justify-center rounded bg-white/10 border border-white/20 text-[10px] font-bold text-white/60 shrink-0",
+            "relative flex items-center justify-center rounded bg-white/10 border border-white/20 text-[12px] font-bold text-white/60 shrink-0",
             activeSizeClass,
             activeOverlap,
           )}>
@@ -211,27 +211,27 @@ function QualifierBlock({
 }) {
   return (
     <div className="flex flex-col gap-1 min-w-0">
-      <span className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-white/50 leading-none">
+      <span className="text-[12px] sm:text-xs font-mono uppercase tracking-wider text-white/60 leading-none">
         {qualifier.label}
       </span>
       {qualifier.status ? (
         <span className={cn(
           "font-mono leading-tight break-words",
           compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm",
-          qualifier.isMade ? "text-emerald-400/80" : "text-white/45",
+          qualifier.isMade ? "text-emerald-400/80" : "text-white/60",
         )}>
           {qualifier.status}
         </span>
       ) : (
-        <span className="text-xs font-mono text-white/20 leading-none">—</span>
+        <span className="text-xs font-mono text-white/60 leading-none">—</span>
       )}
       {isShowdownPhase && player.isWinner && (
-        <span className="mt-1 text-[10px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
+        <span className="mt-1 text-[12px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
           ✓ Winner
         </span>
       )}
       {isShowdownPhase && player.isLoser && !player.isWinner && (
-        <span className="mt-1 text-[10px] font-mono text-red-400/60 uppercase tracking-wider">
+        <span className="mt-1 text-[12px] font-mono text-red-400/60 uppercase tracking-wider">
           ✗ Lost
         </span>
       )}
@@ -277,34 +277,34 @@ function SuitsScoreBadge({
     <div className="flex flex-col gap-1 min-w-0">
       {/* Small poker hand label */}
       <span className={cn(
-        "font-mono leading-tight break-words text-[10px]",
-        isMade ? "text-emerald-400/70" : "text-white/35",
+        "font-mono leading-tight break-words text-[12px]",
+        isMade ? "text-emerald-400/70" : "text-white/60",
       )}>
         {pokerPart || '—'}
       </span>
 
       {/* Prominent suits score */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-blue-400/60 leading-none">
+        <span className="text-[12px] sm:text-[12px] font-mono uppercase tracking-widest text-blue-400/60 leading-none">
           BEST SUITS
         </span>
         <div className="flex items-baseline gap-1">
           <span className={cn(
             "text-2xl sm:text-3xl font-mono font-black tabular-nums leading-none",
-            qualifies ? "text-blue-300" : "text-white/55",
+            qualifies ? "text-blue-300" : "text-white/60",
           )}>
             {score}
           </span>
           <span className={cn(
-            "text-[10px] font-mono leading-none mb-0.5",
-            qualifies ? "text-blue-400/60" : "text-white/30",
+            "text-[12px] font-mono leading-none mb-0.5",
+            qualifies ? "text-blue-400/60" : "text-white/60",
           )}>
             pts
           </span>
         </div>
         <span className={cn(
-          "text-[9px] font-mono leading-none",
-          qualifies ? "text-blue-400/70" : "text-white/30",
+          "text-[12px] font-mono leading-none",
+          qualifies ? "text-blue-400/70" : "text-white/60",
         )}>
           {qualifies ? "✓ qualifies" : `need ${40 - score} more`}
         </span>
@@ -312,12 +312,12 @@ function SuitsScoreBadge({
 
       {/* Showdown result */}
       {isShowdownPhase && player.isWinner && (
-        <span className="mt-0.5 text-[10px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
+        <span className="mt-0.5 text-[12px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
           ✓ Winner
         </span>
       )}
       {isShowdownPhase && player.isLoser && !player.isWinner && (
-        <span className="mt-0.5 text-[10px] font-mono text-red-400/60 uppercase tracking-wider">
+        <span className="mt-0.5 text-[12px] font-mono text-red-400/60 uppercase tracking-wider">
           ✗ Lost
         </span>
       )}
@@ -328,7 +328,7 @@ function SuitsScoreBadge({
 function DeclarationBadge({ declaration }: { declaration: string }) {
   return (
     <span className={cn(
-      "text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md w-fit",
+      "text-[12px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md w-fit",
       declaration === 'HIGH'  && "bg-red-600/20 text-red-300/80",
       declaration === 'LOW'   && "bg-blue-600/20 text-blue-300/80",
       declaration === 'SWING' && "bg-purple-600/20 text-purple-300/80",
@@ -368,7 +368,7 @@ export function HeroHandPanel({
 
   return (
     <div
-      className="relative z-30 mx-auto w-full max-w-md px-3"
+      className="relative z-30 mx-auto w-full max-w-md md:max-w-2xl px-3"
       data-testid="panel-hero-hand"
     >
       <div className="relative rounded-2xl border border-[#C9A227]/30 bg-gradient-to-br from-[#1a1a1f]/90 to-[#0a0a0e]/95 backdrop-blur-xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -455,15 +455,15 @@ export function HeroHandPanel({
               </div>
               {sessionNetProfit !== 0 && (
                 <div className={cn(
-                  "text-[10px] sm:text-xs font-mono tabular-nums leading-none",
+                  "text-[12px] sm:text-xs font-mono tabular-nums leading-none",
                   sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
                 )}>
                   {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
                 </div>
               )}
               {player.bet > 0 && (
-                <div className="text-[10px] font-mono text-white/35 leading-none">
-                  Bet <span className="text-white/55">${player.bet}</span>
+                <div className="text-[12px] font-mono text-white/60 leading-none">
+                  Bet <span className="text-white/60">${player.bet}</span>
                 </div>
               )}
               {player.declaration && player.declaration !== 'FOLD' && (

@@ -22,12 +22,12 @@ export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, phaseHint
         <button
           onClick={onOpenChat}
           aria-label="Open chat"
-          className="relative flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-black/50 text-white/55 hover:text-white/80 active:scale-95 transition-all touch-manipulation shrink-0"
+          className="relative flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-black/50 text-white/60 hover:text-white/80 active:scale-95 transition-all touch-manipulation shrink-0"
           data-testid="button-open-chat"
         >
           <MessageSquare className="w-4 h-4" />
           {chatUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#C9A227] text-[#0B0B0D] text-[9px] font-bold flex items-center justify-center leading-none">
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#C9A227] text-[#0B0B0D] text-[12px] font-bold flex items-center justify-center leading-none">
               {chatUnread > 9 ? '9+' : chatUnread}
             </span>
           )}

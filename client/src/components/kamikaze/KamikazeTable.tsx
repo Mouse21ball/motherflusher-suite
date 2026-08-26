@@ -119,7 +119,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
         </div>
       </div>
       {isFolded ? (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
+        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
       ) : (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
           {Array.from({ length: Math.max(cardCount, 6) }).map((_, i) => (
@@ -137,7 +137,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
 function EmptyPanel() {
   return (
     <div style={{ background: 'rgba(0,0,0,0.35)', borderRadius: 14, border: '1px dashed rgba(255,255,255,0.05)', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 68 }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.1)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
     </div>
   );
 }

@@ -398,22 +398,22 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
     navigate("/");
   };
 
-  const headerBtnClass = "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.04] text-white/30 hover:text-white/55 active:text-white/55 hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-200 touch-manipulation";
+  const headerBtnClass = "flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-white/[0.04] text-white/60 hover:text-white/60 active:text-white/60 hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-200 touch-manipulation";
   // "How to Play" is colored (emerald) to stand out from grey utility buttons,
   // but same size/weight as peers so it doesn't dominate the header bar.
-  const howToPlayBtnClass = "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-emerald-500/20 text-emerald-400/70 hover:text-emerald-300 hover:border-emerald-500/35 hover:bg-emerald-500/[0.05] transition-all duration-200 touch-manipulation";
+  const howToPlayBtnClass = "flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-widest px-2.5 py-2 min-h-[36px] rounded-lg border border-emerald-500/20 text-emerald-400/70 hover:text-emerald-300 hover:border-emerald-500/35 hover:bg-emerald-500/[0.05] transition-all duration-200 touch-manipulation";
 
   return (
     <>
       <header className="w-full px-3 py-3 sm:px-4 sm:py-3.5 flex justify-between items-center glass-panel border-b border-white/[0.04] z-50">
         <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[10px] ${mode.borderClass} border shrink-0`}>
+          <div className={`w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[12px] ${mode.borderClass} border shrink-0`}>
             {mode.abbrev}
           </div>
           <div className="flex flex-col gap-0 leading-none">
             <span className="font-medium tracking-wide text-sm text-white/60 font-sans">{mode.name}</span>
             {tableId && (
-              <span className="text-[8px] font-mono text-white/18 tracking-widest" data-testid="text-table-identity">
+              <span className="text-[11px] font-mono text-white/60 tracking-widest" data-testid="text-table-identity">
                 {tableId} · {tableType}
               </span>
             )}
@@ -423,7 +423,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
         <div className="flex items-center gap-1.5 sm:gap-2">
           {winStreak >= 2 && (
             <div
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/[0.08] text-orange-400 text-[10px] font-mono font-bold tracking-wide animate-pulse"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/[0.08] text-orange-400 text-[12px] font-mono font-bold tracking-wide animate-pulse"
               data-testid="badge-win-streak"
               title={`${winStreak}-win streak!`}
             >
@@ -433,7 +433,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
           )}
           {lossStreak >= 2 && winStreak < 2 && (
             <div
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-red-500/25 bg-red-500/[0.06] text-red-400/70 text-[10px] font-mono font-bold tracking-wide"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-red-500/25 bg-red-500/[0.06] text-red-400/70 text-[12px] font-mono font-bold tracking-wide"
               data-testid="badge-loss-streak"
               title={`${lossStreak}-loss streak`}
             >
@@ -456,7 +456,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
               <ScrollArea className="h-full">
                 <div className="p-6 sm:p-7 pt-10">
                   <div className="flex items-center gap-2.5 mb-6">
-                    <div className={`w-7 h-7 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[10px] border ${mode.borderClass}`}>
+                    <div className={`w-7 h-7 rounded-lg bg-white/[0.03] flex items-center justify-center ${mode.accentClass} font-bold font-mono text-[12px] border ${mode.borderClass}`}>
                       {mode.abbrev}
                     </div>
                     <h2 className="text-lg font-semibold text-white/85 font-sans">{mode.name}</h2>
@@ -464,12 +464,12 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
                   <div className="space-y-6">
                     {mode.rules.map((section, i) => (
                       <div key={i}>
-                        <h3 className={`text-[10px] font-mono uppercase tracking-[0.2em] ${mode.accentClass} mb-2.5 font-bold`}>
+                        <h3 className={`text-[12px] font-mono uppercase tracking-[0.2em] ${mode.accentClass} mb-2.5 font-bold`}>
                           {section.heading}
                         </h3>
                         <ul className="space-y-2">
                           {section.items.map((item, j) => (
-                            <li key={j} className="text-sm text-white/45 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/10">
+                            <li key={j} className="text-sm text-white/60 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[9px] before:w-1 before:h-1 before:rounded-full before:bg-white/10">
                               {item}
                             </li>
                           ))}
@@ -478,7 +478,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
                     ))}
                   </div>
                   <div className="mt-8 pt-4 border-t border-white/[0.04]">
-                    <p className="text-[10px] text-white/20 font-mono leading-relaxed tracking-wide">
+                    <p className="text-[12px] text-white/60 font-mono leading-relaxed tracking-wide">
                       5 players max per table. $1 ante each hand. Rollover carries the pot forward when no one qualifies. Odd chips go to HIGH / POKER side.
                     </p>
                   </div>
@@ -505,63 +505,63 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
           <div className="text-right pl-2 flex flex-col items-end gap-0.5 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               <div
-                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md"
+                className="text-[12px] font-mono font-bold px-1.5 py-0.5 rounded-md"
                 style={{ color: rank.color, backgroundColor: rank.bg, border: `1px solid ${rank.border}` }}
                 data-testid="badge-level-header"
               >
                 Lv {levelInfo.level}
               </div>
-              <div className="hidden sm:block text-[9px] text-white/20 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
+              <div className="hidden sm:block text-[12px] text-white/60 uppercase font-mono tracking-[0.15em] leading-none font-medium">Stack</div>
             </div>
             <div className="font-mono text-[#C9A227] font-bold text-base leading-tight tabular-nums" data-testid="text-my-chips">${chips}</div>
             {/* Session net profit — shown when server sessionStats is available */}
             {sessionStats && (
               <div
-                className={`text-[9px] font-mono font-bold tabular-nums leading-tight ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}
+                className={`text-[12px] font-mono font-bold tabular-nums leading-tight ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}
                 data-testid="text-session-net"
               >
                 {sessionStats.netProfit >= 0 ? '+' : ''}${sessionStats.netProfit} session
               </div>
             )}
             {sessionStats && sessionStats.handsPlayed > 0 && (
-              <div className="text-[8px] font-mono text-white/22 tabular-nums leading-tight" data-testid="text-session-hands">
+              <div className="text-[11px] font-mono text-white/60 tabular-nums leading-tight" data-testid="text-session-hands">
                 {sessionStats.handsPlayed} hand{sessionStats.handsPlayed !== 1 ? 's' : ''}
               </div>
             )}
             {/* Session pressure tags — subtle, single-line, existing space only */}
             {sessionStats && sessionStats.sessionHighProfit > 0 && (
-              <div className="text-[8px] font-mono text-emerald-400/45 tabular-nums leading-tight" data-testid="text-session-high">
+              <div className="text-[11px] font-mono text-emerald-400/60 tabular-nums leading-tight" data-testid="text-session-high">
                 HIGH +${sessionStats.sessionHighProfit}
               </div>
             )}
             {sessionStats && sessionStats.comebackActive && (
-              <div className="text-[8px] font-mono font-bold leading-tight" style={{ color: 'rgba(251,191,36,0.65)' }} data-testid="badge-comeback">
+              <div className="text-[11px] font-mono font-bold leading-tight" style={{ color: 'rgba(251,191,36,0.65)' }} data-testid="badge-comeback">
                 COMEBACK
               </div>
             )}
             {sessionStats && sessionStats.isNearEven && !sessionStats.comebackActive && (
-              <div className="text-[8px] font-mono text-white/35 leading-tight" data-testid="badge-near-even">
+              <div className="text-[11px] font-mono text-white/60 leading-tight" data-testid="badge-near-even">
                 BREAK EVEN
               </div>
             )}
             {/* Stakes + pressure indicators */}
             {sessionStats && sessionStats.lastStand && (
-              <div className="text-[8px] font-mono font-bold leading-tight" style={{ color: 'rgba(239,68,68,0.80)' }} data-testid="badge-last-stand">
+              <div className="text-[11px] font-mono font-bold leading-tight" style={{ color: 'rgba(239,68,68,0.80)' }} data-testid="badge-last-stand">
                 ALL-IN MODE
               </div>
             )}
             {sessionStats && sessionStats.dangerZone && !sessionStats.lastStand && (
-              <div className="text-[8px] font-mono leading-tight" style={{ color: 'rgba(251,146,60,0.70)' }} data-testid="badge-danger-zone">
+              <div className="text-[11px] font-mono leading-tight" style={{ color: 'rgba(251,146,60,0.70)' }} data-testid="badge-danger-zone">
                 ⚠ LOW STACK
               </div>
             )}
             {sessionStats && sessionStats.protectingLead && (
-              <div className="text-[8px] font-mono text-emerald-400/50 leading-tight" data-testid="badge-protecting-lead">
+              <div className="text-[11px] font-mono text-emerald-400/60 leading-tight" data-testid="badge-protecting-lead">
                 PROTECTING LEAD
               </div>
             )}
             {sessionStats && sessionStats.peakDrop > 0 && !sessionStats.protectingLead && (
-              <div className="text-[8px] font-mono text-white/30 leading-tight" data-testid="text-peak-drop">
+              <div className="text-[11px] font-mono text-white/60 leading-tight" data-testid="text-peak-drop">
                 FROM HIGH: -${sessionStats.peakDrop}
               </div>
             )}
@@ -580,14 +580,14 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
         <AlertDialogContent className="max-w-[340px] sm:max-w-md bg-[#141417] border-white/[0.06] rounded-2xl mx-4 shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white/85 text-base font-sans font-semibold">Leave this hand?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/40 text-sm leading-relaxed">
+            <AlertDialogDescription className="text-white/60 text-sm leading-relaxed">
               You are in the middle of a hand. Leaving now forfeits your current hand
               {currentPot > 0 && <> and your claim to the <span className="font-mono font-bold text-[#C9A227]/80">${currentPot}</span> pot</>}.
               Your chips will be saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-2">
-            <AlertDialogCancel className="bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:text-white/70 mt-0">
+            <AlertDialogCancel className="bg-white/[0.03] border-white/[0.06] text-white/60 hover:bg-white/[0.06] hover:text-white/70 mt-0">
               Stay
             </AlertDialogCancel>
             <AlertDialogAction

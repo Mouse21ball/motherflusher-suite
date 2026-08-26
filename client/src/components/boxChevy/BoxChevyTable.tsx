@@ -66,7 +66,7 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
         </div>
       )}
       {folded ? (
-        <div style={{ fontSize: 8, textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>FOLDED</div>
+        <div style={{ fontSize: 8, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>FOLDED</div>
       ) : isShowdown && player.cards.some(c => !c.isHidden) ? (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           {player.cards.map((c, i) => (

@@ -115,16 +115,16 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
 
       {/* Side A — left column, single row of 3 (indices 0-2) */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[7px] sm:text-[9px] text-amber-400/60 font-mono uppercase tracking-wider mb-0.5">Side A</span>
+        <span className="text-[11px] sm:text-[12px] text-amber-400/60 font-mono uppercase tracking-wider mb-0.5">Side A</span>
         <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
           {sideA.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(i)} />)}
         </div>
-        <span className="text-[6px] sm:text-[7px] text-white/30 font-mono">← path</span>
+        <span className="text-[11px] sm:text-[11px] text-white/60 font-mono">← path</span>
       </div>
 
       {/* Center — middle column, 9 cards in 4 rows (indices 6-14) */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[7px] sm:text-[9px] text-green-400/60 font-mono uppercase tracking-wider mb-0.5">Center</span>
+        <span className="text-[11px] sm:text-[12px] text-green-400/60 font-mono uppercase tracking-wider mb-0.5">Center</span>
         <div className="flex flex-col gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
           <div className="flex gap-0.5 sm:gap-1">
             {centerR1.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(6 + i)} />)}
@@ -143,11 +143,11 @@ function SuitsPokerCenter({ cc, phase, players }: { cc: import("@/lib/poker/type
 
       {/* Side B — right column, single row of 3 (indices 3-5) */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[7px] sm:text-[9px] text-cyan-400/60 font-mono uppercase tracking-wider mb-0.5">Side B</span>
+        <span className="text-[11px] sm:text-[12px] text-cyan-400/60 font-mono uppercase tracking-wider mb-0.5">Side B</span>
         <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1 sm:p-1.5 border border-white/[0.05]">
           {sideB.map((c, i) => <CommunityCardSlot key={i} card={c} selected={isUsed(3 + i)} />)}
         </div>
-        <span className="text-[6px] sm:text-[7px] text-white/30 font-mono">path →</span>
+        <span className="text-[11px] sm:text-[11px] text-white/60 font-mono">path →</span>
       </div>
 
     </div>
@@ -196,8 +196,8 @@ function Fifteen35TotalBadge({ cards, isSelf, isBust, phase }: {
           : { background: 'rgba(201,162,39,0.10)', borderColor: 'rgba(201,162,39,0.25)', color: 'rgba(201,162,39,0.75)' }
       }
     >
-      {prefix && <span className="text-[8px] font-mono tracking-widest opacity-60">{prefix}</span>}
-      <span className={`font-mono font-bold tabular-nums tracking-wide ${isSelf ? 'text-[12px]' : 'text-[10px]'}`}>{label}</span>
+      {prefix && <span className="text-[11px] font-mono tracking-widest opacity-60">{prefix}</span>}
+      <span className={`font-mono font-bold tabular-nums tracking-wide ${isSelf ? 'text-[12px]' : 'text-[12px]'}`}>{label}</span>
     </div>
   );
 }
@@ -248,7 +248,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
-        <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black border border-white/25 flex items-center justify-center text-[7px] font-bold text-white/70 z-10">
+        <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black border border-white/25 flex items-center justify-center text-[11px] font-bold text-white/70 z-10">
           {seatIndex}
         </div>
         {player.presence === 'human' && (
@@ -258,7 +258,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
 
       {/* Name + subscription badge */}
       <div className="flex items-center gap-0.5">
-        <span className="text-[10px] font-mono text-white/80 truncate max-w-[64px]">{player.name}</span>
+        <span className="text-[12px] font-mono text-white/80 truncate max-w-[64px]">{player.name}</span>
         {player.subscriptionTier === 'gold_pro' && (
           <img src="/cosmetics/badges/badge-gold-pro.png" alt="G" className="h-3 w-auto shrink-0"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
@@ -269,7 +269,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
         )}
       </div>
       {player.presence === 'bot' && (
-        <span style={{ fontFamily: 'monospace', fontSize: '6px', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', padding: '1px 3px' }}>BOT</span>
+        <span style={{ fontFamily: 'monospace', fontSize: '6px', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', padding: '1px 3px' }}>BOT</span>
       )}
       {/* Chips */}
       <span className="text-[11px] font-mono font-semibold text-[#C9A227] tabular-nums">${player.chips}</span>
@@ -287,16 +287,16 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
 
       {/* Status labels */}
       {isBust && (
-        <span className="text-[7px] font-mono text-red-400/80 bg-red-900/20 px-1 py-0.5 rounded" data-testid={`status-bust-${player.id}`}>BUST</span>
+        <span className="text-[11px] font-mono text-red-400/80 bg-red-900/20 px-1 py-0.5 rounded" data-testid={`status-bust-${player.id}`}>BUST</span>
       )}
       {isStay && !isBust && (
-        <span className="text-[7px] font-mono text-emerald-400/70 bg-emerald-900/20 px-1 py-0.5 rounded">STAY</span>
+        <span className="text-[11px] font-mono text-emerald-400/70 bg-emerald-900/20 px-1 py-0.5 rounded">STAY</span>
       )}
       {isFolded && (
-        <span className="text-[7px] font-mono text-white/30 bg-white/[0.04] px-1 py-0.5 rounded">FOLD</span>
+        <span className="text-[11px] font-mono text-white/60 bg-white/[0.04] px-1 py-0.5 rounded">FOLD</span>
       )}
       {lastAction && !isFolded && !isBust && !isStay && (
-        <span className="text-[7px] font-mono text-white/40 max-w-[60px] truncate">{lastAction}</span>
+        <span className="text-[11px] font-mono text-white/60 max-w-[60px] truncate">{lastAction}</span>
       )}
 
       {/* Showdown: reveal all cards face-up */}
@@ -322,7 +322,7 @@ function MotherFlushCenter({ cc, phase, players }: { cc: import("@/lib/poker/typ
   return (
     <div className="flex flex-col items-center gap-1.5 sm:gap-2">
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[7px] font-mono uppercase tracking-[0.28em] text-purple-400/40 select-none">Pair Stacks</span>
+        <span className="text-[11px] font-mono uppercase tracking-[0.28em] text-purple-400/60 select-none">Pair Stacks</span>
         <div className="flex gap-1.5 sm:gap-2.5 card-depth-shadow">
           {Array.from({ length: 5 }).map((_, col) => {
             const topIdx = col * 2;
@@ -342,7 +342,7 @@ function MotherFlushCenter({ cc, phase, players }: { cc: import("@/lib/poker/typ
       </div>
       <div className="flex items-center gap-2 w-full justify-center">
         <div className="h-px flex-1 max-w-[48px] bg-white/[0.06]" />
-        <span className="text-[7px] font-mono uppercase tracking-[0.28em] text-purple-400/30 select-none">Factors</span>
+        <span className="text-[11px] font-mono uppercase tracking-[0.28em] text-purple-400/60 select-none">Factors</span>
         <div className="h-px flex-1 max-w-[48px] bg-white/[0.06]" />
       </div>
       <div className="flex gap-1 sm:gap-2 card-depth-shadow">
@@ -652,10 +652,10 @@ export function ThreeDTableScene({
       <div className="flex flex-col items-center gap-2 text-center anim-slide-up">
         <div className="flex items-center gap-1.5 mb-0.5">
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }} />
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>{isClubTable ? 'Crew Table' : 'Live Table'}</span>
+          <span className="text-[12px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>{isClubTable ? 'Crew Table' : 'Live Table'}</span>
         </div>
         <div className="text-sm font-mono font-medium" style={{ color: 'rgba(255,255,255,0.65)' }} data-testid="text-waiting-who">{nameLabel}</div>
-        <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>{subLabel}</div>
+        <div className="text-[12px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{subLabel}</div>
       </div>
     );
   }
@@ -668,7 +668,7 @@ export function ThreeDTableScene({
         style={potPulse ? { animationDuration: potAnimDur } : undefined}
         data-testid="text-pot"
       >
-        <span className="text-[7px] sm:text-[8px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
+        <span className="text-[11px] sm:text-[11px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
         <div className="flex items-center gap-2">
           {/* Chip stack icon */}
           <div className="chip-stack-icon" aria-hidden="true">
@@ -703,8 +703,8 @@ export function ThreeDTableScene({
             <div className="absolute inset-0 flex flex-col items-center justify-start pointer-events-none pt-2 sm:pt-8">
               <div className="text-center pointer-events-auto mb-1.5 sm:mb-3 min-h-[28px] flex items-center justify-center">
                 {showMsg
-                  ? <p key={lastMsg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-message-auto bg-[#0B0B0D]/75 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">{lastMsg.text}</p>
-                  : <span key={gameState.phase} className="text-white/22 text-[10px] font-mono tracking-[0.2em] uppercase anim-phase-snap" data-testid="text-phase">{getPhaseLabel(gameState.phase)}</span>
+                  ? <p key={lastMsg.id} className="text-white/60 text-[12px] sm:text-xs font-mono anim-message-auto bg-[#0B0B0D]/75 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">{lastMsg.text}</p>
+                  : <span key={gameState.phase} className="text-white/60 text-[12px] font-mono tracking-[0.2em] uppercase anim-phase-snap" data-testid="text-phase">{getPhaseLabel(gameState.phase)}</span>
                 }
               </div>
               <div className="flex flex-col items-center gap-2 sm:gap-4 pointer-events-auto">
@@ -712,7 +712,7 @@ export function ThreeDTableScene({
                   <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
                     <div className="gold-chip w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className={cn("text-sm sm:text-base font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
-                    <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
+                    <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/60 ml-0.5">pot</span>
                   </div>
                 )}
                 <MotherFlushCenter cc={gameState.communityCards} phase={gameState.phase} players={gameState.players} />
@@ -774,12 +774,12 @@ export function ThreeDTableScene({
         {/* ── Message bar ── */}
         <div className="w-full text-center min-h-[28px] flex items-center justify-center relative z-40">
           {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-            <p key={msg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
+            <p key={msg.id} className="text-white/60 text-[12px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
               {msg.text}
             </p>
           ))}
           {gameState.phase !== 'SHOWDOWN' && !gameState.messages.length && (
-            <span key={gameState.phase} className="text-white/22 text-[10px] font-mono tracking-[0.2em] uppercase anim-phase-snap" data-testid="text-phase">
+            <span key={gameState.phase} className="text-white/60 text-[12px] font-mono tracking-[0.2em] uppercase anim-phase-snap" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </span>
           )}
@@ -811,7 +811,7 @@ export function ThreeDTableScene({
             <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
               <div className="gold-chip w-3.5 h-3.5" />
               <span className={cn("text-sm font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
-              <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
+              <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/60 ml-0.5">pot</span>
             </div>
           </div>
         )}
@@ -827,7 +827,7 @@ export function ThreeDTableScene({
 
         {lastResultEcho && (
           <div className="w-full flex justify-center">
-            <div className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
+            <div className="text-[12px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
               {lastResultEcho.text}
             </div>
           </div>
@@ -865,7 +865,7 @@ export function ThreeDTableScene({
       {/* Message bar above table */}
       <div className="w-full text-center mb-1 relative z-40 min-h-[28px] flex items-center justify-center">
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-          <p key={msg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
+          <p key={msg.id} className="text-white/60 text-[12px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
             {msg.text}
           </p>
         ))}
@@ -895,24 +895,24 @@ export function ThreeDTableScene({
                     <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 'clamp(24px,5.2vw,38px)', fontWeight: 900, letterSpacing: '0.05em', color: '#C9A227', textShadow: '0 0 28px rgba(201,162,39,0.55), 0 2px 6px rgba(0,0,0,0.95)', lineHeight: 1 }}>
                       15/35
                     </div>
-                    <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(6.5px,1.4vw,9px)', fontWeight: 600, letterSpacing: '0.28em', color: 'rgba(201,162,39,0.50)', textTransform: 'uppercase' }}>
+                    <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(6.5px,1.4vw,9px)', fontWeight: 600, letterSpacing: '0.28em', color: 'rgba(201,162,39,0.6)', textTransform: 'uppercase' }}>
                       HIT · STAY · SURVIVE
                     </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 'clamp(5px,1.0vw,6.5px)', letterSpacing: '0.32em', color: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', marginTop: '1px' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 'clamp(5px,1.0vw,6.5px)', letterSpacing: '0.32em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginTop: '1px' }}>
                       CHAIN GANG POKER
                     </div>
                     <div style={{ width: '30px', height: '1px', background: 'linear-gradient(90deg,transparent,rgba(201,162,39,0.40),transparent)', margin: '5px 0' }} />
-                    <div className="text-[9px] font-mono tracking-[0.22em] uppercase" style={{ color: 'rgba(255,255,255,0.28)' }} data-testid="text-phase">
+                    <div className="text-[12px] font-mono tracking-[0.22em] uppercase" style={{ color: 'rgba(255,255,255,0.6)' }} data-testid="text-phase">
                       {getPhaseLabel(gameState.phase)}
                     </div>
                     {handCount > 1 && (
-                      <div className="text-[8px] font-mono tracking-widest uppercase mt-0.5" style={{ color: 'rgba(201,162,39,0.30)' }}>
+                      <div className="text-[11px] font-mono tracking-widest uppercase mt-0.5" style={{ color: 'rgba(201,162,39,0.6)' }}>
                         Hand {handCount}
                       </div>
                     )}
                     <div className="flex items-center gap-1 mt-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
                       <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
-                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                      <span className="text-[12px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                         {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
                       </span>
                     </div>
@@ -930,27 +930,27 @@ export function ThreeDTableScene({
                         <div className="flex items-center gap-2">
                           {[1, 2, 3].map(d => (
                             <div key={d} className={cn(
-                              "w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 transition-all",
+                              "w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[12px] sm:text-[11px] font-black flex items-center justify-center border-2 transition-all",
                               d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
                               d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] shadow-[0_0_12px_rgba(201,162,39,0.60)]" :
-                              "bg-white/[0.06] border-white/15 text-white/30"
+                              "bg-white/[0.06] border-white/15 text-white/60"
                             )}>{d}</div>
                           ))}
                         </div>
                       </div>
                     ) : (
-                      <div className="text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.22em] uppercase font-medium" data-testid="text-phase">
+                      <div className="text-white/60 text-[12px] sm:text-xs font-mono tracking-[0.22em] uppercase font-medium" data-testid="text-phase">
                         {getPhaseLabel(gameState.phase)}
                       </div>
                     )}
                     {handCount > 1 && !isDrawPhase && (
-                      <div className="text-[9px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
+                      <div className="text-[12px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
                         Hand {handCount}
                       </div>
                     )}
                     <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
                       <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
-                      <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                      <span className="text-[12px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                         {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
                       </span>
                     </div>
@@ -962,13 +962,13 @@ export function ThreeDTableScene({
               {drawNumber > 0 && !isDrawPhase && (
                 <div className="flex items-center gap-1.5" data-testid="text-draw-round">
                   {[1, 2, 3].map(d => (
-                    <div key={d} className={cn("w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border",
+                    <div key={d} className={cn("w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[12px] sm:text-[12px] font-bold flex items-center justify-center border",
                       d < drawNumber ? "bg-[#C9A227]/25 border-[#C9A227]/60 text-[#C9A227]" :
                       d === drawNumber ? "bg-[#C9A227] border-[#D4B44A] text-[#0B0B0D] animate-pulse" :
-                      "bg-white/10 border-white/20 text-white/45"
+                      "bg-white/10 border-white/20 text-white/60"
                     )}>{d}</div>
                   ))}
-                  <span className="text-white/50 text-[9px] sm:text-[10px] font-mono ml-1">DRAW</span>
+                  <span className="text-white/60 text-[12px] sm:text-[12px] font-mono ml-1">DRAW</span>
                 </div>
               )}
 
@@ -976,7 +976,7 @@ export function ThreeDTableScene({
               <DiscardPile messages={gameState.messages} isDrawPhase={isDrawPhase} />
 
               {gameState.phase === 'DECLARE' && (
-                <div className="text-[#C9A227]/60 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse" data-testid="text-declare-prompt">
+                <div className="text-[#C9A227]/60 text-[12px] sm:text-xs font-mono uppercase tracking-wider animate-pulse" data-testid="text-declare-prompt">
                   Declaration Round
                 </div>
               )}
@@ -1026,7 +1026,7 @@ export function ThreeDTableScene({
       {/* Last result echo */}
       {lastResultEcho && (
         <div className="w-full flex justify-center relative z-30 mb-1">
-          <div className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
+          <div className="text-[12px] font-mono anim-action-label tabular-nums tracking-wide font-semibold" style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.75)' : 'rgba(248,113,113,0.65)' }} data-testid="text-last-result-echo">
             {lastResultEcho.text}
           </div>
         </div>

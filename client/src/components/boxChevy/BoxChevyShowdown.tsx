@@ -169,7 +169,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             </div>
             {/* Hole cards row */}
             <div style={{
-              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)',
+              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
               letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
             }}>
               HOLE CARDS
@@ -181,7 +181,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             </div>
             {/* Community cards row */}
             <div style={{
-              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)',
+              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
               letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
             }}>
               COMMUNITY CARDS
@@ -285,7 +285,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <span style={{ fontSize: 10, fontFamily: 'monospace', color: SLV }}>{p.name}</span>
-              <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)' }}>FOLDED</span>
+              <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)' }}>FOLDED</span>
             </div>
           ))}
         </div>
@@ -318,7 +318,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           >
             CONTINUE
           </button>
-          <div style={{ textAlign: 'center', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em' }}>
+          <div style={{ textAlign: 'center', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }}>
             Auto-advancing in {countdown}s…
           </div>
         </div>

@@ -93,7 +93,7 @@ export function DiscardPile({ messages, isDrawPhase }: DiscardPileProps) {
       </div>
       {/* Label disappears with the cards — not during exit */}
       {totalDiscards > 0 && !allExiting && (
-        <span className="text-white/35 text-[9px] font-mono">{totalDiscards} discarded</span>
+        <span className="text-white/60 text-[12px] font-mono">{totalDiscards} discarded</span>
       )}
     </div>
   );

@@ -372,7 +372,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
           onCardClick={handleCardClick}
           selectableCards={!effectiveSpectator && isDrawPhase}
-          heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px]"
+          heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px] md:w-24 md:h-[144px]"
           onReact={!effectiveSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
           incomingReactions={state.liveReactions}
           isClubTable={isClubTable}
@@ -551,7 +551,7 @@ export function UnifiedGamePage({ modeId }: UnifiedGamePageProps) {
   if (!serverEnabled) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
-        <p className="text-white/40 font-mono text-sm">Server mode required. Set VITE_BADUGI_ALPHA=true</p>
+        <p className="text-white/60 font-mono text-sm">Server mode required. Set VITE_BADUGI_ALPHA=true</p>
       </div>
     );
   }

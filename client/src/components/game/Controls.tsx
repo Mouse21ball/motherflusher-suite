@@ -175,7 +175,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         </Button>
         <p
           className="text-xs font-mono tracking-[0.32em] uppercase anim-pulse-gold"
-          style={{ color: 'rgba(255,255,255,0.18)' }}
+          style={{ color: 'rgba(255,255,255,0.6)' }}
         >
           next hand…
         </p>
@@ -526,7 +526,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           <div className="text-center text-xs font-mono text-white/60 mb-3 tracking-[0.2em] uppercase">Declare</div>
           <div className="grid grid-cols-3 gap-2">
             <Button variant="outline" className="border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
-            <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/40 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
+            <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/60 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
             <Button variant="outline" className="border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'LOW' }); }}>LOW</Button>
           </div>
         </div>

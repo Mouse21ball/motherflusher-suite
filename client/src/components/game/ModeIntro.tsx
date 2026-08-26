@@ -57,17 +57,17 @@ function SlideObjective({ title, objective, accentColor }: { title: string; obje
 function SlideHowTo({ steps }: { steps: string[] }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[9px] font-mono uppercase tracking-[0.22em] text-white/20 mb-1">How it works</p>
+      <p className="text-[12px] font-mono uppercase tracking-[0.22em] text-white/60 mb-1">How it works</p>
       <ol className="space-y-2.5">
         {steps.map((step, i) => (
           <li key={i} className="flex gap-3 items-start">
             <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5 font-mono border"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-black shrink-0 mt-0.5 font-mono border"
               style={{ background: 'rgba(201,162,39,0.12)', borderColor: 'rgba(201,162,39,0.25)', color: 'rgba(201,162,39,0.80)' }}
             >
               {i + 1}
             </span>
-            <span className="text-sm text-white/55 leading-relaxed">{step}</span>
+            <span className="text-sm text-white/60 leading-relaxed">{step}</span>
           </li>
         ))}
       </ol>
@@ -91,7 +91,7 @@ function SlideProTip({ proTip, onDismiss }: { proTip: string; onDismiss: () => v
       >
         Let's Play
       </Button>
-      <p className="text-center text-[9px] text-white/15 font-mono tracking-wider">
+      <p className="text-center text-[12px] text-white/60 font-mono tracking-wider">
         Tap "How to Play" in the header to see this again
       </p>
     </div>
@@ -140,7 +140,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
           <button
             onClick={dismiss}
             aria-label="Close"
-            className="p-2 -mr-1 min-w-[40px] min-h-[40px] flex items-center justify-center text-white/30 hover:text-white/60 transition-colors rounded-lg touch-manipulation"
+            className="p-2 -mr-1 min-w-[40px] min-h-[40px] flex items-center justify-center text-white/60 hover:text-white/60 transition-colors rounded-lg touch-manipulation"
             data-testid="button-intro-dismiss"
           >
             <X className="w-4 h-4" />
@@ -162,7 +162,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
                 variant="outline"
                 size="lg"
                 onClick={prev}
-                className="flex-shrink-0 border-white/[0.06] text-white/35 hover:text-white/60 hover:bg-white/[0.03]"
+                className="flex-shrink-0 border-white/[0.06] text-white/60 hover:text-white/60 hover:bg-white/[0.03]"
                 data-testid="button-intro-prev"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -191,7 +191,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
             >
               Got it — Let's Play
             </Button>
-            <p className="text-center text-[9px] text-white/15 mt-2.5 font-mono tracking-wider">
+            <p className="text-center text-[12px] text-white/60 mt-2.5 font-mono tracking-wider">
               Tap "How to Play" in the header to see this again
             </p>
           </div>

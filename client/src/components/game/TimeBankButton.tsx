@@ -78,7 +78,7 @@ export function TimeBankButton({
         onClick={handleUse}
         disabled={!canUse}
         className={[
-          "text-[10px] font-mono uppercase tracking-widest transition-all",
+          "text-[12px] font-mono uppercase tracking-widest transition-all",
           "border-amber-500/30 text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/10",
           usedThisTurn ? "opacity-40 cursor-not-allowed" : "",
           !timerActive ? "opacity-30 cursor-not-allowed" : "",
@@ -88,7 +88,7 @@ export function TimeBankButton({
         {loading ? '…' : usedThisTurn ? '⏱ Used' : '⏱ +20s'}
       </Button>
       {error && (
-        <p className="text-[9px] text-red-400/70" data-testid="time-bank-error">{error}</p>
+        <p className="text-[12px] text-red-400/70" data-testid="time-bank-error">{error}</p>
       )}
     </div>
   );

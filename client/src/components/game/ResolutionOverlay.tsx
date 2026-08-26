@@ -39,7 +39,7 @@ function HandBadge({ name, type }: { name: string; type: ResultType }) {
   const styles =
     type === 'win'  ? { background: 'rgba(34,197,94,0.06)',  borderColor: 'rgba(34,197,94,0.18)',  color: 'rgba(74,222,128,0.78)' }
   : type === 'loss' ? { background: 'rgba(248,113,113,0.05)', borderColor: 'rgba(248,113,113,0.16)', color: 'rgba(248,113,113,0.70)' }
-                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.40)' };
+                    : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.6)' };
   return (
     <div
       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono tracking-wide font-semibold border anim-slide-up"
@@ -58,7 +58,7 @@ function WinnerLine({ name, type }: { name: string; type: ResultType }) {
   return (
     <div
       className="text-[11px] font-mono text-center anim-slide-up"
-      style={{ color: 'rgba(255,255,255,0.30)', animationDelay: '80ms', animationFillMode: 'both' }}
+      style={{ color: 'rgba(255,255,255,0.6)', animationDelay: '80ms', animationFillMode: 'both' }}
       data-testid="text-winner-name"
     >
       <span style={{ color: accentColor }}>{name}</span> takes the pot
@@ -127,24 +127,24 @@ function SuitsPokerResult({
         style={{ background: 'rgba(10,10,14,0.85)', borderColor, animationDelay: `${delay}ms`, animationFillMode: 'both' }}
       >
         {/* Pot label */}
-        <span className="text-[9px] font-mono uppercase tracking-[0.2em] font-bold" style={{ color: potColor }}>
+        <span className="text-[12px] font-mono uppercase tracking-[0.2em] font-bold" style={{ color: potColor }}>
           {potLabel}
         </span>
 
         {/* Winner name */}
         <div className="flex items-center gap-1.5">
-          {isHeroWinner && <span className="text-[10px]">✓</span>}
+          {isHeroWinner && <span className="text-[12px]">✓</span>}
           <span className={`text-sm font-semibold ${isHeroWinner ? 'text-emerald-300' : 'text-white/80'}`}>
             {name}
           </span>
           {isHeroWinner && (
-            <span className="text-[9px] font-mono text-emerald-400/60 uppercase tracking-wider">YOU</span>
+            <span className="text-[12px] font-mono text-emerald-400/60 uppercase tracking-wider">YOU</span>
           )}
         </div>
 
         {/* Hand description */}
         {hand && hand !== '—' && (
-          <span className="text-[11px] font-mono text-white/40 leading-tight">{hand}</span>
+          <span className="text-[11px] font-mono text-white/60 leading-tight">{hand}</span>
         )}
 
         {/* Amount */}
@@ -198,7 +198,7 @@ function SuitsPokerResult({
         {showContinueHint && (
           <div className="flex items-center gap-1.5 mt-1 anim-slide-up" style={{ animationFillMode: 'both' }}>
             <div className="w-8 h-px bg-white/10 flex-1" />
-            <span className="text-white/20 text-[9px] font-mono uppercase tracking-[0.24em] anim-pulse-gold">
+            <span className="text-white/60 text-[12px] font-mono uppercase tracking-[0.24em] anim-pulse-gold">
               Next hand…
             </span>
             <div className="w-8 h-px bg-white/10 flex-1" />
@@ -314,7 +314,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
       ? 'text-[rgba(220,138,138,0.60)]'
       : isLoss
         ? 'text-[rgba(248,113,113,0.70)]'
-        : 'text-white/45';
+        : 'text-white/60';
 
   return (
     <div
@@ -369,7 +369,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
             {result.details.slice(0, 3).map((detail, i) => (
               <p
                 key={i}
-                className="relative font-mono text-white/30 text-[10px] sm:text-[11px] text-center leading-relaxed anim-slide-up"
+                className="relative font-mono text-white/60 text-[12px] sm:text-[11px] text-center leading-relaxed anim-slide-up"
                 style={{ animationDelay: `${80 + i * 55}ms`, animationFillMode: 'both' }}
                 data-testid={`text-resolution-${i}`}
               >
@@ -383,7 +383,7 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
         {showContinueHint && (
           <div className="flex items-center gap-1.5 mt-2 anim-slide-up" style={{ animationFillMode: 'both' }}>
             <div className="w-8 h-px bg-white/10 flex-1" />
-            <span className="text-white/20 text-[9px] font-mono uppercase tracking-[0.24em] anim-pulse-gold">
+            <span className="text-white/60 text-[12px] font-mono uppercase tracking-[0.24em] anim-pulse-gold">
               Next hand…
             </span>
             <div className="w-8 h-px bg-white/10 flex-1" />
