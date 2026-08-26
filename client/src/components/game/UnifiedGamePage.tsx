@@ -308,7 +308,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       {/* Join/presence notifications */}
       {showJoinConfirm && (
         <div className="w-full px-3 flex justify-center pt-14" aria-live="polite">
-          <span className="text-[10px] font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
+          <span className="text-xs font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
             ✓ Joined table
           </span>
         </div>
@@ -316,9 +316,9 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
       {joinFlashName && state.phase === 'WAITING' && (
         <div className="w-full px-3 pt-14" aria-live="polite">
-          <div className="max-w-md mx-auto flex items-center justify-center gap-1.5">
+          <div className="max-w-2xl mx-auto flex items-center justify-center gap-1.5">
             <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.75)' }} />
-            <span className="text-[10px] font-mono" style={{ color: 'rgba(0,200,150,0.60)' }} data-testid="text-join-notification">
+            <span className="text-xs font-mono" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-join-notification">
               {joinFlashName} just joined the table
             </span>
           </div>
@@ -413,7 +413,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       {!effectiveSpectator && (
         <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
           style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
-          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
+          <div className="pointer-events-auto w-full max-w-3xl mx-auto px-2 pb-2">
             <ActionControls
               phase={state.phase}
               currentBet={state.currentBet}
@@ -445,7 +445,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       {isPrebuyIn && (
         <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
           style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
-          <div className="pointer-events-auto w-full max-w-md mx-auto px-2 pb-2">
+          <div className="pointer-events-auto w-full max-w-3xl mx-auto px-2 pb-2">
             <button
               data-testid="button-crew-buyin"
               onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}

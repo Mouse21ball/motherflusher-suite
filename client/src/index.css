@@ -1451,6 +1451,87 @@ body.diamond-elite-bg {
 }
 
 /*
+ * Tablet readability pass (768px+)
+ * iPad and larger touch screens have enough room for readable labels. The
+ * selectors intentionally target only text-size/color utilities, not the
+ * low-alpha backgrounds and borders used for the table's visual hierarchy.
+ */
+@media (min-width: 768px) {
+  .game-page-root .game-main-area {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 20rem !important;
+  }
+
+  .game-page-root .game-action-panel {
+    max-width: 42rem;
+    max-height: 20rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .game-page-root [class*="text-[6px]"],
+  .game-page-root [class*="text-[7px]"],
+  .game-page-root [class*="text-[8px]"],
+  .game-page-root [class*="text-[9px]"],
+  .game-page-root [class*="text-[10px]"] {
+    font-size: 0.75rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .game-page-root [class~="text-white/10"],
+  .game-page-root [class~="text-white/15"],
+  .game-page-root [class~="text-white/20"],
+  .game-page-root [class~="text-white/22"],
+  .game-page-root [class~="text-white/25"],
+  .game-page-root [class~="text-white/30"],
+  .game-page-root [class~="text-white/35"],
+  .game-page-root [class~="text-white/40"],
+  .game-page-root [class~="text-white/45"],
+  .game-page-root [class~="text-white/50"],
+  .game-page-root [class~="text-white/55"],
+  .game-page-root [class~="text-white/[0.04]"],
+  .game-page-root [class~="text-white/[0.05]"] {
+    color: rgb(255 255 255 / 0.65) !important;
+  }
+
+  .game-page-root [class~="text-[#C9A227]/15"],
+  .game-page-root [class~="text-[#C9A227]/20"],
+  .game-page-root [class~="text-[#C9A227]/30"],
+  .game-page-root [class~="text-[#C9A227]/40"],
+  .game-page-root [class~="text-[#C9A227]/50"],
+  .game-page-root [class~="text-amber-400/45"],
+  .game-page-root [class~="text-amber-400/50"],
+  .game-page-root [class~="text-amber-400/55"] {
+    color: rgb(201 162 39 / 0.65) !important;
+  }
+
+  .game-page-root [class~="text-purple-400/30"],
+  .game-page-root [class~="text-purple-400/40"],
+  .game-page-root [class~="text-purple-400/50"],
+  .game-page-root [class~="text-purple-400/55"] {
+    color: rgb(192 132 252 / 0.65) !important;
+  }
+
+  .game-page-root [class~="text-emerald-400/40"],
+  .game-page-root [class~="text-emerald-400/45"],
+  .game-page-root [class~="text-emerald-400/50"],
+  .game-page-root [class~="text-emerald-400/55"],
+  .game-page-root [class~="text-green-400/45"],
+  .game-page-root [class~="text-green-400/50"],
+  .game-page-root [class~="text-green-400/55"] {
+    color: rgb(52 211 153 / 0.65) !important;
+  }
+
+  .game-page-root [class~="text-red-400/40"],
+  .game-page-root [class~="text-red-400/45"],
+  .game-page-root [class~="text-red-400/50"],
+  .game-page-root [class~="text-red-400/55"] {
+    color: rgb(248 113 113 / 0.65) !important;
+  }
+}
+
+/*
  * Portrait small phone (≤430px wide, e.g. iPhone SE in portrait)
  * Scale the table scene to 88% so more vertical space is recovered and
  * opponents never clip into the GameHeader.

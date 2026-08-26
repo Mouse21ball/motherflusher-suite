@@ -69,7 +69,7 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
     <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4">
       <div className="w-full text-center mb-1 relative z-40 min-h-[28px] flex items-center justify-center">
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
-          <p key={msg.id} className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
+          <p key={msg.id} className="text-white/60 text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]" data-testid="text-game-message">
             {msg.text}
           </p>
         ))}
@@ -92,22 +92,22 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
 
         <div className="relative z-10 flex flex-col items-center justify-end min-h-[380px] sm:min-h-[480px] px-2 sm:px-8 pt-[120px] sm:pt-[140px] pb-6">
           <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-            <div className="text-white/30 text-xs sm:text-sm font-mono tracking-[0.2em] uppercase font-medium" data-testid="text-phase">
+            <div className="text-white/60 text-xs sm:text-sm font-mono tracking-[0.2em] uppercase font-medium" data-testid="text-phase">
               {getPhaseLabel(gameState.phase)}
             </div>
 
             <div className="scale-75 sm:scale-100 origin-center card-depth-shadow">
               <div className="flex items-start justify-center">
                 <div className="flex flex-col items-center pt-2 sm:pt-3">
-                  <span className="text-[8px] sm:text-[10px] text-amber-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side A</span>
+                  <span className="text-xs text-amber-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side A</span>
                   <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                     {sideA.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
-                  <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">← path</span>
+                  <span className="text-xs text-white/60 font-mono mt-1">← path</span>
                 </div>
 
                 <div className="mx-4 sm:mx-8 flex flex-col items-center">
-                  <span className="text-[8px] sm:text-[10px] text-green-400/60 font-mono uppercase tracking-wider font-bold mb-1">Center</span>
+                  <span className="text-xs text-green-400/60 font-mono uppercase tracking-wider font-bold mb-1">Center</span>
                   <div className="flex flex-col items-center gap-1 sm:gap-1.5">
                     <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                       {center.map((card, i) => <CommunityCard key={i} card={card} />)}
@@ -124,27 +124,27 @@ export function SuitsPokerTable({ gameState, myId, selectedCardIndices, onCardCl
                 </div>
 
                 <div className="flex flex-col items-center pt-2 sm:pt-3">
-                  <span className="text-[8px] sm:text-[10px] text-cyan-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side B</span>
+                  <span className="text-xs text-cyan-400/60 font-mono uppercase tracking-wider font-bold mb-1">Side B</span>
                   <div className="flex gap-0.5 sm:gap-1 bg-white/[0.04] rounded-lg p-1.5 sm:p-2 border border-white/[0.05]">
                     {sideB.map((card, i) => <CommunityCard key={i} card={card} />)}
                   </div>
-                  <span className="text-[7px] sm:text-[8px] text-white/40 font-mono mt-1">path →</span>
+                  <span className="text-xs text-white/60 font-mono mt-1">path →</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-[8px] sm:text-[10px] font-mono text-white/45">
+            <div className="flex items-center gap-2 text-xs font-mono text-white/60">
               <span className="text-amber-400/60">A</span>
-              <span className="text-white/35">+</span>
+              <span className="text-white/60">+</span>
               <span className="text-green-400/60">Center</span>
-              <span className="text-white/40 mx-0.5">or</span>
+              <span className="text-white/60 mx-0.5">or</span>
               <span className="text-cyan-400/60">B</span>
-              <span className="text-white/35">+</span>
+              <span className="text-white/60">+</span>
               <span className="text-green-400/60">Center</span>
             </div>
 
             <div className="pot-counter bg-[#080809]/90 backdrop-blur-sm border border-[#C9A227]/14 px-5 sm:px-8 py-2.5 sm:py-3 rounded-full flex flex-col items-center" data-testid="text-pot">
-              <span className="text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
+              <span className="text-xs text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
               <div className="flex items-center gap-2">
                 <div className="gold-chip w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="text-lg sm:text-2xl font-mono text-white font-bold tracking-tight">${gameState.pot}</span>

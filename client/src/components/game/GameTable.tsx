@@ -159,7 +159,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               {showMessage ? (
                 <p
                   key={lastMsg.id}
-                  className="text-white/60 text-[10px] sm:text-xs font-mono anim-message-auto bg-[#0B0B0D]/75 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
+                  className="text-white/60 text-xs font-mono anim-message-auto bg-[#0B0B0D]/75 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
                   data-testid="text-game-message"
                 >
                   {lastMsg.text}
@@ -167,7 +167,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               ) : (
                 <span
                   key={gameState.phase}
-                  className="text-white/22 text-[10px] font-mono tracking-[0.2em] uppercase anim-phase-snap"
+                  className="text-white/60 text-xs font-mono tracking-[0.2em] uppercase anim-phase-snap"
                   data-testid="text-phase"
                 >
                   {getPhaseLabel(gameState.phase)}
@@ -190,13 +190,13 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                   <span className={`text-sm font-mono font-bold tabular-nums transition-colors duration-150 ${potPulse ? 'text-[#C9A227]' : 'text-white/80'}`}>
                     ${gameState.pot}
                   </span>
-                  <span className="text-[7px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/50 ml-0.5">pot</span>
+                  <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#C9A227]/60 ml-0.5">pot</span>
                 </div>
               )}
 
               {/* Pair columns — stacked solitaire cascade */}
               <div className="flex flex-col items-center gap-1.5">
-                <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/40 select-none">Pair Stacks</span>
+                <span className="text-xs font-mono uppercase tracking-[0.32em] text-purple-400/60 select-none">Pair Stacks</span>
               <div className="flex gap-2 sm:gap-3 card-depth-shadow">
                 {Array.from({ length: 5 }).map((_, colIndex) => {
                   const topIdx = colIndex * 2;
@@ -241,7 +241,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
               <div className="flex flex-col items-center gap-1.5 mt-0">
                 <div className="w-full flex items-center gap-2 justify-center">
                   <div className="h-px flex-1 max-w-[60px] bg-white/[0.06]" />
-                  <span className="text-[7px] font-mono uppercase tracking-[0.32em] text-purple-400/30 select-none">Factors</span>
+                  <span className="text-xs font-mono uppercase tracking-[0.32em] text-purple-400/60 select-none">Factors</span>
                   <div className="h-px flex-1 max-w-[60px] bg-white/[0.06]" />
                 </div>
                 <div className="flex gap-1 sm:gap-3 card-depth-shadow">

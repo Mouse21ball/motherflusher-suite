@@ -213,9 +213,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         >
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(0,200,150,0.70)' }} />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.65)' }}>Open Seat</span>
+            <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.65)' }}>Open Seat</span>
           </div>
-          <span className="text-[9px] font-mono text-white/25">Awaiting player</span>
+          <span className="text-xs font-mono text-white/60">Awaiting player</span>
         </div>
       </div>
     );
@@ -421,7 +421,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
               )}
               {player.presence === 'bot' && !isSelf && (
-                <span className="text-[7px] font-mono uppercase tracking-widest text-[#C9A227]/30 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">{isActive && !showdownState ? '…' : 'BOT'}</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-[#C9A227]/60 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">{isActive && !showdownState ? '…' : 'BOT'}</span>
               )}
             </div>
             {/* Chips */}
@@ -441,20 +441,20 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               showdownState && player.isLoser && "anim-fold-drop"
             )}>
               {isStackLeader && !showdownState && (
-                <span className="text-[7px] leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.55)' }}>▲</span>
+                <span className="text-xs leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.65)' }}>▲</span>
               )}
               <span className="opacity-60">$</span>{player.chips}
             </div>
             {/* Session status — self only */}
             {isSelf && !showdownState && sessionDelta > 75 && (
-              <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
-                style={{ color: chipFlash ? 'rgba(52,211,153,0.72)' : 'rgba(52,211,153,0.45)' }}>
+              <div className="text-xs font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+                style={{ color: chipFlash ? 'rgba(52,211,153,0.72)' : 'rgba(52,211,153,0.65)' }}>
                 up this session
               </div>
             )}
             {isSelf && !showdownState && sessionDelta < -100 && (
-              <div className="text-[8px] font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
-                style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.38)' }}>
+              <div className="text-xs font-mono tracking-wide leading-tight mt-0.5 transition-all duration-500"
+                style={{ color: chipFlash ? 'rgba(248,113,113,0.65)' : 'rgba(248,113,113,0.65)' }}>
                 down this session
               </div>
             )}
@@ -469,7 +469,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             {/* Last-action label — opponents only */}
             {!isSelf && lastActionLabel && (
               <div
-                className="text-[9px] font-mono font-semibold anim-action-label mt-0.5 tracking-wide"
+                className="text-xs font-mono font-semibold anim-action-label mt-0.5 tracking-wide"
                 style={{
                   color: lastActionLabel === 'Fold'
                     ? 'rgba(248,113,113,0.72)'
@@ -488,8 +488,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           const total = faceUpCards.reduce((sum, c) => sum + visibleCardValue(c.rank), 0);
           const display = total % 1 === 0 ? total.toString() : total.toFixed(1);
           return (
-            <div className="text-amber-400/70 font-mono text-[10px] flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
-              <span className="text-amber-400/50">showing</span>{display}
+            <div className="text-amber-400/70 font-mono text-xs flex items-center gap-1 mt-0.5" data-testid={`text-visible-count-${player.id}`}>
+              <span className="text-amber-400/60">showing</span>{display}
             </div>
           );
         })()}
@@ -539,10 +539,10 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <span className="status-pill-soft status-pill-suits absolute -bottom-3 z-30 uppercase">Suits</span>
       )}
       {player.status === 'folded' && !player.declaration && (
-        <Badge variant="destructive" className="absolute -bottom-3 text-[10px] uppercase font-semibold z-30">Folded</Badge>
+        <Badge variant="destructive" className="absolute -bottom-3 text-xs uppercase font-semibold z-30">Folded</Badge>
       )}
       {player.status === 'sitting_out' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-[10px] uppercase font-semibold bg-[#1C1C20] text-white/50 border-none z-30">Sitting Out</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-xs uppercase font-semibold bg-[#1C1C20] text-white/60 border-none z-30">Sitting Out</Badge>
       )}
 
       {player.bet > 0 && (

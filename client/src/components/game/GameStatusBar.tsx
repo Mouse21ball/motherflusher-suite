@@ -41,7 +41,7 @@ interface GameStatusBarProps {
 function PillGroup({ label, value, valueClass = '' }: { label: string; value: string; valueClass?: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span className="text-[9px] uppercase tracking-wider text-white/50 font-mono leading-none">{label}</span>
+      <span className="text-xs uppercase tracking-wider text-white/60 font-mono leading-none">{label}</span>
       <span className={`text-xs font-mono text-white leading-none font-semibold ${valueClass}`}>{value}</span>
     </div>
   );
@@ -115,7 +115,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               data-testid="display-stripes-topbar"
             >
               <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
-              <span className="text-[9px] font-mono tabular-nums leading-none" style={{ color: '#a855f7' }}>
+              <span className="text-xs font-mono tabular-nums leading-none" style={{ color: '#a855f7' }}>
                 {stripes.toLocaleString()}
               </span>
             </div>
@@ -129,7 +129,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
             >
               <MessageSquare className="w-4 h-4" />
               {chatUnread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#C9A227] text-[#0B0B0D] text-[9px] font-bold flex items-center justify-center leading-none pointer-events-none">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#C9A227] text-[#0B0B0D] text-xs font-bold flex items-center justify-center leading-none pointer-events-none">
                   {chatUnread > 9 ? '9+' : chatUnread}
                 </span>
               )}
@@ -176,29 +176,29 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               {/* Mode identity */}
               {modeInfo && (
                 <div className="flex items-center gap-3 pb-4 border-b border-white/[0.06]">
-                  <div className={`w-9 h-9 rounded-lg bg-white/[0.03] flex items-center justify-center ${modeInfo.accentClass} font-bold font-mono text-[11px] border ${modeInfo.borderClass} shrink-0`}>
+                  <div className={`w-9 h-9 rounded-lg bg-white/[0.03] flex items-center justify-center ${modeInfo.accentClass} font-bold font-mono text-xs border ${modeInfo.borderClass} shrink-0`}>
                     {modeInfo.abbrev}
                   </div>
                   <div className="flex flex-col gap-0">
                     <span className="font-semibold text-white/80 text-sm">{modeInfo.name}</span>
-                    {tableId && <span className="text-[9px] font-mono text-white/20 tracking-widest">{tableId}</span>}
+                    {tableId && <span className="text-xs font-mono text-white/60 tracking-widest">{tableId}</span>}
                   </div>
                 </div>
               )}
 
               {/* Chip stack + session + stripes */}
               <div className="flex flex-col gap-0.5 pb-4 border-b border-white/[0.06]">
-                <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">Your Stack</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-white/60">Your Stack</span>
                 <span className="text-xl font-mono font-bold text-[#C9A227] tabular-nums">${chips.toLocaleString()}</span>
                 {sessionStats && (
-                  <span className={`text-[11px] font-mono font-semibold tabular-nums ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}>
+                  <span className={`text-xs font-mono font-semibold tabular-nums ${sessionStats.netProfit >= 0 ? 'text-emerald-400/70' : 'text-red-400/65'}`}>
                     {sessionStats.netProfit >= 0 ? '+' : ''}${sessionStats.netProfit} this session
                   </span>
                 )}
                 {stripes !== undefined && (
                   <div className="flex items-center gap-1.5 mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,85,247,0.12)' }}>
                     <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 13, height: 13 }} />
-                    <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.45)' }}>Stripes</span>
+                    <span className="text-xs font-mono uppercase tracking-widest" style={{ color: 'rgba(168,85,247,0.65)' }}>Stripes</span>
                     <span className="text-sm font-mono font-semibold tabular-nums ml-auto" style={{ color: '#a855f7' }}>
                       {stripes.toLocaleString()}
                     </span>
@@ -209,20 +209,20 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               {/* Invite link */}
               {tableId && inviteUrl && (
                 <div className="pb-4 border-b border-white/[0.06]">
-                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/30 mb-2">Invite Friends</div>
+                  <div className="text-xs font-mono uppercase tracking-widest text-white/60 mb-2">Invite Friends</div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-white/75 text-sm tracking-widest flex-1">{tableId}</span>
                     <button
                       onClick={handleCopy}
-                      className={`text-[9px] font-mono uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${
-                        copied ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-white/40 border-white/[0.10] hover:text-white/60'
+                      className={`text-xs font-mono uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${
+                        copied ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-white/60 border-white/[0.10] hover:text-white/60'
                       }`}
                     >
                       {copied ? '✓ Copied' : 'Copy Link'}
                     </button>
                   </div>
                   {humanCount >= 2 && (
-                    <span className="text-[10px] font-mono text-emerald-400/60 mt-1 block">{humanCount} players at this table</span>
+                    <span className="text-xs font-mono text-emerald-400/65 mt-1 block">{humanCount} players at this table</span>
                   )}
                 </div>
               )}
@@ -232,15 +232,15 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
                 <div className="pb-4 border-b border-white/[0.06]">
                   <div className="flex items-center gap-2 mb-3">
                     <BookOpen className="w-3.5 h-3.5 text-emerald-400/60" />
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400/70">How to Play</span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-emerald-400/70">How to Play</span>
                   </div>
                   <div className="space-y-4">
                     {modeInfo.rules.map((section, i) => (
                       <div key={i}>
-                        <h3 className={`text-[9px] font-mono uppercase tracking-[0.2em] ${modeInfo.accentClass} mb-1.5 font-bold`}>{section.heading}</h3>
+                        <h3 className={`text-xs font-mono uppercase tracking-[0.2em] ${modeInfo.accentClass} mb-1.5 font-bold`}>{section.heading}</h3>
                         <ul className="space-y-1.5">
                           {section.items.map((item, j) => (
-                            <li key={j} className="text-xs text-white/40 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[8px] before:w-1 before:h-1 before:rounded-full before:bg-white/10">
+                            <li key={j} className="text-xs text-white/60 leading-relaxed pl-3 relative before:content-[''] before:absolute before:left-0 before:top-[8px] before:w-1 before:h-1 before:rounded-full before:bg-white/10">
                               {item}
                             </li>
                           ))}
@@ -261,7 +261,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               {/* Lobby button */}
               <button
                 onClick={handleLobby}
-                className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest px-3 py-2.5 rounded-lg border border-white/[0.06] text-white/40 hover:text-white/60 hover:border-white/[0.10] transition-all touch-manipulation"
+                className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest px-3 py-2.5 rounded-lg border border-white/[0.06] text-white/60 hover:text-white/60 hover:border-white/[0.10] transition-all touch-manipulation"
                 data-testid="link-lobby-menu"
               >
                 <Home className="w-3.5 h-3.5" />
@@ -278,12 +278,12 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
         <AlertDialogContent className="max-w-[340px] sm:max-w-md bg-[#141417] border-white/[0.06] rounded-2xl mx-4 shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white/85 text-base font-sans font-semibold">Leave this hand?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/40 text-sm leading-relaxed">
+            <AlertDialogDescription className="text-white/60 text-sm leading-relaxed">
               You are mid-hand. Leaving forfeits your cards{pot > 0 && <> and your claim to the <span className="font-mono font-bold text-[#C9A227]/80">${pot}</span> pot</>}. Chips are saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="bg-white/[0.03] border-white/[0.06] text-white/50 mt-0">Stay</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/[0.03] border-white/[0.06] text-white/60 mt-0">Stay</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmExit} className="bg-red-600/80 hover:bg-red-600 text-white border-0" data-testid="button-confirm-leave">
               Leave
             </AlertDialogAction>

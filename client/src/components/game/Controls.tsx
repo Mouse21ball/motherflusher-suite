@@ -47,7 +47,7 @@ const defaultDeclarationOptions: DeclarationOption[] = [
   { label: 'LOW', value: 'LOW', className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-const panelClass = "w-full max-w-md mx-auto px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] game-action-panel";
+const panelClass = "w-full max-w-md md:max-w-2xl mx-auto px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] game-action-panel";
 
 function TurnCountdown({ deadline }: { deadline: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -63,10 +63,10 @@ function TurnCountdown({ deadline }: { deadline: number }) {
   return (
     <div className="w-full mb-2" data-testid="turn-countdown">
       <div className="flex items-center justify-between mb-1 px-1">
-        <span className={`text-[9px] font-mono tracking-[0.2em] uppercase ${urgent ? 'text-red-400/80 animate-pulse' : 'text-white/30'}`}>
+        <span className={`text-xs font-mono tracking-[0.2em] uppercase ${urgent ? 'text-red-400/80 animate-pulse' : 'text-white/60'}`}>
           {urgent ? 'Hurry!' : 'Your turn'}
         </span>
-        <span className={`text-[10px] font-mono font-bold tabular-nums ${urgent ? 'text-red-400' : 'text-white/45'}`} data-testid="text-turn-seconds">
+        <span className={`text-xs font-mono font-bold tabular-nums ${urgent ? 'text-red-400' : 'text-white/60'}`} data-testid="text-turn-seconds">
           {seconds}s
         </span>
       </div>
@@ -174,17 +174,17 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           Next Hand
         </Button>
         <p
-          className="text-[9px] font-mono tracking-[0.32em] uppercase anim-pulse-gold"
+          className="text-xs font-mono tracking-[0.32em] uppercase anim-pulse-gold"
           style={{ color: 'rgba(255,255,255,0.18)' }}
         >
           next hand…
         </p>
         {chips <= 0 && (
           <div className="flex flex-col items-center gap-0.5">
-            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
+            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-xs font-mono uppercase tracking-widest border-white/[0.06] text-white/60 hover:text-white/60 hover:bg-white/[0.03]" data-testid="button-rebuy">
               Rebuy $1,000
             </Button>
-            <span className="text-[8px] font-mono text-white/15 tracking-widest">Free · virtual chips only</span>
+            <span className="text-xs font-mono text-white/60 tracking-widest">Free · virtual chips only</span>
           </div>
         )}
       </div>
@@ -225,13 +225,13 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           </div>
         )}
         <div className="flex items-center justify-between mb-3 px-1">
-          <div className="text-[10px] font-mono text-white/30 tracking-[0.15em] uppercase">
+          <div className="text-xs font-mono text-white/60 tracking-[0.15em] uppercase">
             {selectedCardsCount > 0
               ? <span>Drawing <span className="text-[#C9A227]/70 font-bold">{selectedCardsCount}</span> card{selectedCardsCount !== 1 ? 's' : ''}</span>
               : 'Tap cards to draw — or Stay'}
           </div>
           {selectedCardsCount > 0 && (
-            <span className="text-[10px] font-mono text-white/20">{selectedCardsCount}/{maxDiscards} max</span>
+            <span className="text-xs font-mono text-white/60">{selectedCardsCount}/{maxDiscards} max</span>
           )}
         </div>
         <div className="flex gap-2">
@@ -259,7 +259,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (!isMyTurn) {
     return (
       <div className={`${panelClass} flex items-center justify-center min-h-[88px]`}>
-        <span className="text-white/20 text-xs font-mono tracking-wider uppercase anim-pulse-gold">Waiting for opponents</span>
+        <span className="text-white/60 text-xs font-mono tracking-wider uppercase anim-pulse-gold">Waiting for opponents</span>
       </div>
     );
   }
@@ -287,7 +287,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           </div>
         )}
         <div className="flex items-center justify-between mb-3 px-1">
-          <div className="text-[10px] font-mono text-white/30 tracking-[0.15em] uppercase">
+          <div className="text-xs font-mono text-white/60 tracking-[0.15em] uppercase">
             {selectedCardsCount > 0
               ? <span>Drawing <span className="text-[#C9A227]/70 font-bold">{selectedCardsCount}</span> card{selectedCardsCount !== 1 ? 's' : ''}</span>
               : 'Tap cards to draw — or Stay'}
@@ -343,16 +343,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           style={{ backgroundColor: 'rgba(0,200,150,0.06)', border: '1px solid rgba(0,200,150,0.14)' }}
         >
           <div className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.7)' }} />
-          <span className="text-[10px] font-mono leading-snug" style={{ color: 'rgba(0,200,150,0.65)' }}>
+          <span className="text-xs font-mono leading-snug" style={{ color: 'rgba(0,200,150,0.65)' }}>
             {readinessMsg}
           </span>
         </div>
         {chips <= 0 && (
           <div className="flex flex-col items-center gap-0.5">
-            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-[10px] font-mono uppercase tracking-widest border-white/[0.06] text-white/40" data-testid="button-rebuy-waiting">
+            <Button size="sm" variant="outline" onClick={() => onAction('rebuy')} className="text-xs font-mono uppercase tracking-widest border-white/[0.06] text-white/60" data-testid="button-rebuy-waiting">
               Rebuy $1,000
             </Button>
-            <span className="text-[8px] font-mono text-white/15 tracking-widest">Free · virtual chips only</span>
+            <span className="text-xs font-mono text-white/60 tracking-widest">Free · virtual chips only</span>
           </div>
         )}
         <Button
@@ -364,7 +364,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         >
           Deal Me In
         </Button>
-        <p className="text-[9px] text-white/20 font-mono tracking-widest">
+        <p className="text-xs text-white/60 font-mono tracking-widest">
           {startSubtext}
         </p>
       </div>
@@ -382,7 +382,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         >
           Pay Ante ($1)
         </Button>
-        <span className="text-[9px] font-mono text-white/20 tracking-[0.2em] uppercase anim-pulse-gold">auto-posting…</span>
+        <span className="text-xs font-mono text-white/60 tracking-[0.2em] uppercase anim-pulse-gold">auto-posting…</span>
       </div>
     );
   }
@@ -421,7 +421,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
         {timeBankEl}
         {hintEl}
-        <div className="text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">
+        <div className="text-xs font-mono text-white/60 mb-3 tracking-[0.2em] uppercase">
           {hideHit ? 'Standing — Fold or Wait' : 'Hit, Stay, or Fold'}
         </div>
         <div className={`grid ${hideHit ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}>
@@ -462,7 +462,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     return (
       <div className={panelClass}>
         {hintEl}
-        <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">
+        <div className="text-center text-xs font-mono text-white/60 mb-3 tracking-[0.2em] uppercase">
           {isAllIn ? "All-In — Declare" : "Step 1: Declare"}
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -523,7 +523,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
           </div>
         )}
         <div className={panelClass}>
-          <div className="text-center text-[10px] font-mono text-white/25 mb-3 tracking-[0.2em] uppercase">Declare</div>
+          <div className="text-center text-xs font-mono text-white/60 mb-3 tracking-[0.2em] uppercase">Declare</div>
           <div className="grid grid-cols-3 gap-2">
             <Button variant="outline" className="border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200 transition-all" onClick={() => { sfx.declare(); onAction('declare', { declaration: 'HIGH' }); }}>HIGH</Button>
             <Button variant="outline" className="border-white/[0.08] hover:bg-white/[0.04] text-white/40 hover:text-white/60 transition-all" onClick={() => { sfx.fold(); onAction('declare', { declaration: 'FOLD' }); }}>FOLD</Button>
@@ -551,7 +551,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   if (chips <= 0 && isBetPhaseForAllIn) {
     return (
       <div className={`${panelClass} flex flex-col items-center gap-3`}>
-        <Badge variant="secondary" className="bg-[#C9A227]/10 text-[#C9A227]/70 border-[#C9A227]/15 font-mono text-[10px] tracking-widest">
+        <Badge variant="secondary" className="bg-[#C9A227]/10 text-[#C9A227]/70 border-[#C9A227]/15 font-mono text-xs tracking-widest">
           ALL IN
         </Badge>
         <Button variant="secondary" className="w-full sm:w-auto bg-[#1C1C20] text-white/60 hover:bg-[#242428]" onClick={() => handleBetAction('check')} data-testid="button-check-allin">
@@ -565,16 +565,16 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
     <div key={`${phase}-${heroTurnKey}`} className={`${panelClass} anim-decision-ready anim-turn-onset flex flex-col gap-3`}>
       {phase === 'DECLARE_AND_BET' && (
         <div className="flex justify-between items-center px-1">
-          <span className="text-[10px] font-mono text-white/20 tracking-[0.15em] uppercase">Step 2: Bet</span>
-          <Badge variant="secondary" className="bg-blue-500/10 text-blue-300/60 border-blue-500/15 text-[10px] font-mono">
+          <span className="text-xs font-mono text-white/60 tracking-[0.15em] uppercase">Step 2: Bet</span>
+          <Badge variant="secondary" className="bg-blue-500/10 text-blue-300/60 border-blue-500/15 text-xs font-mono">
             {pendingDeclaration}
           </Badge>
         </div>
       )}
       
       <div className="flex justify-between items-center px-1">
-        <span className="text-[10px] font-mono text-white/35">Pot <span className="text-white/60 font-bold tabular-nums">${pot}</span></span>
-        {callAmount > 0 && <span className="text-[10px] font-mono" style={{ color: '#C9A227' }}>To call: <strong>${callAmount}</strong></span>}
+        <span className="text-xs font-mono text-white/60">Pot <span className="text-white/60 font-bold tabular-nums">${pot}</span></span>
+        {callAmount > 0 && <span className="text-xs font-mono" style={{ color: '#C9A227' }}>To call: <strong>${callAmount}</strong></span>}
       </div>
 
       {turnDeadline && isMyTurn ? <TurnCountdown deadline={turnDeadline} /> : null}
@@ -636,8 +636,8 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
         return (
           <div className="flex flex-col gap-2 px-1">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono text-white/25 tracking-[0.2em] uppercase">Bet Size</span>
-              <span className="text-[10px] font-mono text-white/35 tabular-nums">${minRaiseTo} – ${maxRaiseTo}</span>
+              <span className="text-xs font-mono text-white/60 tracking-[0.2em] uppercase">Bet Size</span>
+              <span className="text-xs font-mono text-white/60 tabular-nums">${minRaiseTo} – ${maxRaiseTo}</span>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               {presets.map(p => (
@@ -648,15 +648,15 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
                   disabled={p.amt < minRaiseTo || p.amt > maxRaiseTo}
                   onClick={() => setBetAmount(p.amt)}
                   data-testid={p.testId}
-                  className={`text-[10px] font-mono h-9 px-1 tabular-nums tracking-wide ${
+                  className={`text-xs font-mono h-9 px-1 tabular-nums tracking-wide ${
                     isActive(p.amt)
                       ? 'border-[#C9A227]/60 bg-[#C9A227]/10 text-[#C9A227]'
-                      : 'border-white/[0.06] text-white/45 hover:text-white/75 hover:border-white/[0.12]'
+                      : 'border-white/[0.06] text-white/60 hover:text-white/75 hover:border-white/[0.12]'
                   }`}
                 >
                   <div className="flex flex-col items-center leading-tight">
                     <span>{p.label}</span>
-                    <span className="text-[9px] opacity-70">+${p.amt - myBet}</span>
+                    <span className="text-xs opacity-70">+${p.amt - myBet}</span>
                   </div>
                 </Button>
               ))}

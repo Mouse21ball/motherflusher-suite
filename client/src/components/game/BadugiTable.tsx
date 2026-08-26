@@ -252,7 +252,7 @@ export function BadugiTable({
         {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
           <p
             key={msg.id}
-            className="text-white/60 text-[10px] sm:text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
+            className="text-white/60 text-xs font-mono anim-msg-snap drop-shadow-lg bg-[#0B0B0D]/80 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full border border-white/[0.05]"
             data-testid="text-game-message"
           >
             {msg.text}
@@ -298,7 +298,7 @@ export function BadugiTable({
             )}
             data-testid="text-pot"
           >
-            <span className="text-[8px] sm:text-[9px] text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
+            <span className="text-xs text-[#C9A227]/70 uppercase font-semibold tracking-[0.2em] mb-0.5 font-sans">Pot</span>
             <div className="flex items-center gap-1.5">
               <div className="gold-chip" />
               <span className="text-base sm:text-lg font-mono text-white font-bold tracking-tight tabular-nums">
@@ -344,15 +344,15 @@ export function BadugiTable({
                   >
                     {nameLabel}
                   </div>
-                  <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                  <div className="text-xs font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
                     {reservedCount > 0
                       ? `${reservedCount} seat${reservedCount !== 1 ? 's' : ''} open for friends`
                       : 'full table'}
                   </div>
                   {handCount > 1 && (
                     <div
-                      className="text-[8px] font-mono tracking-[0.32em] uppercase anim-pulse-gold"
-                      style={{ color: 'rgba(255,255,255,0.22)' }}
+                      className="text-xs font-mono tracking-[0.32em] uppercase anim-pulse-gold"
+                      style={{ color: 'rgba(255,255,255,0.65)' }}
                       data-testid="text-next-hand-signal"
                     >
                       next hand
@@ -365,14 +365,14 @@ export function BadugiTable({
               return (
                 <div className="flex flex-col items-center gap-1.5 anim-slide-up">
                   <div
-                    className="text-white/30 text-[10px] sm:text-xs font-mono tracking-[0.2em] uppercase font-medium"
+                    className="text-white/60 text-xs font-mono tracking-[0.2em] uppercase font-medium"
                     data-testid="text-phase"
                   >
                     {getPhaseLabel(gameState.phase)}
                   </div>
                   {handCount > 1 && (
                     <div
-                      className="text-[9px] font-mono tracking-widest uppercase transition-colors duration-[2000ms]"
+                      className="text-xs font-mono tracking-widest uppercase transition-colors duration-[2000ms]"
                       style={{
                         color: handCount >= 7
                           ? `rgba(201,162,39,0.42)`
@@ -387,7 +387,7 @@ export function BadugiTable({
                   {/* Live presence — always visible; brighter when others are here */}
                   <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.28 }}>
                     <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
-                    <span className="text-[9px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
+                    <span className="text-xs font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                       {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
                     </span>
                   </div>
@@ -401,16 +401,16 @@ export function BadugiTable({
                   <div
                     key={d}
                     className={cn(
-                      "w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border",
+                      "w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-bold flex items-center justify-center border",
                       d < drawNumber ? "bg-green-600/60 border-green-400 text-white" :
                       d === drawNumber ? "bg-yellow-500/80 border-yellow-300 text-black animate-pulse" :
-                      "bg-white/10 border-white/20 text-white/45"
+                      "bg-white/10 border-white/20 text-white/60"
                     )}
                   >
                     {d}
                   </div>
                 ))}
-                <span className="text-white/50 text-[9px] sm:text-[10px] font-mono ml-1">DRAW</span>
+                <span className="text-white/60 text-xs font-mono ml-1">DRAW</span>
               </div>
             )}
 
@@ -419,7 +419,7 @@ export function BadugiTable({
 
             {gameState.phase === 'DECLARE' && (
               <div
-                className="text-[#C9A227]/60 text-[10px] sm:text-xs font-mono uppercase tracking-wider animate-pulse"
+                className="text-[#C9A227]/60 text-xs font-mono uppercase tracking-wider animate-pulse"
                 data-testid="text-declare-prompt"
               >
                 Declaration Round
@@ -433,7 +433,7 @@ export function BadugiTable({
       {lastResultEcho && (
         <div className="w-full flex justify-center relative z-30 mb-[-6px]">
           <div
-            className="text-[9px] font-mono anim-action-label tabular-nums tracking-wide"
+            className="text-xs font-mono anim-action-label tabular-nums tracking-wide"
             style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.70)' : 'rgba(248,113,113,0.60)' }}
             data-testid="text-last-result-echo"
           >

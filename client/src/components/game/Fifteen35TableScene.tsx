@@ -74,7 +74,7 @@ function VisBadge({ total, isBust }: { total: number | null; isBust: boolean }) 
   const isQual = isQualHigh || isQualLow;
   return (
     <div className={cn(
-      "text-[7px] font-mono font-bold px-1.5 py-[2px] rounded border tracking-wider tabular-nums",
+      "text-xs font-mono font-bold px-1.5 py-[2px] rounded border tracking-wider tabular-nums",
       isOver ? "text-red-400 border-red-500/45 bg-red-950/50" :
       isQual  ? "text-emerald-400 border-emerald-500/40 bg-emerald-950/40" :
                 "text-amber-400/80 border-amber-600/30 bg-amber-950/30"
@@ -125,16 +125,16 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
-        <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black/90 border border-white/25 flex items-center justify-center text-[7px] font-bold text-white/70">
+        <div className="absolute -top-1 -left-1 w-[14px] h-[14px] rounded-full bg-black/90 border border-white/25 flex items-center justify-center text-xs font-bold text-white/70">
           {seatIndex}
         </div>
       </div>
 
       {/* Name + bankroll */}
-      <span className="text-[7px] font-mono text-white/55 truncate max-w-[64px] text-center leading-none">
+      <span className="text-xs font-mono text-white/60 truncate max-w-[64px] text-center leading-none">
         {player.name}
       </span>
-      <span className="text-[8px] font-mono font-bold text-amber-400/75 tabular-nums leading-none">
+      <span className="text-xs font-mono font-bold text-amber-400/75 tabular-nums leading-none">
         ${player.chips.toLocaleString()}
       </span>
 
@@ -179,22 +179,22 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
 
       {/* Status badges */}
       {isBust && !isFolded && (
-        <span className="text-[6px] font-mono uppercase tracking-wider text-red-400/85 bg-red-950/50 border border-red-800/45 px-1 py-[1px] rounded">
+        <span className="text-xs font-mono uppercase tracking-wider text-red-400/85 bg-red-950/50 border border-red-800/45 px-1 py-[1px] rounded">
           BUST
         </span>
       )}
       {isStay && !isBust && !isFolded && (
-        <span className="text-[6px] font-mono uppercase tracking-wider text-emerald-400/75 bg-emerald-950/40 border border-emerald-800/35 px-1 py-[1px] rounded">
+        <span className="text-xs font-mono uppercase tracking-wider text-emerald-400/75 bg-emerald-950/40 border border-emerald-800/35 px-1 py-[1px] rounded">
           STAY
         </span>
       )}
       {isFolded && (
-        <span className="text-[6px] font-mono text-white/25 bg-white/[0.04] px-1 py-[1px] rounded">
+        <span className="text-xs font-mono text-white/60 bg-white/[0.04] px-1 py-[1px] rounded">
           FOLD
         </span>
       )}
       {lastAction && !isFolded && !isBust && !isStay && (
-        <span className="text-[6px] font-mono text-amber-400/50 max-w-[64px] truncate">{lastAction}</span>
+        <span className="text-xs font-mono text-amber-400/60 max-w-[64px] truncate">{lastAction}</span>
       )}
     </div>
   );
@@ -446,7 +446,7 @@ export function Fifteen35TableScene({
           {gameState.phase !== 'SHOWDOWN' && gameState.messages.slice(-1).map(msg => (
             <p
               key={msg.id}
-              className="text-white/55 text-[10px] font-mono anim-msg-snap bg-black/70 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/[0.05]"
+              className="text-white/60 text-xs font-mono anim-msg-snap bg-black/70 backdrop-blur-sm inline-block px-3 py-1 rounded-full border border-white/[0.05]"
               data-testid="text-game-message"
             >
               {msg.text}
@@ -475,7 +475,7 @@ export function Fifteen35TableScene({
                       style={{ backgroundColor: '#00C896', boxShadow: '0 0 6px #00C896' }}
                     />
                     <span
-                      className="text-[9px] font-mono font-bold uppercase tracking-widest"
+                      className="text-xs font-mono font-bold uppercase tracking-widest"
                       style={{ color: 'rgba(0,200,150,0.75)' }}
                     >
                       Live Table
@@ -507,7 +507,7 @@ export function Fifteen35TableScene({
                   >
                     <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                     <span
-                      className="text-[8px] font-mono tracking-widest"
+                      className="text-xs font-mono tracking-widest"
                       style={{ color: 'rgba(0,200,150,0.75)' }}
                     >
                       {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
@@ -586,7 +586,7 @@ export function Fifteen35TableScene({
                   <VisBadge total={heroVisTot} isBust={heroIsBust} />
                 )}
                 {me.declaration === 'STAY' && !heroIsBust && (
-                  <span className="text-[7px] font-mono uppercase tracking-wider text-emerald-400/75 bg-emerald-950/40 border border-emerald-800/35 px-1 py-[1px] rounded self-start">
+                  <span className="text-xs font-mono uppercase tracking-wider text-emerald-400/75 bg-emerald-950/40 border border-emerald-800/35 px-1 py-[1px] rounded self-start">
                     STAY
                   </span>
                 )}
@@ -621,7 +621,7 @@ export function Fifteen35TableScene({
         {/* Last result echo */}
         {lastResultEcho && (
           <div
-            className="text-[10px] font-mono anim-action-label tabular-nums tracking-wide font-semibold"
+            className="text-xs font-mono anim-action-label tabular-nums tracking-wide font-semibold"
             style={{ color: lastResultEcho.won ? 'rgba(201,162,39,0.80)' : 'rgba(248,113,113,0.70)' }}
             data-testid="text-last-result-echo"
           >
