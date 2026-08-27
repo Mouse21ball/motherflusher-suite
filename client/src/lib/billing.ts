@@ -132,7 +132,7 @@ export const APPLE_SUBSCRIPTION_PRODUCTS = {
   diamondElite: {
     id: 'com.dgmentertainment.poker.diamond.monthly',
     name: 'Diamond Elite',
-    price: '$9.99',
+    price: '$19.99',
     period: 'monthly',
   },
 } as const;

@@ -87,7 +87,7 @@ export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   },
   'com.dgmentertainment.poker.diamond.monthly': {
     tier: "diamond_elite", billingPeriod: "monthly",
-    priceCents: 999, stripesOnStart: 2500, stripesMonthly: 2500,
+    priceCents: 1999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
 };
