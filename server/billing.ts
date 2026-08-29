@@ -45,6 +45,7 @@ export const CLUB_CHIP_PACKS: Record<string, { chips: number; priceCents: number
 // ─── Subscription product catalog ────────────────────────────────────────────
 export type SubscriptionTier   = "gold_pro" | "diamond_elite";
 export type BillingPeriod      = "monthly" | "yearly";
+export type SubscriptionPlatform = "google_play" | "apple_app_store";
 
 export interface SubscriptionProduct {
   tier:           SubscriptionTier;
@@ -300,6 +301,8 @@ export async function processSubscriptionPurchase(
   playerId:      string,
   productId:     string,
   purchaseToken: string,
+  platform:      SubscriptionPlatform = "google_play",
+  appleData?:    ApplePurchaseData,
 ): Promise<{
   idempotent:    boolean;
   tier:          SubscriptionTier;
@@ -321,30 +324,62 @@ export async function processSubscriptionPurchase(
     };
   }
 
-  // Verify with Google
-  const subData = await verifyGooglePlaySubscription(productId, purchaseToken);
+  let expiresAt: Date;
+  let autoRenewing: boolean;
+  let accountIdentifier: string | undefined;
 
-  // Fix C: bind verified subscription to the authenticated player (fail closed).
-  // Skip only for test tokens in TEST_MODE (no real Google data available).
-  if (!(TEST_MODE && purchaseToken.startsWith("test_"))) {
-    if (!subData.obfuscatedExternalAccountId) {
-      console.log(
-        `[BILLING_AUTHZ] obfuscatedExternalAccountId missing — ` +
-        `player=${playerId.slice(0, 8)} product=${productId}`,
-      );
-      throw new Error("Purchase authorization failed: account identifier missing");
+  if (platform === "apple_app_store") {
+    // Apple transactions have already been authenticated by the App Store
+    // Server API in the route. Never send the Apple transaction ID to Google.
+    if (!appleData) {
+      throw new Error("Apple subscription activation requires Apple verification data");
     }
-    if (subData.obfuscatedExternalAccountId !== playerId) {
-      console.log(
-        `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
-        `purchase=${subData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
-      );
-      throw new Error("Purchase authorization failed: account ID mismatch");
+    if (appleData.productId !== productId) {
+      throw new Error("Apple subscription product ID mismatch");
     }
+    if (appleData.revocationReason !== undefined) {
+      throw new Error("Apple subscription was refunded or revoked");
+    }
+    if (!appleData.appAccountToken) {
+      throw new Error("Purchase authorization failed: Apple account identifier missing");
+    }
+    if (appleData.appAccountToken !== playerId) {
+      throw new Error("Purchase authorization failed: Apple account ID mismatch");
+    }
+    if (!appleData.expiresDate) {
+      throw new Error("Apple subscription verification missing expiration date");
+    }
+    expiresAt = new Date(appleData.expiresDate);
+    if (!Number.isFinite(expiresAt.getTime())) {
+      throw new Error("Apple subscription verification returned an invalid expiration date");
+    }
+    autoRenewing = false;
+    accountIdentifier = appleData.appAccountToken;
+  } else {
+    // Google transactions are verified here and remain fail-closed to the
+    // authenticated player account.
+    const subData = await verifyGooglePlaySubscription(productId, purchaseToken);
+    if (!(TEST_MODE && purchaseToken.startsWith("test_"))) {
+      if (!subData.obfuscatedExternalAccountId) {
+        console.log(
+          `[BILLING_AUTHZ] obfuscatedExternalAccountId missing — ` +
+          `player=${playerId.slice(0, 8)} product=${productId}`,
+        );
+        throw new Error("Purchase authorization failed: account identifier missing");
+      }
+      if (subData.obfuscatedExternalAccountId !== playerId) {
+        console.log(
+          `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
+          `purchase=${subData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
+        );
+        throw new Error("Purchase authorization failed: account ID mismatch");
+      }
+    }
+    // Google Play v2 returns expiryTime as an ISO 8601 string.
+    expiresAt = new Date(subData.expiryTime);
+    autoRenewing = subData.autoRenewing;
+    accountIdentifier = subData.obfuscatedExternalAccountId;
   }
-
-  // Fix A: v2 API returns expiryTime as ISO 8601 string (not expiryTimeMillis)
-  const expiresAt = new Date(subData.expiryTime);
 
   // Snapshot existing frame for restore on expiry
   const profile = await storage.getPlayerProfile(playerId);
@@ -359,7 +394,7 @@ export async function processSubscriptionPurchase(
     purchaseToken,
     status:            "active",
     expiresAt,
-    autoRenewing:      subData.autoRenewing,
+    autoRenewing,
     previousFrameId,
     stripesGrantedCurrentCycle: product.stripesOnStart,
   });
@@ -378,8 +413,14 @@ export async function processSubscriptionPurchase(
     amountChange:  0,
     afterBalance:  profile?.chipBalance ?? 0,
     reason:        'iap_purchase',
-    source:        'google_play',
-    metadata:      { productId, purchaseToken: purchaseToken.slice(0, 20), event: 'subscription_activation' },
+    source:        platform,
+    metadata:      {
+      productId,
+      purchaseToken: purchaseToken.slice(0, 20),
+      platform,
+      accountIdentifier: accountIdentifier?.slice(0, 20),
+      event: 'subscription_activation',
+    },
   });
 
   // Auto-equip subscription frame
@@ -661,6 +702,7 @@ export interface ApplePurchaseData {
   productId:             string;
   bundleId:              string;
   purchaseDate:          number;   // epoch ms
+  expiresDate?:          number;   // epoch ms; present for auto-renewable subscriptions
   quantity:              number;
   type:                  string;   // "Consumable" | "Non-Consumable" | "Auto-Renewable Subscription" | etc.
   revocationReason?:     number;   // present when Apple has refunded / revoked the purchase
@@ -749,6 +791,7 @@ export async function verifyAppleAppStorePurchase(transactionId: string): Promis
       productId:             tx['productId']             ?? '',
       bundleId:              tx['bundleId']              ?? '',
       purchaseDate:          tx['purchaseDate']          ?? Date.now(),
+      expiresDate:           tx['expiresDate'],
       quantity:              tx['quantity']              ?? 1,
       type:                  tx['type']                  ?? 'Consumable',
       revocationReason:      tx['revocationReason'],

@@ -1776,8 +1776,8 @@ export async function registerRoutes(
       const playerId = req.sessionPlayerId!;
 
       let tokenForRecord = transactionId;
+      let appleData: ApplePurchaseData | undefined;
       if (!TEST_MODE) {
-        let appleData: ApplePurchaseData;
         try {
           appleData = await verifyAppleAppStorePurchase(transactionId);
         } catch (verifyErr: any) {
@@ -1796,13 +1796,34 @@ export async function registerRoutes(
           ` tier=${product.tier} env=${appleData.environment}`
         );
       } else {
+        const testDurationMs = product.billingPeriod === 'yearly'
+          ? 365 * 24 * 60 * 60 * 1000
+          : 30 * 24 * 60 * 60 * 1000;
+        appleData = {
+          transactionId,
+          originalTransactionId: transactionId,
+          productId,
+          bundleId: 'test',
+          purchaseDate: Date.now(),
+          expiresDate: Date.now() + testDurationMs,
+          quantity: 1,
+          type: 'Auto-Renewable Subscription',
+          appAccountToken: playerId,
+          environment: 'Sandbox',
+        };
         console.log(
           `[billing:apple-sub] TEST_MODE: skipping Apple verification ` +
           `player=${playerId} product=${productId}`
         );
       }
 
-      const result = await processSubscriptionPurchase(playerId, productId, tokenForRecord);
+      const result = await processSubscriptionPurchase(
+        playerId,
+        productId,
+        tokenForRecord,
+        'apple_app_store',
+        appleData,
+      );
 
       res.json({
         success:        true,
@@ -2019,7 +2040,12 @@ export async function registerRoutes(
       }
 
       const playerId = req.sessionPlayerId!;
-      const result = await processSubscriptionPurchase(playerId, productId, purchaseToken);
+      const result = await processSubscriptionPurchase(
+        playerId,
+        productId,
+        purchaseToken,
+        'google_play',
+      );
 
       res.json({
         success:        true,
