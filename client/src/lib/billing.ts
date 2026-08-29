@@ -22,6 +22,32 @@ import { apiUrl } from "./apiConfig";
 import { getSessionToken } from "./session";
 import { ensurePlayerIdentity } from "./persistence";
 
+const PURCHASE_TIMEOUT_MS = 45_000;
+const VERIFICATION_TIMEOUT_MS = 30_000;
+const PENDING_PURCHASES_KEY = "cgp_pending_native_products";
+
+function purchaseErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.name === "AbortError") {
+    return "Purchase verification timed out. Please check your connection and try again.";
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs = VERIFICATION_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Consumable product catalog ───────────────────────────────────────────────
 export const STRIPES_PRODUCT_IDS = [
   "stripes_starter_99",
@@ -195,7 +221,119 @@ class NativeBillingPlugin implements BillingPlugin {
   private initialized = false;
   // Pending purchase promises keyed by productId.
   // Resolved/rejected inside store.when().approved() after server verification.
-  private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; crewId?: string }>();
+  private pending = new Map<string, {
+    resolve: (v: any) => void;
+    reject: (e: any) => void;
+    timeout: ReturnType<typeof setTimeout>;
+    uiSettled: boolean;
+    startedAt: number;
+    crewId?: string;
+  }>();
+
+  private getPersistedPending(): Set<string> {
+    try {
+      const values = JSON.parse(localStorage.getItem(PENDING_PURCHASES_KEY) ?? "[]");
+      return new Set(Array.isArray(values) ? values.filter(v => typeof v === "string") : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  private setPersistedPending(productId: string, pending: boolean): void {
+    try {
+      const values = this.getPersistedPending();
+      if (pending) values.add(productId);
+      else values.delete(productId);
+      localStorage.setItem(PENDING_PURCHASES_KEY, JSON.stringify([...values]));
+    } catch {}
+  }
+
+  private setPending<T>(
+    productId: string,
+    resolve: (value: T) => void,
+    reject: (reason?: any) => void,
+    crewId?: string,
+  ): boolean {
+    const existingForProduct = this.pending.get(productId);
+    if (existingForProduct || this.getPersistedPending().has(productId)) {
+      reject(new Error(
+        existingForProduct?.uiSettled || this.getPersistedPending().has(productId)
+          ? "Your previous purchase is still pending verification. You will not be charged again; reopen the shop after it finishes."
+          : "This purchase is already in progress.",
+      ));
+      return false;
+    }
+    if ([...this.pending.values()].some(entry => !entry.uiSettled)) {
+      reject(new Error("Another purchase is already in progress. Please wait for it to finish."));
+      return false;
+    }
+    const timeout = setTimeout(() => {
+      this.rejectPending(
+        productId,
+        new Error("Purchase is still pending. You will not be charged again; reopen the shop after StoreKit finishes verification."),
+        true,
+      );
+    }, PURCHASE_TIMEOUT_MS);
+    this.pending.set(productId, {
+      resolve,
+      reject,
+      timeout,
+      uiSettled: false,
+      startedAt: Date.now(),
+      crewId,
+    });
+    return true;
+  }
+
+  private resolvePending<T>(productId: string, value: T): void {
+    const entry = this.pending.get(productId);
+    const wasPersisted = this.getPersistedPending().has(productId);
+    this.setPersistedPending(productId, false);
+    if (!entry) {
+      if (wasPersisted && typeof window !== "undefined") {
+        this.dispatchReconciled(productId);
+      }
+      return;
+    }
+    clearTimeout(entry.timeout);
+    this.pending.delete(productId);
+    const wasAlreadySettled = entry.uiSettled;
+    if (!entry.uiSettled) {
+      entry.uiSettled = true;
+      entry.resolve(value);
+    }
+    if (wasAlreadySettled && typeof window !== "undefined") {
+      this.dispatchReconciled(productId);
+    }
+  }
+
+  private dispatchReconciled(productId: string): void {
+    const isSubscription =
+      (SUBSCRIPTION_PRODUCT_IDS as readonly string[]).includes(productId)
+      || (APPLE_SUBSCRIPTION_PRODUCT_IDS as readonly string[]).includes(productId);
+    window.dispatchEvent(new CustomEvent("billing:purchase-reconciled", {
+      detail: { productId, kind: isSubscription ? "subscription" : "purchase" },
+    }));
+  }
+
+  private rejectPending(productId: string, error: unknown, retainForReconciliation = false): void {
+    const entry = this.pending.get(productId);
+    if (!entry) return;
+    clearTimeout(entry.timeout);
+    if (!retainForReconciliation) {
+      this.pending.delete(productId);
+      this.setPersistedPending(productId, false);
+    } else {
+      this.setPersistedPending(productId, true);
+    }
+    if (!entry.uiSettled) {
+      entry.uiSettled = true;
+      entry.reject(new Error(purchaseErrorMessage(error, "Purchase failed. Please try again.")));
+    }
+    if (retainForReconciliation) {
+      console.warn(`[billing] retaining ${productId} for StoreKit transaction reconciliation`);
+    }
+  }
 
   async initialize(): Promise<void> {
     const { store, Platform, ProductType } = CdvPurchase;
@@ -256,6 +394,22 @@ class NativeBillingPlugin implements BillingPlugin {
     // surfaced instead of being silently swallowed.
     store.error(err => {
       console.error("[billing] store error:", err.code, err.message);
+      if (err.productId) {
+        if (this.pending.has(err.productId)) {
+          this.rejectPending(err.productId, new Error(err.message || "StoreKit purchase failed."));
+        } else {
+          this.setPersistedPending(err.productId, false);
+        }
+        return;
+      }
+      // Some StoreKit errors do not include a product ID. If a purchase is
+      // actively pending, fail it rather than leaving the UI waiting forever.
+      if (this.pending.size > 0) {
+        const pendingProductIds = [...this.pending.keys()];
+        for (const pendingProductId of pendingProductIds) {
+          this.rejectPending(pendingProductId, new Error(err.message || "StoreKit purchase failed."));
+        }
+      }
     });
 
     // ── Google Play approved handler ──────────────────────────────────────────
@@ -269,6 +423,10 @@ class NativeBillingPlugin implements BillingPlugin {
 
       const productId = transaction.products[0]?.id ?? "";
       if (!productId) return;
+      const pendingAttempt = this.pending.get(productId);
+      const purchaseTime = transaction.purchaseDate?.getTime();
+      const belongsToPending = !!pendingAttempt
+        && (!purchaseTime || purchaseTime >= pendingAttempt.startedAt - 5_000);
 
       // purchaseToken lives on nativePurchase (Bridge.Purchase), NOT on Transaction.
       // Receipt also has purchaseToken, but we receive a Transaction here, so we
@@ -282,19 +440,24 @@ class NativeBillingPlugin implements BillingPlugin {
 
       try {
         if (isConsumable) {
-          const pendingEntry = this.pending.get(productId);
           const body: Record<string, unknown> = { productId, purchaseToken };
-          if (isClubChipPack && pendingEntry?.crewId) body.crewId = pendingEntry.crewId;
-          const resp = await fetch(apiUrl("/api/billing/verify-purchase"), {
+          if (isClubChipPack && belongsToPending && pendingAttempt?.crewId) {
+            body.crewId = pendingAttempt.crewId;
+          }
+          const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-purchase"), {
             method:  "POST",
             headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
             body:    JSON.stringify(body),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            this.pending.get(productId)?.reject(
-              new Error((err as any).error ?? `Verification failed: ${resp.status}`)
-            );
+            if (belongsToPending) {
+              this.rejectPending(
+                productId,
+                new Error((err as any).error ?? `Verification failed: ${resp.status}`),
+                true,
+              );
+            }
             return;
           }
           const data = await resp.json() as {
@@ -303,40 +466,47 @@ class NativeBillingPlugin implements BillingPlugin {
           };
           // Consumables must be finished (acknowledged + consumed) to become re-purchasable
           await transaction.finish();
-          this.pending.get(productId)?.resolve({
-            productId,
-            purchaseToken,
-            orderId:        data.orderId        ?? '',
-            stripesGranted: data.stripesGranted ?? 0,
-            chipsGranted:   data.chipsGranted,
-            crewId:         data.crewId,
-          });
+          if (belongsToPending || !pendingAttempt) {
+            this.resolvePending(productId, {
+              productId,
+              purchaseToken,
+              orderId:        data.orderId        ?? '',
+              stripesGranted: data.stripesGranted ?? 0,
+              chipsGranted:   data.chipsGranted,
+              crewId:         data.crewId,
+            });
+          }
         } else {
           // Subscription
-          const resp = await fetch(apiUrl("/api/billing/verify-subscription"), {
+          const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-subscription"), {
             method:  "POST",
             headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
             body:    JSON.stringify({ productId, purchaseToken }),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            this.pending.get(productId)?.reject(
-              new Error((err as any).error ?? `Subscription verification failed: ${resp.status}`)
-            );
+            if (belongsToPending) {
+              this.rejectPending(
+                productId,
+                new Error((err as any).error ?? `Subscription verification failed: ${resp.status}`),
+                true,
+              );
+            }
             return;
           }
           const data = await resp.json() as SubscriptionResult;
           // Subscriptions are NOT finished here — Google manages their lifecycle
-          this.pending.get(productId)?.resolve({
-            productId, purchaseToken,
-            tier: data.tier, expiresAt: data.expiresAt,
-            stripesGranted: data.stripesGranted, idempotent: data.idempotent,
-          });
+          if (belongsToPending || !pendingAttempt) {
+            this.resolvePending(productId, {
+              productId, purchaseToken,
+              tier: data.tier, expiresAt: data.expiresAt,
+              stripesGranted: data.stripesGranted, idempotent: data.idempotent,
+            });
+          }
         }
       } catch (err) {
-        this.pending.get(productId)?.reject(err);
-      } finally {
-        this.pending.delete(productId);
+        const retain = err instanceof Error && err.name === "AbortError";
+        if (belongsToPending) this.rejectPending(productId, err, retain);
       }
     });
 
@@ -350,6 +520,10 @@ class NativeBillingPlugin implements BillingPlugin {
 
       const productId = transaction.products[0]?.id ?? "";
       if (!productId) return;
+      const pendingAttempt = this.pending.get(productId);
+      const purchaseTime = transaction.purchaseDate?.getTime();
+      const belongsToPending = !!pendingAttempt
+        && (!purchaseTime || purchaseTime >= pendingAttempt.startedAt - 5_000);
 
       // transaction.transactionId is the cross-platform field the Apple adapter
       // populates with the StoreKit transactionIdentifier. SKTransaction also
@@ -368,19 +542,24 @@ class NativeBillingPlugin implements BillingPlugin {
 
       try {
         if (isConsumable) {
-          const pendingEntry = this.pending.get(productId);
           const body: Record<string, unknown> = { productId, transactionId };
-          if (isClubChipPack && pendingEntry?.crewId) body.crewId = pendingEntry.crewId;
-          const resp = await fetch(apiUrl("/api/billing/verify-apple-purchase"), {
+          if (isClubChipPack && belongsToPending && pendingAttempt?.crewId) {
+            body.crewId = pendingAttempt.crewId;
+          }
+          const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-apple-purchase"), {
             method:  "POST",
             headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
             body:    JSON.stringify(body),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            this.pending.get(productId)?.reject(
-              new Error((err as any).error ?? `Apple verification failed: ${resp.status}`)
-            );
+            if (belongsToPending) {
+              this.rejectPending(
+                productId,
+                new Error((err as any).error ?? `Apple verification failed: ${resp.status}`),
+                true,
+              );
+            }
             return;
           }
           const data = await resp.json() as {
@@ -389,44 +568,51 @@ class NativeBillingPlugin implements BillingPlugin {
           };
           // finish() tells StoreKit the consumable is processed — equivalent of Google's consume call.
           await transaction.finish();
-          this.pending.get(productId)?.resolve({
-            productId,
-            purchaseToken:  transactionId,
-            orderId:        data.orderId        ?? '',
-            stripesGranted: data.stripesGranted ?? 0,
-            chipsGranted:   data.chipsGranted,
-            crewId:         data.crewId,
-          });
+          if (belongsToPending || !pendingAttempt) {
+            this.resolvePending(productId, {
+              productId,
+              purchaseToken:  transactionId,
+              orderId:        data.orderId        ?? '',
+              stripesGranted: data.stripesGranted ?? 0,
+              chipsGranted:   data.chipsGranted,
+              crewId:         data.crewId,
+            });
+          }
         } else {
           // Apple subscription — verify with the server, then finish the transaction.
-          const resp = await fetch(apiUrl("/api/billing/verify-apple-subscription"), {
+          const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-apple-subscription"), {
             method:  "POST",
             headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
             body:    JSON.stringify({ productId, transactionId }),
           });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            this.pending.get(productId)?.reject(
-              new Error((err as any).error ?? `Apple subscription verification failed: ${resp.status}`)
-            );
+            if (belongsToPending) {
+              this.rejectPending(
+                productId,
+                new Error((err as any).error ?? `Apple subscription verification failed: ${resp.status}`),
+                true,
+              );
+            }
             return;
           }
           const data = await resp.json() as SubscriptionResult;
           // On Apple, finish() removes the transaction from the StoreKit queue.
           await transaction.finish();
-          this.pending.get(productId)?.resolve({
-            productId,
-            purchaseToken:  transactionId,
-            tier:           data.tier,
-            expiresAt:      data.expiresAt,
-            stripesGranted: data.stripesGranted,
-            idempotent:     data.idempotent,
-          });
+          if (belongsToPending || !pendingAttempt) {
+            this.resolvePending(productId, {
+              productId,
+              purchaseToken:  transactionId,
+              tier:           data.tier,
+              expiresAt:      data.expiresAt,
+              stripesGranted: data.stripesGranted,
+              idempotent:     data.idempotent,
+            });
+          }
         }
       } catch (err) {
-        this.pending.get(productId)?.reject(err);
-      } finally {
-        this.pending.delete(productId);
+        const retain = err instanceof Error && err.name === "AbortError";
+        if (belongsToPending) this.rejectPending(productId, err, retain);
       }
     });
 
@@ -460,15 +646,14 @@ class NativeBillingPlugin implements BillingPlugin {
     if (!offer) throw new Error(`No offer found for: ${productId}`);
 
     return new Promise<PurchaseResult>((resolve, reject) => {
-      this.pending.set(productId, { resolve, reject, crewId: meta?.crewId });
+      if (!this.setPending(productId, resolve, reject, meta?.crewId)) return;
       // Fix C: pass the player ID as applicationUsername so Google embeds it as
       // obfuscatedAccountId in the purchase — the server validates this server-side.
       offer.order({ applicationUsername: ensurePlayerIdentity().id }).then(error => {
         if (error) {
-          this.pending.delete(productId);
-          reject(new Error(error.message ?? "Order failed"));
+          this.rejectPending(productId, new Error(error.message ?? "Order failed"));
         }
-      }).catch(err => { this.pending.delete(productId); reject(err); });
+      }).catch(err => this.rejectPending(productId, err));
     });
   }
 
@@ -482,14 +667,13 @@ class NativeBillingPlugin implements BillingPlugin {
     if (!offer) throw new Error(`No offer found for: ${productId}`);
 
     return new Promise<SubscriptionResult>((resolve, reject) => {
-      this.pending.set(productId, { resolve, reject });
+      if (!this.setPending(productId, resolve, reject)) return;
       // Fix C: same applicationUsername binding for subscriptions.
       offer.order({ applicationUsername: ensurePlayerIdentity().id }).then(error => {
         if (error) {
-          this.pending.delete(productId);
-          reject(new Error(error.message ?? "Subscription order failed"));
+          this.rejectPending(productId, new Error(error.message ?? "Subscription order failed"));
         }
-      }).catch(err => { this.pending.delete(productId); reject(err); });
+      }).catch(err => this.rejectPending(productId, err));
     });
   }
 
@@ -536,7 +720,7 @@ class WebBillingStub implements BillingPlugin {
   async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
     // In web/dev mode, use a test token so the server's TEST_MODE can handle it
     const testToken = `test_${productId}_${Date.now()}`;
-    const resp = await fetch(apiUrl("/api/billing/verify-subscription"), {
+    const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-subscription"), {
       method: "POST",
       headers: {
         "Content-Type":    "application/json",

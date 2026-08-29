@@ -13,7 +13,7 @@ interface ChatEmoteRowProps {
 
 export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, phaseHint, chatUnread = 0 }: ChatEmoteRowProps) {
   return (
-    <div className="relative z-[35] w-full max-w-md mx-auto px-3 flex flex-col items-stretch gap-2" data-testid="row-chat-emote">
+    <div className="relative z-[35] w-full max-w-md md:max-w-2xl mx-auto px-3 md:px-4 flex flex-col items-stretch gap-2" data-testid="row-chat-emote">
 
       {/* Main row: chat toggle + emote strip */}
       <div className="flex items-center gap-2">

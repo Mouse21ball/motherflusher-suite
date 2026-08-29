@@ -180,6 +180,21 @@ export default function Shop() {
     billing.getActiveSubscription().then(setSubStatus).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const handleReconciledPurchase = (event: Event) => {
+      const detail = (event as CustomEvent<{ kind?: 'purchase' | 'subscription' }>).detail;
+      if (detail?.kind === 'subscription') {
+        setSubMsg('✓ Your delayed subscription purchase was verified and applied.');
+        billing.getActiveSubscription().then(setSubStatus).catch(() => {});
+      } else {
+        setPurchaseMsg('✓ Your delayed purchase was verified and applied.');
+      }
+      refetch();
+    };
+    window.addEventListener('billing:purchase-reconciled', handleReconciledPurchase);
+    return () => window.removeEventListener('billing:purchase-reconciled', handleReconciledPurchase);
+  }, [refetch]);
+
   const identity    = ensurePlayerIdentity();
   const prog        = getProgression();
   const levelInfo   = getLevelInfo(prog.xp);

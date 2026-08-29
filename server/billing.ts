@@ -613,6 +613,10 @@ export async function handleSubscriptionRefund(purchaseToken: string): Promise<v
 
 import crypto from 'crypto';
 
+// Keep the upstream deadline comfortably inside the client's 30-second
+// verification deadline so timeout errors reach the UI before it aborts.
+const APPLE_API_TIMEOUT_MS = 20_000;
+
 function getAppleCredentials(): { keyId: string; issuerId: string; privateKey: string; bundleId: string } | null {
   const keyId      = process.env.APPLE_KEY_ID;
   const issuerId   = process.env.APPLE_ISSUER_ID;
@@ -692,9 +696,25 @@ export async function verifyAppleAppStorePurchase(transactionId: string): Promis
   ];
 
   let lastErr: Error | null = null;
+  const deadline = Date.now() + APPLE_API_TIMEOUT_MS;
   for (const { env, base } of endpoints) {
     const url  = `${base}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`;
-    const resp = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+    let resp: Response;
+    try {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        throw new DOMException('Apple verification deadline exceeded', 'TimeoutError');
+      }
+      resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${jwt}` },
+        signal: AbortSignal.timeout(remainingMs),
+      });
+    } catch (err) {
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        throw new Error(`Apple App Store Server API (${env}) timed out after ${APPLE_API_TIMEOUT_MS / 1000} seconds`);
+      }
+      throw err;
+    }
 
     if (resp.status === 404) {
       lastErr = new Error(`Transaction not found on Apple ${env}`);

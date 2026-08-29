@@ -50,6 +50,9 @@ const GAME_ROUTE_PREFIXES = [
 function ProfileManager() {
   const [location] = useLocation();
   const { profile } = useServerProfile();
+  const isGameRoute = GAME_ROUTE_PREFIXES.some(
+    p => location === p || location.startsWith(p + '/') || location.startsWith(p + '?'),
+  );
 
   // ── Diamond Elite background ─────────────────────────────────────────────
   useEffect(() => {
@@ -57,6 +60,13 @@ function ProfileManager() {
     document.body.classList.toggle('diamond-elite-bg', isDiamond);
     return () => { document.body.classList.remove('diamond-elite-bg'); };
   }, [profile?.activeSubscriptionTier]);
+
+  // Scope readability safeguards to menus, account screens, onboarding, and
+  // shared overlays without changing the already-tuned game-table presentation.
+  useEffect(() => {
+    document.body.classList.toggle('non-game-readable', !isGameRoute);
+    return () => { document.body.classList.remove('non-game-readable'); };
+  }, [isGameRoute]);
 
   // ── Music: resolve track URL from profile + route ────────────────────────
   useEffect(() => {

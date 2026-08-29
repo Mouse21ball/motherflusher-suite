@@ -310,7 +310,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
       <div
         role="dialog"
         aria-label="Table chat"
-        className={`fixed top-0 bottom-0 right-0 z-50 w-80 sm:w-96 bg-[#0B0B0D]/98 border-l border-white/[0.06] backdrop-blur-xl shadow-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 bottom-0 right-0 z-50 w-80 sm:w-96 md:w-[28rem] bg-[#0B0B0D]/98 border-l border-white/[0.06] backdrop-blur-xl shadow-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06] bg-[#141417]/80">
           <h2 className="text-white/70 font-mono text-xs tracking-widest uppercase flex items-center gap-2.5 font-medium">
