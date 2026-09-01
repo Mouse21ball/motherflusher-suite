@@ -59,6 +59,7 @@ import {
   type ApplePurchaseData,
 } from "./billing";
 import { randomBytes } from "crypto";
+import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
@@ -141,6 +142,14 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Public, read-only build provenance for the exact server artifact handling requests.
+  app.get("/api/version", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      commit: BUILD_COMMIT,
+      buildTimestamp: BUILD_TIMESTAMP,
+    });
+  });
 
   // Analytics — unchanged
   app.post("/api/analytics/track", async (req, res) => {

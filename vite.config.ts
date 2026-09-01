@@ -43,6 +43,12 @@ export default defineConfig({
     'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
       process.env.VITE_API_BASE_URL ?? ''
     ),
+    'import.meta.env.VITE_BUILD_COMMIT': JSON.stringify(
+      process.env.VITE_BUILD_COMMIT ?? process.env.GIT_COMMIT_SHA ?? process.env.CM_COMMIT ?? 'unknown'
+    ),
+    'import.meta.env.VITE_BUILD_TIMESTAMP': JSON.stringify(
+      process.env.VITE_BUILD_TIMESTAMP ?? process.env.BUILD_TIMESTAMP ?? process.env.CM_BUILD_TIMESTAMP ?? 'unknown'
+    ),
   },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),

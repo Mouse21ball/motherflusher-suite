@@ -17,7 +17,10 @@ workflows:
           npm install --registry https://registry.npmjs.org/
 
       - name: Build web app
-        script: npm run build
+        script: |
+          GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
+          BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          npm run build
 
       - name: Capacitor sync Android
         script: npx cap sync android
@@ -48,13 +51,20 @@ workflows:
           unset NPM_CONFIG_REGISTRY
           npm install --registry https://registry.npmjs.org/
       - name: Build web app
-        script: npm run build
+        script: |
+          GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
+          BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          npm run build
       - name: Capacitor sync iOS
         script: npx cap sync ios
       - name: Install CocoaPods
         script: cd ios/App && pod install
       - name: Build signed IPA
         script: |
+          GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}"
+          BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          /usr/libexec/PlistBuddy -c "Set :CGPBuildCommit $GIT_COMMIT_SHA" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CGPBuildTimestamp $BUILD_TIMESTAMP" ios/App/App/Info.plist
           xcode-project use-profiles
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \

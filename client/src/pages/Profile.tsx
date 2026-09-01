@@ -23,6 +23,7 @@ import { queryClient } from '@/lib/queryClient';
 import { BlockList } from '@/components/settings/BlockList';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { resolveAvatarSrc } from '@/lib/persistence';
+import { BUILD_COMMIT } from '@/lib/buildInfo';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -989,6 +990,17 @@ export default function Profile() {
               data-testid="text-chips-disclaimer"
             >
               Virtual Chips · For Entertainment Only · No Cash Value
+            </p>
+
+            {/* Build provenance — intentionally quiet, but available to support and QA. */}
+            <p
+              className="text-center font-mono"
+              style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.04em' }}
+              title={`Full build commit: ${BUILD_COMMIT}`}
+              aria-label={`Build commit ${BUILD_COMMIT}`}
+              data-testid="text-build-provenance"
+            >
+              Build {BUILD_COMMIT === 'unknown' ? 'dev' : BUILD_COMMIT.slice(0, 7)}
             </p>
 
             {/* Delete account */}
