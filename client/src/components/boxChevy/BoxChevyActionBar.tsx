@@ -31,8 +31,8 @@ function TutorialPanel() {
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{step.icon}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>{step.sub}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{step.sub}</span>
           </div>
         ))}
       </div>
@@ -165,7 +165,7 @@ export function BoxChevyActionBar({
 
         {/* ANTE — silent, auto-fires; show "POSTING ANTE…" */}
         {phase === 'ANTE' && (
-          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: B(0.55), letterSpacing: '0.18em' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.12em' }}>
             POSTING ANTE…
           </div>
         )}
@@ -174,8 +174,8 @@ export function BoxChevyActionBar({
         {isDrawPhase && isMyTurn && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{
-              fontSize: 9, fontFamily: 'monospace', color: 'rgba(148,163,184,0.7)',
-              letterSpacing: '0.12em', textAlign: 'center',
+              fontSize: 11, fontFamily: 'monospace', color: 'rgba(148,163,184,0.7)',
+              letterSpacing: '0.08em', textAlign: 'center',
             }}>
               DISCARD UP TO {maxSelect}&nbsp;
               <span style={{ color: selectedCards.size > 0 ? '#60a5fa' : 'rgba(255,255,255,0.3)' }}>
@@ -211,12 +211,12 @@ export function BoxChevyActionBar({
         {/* BET phases */}
         {isBetPhase && isMyTurn && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 9, fontFamily: 'monospace', color: B(0.6), letterSpacing: '0.18em', textAlign: 'center', paddingTop: 2 }}>
+            <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.1em', textAlign: 'center', paddingTop: 2 }}>
               {phase.replace('_', ' ')} · RAISES {raisesThisRound}/{maxRaises}
             </div>
             {canRaise && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 9, color: 'rgba(148,163,184,0.7)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>RAISE $</span>
+                <span style={{ fontSize: 11, color: 'rgba(148,163,184,0.7)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>RAISE $</span>
                 <input
                   type="range"
                   min={50} max={Math.max(50, Math.min(500, heroChips - callAmt))} step={25}
@@ -258,7 +258,7 @@ export function BoxChevyActionBar({
         {isDeclare && (
           myHasActed ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: B(0.55), letterSpacing: '0.2em' }}>YOU DECLARED</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{
                 fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
                 color: declaration === 'HIGH' ? '#60a5fa' : declaration === 'LOW' ? '#86efac' : '#fbbf24',
@@ -266,15 +266,15 @@ export function BoxChevyActionBar({
               }}>
                 {declaration ?? '—'}
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>Waiting for others…</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>Waiting for others…</div>
             </div>
           ) : !isMade ? (
-            <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', letterSpacing: '0.08em' }}>
+            <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', letterSpacing: '0.06em' }}>
               ✗ NO MADE HAND — YOU WILL BE AUTO-FOLDED
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: B(0.8), letterSpacing: '0.22em', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.8), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
                 DECLARE HIGH · LOW · SWING
               </div>
               <div style={{ display: 'flex', gap: 7 }}>
@@ -291,7 +291,7 @@ export function BoxChevyActionBar({
                   SWING
                 </button>
               </div>
-              <div style={{ fontSize: 8, fontFamily: 'monospace', color: Pr(0.55), letterSpacing: '0.1em', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: Pr(0.7), letterSpacing: '0.06em', textAlign: 'center' }}>
                 SWING = must win both HIGH &amp; LOW — or forfeit
               </div>
             </div>
@@ -300,7 +300,7 @@ export function BoxChevyActionBar({
 
         {/* Waiting for others (not your turn, not WAITING phase) */}
         {!isMyTurn && phase !== 'WAITING' && (
-          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.12em' }}>
             WAITING FOR OTHERS…
           </div>
         )}
@@ -311,9 +311,9 @@ export function BoxChevyActionBar({
       <button
         onClick={() => setTutorialOpen(o => !o)}
         data-testid="button-tutorial-toggle"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', color: B(0.65), fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.16em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent' }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', color: B(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent' }}
       >
-        <span style={{ fontSize: 10 }}>{tutorialOpen ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
         HOW BOX CHEVY WORKS
       </button>
       <AnimatePresence>{tutorialOpen && <TutorialPanel />}</AnimatePresence>
@@ -321,17 +321,17 @@ export function BoxChevyActionBar({
       {/* Stats bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>POT</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>POT</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{pot}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>PLAYERS</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>YOUR STACK</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700 }}><ChipIcon />{heroChips.toLocaleString()}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />

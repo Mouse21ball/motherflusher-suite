@@ -136,7 +136,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ flex: 1 }}>
             <div style={{
-              fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.22em',
+              fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em',
               color: blA(0.7), textTransform: 'uppercase', marginBottom: 2,
             }}>
               BOX CHEVY · SHOWDOWN
@@ -162,15 +162,15 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             padding: '10px 12px',
           }}>
             <div style={{
-              fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
+              fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.1em',
               color: '#fbbf24', textAlign: 'center', marginBottom: 8,
             }}>
               🏆 {primaryWinner.name.toUpperCase()} — WINNING HAND
             </div>
             {/* Hole cards row */}
             <div style={{
-              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
-              letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
+              fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)',
+              letterSpacing: '0.08em', textAlign: 'center', marginBottom: 4,
             }}>
               HOLE CARDS
             </div>
@@ -181,8 +181,8 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             </div>
             {/* Community cards row */}
             <div style={{
-              fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
-              letterSpacing: '0.14em', textAlign: 'center', marginBottom: 4,
+              fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)',
+              letterSpacing: '0.08em', textAlign: 'center', marginBottom: 4,
             }}>
               COMMUNITY CARDS
             </div>
@@ -197,12 +197,12 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
               return (
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                   {(primaryWinner.declaration === 'HIGH' || primaryWinner.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 10, color: ACT, fontFamily: 'monospace', fontWeight: 700 }}>
+                    <span style={{ fontSize: 11, color: ACT, fontFamily: 'monospace', fontWeight: 700 }}>
                       ▲ {ev.highName}
                     </span>
                   )}
                   {(primaryWinner.declaration === 'LOW' || primaryWinner.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 10, color: '#86efac', fontFamily: 'monospace', fontWeight: 700 }}>
+                    <span style={{ fontSize: 11, color: '#86efac', fontFamily: 'monospace', fontWeight: 700 }}>
                       ▼ {ev.lowDesc}
                     </span>
                   )}
@@ -218,7 +218,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           padding: '8px 10px',
         }}>
           <div style={{
-            fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
+            fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.1em',
             color: ACT, textAlign: 'center', marginBottom: 6,
           }}>
             ◈ COMMUNITY CARDS ◈
@@ -248,11 +248,11 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
                   </span>
                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                     {isWin && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24', fontFamily: 'monospace' }}>🏆 WINNER</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', fontFamily: 'monospace' }}>🏆 WINNER</span>
                     )}
                     {p.declaration && (
                       <span style={{
-                        fontSize: 9, fontWeight: 700, fontFamily: 'monospace',
+                        fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
                         color: dc.color, background: dc.bg,
                         border: `1px solid ${dc.border}`, borderRadius: 4, padding: '1px 5px',
                       }}>
@@ -266,13 +266,13 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {(p.declaration === 'HIGH' || p.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 9, color: ACT, fontFamily: 'monospace' }}>▲ {ev.highName}</span>
+                    <span style={{ fontSize: 11, color: ACT, fontFamily: 'monospace' }}>▲ {ev.highName}</span>
                   )}
                   {(p.declaration === 'LOW' || p.declaration === 'SWING') && ev.isMade && (
-                    <span style={{ fontSize: 9, color: '#86efac', fontFamily: 'monospace' }}>▼ {ev.lowDesc}</span>
+                    <span style={{ fontSize: 11, color: '#86efac', fontFamily: 'monospace' }}>▼ {ev.lowDesc}</span>
                   )}
                   {!ev.isMade && (
-                    <span style={{ fontSize: 9, color: '#fca5a5', fontFamily: 'monospace' }}>✗ No made hand</span>
+                    <span style={{ fontSize: 11, color: '#fca5a5', fontFamily: 'monospace' }}>✗ No made hand</span>
                   )}
                 </div>
               </div>
@@ -281,11 +281,11 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           {players.filter(p => p.status === 'folded').map(p => (
             <div key={p.id} style={{
               borderRadius: 8, background: nvA(0.3), border: `1px solid ${nvA(0.5)}`,
-              padding: '6px 10px', opacity: 0.5,
+              padding: '6px 10px', opacity: 0.7,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ fontSize: 10, fontFamily: 'monospace', color: SLV }}>{p.name}</span>
-              <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)' }}>FOLDED</span>
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#cbd5e1' }}>{p.name}</span>
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)' }}>FOLDED</span>
             </div>
           ))}
         </div>
@@ -297,7 +297,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 3,
           }}>
             {resolutionMessages.map((m, i) => (
-              <div key={m.id ?? i} style={{ fontSize: 10, color: '#fef3c7', fontFamily: 'monospace', textAlign: 'center' }}>
+              <div key={m.id ?? i} style={{ fontSize: 11, color: '#fef3c7', fontFamily: 'monospace', textAlign: 'center' }}>
                 {m.text}
               </div>
             ))}
@@ -318,7 +318,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
           >
             CONTINUE
           </button>
-          <div style={{ textAlign: 'center', fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }}>
+          <div style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>
             Auto-advancing in {countdown}s…
           </div>
         </div>

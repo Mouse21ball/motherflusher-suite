@@ -65,10 +65,10 @@ function BoxChevyHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderPr
         ← BACK
       </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', fontWeight: 700, color: ACT,
-          letterSpacing: '0.24em', textTransform: 'uppercase',
+          fontSize: 11, fontFamily: 'monospace', fontWeight: 700, color: ACT,
+          letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
           background: blA(0.12), padding: '1px 7px', borderRadius: 4,
         }}>
           CHAIN GANG POKER
@@ -83,8 +83,8 @@ function BoxChevyHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderPr
           BOX CHEVY
         </div>
         <div style={{
-          fontSize: 8, fontFamily: 'monospace', fontWeight: 500, color: ACT,
-          letterSpacing: '0.1em',
+          fontSize: 11, fontFamily: 'monospace', fontWeight: 500, color: ACT,
+          letterSpacing: '0.03em', whiteSpace: 'nowrap',
         }}>
           10 CARDS · HIGH / LOW / SWING
         </div>
@@ -101,7 +101,7 @@ function BoxChevyHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderPr
           <div style={{
             position: 'absolute', top: -4, right: -4,
             background: ACT, color: '#000', borderRadius: '50%',
-            width: 16, height: 16, fontSize: 9, fontWeight: 700,
+            width: 18, height: 18, fontSize: 11, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>{chatUnread}</div>
         )}
@@ -356,7 +356,7 @@ function BoxChevyGameUI() {
           paddingTop: 6, paddingBottom: 2, paddingLeft: 12, paddingRight: 12,
         }}>
           <div style={{
-            fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.18em',
+            fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.08em',
             color: 'rgba(148,163,184,0.7)', textAlign: 'center', marginBottom: 2,
             textTransform: 'uppercase',
           }}>
@@ -434,7 +434,7 @@ export default function BoxChevyGame() {
       }}>
         <div style={{ fontSize: 22 }}>◈</div>
         <div>Box Chevy requires server mode.</div>
-        <div style={{ fontSize: 10, opacity: 0.5 }}>Set BADUGI_ALPHA_ENABLED=true to enable.</div>
+        <div style={{ fontSize: 11, opacity: 0.7 }}>Set BADUGI_ALPHA_ENABLED=true to enable.</div>
       </div>
     );
   }

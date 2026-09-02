@@ -375,17 +375,17 @@ export function BadugiTable({
                       className="text-xs font-mono tracking-widest uppercase transition-colors duration-[2000ms]"
                       style={{
                         color: handCount >= 7
-                          ? `rgba(201,162,39,0.42)`
+                          ? `rgba(201,162,39,0.65)`
                           : handCount >= 4
-                          ? `rgba(220,190,70,0.32)`
-                          : `rgba(255,255,255,0.26)`,
+                          ? `rgba(220,190,70,0.60)`
+                          : `rgba(255,255,255,0.60)`,
                       }}
                     >
                       Hand {handCount}
                     </div>
                   )}
                   {/* Live presence — always visible; brighter when others are here */}
-                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.28 }}>
+                  <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.60 }}>
                     <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                     <span className="text-xs font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                       {humanCount >= 2 ? `${humanCount} live` : 'Live table'}

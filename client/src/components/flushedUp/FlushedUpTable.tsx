@@ -74,7 +74,7 @@ function AnimatedPot({ pot }: { pot: number }) {
       padding: '6px 22px',
       borderRadius: 50,
     }}>
-      <div style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
         POT
       </div>
       <motion.div style={{
@@ -126,7 +126,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
         ? '0 0 10px rgba(124,58,237,0.25)'
         : '0 2px 10px rgba(0,0,0,0.4)',
     padding: '8px 8px 6px',
-    opacity: isFolded ? 0.45 : 1,
+    opacity: isFolded ? 0.7 : 1,
     transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
     display: 'flex',
     flexDirection: 'column',
@@ -167,7 +167,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
               />
             )}
             <span style={{
-              fontSize: 10, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)',
+              fontSize: 11, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)',
               fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {name}
@@ -182,7 +182,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
             )}
           </div>
           {/* Chips */}
-          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(201,162,39,0.75)', fontWeight: 600, marginTop: 1 }}>
+          <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(201,162,39,0.75)', fontWeight: 600, marginTop: 1 }}>
             {chips.toLocaleString()}
           </div>
         </div>
@@ -191,8 +191,8 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       {/* Card backs row OR folded label */}
       {isFolded ? (
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)',
-          letterSpacing: '0.18em', textAlign: 'center',
+          fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)',
+          letterSpacing: '0.08em', textAlign: 'center',
         }}>
           FOLDED
         </div>
@@ -212,8 +212,8 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       {/* Winner badge */}
       {isWinner && (
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', color: '#a855f7',
-          letterSpacing: '0.18em', textAlign: 'center', fontWeight: 700,
+          fontSize: 11, fontFamily: 'monospace', color: '#a855f7',
+          letterSpacing: '0.08em', textAlign: 'center', fontWeight: 700,
         }}>
           ★ WINNER
         </div>
@@ -233,7 +233,7 @@ function EmptyPanel() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: 68,
     }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>OPEN</span>
     </div>
   );
 }
@@ -363,9 +363,9 @@ export function FlushedUpTable({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
           style={{
-            fontSize: 8, fontFamily: 'monospace',
-            color: 'rgba(168,85,247,0.6)',
-            letterSpacing: '0.22em', textTransform: 'uppercase',
+            fontSize: 11, fontFamily: 'monospace',
+            color: 'rgba(168,85,247,0.7)',
+            letterSpacing: '0.12em', textTransform: 'uppercase',
             textShadow: '0 0 12px rgba(124,58,237,0.4)',
           }}
         >
@@ -417,8 +417,8 @@ export function FlushedUpTable({
               borderRadius: 20,
               background: 'rgba(124,58,237,0.25)',
               border: '1px solid rgba(168,85,247,0.4)',
-              fontSize: 9, fontFamily: 'monospace',
-              color: '#c084fc', letterSpacing: '0.14em',
+              fontSize: 11, fontFamily: 'monospace',
+              color: '#c084fc', letterSpacing: '0.08em',
             }}
           >
             {selectedCardIndices.length} SELECTED · TAP DRAW
@@ -453,8 +453,8 @@ export function FlushedUpTable({
             {isShowdown && heroHandEval && me.status !== 'folded' && (
               <div style={{
                 marginTop: 3,
-                fontSize: 9, fontFamily: 'monospace',
-                color: heroIsWinner ? '#a855f7' : 'rgba(255,255,255,0.3)',
+                fontSize: 11, fontFamily: 'monospace',
+                color: heroIsWinner ? '#a855f7' : 'rgba(255,255,255,0.7)',
                 fontWeight: heroIsWinner ? 700 : 400,
                 letterSpacing: '0.08em', textAlign: 'center',
                 textShadow: heroIsWinner ? '0 0 10px rgba(168,85,247,0.7)' : '0 1px 6px rgba(0,0,0,0.9)',
@@ -479,7 +479,7 @@ export function FlushedUpTable({
         {isDrawPhase && (
           <div style={{
             marginTop: 3,
-            fontSize: 9, fontFamily: 'monospace',
+            fontSize: 11, fontFamily: 'monospace',
             color: 'rgba(255,80,80,0.8)', letterSpacing: '0.08em',
             background: 'rgba(0,0,0,0.4)', padding: '2px 8px',
             borderRadius: 4, border: '1px solid rgba(255,80,80,0.25)',

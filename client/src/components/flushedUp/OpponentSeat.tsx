@@ -114,7 +114,7 @@ export function OpponentSeat({
   return (
     <motion.div
       animate={{
-        opacity: isFolded ? 0.3 : isLoser ? 0.6 : 1,
+        opacity: isFolded ? 0.7 : isLoser ? 0.7 : 1,
         scale: isWinner && isShowdown ? 1.04 : 1,
         boxShadow: isWinner && isShowdown
           ? [winnerGlowDim, winnerGlowBrgt, winnerGlowDim]
@@ -159,8 +159,8 @@ export function OpponentSeat({
               border: '1px solid rgba(201,162,39,0.45)',
               borderRadius: '6px',
               padding: '2px 7px',
-              fontSize: '8px', fontFamily: 'monospace',
-              letterSpacing: '0.1em', color: '#C9A227',
+              fontSize: '11px', fontFamily: 'monospace',
+              letterSpacing: '0.05em', color: '#C9A227',
               whiteSpace: 'nowrap', zIndex: 30,
             }}
           >
@@ -199,7 +199,7 @@ export function OpponentSeat({
 
       {/* Name */}
       <div style={{
-        fontSize: '9px', fontFamily: 'monospace',
+        fontSize: '11px', fontFamily: 'monospace',
         color: 'rgba(255,255,255,0.82)',
         fontWeight: 600, letterSpacing: '0.04em',
         maxWidth: CARD_W * 5 + 2 * 4,
@@ -277,11 +277,11 @@ export function OpponentSeat({
       {/* Hand rank label — showdown only, non-folded players */}
       {isShowdown && handEval && !isFolded && (
         <div style={{
-          fontSize: '8px',
+          fontSize: '11px',
           fontFamily: 'monospace',
-          color: isWinner ? '#C9A227' : 'rgba(255,255,255,0.36)',
+          color: isWinner ? '#C9A227' : 'rgba(255,255,255,0.7)',
           fontWeight: isWinner ? 700 : 400,
-          letterSpacing: '0.05em',
+          letterSpacing: '0.02em',
           textAlign: 'center',
           maxWidth: CARD_W * 5 + 8,
           overflow: 'hidden',
@@ -297,7 +297,7 @@ export function OpponentSeat({
       {/* Chip count */}
       {status !== 'sitting_out' && (
         <div style={{
-          fontSize: '9px', fontFamily: 'monospace',
+          fontSize: '11px', fontFamily: 'monospace',
           color: 'rgba(201,162,39,0.85)',
           fontWeight: 600, letterSpacing: '0.04em',
         }}>

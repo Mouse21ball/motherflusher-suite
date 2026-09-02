@@ -54,7 +54,7 @@ function AnimatedPot({ pot }: { pot: number }) {
       boxShadow: `0 0 18px ${R(0.18)}, 0 2px 10px rgba(0,0,0,0.5)`,
       padding: '6px 22px', borderRadius: 50, textAlign: 'center',
     }}>
-      <div style={{ fontSize: 8, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.22em' }}>POT</div>
+      <div style={{ fontSize: 11, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.12em' }}>POT</div>
       <motion.div style={{ fontSize: 18, fontFamily: 'monospace', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
         {display}
       </motion.div>
@@ -79,7 +79,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       borderRadius: 16,
       border: isWinner ? `1.5px solid ${R(0.75)}` : isActive ? `1px solid ${R(0.5)}` : '1px solid rgba(255,255,255,0.08)',
       boxShadow: isWinner ? `0 0 14px ${R(0.3)}` : isActive ? `0 0 8px ${R(0.18)}` : '0 2px 10px rgba(0,0,0,0.4)',
-      padding: '8px 8px 6px', opacity: isFolded ? 0.45 : 1,
+      padding: '8px 8px 6px', opacity: isFolded ? 0.7 : 1,
       transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
       display: 'flex', flexDirection: 'column', gap: 5,
     }}>
@@ -101,8 +101,8 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
               <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.85, repeat: Infinity }}
                 style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
             )}
-            <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              color: isFolded ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)' }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)' }}>
               {name}
             </span>
             {isDealer && (
@@ -112,7 +112,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
                 fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace' }}>D</div>
             )}
           </div>
-          <div style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 600, marginTop: 1, color: R(0.75) }}>
+          <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, marginTop: 1, color: R(0.75) }}>
             {chips.toLocaleString()}
           </div>
         </div>
@@ -120,7 +120,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
 
       {/* Card backs or FOLDED label */}
       {isFolded ? (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
+        <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textAlign: 'center' }}>FOLDED</div>
       ) : (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
           {Array.from({ length: cards }).map((_, i) => (
@@ -130,7 +130,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       )}
 
       {isWinner && (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.18em', textAlign: 'center', fontWeight: 700 }}>
+        <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em', textAlign: 'center', fontWeight: 700 }}>
           ★ WINNER
         </div>
       )}
@@ -147,7 +147,7 @@ function EmptyPanel() {
       border: '1px dashed rgba(255,255,255,0.05)',
       padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 74,
     }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>OPEN</span>
     </div>
   );
 }
@@ -203,7 +203,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
       {/* ── Centre ────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 0', pointerEvents: 'none' }}>
         <motion.div key={state.phase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-          style={{ fontSize: 8, fontFamily: 'monospace', color: R(0.6), letterSpacing: '0.22em', textTransform: 'uppercase', textShadow: `0 0 12px ${R(0.3)}` }}>
+          style={{ fontSize: 11, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.12em', textTransform: 'uppercase', textShadow: `0 0 12px ${R(0.3)}` }}>
           {phaseLabel(state.phase)}
         </motion.div>
 
@@ -235,7 +235,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20,
               background: R(0.18), border: `1px solid ${R(0.4)}`,
-              fontSize: 9, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.14em' }}>
+              fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em' }}>
             {selectedCardIndices.length} SELECTED · TAP DRAW
           </motion.div>
         )}
@@ -250,8 +250,8 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
             </div>
 
             {isShowdown && heroHandEval && me.status !== 'folded' && (
-              <div style={{ marginTop: 3, fontSize: 9, fontFamily: 'monospace',
-                color: heroIsWinner ? '#ef4444' : 'rgba(255,255,255,0.3)',
+              <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace',
+                color: heroIsWinner ? '#ef4444' : 'rgba(255,255,255,0.7)',
                 fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.08em', textAlign: 'center',
                 textShadow: heroIsWinner ? `0 0 10px ${R(0.65)}` : '0 1px 6px rgba(0,0,0,0.9)' }}>
                 {heroHandEval.description}

@@ -299,7 +299,7 @@ export function ShowdownReveal({
               alignItems: 'center', gap: 8,
             }}>
               <div style={{
-                fontSize: 10, fontFamily: 'monospace', fontWeight: 800,
+                fontSize: 12, fontFamily: 'monospace', fontWeight: 800,
                 color: 'rgba(201,162,39,0.75)', letterSpacing: '0.24em',
               }}>
                 WINNER
@@ -344,7 +344,7 @@ export function ShowdownReveal({
               alignItems: 'center', gap: 8,
             }}>
               <div style={{
-                fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
+                fontSize: 12, fontFamily: 'monospace', fontWeight: 700,
                 color: 'rgba(255,255,255,0.6)', letterSpacing: '0.22em',
               }}>
                 YOU HAD

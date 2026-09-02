@@ -44,20 +44,20 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
       border: `1px solid ${isActive && !folded ? blA(0.35) : nvA(0.6)}`,
       padding: '6px 8px',
       display: 'flex', flexDirection: 'column', gap: 4,
-      opacity: folded ? 0.45 : 1,
+      opacity: folded ? 0.7 : 1,
       minWidth: 0,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: folded ? SLV : '#e2e8f0', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: folded ? '#cbd5e1' : '#e2e8f0', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
           {player.name}
         </span>
-        <span style={{ fontSize: 9, fontFamily: 'monospace', color: chipColor, fontWeight: 700 }}>
+        <span style={{ fontSize: 11, fontFamily: 'monospace', color: chipColor, fontWeight: 700 }}>
           ${player.chips}
         </span>
       </div>
       {player.declaration && (
         <div style={{
-          fontSize: 8, fontWeight: 700, textAlign: 'center', fontFamily: 'monospace',
+          fontSize: 11, fontWeight: 700, textAlign: 'center', fontFamily: 'monospace',
           color: player.declaration === 'SWING' ? '#fbbf24' : player.declaration === 'HIGH' ? ACT : '#86efac',
           background: player.declaration === 'SWING' ? 'rgba(251,191,36,0.15)' : player.declaration === 'HIGH' ? blA(0.12) : 'rgba(134,239,172,0.12)',
           borderRadius: 4, padding: '1px 4px',
@@ -66,7 +66,7 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
         </div>
       )}
       {folded ? (
-        <div style={{ fontSize: 8, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>FOLDED</div>
+        <div style={{ fontSize: 11, textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>FOLDED</div>
       ) : isShowdown && player.cards.some(c => !c.isHidden) ? (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           {player.cards.map((c, i) => (
@@ -160,7 +160,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
         boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
       }}>
         <div style={{
-          fontSize: 8, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.22em',
+          fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em',
           color: ACT, textAlign: 'center', marginBottom: 10, textTransform: 'uppercase',
         }}>
           ◈ COMMUNITY CARDS ◈
@@ -214,7 +214,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
 
         {madeHand !== null && (phase === 'BET_1' || phase === 'BET_2' || phase === 'BET_3' || isDrawPhase) && (
           <div style={{
-            fontSize: 9, fontWeight: 700, fontFamily: 'monospace',
+            fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
             color: madeHand ? '#86efac' : '#fca5a5',
             background: madeHand ? 'rgba(134,239,172,0.18)' : 'rgba(252,165,165,0.18)',
             border: `1px solid ${madeHand ? 'rgba(134,239,172,0.45)' : 'rgba(252,165,165,0.45)'}`,
@@ -225,7 +225,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
         )}
 
         <div style={{
-          fontSize: 9, fontWeight: 700,
+          fontSize: 11, fontWeight: 700,
           color: 'rgba(255,255,255,0.75)',
           background: 'rgba(255,255,255,0.07)',
           borderRadius: 5, padding: '2px 7px',

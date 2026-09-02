@@ -83,7 +83,7 @@ function QueenCard({
           </>
         )}
       </button>
-      <div style={{ fontSize: 8, fontFamily: 'monospace', color: selected ? col : 'rgba(255,255,255,0.45)', textAlign: 'center', letterSpacing: 0.4 }}>
+      <div style={{ fontSize: 11, fontFamily: 'monospace', color: selected ? col : 'rgba(255,255,255,0.70)', textAlign: 'center', letterSpacing: 0.2 }}>
         {QUEEN_NAMES[suit].toUpperCase()}
       </div>
     </div>
@@ -119,15 +119,15 @@ function RaceTrack({
                 opacity: isWinner ? 1 : 0.75,
               }} />
             </div>
-            <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.55)', width: 26, textAlign: 'right', flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)', width: 32, textAlign: 'right', flexShrink: 0 }}>
               {pos}/9
             </span>
             <div style={{ width: 40, flexShrink: 0 }}>
               {isWinner && (
-                <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700 }}>WINS!</span>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700 }}>WINS!</span>
               )}
               {isMine && !isWinner && (
-                <span style={{ fontSize: 8, fontFamily: 'monospace', color: col, opacity: 0.8 }}>MY BET</span>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: col, opacity: 0.8 }}>MY BET</span>
               )}
             </div>
           </div>
@@ -290,15 +290,15 @@ export default function LadyLuckSpectate() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 20, color: '#C9A227', letterSpacing: 2 }}>LADY LUCK</span>
-        <span data-testid="badge-spectating" style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.4)', borderRadius: 6, padding: '2px 8px', fontSize: 9, fontFamily: 'monospace', fontWeight: 700, color: '#C9A227', letterSpacing: 1 }}>
+        <span data-testid="badge-spectating" style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.4)', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontFamily: 'monospace', fontWeight: 700, color: '#C9A227', letterSpacing: 0.5 }}>
           SPECTATING
         </span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span data-testid="text-spectator-count" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.4)' }}>
+        <span data-testid="text-spectator-count" style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)' }}>
           👁 {spectators} watching
         </span>
-        <button data-testid="button-spectate-leave" onClick={handleLeave} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', letterSpacing: 0.5 }}>
+        <button data-testid="button-spectate-leave" onClick={handleLeave} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)', cursor: 'pointer', letterSpacing: 0.5 }}>
           LEAVE
         </button>
       </div>
@@ -314,7 +314,7 @@ export default function LadyLuckSpectate() {
 
           {/* Winner card */}
           <div style={{ ...GLASS_CARD, padding: '18px 20px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 6 }}>WINNER</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.8, marginBottom: 6 }}>WINNER</div>
             <div style={{ fontSize: 40, color: winner ? SUIT_COLS[winner] : '#fff' }}>{winner ? SUIT_SYMS[winner] : '?'}</div>
             <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 18, color: '#C9A227', letterSpacing: 1, marginTop: 4 }}>
               {winner ? QUEEN_NAMES[winner].toUpperCase() : '—'}
@@ -330,7 +330,7 @@ export default function LadyLuckSpectate() {
                   <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
                     +{grossPayout.toLocaleString()} CHIPS
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 2 }}>
                     {SUIT_SYMS[myBet.suit]} {QUEEN_NAMES[myBet.suit]} · bet {myBet.amount.toLocaleString()}
                   </div>
                 </>
@@ -340,7 +340,7 @@ export default function LadyLuckSpectate() {
                   <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                     -{myBet.amount.toLocaleString()} CHIPS
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 2 }}>
                     {SUIT_SYMS[myBet.suit]} {QUEEN_NAMES[myBet.suit]} · bet {myBet.amount.toLocaleString()}
                   </div>
                 </>
@@ -350,13 +350,13 @@ export default function LadyLuckSpectate() {
 
           {!myBet && (
             <div style={{ ...GLASS_CARD, padding: '14px 20px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>No side bet placed</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>No side bet placed</div>
             </div>
           )}
 
           {/* Race track replay */}
           <div style={{ ...GLASS_CARD, padding: '14px 16px' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 10 }}>FINAL POSITIONS</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.8, marginBottom: 10 }}>FINAL POSITIONS</div>
             <RaceTrack positions={state.positions} winner={winner} myBetSuit={myBet?.suit ?? null} />
           </div>
 
@@ -371,7 +371,7 @@ export default function LadyLuckSpectate() {
           </div>
 
           {state.resultsTimeLeft != null && (
-            <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>
               Next race in {state.resultsTimeLeft}s
             </div>
           )}
@@ -389,14 +389,14 @@ export default function LadyLuckSpectate() {
 
           {/* Race tracker */}
           <div style={{ ...GLASS_CARD, padding: '16px' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 12 }}>RACE IN PROGRESS</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.8, marginBottom: 12 }}>RACE IN PROGRESS</div>
             <RaceTrack positions={state.positions} winner={state.winner} myBetSuit={myBet?.suit ?? null} />
           </div>
 
           {/* Current card */}
           {state.currentCard && (
             <div style={{ ...GLASS_CARD, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>LAST FLIP</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.5 }}>LAST FLIP</div>
               <div style={{ fontFamily: 'monospace', fontSize: 18, color: SUIT_COLS[state.currentCard.suit], fontWeight: 700 }}>
                 {state.currentCard.rank}{SUIT_SYMS[state.currentCard.suit]}
               </div>
@@ -408,17 +408,17 @@ export default function LadyLuckSpectate() {
             <div style={{ ...GLASS_CARD, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 20, color: SUIT_COLS[myBet.suit] }}>{SUIT_SYMS[myBet.suit]}</span>
               <div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
                   YOUR SIDE BET · {QUEEN_NAMES[myBet.suit]}
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 2 }}>
                   {myBet.amount.toLocaleString()} chips · pays {Math.floor(myBet.amount * 2.5).toLocaleString()} on win
                 </div>
               </div>
             </div>
           ) : (
             <div style={{ ...GLASS_CARD, padding: '12px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>No side bet placed for this race</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>No side bet placed for this race</div>
             </div>
           )}
         </div>
@@ -436,14 +436,14 @@ export default function LadyLuckSpectate() {
 
           {/* Phase status */}
           <div style={{ ...GLASS_CARD, padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 2 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.6 }}>
               {phase === 'BET' ? `BET OPEN · ${state.betTimeLeft ?? ''}s` : 'PLAYERS WAGERING…'}
             </div>
           </div>
 
           {/* Side bet panel */}
           <div style={{ ...GLASS_CARD, padding: '18px 16px' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2, fontWeight: 700, marginBottom: 14 }}>PLACE SIDE BET</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#C9A227', letterSpacing: 0.8, fontWeight: 700, marginBottom: 14 }}>PLACE SIDE BET</div>
 
             {canBet ? (
               <>
@@ -462,7 +462,7 @@ export default function LadyLuckSpectate() {
 
                 {/* Wager input */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.4)', marginBottom: 6, letterSpacing: 1 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginBottom: 6, letterSpacing: 0.5 }}>
                     AMOUNT (100–2,000)
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -475,7 +475,7 @@ export default function LadyLuckSpectate() {
                           background: sideBetAmt === v ? '#C9A227' : 'rgba(255,255,255,0.07)',
                           color: sideBetAmt === v ? '#000' : 'rgba(255,255,255,0.7)',
                           border: sideBetAmt === v ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                          borderRadius: 7, padding: '6px 10px', fontSize: 10, fontFamily: 'monospace',
+                          borderRadius: 7, padding: '6px 10px', fontSize: 11, fontFamily: 'monospace',
                           fontWeight: 700, cursor: 'pointer', letterSpacing: 0.5,
                         }}
                       >
@@ -509,7 +509,7 @@ export default function LadyLuckSpectate() {
                 </button>
 
                 {!sideBetSuit && (
-                  <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+                  <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 8 }}>
                     Pick a queen to activate
                   </div>
                 )}
@@ -520,7 +520,7 @@ export default function LadyLuckSpectate() {
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>
                   BET LOCKED — {QUEEN_NAMES[myBet!.suit].toUpperCase()}
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 4 }}>
                   {myBet!.amount.toLocaleString()} chips · pays {Math.floor(myBet!.amount * 2.5).toLocaleString()} on win
                 </div>
               </div>
@@ -536,7 +536,7 @@ export default function LadyLuckSpectate() {
           {/* Pot info */}
           {state.pot > 0 && (
             <div style={{ ...GLASS_CARD, padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>MAIN POT</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.5 }}>MAIN POT</span>
               <span style={{ fontFamily: 'monospace', fontSize: 14, color: '#C9A227', fontWeight: 700 }}>{state.pot.toLocaleString()}</span>
             </div>
           )}
@@ -554,7 +554,7 @@ export default function LadyLuckSpectate() {
           <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 16, color: '#C9A227', letterSpacing: 1, marginBottom: 8 }}>
             {phase === 'LOBBY' ? 'RACE STARTING SOON' : phase === 'SELECT' ? 'PLAYERS SELECTING QUEENS' : 'RACE IN PROGRESS'}
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>
             {state.players.filter(p => p.presence !== 'open').length} players · {spectators} watching
           </div>
           {state.startingIn != null && (
@@ -565,11 +565,11 @@ export default function LadyLuckSpectate() {
         </div>
 
         <div style={{ ...GLASS_CARD, padding: '14px 16px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: 2, marginBottom: 8 }}>RACE POSITIONS</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.6, marginBottom: 8 }}>RACE POSITIONS</div>
           <RaceTrack positions={state.positions} winner={state.winner} myBetSuit={myBet?.suit ?? null} />
         </div>
 
-        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>
           Side bet panel opens during BET phase
         </div>
       </div>

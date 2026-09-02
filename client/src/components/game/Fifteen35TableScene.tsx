@@ -503,7 +503,7 @@ export function Fifteen35TableScene({
                   )}
                   <div
                     className="flex items-center gap-1 mt-1"
-                    style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}
+                    style={{ opacity: humanCount >= 2 ? 0.65 : 0.60 }}
                   >
                     <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                     <span

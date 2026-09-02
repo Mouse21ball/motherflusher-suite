@@ -86,10 +86,10 @@ function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderP
       </button>
 
       {/* Center: title */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', fontWeight: 700,
-          color: '#a855f7', letterSpacing: '0.24em', textTransform: 'uppercase',
+          fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
+          color: '#a855f7', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
           background: 'rgba(124,58,237,0.15)', padding: '1px 7px', borderRadius: 4,
           border: '1px solid rgba(124,58,237,0.3)',
         }}>
@@ -108,7 +108,7 @@ function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderP
       {/* Right: chat + human count */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {humanCount > 1 && (
-          <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.1em' }}>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.04em' }}>
             {humanCount}P
           </span>
         )}
@@ -128,9 +128,9 @@ function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderP
           {chatUnread > 0 && (
             <div style={{
               position: 'absolute', top: -4, right: -4,
-              width: 14, height: 14, borderRadius: '50%',
+              width: 18, height: 18, borderRadius: '50%',
               background: '#a855f7', border: '1.5px solid #0d0a1a',
-              fontSize: 7, fontWeight: 700, color: '#fff',
+              fontSize: 11, fontWeight: 700, color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {chatUnread > 9 ? '9+' : chatUnread}
@@ -367,7 +367,7 @@ function FlushedUpGameUI() {
 
       {showJoinConfirm && (
         <div style={{ padding: '2px 0', textAlign: 'center' }} aria-live="polite">
-          <span className="text-[10px] font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
+          <span className="text-[11px] font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.7)' }} data-testid="text-joined-confirm">
             ✓ Joined table
           </span>
         </div>
@@ -512,7 +512,7 @@ export default function FlushedUpGame() {
   if (!serverEnabled) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
-        <p className="text-white/40 font-mono text-sm">Server mode required. Set VITE_BADUGI_ALPHA=true</p>
+        <p className="text-white/70 font-mono text-sm">Server mode required. Set VITE_BADUGI_ALPHA=true</p>
       </div>
     );
   }

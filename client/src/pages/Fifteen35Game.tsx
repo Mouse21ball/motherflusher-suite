@@ -213,7 +213,7 @@ function F35StatusBar({
           data-testid="display-stripes-f35"
         >
           <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 12, height: 12 }} />
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#a855f7', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#a855f7', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             {stripes.toLocaleString()}
           </span>
         </div>
@@ -240,7 +240,7 @@ function F35StatusBar({
 function StatBlk({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-[2px]">
-      <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase' }}>{label}</span>
       <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: gold ? '#C9A227' : 'rgba(255,255,255,0.72)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
@@ -271,16 +271,16 @@ function F35Title({ phase }: { phase: string }) {
       >
         15/35
       </div>
-      <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 'clamp(8px,2.2vw,11px)', fontWeight: 700, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.92)', textTransform: 'uppercase', marginTop: 4, textShadow: '0 1px 6px rgba(0,0,0,0.90), 0 0 14px rgba(0,0,0,0.70)' }}>
+      <div style={{ fontFamily: "'Oswald','Inter',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(232,199,102,0.92)', textTransform: 'uppercase', marginTop: 4, textShadow: '0 1px 6px rgba(0,0,0,0.90), 0 0 14px rgba(0,0,0,0.70)' }}>
         MAKE 13–15 OR 33–35
       </div>
-      <div style={{ fontFamily: 'monospace', fontSize: 'clamp(7px,1.8vw,9px)', letterSpacing: '0.16em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', marginTop: 2, textShadow: '0 1px 5px rgba(0,0,0,0.95)' }}>
+      <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', marginTop: 2, textShadow: '0 1px 5px rgba(0,0,0,0.95)' }}>
         BEAT WHOEVER ENDS UP YOUR WAY
       </div>
       <div
         data-testid="text-phase"
         className="mt-2 rounded px-3 py-0.5"
-        style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.14)' }}
+        style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.14)' }}
       >
         {phaseLabel}
       </div>
@@ -303,7 +303,7 @@ function F35RulePanel() {
       style={{ background: 'rgba(4,4,8,0.96)', border: '1px solid rgba(212,168,58,0.28)' }}
     >
       <div className="px-3 pt-2.5 pb-1.5">
-        <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.96)', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: "'Oswald','Impact',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(232,199,102,0.96)', textTransform: 'uppercase' }}>
           THE RULE
         </div>
       </div>
@@ -311,7 +311,7 @@ function F35RulePanel() {
         {RULES.map((r, i) => (
           <div key={i} className="flex items-center gap-2">
             <span style={{ fontSize: 9, color: 'rgba(232,199,102,0.80)', width: 10, textAlign: 'center', flexShrink: 0 }}>{r.icon}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.06em' }}>{r.text}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.03em' }}>{r.text}</span>
           </div>
         ))}
       </div>
@@ -322,7 +322,7 @@ function F35RulePanel() {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(201,162,39,0.42)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
         </svg>
-        <span style={{ fontFamily: 'monospace', fontSize: 7.5, letterSpacing: '0.26em', color: 'rgba(232,199,102,0.78)', textTransform: 'uppercase' }}>GUARD IS WATCHING</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', color: 'rgba(232,199,102,0.78)', textTransform: 'uppercase' }}>GUARD IS WATCHING</span>
       </div>
     </div>
   );
@@ -383,12 +383,12 @@ function F35OpponentRow({
 
       {/* Name + chips */}
       <div className="flex flex-col justify-center min-w-0 flex-shrink-0" style={{ width: 74 }}>
-        <span className="truncate" style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.68)', lineHeight: 1.2 }}>{player.name}</span>
+        <span className="truncate" style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)', lineHeight: 1.2 }}>{player.name}</span>
         <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#D4A83A', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
           ${player.chips.toLocaleString()}
         </span>
         {lastAction && !isFolded && (
-          <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.30)', lineHeight: 1 }}>{lastAction}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', lineHeight: 1 }}>{lastAction}</span>
         )}
       </div>
 
@@ -504,7 +504,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
           {player.declaration === 'STAY' && !isBust && (
             <span
               className="self-start mt-0.5 rounded"
-              style={{ fontFamily: 'monospace', fontSize: 7, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', padding: '2px 5px', background: 'rgba(6,60,40,0.45)', border: '1px solid rgba(16,185,129,0.38)', color: '#6EE7B7' }}
+              style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 5px', background: 'rgba(6,60,40,0.45)', border: '1px solid rgba(16,185,129,0.38)', color: '#6EE7B7' }}
             >
               STAY
             </span>
@@ -513,7 +513,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
           {player.chips <= 0 && player.status === 'active' && inPlay && (
             <span
               className="self-start mt-0.5 rounded"
-              style={{ fontFamily: 'monospace', fontSize: 7, fontWeight: 700, letterSpacing: '0.20em', textTransform: 'uppercase', padding: '2px 5px', background: 'rgba(92,65,0,0.40)', border: '1px solid rgba(201,162,39,0.35)', color: 'rgba(201,162,39,0.80)' }}
+              style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 5px', background: 'rgba(92,65,0,0.40)', border: '1px solid rgba(201,162,39,0.35)', color: 'rgba(201,162,39,0.80)' }}
             >
               ALL IN
             </span>
@@ -525,7 +525,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
         {/* Total */}
         {inPlay && (
           <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-            <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase' }}>TOTAL</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase' }}>TOTAL</span>
             <div
               className="rounded text-center"
               style={{
@@ -537,7 +537,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
             >
               {total !== null ? fmtTotal(total) : '—'}
             </div>
-            {isBust && <span style={{ fontFamily: 'monospace', fontSize: 7, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.16em' }}>BUST</span>}
+            {isBust && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.08em' }}>BUST</span>}
           </div>
         )}
       </div>
@@ -568,12 +568,12 @@ function NeedsChip({ label, on }: { label: string; on: boolean }) {
     <span
       className="rounded"
       style={{
-        fontFamily: 'monospace', fontSize: 7, fontWeight: 700,
-        letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+        letterSpacing: '0.06em', textTransform: 'uppercase',
         padding: '2px 5px',
         background: on ? 'rgba(6,60,40,0.48)' : 'rgba(255,255,255,0.03)',
         border: `1px solid ${on ? 'rgba(16,185,129,0.42)' : 'rgba(255,255,255,0.09)'}`,
-        color: on ? '#6EE7B7' : 'rgba(255,255,255,0.28)',
+        color: on ? '#6EE7B7' : 'rgba(255,255,255,0.70)',
       }}
     >
       {on ? '✓ ' : ''}{label}
@@ -596,11 +596,11 @@ function F35Countdown({ deadline }: { deadline: number }) {
   return (
     <div className="w-full mb-1" data-testid="turn-countdown">
       <div className="flex justify-between items-center mb-0.5 px-0.5">
-        <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.24em', textTransform: 'uppercase', color: urgent ? 'rgba(248,113,113,0.85)' : 'rgba(255,255,255,0.22)' }}
+        <span style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: urgent ? 'rgba(248,113,113,0.85)' : 'rgba(255,255,255,0.70)' }}
           className={urgent ? 'animate-pulse' : ''}>
           {urgent ? 'HURRY!' : 'YOUR TURN'}
         </span>
-        <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: urgent ? '#F87171' : 'rgba(255,255,255,0.40)' }}
+        <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: urgent ? '#F87171' : 'rgba(255,255,255,0.70)' }}
           data-testid="text-turn-seconds">{secs}s</span>
       </div>
       <div className="h-0.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -663,7 +663,7 @@ function F35ActionZone({
   if (!isMyTurn && phase !== 'SHOWDOWN' && phase !== 'WAITING') {
     return (
       <div className="flex items-center justify-center min-h-[56px]">
-        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.18)' }}>
+        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)' }}>
           Waiting for opponents…
         </span>
       </div>
@@ -673,7 +673,7 @@ function F35ActionZone({
   if (phase === 'DEAL') {
     return (
       <div className="flex items-center justify-center min-h-[56px]">
-        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.38)' }}>
+        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.70)' }}>
           Dealing…
         </span>
       </div>
@@ -683,7 +683,7 @@ function F35ActionZone({
   if (phase === 'ANTE') {
     return (
       <div className="flex items-center justify-center min-h-[56px]">
-        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.40)' }}>
+        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.70)' }}>
           Auto-posting ante…
         </span>
       </div>
@@ -700,12 +700,12 @@ function F35ActionZone({
           <button
             onClick={() => onAction('rebuy')}
             data-testid="button-rebuy"
-            style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.32)', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '5px 14px', cursor: 'pointer' }}
+            style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5, padding: '5px 14px', cursor: 'pointer' }}
           >
             Rebuy $1,000
           </button>
         )}
-        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.13)' }}>
+        <span className="anim-pulse-gold" style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)' }}>
           Next hand…
         </span>
       </div>
@@ -722,7 +722,7 @@ function F35ActionZone({
       <div className="flex flex-col items-center gap-2 py-1">
         <div
           className="w-full rounded-lg px-3 py-2 text-center"
-          style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(0,200,150,0.60)', background: 'rgba(0,200,150,0.045)', border: '1px solid rgba(0,200,150,0.12)', lineHeight: 1.5 }}
+          style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(0,200,150,0.70)', background: 'rgba(0,200,150,0.045)', border: '1px solid rgba(0,200,150,0.12)', lineHeight: 1.5 }}
         >
           {msg}
         </div>
@@ -733,7 +733,7 @@ function F35ActionZone({
           <button
             onClick={() => onAction('rebuy')}
             data-testid="button-rebuy-waiting"
-            style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 5, padding: '5px 14px', cursor: 'pointer' }}
+            style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.70)', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, padding: '5px 14px', cursor: 'pointer' }}
           >
             Rebuy $1,000
           </button>
@@ -748,7 +748,7 @@ function F35ActionZone({
     return (
       <div className="flex flex-col gap-2 py-1">
         {turnDeadline && isMyTurn && <F35Countdown deadline={turnDeadline} />}
-        <div style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', textAlign: 'center', color: 'rgba(255,255,255,0.18)', paddingBottom: 2 }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'center', color: 'rgba(255,255,255,0.70)', paddingBottom: 2 }}>
           {hideHit ? 'STANDING — FOLD OR WAIT' : 'HIT · STAY · FOLD'}
         </div>
         <div className={cn('grid gap-2', hideHit ? 'grid-cols-2' : 'grid-cols-3')}>
@@ -766,7 +766,7 @@ function F35ActionZone({
   if (chips <= 0 && phase.startsWith('BET_')) {
     return (
       <div className="flex flex-col items-center gap-2 py-1">
-        <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.60)', background: 'rgba(201,162,39,0.06)', border: '1px solid rgba(201,162,39,0.18)', borderRadius: 5, padding: '4px 14px' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.70)', background: 'rgba(201,162,39,0.06)', border: '1px solid rgba(201,162,39,0.18)', borderRadius: 5, padding: '4px 14px' }}>
           ALL IN
         </div>
         <MetalBtn variant="neutral" onClick={() => onAction('check')} testId="button-check-allin">CHECK (ALL IN)</MetalBtn>
@@ -797,11 +797,11 @@ function F35ActionZone({
       <div className="flex flex-col gap-2 py-1">
         {/* Pot / call info */}
         <div className="flex justify-between items-center px-0.5">
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.28)' }}>
-            Pot <span style={{ color: 'rgba(255,255,255,0.52)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>${pot}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>
+            Pot <span style={{ color: 'rgba(255,255,255,0.70)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>${pot}</span>
           </span>
           {callAmount > 0 && (
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.78)' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.78)' }}>
               To call: <strong>${callAmount}</strong>
             </span>
           )}
@@ -842,10 +842,10 @@ function F35ActionZone({
                     transition: 'border-color 130ms',
                   }}
                 >
-                  <span style={{ fontFamily: 'monospace', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: active ? '#C9A227' : 'rgba(255,255,255,0.48)' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: active ? '#C9A227' : 'rgba(255,255,255,0.70)' }}>
                     {p.label}
                   </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 8, fontVariantNumeric: 'tabular-nums', color: active ? 'rgba(201,162,39,0.65)' : 'rgba(255,255,255,0.27)' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, fontVariantNumeric: 'tabular-nums', color: active ? 'rgba(201,162,39,0.75)' : 'rgba(255,255,255,0.65)' }}>
                     ${p.amt - myBet}
                   </span>
                 </button>
@@ -1094,7 +1094,7 @@ export default function Fifteen35Game() {
             {opponents.length === 0 ? (
               <div
                 className="flex items-center justify-center"
-                style={{ height: 56, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)' }}
+                style={{ height: 56, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)' }}
               >
                 Waiting for players…
               </div>
@@ -1119,7 +1119,7 @@ export default function Fifteen35Game() {
           {/* Spectator note */}
           {isSpectator && (
             <div className="flex justify-center mt-3">
-              <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,150,0.45)', background: 'rgba(0,200,150,0.05)', border: '1px solid rgba(0,200,150,0.12)', borderRadius: 4, padding: '3px 10px' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(0,200,150,0.70)', background: 'rgba(0,200,150,0.05)', border: '1px solid rgba(0,200,150,0.12)', borderRadius: 4, padding: '3px 10px' }}>
                 Spectating
               </span>
             </div>

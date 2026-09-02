@@ -129,7 +129,7 @@ export function KamikazeShowdown({ state, myId }: KamikazeShowdownProps) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center', width: '100%', maxWidth: 420 }}>
           {primaryWinner && (
             <div style={{ width: '100%', padding: '12px', borderRadius: 14, background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.35)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 800, color: 'rgba(239,68,68,0.75)', letterSpacing: '0.24em' }}>WINNER</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 800, color: 'rgba(239,68,68,0.75)', letterSpacing: '0.14em' }}>WINNER</div>
               <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>{primaryWinner.name}</div>
               {primaryWinner.declaration && primaryWinner.declaration !== 'FOLD' && (
                 <DeclarationBadge declaration={primaryWinner.declaration} side={primaryWinner.declaration as 'HIGH' | 'LOW'} />
@@ -140,7 +140,7 @@ export function KamikazeShowdown({ state, myId }: KamikazeShowdownProps) {
           )}
           {me?.cards?.length ? (
             <div style={{ width: '100%', padding: '10px', borderRadius: 12, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.22em' }}>YOU HAD</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.12em' }}>YOU HAD</div>
               {me.declaration && me.declaration !== 'FOLD' && (
                 <DeclarationBadge declaration={me.declaration} side={me.declaration as 'HIGH' | 'LOW'} />
               )}

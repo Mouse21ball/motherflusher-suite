@@ -54,7 +54,7 @@ function HandBadge({ name, type }: { name: string; type: ResultType }) {
 // ── Winner name (when hero loses or folds) ────────────────────────────────────
 function WinnerLine({ name, type }: { name: string; type: ResultType }) {
   if (!name) return null;
-  const accentColor = type === 'fold' ? 'rgba(220,138,138,0.65)' : 'rgba(201,162,39,0.55)';
+  const accentColor = type === 'fold' ? 'rgba(220,138,138,0.65)' : 'rgba(201,162,39,0.60)';
   return (
     <div
       className="text-[11px] font-mono text-center anim-slide-up"

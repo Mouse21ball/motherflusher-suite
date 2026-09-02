@@ -50,8 +50,8 @@ function TutorialPanel() {
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{step.icon}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#d97706', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>{step.sub}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#d97706', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{step.sub}</span>
           </div>
         ))}
       </div>
@@ -122,7 +122,7 @@ export function BonecrusherActionBar({
         {/* FLIP / REVEAL phase */}
         {isFlip && (
           <div style={{ display: 'flex', gap: 10 }}>
-            <button style={{ ...stayBtn, flex: 0, padding: '13px 10px', fontSize: 10, letterSpacing: '0.08em', cursor: 'default', pointerEvents: 'none' }} data-testid="button-flip-label">
+            <button style={{ ...stayBtn, flex: 0, padding: '13px 10px', fontSize: 11, letterSpacing: '0.06em', cursor: 'default', pointerEvents: 'none' }} data-testid="button-flip-label">
               {phase === 'REVEAL_1' ? 'REVEAL 1' : `FLIP ${phase.split('_')[1]} OF 4`}
             </button>
             <button style={flipBtn} disabled={!canAct || !flipReady} onClick={canAct && flipReady ? onFlip : undefined} data-testid="button-flip">
@@ -146,7 +146,7 @@ export function BonecrusherActionBar({
         {isDeclare && (
           myHasActed ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: A(0.55), letterSpacing: '0.2em' }}>YOU DECLARED</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: A(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{
                 fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
                 color: declaration === 'HIGH' ? '#d97706' : declaration === 'LOW' ? '#3b82f6' : '#a855f7',
@@ -154,11 +154,11 @@ export function BonecrusherActionBar({
               }}>
                 {declaration ?? '—'}
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>Waiting for others…</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>Waiting for others…</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: A(0.8), letterSpacing: '0.22em', textAlign: 'center', paddingTop: 4 }}>DECLARE HIGH · LOW · SWING</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: A(0.8), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>DECLARE HIGH · LOW · SWING</div>
               <div style={{ display: 'flex', gap: 7 }}>
                 <button onClick={() => onDeclare('HIGH')} data-testid="button-declare-high"
                   style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #92400e, #d97706)', color: '#000', boxShadow: `0 0 22px ${A(0.6)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
@@ -177,7 +177,7 @@ export function BonecrusherActionBar({
                 style={{ width: '100%', padding: '8px 0', borderRadius: 10, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', background: 'rgba(20,8,8,0.7)', color: 'rgba(255,100,100,0.6)', border: `1px solid ${R(0.15)}`, WebkitTapHighlightColor: 'transparent' }}>
                 FOLD
               </button>
-              <div style={{ fontSize: 8, fontFamily: 'monospace', color: P(0.55), letterSpacing: '0.1em', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: P(0.7), letterSpacing: '0.06em', textAlign: 'center' }}>
                 SWING = must win both HIGH &amp; LOW — or forfeit
               </div>
             </div>
@@ -197,7 +197,7 @@ export function BonecrusherActionBar({
 
         {/* Non-action phases (ANTE auto-fires, STREET auto-deals) */}
         {!isDiscard && !isFlip && !isBetPhase && !isWaiting && !isDeclare && (
-          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: A(0.55), letterSpacing: '0.18em' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: A(0.7), letterSpacing: '0.12em' }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : phase.startsWith('STREET_') ? `DEALING STREET ${phase.split('_')[1]}...` : ''}
           </div>
         )}
@@ -205,8 +205,8 @@ export function BonecrusherActionBar({
 
       {/* Tutorial toggle */}
       <button onClick={() => setTutorialOpen(o => !o)} data-testid="button-tutorial-toggle"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', color: A(0.65), fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.16em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent' }}>
-        <span style={{ fontSize: 10 }}>{tutorialOpen ? '▲' : '▼'}</span>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', color: A(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent' }}>
+        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
         HOW BONECRUSHER WORKS
       </button>
       <AnimatePresence>{tutorialOpen && <TutorialPanel />}</AnimatePresence>
@@ -214,17 +214,17 @@ export function BonecrusherActionBar({
       {/* Stats bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>ANTES</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>ANTES</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{ante}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>PLAYERS</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em' }}>YOUR STACK</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#d97706', fontWeight: 700 }}><ChipIcon />{chips.toLocaleString()}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />

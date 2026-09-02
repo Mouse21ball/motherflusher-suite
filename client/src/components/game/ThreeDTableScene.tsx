@@ -269,7 +269,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
         )}
       </div>
       {player.presence === 'bot' && (
-        <span style={{ fontFamily: 'monospace', fontSize: '6px', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', padding: '1px 3px' }}>BOT</span>
+        <span className="whitespace-nowrap" style={{ fontFamily: 'monospace', fontSize: '11px', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', padding: '1px 3px' }}>BOT</span>
       )}
       {/* Chips */}
       <span className="text-[11px] font-mono font-semibold text-[#C9A227] tabular-nums">${player.chips}</span>
@@ -906,11 +906,11 @@ export function ThreeDTableScene({
                       {getPhaseLabel(gameState.phase)}
                     </div>
                     {handCount > 1 && (
-                      <div className="text-[11px] font-mono tracking-widest uppercase mt-0.5" style={{ color: 'rgba(201,162,39,0.6)' }}>
+                      <div className="text-[11px] font-mono tracking-wider uppercase mt-0.5" style={{ color: 'rgba(201,162,39,0.6)' }}>
                         Hand {handCount}
                       </div>
                     )}
-                    <div className="flex items-center gap-1 mt-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
+                    <div className="flex items-center gap-1 mt-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.60 }}>
                       <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                       <span className="text-[12px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                         {humanCount >= 2 ? `${humanCount} live` : 'Live table'}
@@ -944,11 +944,11 @@ export function ThreeDTableScene({
                       </div>
                     )}
                     {handCount > 1 && !isDrawPhase && (
-                      <div className="text-[12px] font-mono tracking-widest uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.42)' : handCount >= 4 ? 'rgba(220,190,70,0.32)' : 'rgba(255,255,255,0.24)' }}>
+                      <div className="text-[12px] font-mono tracking-wider uppercase" style={{ color: handCount >= 7 ? 'rgba(201,162,39,0.65)' : handCount >= 4 ? 'rgba(220,190,70,0.60)' : 'rgba(255,255,255,0.60)' }}>
                         Hand {handCount}
                       </div>
                     )}
-                    <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.22 }}>
+                    <div className="flex items-center gap-1" style={{ opacity: humanCount >= 2 ? 0.65 : 0.60 }}>
                       <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00C896' }} />
                       <span className="text-[12px] font-mono tracking-widest" style={{ color: 'rgba(0,200,150,0.75)' }}>
                         {humanCount >= 2 ? `${humanCount} live` : 'Live table'}

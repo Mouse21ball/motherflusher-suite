@@ -85,7 +85,7 @@ export default function LadyLuckHistory() {
       {/* ── HEADER ── */}
       <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(201,162,39,0.15)', position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={() => navigate('/ladyluck')} data-testid="button-back-lobby"
-          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.7)', fontSize: 10, cursor: 'pointer', fontFamily: 'monospace', letterSpacing: 1, flexShrink: 0 }}>
+          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.7)', fontSize: 11, cursor: 'pointer', fontFamily: 'monospace', letterSpacing: 0.5, flexShrink: 0 }}>
           ← LOBBY
         </button>
         <div style={{ flex: 1, textAlign: 'center' }}>
@@ -100,16 +100,16 @@ export default function LadyLuckHistory() {
         <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 14, padding: '14px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <img src="/crews/icon-crown.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>QUEEN WIN STATS</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8 }}>QUEEN WIN STATS</span>
             {totalRaces > 0 && (
-              <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>{totalRaces} RACES</span>
+              <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>{totalRaces} RACES</span>
             )}
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)' }}>Loading…</div>
           ) : totalRaces === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)' }}>
               No races yet — play to see queen stats
             </div>
           ) : (
@@ -129,7 +129,7 @@ export default function LadyLuckHistory() {
                         <span style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 18, color: '#C9A227', lineHeight: 1 }}>{pct}%</span>
                       </div>
                     </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.45)', textAlign: 'center', letterSpacing: 0.5 }}>{wins} WIN{wins !== 1 ? 'S' : ''}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', textAlign: 'center', letterSpacing: 0.2 }}>{wins} WIN{wins !== 1 ? 'S' : ''}</div>
                     <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: '#C9A227', borderRadius: 2, transition: 'width 0.6s ease' }} />
                     </div>
@@ -144,11 +144,11 @@ export default function LadyLuckHistory() {
         <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 14, padding: '14px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 14 }}>🃏</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CARD FLIP FREQUENCY</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8 }}>CARD FLIP FREQUENCY</span>
           </div>
 
           {!loading && Object.keys(cardsData).length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)' }}>
               No data yet — flip some cards!
             </div>
           ) : (
@@ -158,7 +158,7 @@ export default function LadyLuckHistory() {
                 <div style={{ display: 'grid', gridTemplateColumns: '18px repeat(12, 1fr)', gap: 2, marginBottom: 4 }}>
                   <div />
                   {RANKS.map(r => (
-                    <div key={r} style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 7, color: '#C9A227', letterSpacing: 0.2 }}>{r}</div>
+                    <div key={r} style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0 }}>{r}</div>
                   ))}
                 </div>
                 {/* Suit rows */}
@@ -183,11 +183,11 @@ export default function LadyLuckHistory() {
                 ))}
                 {/* Legend */}
                 <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.3)' }}>COLD</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>COLD</span>
                   {[0.15, 0.35, 0.55, 0.75, 0.95].map(v => (
                     <div key={v} style={{ width: 12, height: 8, borderRadius: 2, background: `rgba(201,162,39,${v})` }} />
                   ))}
-                  <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.3)' }}>HOT</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>HOT</span>
                 </div>
               </div>
             </div>
@@ -198,15 +198,15 @@ export default function LadyLuckHistory() {
         <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 14, padding: '14px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 14 }}>🏆</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>YOUR RACE HISTORY</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8 }}>YOUR RACE HISTORY</span>
           </div>
 
           {loading && (
-            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)' }}>Loading…</div>
           )}
 
           {!loading && (!data?.personal || data.personal.length === 0) && (
-            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: '20px 0', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.70)' }}>
               No races yet — join a table to start playing!
             </div>
           )}
@@ -231,20 +231,20 @@ export default function LadyLuckHistory() {
                     {/* Race info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 8, color: roomColor, letterSpacing: 1, background: `${roomColor}22`, border: `1px solid ${roomColor}44`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: roomColor, letterSpacing: 0.5, background: `${roomColor}22`, border: `1px solid ${roomColor}44`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                           {race.roomType.toUpperCase()}
                         </span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.28)', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', whiteSpace: 'normal' }}>
                           {new Date(race.playedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{' '}
                           {new Date(race.playedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 8, color: r?.pickedSuit ? pickedCol : 'rgba(255,255,255,0.4)' }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: r?.pickedSuit ? pickedCol : 'rgba(255,255,255,0.70)' }}>
                           {r?.pickedSuit ? `${SUIT_SYMBOLS[r.pickedSuit]} ${QUEEN_NICKNAMES[r.pickedSuit]}` : 'No pick'}
                         </span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.28)' }}>→</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 8, color: SUIT_COLORS[race.winningSuit] }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>→</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: SUIT_COLORS[race.winningSuit] }}>
                           {SUIT_SYMBOLS[race.winningSuit]} won
                         </span>
                       </div>
@@ -256,11 +256,11 @@ export default function LadyLuckHistory() {
                           {won ? '+' : ''}{delta.toLocaleString()}
                         </div>
                       )}
-                      <div style={{ fontFamily: 'monospace', fontSize: 7, color: won ? '#10b981' : '#e53935', marginTop: 2, letterSpacing: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: won ? '#10b981' : '#e53935', marginTop: 2, letterSpacing: 0.5 }}>
                         {r ? (won ? 'WIN' : 'LOSS') : '—'}
                       </div>
                       {r?.wager ? (
-                        <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(255,255,255,0.28)', marginTop: 1 }}>BET {r.wager.toLocaleString()}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 1 }}>BET {r.wager.toLocaleString()}</div>
                       ) : null}
                     </div>
                   </div>
@@ -283,7 +283,7 @@ export default function LadyLuckHistory() {
             onClick={() => navigate(item.path)}
             style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <span style={{ fontSize: 16, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.icon}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: 1, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.28)' }}>{item.label}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: 0.5, color: item.active ? '#C9A227' : 'rgba(255,255,255,0.70)' }}>{item.label}</span>
           </button>
         ))}
       </div>

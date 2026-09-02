@@ -292,8 +292,8 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
               alignItems: 'center', gap: 8,
             }}>
               <div style={{
-                fontSize: 10, fontFamily: 'monospace', fontWeight: 800,
-                color: 'rgba(201,162,39,0.75)', letterSpacing: '0.24em',
+                fontSize: 11, fontFamily: 'monospace', fontWeight: 800,
+                color: 'rgba(201,162,39,0.75)', letterSpacing: '0.14em',
               }}>
                 WINNER
               </div>
@@ -338,8 +338,8 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
               alignItems: 'center', gap: 8,
             }}>
               <div style={{
-                fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
-                color: 'rgba(255,255,255,0.6)', letterSpacing: '0.22em',
+                fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
+                color: 'rgba(255,255,255,0.7)', letterSpacing: '0.12em',
               }}>
                 YOU HAD
               </div>

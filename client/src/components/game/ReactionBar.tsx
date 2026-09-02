@@ -102,7 +102,7 @@ export function ReactionBar({ onReact, incomingReactions, className = '' }: Reac
             border: '1px solid rgba(52,211,153,0.28)',
             borderRadius: '999px',
             padding: '4px 12px',
-            fontSize: '10px',
+            fontSize: '12px',
             fontFamily: 'monospace',
             color: 'rgba(52,211,153,0.85)',
             letterSpacing: '0.12em',

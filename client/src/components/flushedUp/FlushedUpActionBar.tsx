@@ -57,10 +57,10 @@ function TutorialPanel() {
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{step.icon}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>
               {step.label}
             </span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>
               {step.sub}
             </span>
           </div>
@@ -267,8 +267,8 @@ export function FlushedUpActionBar({
         {!isDrawPhase && !isBetPhase && !isWaiting && (
           <div style={{
             textAlign: 'center', padding: '10px 0',
-            fontSize: 10, fontFamily: 'monospace',
-            color: 'rgba(124,58,237,0.6)', letterSpacing: '0.18em',
+            fontSize: 11, fontFamily: 'monospace',
+            color: 'rgba(124,58,237,0.7)', letterSpacing: '0.12em',
           }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>
@@ -282,13 +282,13 @@ export function FlushedUpActionBar({
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           width: '100%', padding: '6px 12px',
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(168,85,247,0.65)', fontSize: 9, fontFamily: 'monospace',
-          letterSpacing: '0.16em', textTransform: 'uppercase',
+          color: 'rgba(168,85,247,0.7)', fontSize: 11, fontFamily: 'monospace',
+          letterSpacing: '0.1em', textTransform: 'uppercase',
           WebkitTapHighlightColor: 'transparent',
         }}
         data-testid="button-tutorial-toggle"
       >
-        <span style={{ fontSize: 10 }}>{tutorialOpen ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
         HOW FLUSH RUSH WORKS
       </button>
 
@@ -304,7 +304,7 @@ export function FlushedUpActionBar({
       }}>
         {/* ANTES */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>ANTES</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ANTES</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             <ChipIcon />{ante}
           </span>
@@ -315,7 +315,7 @@ export function FlushedUpActionBar({
 
         {/* PLAYERS */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>PLAYERS</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             {humanCount}
           </span>
@@ -326,7 +326,7 @@ export function FlushedUpActionBar({
 
         {/* YOUR STACK */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>YOUR STACK</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700 }}>
             <ChipIcon />{chips.toLocaleString()}
           </span>

@@ -502,7 +502,7 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
               display: 'flex', flexDirection: 'column', gap: 12,
             }}
           >
-            <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 800 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#C9A227', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 800 }}>
               DECLARE PHASE
             </div>
             <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.6 }}>

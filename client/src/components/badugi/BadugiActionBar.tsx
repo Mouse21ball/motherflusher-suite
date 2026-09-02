@@ -55,8 +55,8 @@ function TutorialPanel() {
         ].map(s => (
           <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{s.icon}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
-            <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textAlign: 'center' }}>{s.sub}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{s.sub}</span>
           </div>
         ))}
       </div>
@@ -188,19 +188,19 @@ export function BadugiActionBar({
         {isDeclare && (
           !!myDeclaration ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: G(0.55), letterSpacing: '0.2em' }}>YOU DECLARED</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: G(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
                 color: myDeclaration === 'HIGH' ? '#C9A227' : 'rgba(255,255,255,0.6)',
                 textShadow: myDeclaration === 'HIGH' ? `0 0 16px ${G(0.7)}` : 'none' }}>
                 {myDeclaration ?? '—'}
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>
                 Waiting for other players…
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: G(0.7), letterSpacing: '0.22em', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: G(0.7), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
                 DECLARE HIGH OR LOW
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -240,7 +240,7 @@ export function BadugiActionBar({
 
         {/* Non-action phases */}
         {!isDrawPhase && !isBetPhase && !isWaiting && !isDeclare && (
-          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 10, fontFamily: 'monospace', color: G(0.5), letterSpacing: '0.18em' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: G(0.7), letterSpacing: '0.12em' }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>
         )}
@@ -250,10 +250,10 @@ export function BadugiActionBar({
       <button onClick={() => setTutorialOpen(o => !o)}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer',
-          color: G(0.6), fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.16em', textTransform: 'uppercase',
+          color: G(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
           WebkitTapHighlightColor: 'transparent' }}
         data-testid="button-tutorial-toggle">
-        <span style={{ fontSize: 10 }}>{tutorialOpen ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
         HOW BADUGI WORKS
       </button>
 
@@ -262,17 +262,17 @@ export function BadugiActionBar({
       {/* Stats bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>ANTE</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ANTE</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{ante}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>PLAYERS</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>PLAYERS</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>YOUR STACK</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700 }}><ChipIcon />{chips.toLocaleString()}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />

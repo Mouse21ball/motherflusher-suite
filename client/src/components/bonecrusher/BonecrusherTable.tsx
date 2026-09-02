@@ -66,7 +66,7 @@ function AnimatedPot({ pot }: { pot: number }) {
       border: `1px solid ${aA(0.45)}`, boxShadow: `0 0 18px ${aA(0.15)}, 0 2px 12px rgba(0,0,0,0.6)`,
       textAlign: 'center', padding: '6px 22px', borderRadius: 50,
     }}>
-      <div style={{ fontSize: 8, fontFamily: 'monospace', color: aA(0.7), letterSpacing: '0.22em' }}>POT</div>
+      <div style={{ fontSize: 11, fontFamily: 'monospace', color: aA(0.7), letterSpacing: '0.12em' }}>POT</div>
       <motion.div style={{ fontSize: 18, fontFamily: 'monospace', fontWeight: 800, color: '#fff', letterSpacing: '0.05em', display: 'inline-block' }}>
         {display}
       </motion.div>
@@ -102,7 +102,7 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
       backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
       borderRadius: 14, border: `1px solid ${borderCol}`,
       boxShadow: `0 0 12px ${glowCol}`,
-      padding: '8px 8px 6px', opacity: isFolded ? 0.45 : 1,
+      padding: '8px 8px 6px', opacity: isFolded ? 0.7 : 1,
       transition: 'border 0.3s, box-shadow 0.3s',
       display: 'flex', flexDirection: 'column', gap: 5,
     }}>
@@ -122,25 +122,25 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
               <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.85, repeat: Infinity }}
                 style={{ width: 5, height: 5, borderRadius: '50%', background: AMB, flexShrink: 0 }} />
             )}
-            <span style={{ fontSize: 10, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {name}
             </span>
             {isDealer && (
               <div style={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${AMB}, #92400e)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 6, fontWeight: 700, color: '#000' }}>D</div>
             )}
             {db && (
-              <div style={{ fontSize: 7, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.1em', color: db.color, background: db.bg, border: `1px solid ${db.border}`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.05em', color: db.color, background: db.bg, border: `1px solid ${db.border}`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                 {declaration}
               </div>
             )}
           </div>
-          <div style={{ fontSize: 9, fontFamily: 'monospace', color: aA(0.75), fontWeight: 600, marginTop: 1 }}>
+          <div style={{ fontSize: 11, fontFamily: 'monospace', color: aA(0.75), fontWeight: 600, marginTop: 1 }}>
             {chips.toLocaleString()}
           </div>
         </div>
       </div>
       {isFolded ? (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.18em', textAlign: 'center' }}>FOLDED</div>
+        <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textAlign: 'center' }}>FOLDED</div>
       ) : (
         <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'nowrap' }}>
           {cards.length > 0 ? cards.map((card, i) =>
@@ -157,7 +157,7 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
         </div>
       )}
       {isWinner && (
-        <div style={{ fontSize: 7, fontFamily: 'monospace', color: AMB, letterSpacing: '0.18em', textAlign: 'center', fontWeight: 700 }}>★ WINNER</div>
+        <div style={{ fontSize: 11, fontFamily: 'monospace', color: AMB, letterSpacing: '0.08em', textAlign: 'center', fontWeight: 700 }}>★ WINNER</div>
       )}
     </div>
   );
@@ -166,7 +166,7 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
 function EmptyPanel() {
   return (
     <div style={{ background: 'rgba(0,0,0,0.35)', borderRadius: 14, border: '1px dashed rgba(255,255,255,0.05)', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 68 }}>
-      <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em' }}>OPEN</span>
+      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>OPEN</span>
     </div>
   );
 }
@@ -236,7 +236,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
       {/* Community cards strip — shown during STREET phases and onward */}
       {communityCards.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, padding: '4px 0' }}>
-          <div style={{ fontSize: 7, fontFamily: 'monospace', color: `rgba(74,222,128,0.6)`, letterSpacing: '0.2em', marginRight: 4 }}>BOARD</div>
+          <div style={{ fontSize: 11, fontFamily: 'monospace', color: `rgba(74,222,128,0.7)`, letterSpacing: '0.08em', marginRight: 4 }}>BOARD</div>
           {communityCards.map((card, i) => (
             <motion.div key={i} initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ delay: i * 0.12, duration: 0.3 }}
               style={{ width: 32, height: 45, borderRadius: 4, overflow: 'hidden', border: `1px solid rgba(74,222,128,0.4)`, boxShadow: `0 0 8px rgba(74,222,128,0.15)` }}>
@@ -249,7 +249,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
       {/* Centre: phase label + pot */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, pointerEvents: 'none', padding: '4px 0' }}>
         <motion.div key={state.phase} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
-          style={{ fontSize: 8, fontFamily: 'monospace', color: phaseColor(state.phase), letterSpacing: '0.22em', textTransform: 'uppercase', textShadow: `0 0 12px ${phaseColor(state.phase)}55` }}>
+          style={{ fontSize: 11, fontFamily: 'monospace', color: phaseColor(state.phase), letterSpacing: '0.12em', textTransform: 'uppercase', textShadow: `0 0 12px ${phaseColor(state.phase)}55` }}>
           {phaseLabel(state.phase)}
         </motion.div>
         {state.pot > 0 && <AnimatedPot pot={state.pot} />}
@@ -267,7 +267,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
           {isDeclare && me?.declaration && me.declaration !== 'FOLD' && (() => {
             const ds = declStyle(me.declaration);
             return (
-              <div style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.1em', color: ds.color, background: ds.bg, border: `1px solid ${ds.border}`, borderRadius: 4, padding: '2px 7px' }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.05em', color: ds.color, background: ds.bg, border: `1px solid ${ds.border}`, borderRadius: 4, padding: '2px 7px' }}>
                 {me.declaration}
               </div>
             );
@@ -279,13 +279,13 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDiscardPhase && selectedCards.size > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', fontSize: 9, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.14em' }}>
+            style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em' }}>
             {selectedCards.size} SELECTED · TAP {phase === 'DISCARD_2' ? 'DISCARD' : 'KEEP BEST 5'}
           </motion.div>
         )}
         {isFlipPhase && selectedCards.size > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: aA(0.15), border: `1px solid ${aA(0.4)}`, fontSize: 9, fontFamily: 'monospace', color: AMB, letterSpacing: '0.14em' }}>
+            style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: aA(0.15), border: `1px solid ${aA(0.4)}`, fontSize: 11, fontFamily: 'monospace', color: AMB, letterSpacing: '0.08em' }}>
             1 SELECTED · TAP FLIP
           </motion.div>
         )}
@@ -314,7 +314,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
         )}
 
         {isShowdown && heroEval && me?.status !== 'folded' && (
-          <div style={{ marginTop: 3, fontSize: 9, fontFamily: 'monospace', color: heroIsWinner ? AMB : 'rgba(255,255,255,0.3)', fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.08em', textAlign: 'center' }}>
+          <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace', color: heroIsWinner ? AMB : 'rgba(255,255,255,0.7)', fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.06em', textAlign: 'center' }}>
             {heroEval.highName} · {heroEval.lowDesc}
           </div>
         )}
