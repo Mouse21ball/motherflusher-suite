@@ -110,7 +110,7 @@ export function LegalSection({ title, children }: { title: string; children: Rea
       }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span style={{ color: "rgba(240,184,41,0.55)", fontSize: "8px" }}>◆</span>
+        <span style={{ color: "rgba(240,184,41,0.60)", fontSize: "11px" }}>◆</span>
         <h2
           className="text-sm font-bold font-sans"
           style={{ color: "rgba(255,255,255,0.82)" }}

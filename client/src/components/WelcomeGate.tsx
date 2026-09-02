@@ -431,7 +431,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
               </button>
             </div>
             {input.length > 0 && !validGuest && (
-              <p className="text-[11px] font-mono mt-2 pl-1" style={{ color: 'rgba(220,38,38,0.55)' }}>
+              <p className="text-[11px] font-mono mt-2 pl-1" style={{ color: 'rgba(220,38,38,0.60)' }}>
                 Handle must be 2–16 characters
               </p>
             )}

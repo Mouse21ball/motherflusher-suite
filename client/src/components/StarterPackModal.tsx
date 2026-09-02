@@ -175,7 +175,7 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
                 <div className="text-sm font-bold text-emerald-400">
                   Kit Claimed! +${STARTER_PACK_CHIPS.toLocaleString()} chips added
                 </div>
-                <div className="text-[10px] font-mono text-emerald-400/55 mt-0.5">
+                <div className="text-[11px] font-mono text-emerald-400/60 mt-0.5">
                   +250 Stripes added · spend in Style &amp; Crews
                 </div>
               </div>

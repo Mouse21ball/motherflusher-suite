@@ -242,7 +242,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
             className="h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] mt-1"
             style={{
               backgroundColor: busy ? 'rgba(240,184,41,0.25)' : '#F0B829',
-              color: busy ? 'rgba(240,184,41,0.4)' : '#05050A',
+              color: busy ? 'rgba(240,184,41,0.6)' : '#05050A',
               boxShadow: busy ? 'none' : '0 4px 20px rgba(240,184,41,0.30)',
             }}
             data-testid="button-auth-submit"

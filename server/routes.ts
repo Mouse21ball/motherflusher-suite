@@ -1621,20 +1621,88 @@ export async function registerRoutes(
           res.status(400).json({ error: 'crewId required for club chip purchases' });
           return;
         }
+
+        // Use the Apple transactionId as the dedup key, matching Stripes purchases.
+        const existing = await storage.getPurchaseTransactionByToken(transactionId);
+        let txnId: string;
+        if (existing) {
+          if (existing.playerId !== playerId) {
+            res.status(403).json({ error: 'Purchase authorization failed: transaction belongs to another player' });
+            return;
+          }
+          if (existing.productId !== productId) {
+            res.status(409).json({ error: 'Purchase token was created for a different product.' });
+            return;
+          }
+          if (existing.verificationStatus === 'verified') {
+            res.json({
+              chipsGranted: clubPack.chips,
+              crewId,
+              orderId: existing.googleOrderId ?? transactionId,
+              idempotent: true,
+            });
+            return;
+          }
+          if (existing.verificationStatus === 'pending') {
+            res.status(409).json({ error: 'Purchase is still being processed. Please wait and try again.' });
+            return;
+          }
+          if (existing.verificationStatus === 'failed_retryable') {
+            await storage.updatePurchaseTransactionStatus(existing.id, 'pending');
+            txnId = existing.id;
+          } else {
+            res.status(409).json({ error: 'Purchase token already used or rejected.' });
+            return;
+          }
+        } else {
+          const txn = await storage.createPurchaseTransaction({
+            playerId,
+            productId,
+            stripesGranted:     0,
+            priceUsdCents:      clubPack.priceCents,
+            purchaseToken:      transactionId,
+            verificationStatus: 'pending',
+          });
+          txnId = txn.id;
+        }
+
         let appleClubData: ApplePurchaseData;
         try {
           appleClubData = await verifyAppleAppStorePurchase(transactionId);
         } catch (verifyErr: any) {
+          await storage.updatePurchaseTransactionStatus(txnId, 'failed_retryable');
           res.status(402).json({ error: `Apple purchase verification failed: ${verifyErr.message}` });
           return;
         }
         if (appleClubData.revocationReason !== undefined) {
+          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
           res.status(402).json({ error: 'Apple purchase was refunded or revoked.' });
           return;
         }
+        if (appleClubData.productId !== productId) {
+          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+          res.status(402).json({ error: 'Product ID mismatch in Apple transaction.' });
+          return;
+        }
+        if (!appleClubData.appAccountToken) {
+          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+          res.status(403).json({ error: 'Purchase authorization failed: Apple account identifier missing' });
+          return;
+        }
+        if (appleClubData.appAccountToken !== playerId) {
+          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+          res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
+          return;
+        }
         await storage.addChipsToCrewBank(crewId, playerId, clubPack.chips);
+        await storage.updatePurchaseTransactionStatus(
+          txnId,
+          'verified',
+          appleClubData.originalTransactionId,
+          new Date(),
+        );
         console.log(`[billing:apple] club-chips: player=${playerId} crewId=${crewId} chips=+${clubPack.chips}`);
-        res.json({ chipsGranted: clubPack.chips, crewId });
+        res.json({ chipsGranted: clubPack.chips, crewId, orderId: appleClubData.originalTransactionId });
         return;
       }
 
@@ -1649,6 +1717,14 @@ export async function registerRoutes(
       const existing = await storage.getPurchaseTransactionByToken(transactionId);
       let txnId: string;
       if (existing) {
+        if (existing.playerId !== playerId) {
+          res.status(403).json({ error: 'Purchase authorization failed: transaction belongs to another player' });
+          return;
+        }
+        if (existing.productId !== productId) {
+          res.status(409).json({ error: 'Purchase token was created for a different product.' });
+          return;
+        }
         if (existing.verificationStatus === 'verified') {
           res.json({ stripesGranted: existing.stripesGranted, orderId: existing.googleOrderId ?? transactionId, idempotent: true });
           return;
@@ -1704,19 +1780,20 @@ export async function registerRoutes(
 
       // Bind purchase to the authenticated player via appAccountToken (Apple equivalent of
       // Google's obfuscatedExternalAccountId — set by store.applicationUsername on the client).
-      if (appleData.appAccountToken) {
-        if (appleData.appAccountToken !== playerId) {
-          console.log(
-            `[BILLING_AUTHZ:apple] mismatch: session=${playerId.slice(0, 8)} ` +
-            `appAccountToken=${appleData.appAccountToken.slice(0, 8)} product=${productId}`,
-          );
-          await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
-          res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
-          return;
-        }
-      } else {
-        // Log a warning but proceed — first-release Apple builds may not always populate this
+      if (!appleData.appAccountToken) {
         console.warn(`[BILLING_AUTHZ:apple] appAccountToken absent for player=${playerId.slice(0, 8)} product=${productId}`);
+        await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+        res.status(403).json({ error: 'Purchase authorization failed: Apple account identifier missing' });
+        return;
+      }
+      if (appleData.appAccountToken !== playerId) {
+        console.log(
+          `[BILLING_AUTHZ:apple] mismatch: session=${playerId.slice(0, 8)} ` +
+          `appAccountToken=${appleData.appAccountToken.slice(0, 8)} product=${productId}`,
+        );
+        await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+        res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
+        return;
       }
 
       // Credit Stripes to the player's account
@@ -1818,6 +1895,7 @@ export async function registerRoutes(
           quantity: 1,
           type: 'Auto-Renewable Subscription',
           appAccountToken: playerId,
+          autoRenewing: true,
           environment: 'Sandbox',
         };
         console.log(

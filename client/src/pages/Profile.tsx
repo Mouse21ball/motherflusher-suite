@@ -903,16 +903,16 @@ export default function Profile() {
                   {ACHIEVEMENTS.filter(a => !unlocked.find(u => u.id === a.id)).map((ach: Achievement) => (
                     <div
                       key={ach.id}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 opacity-40"
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5"
                       style={{ border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.01)' }}
                       data-testid={`achievement-locked-${ach.id}`}
                     >
                       <span className="text-xl leading-none shrink-0 grayscale">{ach.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.50)' }}>{ach.name}</div>
-                        <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.20)' }}>{ach.description}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.60)' }}>{ach.name}</div>
+                        <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.60)' }}>{ach.description}</div>
                       </div>
-                      <div style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(255,255,255,0.20)' }}>+{ach.xpReward} XP</div>
+                      <div style={{ fontSize: 11, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(255,255,255,0.60)' }}>+{ach.xpReward} XP</div>
                     </div>
                   ))}
                 </div>
@@ -979,7 +979,7 @@ export default function Profile() {
             {/* Terms / Privacy */}
             <div className="flex items-center justify-center gap-4">
               <a href="/terms" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-terms">Terms &amp; Disclosures</a>
-              <span style={{ color: 'rgba(255,255,255,0.10)', fontSize: '0.6rem' }}>·</span>
+              <span style={{ color: 'rgba(255,255,255,0.60)', fontSize: 11 }}>·</span>
               <a href="/privacy" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-privacy">Privacy Policy</a>
             </div>
 
@@ -1142,7 +1142,7 @@ export default function Profile() {
                           <div style={{ position: 'absolute', bottom: 2, right: 2, width: 16, height: 16, borderRadius: '50%', background: 'rgba(200,150,40,0.90)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', color: '#0c0b08' }}>✓</div>
                         )}
                       </div>
-                      <span style={{ fontSize: '0.45rem', color: 'rgba(180,130,40,0.50)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{opt.label}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(180,130,40,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{opt.label}</span>
                     </button>
                   );
                 })}
@@ -1201,7 +1201,7 @@ export default function Profile() {
                                   <div style={{ position: 'absolute', bottom: 2, right: 2, width: 16, height: 16, borderRadius: '50%', background: 'rgba(201,162,39,0.90)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', color: '#0c0b08' }}>✓</div>
                                 )}
                               </div>
-                              <span style={{ fontSize: '0.45rem', color: 'rgba(201,162,39,0.55)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.displayName}</span>
+                              <span style={{ fontSize: 11, color: 'rgba(201,162,39,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.displayName}</span>
                             </button>
                           );
                         })}

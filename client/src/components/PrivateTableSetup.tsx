@@ -570,8 +570,8 @@ export function PrivateTableSetup({ open, onClose }: Props) {
               >
                 <span style={{ fontSize: '1.3rem', flexShrink: 0, filter: !isInviteOnly ? 'drop-shadow(0 0 4px rgba(60,200,60,0.50))' : 'grayscale(80%) brightness(0.5)' }}>🌐</span>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: '0.65rem', letterSpacing: '0.08em', color: !isInviteOnly ? '#80d080' : 'rgba(120,90,30,0.55)', textTransform: 'uppercase' }}>PUBLIC</div>
-                  <div style={{ fontSize: '0.42rem', letterSpacing: '0.1em', color: !isInviteOnly ? 'rgba(120,200,120,0.65)' : 'rgba(80,60,20,0.40)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1 }}>ANYONE CAN JOIN</div>
+                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: !isInviteOnly ? '#80d080' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>PUBLIC</div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.1em', color: !isInviteOnly ? 'rgba(120,200,120,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1 }}>ANYONE CAN JOIN</div>
                 </div>
                 {!isInviteOnly && (
                   <span style={{ position: 'absolute', bottom: 5, right: 6, color: '#80d080', fontSize: '0.65rem' }}>✓</span>
@@ -611,8 +611,8 @@ export function PrivateTableSetup({ open, onClose }: Props) {
               >
                 <span style={{ fontSize: '1.25rem', flexShrink: 0, filter: botsEnabled ? 'drop-shadow(0 0 5px rgba(40,220,100,0.60))' : 'grayscale(80%) brightness(0.5) sepia(40%)' }}>🤖</span>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: '0.65rem', letterSpacing: '0.08em', color: botsEnabled ? '#40d878' : 'rgba(120,90,30,0.55)', textTransform: 'uppercase' }}>BOTS ON</div>
-                  <div style={{ fontSize: '0.40rem', letterSpacing: '0.08em', color: botsEnabled ? 'rgba(80,220,130,0.65)' : 'rgba(80,60,20,0.40)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>EMPTY CELLS{'\n'}AUTO-FILLED</div>
+                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: botsEnabled ? '#40d878' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>BOTS ON</div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.08em', color: botsEnabled ? 'rgba(80,220,130,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>EMPTY CELLS{'\n'}AUTO-FILLED</div>
                 </div>
                 {botsEnabled && (
                   <span style={{ position: 'absolute', bottom: 5, right: 6, color: '#40d878', fontSize: '0.65rem' }}>✓</span>
@@ -645,8 +645,8 @@ export function PrivateTableSetup({ open, onClose }: Props) {
               >
                 <span style={{ fontSize: '1.25rem', flexShrink: 0, filter: !botsEnabled ? 'drop-shadow(0 0 5px rgba(255,60,40,0.60)) sepia(100%) saturate(500%) hue-rotate(-10deg)' : 'grayscale(80%) brightness(0.5)' }}>💀</span>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: '0.65rem', letterSpacing: '0.08em', color: !botsEnabled ? '#f06050' : 'rgba(120,90,30,0.55)', textTransform: 'uppercase' }}>BOTS OFF</div>
-                  <div style={{ fontSize: '0.40rem', letterSpacing: '0.08em', color: !botsEnabled ? 'rgba(240,130,110,0.65)' : 'rgba(80,60,20,0.40)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>HUMAN INMATES{'\n'}ONLY</div>
+                  <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: !botsEnabled ? '#f06050' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>BOTS OFF</div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.08em', color: !botsEnabled ? 'rgba(240,130,110,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>HUMAN INMATES{'\n'}ONLY</div>
                 </div>
                 {!botsEnabled && (
                   <span style={{ position: 'absolute', bottom: 5, right: 6, color: '#f06050', fontSize: '0.65rem' }}>✓</span>
@@ -656,7 +656,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
 
             {/* Error message */}
             {error && (
-              <p style={{ textAlign: 'center', color: '#f06050', fontSize: '0.65rem', fontFamily: 'monospace', marginBottom: 8 }}>
+              <p style={{ textAlign: 'center', color: '#f06050', fontSize: 11, fontFamily: 'monospace', marginBottom: 8 }}>
                 {error}
               </p>
             )}
@@ -714,10 +714,10 @@ export function PrivateTableSetup({ open, onClose }: Props) {
               </div>
               <div
                 style={{
-                  fontSize: '0.45rem',
+                  fontSize: 11,
                   letterSpacing: '0.20em',
                   textTransform: 'uppercase',
-                  color: creating ? 'rgba(160,100,20,0.40)' : 'rgba(60,20,0,0.75)',
+                  color: creating ? 'rgba(160,100,20,0.60)' : 'rgba(60,20,0,0.75)',
                   fontFamily: 'monospace',
                   marginTop: 4,
                 }}

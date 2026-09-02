@@ -353,7 +353,10 @@ export async function processSubscriptionPurchase(
     if (!Number.isFinite(expiresAt.getTime())) {
       throw new Error("Apple subscription verification returned an invalid expiration date");
     }
-    autoRenewing = false;
+    // Apple's renewal payload reports autoRenewStatus as 1/0 when available.
+    // A newly activated auto-renewable subscription should otherwise be
+    // considered renewing until Apple tells us it has been turned off.
+    autoRenewing = appleData.autoRenewing ?? true;
     accountIdentifier = appleData.appAccountToken;
   } else {
     // Google transactions are verified here and remain fail-closed to the
@@ -707,6 +710,7 @@ export interface ApplePurchaseData {
   type:                  string;   // "Consumable" | "Non-Consumable" | "Auto-Renewable Subscription" | etc.
   revocationReason?:     number;   // present when Apple has refunded / revoked the purchase
   appAccountToken?:      string;   // UUID sent by the client via store.applicationUsername (links to player)
+  autoRenewing?:         boolean;  // derived from Apple's autoRenewStatus when renewal info is available
   environment:           'Sandbox' | 'Production';
 }
 
@@ -767,12 +771,28 @@ export async function verifyAppleAppStorePurchase(transactionId: string): Promis
       throw new Error(`Apple App Store Server API (${env}) returned ${resp.status}: ${body.slice(0, 200)}`);
     }
 
-    const body = await resp.json() as { signedTransactionInfo?: string };
+    const body = await resp.json() as {
+      signedTransactionInfo?: string;
+      signedRenewalInfo?: string;
+    };
     if (!body.signedTransactionInfo) {
       throw new Error(`Apple API (${env}) response missing signedTransactionInfo field`);
     }
 
     const tx = decodeAppleJWS(body.signedTransactionInfo) as Record<string, any>;
+    const renewal = body.signedRenewalInfo
+      ? decodeAppleJWS(body.signedRenewalInfo) as Record<string, any>
+      : undefined;
+    const autoRenewStatus =
+      renewal?.['autoRenewStatus'] ??
+      tx['autoRenewStatus'] ??
+      tx['autoRenewing'];
+    const autoRenewing =
+      autoRenewStatus === true || autoRenewStatus === 1 || autoRenewStatus === '1'
+        ? true
+        : autoRenewStatus === false || autoRenewStatus === 0 || autoRenewStatus === '0'
+          ? false
+          : undefined;
 
     if (tx['bundleId'] !== creds.bundleId) {
       throw new Error(
@@ -796,6 +816,7 @@ export async function verifyAppleAppStorePurchase(transactionId: string): Promis
       type:                  tx['type']                  ?? 'Consumable',
       revocationReason:      tx['revocationReason'],
       appAccountToken:       tx['appAccountToken'],
+      autoRenewing,
       environment:           env,
     };
   }
