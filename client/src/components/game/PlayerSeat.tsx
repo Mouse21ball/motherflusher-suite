@@ -215,7 +215,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(0,200,150,0.70)' }} />
             <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: 'rgba(0,200,150,0.65)' }}>Open Seat</span>
           </div>
-          <span className="text-xs font-mono text-white/60">Awaiting player</span>
+          <span className="text-xs font-mono text-white/70">Awaiting player</span>
         </div>
       </div>
     );
@@ -228,18 +228,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
   return (
     <div className={cn(
       "relative flex flex-col items-center gap-2 transition-all duration-200",
-      /* Opponent opacity — visible enough to feel present at all times */
-      !isSelf && isActive && "opacity-100 brightness-[1.08]",
-      !isSelf && !isActive && !showdownState && (
-        justActed    ? "opacity-95"
-        : anyJustActed ? "opacity-50"
-        : hasActivePlayer ? "opacity-55"
-        : "opacity-65"
-      ),
-      player.status === 'folded' && !showdownState && "opacity-40 grayscale anim-fold-drop",
-      player.status === 'sitting_out' && "opacity-30 grayscale",
-      /* Reveal pending: dimmed until stagger reveals this seat */
-      isPending && "opacity-20 scale-95 blur-[1px]",
+       /* State dimming is applied to card visuals below, never to this text-bearing seat. */
+       !isSelf && isActive && "brightness-[1.08]",
+       isPending && "scale-95",
       /* Normal showdown styles — only when fully revealed */
       !isPending && showdownState && player.isLoser && "anim-loser",
       className
@@ -253,7 +244,16 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       <div
         className={cn(
           "relative flex justify-center",
-          isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-[0.9] pointer-events-none mb-[-18px]"
+           isSelf ? "z-50 mb-4 hero-card-elevated" : "z-10 scale-[0.9] pointer-events-none mb-[-18px]",
+           player.status === 'folded' && !showdownState && "opacity-55 grayscale anim-fold-drop",
+           player.status === 'sitting_out' && "opacity-55 grayscale",
+           isPending && "opacity-55 blur-[1px]",
+           !isSelf && !isActive && !showdownState && (
+             justActed ? "opacity-95"
+             : anyJustActed ? "opacity-65"
+             : hasActivePlayer ? "opacity-75"
+             : "opacity-85"
+           )
         )}
         style={isSelf ? {
           width: '100%',
@@ -413,7 +413,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 isSelf ? "font-semibold text-white/90"
                   : showdownState && player.isWinner ? "font-semibold text-[#C9A227]/90"
                   : player.presence === 'human' ? "font-semibold text-white/85"
-                  : "font-normal text-white/60"
+                  : "font-normal text-white/70"
               )}>
                 {player.name}
               </div>
@@ -421,17 +421,17 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#00C896]/70" title="Real player" />
               )}
               {player.presence === 'bot' && !isSelf && (
-                <span className="text-xs font-mono uppercase tracking-widest text-[#C9A227]/60 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">{isActive && !showdownState ? '…' : 'BOT'}</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-[#C9A227]/70 border border-[#C9A227]/15 px-1 py-[1px] rounded shrink-0">{isActive && !showdownState ? '…' : 'BOT'}</span>
               )}
             </div>
             {/* Chips */}
             <div className={cn(
               !isSelf && enlarged ? "chip-amount-text text-[16px] flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5" : "chip-amount-text text-xs flex items-center gap-0.5 tracking-tight transition-colors duration-700 mt-0.5",
               sessionDelta > 75
-                ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/60")
+                ? (isSelf ? "text-emerald-400/90" : "text-emerald-400/70")
                 : sessionDelta < -75
-                ? (isSelf ? "text-red-400/80" : "text-red-400/60")
-                : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/65"),
+                ? (isSelf ? "text-red-400/80" : "text-red-400/70")
+                : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/70"),
               chipFlash && (
                 sessionDelta > 75  ? "text-emerald-400 anim-pulse-gold" :
                 sessionDelta < -75 ? "text-red-400 anim-pulse-gold" :
@@ -441,9 +441,9 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               showdownState && player.isLoser && "anim-fold-drop"
             )}>
               {isStackLeader && !showdownState && (
-                <span className="text-xs leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.65)' }}>▲</span>
+                <span className="text-xs leading-none mr-0.5" style={{ color: 'rgba(201,162,39,0.70)' }}>▲</span>
               )}
-              <span className="opacity-60">$</span>{player.chips}
+              <span className="opacity-70">$</span>{player.chips}
             </div>
             {/* Session status — self only */}
             {isSelf && !showdownState && sessionDelta > 75 && (
@@ -542,7 +542,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
         <Badge variant="destructive" className="absolute -bottom-3 text-xs uppercase font-semibold z-30">Folded</Badge>
       )}
       {player.status === 'sitting_out' && (
-        <Badge variant="secondary" className="absolute -bottom-3 text-xs uppercase font-semibold bg-[#1C1C20] text-white/60 border-none z-30">Sitting Out</Badge>
+        <Badge variant="secondary" className="absolute -bottom-3 text-xs uppercase font-semibold bg-[#1C1C20] text-white/70 border-none z-30">Sitting Out</Badge>
       )}
 
       {player.bet > 0 && (

@@ -201,10 +201,13 @@ export interface ActiveSubscription {
   billingPeriod: "monthly" | "yearly" | null;
 }
 
+export type SubscriptionProductReadiness = "loading" | "available" | "unavailable";
+
 // ─── BillingPlugin interface ──────────────────────────────────────────────────
 export interface BillingPlugin {
   initialize(): Promise<void>;
   getProducts(): ProductInfo[];
+  getSubscriptionProductReadiness(productId: string): SubscriptionProductReadiness;
   purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult>;
   restorePurchases(): Promise<void>;
   launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult>;
@@ -219,6 +222,7 @@ export interface BillingPlugin {
 // isNativePlatform() so web/dev builds always fall through to WebBillingStub.
 class NativeBillingPlugin implements BillingPlugin {
   private initialized = false;
+  private initializationFinished = false;
   // Pending purchase promises keyed by productId.
   // Resolved/rejected inside store.when().approved() after server verification.
   private pending = new Map<string, {
@@ -616,8 +620,12 @@ class NativeBillingPlugin implements BillingPlugin {
       }
     });
 
-    await store.initialize([Platform.GOOGLE_PLAY, Platform.APPLE_APPSTORE]);
-    this.initialized = true;
+    try {
+      await store.initialize([Platform.GOOGLE_PLAY, Platform.APPLE_APPSTORE]);
+      this.initialized = true;
+    } finally {
+      this.initializationFinished = true;
+    }
   }
 
   getProducts(): ProductInfo[] {
@@ -633,6 +641,14 @@ class NativeBillingPlugin implements BillingPlugin {
           priceMicros: phase?.priceMicros ?? 0,
         };
       });
+  }
+
+  getSubscriptionProductReadiness(productId: string): SubscriptionProductReadiness {
+    if (!this.initializationFinished) return "loading";
+    if (!this.initialized) return "unavailable";
+    const product = CdvPurchase.store.get(productId, CdvPurchase.Platform.APPLE_APPSTORE)
+                 ?? CdvPurchase.store.get(productId, CdvPurchase.Platform.GOOGLE_PLAY);
+    return product?.getOffer() ? "available" : "unavailable";
   }
 
   async purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult> {
@@ -713,6 +729,10 @@ class WebBillingStub implements BillingPlugin {
     return [];
   }
 
+  getSubscriptionProductReadiness(_productId: string): SubscriptionProductReadiness {
+    return "available";
+  }
+
   async purchase(_productId: string, _meta?: { crewId?: string }): Promise<PurchaseResult> {
     throw new Error("In-app purchases require the native Android build. Open the app from the Play Store.");
   }
@@ -790,6 +810,12 @@ class BillingRouter implements BillingPlugin {
 
   async initialize(): Promise<void>                          { return this.delegate().initialize(); }
   getProducts(): ProductInfo[]                               { return this.delegate().getProducts(); }
+  getSubscriptionProductReadiness(productId: string): SubscriptionProductReadiness {
+    const isIOS = typeof window !== "undefined"
+      && (window as any)?.Capacitor?.getPlatform?.() === "ios";
+    if (isIOS && !isNativePlatform()) return "loading";
+    return this.delegate().getSubscriptionProductReadiness(productId);
+  }
   async purchase(productId: string, meta?: { crewId?: string }): Promise<PurchaseResult> { return this.delegate().purchase(productId, meta); }
   async launchSubscriptionPurchase(productId: string): Promise<SubscriptionResult> {
     return this.delegate().launchSubscriptionPurchase(productId);

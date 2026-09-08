@@ -5,9 +5,11 @@ import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression
 import { useServerProfile } from '@/lib/useServerProfile';
 import {
   APPLE_STRIPES_SHOP_PRODUCTS,
+  APPLE_SUBSCRIPTION_PRODUCT_IDS,
   APPLE_SUBSCRIPTION_PRODUCTS,
   billing,
   type ActiveSubscription,
+  type SubscriptionProductReadiness,
 } from '@/lib/billing';
 
 // ── Chip image lookup (Google Play IDs + Apple App Store IDs) ─────────────────
@@ -42,6 +44,9 @@ const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
   'sub_gold_pro_monthly':      APPLE_SUBSCRIPTION_PRODUCTS.goldPro.id,
   'sub_diamond_elite_monthly': APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.id,
 };
+
+const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
+  'Subscriptions are temporarily unavailable. Please try again shortly.';
 
 // ── Merch ─────────────────────────────────────────────────────────────────────
 const MERCH_ITEMS = [
@@ -175,6 +180,9 @@ export default function Shop() {
   const [subStatus,     setSubStatus]     = useState<ActiveSubscription | null>(null);
   const [subBusy,       setSubBusy]       = useState<string | null>(null);
   const [subMsg,        setSubMsg]        = useState<string | null>(null);
+  const [appleProductReadiness, setAppleProductReadiness] = useState<Record<string, SubscriptionProductReadiness>>(
+    Object.fromEntries(APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => [id, 'loading'])),
+  );
 
   useEffect(() => {
     billing.getActiveSubscription().then(setSubStatus).catch(() => {});
@@ -206,6 +214,59 @@ export default function Shop() {
   const isIOS = typeof window !== 'undefined' &&
     (window as any)?.Capacitor?.getPlatform?.() === 'ios';
 
+  useEffect(() => {
+    if (!isIOS) return;
+
+    let stopped = false;
+    let intervalId: number | undefined;
+    let timeoutId: number | undefined;
+    const refreshReadiness = () => {
+      if (stopped) return;
+      const next = Object.fromEntries(
+        APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => [
+          id,
+          billing.getSubscriptionProductReadiness(id),
+        ]),
+      ) as Record<string, SubscriptionProductReadiness>;
+      setAppleProductReadiness(next);
+
+      if (Object.values(next).every(status => status !== 'loading') && intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+        if (timeoutId !== undefined) {
+          window.clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+      }
+      if (Object.values(next).some(status => status === 'unavailable')) {
+        setSubMsg(current => current ?? SUBSCRIPTIONS_UNAVAILABLE_MESSAGE);
+      }
+    };
+
+    refreshReadiness();
+    intervalId = window.setInterval(refreshReadiness, 300);
+    timeoutId = window.setTimeout(() => {
+      if (stopped) return;
+      const next = Object.fromEntries(
+        APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => {
+          const status = billing.getSubscriptionProductReadiness(id);
+          return [id, status === 'available' ? 'available' : 'unavailable'];
+        }),
+      ) as Record<string, SubscriptionProductReadiness>;
+      setAppleProductReadiness(next);
+      if (Object.values(next).some(status => status === 'unavailable')) {
+        setSubMsg(current => current ?? SUBSCRIPTIONS_UNAVAILABLE_MESSAGE);
+      }
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    }, 15_000);
+
+    return () => {
+      stopped = true;
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [isIOS]);
+
   // Show platform-appropriate Stripes packs:
   // iOS  → Apple App Store product IDs with App Store prices/quantities
   // Web/Android → Google Play product IDs
@@ -217,6 +278,23 @@ export default function Shop() {
     if (isIOS && tier.tier === 'gold_pro') return APPLE_SUBSCRIPTION_PRODUCTS.goldPro.price;
     if (isIOS && tier.tier === 'diamond_elite') return APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.price;
     return tier.monthlyPrice;
+  };
+
+  const appleReadinessFor = (tier: TierDef): SubscriptionProductReadiness => {
+    if (!isIOS || !tier.monthlyProductId) return 'available';
+    const productId = APPLE_MONTHLY_SUB_IDS[tier.monthlyProductId] ?? tier.monthlyProductId;
+    return appleProductReadiness[productId] ?? 'loading';
+  };
+
+  const subscriptionErrorMessage = (error: unknown): string => {
+    const message = error instanceof Error ? error.message : '';
+    const isTechnicalAvailabilityError =
+      message === 'Billing not initialized'
+      || message.startsWith('Subscription product not found:')
+      || message.startsWith('No offer found for:')
+      || APPLE_SUBSCRIPTION_PRODUCT_IDS.some(id => message.includes(id));
+    if (isIOS && isTechnicalAvailabilityError) return SUBSCRIPTIONS_UNAVAILABLE_MESSAGE;
+    return message || 'Subscription failed';
   };
 
   // ── Handlers (preserved verbatim) ──────────────────────────────────────────
@@ -251,6 +329,10 @@ export default function Shop() {
         : tier.yearlyProductId;
     }
     if (!productId) return;
+    if (isIOS && billing.getSubscriptionProductReadiness(productId) !== 'available') {
+      setSubMsg(SUBSCRIPTIONS_UNAVAILABLE_MESSAGE);
+      return;
+    }
 
     setSubBusy(tier.id);
     setSubMsg(null);
@@ -260,8 +342,8 @@ export default function Shop() {
       const updated = await billing.getActiveSubscription();
       setSubStatus(updated);
       refetch();
-    } catch (err: any) {
-      setSubMsg(err.message ?? 'Subscription failed');
+    } catch (err: unknown) {
+      setSubMsg(subscriptionErrorMessage(err));
     } finally {
       setSubBusy(null);
     }
@@ -307,11 +389,15 @@ export default function Shop() {
     const isActive  = cardState === 'active';
     const isGrace   = cardState === 'grace';
     const isHold    = cardState === 'hold';
+    const productReadiness = appleReadinessFor(tier);
+    const waitingForProduct = isIOS && productReadiness === 'loading';
+    const productUnavailable = isIOS && productReadiness === 'unavailable';
+    const purchaseDisabled = !!subBusy || waitingForProduct || productUnavailable;
 
     const baseStyle: React.CSSProperties = {
       borderRadius: 10,
       fontWeight: 800,
-      fontSize: 11,
+      fontSize: 12,
       letterSpacing: '0.06em',
       padding: '10px 14px',
       cursor: 'pointer',
@@ -325,7 +411,7 @@ export default function Shop() {
       return (
         <button
           disabled
-          style={{ ...baseStyle, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'default' }}
+          style={{ ...baseStyle, fontSize: 12, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.72)', border: '1px solid rgba(255,255,255,0.16)', cursor: 'default' }}
           data-testid={`button-subscribe-${tier.id}`}
         >
           CURRENT<br />PLAN
@@ -358,7 +444,7 @@ export default function Shop() {
       return (
         <button
           onClick={() => handleSubscribe(tier)}
-          disabled={!!subBusy}
+          disabled={purchaseDisabled}
           style={{
             ...baseStyle,
             background: subBusy === tier.id
@@ -367,18 +453,25 @@ export default function Shop() {
             color: '#0B0B0D',
             border: 'none',
             boxShadow: subBusy === tier.id ? 'none' : '0 0 16px rgba(255,215,0,0.5)',
-            opacity: subBusy && subBusy !== tier.id ? 0.4 : 1,
+            opacity: purchaseDisabled && subBusy !== tier.id ? 0.7 : 1,
+            cursor: purchaseDisabled ? 'wait' : 'pointer',
           }}
           data-testid={`button-subscribe-${tier.id}`}
         >
-          {subBusy === tier.id ? '...' : cardState === 'downgrade' ? 'DOWNGRADE' : 'UPGRADE'}
+          {subBusy === tier.id
+            ? '…'
+            : waitingForProduct
+              ? 'LOADING…'
+              : productUnavailable
+                ? 'UNAVAILABLE'
+                : cardState === 'downgrade' ? 'DOWNGRADE' : 'UPGRADE'}
         </button>
       );
     }
     return (
       <button
         onClick={() => handleSubscribe(tier)}
-        disabled={!!subBusy}
+        disabled={purchaseDisabled}
         style={{
           ...baseStyle,
           background: subBusy === tier.id
@@ -387,11 +480,18 @@ export default function Shop() {
           color: '#fff',
           border: 'none',
           boxShadow: subBusy === tier.id ? 'none' : '0 0 16px rgba(181,123,232,0.5)',
-          opacity: subBusy && subBusy !== tier.id ? 0.4 : 1,
+          opacity: purchaseDisabled && subBusy !== tier.id ? 0.7 : 1,
+          cursor: purchaseDisabled ? 'wait' : 'pointer',
         }}
         data-testid={`button-subscribe-${tier.id}`}
       >
-        {subBusy === tier.id ? '...' : cardState === 'upgrade' ? 'UPGRADE' : 'SUBSCRIBE'}
+        {subBusy === tier.id
+          ? '…'
+          : waitingForProduct
+            ? 'LOADING…'
+            : productUnavailable
+              ? 'UNAVAILABLE'
+              : cardState === 'upgrade' ? 'UPGRADE' : 'SUBSCRIBE'}
       </button>
     );
   }
@@ -475,11 +575,12 @@ export default function Shop() {
                 letterSpacing: '0.08em',
                 lineHeight: 1,
                 marginBottom: 8,
-                background: 'linear-gradient(180deg, #E8E8F0 0%, #9D7DC8 100%)',
+                background: 'linear-gradient(180deg, #F7F5FF 0%, #BFA8E7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
                 fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+                textShadow: '0 2px 4px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.75)',
               }}
             >
               DIAMOND ELITE
@@ -494,7 +595,7 @@ export default function Shop() {
                 {billingPeriod === 'monthly' ? '/MO' : '/YR'}
               </span>
               {billingPeriod === 'yearly' && (
-                <span style={{ fontSize: 11, color: '#9D7DC8', fontFamily: 'monospace', marginLeft: 4 }}>~$16.67/mo</span>
+                <span style={{ fontSize: 12, color: '#D8C7F2', fontFamily: 'monospace', marginLeft: 4, fontWeight: 700 }}>~$16.67/mo</span>
               )}
             </div>
 
@@ -511,7 +612,10 @@ export default function Shop() {
             {/* Subscribe CTA */}
             <button
               onClick={() => eliteIsActive ? handleManageSubscription() : handleSubscribe(eliteTier)}
-              disabled={!!subBusy}
+              disabled={
+                !!subBusy
+                || (!eliteIsActive && isIOS && appleReadinessFor(eliteTier) !== 'available')
+              }
               className="w-full transition-all duration-200 active:scale-[0.98]"
               style={{
                 background: subBusy === 'elite' ? 'rgba(181,123,232,0.35)' : 'linear-gradient(135deg, #B57BE8 0%, #6B3FA0 100%)',
@@ -521,7 +625,7 @@ export default function Shop() {
                 fontSize: 15,
                 color: '#fff',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: !eliteIsActive && isIOS && appleReadinessFor(eliteTier) !== 'available' ? 'wait' : 'pointer',
                 boxShadow: subBusy === 'elite' ? 'none' : '0 0 24px rgba(181,123,232,0.6)',
                 letterSpacing: '0.05em',
                 fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
@@ -530,16 +634,24 @@ export default function Shop() {
               onMouseLeave={e => { (e.target as HTMLButtonElement).style.boxShadow = '0 0 24px rgba(181,123,232,0.6)'; }}
               data-testid="button-subscribe-hero-elite"
             >
-              {subBusy === 'elite' ? '…' : eliteIsActive ? `MANAGE SUBSCRIPTION` : `SUBSCRIBE — ${elitePrice}`}
+              {subBusy === 'elite'
+                ? '…'
+                : eliteIsActive
+                  ? 'MANAGE SUBSCRIPTION'
+                  : isIOS && appleReadinessFor(eliteTier) === 'loading'
+                    ? 'LOADING SUBSCRIPTIONS…'
+                    : isIOS && appleReadinessFor(eliteTier) === 'unavailable'
+                      ? 'SUBSCRIPTIONS UNAVAILABLE'
+                      : `SUBSCRIBE — ${elitePrice}`}
             </button>
 
             {/* Disclaimer */}
-            <p className="text-center mt-3 leading-relaxed" style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', fontStyle: 'italic' }}>
+            <p className="text-center mt-3 leading-relaxed" style={{ fontSize: 12, color: 'rgba(255,255,255,0.70)', fontStyle: 'italic' }}>
               Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
               {' '}
-              <a href="/terms"   target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(201,162,39,0.70)', textDecoration: 'underline' }}>Terms of Use</a>
+              <a href="/terms"   target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Terms of Use</a>
               {' · '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(201,162,39,0.70)', textDecoration: 'underline' }}>Privacy Policy</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Privacy Policy</a>
             </p>
           </div>
 
@@ -697,13 +809,13 @@ export default function Shop() {
                           </div>
                         )}
                         {tier.tier && billingPeriod === 'yearly' && tier.yearlySavings && (
-                          <div style={{ fontSize: 9, color: tier.color, fontFamily: 'monospace', marginBottom: 4 }}>{tier.yearlySavings}</div>
+                          <div style={{ fontSize: 12, color: tier.color, fontFamily: 'monospace', marginBottom: 4 }}>{tier.yearlySavings}</div>
                         )}
 
                         {/* Benefits list */}
                         <ul className="space-y-0.5 mt-1">
                           {tier.features.map((f, i) => (
-                            <li key={i} className="flex items-start gap-1.5" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.55)' }}>
+                            <li key={i} className="flex items-start gap-1.5" style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)' }}>
                               <span style={{ color: tier.id === 'basic' ? '#C0C0C0' : tier.id === 'pro' ? '#FFD700' : '#9D7DC8', flexShrink: 0, fontSize: 7, marginTop: 3 }}>◆</span>
                               {f}
                             </li>
@@ -728,12 +840,12 @@ export default function Shop() {
               })}
             </div>
 
-            <p className="text-[9px] font-mono text-white/20 text-center mt-3 leading-relaxed">
+            <p className="text-xs font-mono text-white/70 text-center mt-3 leading-relaxed" style={{ fontSize: 12 }}>
               Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
               {' '}
-              <a href="/terms"   target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.45)' }}>Terms of Use</a>
+              <a href="/terms"   target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Terms of Use</a>
               {' · '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.45)' }}>Privacy Policy</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Privacy Policy</a>
             </p>
           </div>
 

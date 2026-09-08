@@ -234,7 +234,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
         })}
       </div>
       {filteredTables.length === 0 && (
-        <p className="text-center text-xs font-mono text-white/30 py-2">No tables open.</p>
+       <p className="text-center font-mono py-2" style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)' }}>No tables open.</p>
       )}
       {filteredTables.slice(0, 6).map(table => {
         const info   = LIVE_MODE_INFO[table.modeId] ?? { name: table.modeId, color: '#A0A0B8', path: '/', icon: '', stakes: '' };
@@ -248,7 +248,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
             style={{
               background:  isFull ? 'rgba(255,255,255,0.03)' : info.color + '0e',
               borderColor: isFull ? 'rgba(255,255,255,0.06)' : info.color + '35',
-              opacity:     isFull ? 0.55 : 1,
+               opacity:     1,
               cursor:      isFull ? 'default' : 'pointer',
             }}>
             {info.icon && <img src={info.icon} alt={info.name} className="w-8 h-8 object-contain shrink-0" />}
@@ -257,12 +257,12 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                 <span className="text-[12px] font-bold" style={{ color: info.color }}>{info.name}</span>
                 <span className="font-mono text-[9px] text-white/25" data-testid={`text-live-table-code-${table.tableId}`}>{table.tableId}</span>
               </div>
-              <span className="text-[10px] font-mono text-white/50" data-testid={`text-live-players-${table.tableId}`}>
+               <span className="font-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
                 {table.humanCount}/{table.maxPlayers} · {phaseLabel(table.phase)}
               </span>
             </div>
-            <div className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono uppercase"
-              style={{ background: isFull ? 'rgba(255,255,255,0.05)' : info.color + '22', color: isFull ? 'rgba(255,255,255,0.28)' : info.color }}>
+             <div className="shrink-0 px-2.5 py-1 rounded-lg font-bold font-mono uppercase"
+               style={{ fontSize: 12, background: isFull ? 'rgba(255,255,255,0.05)' : info.color + '22', color: isFull ? 'rgba(255,255,255,0.68)' : info.color }}>
               {isFull ? 'FULL' : 'JOIN'}
             </div>
           </button>
@@ -836,7 +836,7 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite' }} />
                 <span style={{ fontWeight: 800, color: 'white', fontSize: 13, letterSpacing: '0.06em', fontFamily: 'monospace' }}>LIVE TABLES</span>
-                {realPlayerCount > 0 && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)' }}>{realPlayerCount} playing</span>}
+                {realPlayerCount > 0 && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)' }}>{realPlayerCount} playing</span>}
                 <div style={{ flex: 1 }} />
                 <button onClick={() => setShowOpenTableModal(true)} data-testid="link-view-all-tables"
                   style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(201,162,39,0.70)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.06em' }}>
@@ -852,14 +852,14 @@ export default function Home() {
                     <button key={`${table.modeId}-${table.tableId}`}
                       onClick={() => !isFull && handleJoinTable(table.modeId, table.tableId)}
                       disabled={isFull} data-testid={`button-join-card-${table.tableId}`}
-                      style={{ width: 130, flexShrink: 0, background: 'rgba(0,0,0,0.40)', border: `1px solid rgba(255,255,255,0.05)`, borderRadius: 12, padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 5, cursor: isFull ? 'default' : 'pointer', opacity: isFull ? 0.55 : 1, textAlign: 'left', backdropFilter: 'blur(8px)' }}>
+                      style={{ width: 130, flexShrink: 0, background: 'rgba(0,0,0,0.40)', border: `1px solid rgba(255,255,255,0.05)`, borderRadius: 12, padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 5, cursor: isFull ? 'default' : 'pointer', opacity: 1, textAlign: 'left', backdropFilter: 'blur(8px)' }}>
                       {info.icon && <img src={info.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 5px ${info.color}55)` }} />}
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 11, color: info.color }}>{info.name}</span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.45)' }} data-testid={`text-live-players-${table.tableId}`}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: info.color }}>{info.name}</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
                         👤 {table.humanCount}/{table.maxPlayers}
                       </span>
-                      {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(201,162,39,0.55)' }}>{info.stakes}</span>}
-                      <div style={{ padding: '5px 0', borderRadius: 8, textAlign: 'center', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', background: isFull ? 'rgba(255,255,255,0.06)' : isOpen ? `${info.color}22` : 'rgba(255,255,255,0.06)', color: isFull ? 'rgba(255,255,255,0.25)' : isOpen ? info.color : 'rgba(255,255,255,0.40)' }}>
+                      {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.70)' }}>{info.stakes}</span>}
+                      <div style={{ padding: '5px 0', borderRadius: 8, textAlign: 'center', fontFamily: 'monospace', fontWeight: 900, fontSize: 12, letterSpacing: '0.06em', background: isFull ? 'rgba(255,255,255,0.06)' : isOpen ? `${info.color}22` : 'rgba(255,255,255,0.06)', color: isFull ? 'rgba(255,255,255,0.68)' : isOpen ? info.color : 'rgba(255,255,255,0.65)' }}>
                         {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
                       </div>
                     </button>
@@ -872,12 +872,12 @@ export default function Home() {
           {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
           <div style={{ padding: '14px 12px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
+              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
               <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
-              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }} data-testid="link-home-footer-privacy">Privacy</a>
+              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }} data-testid="link-home-footer-privacy">Privacy</a>
               <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
               <a href="https://forms.gle/Vh6Uut9bB6neHA3J8" target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}
+                style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }}
                 data-testid="link-home-footer-feedback"
                 onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}>Feedback</a>
             </div>
@@ -928,18 +928,18 @@ export default function Home() {
           onClick={e => e.stopPropagation()}>
           <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 18px' }} />
           <h2 style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: 16, fontWeight: 900, color: 'white', letterSpacing: '0.10em', textAlign: 'center', marginBottom: 4 }}>OPEN A TABLE</h2>
-          <p style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.40)', textAlign: 'center', marginBottom: 18 }}>Pick a mode — a public table opens instantly</p>
+          <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)', textAlign: 'center', marginBottom: 18 }}>Pick a mode — a public table opens instantly</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 18 }}>
             {MODES.map(mode => (
               <button key={mode.id} data-testid={`button-open-table-mode-${mode.id}`}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(40,28,8,0.85)', border: '1px solid rgba(80,55,15,0.45)', borderRadius: 8, padding: '8px 4px 7px', cursor: 'pointer' }}
                 onClick={() => { setShowOpenTableModal(false); track({ name: 'crew_table_opened', mode: mode.id as 'badugi' }); navigateToMode(mode.id, mode.path); }}>
                 <img src={mode.icon} alt={mode.name} style={{ width: 40, height: 40, objectFit: 'contain' }} />
-                <span style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: '0.52rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(210,165,55,0.90)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>{mode.name}</span>
+                <span style={{ fontFamily: 'Impact,"Arial Narrow Bold",Arial,sans-serif', fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(210,165,55,0.90)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>{mode.name}</span>
               </button>
             ))}
           </div>
-          <button style={{ width: '100%', padding: '10px', borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.38)', cursor: 'pointer' }}
+          <button style={{ width: '100%', padding: '10px', borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.70)', cursor: 'pointer' }}
             onClick={() => setShowOpenTableModal(false)} data-testid="button-open-table-cancel">
             Cancel
           </button>
