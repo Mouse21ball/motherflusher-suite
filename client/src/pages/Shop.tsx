@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import {
   APPLE_STRIPES_SHOP_PRODUCTS,
   APPLE_SUBSCRIPTION_PRODUCT_IDS,
@@ -180,6 +181,7 @@ export default function Shop() {
   const [subStatus,     setSubStatus]     = useState<ActiveSubscription | null>(null);
   const [subBusy,       setSubBusy]       = useState<string | null>(null);
   const [subMsg,        setSubMsg]        = useState<string | null>(null);
+  const [subscriptionSuccessTrace, setSubscriptionSuccessTrace] = useState(false);
   const [appleProductReadiness, setAppleProductReadiness] = useState<Record<string, SubscriptionProductReadiness>>(
     Object.fromEntries(APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => [id, 'loading'])),
   );
@@ -209,6 +211,12 @@ export default function Shop() {
   const rank        = getRankForLevel(levelInfo.level);
   const initials    = getAvatarInitials(profile?.displayName ?? identity.name);
   const avatarColor = getAvatarColor(identity.id);
+
+  useEffect(() => {
+    if (!subscriptionSuccessTrace) return;
+    const timer = window.setTimeout(() => setSubscriptionSuccessTrace(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [subscriptionSuccessTrace]);
 
   // Detect iOS Capacitor runtime — uses Apple product IDs and purchase flow.
   const isIOS = typeof window !== 'undefined' &&
@@ -341,6 +349,9 @@ export default function Shop() {
       setSubMsg(`✓ ${tier.name} activated! ${result.stripesGranted}◆ granted.`);
       const updated = await billing.getActiveSubscription();
       setSubStatus(updated);
+      if (updated.active && updated.tier === tier.tier) {
+        setSubscriptionSuccessTrace(true);
+      }
       refetch();
     } catch (err: unknown) {
       setSubMsg(subscriptionErrorMessage(err));
@@ -689,15 +700,22 @@ export default function Shop() {
 
             {/* Sub status message */}
             {subMsg && (
-              <div
-                className="text-xs font-mono text-center mb-3 py-2 px-3 rounded-xl"
-                style={{
-                  background: subMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                  color: subMsg.startsWith('✓') ? '#4ade80' : '#f87171',
-                }}
-              >
-                {subMsg}
-              </div>
+               <div className="flex justify-center mb-3">
+                 {subscriptionSuccessTrace && subMsg.startsWith('✓') ? (
+                   <SignatureTraceGlow variant="trace" durationMs={1600}>
+                     <div className="text-xs font-mono text-center py-2 px-3 rounded-xl" style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80' }}>
+                       {subMsg}
+                     </div>
+                   </SignatureTraceGlow>
+                 ) : (
+                   <div className="text-xs font-mono text-center py-2 px-3 rounded-xl" style={{
+                     background: subMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                     color: subMsg.startsWith('✓') ? '#4ade80' : '#f87171',
+                   }}>
+                     {subMsg}
+                   </div>
+                 )}
+               </div>
             )}
 
             {/* Tier cards */}

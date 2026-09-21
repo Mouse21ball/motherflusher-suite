@@ -1003,14 +1003,20 @@ export default function Fifteen35Game() {
 
   // ── Win celebration ───────────────────────────────────────────────────────
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showWinTrace, setShowWinTrace] = useState(false);
   const celebFiredRef = useRef(false);
   useEffect(() => {
     if (state.phase === 'SHOWDOWN' && !celebFiredRef.current) {
       const hero = state.players.find(p => p.id === myId);
-      if (hero?.isWinner) { celebFiredRef.current = true; setShowCelebration(true); }
+      if (hero?.isWinner) {
+        const activeAtShowdown = state.players.filter(p => p.status !== 'folded').length;
+        setShowWinTrace(activeAtShowdown >= 2 && state.pot >= state.minBet * 8);
+        celebFiredRef.current = true;
+        setShowCelebration(true);
+      }
     }
     if (state.phase !== 'SHOWDOWN') celebFiredRef.current = false;
-  }, [state.phase, state.players, myId]);
+  }, [state.phase, state.players, state.pot, state.minBet, myId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const opponents    = state.players.filter(p => p.id !== myId && p.presence !== 'reserved');
@@ -1188,7 +1194,12 @@ export default function Fifteen35Game() {
       />
 
       {showCelebration && (
-        <WinCelebration isScoop={false} onDone={() => setShowCelebration(false)} />
+        <WinCelebration
+          isScoop={false}
+          heroChipChange={state.heroChipChange}
+          showSignatureTrace={showWinTrace}
+          onDone={() => setShowCelebration(false)}
+        />
       )}
 
       {xpToast && xpToast.xpGained > 0 && (

@@ -721,7 +721,7 @@ export function ThreeDTableScene({
           </div>
 
           {/* Win celebration */}
-          {showCelebration && <WinCelebration isScoop={isScoop} onDone={() => setShowCelebration(false)} />}
+          {showCelebration && <WinCelebration isScoop={isScoop} heroChipChange={gameState.heroChipChange} showSignatureTrace onDone={() => setShowCelebration(false)} />}
 
           {/* All 5 seats — 'open' club-table placeholders render as empty seats */}
           {Array.from({ length: 5 }).map((_, i) => {
@@ -823,7 +823,7 @@ export function ThreeDTableScene({
           heroChipChange={gameState.heroChipChange}
         />
 
-        {showCelebration && <WinCelebration isScoop={isScoop} onDone={() => setShowCelebration(false)} />}
+        {showCelebration && <WinCelebration isScoop={isScoop} heroChipChange={gameState.heroChipChange} showSignatureTrace onDone={() => setShowCelebration(false)} />}
 
         {lastResultEcho && (
           <div className="w-full flex justify-center">

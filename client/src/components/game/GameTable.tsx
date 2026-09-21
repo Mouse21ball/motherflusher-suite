@@ -276,6 +276,8 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
         {showCelebration && (
           <WinCelebration
             isScoop={isScoop}
+            heroChipChange={gameState.heroChipChange}
+            showSignatureTrace
             onDone={() => setShowCelebration(false)}
           />
         )}

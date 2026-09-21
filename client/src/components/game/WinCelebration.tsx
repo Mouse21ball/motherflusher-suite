@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useRef } from 'react';
+import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 
 interface Particle {
   id: number;
@@ -39,10 +40,17 @@ function generateParticles(count: number): Particle[] {
 
 interface WinCelebrationProps {
   isScoop?: boolean;
+  heroChipChange?: number;
+  showSignatureTrace?: boolean;
   onDone: () => void;
 }
 
-export function WinCelebration({ isScoop = false, onDone }: WinCelebrationProps) {
+export function WinCelebration({
+  isScoop = false,
+  heroChipChange = 0,
+  showSignatureTrace = false,
+  onDone,
+}: WinCelebrationProps) {
   const particles = useMemo(() => generateParticles(isScoop ? 48 : 32), [isScoop]);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
@@ -51,6 +59,29 @@ export function WinCelebration({ isScoop = false, onDone }: WinCelebrationProps)
     const t = setTimeout(() => doneRef.current(), isScoop ? 2000 : 1600);
     return () => clearTimeout(t);
   }, [isScoop]);
+
+  const winContent = (
+    <div
+      style={{
+        padding: '7px 16px',
+        textAlign: 'center',
+        fontFamily: "'Oswald', 'Inter', sans-serif",
+        fontWeight: 700,
+        fontSize: isScoop ? '28px' : '22px',
+        color: '#C9A227',
+        letterSpacing: '0.2em',
+        textShadow: '0 0 24px rgba(201,162,39,0.90), 0 0 48px rgba(201,162,39,0.50)',
+        animation: 'win-text-flash 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+      }}
+    >
+      <div>{isScoop ? 'SCOOP!' : 'YOU WIN!'}</div>
+      {heroChipChange > 0 && (
+        <div style={{ marginTop: 2, fontSize: isScoop ? 15 : 13, letterSpacing: '0.08em', color: '#E9D5FF' }}>
+          +${heroChipChange.toLocaleString()}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`absolute inset-0 pointer-events-none z-[60] overflow-hidden flex items-center justify-center anim-screen-shake`}>
@@ -74,21 +105,20 @@ export function WinCelebration({ isScoop = false, onDone }: WinCelebrationProps)
         />
       )}
 
-      {/* WIN text flash */}
-      <div
-        className="absolute z-10 select-none"
-        style={{
-          fontFamily: "'Oswald', 'Inter', sans-serif",
-          fontWeight: 700,
-          fontSize: isScoop ? '28px' : '22px',
-          color: '#C9A227',
-          letterSpacing: '0.2em',
-          textShadow: '0 0 24px rgba(201,162,39,0.90), 0 0 48px rgba(201,162,39,0.50)',
-          animation: 'win-text-flash 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
-        }}
-      >
-        {isScoop ? 'SCOOP!' : 'YOU WIN!'}
-      </div>
+      {/* WIN text + amount — the trace is only mounted by the meaningful-win trigger. */}
+      {showSignatureTrace ? (
+        <SignatureTraceGlow
+          variant={isScoop ? 'scoop' : 'trace'}
+          className="absolute z-10 select-none"
+          durationMs={isScoop ? 2000 : 1600}
+        >
+          {winContent}
+        </SignatureTraceGlow>
+      ) : (
+        <div className="absolute z-10 select-none">
+          {winContent}
+        </div>
+      )}
 
       {/* Particles */}
       {particles.map((p) => (

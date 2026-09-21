@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
+import { SignatureTraceGlow } from "@/components/ui/SignatureTraceGlow";
 
 interface ModeIntroProps {
   modeId: string;
@@ -45,10 +46,12 @@ function Dots({ total, current }: { total: number; current: number }) {
 function SlideObjective({ title, objective, accentColor }: { title: string; objective: string; accentColor: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className={`rounded-xl px-5 py-5 bg-gradient-to-br ${accentColor} flex flex-col gap-2`}>
-        <h2 className="text-xl font-bold text-white/90 font-sans tracking-tight" data-testid="text-intro-title">{title}</h2>
-        <p className="text-white/60 text-sm leading-relaxed">{objective}</p>
-      </div>
+      <SignatureTraceGlow variant="pulse" durationMs={720}>
+        <div className={`rounded-xl px-5 py-5 bg-gradient-to-br ${accentColor} flex flex-col gap-2`}>
+          <h2 className="text-xl font-bold text-white/90 font-sans tracking-tight" data-testid="text-intro-title">{title}</h2>
+          <p className="text-white/60 text-sm leading-relaxed">{objective}</p>
+        </div>
+      </SignatureTraceGlow>
     </div>
   );
 }

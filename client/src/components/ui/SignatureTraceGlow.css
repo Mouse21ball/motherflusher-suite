@@ -1,0 +1,87 @@
+.cgp-signature-trace {
+  --cgp-trace-duration: 1600ms;
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;
+}
+
+.cgp-signature-trace__svg {
+  position: absolute;
+  z-index: -1;
+  inset: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cgp-signature-trace__rail,
+.cgp-signature-trace__comet {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.cgp-signature-trace__rail {
+  stroke: #A855F7;
+  stroke-width: 1.4;
+  opacity: .72;
+  filter: drop-shadow(0 0 3px rgba(168, 85, 247, .28));
+}
+
+.cgp-signature-trace--trace .cgp-signature-trace__rail,
+.cgp-signature-trace--scoop .cgp-signature-trace__rail {
+  animation: cgp-signature-trace-rail var(--cgp-trace-duration) ease-out 1 both;
+}
+
+.cgp-signature-trace__comet {
+  stroke: #C084FC;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 13 87;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(233, 213, 255, .9));
+  animation: cgp-signature-trace-travel var(--cgp-trace-duration) linear 1 both;
+}
+
+.cgp-signature-trace--scoop .cgp-signature-trace__rail {
+  stroke-width: 1.8;
+  opacity: .86;
+}
+
+.cgp-signature-trace--pulse .cgp-signature-trace__rail {
+  animation: cgp-signature-trace-pulse var(--cgp-trace-duration) ease-out 1 both;
+}
+
+@keyframes cgp-signature-trace-travel {
+  0% { opacity: 0; stroke-dashoffset: 100; }
+  9% { opacity: 1; }
+  82% { opacity: .95; }
+  100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@keyframes cgp-signature-trace-rail {
+  0% { opacity: .2; }
+  12% { opacity: .86; }
+  76% { opacity: .68; }
+  100% { opacity: 0; }
+}
+
+@keyframes cgp-signature-trace-pulse {
+  0%, 100% { opacity: .35; }
+  35% { opacity: .95; }
+  70% { opacity: .62; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cgp-signature-trace__comet,
+  .cgp-signature-trace--trace .cgp-signature-trace__rail,
+  .cgp-signature-trace--scoop .cgp-signature-trace__rail,
+  .cgp-signature-trace--pulse .cgp-signature-trace__rail {
+    animation: none;
+  }
+  .cgp-signature-trace__comet { opacity: .55; stroke-dashoffset: 35; }
+  .cgp-signature-trace--trace .cgp-signature-trace__rail,
+  .cgp-signature-trace--scoop .cgp-signature-trace__rail,
+  .cgp-signature-trace--pulse .cgp-signature-trace__rail { opacity: .55; }
+}

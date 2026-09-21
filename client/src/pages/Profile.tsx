@@ -8,7 +8,7 @@ import { useLocation } from 'wouter';
 import { track } from '@/lib/analytics';
 import {
   getProgression, getLevelInfo, getRankForLevel, getUnlockedAchievements,
-  ACHIEVEMENTS, type Achievement,
+  ACHIEVEMENTS, clearNewAchievements, type Achievement,
 } from '@/lib/progression';
 import { getStreakInfo } from '@/lib/dailyReward';
 import {
@@ -24,6 +24,7 @@ import { BlockList } from '@/components/settings/BlockList';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { resolveAvatarSrc } from '@/lib/persistence';
 import { BUILD_COMMIT } from '@/lib/buildInfo';
+import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export default function Profile() {
   // ── Data sources ───────────────────────────────────────────────────────────
   const identity    = ensurePlayerIdentity();
   const progression = getProgression();
+  const [newAchievementIds] = useState<string[]>(() => getProgression().newAchievements);
   const levelInfo   = getLevelInfo(progression.xp);
   const stats       = getPlayerStats();
   const chips       = getAllChips();
@@ -106,6 +108,12 @@ export default function Profile() {
 
   // ── Tabs ───────────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<'overview' | 'achievements'>('overview');
+
+  useEffect(() => {
+    if (tab !== 'achievements' || newAchievementIds.length === 0) return;
+    const timer = window.setTimeout(clearNewAchievements, 1600);
+    return () => window.clearTimeout(timer);
+  }, [newAchievementIds, tab]);
 
   // ── Auth modal ─────────────────────────────────────────────────────────────
   const [authOpen,    setAuthOpen]    = useState(false);
@@ -874,23 +882,24 @@ export default function Profile() {
                     Earned ({unlocked.length})
                   </div>
                   <div className="flex flex-col gap-2">
-                    {unlocked.map((ach: Achievement) => (
-                      <div
-                        key={ach.id}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${RARITY_COLORS[ach.rarity]}`}
-                        data-testid={`achievement-${ach.id}`}
-                      >
-                        <span className="text-xl leading-none shrink-0">{ach.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.80)' }}>{ach.name}</span>
-                            <span style={{ fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.08em', opacity: 0.60, textTransform: 'uppercase' }}>{RARITY_LABEL[ach.rarity]}</span>
+                    {unlocked.map((ach: Achievement) => {
+                      const content = (
+                        <div className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${RARITY_COLORS[ach.rarity]}`} data-testid={`achievement-${ach.id}`}>
+                          <span className="text-xl leading-none shrink-0">{ach.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.80)' }}>{ach.name}</span>
+                              <span style={{ fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.08em', opacity: 0.60, textTransform: 'uppercase' }}>{RARITY_LABEL[ach.rarity]}</span>
+                            </div>
+                            <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.30)' }}>{ach.description}</div>
                           </div>
-                          <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.30)' }}>{ach.description}</div>
+                          <div style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(64,200,120,0.65)' }}>+{ach.xpReward} XP</div>
                         </div>
-                        <div style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(64,200,120,0.65)' }}>+{ach.xpReward} XP</div>
-                      </div>
-                    ))}
+                      );
+                      return newAchievementIds.includes(ach.id)
+                        ? <SignatureTraceGlow key={ach.id} variant="trace" durationMs={1600} className="w-full">{content}</SignatureTraceGlow>
+                        : <div key={ach.id}>{content}</div>;
+                    })}
                   </div>
                 </div>
               )}
