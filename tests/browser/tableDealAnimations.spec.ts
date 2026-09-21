@@ -103,6 +103,40 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator(flightSelector)).toHaveCount(3);
   });
 
+  test('cleans up privacy-safe flights when a seat is removed during a deal', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+
+    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    await expect(opponentFlights).toHaveCount(2);
+    const opponentMarkup = await opponentFlights.evaluateAll((flights) =>
+      flights.map((flight) => ({
+        text: flight.textContent ?? '',
+        html: flight.outerHTML.toLowerCase(),
+      })),
+    );
+    for (const flight of opponentMarkup) {
+      expect(flight.text).toBe('');
+      expect(flight.html).not.toContain('king');
+      expect(flight.html).not.toContain('hearts');
+      expect(flight.html).not.toContain('opponent-');
+    }
+
+    await page.getByTestId('remove-seat').click();
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+    await expect(page.getByTestId('table').locator('[data-deal-seat="opponent-1"]')).toHaveCount(0);
+    await expect(page.getByTestId('table').locator(seatSelector)).toHaveCount(2);
+
+    const remainingSeats = page.getByTestId('table').locator(seatSelector);
+    const restored = await remainingSeats.evaluateAll((seats) =>
+      seats.every((seat) => getComputedStyle(seat).visibility === 'visible'),
+    );
+    expect(restored).toBe(true);
+    await expect(page.getByTestId('table').locator('.playing-card-front')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(1);
+  });
+
   test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
     await openFixture(page);
     await expect(page.getByTestId('badugi-turn-timer')).toBeVisible();
