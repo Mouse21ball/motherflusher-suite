@@ -87,19 +87,35 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     expect(restored).toBe(true);
   });
 
+  test('keeps shared CardHand cards selectable while their deal animation flag is active', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('interactive-card-0').locator('button').click();
+    await expect(page.getByTestId('selected-cards')).toHaveText('0');
+    await page.getByTestId('interactive-card-0').locator('button').click();
+    await expect(page.getByTestId('selected-cards')).toHaveText('');
+  });
+
+  test('keeps a deal visible across same-phase authoritative updates', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+    await page.getByTestId('same-phase-update').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+  });
+
   test('snaps to authoritative cards when an anchor is missing', async ({ page }) => {
     await openFixture(page);
     await page.getByTestId('missing-deck').click();
     await expect(page.locator(flightSelector)).toHaveCount(0);
-    await expect(page.locator('.playing-card-front')).toHaveCount(1);
-    await expect(page.locator('.playing-card-back')).toHaveCount(2);
+    await expect(page.getByTestId('table').locator('.playing-card-front')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(2);
 
     await page.reload();
     await openFixture(page);
     await page.getByTestId('missing-seat').click();
     await expect(page.locator(flightSelector)).toHaveCount(0);
-    await expect(page.locator('.playing-card-front')).toHaveCount(1);
-    await expect(page.locator('.playing-card-back')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-front')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(1);
   });
 
   test('snaps to authoritative cards in reduced-motion mode', async ({ browser }) => {
@@ -111,8 +127,8 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await openFixture(page);
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(0);
-    await expect(page.locator('.playing-card-front')).toHaveCount(1);
-    await expect(page.locator('.playing-card-back')).toHaveCount(2);
+    await expect(page.getByTestId('table').locator('.playing-card-front')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(2);
     await context.close();
   });
 

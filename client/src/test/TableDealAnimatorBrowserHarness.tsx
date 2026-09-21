@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { CardType, Player } from '@/lib/poker/types';
 import { PlayingCard } from '@/components/game/Card';
+import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 
 const heroCard: CardType = { rank: 'A', suit: 'spades' };
@@ -78,6 +79,7 @@ function TableDealAnimatorBrowserHarness() {
   const [showDeck, setShowDeck] = useState(true);
   const [visibleSeats, setVisibleSeats] = useState<Record<string, boolean>>({});
   const [fullDealRequested, setFullDealRequested] = useState(false);
+  const [selectedCards, setSelectedCards] = useState<number[]>([]);
 
   useLayoutEffect(() => {
     setTableRoot(tableRef.current);
@@ -92,6 +94,10 @@ function TableDealAnimatorBrowserHarness() {
 
   const interruptDeal = () => {
     setPhase('BET_2');
+  };
+
+  const samePhaseUpdate = () => {
+    setPlayers(current => current.map(player => ({ ...player, chips: player.chips + 1 })));
   };
 
   const startMissingDeal = (missing: 'deck' | 'seat') => {
@@ -125,11 +131,25 @@ function TableDealAnimatorBrowserHarness() {
     <>
       <div data-testid="controls">
         <button type="button" data-testid="deal" onClick={startDeal}>Deal</button>
+        <button type="button" data-testid="same-phase-update" onClick={samePhaseUpdate}>Same-phase update</button>
         <button type="button" data-testid="interrupt" onClick={interruptDeal}>Interrupt</button>
         <button type="button" data-testid="missing-deck" onClick={() => startMissingDeal('deck')}>Missing deck</button>
         <button type="button" data-testid="missing-seat" onClick={() => startMissingDeal('seat')}>Missing seat</button>
         <button type="button" data-testid="full-deal" onClick={startFullDeal}>Full deal</button>
         <button type="button" data-testid="unmount" onClick={() => setMounted(false)}>Unmount</button>
+      </div>
+      <div data-testid="interactive-hand" style={{ width: 240 }}>
+        <CardHand
+          cards={[heroCard]}
+          selectedIndices={selectedCards}
+          onCardClick={(index) => setSelectedCards(current =>
+            current.includes(index) ? current.filter(selected => selected !== index) : [...current, index]
+          )}
+          isSelectable
+          dealingIndices={[0]}
+          testIdPrefix="interactive-card"
+        />
+        <output data-testid="selected-cards">{selectedCards.join(',')}</output>
       </div>
       <div
         ref={tableRef}

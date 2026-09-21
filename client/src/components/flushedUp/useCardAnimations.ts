@@ -109,7 +109,8 @@ export function useTableDealAnimations(players: Player[], phase: string, myId: s
   const activeSequenceRef = useRef(false);
   const [snapshot, setSnapshot] = useState<TableDealSnapshot>({ events: [], generation: 0 });
   useEffect(() => {
-    const next = advanceTableDealTracker(previousRef.current, players, phase, myId);
+    const previous = previousRef.current;
+    const next = advanceTableDealTracker(previous, players, phase, myId);
     previousRef.current = next.tracker;
 
     if (next.reset) {
@@ -123,7 +124,7 @@ export function useTableDealAnimations(players: Player[], phase: string, myId: s
       const generation = ++tokenRef.current;
       activeSequenceRef.current = true;
       setSnapshot({ events: next.events, generation });
-    } else if (activeSequenceRef.current && previousRef.current?.phase !== phase) {
+    } else if (activeSequenceRef.current && previous?.phase !== phase) {
       // Same-phase snapshots are common while bots advance and must not erase
       // a flight before it can be seen. A real phase transition still
       // interrupts the visual-only sequence.

@@ -9,3 +9,4 @@
 - [Dead 7 mode gotchas](dead7-gotchas.md) — phases array order IS the round order (genericEngine steps through it linearly); Dead 7 has no SWING declare, only HIGH/LOW; sole-survivor showdown must award the FULL pot, not just side-pot-eligible slices.
 - [Game typography sweeps](game-typography-sweeps.md) — audit every phase-specific render branch; shared labels recur in separate lobby, race, wager, spectator, and result layouts.
 - [Browser animation timing](browser-animation-timing.md) — time rendered-flight cleanup from visible-flight start and allow bounded browser polling overhead over the calculated path.
+- [Interactive card animations](interactive-card-animations.md) — animation branches must retain button hit targets; same-phase server snapshots must not cancel active deal flights.

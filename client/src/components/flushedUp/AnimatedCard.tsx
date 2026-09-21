@@ -171,7 +171,6 @@ export function AnimatedCard({
         {cardEl}
       </motion.div>,
     );
-    );
   }
 
   /* ── Flying in from deck ────────────────────────────────────────────── */
@@ -197,7 +196,6 @@ export function AnimatedCard({
       >
         {cardEl}
       </motion.div>,
-    );
     );
   }
 

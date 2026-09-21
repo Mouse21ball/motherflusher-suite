@@ -14,6 +14,7 @@ interface TableDealAnimatorProps {
 const CARD_W = 38;
 const CARD_H = 54;
 const TRAVEL_MS = 340;
+const LANDING_HOLD_MS = 220;
 
 interface MeasuredFlight extends TableDealEvent {
   sx: number;
@@ -88,7 +89,7 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
     cleanupRef.current = setTimeout(() => {
       setFlights([]);
       restoreSeats();
-    }, sequenceMs);
+    }, sequenceMs + LANDING_HOLD_MS);
     return () => {
       if (cleanupRef.current) clearTimeout(cleanupRef.current);
       restoreSeats();
