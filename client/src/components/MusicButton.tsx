@@ -22,12 +22,16 @@ interface MusicButtonProps {
 export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }: MusicButtonProps) {
   const [muted,  setMuted]  = useState(() => music.muted);
   const [volume, setVolume] = useState(() => music.volume);
+  const [repeat, setRepeat] = useState(() => music.repeat);
+  const [playing, setPlaying] = useState(() => music.playing);
   const [open,   setOpen]   = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => music.subscribe(() => {
     setMuted(music.muted);
     setVolume(music.volume);
+    setRepeat(music.repeat);
+    setPlaying(music.playing);
   }), []);
 
   // Close on outside click
@@ -104,15 +108,30 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          minWidth: 160,
+          minWidth: 238,
           boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
           zIndex: 9999,
           whiteSpace: 'nowrap',
         }}>
+          {/* Play / pause */}
+          <button
+            onClick={() => music.togglePlayback()}
+            title={playing ? 'Pause' : 'Play'}
+            aria-label={playing ? 'Pause music' : 'Play music'}
+            style={{
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              width: 20, fontSize: 14, lineHeight: 1, flexShrink: 0,
+              color: 'rgba(255,255,255,0.75)',
+            }}
+          >
+            {playing ? '⏸' : '▶'}
+          </button>
+
           {/* Mute toggle */}
           <button
             onClick={() => music.toggleMute()}
             title={muted ? 'Unmute' : 'Mute'}
+            aria-label={muted ? 'Unmute music' : 'Mute music'}
             style={{
               background: 'none', border: 'none', padding: 0, cursor: 'pointer',
               fontSize: 15, lineHeight: 1, flexShrink: 0,
@@ -142,6 +161,23 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }
           }}>
             {muted ? '0%' : `${Math.round(volume * 100)}%`}
           </span>
+
+          {/* Repeat toggle */}
+          <button
+            onClick={() => music.toggleRepeat()}
+            title={repeat ? 'Repeat on' : 'Repeat off'}
+            aria-label={repeat ? 'Turn repeat off' : 'Turn repeat on'}
+            aria-pressed={repeat}
+            style={{
+              width: 24, height: 24, borderRadius: 6, cursor: 'pointer', flexShrink: 0,
+              border: repeat ? '1px solid rgba(201,162,39,0.55)' : '1px solid rgba(255,255,255,0.12)',
+              background: repeat ? 'rgba(201,162,39,0.15)' : 'rgba(255,255,255,0.04)',
+              color: repeat ? '#C9A227' : 'rgba(255,255,255,0.4)',
+              fontSize: 14, lineHeight: 1,
+            }}
+          >
+            ↻
+          </button>
         </div>
       )}
     </div>

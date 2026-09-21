@@ -14,6 +14,7 @@
 const STORAGE_KEY           = 'cgp_music_muted';
 const VOLUME_STORAGE_KEY    = 'cgp_music_volume';
 const POSITION_STORAGE_KEY  = 'cgp_music_pos';
+const REPEAT_STORAGE_KEY    = 'cgp_music_repeat';
 const DEFAULT_VOLUME        = 0.3;
 const POS_SAVE_INTERVAL_MS  = 5_000;   // save position every 5 s while playing
 const POS_MAX_AGE_MS        = 3_600_000; // discard saved position older than 1 h
@@ -23,6 +24,7 @@ class MusicManager {
   private currentUrl: string | null            = null;
   private _muted: boolean;
   private _volume: number;
+  private _repeat: boolean;
   /** True once the first user gesture has unlocked the audio context */
   private unlocked = false;
 
@@ -37,6 +39,7 @@ class MusicManager {
   constructor() {
     this._muted  = this.readMuted();
     this._volume = this.readVolume();
+    this._repeat = this.readRepeat();
 
     // Save position just before the page unloads for maximum accuracy.
     window.addEventListener('beforeunload', () => {
@@ -84,6 +87,14 @@ class MusicManager {
     try { localStorage.setItem(VOLUME_STORAGE_KEY, String(v)); } catch {}
   }
 
+  private readRepeat(): boolean {
+    try { return localStorage.getItem(REPEAT_STORAGE_KEY) === '1'; } catch { return false; }
+  }
+
+  private writeRepeat(v: boolean): void {
+    try { localStorage.setItem(REPEAT_STORAGE_KEY, v ? '1' : '0'); } catch {}
+  }
+
   private readPosition(url: string): number {
     try {
       const raw = localStorage.getItem(POSITION_STORAGE_KEY);
@@ -126,6 +137,8 @@ class MusicManager {
   // ── Public API ───────────────────────────────────────────────────────────────
 
   get muted(): boolean { return this._muted; }
+  get repeat(): boolean { return this._repeat; }
+  get playing(): boolean { return !!this.audio && !this.audio.paused && !this.audio.ended; }
 
   /** Current background volume, 0–1. */
   get volume(): number { return this._volume; }
@@ -144,6 +157,29 @@ class MusicManager {
     if (this.audio) this.audio.volume = clamped;
     if (this.previewAudio) this.previewAudio.volume = clamped;
     this.notify();
+  }
+
+  setRepeat(repeat: boolean): void {
+    if (this._repeat === repeat) return;
+    this._repeat = repeat;
+    this.writeRepeat(repeat);
+    if (this.audio) this.audio.loop = repeat;
+    this.notify();
+  }
+
+  toggleRepeat(): void { this.setRepeat(!this._repeat); }
+
+  togglePlayback(): void {
+    if (this.audio && !this.audio.paused) {
+      this.audio.pause();
+      return;
+    }
+    if (this.audio) {
+      if (this.audio.ended) this.audio.currentTime = 0;
+      this.audio.play().catch(() => {});
+    } else if (this.currentUrl && this.unlocked) {
+      this.startAudio(this.currentUrl);
+    }
   }
 
   /**
@@ -214,6 +250,7 @@ class MusicManager {
 
     const el = new Audio(url);
     el.volume  = this._volume;
+    el.muted   = this._muted;
     el.preload = 'auto';
 
     // Seek to chorus region once the browser knows the track length.
@@ -253,17 +290,10 @@ class MusicManager {
     if (this._muted === muted) return;
     this._muted = muted;
     this.writeMuted(muted);
-
-    if (muted) {
-      this.audio?.pause();
-    } else if (this.currentUrl && this.unlocked) {
-      if (this.audio && !this.audio.paused) {
-        // already rolling
-      } else if (this.audio) {
-        this.audio.play().catch(() => {});
-      } else {
-        this.startAudio(this.currentUrl);
-      }
+    if (this.audio) this.audio.muted = muted;
+    if (this.previewAudio) this.previewAudio.muted = muted;
+    if (!muted && !this.audio && this.currentUrl && this.unlocked) {
+      this.startAudio(this.currentUrl);
     }
     this.notify();
   }
@@ -279,8 +309,9 @@ class MusicManager {
       this.audio.src = '';
     }
     const el = new Audio(url);
-    el.loop    = true;
+    el.loop    = this._repeat;
     el.volume  = this._volume;
+    el.muted   = this._muted;
     el.preload = 'auto';
     // Restore saved playback position once metadata is available
     const savedPos = this.readPosition(url);
@@ -289,6 +320,13 @@ class MusicManager {
         if (savedPos < el.duration) el.currentTime = savedPos;
       }, { once: true });
     }
+    el.addEventListener('play', () => this.notify());
+    el.addEventListener('pause', () => this.notify());
+    el.addEventListener('ended', () => {
+      this.stopPositionSave();
+      this.writePosition(url, 0);
+      this.notify();
+    });
     // Silently ignore 404 / autoplay errors (file not uploaded yet)
     el.addEventListener('error', () => {}, { once: true });
     this.audio = el;
