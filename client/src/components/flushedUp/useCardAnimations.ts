@@ -123,8 +123,10 @@ export function useTableDealAnimations(players: Player[], phase: string, myId: s
       const generation = ++tokenRef.current;
       activeSequenceRef.current = true;
       setSnapshot({ events: next.events, generation });
-    } else if (activeSequenceRef.current) {
-      // Any newer authoritative snapshot interrupts the visual-only sequence.
+    } else if (activeSequenceRef.current && previousRef.current?.phase !== phase) {
+      // Same-phase snapshots are common while bots advance and must not erase
+      // a flight before it can be seen. A real phase transition still
+      // interrupts the visual-only sequence.
       activeSequenceRef.current = false;
       const generation = ++tokenRef.current;
       setSnapshot({ events: [], generation });
@@ -136,6 +138,8 @@ export function useTableDealAnimations(players: Player[], phase: string, myId: s
 export function useCardAnimations(heroCards: CardType[], phase: string) {
   const prevCardsRef = useRef<CardType[]>([]);
   const prevPhaseRef = useRef<string>(phase);
+  const dealingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [dealingIndices, setDealingIndices] = useState<number[]>([]);
   const [drawingIndices, setDrawingIndices] = useState<number[]>([]);
@@ -149,6 +153,10 @@ export function useCardAnimations(heroCards: CardType[], phase: string) {
     const currLen = heroCards.length;
 
     if (phase === 'WAITING' && prevPhase !== 'WAITING') {
+      if (dealingTimerRef.current) clearTimeout(dealingTimerRef.current);
+      if (drawingTimerRef.current) clearTimeout(drawingTimerRef.current);
+      dealingTimerRef.current = null;
+      drawingTimerRef.current = null;
       prevCardsRef.current = [];
       prevPhaseRef.current = phase;
       setDealingIndices([]);
@@ -166,13 +174,17 @@ export function useCardAnimations(heroCards: CardType[], phase: string) {
         prevPhase === 'WAITING' || prevPhase === 'ANTE' ||
         prevPhase === 'DEAL'    || prevPhase === '';
       if (fromPreGame) {
+        if (dealingTimerRef.current) clearTimeout(dealingTimerRef.current);
         const indices = Array.from({ length: currLen }, (_, i) => i);
         setDealingIndices(indices);
         const clearAt = currLen * 120 + 500;
-        const t = setTimeout(() => setDealingIndices([]), clearAt);
+        dealingTimerRef.current = setTimeout(() => {
+          dealingTimerRef.current = null;
+          setDealingIndices([]);
+        }, clearAt);
         prevCardsRef.current = heroCards;
         prevPhaseRef.current = phase;
-        return () => clearTimeout(t);
+        return;
       }
       // Mid-game blank → refill: just record the new cards, no animation
       prevCardsRef.current = heroCards;
@@ -188,18 +200,27 @@ export function useCardAnimations(heroCards: CardType[], phase: string) {
         }
       }
       if (changed.length > 0 && changed.length < currLen) {
+        if (drawingTimerRef.current) clearTimeout(drawingTimerRef.current);
         setDrawingIndices(changed);
         const clearAt = changed.length * 150 + 500;
-        const t = setTimeout(() => setDrawingIndices([]), clearAt);
+        drawingTimerRef.current = setTimeout(() => {
+          drawingTimerRef.current = null;
+          setDrawingIndices([]);
+        }, clearAt);
         prevCardsRef.current = heroCards;
         prevPhaseRef.current = phase;
-        return () => clearTimeout(t);
+        return;
       }
     }
 
     prevCardsRef.current = heroCards;
     prevPhaseRef.current = phase;
   }, [heroCards, phase]);
+
+  useEffect(() => () => {
+    if (dealingTimerRef.current) clearTimeout(dealingTimerRef.current);
+    if (drawingTimerRef.current) clearTimeout(drawingTimerRef.current);
+  }, []);
 
   const triggerDiscard = useCallback((indices: number[]) => {
     setDiscardingIndices(indices);

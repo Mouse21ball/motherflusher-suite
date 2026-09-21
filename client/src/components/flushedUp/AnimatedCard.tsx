@@ -103,6 +103,37 @@ export function AnimatedCard({
    */
   const resolvedCard: CardType | undefined = isHidden ? undefined : card;
 
+  const selectableButton = (content: React.ReactNode, applyFanTransform = false) => {
+    if (!isSelectable || !onSelect) return content;
+    return (
+      <button
+        className={className}
+        onClick={onSelect}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          outline: 'none',
+          cursor: 'pointer',
+          display: 'block',
+          flexShrink: 0,
+          width,
+          height,
+          transform: applyFanTransform
+            ? `rotate(${isSelected ? 0 : fanRotation}deg) scale(${scale})`
+            : undefined,
+          transformOrigin: 'center bottom',
+          transition: reducedMotion ? 'none' : 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+        } as React.CSSProperties}
+      >
+        {content}
+      </button>
+    );
+  };
+
   /* Shared card visual — uses the same PlayingCard as all other CGP modes */
   const cardEl = (
     <div
@@ -123,7 +154,7 @@ export function AnimatedCard({
 
   /* ── Discard animation ──────────────────────────────────────────────── */
   if (isDiscarding) {
-    return (
+    return selectableButton(
       <motion.div
         className={className}
         initial={reducedMotion ? false : { x: 0, y: fanY, rotate: fanRotation, scale: 1, opacity: 1 }}
@@ -138,13 +169,14 @@ export function AnimatedCard({
         style={{ width, height, flexShrink: 0, transformOrigin: 'center bottom', willChange: 'transform, opacity' }}
       >
         {cardEl}
-      </motion.div>
+      </motion.div>,
+    );
     );
   }
 
   /* ── Flying in from deck ────────────────────────────────────────────── */
   if (isFlying) {
-    return (
+    return selectableButton(
       <motion.div
         className={className}
         initial={reducedMotion ? false : { x: 0, y: DECK_Y, scale: 0.6, rotate: (Math.random() - 0.5) * 20, opacity: 0 }}
@@ -164,7 +196,8 @@ export function AnimatedCard({
         style={{ width, height, flexShrink: 0, transformOrigin: 'center center', willChange: 'transform, opacity' }}
       >
         {cardEl}
-      </motion.div>
+      </motion.div>,
+    );
     );
   }
 
@@ -292,35 +325,8 @@ export function AnimatedCard({
     </motion.div>
   );
 
-  /* FIX 1: Selectable hero cards → plain <button> owns the click */
-  if (isSelectable && onSelect) {
-    return (
-      <button
-        className={className}
-        onClick={onSelect}
-        style={{
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          margin: 0,
-          outline: 'none',
-          cursor: 'pointer',
-          display: 'block',
-          flexShrink: 0,
-          width,
-          height,
-          /* Fan rotation lives here on a static CSS transform — no framer-motion */
-          transform: `rotate(${isSelected ? 0 : fanRotation}deg) scale(${scale})`,
-          transformOrigin: 'center bottom',
-          transition: reducedMotion ? 'none' : 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
-        } as React.CSSProperties}
-      >
-        {animatedVisual}
-      </button>
-    );
-  }
+  /* Selectable hero cards keep a plain button hit target around the animated visual. */
+  if (isSelectable && onSelect) return selectableButton(animatedVisual, true);
 
   /* Non-selectable — motion.div handles fan rotation and y */
   return (
