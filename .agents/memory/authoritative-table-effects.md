@@ -14,3 +14,9 @@ Showdown overlays should not cover payout travel the instant the winning snapsho
 **Why:** A fixed full-screen reveal can make a correct table-level payout flight completely invisible.
 
 **How to apply:** Sequence the reveal after the short payout flight while keeping the underlying showdown state and winner fields authoritative.
+
+Start reveal timing from the resolved snapshot that contains positive winner awards, not from initial entry into a showdown phase. Suppress the reveal when a legal rollover has no paid winner, and keep its hold duration within the server's reset window.
+
+**Why:** Some modes enter showdown before resolution, then publish winners later; starting early can hide payout travel, show a blank rollover overlay, or truncate the reveal during reset.
+
+**How to apply:** Cache pre-showdown balances, use each winner's positive chip delta as their displayed share, and choose the overlay delay plus hold duration to finish before authoritative reset.

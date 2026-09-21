@@ -13,6 +13,7 @@ import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateDead7 } from '@shared/modes/dead7';
 import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
+import { Dead7TableEffects } from './Dead7TableEffects';
 
 const R = (a: number) => `rgba(185,28,28,${a})`;
 const HERO_CARD_W = 54;
@@ -123,6 +124,9 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
       opponents={opponents}
       accent="#ef4444"
       modeLabel="dead7"
+      activePlayerId={state.activePlayerId}
+      turnDeadline={state.turnDeadline}
+      effects={tableRoot => <Dead7TableEffects state={state} tableRoot={tableRoot} />}
       center={(
         <>
         <motion.div key={state.phase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
@@ -163,7 +167,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
           </motion.div>
         )}
 
-        {me && me.cards.length > 0 ? (
+        {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
             <div style={{ filter: heroFilter, transition: 'filter 0.4s ease' }}>
               <CardHand cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick}
@@ -172,7 +176,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
                 isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} />
             </div>
 
-            {isShowdown && heroHandEval && me.status !== 'folded' && (
+            {isShowdown && heroHandEval && (
               <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace',
                 color: heroIsWinner ? '#ef4444' : 'rgba(255,255,255,0.7)',
                 fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.08em', textAlign: 'center',
@@ -181,6 +185,14 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
               </div>
             )}
           </>
+        ) : me?.status === 'folded' ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.62 }}
+            style={{ padding: '18px 26px', color: 'rgba(255,255,255,0.62)', font: '700 11px monospace', letterSpacing: '0.14em' }}
+          >
+            FOLDED
+          </motion.div>
         ) : (
           <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>
             {Array.from({ length: 4 }).map((_, i) => (

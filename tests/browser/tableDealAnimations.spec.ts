@@ -176,10 +176,11 @@ test.describe('table deal animation in a narrow browser viewport', () => {
 
   test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
     await openFixture(page);
-    await expect(page.getByTestId('badugi-turn-timer')).toBeVisible();
-    await expect(page.locator('[data-five-seat-table="badugi-effects-test"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-    await expect(page.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.45)');
-    await expect(page.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('backdrop-filter', 'blur(12px)');
+    const table = page.getByTestId('badugi-effects-table');
+    await expect(table.getByTestId('badugi-turn-timer')).toBeVisible();
+    await expect(table.locator('[data-five-seat-table="badugi-effects-test"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(table.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.45)');
+    await expect(table.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('backdrop-filter', 'blur(12px)');
 
     await page.getByTestId('effect-bet').click();
     await expect(page.locator('[data-badugi-chip-flight="bet"]')).toHaveCount(1);
@@ -193,6 +194,25 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await openFixture(page);
     await page.getByTestId('effect-fold').click();
     await expect(page.locator('[data-badugi-fold-flight="opponent-1"]')).toBeVisible();
+  });
+
+  test('renders Dead 7 chip, payout, fold, and turn-timer effects', async ({ page }) => {
+    await openFixture(page);
+    const table = page.getByTestId('dead7-effects-table');
+    await expect(table.getByTestId('badugi-turn-timer')).toBeVisible();
+
+    await page.getByTestId('effect-bet').click();
+    await expect(table.locator('[data-dead7-chip-flight="bet"]')).toHaveCount(1);
+
+    await page.waitForTimeout(900);
+    await page.getByTestId('effect-payout').click();
+    await expect(table.locator('[data-dead7-chip-flight="payout"]')).toHaveCount(2);
+  });
+
+  test('moves folded Dead 7 cards toward the muck', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('effect-fold').click();
+    await expect(page.getByTestId('dead7-effects-table').locator('[data-dead7-fold-flight="opponent-1"]')).toBeVisible();
   });
 
   test('snaps to authoritative cards when an anchor is missing', async ({ page }) => {

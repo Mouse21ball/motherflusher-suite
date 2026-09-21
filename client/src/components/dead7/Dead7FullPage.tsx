@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Dead7Table } from './Dead7Table';
+import { deriveDead7AwardAmounts } from './Dead7TableEffects';
 import { Dead7ActionBar } from './Dead7ActionBar';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
@@ -177,6 +178,17 @@ export function Dead7FullPage({
 
   /* ShowdownReveal data */
   const showReveal   = state.phase === 'SHOWDOWN';
+  const preShowdownChipsRef = useRef<Record<string, number>>(
+    Object.fromEntries(state.players.map(player => [player.id, player.chips])),
+  );
+  useEffect(() => {
+    if (!showReveal) {
+      preShowdownChipsRef.current = Object.fromEntries(
+        state.players.map(player => [player.id, player.chips]),
+      );
+    }
+  }, [showReveal, state.players]);
+  const authoritativeAwards = deriveDead7AwardAmounts(preShowdownChipsRef.current, state);
   const revealWinners: WinnerData[] = showReveal
     ? state.players
         .filter(p => (p as any).isWinner)
@@ -184,7 +196,7 @@ export function Dead7FullPage({
           id: p.id, name: p.name,
           cards: (p.cards ?? []).map(c => ({ ...c, isHidden: false })),
           handRankLabel: (() => { try { return evaluateDead7((p.cards ?? []).map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateDead7>[0])?.description ?? ''; } catch { return ''; } })(),
-          potShare: 0,
+          potShare: authoritativeAwards[p.id] ?? 0,
         }))
     : [];
 
@@ -197,8 +209,21 @@ export function Dead7FullPage({
     : { id: myId, cards: [], handRankLabel: '' };
 
   const heroWonReveal   = revealWinners.some(w => w.id === myId);
-  const potMatch        = state.messages.find(m => (m as any).isResolution)?.text?.match(/\$(\d+)/);
-  const revealPotAmount = potMatch ? parseInt(potMatch[1], 10) : Math.abs(state.heroChipChange ?? 0);
+  const heroAwardAmount = authoritativeAwards[myId] ?? 0;
+  const revealPotAmount = revealWinners.reduce((total, winner) => total + winner.potShare, 0);
+  const payoutSignature = revealWinners
+    .filter(winner => winner.potShare > 0)
+    .map(winner => `${winner.id}:${winner.potShare}`)
+    .join('|');
+  const [showRevealOverlay, setShowRevealOverlay] = useState(false);
+  useEffect(() => {
+    if (!showReveal || !payoutSignature) {
+      setShowRevealOverlay(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowRevealOverlay(true), 900);
+    return () => window.clearTimeout(timer);
+  }, [showReveal, payoutSignature]);
 
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
 
@@ -281,9 +306,10 @@ export function Dead7FullPage({
           onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
       )}
 
-      {showReveal && (
+      {showRevealOverlay && (
         <ShowdownReveal cardsPerHand={4} winners={revealWinners} heroData={revealHeroData}
-          heroWon={heroWonReveal} potAmount={revealPotAmount} onComplete={() => {}} />
+          heroWon={heroWonReveal} potAmount={heroWonReveal ? heroAwardAmount : revealPotAmount}
+          holdMs={4000} onComplete={() => {}} />
       )}
 
       {xpToast && xpToast.xpGained > 0 && (

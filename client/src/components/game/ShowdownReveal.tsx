@@ -52,6 +52,7 @@ export interface ShowdownRevealProps {
   heroWon: boolean;
   potAmount: number;
   onComplete: () => void;
+  holdMs?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -138,20 +139,20 @@ function CardRow({
 
 // ── CountdownBar ───────────────────────────────────────────────────────────
 
-function CountdownBar() {
+function CountdownBar({ holdMs }: { holdMs: number }) {
   const [progress, setProgress] = useState(1);
   const rafRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const startTime = Date.now();
     const tick = () => {
-      const p = Math.max(0, 1 - (Date.now() - startTime) / HOLD_MS);
+      const p = Math.max(0, 1 - (Date.now() - startTime) / holdMs);
       setProgress(p);
       if (p > 0) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current); };
-  }, []);
+  }, [holdMs]);
 
   return (
     <div style={{
@@ -177,6 +178,7 @@ export function ShowdownReveal({
   heroWon,
   potAmount,
   onComplete,
+  holdMs = HOLD_MS,
 }: ShowdownRevealProps) {
   const calledRef = useRef(false);
 
@@ -184,9 +186,9 @@ export function ShowdownReveal({
     calledRef.current = false;
     const t = setTimeout(() => {
       if (!calledRef.current) { calledRef.current = true; onComplete(); }
-    }, HOLD_MS);
+    }, holdMs);
     return () => clearTimeout(t);
-  }, [onComplete]);
+  }, [holdMs, onComplete]);
 
   const isSplit       = winners.length > 1;
   const primaryWinner = winners[0] ?? null;
@@ -372,7 +374,7 @@ export function ShowdownReveal({
 
       )}
 
-      <CountdownBar />
+      <CountdownBar holdMs={holdMs} />
     </motion.div>
   );
 }
