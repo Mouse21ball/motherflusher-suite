@@ -10,7 +10,8 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -98,6 +99,7 @@
     "@replit/vite-plugin-cartographer": "^0.4.10",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.4",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.0",

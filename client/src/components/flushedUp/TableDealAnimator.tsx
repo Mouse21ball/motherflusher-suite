@@ -88,7 +88,7 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
     cleanupRef.current = setTimeout(() => {
       setFlights([]);
       restoreSeats();
-    }, sequenceMs + 120);
+    }, sequenceMs);
     return () => {
       if (cleanupRef.current) clearTimeout(cleanupRef.current);
       restoreSeats();
@@ -110,6 +110,7 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
         return (
           <motion.div
             key={`${deal.generation}-${event.playerId}-${event.slot}`}
+            data-deal-flight=""
             initial={{ x: 0, y: 0, rotate: 0, opacity: 0.15, scale: 0.78 }}
             animate={{ x: [0, event.dx * 0.5, event.dx], y: [0, event.dy * 0.5 - event.curve, event.dy], rotate: [0, event.dx * 0.08, 0], opacity: [0.15, 1, 1], scale: [0.78, 1.04, 0.94] }}
             transition={{ duration: TRAVEL_MS / 1000, delay: delay / 1000, ease: ['easeOut', 'easeInOut'] }}

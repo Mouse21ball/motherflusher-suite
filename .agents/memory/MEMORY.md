@@ -8,3 +8,4 @@
 - [Box Chevy mode architecture](box-chevy-arch.md) — 5+5 community card draw game; DRAW_1/2/3 use existing 'draw' action handler; made-hand check (unique ranks across all 10) auto-folds before DECLARE; TS narrowing issue: use (phase as string).startsWith() after early-return else-if branches.
 - [Dead 7 mode gotchas](dead7-gotchas.md) — phases array order IS the round order (genericEngine steps through it linearly); Dead 7 has no SWING declare, only HIGH/LOW; sole-survivor showdown must award the FULL pot, not just side-pot-eligible slices.
 - [Game typography sweeps](game-typography-sweeps.md) — audit every phase-specific render branch; shared labels recur in separate lobby, race, wager, spectator, and result layouts.
+- [Browser animation timing](browser-animation-timing.md) — time rendered-flight cleanup from visible-flight start and allow bounded browser polling overhead over the calculated path.
