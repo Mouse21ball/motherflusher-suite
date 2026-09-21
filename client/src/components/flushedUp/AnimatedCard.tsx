@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import type { CardType } from '@/lib/poker/types';
 import { PlayingCard } from '@/components/game/Card';
@@ -43,6 +43,7 @@ export interface AnimatedCardProps {
   height?: number;
 
   className?: string;
+  scale?: number;
 }
 
 /* ── AnimatedCard ──────────────────────────────────────────────────────────── */
@@ -78,7 +79,9 @@ export function AnimatedCard({
   width = 58,
   height = 81,
   className,
+  scale = 1,
 }: AnimatedCardProps) {
+  const reducedMotion = useReducedMotion();
   const isFlying  = isDeal || isDraw;
   const flyDelay  = isDeal ? dealDelay : drawDelay;
   const glowColor = isFlushCard && card && !isHidden ? suitGlowColor(card.suit) : undefined;
@@ -123,15 +126,15 @@ export function AnimatedCard({
     return (
       <motion.div
         className={className}
-        initial={{ x: 0, y: fanY, rotate: fanRotation, scale: 1, opacity: 1 }}
-        animate={{
+        initial={reducedMotion ? false : { x: 0, y: fanY, rotate: fanRotation, scale: 1, opacity: 1 }}
+        animate={reducedMotion ? { opacity: 0 } : {
           x: (Math.random() - 0.5) * 60,
           y: -480,
           rotate: fanRotation + (Math.random() > 0.5 ? 28 : -28),
           scale: 0.65,
           opacity: 0,
         }}
-        transition={{ duration: 0.22, delay: discardDelay / 1000, ease: [0.4, 0, 0.8, 0.2] }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.22, delay: discardDelay / 1000, ease: [0.4, 0, 0.8, 0.2] }}
         style={{ width, height, flexShrink: 0, transformOrigin: 'center bottom', willChange: 'transform, opacity' }}
       >
         {cardEl}
@@ -144,15 +147,15 @@ export function AnimatedCard({
     return (
       <motion.div
         className={className}
-        initial={{ x: 0, y: DECK_Y, scale: 0.6, rotate: (Math.random() - 0.5) * 20, opacity: 0 }}
-        animate={{
+        initial={reducedMotion ? false : { x: 0, y: DECK_Y, scale: 0.6, rotate: (Math.random() - 0.5) * 20, opacity: 0 }}
+        animate={reducedMotion ? { x: 0, y: fanY, scale, rotate: fanRotation, opacity: 1 } : {
           x: 0,
           y: [DECK_Y, DECK_Y * 0.3, fanY],
-          scale: [0.6, 1.08, 1.0],
+          scale: [0.6, 1.08, scale],
           rotate: [null, fanRotation * 0.5, fanRotation],
           opacity: [0, 1, 1],
         }}
-        transition={{
+        transition={reducedMotion ? { duration: 0 } : {
           duration: 0.38, delay: flyDelay / 1000, ease: 'easeOut',
           y: { times: [0, 0.55, 1], ease: ['easeOut', 'easeInOut'] },
           scale: { times: [0, 0.65, 1] },
@@ -190,9 +193,9 @@ export function AnimatedCard({
             <motion.div
               key="back"
               style={{ width: '100%', height: '100%' }}
-              initial={{ rotateY: 0 }}
-              exit={{ rotateY: 90 }}
-              transition={{ duration: 0.15, ease: 'easeIn' }}
+              initial={reducedMotion ? false : { rotateY: 0 }}
+              exit={reducedMotion ? { opacity: 0 } : { rotateY: 90 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeIn' }}
             >
               {backEl}
             </motion.div>
@@ -200,13 +203,13 @@ export function AnimatedCard({
             <motion.div
               key="front"
               style={{ width: '100%', height: '100%' }}
-              initial={{ rotateY: -90 }}
-              animate={{
+              initial={reducedMotion ? false : { rotateY: -90 }}
+              animate={reducedMotion ? { opacity: 1 } : {
                 rotateY: 0,
                 scale: isFlushCard ? [1, 1.06, 1] : 1,
                 y: isFlushCard ? [0, -6, 0] : 0,
               }}
-              transition={{
+              transition={reducedMotion ? { duration: 0 } : {
                 rotateY: { duration: 0.15, ease: 'easeOut' },
                 scale: { duration: 0.4, delay: 0.15 },
                 y: { duration: 0.4, delay: 0.15 },
@@ -231,23 +234,29 @@ export function AnimatedCard({
    *
    * For non-selectable cards: a plain motion.div wrapper applies fan rotation.
    */
-  const selectedLift = isSelected ? -28 : 0;
+  const selectedLift = isSelected ? -22 : 0;
 
-  const filterValue = isSelected
+  const shadowFilter = isSelected
     ? 'drop-shadow(0 0 12px rgba(168,85,247,0.95)) drop-shadow(0 0 6px rgba(168,85,247,0.7))'
     : glowColor
     ? `drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 0 4px ${glowColor})`
     : 'none';
+  const selectableVisual = isSelectable && Boolean(onSelect);
 
   const animatedVisual = (
     <motion.div
-      style={{ width: '100%', height: '100%', position: 'relative', willChange: 'transform' }}
-      animate={{
-        y: selectedLift + fanY,
-        scale: isSelected ? 1.06 : 1,
-        filter: filterValue,
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        willChange: 'transform',
+        filter: shadowFilter,
       }}
-      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+      animate={{
+        y: selectedLift + (selectableVisual ? fanY : 0),
+        scale: isSelected ? 1.08 : 1,
+      }}
+      transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 36, mass: 0.65 }}
     >
       {isSelected ? (
         /* Selected — static card with red glow from animate.filter above */
@@ -256,8 +265,8 @@ export function AnimatedCard({
         /* Idle — gentle float */
         <motion.div
           style={{ width: '100%', height: '100%' }}
-          animate={{ y: [0, -3, 0] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
+          animate={reducedMotion ? { y: 0 } : { y: [0, -3, 0] }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
         >
           {cardEl}
         </motion.div>
@@ -301,8 +310,9 @@ export function AnimatedCard({
           width,
           height,
           /* Fan rotation lives here on a static CSS transform — no framer-motion */
-          transform: `rotate(${fanRotation}deg)`,
+          transform: `rotate(${isSelected ? 0 : fanRotation}deg) scale(${scale})`,
           transformOrigin: 'center bottom',
+          transition: reducedMotion ? 'none' : 'transform 140ms cubic-bezier(0.22, 1, 0.36, 1)',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
         } as React.CSSProperties}
@@ -320,14 +330,13 @@ export function AnimatedCard({
         width,
         height,
         flexShrink: 0,
-        rotate: fanRotation,
         transformOrigin: 'center bottom',
         willChange: 'transform',
         position: 'relative',
         cursor: 'default',
       }}
-      animate={{ y: fanY }}
-      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+      animate={{ y: fanY, rotate: fanRotation, scale }}
+      transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 36, mass: 0.65 }}
     >
       {animatedVisual}
     </motion.div>

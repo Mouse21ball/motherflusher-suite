@@ -265,7 +265,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           transition: 'transform 400ms cubic-bezier(0.22, 1, 0.36, 1)',
         } : undefined}
       >
-        {player.cards.map((card, idx) => {
+        {!isSelf && player.cards.map((card, idx) => {
           const isSelected = selectedCardIndices.includes(idx);
           const canSelect = isSelf && selectableCards;
           const n = player.cards.length;

@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { GameState, ReactionEvent } from "@/lib/poker/types";
 import { PlayingCard } from "./Card";
+import { CardHand } from "@/components/flushedUp/CardHand";
 import { getAvatarForSeat, getHeroAvatar } from "@shared/engine/avatarMap";
 import { ResolutionOverlay } from "./ResolutionOverlay";
 import { WinCelebration } from "./WinCelebration";
@@ -196,59 +197,6 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
       {lastAction && !isFolded && !isBust && !isStay && (
         <span className="text-xs font-mono text-amber-400/60 max-w-[64px] truncate">{lastAction}</span>
       )}
-    </div>
-  );
-}
-
-// Hero card fan — horizontal spread, supports 2–6+ cards without overlap breaking layout
-function HeroCardFan({ cards, selectedCardIndices, onCardClick, selectableCards }: {
-  cards: import("@/lib/poker/types").CardType[];
-  selectedCardIndices: number[];
-  onCardClick: (i: number) => void;
-  selectableCards: boolean;
-}) {
-  const count = cards.length;
-  if (count === 0) return null;
-  const CARD_W = 54;
-  const CARD_H = 76;
-  const spread = count <= 4 ? 42 : Math.max(26, 42 - (count - 4) * 6);
-  const totalW  = (count - 1) * spread + CARD_W;
-  const maxAngle = count <= 4 ? 4.5 : 2.5;
-
-  return (
-    <div
-      className="relative flex items-end justify-center"
-      style={{ height: CARD_H + 14, width: Math.min(totalW + 8, 290) }}
-    >
-      {cards.map((card, i) => {
-        const selected = selectedCardIndices.includes(i);
-        const frac     = count > 1 ? (i - (count - 1) / 2) / ((count - 1) / 2) : 0;
-        const angle    = frac * maxAngle;
-        return (
-          <div
-            key={i}
-            className={cn(
-              "absolute bottom-0 transition-all duration-150",
-              selectableCards && "cursor-pointer hover:-translate-y-1"
-            )}
-            style={{
-              left: i * spread,
-              zIndex: i,
-              transform: `rotate(${angle}deg)`,
-              transformOrigin: 'bottom center',
-              bottom: selected ? 12 : 0,
-            }}
-            onClick={() => selectableCards && onCardClick(i)}
-            data-testid={`hero-card-${i}`}
-          >
-            <PlayingCard
-              card={card}
-              selected={selected}
-              className="w-[54px] h-[76px] shadow-lg"
-            />
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -601,25 +549,25 @@ export function Fifteen35TableScene({
 
             {/* Hero card fan — supports 2–6+ cards */}
             {me.cards.length > 0 && !isShowdown && (
-              <HeroCardFan
+              <CardHand
                 cards={me.cards}
-                selectedCardIndices={selectedCardIndices}
+                selectedIndices={selectedCardIndices}
                 onCardClick={onCardClick}
-                selectableCards={selectableCards}
+                isSelectable={selectableCards}
+                cardWidth={54}
+                cardHeight={76}
+                testIdPrefix="hero-card"
               />
             )}
 
-            {/* Showdown: full reveal in a neat row */}
+            {/* Showdown: full reveal using the shared fan */}
             {isShowdown && me.cards.length > 0 && (
-              <div className="flex gap-1.5 justify-center flex-wrap">
-                {me.cards.map((c, i) => (
-                  <PlayingCard
-                    key={i}
-                    card={{ ...c, isHidden: false }}
-                    className="w-[50px] h-[70px] shadow-lg"
-                  />
-                ))}
-              </div>
+              <CardHand
+                cards={me.cards.map(card => ({ ...card, isHidden: false }))}
+                isShowdown
+                cardWidth={50}
+                cardHeight={70}
+              />
             )}
           </div>
         )}

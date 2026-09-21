@@ -1,20 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AnimatedCard } from './AnimatedCard';
-import { PlayingCard } from '@/components/game/Card';
 import type { CardType } from '@/lib/poker/types';
-
-/* ─── Fan layout ─────────────────────────────────────────────────────────── */
-
-function fanParams(index: number, total: number): { rotation: number; yOffset: number } {
-  if (total <= 1) return { rotation: 0, yOffset: 0 };
-  const stepDeg = 5;
-  const span    = (total - 1) * stepDeg;
-  const rotation = -span / 2 + index * stepDeg;
-  const mid  = (total - 1) / 2;
-  const dist = index - mid;
-  const yOffset = dist * dist * 1.5;
-  return { rotation, yOffset };
-}
+import { getCardFanGeometry, getCardIdentity } from './cardFanGeometry';
 
 /* ─── Flush detection ────────────────────────────────────────────────────── */
 
@@ -30,153 +18,144 @@ function detectFlushCards(cards: CardType[]): Set<number> {
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
-interface CardHandProps {
+export interface CardHandProps {
   cards: CardType[];
-  selectedIndices: number[];
-  onCardClick: (index: number) => void;
-  isSelectable: boolean;
-  dealingIndices: number[];
-  drawingIndices: number[];
-  discardingIndices: number[];
-  isShowdown: boolean;
+  selectedIndices?: number[];
+  onCardClick?: (index: number) => void;
+  isSelectable?: boolean;
+  dealingIndices?: number[];
+  drawingIndices?: number[];
+  discardingIndices?: number[];
+  isShowdown?: boolean;
   cardWidth?: number;
   cardHeight?: number;
+  className?: string;
+  testIdPrefix?: string;
 }
 
 /* ─── CardHand ───────────────────────────────────────────────────────────── */
 
 export function CardHand({
   cards,
-  selectedIndices,
+  selectedIndices = [],
   onCardClick,
-  isSelectable,
-  dealingIndices,
-  drawingIndices,
-  discardingIndices,
-  isShowdown,
+  isSelectable = false,
+  dealingIndices = [],
+  drawingIndices = [],
+  discardingIndices = [],
+  isShowdown = false,
   cardWidth = 58,
   cardHeight = 81,
+  className,
+  testIdPrefix,
 }: CardHandProps) {
-  // Alias so the user-specified name matches throughout this component.
-  const toggleCardSelection = onCardClick;
-
-  // Confirm the function ref is valid on every render where isSelectable=true.
+  const handRef = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(320);
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
-    if (isSelectable) {
-      console.log('[FlushedUp] toggleCardSelection ref:', typeof toggleCardSelection, toggleCardSelection);
-    }
-  }, [isSelectable, toggleCardSelection]);
+    const node = handRef.current;
+    if (!node) return;
+    const update = () => setAvailableWidth(Math.max(1, node.clientWidth));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const flushIndices = isShowdown ? detectFlushCards(cards) : new Set<number>();
   const hasFlush = flushIndices.size > 0;
 
-  const gap = Math.max(2, 5 - Math.max(0, cards.length - 4));
+  const geometries = useMemo(
+    () => cards.map((_, index) => getCardFanGeometry(index, cards.length, availableWidth, cardWidth)),
+    [availableWidth, cardWidth, cards.length],
+  );
+  const maxDrop = geometries.reduce((max, geometry) => Math.max(max, geometry.yOffset), 0);
+  const scale = geometries[0]?.scale ?? 1;
 
   return (
     <div
+      ref={handRef}
+      className={className}
       style={{
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'flex-end',
         justifyContent: 'center',
-        gap,
-        paddingTop: 20,
-        paddingBottom: 6,
+        gap: 0,
+        paddingTop: 20 + maxDrop,
+        paddingBottom: 8,
         position: 'relative',
+        width: '100%',
+        minWidth: 0,
+        overflow: 'visible',
       }}
     >
-      {cards.map((card, index) => {
-        const { rotation, yOffset } = fanParams(index, cards.length);
-        const isDeal       = dealingIndices.includes(index);
-        const isDraw       = drawingIndices.includes(index);
-        const isDiscarding = discardingIndices.includes(index);
-        const isSelected   = selectedIndices.includes(index);
-        const dealDelay    = index * 110;
-        const drawDelay    = drawingIndices.indexOf(index) * 140;
-        const discardDelay = discardingIndices.indexOf(index) * 50;
-        const isFlushCard    = hasFlush && flushIndices.has(index);
-        const isNonFlushCard = hasFlush && !flushIndices.has(index);
+      <AnimatePresence initial={false}>
+        {cards.map((card, index) => {
+          const { rotation, yOffset, overlap } = geometries[index];
+          const isDeal       = dealingIndices.includes(index);
+          const isDraw       = drawingIndices.includes(index);
+          const isDiscarding = discardingIndices.includes(index);
+          const isSelected   = selectedIndices.includes(index);
+          const dealDelay    = index * 110;
+          const drawDelay    = drawingIndices.indexOf(index) * 140;
+          const discardDelay = discardingIndices.indexOf(index) * 50;
+          const isFlushCard    = hasFlush && flushIndices.has(index);
+          const isNonFlushCard = hasFlush && !flushIndices.has(index);
 
-        const needsAnimation = isDeal || isDraw || isDiscarding;
-
-        if (isSelectable) {
+          // Occurrence is part of the key: duplicate cards and hidden placeholders
+          // remain visually stable when the server replaces one card in-place.
+          const occurrence = cards.slice(0, index).filter(previous =>
+            previous.rank === card.rank &&
+            previous.suit === card.suit
+          ).length;
+          const identity = getCardIdentity(card, occurrence);
           return (
-            <div
-              key={index}
-              onClick={() => toggleCardSelection(index)}
+            <motion.div
+              layout="position"
+              key={identity}
+              data-testid={testIdPrefix ? `${testIdPrefix}-${index}` : undefined}
+              initial={false}
+              exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
+              transition={reducedMotion
+                ? { duration: 0 }
+                : { layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 0.12 } }}
               style={{
-                cursor: 'pointer',
-                display: 'inline-block',
-                position: 'relative',
                 width: cardWidth,
                 height: cardHeight,
                 flexShrink: 0,
-                transform: isSelected
-                  ? `rotate(${rotation}deg) translateY(${yOffset - 30}px)`
-                  : `rotate(${rotation}deg) translateY(${yOffset}px)`,
-                transformOrigin: 'center bottom',
-                border: isSelected ? '2px solid #a855f7' : '2px solid transparent',
-                boxShadow: isSelected
-                  ? '0 0 12px rgba(168,85,247,0.95), 0 0 28px rgba(168,85,247,0.55)'
-                  : 'none',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-                borderRadius: '8px',
+                marginLeft: index === 0 ? 0 : -overlap,
+                position: 'relative',
+                zIndex: isSelected ? cards.length + 10 : index,
               }}
             >
-              <div style={{ width: '100%', height: '100%' }}>
-                <PlayingCard
-                  card={card.isHidden ? undefined : card}
-                  className="!w-full !h-full !rounded-[8px] !shrink-0"
-                />
-              </div>
-
-              {/* Selection ✕ badge */}
-              {isSelected && (
-                <div
-                  style={{
-                    position: 'absolute', top: -7, right: -7,
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: '#a855f7',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '11px', fontWeight: 700, color: '#fff',
-                    boxShadow: '0 0 8px rgba(168,85,247,0.8)',
-                    zIndex: 20, lineHeight: 1,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  ✕
-                </div>
-              )}
-            </div>
+              <AnimatedCard
+                card={card}
+                isHidden={card.isHidden}
+                fanRotation={rotation}
+                fanY={yOffset}
+                isSelected={isSelected}
+                isSelectable={isSelectable && !isDiscarding}
+                onSelect={onCardClick ? () => onCardClick(index) : undefined}
+                isDeal={isDeal}
+                dealDelay={dealDelay}
+                isDraw={isDraw}
+                drawDelay={drawDelay}
+                isDiscarding={isDiscarding}
+                discardDelay={discardDelay}
+                isShowdown={isShowdown}
+                wasHiddenBeforeShowdown={false}
+                isFlushCard={isFlushCard}
+                isNonFlushCard={isNonFlushCard}
+                width={cardWidth}
+                height={cardHeight}
+                scale={scale}
+              />
+            </motion.div>
           );
-        }
-
-        /* Non-draw phase or currently-animating card → full AnimatedCard */
-        return (
-          <AnimatedCard
-            key={index}
-            card={card}
-            isHidden={card.isHidden}
-            fanRotation={rotation}
-            fanY={yOffset}
-            isSelected={isSelected}
-            isSelectable={isSelectable && !isDiscarding}
-            onSelect={() => toggleCardSelection(index)}
-            isDeal={isDeal}
-            dealDelay={dealDelay}
-            isDraw={isDraw}
-            drawDelay={drawDelay}
-            isDiscarding={isDiscarding}
-            discardDelay={discardDelay}
-            isShowdown={isShowdown}
-            wasHiddenBeforeShowdown={false}
-            isFlushCard={isFlushCard}
-            isNonFlushCard={isNonFlushCard}
-            width={cardWidth}
-            height={cardHeight}
-          />
-        );
-      })}
+        })}
+      </AnimatePresence>
     </div>
   );
 }

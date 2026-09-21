@@ -24,6 +24,7 @@ import { BustOutModal } from "@/components/game/BustOutModal";
 import { ChatBox } from "@/components/game/ChatBox";
 import { ResolutionOverlay } from "@/components/game/ResolutionOverlay";
 import { PlayingCard } from "@/components/game/Card";
+import { CardHand } from "@/components/flushedUp/CardHand";
 import { WinCelebration } from "@/components/game/WinCelebration";
 import { sfx } from "@/lib/sounds";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
@@ -542,22 +543,16 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
         )}
       </div>
 
-      {/* Hero cards — zoom-scaled by count, no overlap, always readable */}
-      {inPlay && player.cards.length > 0 && (() => {
-        const n = player.cards.length;
-        const zoom = n <= 2 ? 1 : n === 3 ? 0.88 : n === 4 ? 0.76 : n === 5 ? 0.66 : n === 6 ? 0.58 : 0.52;
-        return (
-          <div className="flex gap-1.5 mt-2.5 justify-center" style={{ zoom }}>
-            {player.cards.map((c, i) => (
-              <PlayingCard
-                key={i}
-                card={isShowdown ? { ...c, isHidden: false } : c}
-                className="w-12 h-16 sm:w-12 sm:h-16 shadow-md"
-              />
-            ))}
-          </div>
-        );
-      })()}
+      {/* Shared responsive hero fan */}
+      {inPlay && player.cards.length > 0 && (
+        <CardHand
+          cards={player.cards.map(card => isShowdown ? { ...card, isHidden: false } : card)}
+          isShowdown={isShowdown}
+          cardWidth={52}
+          cardHeight={73}
+          className="mt-2.5"
+        />
+      )}
       </div>
     </div>
   );

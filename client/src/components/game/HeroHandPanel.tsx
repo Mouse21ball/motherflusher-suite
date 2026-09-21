@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PlayingCard } from "./Card";
+import { CardHand } from "@/components/flushedUp/CardHand";
 import { evaluateBadugi } from "@/lib/poker/modes/badugi";
 import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
@@ -80,26 +80,6 @@ function qualifierLabel(modeId: string) {
   return 'QUALIFIER';
 }
 
-// ── Card size helpers ─────────────────────────────────────────────────────────
-
-function cardSizeClass(n: number) {
-  if (n <= 2) return 'w-20 h-28 sm:w-24 sm:h-32 md:w-28 md:h-36';
-  if (n <= 3) return 'w-16 h-[104px] sm:w-20 sm:h-28 md:w-24 md:h-32';
-  if (n <= 5) return 'w-12 h-[88px] sm:w-14 sm:h-[96px] md:w-16 md:h-[108px]';
-  if (n <= 7) return 'w-10 h-[72px] sm:w-12 sm:h-[84px] md:w-14 md:h-[96px]';
-  return 'w-9 h-[64px] sm:w-10 sm:h-[72px] md:w-12 md:h-[84px]';
-}
-
-function cardOverlapClass(n: number) {
-  if (n <= 2) return '';
-  if (n <= 3) return '-ml-3';
-  if (n <= 5) return '-ml-6';
-  if (n <= 7) return '-ml-9';
-  return '-ml-10';
-}
-
-const MAX_VISIBLE_CARDS = 7;
-
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface HeroHandPanelProps {
@@ -116,30 +96,12 @@ interface HeroHandPanelProps {
 
 // ── Shared sub-components ────────────────────────────────────────────────────
 
-function compactCardSizeClass(n: number) {
-  if (n <= 3) return 'w-12 h-[88px] sm:w-14 sm:h-[96px] md:w-16 md:h-[108px]';
-  if (n <= 5) return 'w-10 h-[72px] sm:w-12 sm:h-[84px] md:w-14 md:h-[96px]';
-  if (n <= 7) return 'w-9 h-[64px] sm:w-10 sm:h-[72px] md:w-12 md:h-[84px]';
-  return 'w-8 h-[56px] sm:w-9 sm:h-[64px] md:w-11 md:h-[76px]';
-}
-
-function compactCardOverlapClass(n: number) {
-  if (n <= 2) return '';
-  if (n <= 3) return '-ml-3';
-  if (n <= 5) return '-ml-5';
-  if (n <= 7) return '-ml-7';
-  return '-ml-8';
-}
-
 function CardFan({
-  cards, n, sizeClass, overlapClass, selectedCardIndices,
+  cards, selectedCardIndices,
   selectableCards, onCardClick, isShowdownPhase, isDrawPhase,
   compact = false,
 }: {
   cards: Player['cards'];
-  n: number;
-  sizeClass: string;
-  overlapClass: string;
   selectedCardIndices: number[];
   selectableCards: boolean;
   onCardClick: (i: number) => void;
@@ -147,56 +109,23 @@ function CardFan({
   isDrawPhase: boolean;
   compact?: boolean;
 }) {
-  const activeSizeClass  = compact ? compactCardSizeClass(n)  : sizeClass;
-  const activeOverlap    = compact ? compactCardOverlapClass(n) : overlapClass;
-
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex w-full min-w-0 flex-col items-center gap-2">
       {isDrawPhase && (
         <span className="text-[12px] font-mono uppercase tracking-widest text-[#C9A227]/60">
           Tap to discard
         </span>
       )}
-      <div className="flex items-center">
-        {cards.slice(0, MAX_VISIBLE_CARDS).map((card, i) => {
-          const isSelected = selectedCardIndices.includes(i);
-          return (
-            <div
-              key={i}
-              className={cn(
-                "relative transition-all duration-150 cursor-pointer",
-                i > 0 && activeOverlap,
-                isSelected && "brightness-125",
-              )}
-              style={{ zIndex: isSelected ? 30 : i }}
-              onClick={() => selectableCards && onCardClick(i)}
-              data-testid={`card-hero-${i}`}
-            >
-              <div className={cn(
-                activeSizeClass,
-                "relative transition-all duration-200",
-                isSelected && "-translate-y-2 scale-105",
-                isSelected && "ring-2 ring-[#a855f7]/80 rounded-sm shadow-[0_0_16px_rgba(168,85,247,0.55)]",
-              )}>
-                <PlayingCard
-                  card={{ ...card, isHidden: !isShowdownPhase && card.isHidden }}
-                  selected={isSelected}
-                  className="w-full h-full"
-                />
-              </div>
-            </div>
-          );
-        })}
-        {n > MAX_VISIBLE_CARDS && (
-          <div className={cn(
-            "relative flex items-center justify-center rounded bg-white/10 border border-white/20 text-[12px] font-bold text-white/60 shrink-0",
-            activeSizeClass,
-            activeOverlap,
-          )}>
-            +{n - MAX_VISIBLE_CARDS}
-          </div>
-        )}
-      </div>
+      <CardHand
+        cards={cards.map(card => ({ ...card, isHidden: !isShowdownPhase && card.isHidden }))}
+        selectedIndices={selectedCardIndices}
+        onCardClick={onCardClick}
+        isSelectable={selectableCards}
+        isShowdown={isShowdownPhase}
+        cardWidth={compact ? 52 : 58}
+        cardHeight={compact ? 73 : 81}
+        testIdPrefix="card-hero"
+      />
     </div>
   );
 }
@@ -359,8 +288,6 @@ export function HeroHandPanel({
   const n = cards.length;
   const isDrawPhase = phase.startsWith('DRAW') || phase === 'DRAW';
   const isShowdownPhase = phase === 'SHOWDOWN';
-  const sizeClass = cardSizeClass(n);
-  const overlapClass = cardOverlapClass(n);
 
   const isTwoColumn = modeId === 'badugi' || modeId === 'dead7';
 
@@ -378,13 +305,12 @@ export function HeroHandPanel({
 
         {isTwoColumn ? (
           /* ── 2-column layout: Badugi / Dead 7 ──────────────────────────── */
-          <div className="grid grid-cols-2 gap-0 divide-x divide-white/[0.06]">
+          <div className="grid grid-cols-1 gap-0 divide-y divide-white/[0.06] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
 
             {/* Column 1: Cards */}
             <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
               <CardFan
-                cards={cards} n={n}
-                sizeClass={sizeClass} overlapClass={overlapClass}
+                cards={cards}
                 selectedCardIndices={selectedCardIndices}
                 selectableCards={selectableCards} onCardClick={onCardClick}
                 isShowdownPhase={isShowdownPhase} isDrawPhase={isDrawPhase}
@@ -430,13 +356,12 @@ export function HeroHandPanel({
           </div>
         ) : (
           /* ── 3-column layout: 15/35 / Suits & Poker ───────────────────── */
-          <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-x-3 sm:gap-x-4 divide-x divide-white/[0.06]">
+          <div className="grid grid-cols-1 gap-0 divide-y divide-white/[0.06] sm:grid-cols-[1.4fr_1fr_1.2fr] sm:gap-x-4 sm:divide-x sm:divide-y-0">
 
             {/* Column 1: Cards */}
             <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
               <CardFan
-                cards={cards} n={n}
-                sizeClass={sizeClass} overlapClass={overlapClass}
+                cards={cards}
                 selectedCardIndices={selectedCardIndices}
                 selectableCards={selectableCards} onCardClick={onCardClick}
                 isShowdownPhase={isShowdownPhase} isDrawPhase={isDrawPhase}
