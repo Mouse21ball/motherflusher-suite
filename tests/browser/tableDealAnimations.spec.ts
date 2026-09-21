@@ -137,6 +137,43 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(1);
   });
 
+  test('resets privacy-safe flights when authoritative seats reorder during a deal', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+
+    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    await expect(opponentFlights).toHaveCount(2);
+    const opponentMarkup = await opponentFlights.evaluateAll((flights) =>
+      flights.map((flight) => ({
+        text: flight.textContent ?? '',
+        html: flight.outerHTML.toLowerCase(),
+      })),
+    );
+    for (const flight of opponentMarkup) {
+      expect(flight.text).toBe('');
+      expect(flight.html).not.toContain('king');
+      expect(flight.html).not.toContain('hearts');
+      expect(flight.html).not.toContain('opponent-');
+    }
+
+    await page.getByTestId('reorder-seats').click();
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+
+    const seats = page.getByTestId('table').locator(seatSelector);
+    await expect(seats).toHaveCount(3);
+    expect(await seats.evaluateAll((nodes) => nodes.map(node => node.getAttribute('data-deal-seat')))).toEqual([
+      'opponent-2',
+      'opponent-1',
+      'hero',
+    ]);
+    expect(await seats.evaluateAll((nodes) =>
+      nodes.every(node => getComputedStyle(node).visibility === 'visible'),
+    )).toBe(true);
+    await expect(page.getByTestId('table').locator('.playing-card-front')).toHaveCount(1);
+    await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(2);
+  });
+
   test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
     await openFixture(page);
     await expect(page.getByTestId('badugi-turn-timer')).toBeVisible();

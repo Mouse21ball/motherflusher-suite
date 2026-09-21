@@ -66,6 +66,22 @@ describe('table deal snapshot animation', () => {
     expect(result.events).toEqual([]);
   });
 
+  it('resets when authoritative seat order changes', () => {
+    const previous: TableDealTracker = {
+      ids: ['hero', 'villain'],
+      counts: [{ id: 'hero', count: 1 }, { id: 'villain', count: 1 }],
+      phase: 'BET_1',
+    };
+    const result = advanceTableDealTracker(
+      previous,
+      [player('villain', [card('K', true)]), player('hero', [card('A')])],
+      'BET_1',
+      'hero',
+    );
+    expect(result.reset).toBe(true);
+    expect(result.events).toEqual([]);
+  });
+
   it('allows a deal to land quickly even with a full table', () => {
     expect(getDealStagger(2)).toBe(82);
     expect(getDealStagger(40)).toBe(28);

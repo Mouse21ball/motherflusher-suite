@@ -132,6 +132,10 @@ function TableDealAnimatorBrowserHarness() {
     setPlayers(current => current.filter(player => player.id !== 'opponent-1'));
   };
 
+  const reorderSeatsDuringDeal = () => {
+    setPlayers(current => [...current].reverse());
+  };
+
   const startMissingDeal = (missing: 'deck' | 'seat') => {
     setShowDeck(missing !== 'deck');
     setVisibleSeats(missing === 'seat' ? { 'opponent-1': false } : {});
@@ -165,6 +169,7 @@ function TableDealAnimatorBrowserHarness() {
         <button type="button" data-testid="deal" onClick={startDeal}>Deal</button>
         <button type="button" data-testid="same-phase-update" onClick={samePhaseUpdate}>Same-phase update</button>
         <button type="button" data-testid="remove-seat" onClick={removeSeatDuringDeal}>Remove seat</button>
+        <button type="button" data-testid="reorder-seats" onClick={reorderSeatsDuringDeal}>Reorder seats</button>
         <button type="button" data-testid="interrupt" onClick={interruptDeal}>Interrupt</button>
         <button type="button" data-testid="missing-deck" onClick={() => startMissingDeal('deck')}>Missing deck</button>
         <button type="button" data-testid="missing-seat" onClick={() => startMissingDeal('seat')}>Missing seat</button>

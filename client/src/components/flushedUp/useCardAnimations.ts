@@ -90,9 +90,12 @@ export function advanceTableDealTracker(
   if (!previous) return { tracker, events: [], reset: false };
 
   const playerRemoved = previous.ids.some(id => !tracker.ids.includes(id));
+  const seatOrderChanged =
+    previous.ids.length === tracker.ids.length &&
+    previous.ids.some((id, index) => tracker.ids[index] !== id);
   const returnedToWaiting = phase === 'WAITING' && previous.phase !== 'WAITING';
   const restartedAnte = phase === 'ANTE' && !DEAL_PHASES.has(previous.phase);
-  if (playerRemoved || returnedToWaiting || restartedAnte) {
+  if (playerRemoved || seatOrderChanged || returnedToWaiting || restartedAnte) {
     return { tracker, events: [], reset: true };
   }
 
