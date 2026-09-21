@@ -10,3 +10,4 @@
 - [Game typography sweeps](game-typography-sweeps.md) — audit every phase-specific render branch; shared labels recur in separate lobby, race, wager, spectator, and result layouts.
 - [Browser animation timing](browser-animation-timing.md) — time rendered-flight cleanup from visible-flight start and allow bounded browser polling overhead over the calculated path.
 - [Interactive card animations](interactive-card-animations.md) — animation branches must retain button hit targets; same-phase server snapshots must not cancel active deal flights.
+- [Authoritative table effects](authoritative-table-effects.md) — derive chip, payout, and fold flights from state deltas; never recreate game math in the visual layer.

@@ -13,6 +13,7 @@ import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateBadugi } from '@shared/modes/badugi';
 import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
+import { BadugiTableEffects } from './BadugiTableEffects';
 
 const GOLD = 'rgba(201,162,39,';
 const HERO_CARD_W = 54;
@@ -127,6 +128,9 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       opponents={opponents}
       accent="#c9a227"
       modeLabel="badugi"
+      activePlayerId={state.activePlayerId}
+      turnDeadline={state.turnDeadline}
+      effects={tableRoot => <BadugiTableEffects state={state} tableRoot={tableRoot} />}
       center={(
         <>
         {/* Phase label */}
@@ -170,7 +174,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
           </motion.div>
         )}
 
-        {me && me.cards.length > 0 ? (
+        {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
             <div style={{ filter: heroFilter, transition: 'filter 0.4s ease' }}>
               <CardHand cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick}
@@ -179,7 +183,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
                 isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} />
             </div>
 
-            {isShowdown && heroHandEval && me.status !== 'folded' && (
+            {isShowdown && heroHandEval && (
               <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace',
                 color: heroIsWinner ? '#C9A227' : 'rgba(255,255,255,0.7)',
                 fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.08em', textAlign: 'center',
@@ -188,6 +192,14 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
               </div>
             )}
           </>
+        ) : me?.status === 'folded' ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.62 }}
+            style={{ padding: '18px 26px', color: 'rgba(255,255,255,0.62)', font: '700 11px monospace', letterSpacing: '0.14em' }}
+          >
+            FOLDED
+          </motion.div>
         ) : (
           /* Ghost card slots */
           <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>

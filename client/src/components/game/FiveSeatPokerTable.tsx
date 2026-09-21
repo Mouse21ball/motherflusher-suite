@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState, type ReactNode, type Ref } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { GameState, Player } from '@/lib/poker/types';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
@@ -29,6 +29,9 @@ interface FiveSeatPokerTableProps {
   center: ReactNode;
   accent: string;
   modeLabel: string;
+  activePlayerId?: string | null;
+  turnDeadline?: number | null;
+  effects?: (tableRoot: HTMLElement | null) => ReactNode;
 }
 
 const SLOT_STYLES = [
@@ -191,8 +194,67 @@ function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent
   );
 }
 
+function TableTurnTimer({
+  deadline,
+  playerName,
+  accent,
+}: {
+  deadline: number;
+  playerName: string;
+  accent: string;
+}) {
+  const [remainingMs, setRemainingMs] = useState(() => Math.max(0, deadline - Date.now()));
+  const durationRef = useRef(Math.max(1000, deadline - Date.now()));
+
+  useEffect(() => {
+    durationRef.current = Math.max(1000, deadline - Date.now());
+    const update = () => setRemainingMs(Math.max(0, deadline - Date.now()));
+    update();
+    const timer = window.setInterval(update, 200);
+    return () => window.clearInterval(timer);
+  }, [deadline]);
+
+  const seconds = Math.ceil(remainingMs / 1000);
+  const progress = Math.max(0, Math.min(1, remainingMs / durationRef.current));
+  const urgent = seconds <= 5;
+
+  return (
+    <div
+      data-testid="badugi-turn-timer"
+      role="timer"
+      aria-label={`${playerName} has ${seconds} seconds remaining`}
+      style={{
+        position: 'absolute',
+        zIndex: 35,
+        top: 14,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'min(48%, 210px)',
+        padding: '5px 8px 6px',
+        borderRadius: 10,
+        background: 'rgba(3,8,7,0.9)',
+        border: `1px solid ${urgent ? '#ef6a5b' : `${accent}66`}`,
+        boxShadow: urgent ? '0 0 14px rgba(239,106,91,0.28)' : `0 0 12px ${accent}20`,
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: urgent ? '#ff9b90' : 'rgba(255,255,255,0.78)', font: '700 9px monospace', letterSpacing: '0.08em' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</span>
+        <span>{seconds}s</span>
+      </div>
+      <div style={{ height: 3, marginTop: 4, overflow: 'hidden', borderRadius: 3, background: 'rgba(255,255,255,0.1)' }}>
+        <motion.div
+          animate={{ scaleX: progress }}
+          transition={{ duration: 0.18, ease: 'linear' }}
+          style={{ width: '100%', height: '100%', transformOrigin: 'left center', background: urgent ? '#ef6a5b' : accent }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
-  { players, phase, myId, opponents, hero, center, accent, modeLabel }: FiveSeatPokerTableProps,
+  { players, phase, myId, opponents, hero, center, accent, modeLabel, activePlayerId, turnDeadline, effects }: FiveSeatPokerTableProps,
   ref: Ref<HTMLDivElement>,
 ) {
   const [tableRoot, setTableRoot] = useState<HTMLDivElement | null>(null);
@@ -251,12 +313,23 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
       />
 
       <div data-deal-anchor="deck" aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '48%', width: 44, height: 44, transform: 'translate(-50%, -50%)', opacity: 0, pointerEvents: 'none' }} />
+      <div data-pot-anchor aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '48%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
+      <div data-muck-anchor aria-hidden="true" style={{ position: 'absolute', left: '38%', top: '55%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
+
+      {turnDeadline && activePlayerId && phase !== 'WAITING' && phase !== 'SHOWDOWN' && (
+        <TableTurnTimer
+          deadline={turnDeadline}
+          playerName={players.find(player => player.id === activePlayerId)?.name ?? 'Player'}
+          accent={accent}
+        />
+      )}
 
       {opponents.map((opponent, index) => {
         const position = SLOT_STYLES[index];
         return (
           <div
             key={opponent.id}
+            data-player-seat={opponent.id}
             style={{ position: 'absolute', zIndex: 10, ...position }}
           >
             <OpponentSeat opponent={opponent} accent={accent} />
@@ -286,6 +359,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
 
       <div
         data-deal-seat={myId}
+        data-player-seat={myId}
         style={{
           position: 'absolute',
           zIndex: 20,
@@ -297,12 +371,15 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
           justifyContent: 'center',
           alignItems: 'flex-end',
           pointerEvents: 'auto',
+          filter: activePlayerId === myId && phase !== 'WAITING' ? `drop-shadow(0 0 10px ${accent}55)` : 'none',
+          transition: 'filter 220ms ease',
         }}
       >
         {hero}
       </div>
 
       <TableDealAnimator players={players} phase={phase} myId={myId} tableRoot={tableRoot} />
+      {effects?.(tableRoot)}
     </div>
   );
 });

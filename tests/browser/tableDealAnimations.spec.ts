@@ -35,8 +35,8 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     expect(geometry.viewport.width).toBe(375);
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
-    await expect(page.locator('[data-deal-seat="hero"]')).toHaveCSS('visibility', 'hidden');
-    await expect(page.locator('[data-deal-seat="opponent-1"]')).toHaveCSS('visibility', 'hidden');
+    await expect(page.getByTestId('table').locator('[data-deal-seat="hero"]')).toHaveCSS('visibility', 'hidden');
+    await expect(page.getByTestId('table').locator('[data-deal-seat="opponent-1"]')).toHaveCSS('visibility', 'hidden');
 
     const flightGeometry = await page.locator(flightSelector).first().evaluate((flight) => ({
       left: parseFloat((flight as HTMLElement).style.left),
@@ -71,7 +71,7 @@ test.describe('table deal animation in a narrow browser viewport', () => {
 
     await page.getByTestId('interrupt').click();
     await expect(page.locator(flightSelector)).toHaveCount(0);
-    await expect(page.locator(seatSelector).first()).toHaveCSS('visibility', 'visible');
+    await expect(page.getByTestId('table').locator(seatSelector).first()).toHaveCSS('visibility', 'visible');
   });
 
   test('restores destination visibility when the animator unmounts', async ({ page }) => {
@@ -80,8 +80,8 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator(flightSelector)).toHaveCount(3);
     await page.getByTestId('unmount').click();
     await expect(page.locator(flightSelector)).toHaveCount(0);
-    await expect(page.locator(seatSelector)).toHaveCount(3);
-    const restored = await page.locator(seatSelector).evaluateAll((seats) =>
+    await expect(page.getByTestId('table').locator(seatSelector)).toHaveCount(3);
+    const restored = await page.getByTestId('table').locator(seatSelector).evaluateAll((seats) =>
       seats.every((seat) => getComputedStyle(seat).visibility === 'visible'),
     );
     expect(restored).toBe(true);
@@ -101,6 +101,24 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator(flightSelector)).toHaveCount(3);
     await page.getByTestId('same-phase-update').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
+  });
+
+  test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
+    await openFixture(page);
+    await expect(page.getByTestId('badugi-turn-timer')).toBeVisible();
+
+    await page.getByTestId('effect-bet').click();
+    await expect(page.locator('[data-badugi-chip-flight="bet"]')).toHaveCount(1);
+
+    await page.waitForTimeout(900);
+    await page.getByTestId('effect-payout').click();
+    await expect(page.locator('[data-badugi-chip-flight="payout"]')).toHaveCount(2);
+  });
+
+  test('moves folded Badugi cards toward the muck', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('effect-fold').click();
+    await expect(page.locator('[data-badugi-fold-flight="opponent-1"]')).toBeVisible();
   });
 
   test('snaps to authoritative cards when an anchor is missing', async ({ page }) => {
@@ -140,6 +158,6 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator(flightSelector)).toHaveCount(0);
     const elapsed = Date.now() - started;
     expect(elapsed).toBeLessThanOrEqual(fullTableTimingCapMs);
-    await expect(page.locator('[data-deal-seat="hero"]')).toHaveCSS('visibility', 'visible');
+    await expect(page.getByTestId('table').locator('[data-deal-seat="hero"]')).toHaveCSS('visibility', 'visible');
   });
 });

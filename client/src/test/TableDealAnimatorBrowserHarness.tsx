@@ -1,9 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { CardType, Player } from '@/lib/poker/types';
+import type { CardType, GameState, Player } from '@/lib/poker/types';
 import { PlayingCard } from '@/components/game/Card';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
+import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
+import { BadugiTableEffects } from '@/components/badugi/BadugiTableEffects';
 
 const heroCard: CardType = { rank: 'A', suit: 'spades' };
 const opponentCard: CardType = { rank: 'K', suit: 'hearts', isHidden: true };
@@ -40,6 +42,31 @@ function FullTablePlayers(): Player[] {
   return Array.from({ length: 40 }, (_, index) =>
     makePlayer(index === 0 ? 'hero' : `opponent-${index}`)
   );
+}
+
+function effectPlayers(): Player[] {
+  return [
+    makePlayer('hero', [heroCard, heroCard, heroCard, heroCard]),
+    makePlayer('opponent-1', [opponentCard, opponentCard, opponentCard, opponentCard]),
+  ];
+}
+
+function effectGameState(players = effectPlayers(), phase: GameState['phase'] = 'BET_1'): GameState {
+  return {
+    tableId: 'effects-test',
+    phase,
+    pot: 100,
+    currentBet: 0,
+    minBet: 25,
+    activePlayerId: 'opponent-1',
+    turnDeadline: Date.now() + 15_000,
+    players,
+    communityCards: [],
+    messages: [],
+    chatMessages: [],
+    deck: [],
+    discardPile: [],
+  };
 }
 
 function DealSeat({
@@ -80,6 +107,7 @@ function TableDealAnimatorBrowserHarness() {
   const [visibleSeats, setVisibleSeats] = useState<Record<string, boolean>>({});
   const [fullDealRequested, setFullDealRequested] = useState(false);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [effectState, setEffectState] = useState<GameState>(() => effectGameState());
 
   useLayoutEffect(() => {
     setTableRoot(tableRef.current);
@@ -137,6 +165,28 @@ function TableDealAnimatorBrowserHarness() {
         <button type="button" data-testid="missing-seat" onClick={() => startMissingDeal('seat')}>Missing seat</button>
         <button type="button" data-testid="full-deal" onClick={startFullDeal}>Full deal</button>
         <button type="button" data-testid="unmount" onClick={() => setMounted(false)}>Unmount</button>
+        <button type="button" data-testid="effect-bet" onClick={() => setEffectState(current => ({
+          ...current,
+          pot: current.pot + 50,
+          currentBet: 50,
+          players: current.players.map(player => player.id === 'opponent-1'
+            ? { ...player, bet: player.bet + 50, chips: player.chips - 50 }
+            : player),
+        }))}>Animate bet</button>
+        <button type="button" data-testid="effect-payout" onClick={() => setEffectState(current => ({
+          ...current,
+          phase: 'SHOWDOWN',
+          pot: 0,
+          activePlayerId: null,
+          turnDeadline: null,
+          players: current.players.map(player => ({ ...player, chips: player.chips + 50, isWinner: true })),
+        }))}>Animate split payout</button>
+        <button type="button" data-testid="effect-fold" onClick={() => setEffectState(current => ({
+          ...current,
+          players: current.players.map(player => player.id === 'opponent-1'
+            ? { ...player, status: 'folded' }
+            : player),
+        }))}>Animate fold</button>
       </div>
       <div data-testid="interactive-hand" style={{ width: 240 }}>
         <CardHand
@@ -190,6 +240,31 @@ function TableDealAnimatorBrowserHarness() {
             tableRoot={tableRoot}
           />
         )}
+      </div>
+      <div data-testid="badugi-effects-table" style={{ width: 375, height: 500 }}>
+        <FiveSeatPokerTable
+          players={effectState.players}
+          phase={effectState.phase}
+          myId="hero"
+          opponents={effectState.players.filter(player => player.id !== 'hero').map((player): FiveSeatOpponent => ({
+            id: player.id,
+            name: player.name,
+            chips: player.chips,
+            cardCount: player.cards.length,
+            status: player.status,
+            isActive: effectState.activePlayerId === player.id,
+            isWinner: !!player.isWinner,
+            isDealer: player.isDealer,
+            seatNum: 2,
+          }))}
+          hero={<div style={{ width: 180, height: 70 }}>Hero</div>}
+          center={<div>Pot {effectState.pot}</div>}
+          accent="#c9a227"
+          modeLabel="badugi-effects-test"
+          activePlayerId={effectState.activePlayerId}
+          turnDeadline={effectState.turnDeadline}
+          effects={root => <BadugiTableEffects state={effectState} tableRoot={root} />}
+        />
       </div>
     </>
   );

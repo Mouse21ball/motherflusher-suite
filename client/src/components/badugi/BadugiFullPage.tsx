@@ -178,6 +178,15 @@ export function BadugiFullPage({
 
   /* ShowdownReveal data */
   const showReveal   = state.phase === 'SHOWDOWN';
+  const [showRevealOverlay, setShowRevealOverlay] = useState(false);
+  useEffect(() => {
+    if (!showReveal) {
+      setShowRevealOverlay(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowRevealOverlay(true), 900);
+    return () => window.clearTimeout(timer);
+  }, [showReveal]);
   const revealWinners: WinnerData[] = showReveal
     ? state.players
         .filter(p => (p as any).isWinner)
@@ -288,7 +297,7 @@ export function BadugiFullPage({
       )}
 
       {/* ShowdownReveal overlay */}
-      {showReveal && (
+      {showRevealOverlay && (
         <ShowdownReveal cardsPerHand={4} winners={revealWinners} heroData={revealHeroData}
           heroWon={heroWonReveal} potAmount={revealPotAmount} onComplete={() => {}} />
       )}
