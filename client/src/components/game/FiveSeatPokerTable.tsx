@@ -86,7 +86,7 @@ function OpponentCardFan({ id, cardCount, folded }: { id: string; cardCount: num
   );
 }
 
-function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent: string }) {
+function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOpponent; accent: string; modeLabel: string }) {
   if (opponent.isOpen) {
     return (
       <div
@@ -96,15 +96,15 @@ function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent
           minHeight: 74,
           maxWidth: 'calc(100vw - 22px)',
           padding: '8px',
-          borderRadius: 14,
+          borderRadius: 16,
           background: 'rgba(0,0,0,0.25)',
-          border: '1px dashed rgba(255,255,255,0.12)',
+          border: '1px dashed rgba(255,255,255,0.05)',
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'rgba(255,255,255,0.48)',
+          color: 'rgba(255,255,255,0.7)',
           font: '600 10px monospace',
           letterSpacing: '0.08em',
         }}
@@ -118,6 +118,12 @@ function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent
   const avatar = getAvatarForSeat(opponent.seatNum);
   const avatarBg = getAvatarColor(opponent.name);
   const active = opponent.isActive && !folded;
+  const isDead7 = modeLabel === 'dead7';
+  const panelBackground = folded
+    ? (isDead7 ? 'rgba(5,0,0,0.6)' : 'rgba(5,3,10,0.6)')
+    : opponent.isWinner
+      ? (isDead7 ? 'rgba(25,5,5,0.85)' : 'rgba(15,10,0,0.82)')
+      : 'rgba(0,0,0,0.45)';
 
   return (
     <div
@@ -126,22 +132,22 @@ function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent
         width: 'clamp(104px, 28vw, 174px)',
         maxWidth: 'calc(100vw - 22px)',
         padding: '7px 8px 6px',
-        borderRadius: 14,
-        background: folded ? 'rgba(4,7,6,0.68)' : 'rgba(3,8,7,0.88)',
+        borderRadius: 16,
+        background: panelBackground,
         border: opponent.isWinner
-          ? `1px solid ${accent}`
+          ? `1.5px solid ${accent}bf`
           : active
-            ? `1px solid ${accent}aa`
-            : '1px solid rgba(201,162,39,0.18)',
+            ? `1px solid ${accent}80`
+            : '1px solid rgba(255,255,255,0.08)',
         boxShadow: opponent.isWinner
-          ? `0 0 18px ${accent}55`
+          ? `0 0 14px ${accent}4d`
           : active
-            ? `0 0 14px ${accent}30`
-            : '0 5px 14px rgba(0,0,0,0.35)',
-        opacity: folded ? 0.62 : 1,
-        transition: 'border-color 220ms ease, box-shadow 220ms ease, opacity 220ms ease',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+            ? `0 0 8px ${accent}2e`
+            : '0 2px 10px rgba(0,0,0,0.4)',
+        opacity: folded ? 0.7 : 1,
+        transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -153,8 +159,8 @@ function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent
             overflow: 'hidden',
             flexShrink: 0,
             background: avatarBg,
-            border: active ? `1.5px solid ${accent}` : '1.5px solid rgba(255,255,255,0.14)',
-            boxShadow: active ? `0 0 12px ${accent}88` : 'none',
+            border: active ? `1.5px solid ${accent}a6` : '1.5px solid rgba(255,255,255,0.1)',
+            boxShadow: active ? `0 0 8px ${accent}66` : 'none',
             transition: 'border-color 220ms ease, box-shadow 220ms ease',
           }}
         >
@@ -232,7 +238,9 @@ function TableTurnTimer({
         width: 'min(48%, 210px)',
         padding: '5px 8px 6px',
         borderRadius: 10,
-        background: 'rgba(3,8,7,0.9)',
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         border: `1px solid ${urgent ? '#ef6a5b' : `${accent}66`}`,
         boxShadow: urgent ? '0 0 14px rgba(239,106,91,0.28)' : `0 0 12px ${accent}20`,
         pointerEvents: 'none',
@@ -279,39 +287,9 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
         overflow: 'hidden',
         padding: '8px clamp(8px, 2vw, 18px)',
         isolation: 'isolate',
-        background: [
-          'radial-gradient(ellipse at 50% 43%, rgba(30,91,62,0.38) 0%, rgba(9,33,26,0.72) 48%, rgba(3,10,9,0.96) 100%)',
-          'repeating-linear-gradient(115deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 7px)',
-          'linear-gradient(180deg, #0b1713 0%, #030807 100%)',
-        ].join(','),
+        background: 'transparent',
       }}
     >
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 8,
-          borderRadius: 'clamp(28px, 8vw, 88px)',
-          border: '1px solid rgba(201,162,39,0.38)',
-          boxShadow: 'inset 0 0 0 5px rgba(0,0,0,0.52), inset 0 0 34px rgba(0,0,0,0.72), 0 0 22px rgba(0,0,0,0.5)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: '72%',
-          height: '46%',
-          transform: 'translate(-50%, -50%)',
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(86,153,103,0.08), transparent 68%)',
-          pointerEvents: 'none',
-        }}
-      />
-
       <div data-deal-anchor="deck" aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '48%', width: 44, height: 44, transform: 'translate(-50%, -50%)', opacity: 0, pointerEvents: 'none' }} />
       <div data-pot-anchor aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '48%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
       <div data-muck-anchor aria-hidden="true" style={{ position: 'absolute', left: '38%', top: '55%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
@@ -332,7 +310,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
             data-player-seat={opponent.id}
             style={{ position: 'absolute', zIndex: 10, ...position }}
           >
-            <OpponentSeat opponent={opponent} accent={accent} />
+            <OpponentSeat opponent={opponent} accent={accent} modeLabel={modeLabel} />
           </div>
         );
       })}

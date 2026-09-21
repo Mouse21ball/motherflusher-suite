@@ -140,6 +140,9 @@ test.describe('table deal animation in a narrow browser viewport', () => {
   test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
     await openFixture(page);
     await expect(page.getByTestId('badugi-turn-timer')).toBeVisible();
+    await expect(page.locator('[data-five-seat-table="badugi-effects-test"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(page.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.45)');
+    await expect(page.locator('[data-player-seat="opponent-1"] > div')).toHaveCSS('backdrop-filter', 'blur(12px)');
 
     await page.getByTestId('effect-bet').click();
     await expect(page.locator('[data-badugi-chip-flight="bet"]')).toHaveCount(1);
