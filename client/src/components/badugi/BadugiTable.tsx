@@ -16,8 +16,8 @@ import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/Fiv
 import { BadugiTableEffects } from './BadugiTableEffects';
 
 const GOLD = 'rgba(201,162,39,';
-const HERO_CARD_W = 54;
-const HERO_CARD_H = 76;
+const HERO_CARD_W = 68;
+const HERO_CARD_H = 95;
 
 /* ── Phase label ──────────────────────────────────────────────────────────── */
 

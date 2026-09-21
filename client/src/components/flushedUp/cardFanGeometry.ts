@@ -5,6 +5,27 @@ export interface CardFanGeometry {
   scale: number;
 }
 
+export function getSelectionSpreadOffsets(
+  count: number,
+  selectedIndices: readonly number[],
+  spacing = 10,
+): number[] {
+  if (count <= 1 || selectedIndices.length === 0) return Array.from({ length: count }, () => 0);
+
+  const selected = new Set(selectedIndices);
+  const offsets = Array.from({ length: count }, () => 0);
+  let accumulated = 0;
+  for (let index = 1; index < count; index += 1) {
+    if (selected.has(index - 1) !== selected.has(index)) accumulated += spacing;
+    offsets[index] = accumulated;
+  }
+
+  // Keep the expanded hand centered. Extra width is capped by the number of
+  // selected/unselected boundaries, so narrow layouts retain their viewport margin.
+  const center = (offsets[0] + offsets[count - 1]) / 2;
+  return offsets.map(offset => offset - center);
+}
+
 export function getCardIdentity(card: { rank?: string; suit?: string; isHidden?: boolean }, occurrence: number): string {
   // Hero snapshots retain rank/suit while toggling isHidden at reveal time.
   // Ignore that presentation flag so the same physical card keeps its key.
@@ -31,7 +52,7 @@ export function getCardFanGeometry(
   const naturalWidth = count * cardWidth;
   const scale = Math.min(1, Math.max(minimumReadableScale, safeWidth / naturalWidth));
   const targetWidth = safeWidth * 0.96;
-  const generousGap = count <= 4 ? 8 : count === 5 ? 4 : 0;
+  const generousGap = count <= 2 ? 20 : count === 3 ? 18 : count === 4 ? 14 : count === 5 ? 5 : 0;
   const naturalStep = cardWidth + generousGap;
   // Flex layout still allocates the unscaled card width. Base the step on that
   // footprint so transform scaling cannot conceal horizontal overflow.

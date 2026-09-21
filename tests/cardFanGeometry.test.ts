@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getCardFanGeometry,
   getCardIdentity,
+  getSelectionSpreadOffsets,
 } from '../client/src/components/flushedUp/cardFanGeometry';
 
 describe('card fan geometry', () => {
@@ -22,6 +23,31 @@ describe('card fan geometry', () => {
 
     expect(smallHand.overlap).toBeLessThan(0);
     expect(largeHand.overlap).toBeGreaterThan(0);
+  });
+
+  it('gives four-card hands a pronounced gap when space is available', () => {
+    const geometry = getCardFanGeometry(1, 4, 360, 68);
+    expect(geometry.overlap).toBe(-14);
+  });
+
+  it('adds centered separation at selected-card boundaries', () => {
+    expect(getSelectionSpreadOffsets(4, [1])).toEqual([-10, 0, 10, 10]);
+    expect(getSelectionSpreadOffsets(4, [1, 2])).toEqual([-10, 0, 0, 10]);
+  });
+
+  it('does not spread an unselected hand', () => {
+    expect(getSelectionSpreadOffsets(4, [])).toEqual([0, 0, 0, 0]);
+  });
+
+  it('keeps a large four-card Badugi hand inside a narrow Android width', () => {
+    const count = 4;
+    const availableWidth = 280;
+    const cardWidth = 68;
+    const selectionExpansion = 20;
+    const geometry = getCardFanGeometry(0, count, availableWidth - selectionExpansion, cardWidth);
+    const renderedWidth = cardWidth + (cardWidth - geometry.overlap) * (count - 1);
+
+    expect(renderedWidth + selectionExpansion).toBeLessThanOrEqual(availableWidth + 0.001);
   });
 
   it('fits a large hand on a narrow screen without shrinking below 44px', () => {

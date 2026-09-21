@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AnimatedCard } from './AnimatedCard';
 import type { CardType } from '@/lib/poker/types';
-import { getCardFanGeometry, getCardIdentity } from './cardFanGeometry';
+import { getCardFanGeometry, getCardIdentity, getSelectionSpreadOffsets } from './cardFanGeometry';
 
 /* ─── Flush detection ────────────────────────────────────────────────────── */
 
@@ -66,9 +66,18 @@ export function CardHand({
   const flushIndices = isShowdown ? detectFlushCards(cards) : new Set<number>();
   const hasFlush = flushIndices.size > 0;
 
+  const selectionOffsets = useMemo(
+    () => getSelectionSpreadOffsets(cards.length, selectedIndices),
+    [cards.length, selectedIndices],
+  );
+  const selectionExpansion = selectionOffsets.length > 0
+    ? Math.max(...selectionOffsets) - Math.min(...selectionOffsets)
+    : 0;
   const geometries = useMemo(
-    () => cards.map((_, index) => getCardFanGeometry(index, cards.length, availableWidth, cardWidth)),
-    [availableWidth, cardWidth, cards.length],
+    () => cards.map((_, index) =>
+      getCardFanGeometry(index, cards.length, Math.max(1, availableWidth - selectionExpansion), cardWidth)
+    ),
+    [availableWidth, cardWidth, cards.length, selectionExpansion],
   );
   const maxDrop = geometries.reduce((max, geometry) => Math.max(max, geometry.yOffset), 0);
   const scale = geometries[0]?.scale ?? 1;
@@ -117,10 +126,15 @@ export function CardHand({
               key={identity}
               data-testid={testIdPrefix ? `${testIdPrefix}-${index}` : undefined}
               initial={false}
+              animate={{ x: selectionOffsets[index] }}
               exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
               transition={reducedMotion
                 ? { duration: 0 }
-                : { layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 0.12 } }}
+                : {
+                    layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                    x: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                    opacity: { duration: 0.12 },
+                  }}
               style={{
                 width: cardWidth,
                 height: cardHeight,
