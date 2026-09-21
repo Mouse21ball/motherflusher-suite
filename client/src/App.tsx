@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WelcomeGate } from "@/components/WelcomeGate";
+import { ColdStartSplash } from "@/components/ColdStartSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
@@ -166,9 +167,11 @@ function App() {
         <div className="cgp-vignette" aria-hidden="true" />
         <ProfileManager />
         <ErrorBoundary>
-          <WelcomeGate>
-            <Router />
-          </WelcomeGate>
+          <ColdStartSplash>
+            <WelcomeGate>
+              <Router />
+            </WelcomeGate>
+          </ColdStartSplash>
         </ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>

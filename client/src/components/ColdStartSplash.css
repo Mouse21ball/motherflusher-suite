@@ -1,0 +1,169 @@
+.cgp-cold-splash__app-content {
+  display: contents;
+}
+
+.cgp-cold-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #05050A;
+  cursor: pointer;
+  isolation: isolate;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+  animation: cgp-splash-exit 520ms cubic-bezier(.76,0,.24,1) 2900ms both;
+}
+
+.cgp-cold-splash__scene {
+  position: relative;
+  width: min(92vw, 31rem);
+  aspect-ratio: 680 / 1024;
+  transform: translateY(-1.5%);
+}
+
+.cgp-cold-splash__art {
+  position: absolute;
+  inset: 0;
+  background: url('/hero-chain-logo.png') center / contain no-repeat;
+}
+
+.cgp-cold-splash__art {
+  opacity: 0;
+  animation:
+    cgp-art-build 900ms cubic-bezier(.2,.75,.25,1) 90ms forwards,
+    cgp-art-out 420ms ease-in 2820ms forwards;
+}
+
+.cgp-cold-splash__path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cgp-cold-splash__wreath {
+  fill: none;
+  stroke: #A855F7;
+  stroke-width: 5;
+  stroke-linejoin: round;
+  opacity: 0;
+  filter: drop-shadow(0 0 8px rgba(168,85,247,.18));
+  animation:
+    cgp-wreath-in 650ms ease-out 420ms forwards,
+    cgp-wreath-out 500ms ease-in 2720ms forwards;
+}
+
+.cgp-cold-splash__comet {
+  fill: none;
+  stroke: #C084FC;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: 120 880;
+  stroke-dashoffset: 1000;
+  opacity: 0;
+  filter: drop-shadow(0 0 9px rgba(192,132,252,.88));
+  animation:
+    cgp-comet-in 260ms ease-out 650ms forwards,
+    cgp-comet-travel 1480ms linear 650ms infinite,
+    cgp-comet-out 300ms ease-in 2920ms forwards;
+}
+
+.cgp-cold-splash__dot {
+  fill: #E9D5FF;
+  opacity: 0;
+  filter: drop-shadow(0 0 8px rgba(192,132,252,.95));
+  animation:
+    cgp-dot-in 220ms ease-out 650ms forwards,
+    cgp-dot-out 220ms ease-in 3020ms forwards;
+}
+
+.cgp-cold-splash__reflection {
+  opacity: 0;
+  transform: translateY(101%) scaleY(-.30);
+  transform-origin: center top;
+  filter: blur(7px);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.3), transparent 73%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.3), transparent 73%);
+  animation:
+    cgp-reflection-in 850ms ease-out 920ms forwards,
+    cgp-reflection-out 620ms ease-in 2580ms forwards;
+}
+
+.cgp-cold-splash__reflection::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgba(216,180,254,.18) 50%, transparent 65%);
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  animation: cgp-reflection-shimmer 1200ms ease-in-out 1100ms infinite;
+}
+
+.cgp-cold-splash__reflection-path {
+  opacity: .28;
+}
+
+.cgp-cold-splash__hint {
+  position: absolute;
+  bottom: max(5.5vh, 2rem);
+  left: 0;
+  right: 0;
+  color: rgba(233,213,255,.42);
+  font: 500 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .22em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: cgp-hint-in 450ms ease-out 1750ms forwards;
+}
+
+@keyframes cgp-art-build {
+  from { opacity: 0; transform: scale(.94); filter: brightness(.35) saturate(.5); }
+  to { opacity: 1; transform: scale(1); filter: brightness(.9) saturate(.9); }
+}
+@keyframes cgp-art-out { to { opacity: .22; filter: brightness(.42) saturate(.7); } }
+@keyframes cgp-wreath-in { from { opacity: 0; } to { opacity: .82; } }
+@keyframes cgp-wreath-out { to { opacity: .08; filter: drop-shadow(0 0 2px transparent); } }
+@keyframes cgp-comet-in { to { opacity: 1; } }
+@keyframes cgp-comet-travel { to { stroke-dashoffset: 0; } }
+@keyframes cgp-comet-out { to { opacity: 0; } }
+@keyframes cgp-dot-in { to { opacity: 1; } }
+@keyframes cgp-dot-out { to { opacity: 0; } }
+@keyframes cgp-reflection-in { from { opacity: 0; } to { opacity: .28; } }
+@keyframes cgp-reflection-out { to { opacity: 0; } }
+@keyframes cgp-reflection-shimmer {
+  0%, 100% { background-position: 120% 0; opacity: .12; }
+  50% { background-position: -20% 0; opacity: .35; }
+}
+@keyframes cgp-hint-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cgp-splash-exit {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
+@media (max-width: 420px) {
+  .cgp-cold-splash__scene { width: min(106vw, 31rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cgp-cold-splash,
+  .cgp-cold-splash__art,
+  .cgp-cold-splash__wreath,
+  .cgp-cold-splash__comet,
+  .cgp-cold-splash__dot,
+  .cgp-cold-splash__reflection,
+  .cgp-cold-splash__reflection::after,
+  .cgp-cold-splash__hint {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+    animation-iteration-count: 1;
+  }
+  .cgp-cold-splash { animation-duration: 260ms; animation-delay: 420ms; }
+}
