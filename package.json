@@ -11,7 +11,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test": "vitest run",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:browser:install": "playwright install chromium"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
