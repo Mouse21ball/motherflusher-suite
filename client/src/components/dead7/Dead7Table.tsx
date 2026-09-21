@@ -7,7 +7,7 @@
  * No debug PHASE/SELECTED strip.
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
@@ -124,6 +124,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
       accent="#ef4444"
       modeLabel="dead7"
       center={(
+        <>
         <motion.div key={state.phase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
           style={{ fontSize: 11, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.12em', textTransform: 'uppercase', textShadow: `0 0 12px ${R(0.3)}` }}>
           {phaseLabel(state.phase)}
@@ -149,6 +150,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
             {me?.name ?? 'You'}
           </span>
         </div>
+        </>
       )}
       hero={(
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
