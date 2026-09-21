@@ -18,6 +18,7 @@ import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
 import { CardHand } from '@/components/flushedUp/CardHand';
+import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 
 const MODE_ID   = 'box_chevy';
 const ENGINE_ID = 'box_chevy';
@@ -269,10 +270,12 @@ function BoxChevyGameUI() {
   const handleBack = useCallback(() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }, [me, navigate]);
 
   const showShowdown = phase === 'SHOWDOWN' && !showdownDismissed;
+  const dealRootRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div style={{
+    <div ref={dealRootRef} style={{
       height: '100dvh', display: 'flex', flexDirection: 'column',
+      position: 'relative',
       backgroundColor: '#0a1628',
       backgroundImage: "url('/backgrounds/box-chevy-bg.jpg')",
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
@@ -348,7 +351,7 @@ function BoxChevyGameUI() {
 
       {/* Hero hand — pinned just above action bar, closer to controls */}
       {!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 && (
-        <div style={{
+        <div data-deal-seat={myId} style={{
           flexShrink: 0,
           background: 'rgba(9,22,40,0.92)',
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -378,6 +381,15 @@ function BoxChevyGameUI() {
             cardHeight={73}
           />
         </div>
+      )}
+
+      {!effectiveSpectator && (
+        <TableDealAnimator
+          players={state.players}
+          phase={phase}
+          myId={myId}
+          tableRoot={dealRootRef.current}
+        />
       )}
 
       {!effectiveSpectator && !showShowdown && (

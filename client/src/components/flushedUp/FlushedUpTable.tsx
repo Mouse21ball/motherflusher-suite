@@ -8,6 +8,7 @@ import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarInitials, getAvatarColor } from '@/lib/persistence';
+import { TableDealAnimator } from './TableDealAnimator';
 
 /* ── Showdown helpers ─────────────────────────────────────────────────────── */
 
@@ -259,6 +260,7 @@ export function FlushedUpTable({
   isDrawPhase,
   animState,
 }: FlushedUpTableProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
 
@@ -306,7 +308,7 @@ export function FlushedUpTable({
   const heroCardH = 76;
 
   return (
-    <div style={{
+    <div ref={tableRef} style={{
       position: 'relative',
       width: '100%',
       height: '100%',
@@ -315,6 +317,10 @@ export function FlushedUpTable({
       overflow: 'hidden',
     }}>
       {/* ── Opponent 2×2 grid ──────────────────────────────────────────── */}
+      <div data-deal-anchor="deck" style={{
+        position: 'absolute', left: '50%', top: '50%', width: 44, height: 44,
+        transform: 'translate(-50%, -50%)', pointerEvents: 'none', opacity: 0,
+      }} />
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -328,17 +334,18 @@ export function FlushedUpTable({
           }
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
           return (
-            <OpponentPanel
-              key={opp.id}
-              name={opp.name}
-              chips={opp.chips}
-              cardCount={opp.cards.length}
-              status={opp.status}
-              isActive={state.activePlayerId === opp.id}
-              isWinner={!!opp.isWinner}
-              isDealer={!!opp.isDealer}
-              seatNum={seatNum}
-            />
+            <div key={opp.id} data-deal-seat={opp.id} style={{ minWidth: 0 }}>
+              <OpponentPanel
+                name={opp.name}
+                chips={opp.chips}
+                cardCount={opp.cards.length}
+                status={opp.status}
+                isActive={state.activePlayerId === opp.id}
+                isWinner={!!opp.isWinner}
+                isDealer={!!opp.isDealer}
+                seatNum={seatNum}
+              />
+            </div>
           );
         })}
         {Array.from({ length: emptyCount }).map((_, i) => (
@@ -402,7 +409,7 @@ export function FlushedUpTable({
       </div>
 
       {/* ── Hero hand ─────────────────────────────────────────────────── */}
-      <div style={{
+      <div data-deal-seat={myId} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         paddingBottom: 8, flexShrink: 0,
       }}>
@@ -499,6 +506,7 @@ export function FlushedUpTable({
           onDone={() => setShowWinner(false)}
         />
       )}
+      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );
 }

@@ -7,13 +7,14 @@
  * No debug PHASE/SELECTED strip.
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateDead7 } from '@shared/modes/dead7';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
+import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 
 const R = (a: number) => `rgba(185,28,28,${a})`;
 const HERO_CARD_W = 54;
@@ -164,6 +165,7 @@ export interface Dead7TableProps {
 }
 
 export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: Dead7TableProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const me          = state.players.find(p => p.id === myId);
   const isShowdown  = state.phase === 'SHOWDOWN';
 
@@ -183,18 +185,19 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
   const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div ref={tableRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
 
       {/* ── Opponent 2×2 grid ─────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '8px 10px 4px', flexShrink: 0 }}>
         {gridOpps.map(opp => {
           if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
-          return (
-            <OpponentPanel key={opp.id}
+            return (
+              <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel
               name={opp.name} chips={opp.chips} cardCount={opp.cards.length} status={opp.status}
               isActive={state.activePlayerId === opp.id} isWinner={!!(opp as any).isWinner}
-              isDealer={!!(opp as any).isDealer} seatNum={seatNum} />
+               isDealer={!!(opp as any).isDealer} seatNum={seatNum} /></div>
           );
         })}
         {Array.from({ length: emptyCount }).map((_, i) => <EmptyPanel key={`e-${i}`} />)}
@@ -230,7 +233,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
       </div>
 
       {/* ── Hero hand ─────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      <div data-deal-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDrawPhase && selectedCardIndices.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20,
@@ -266,6 +269,7 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
           </div>
         )}
       </div>
+      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );
 }

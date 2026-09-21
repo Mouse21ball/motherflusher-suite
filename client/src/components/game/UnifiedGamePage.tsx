@@ -31,6 +31,7 @@ import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
 import { qualifiesForSuits } from '@shared/modes/suitspoker';
 import { ShowdownReveal } from '@/components/game/ShowdownReveal';
+import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import type { WinnerData, HeroRevealData } from '@/components/game/ShowdownReveal';
 import { evaluateBadugi } from '@shared/modes/badugi';
 import { evaluateDead7 } from '@shared/modes/dead7';
@@ -87,6 +88,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
     if (kickedByHost) navigate('/');
   }, [kickedByHost, navigate]);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
+  const dealRootRef = useRef<HTMLElement>(null);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const me = state.players.find(p => p.id === myId);
 
@@ -362,7 +364,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       )}
 
       {/* ── Main content column ───────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-x-hidden">
+      <main ref={dealRootRef} className="relative flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-x-hidden">
 
         {/* Table 3D scene */}
         <ThreeDTableScene
@@ -395,6 +397,14 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           </div>
         )}
 
+        {modeId === 'suitspoker' && !effectiveSpectator && (
+          <TableDealAnimator
+            players={state.players}
+            phase={state.phase}
+            myId={myId}
+            tableRoot={dealRootRef.current}
+          />
+        )}
 
       </main>
 

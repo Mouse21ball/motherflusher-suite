@@ -788,20 +788,21 @@ export function ThreeDTableScene({
         {/* ── Opponents compact row ── */}
         <div className="flex justify-center gap-1.5 sm:gap-2 flex-wrap min-h-[80px] items-center">
           {activeSPOpponents.map(player => (
-            <CompactOpponent
-              key={player.id}
-              player={player}
-              isActive={player.id === gameState.activePlayerId}
-              lastAction={actionLabels[player.id]}
-              isShowdown={isShowdown}
-              seatIndex={opponents.findIndex(o => o.id === player.id) + 1}
-              modeId={modeId}
-            />
+            <div key={player.id} data-deal-seat={player.id}>
+              <CompactOpponent
+                player={player}
+                isActive={player.id === gameState.activePlayerId}
+                lastAction={actionLabels[player.id]}
+                isShowdown={isShowdown}
+                seatIndex={opponents.findIndex(o => o.id === player.id) + 1}
+                modeId={modeId}
+              />
+            </div>
           ))}
         </div>
 
         {/* ── Community card board — fixed height, always 12 slots ── */}
-        <div className="flex justify-center py-1">
+        <div className="flex justify-center py-1" data-deal-anchor="deck">
           <SuitsPokerCenter cc={gameState.communityCards} phase={gameState.phase} players={gameState.players} />
         </div>
 

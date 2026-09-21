@@ -7,6 +7,7 @@ import { WinnerOverlay } from '@/components/flushedUp/WinnerOverlay';
 import { evaluateBonecrusher } from '@shared/modes/bonecrusher';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
+import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 
 /* ── Amber / Obsidian palette ──────────────────────────────────────────── */
 const AMB  = '#d97706';
@@ -186,6 +187,7 @@ const CARD_H = Math.round(CARD_W / 0.714);
 
 /* ── Table ─────────────────────────────────────────────────────────────── */
 export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phase, flippedByHero }: BonecrusherTableProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const me         = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const isDeclare  = state.phase === 'DECLARE';
@@ -217,17 +219,18 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
   const communityCards = state.communityCards ?? [];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div ref={tableRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
 
       {/* Opponent 2×2 grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '8px 10px 4px', flexShrink: 0 }}>
         {gridOpps.map(opp => {
           if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
-          return (
-            <OpponentPanel key={opp.id} name={opp.name} chips={opp.chips} cards={opp.cards}
+            return (
+              <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel name={opp.name} chips={opp.chips} cards={opp.cards}
               status={opp.status} isActive={state.activePlayerId === opp.id} isWinner={!!opp.isWinner}
-              isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} />
+               isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} /></div>
           );
         })}
         {Array.from({ length: emptyCount }).map((_, i) => <EmptyPanel key={`e-${i}`} />)}
@@ -276,7 +279,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
       </div>
 
       {/* Hero hand */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      <div data-deal-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDiscardPhase && selectedCards.size > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em' }}>
@@ -324,6 +327,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
         <WinnerOverlay show={showWinner} winnerName={winnerData.name} potAmount={winnerData.pot}
           isHeroWinner={winnerData.isHero} onDone={() => setShowWinner(false)} />
       )}
+      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );
 }

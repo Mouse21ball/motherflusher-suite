@@ -138,7 +138,8 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
   }, [communityCards.length]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
       {/* Opponent grid */}
       <div style={{
         display: 'grid',
@@ -146,7 +147,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
         gap: 8,
       }}>
         {opponents.slice(0, 4).map(opp => (
-          <OpponentPanel key={opp.id} player={opp} phase={phase} />
+          <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel player={opp} phase={phase} /></div>
         ))}
       </div>
 

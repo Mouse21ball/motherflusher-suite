@@ -7,6 +7,7 @@ import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateKamikaze } from '@shared/modes/kamikaze';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
+import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 
 /* ── Graffiti Bomb palette ─────────────────────────────────────────────────── */
 const RED    = '#ef4444';
@@ -154,6 +155,7 @@ interface KamikazeTableProps {
 
 /* ── Table ──────────────────────────────────────────────────────────────── */
 export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: KamikazeTableProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const isDeclare  = state.phase === 'DECLARE';
@@ -181,16 +183,17 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
   }, [state.phase, state.players, state.pot, myId]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div ref={tableRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
       {/* Opponent 2×2 grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '8px 10px 4px', flexShrink: 0 }}>
         {gridOpps.map(opp => {
           if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
-          return (
-            <OpponentPanel key={opp.id} name={opp.name} chips={opp.chips} cardCount={opp.cards.length}
+            return (
+              <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel name={opp.name} chips={opp.chips} cardCount={opp.cards.length}
               status={opp.status} isActive={state.activePlayerId === opp.id} isWinner={!!opp.isWinner}
-              isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} />
+               isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} /></div>
           );
         })}
         {Array.from({ length: emptyCount }).map((_, i) => <EmptyPanel key={`e-${i}`} />)}
@@ -223,7 +226,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
       </div>
 
       {/* Hero hand */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      <div data-deal-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDrawPhase && selectedCardIndices.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: rA(0.15), border: `1px solid ${rA(0.4)}`, fontSize: 11, fontFamily: 'monospace', color: RED, letterSpacing: '0.08em' }}>
@@ -257,6 +260,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
         <WinnerOverlay show={showWinner} winnerName={winnerData.name} potAmount={winnerData.pot}
           isHeroWinner={winnerData.isHero} onDone={() => setShowWinner(false)} />
       )}
+      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );
 }

@@ -25,6 +25,7 @@ import { ChatBox } from "@/components/game/ChatBox";
 import { ResolutionOverlay } from "@/components/game/ResolutionOverlay";
 import { PlayingCard } from "@/components/game/Card";
 import { CardHand } from "@/components/flushedUp/CardHand";
+import { TableDealAnimator } from "@/components/flushedUp/TableDealAnimator";
 import { WinCelebration } from "@/components/game/WinCelebration";
 import { sfx } from "@/lib/sounds";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
@@ -454,7 +455,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
   const totalColor = isBust ? '#F87171' : (isLowMade || isHighMade) ? '#6EE7B7' : isDanger ? '#FB923C' : 'rgba(255,255,255,0.88)';
 
   return (
-    <div style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)', overflow: 'hidden' }}>
+    <div data-deal-seat={player.id} style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)', overflow: 'hidden' }}>
       {/* Chains — decorative background scoped to hero strip only */}
       <img
         src="/assets/ui/chains.png"
@@ -861,6 +862,7 @@ function F35ActionZone({
 export default function Fifteen35Game() {
   const tableId = useTableId();
   const [, navigate] = useLocation();
+  const dealRootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     trackModePlay('fifteen35');
@@ -1022,6 +1024,7 @@ export default function Fifteen35Game() {
 
   return (
     <div
+      ref={dealRootRef}
       className="h-[100dvh] overflow-hidden flex flex-col"
       data-mode="fifteen35"
       style={{
@@ -1032,6 +1035,7 @@ export default function Fifteen35Game() {
         backgroundAttachment: 'fixed',
       }}
     >
+      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '45%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
       {/* ── Top status bar ────────────────────────────────────────────────── */}
       <F35StatusBar
         ante={ante}
@@ -1102,6 +1106,7 @@ export default function Fifteen35Game() {
             ) : opponents.map((player, i) => (
               <div
                 key={player.id}
+                data-deal-seat={player.id}
                 style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
               >
                 <F35OpponentRow
@@ -1179,6 +1184,13 @@ export default function Fifteen35Game() {
           </div>
         )}
       </div>
+
+      <TableDealAnimator
+        players={state.players}
+        phase={state.phase}
+        myId={myId}
+        tableRoot={dealRootRef.current}
+      />
 
       {/* ── Overlays ──────────────────────────────────────────────────────── */}
       <ResolutionOverlay
