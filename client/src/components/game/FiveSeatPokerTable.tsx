@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode, type Ref } from 'react';
+import { forwardRef, useCallback, useState, type ReactNode, type Ref } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { GameState, Player } from '@/lib/poker/types';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
@@ -17,6 +17,7 @@ export interface FiveSeatOpponent {
   isWinner: boolean;
   isDealer: boolean;
   seatNum: number;
+  isOpen?: boolean;
 }
 
 interface FiveSeatPokerTableProps {
@@ -83,6 +84,31 @@ function OpponentCardFan({ id, cardCount, folded }: { id: string; cardCount: num
 }
 
 function OpponentSeat({ opponent, accent }: { opponent: FiveSeatOpponent; accent: string }) {
+  if (opponent.isOpen) {
+    return (
+      <div
+        data-deal-seat={opponent.id}
+        style={{
+          width: 'clamp(104px, 28vw, 174px)',
+          minHeight: 74,
+          maxWidth: 'calc(100vw - 22px)',
+          padding: '8px',
+          borderRadius: 14,
+          background: 'rgba(0,0,0,0.25)',
+          border: '1px dashed rgba(255,255,255,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'rgba(255,255,255,0.48)',
+          font: '600 10px monospace',
+          letterSpacing: '0.08em',
+        }}
+      >
+        OPEN
+      </div>
+    );
+  }
+
   const folded = opponent.status === 'folded';
   const avatar = getAvatarForSeat(opponent.seatNum);
   const avatarBg = getAvatarColor(opponent.name);
@@ -167,9 +193,19 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
   { players, phase, myId, opponents, hero, center, accent, modeLabel }: FiveSeatPokerTableProps,
   ref: Ref<HTMLDivElement>,
 ) {
+  const [tableRoot, setTableRoot] = useState<HTMLDivElement | null>(null);
+  const rootRef = useCallback((node: HTMLDivElement | null) => {
+    setTableRoot(previous => previous === node ? previous : node);
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      (ref as { current: HTMLDivElement | null }).current = node;
+    }
+  }, [ref]);
+
   return (
     <div
-      ref={ref}
+      ref={rootRef}
       data-five-seat-table={modeLabel}
       style={{
         position: 'relative',
@@ -262,7 +298,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
         {hero}
       </div>
 
-      <TableDealAnimator players={players} phase={phase} myId={myId} tableRoot={(ref as { current?: HTMLDivElement } | null)?.current ?? null} />
+      <TableDealAnimator players={players} phase={phase} myId={myId} tableRoot={tableRoot} />
     </div>
   );
 });

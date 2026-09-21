@@ -12,14 +12,11 @@ import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateDead7 } from '@shared/modes/dead7';
-import { getAvatarForSeat } from '@shared/engine/avatarMap';
-import { getAvatarColor } from '@/lib/persistence';
-import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
+import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
 
 const R = (a: number) => `rgba(185,28,28,${a})`;
 const HERO_CARD_W = 54;
 const HERO_CARD_H = 76;
-const CARD_BACK   = '/ladyluck/card-back-cgp.png';
 
 /* ── Phase label ──────────────────────────────────────────────────────────── */
 
@@ -63,96 +60,6 @@ function AnimatedPot({ pot }: { pot: number }) {
   );
 }
 
-/* ── Opponent panel ───────────────────────────────────────────────────────── */
-
-interface OppPanelProps { name: string; chips: number; cardCount: number; status: string; isActive: boolean; isWinner: boolean; isDealer: boolean; seatNum: number; }
-
-function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isDealer, seatNum }: OppPanelProps) {
-  const isFolded  = status === 'folded';
-  const avatarSrc = getAvatarForSeat(seatNum);
-  const avatarBg  = getAvatarColor(name);
-  const cards = Math.max(cardCount, 4);
-
-  return (
-    <div style={{
-      background: isFolded ? 'rgba(5,0,0,0.6)' : isWinner ? 'rgba(25,5,5,0.85)' : 'rgba(0,0,0,0.45)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      borderRadius: 16,
-      border: isWinner ? `1.5px solid ${R(0.75)}` : isActive ? `1px solid ${R(0.5)}` : '1px solid rgba(255,255,255,0.08)',
-      boxShadow: isWinner ? `0 0 14px ${R(0.3)}` : isActive ? `0 0 8px ${R(0.18)}` : '0 2px 10px rgba(0,0,0,0.4)',
-      padding: '8px 8px 6px', opacity: isFolded ? 0.7 : 1,
-      transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
-      display: 'flex', flexDirection: 'column', gap: 5,
-    }}>
-      {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-          border: isActive ? `1.5px solid ${R(0.65)}` : '1.5px solid rgba(255,255,255,0.1)',
-          background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: isActive ? `0 0 8px ${R(0.4)}` : 'none',
-        }}>
-          <img src={avatarSrc} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, overflow: 'hidden' }}>
-            {isActive && (
-              <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.85, repeat: Infinity }}
-                style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
-            )}
-            <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)' }}>
-              {name}
-            </span>
-            {isDealer && (
-              <div style={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, #C9A227, #A07C10)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace' }}>D</div>
-            )}
-          </div>
-          <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, marginTop: 1, color: R(0.75) }}>
-            {chips.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      {/* Card backs or FOLDED label */}
-      {isFolded ? (
-        <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textAlign: 'center' }}>FOLDED</div>
-      ) : (
-        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
-          {Array.from({ length: cards }).map((_, i) => (
-            <img key={i} src={CARD_BACK} alt="card" style={{ width: 28, height: 'auto', borderRadius: 3, flexShrink: 0, display: 'block' }} />
-          ))}
-        </div>
-      )}
-
-      {isWinner && (
-        <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em', textAlign: 'center', fontWeight: 700 }}>
-          ★ WINNER
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Empty seat ───────────────────────────────────────────────────────────── */
-
-function EmptyPanel() {
-  return (
-    <div style={{
-      background: 'rgba(0,0,0,0.25)', borderRadius: 16,
-      border: '1px dashed rgba(255,255,255,0.05)',
-      padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 74,
-    }}>
-      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>OPEN</span>
-    </div>
-  );
-}
-
 /* ── Props & main component ───────────────────────────────────────────────── */
 
 export interface Dead7TableProps {
@@ -165,7 +72,6 @@ export interface Dead7TableProps {
 }
 
 export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: Dead7TableProps) {
-  const tableRef = useRef<HTMLDivElement>(null);
   const me          = state.players.find(p => p.id === myId);
   const isShowdown  = state.phase === 'SHOWDOWN';
 
@@ -180,31 +86,44 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
     ...state.players.slice(myIndex + 1),
     ...state.players.slice(0, myIndex),
   ].filter(p => p.id !== myId).slice(0, 4);
-  const emptyCount = Math.max(0, 4 - gridOpps.length);
+  const opponents: FiveSeatOpponent[] = [
+    ...gridOpps.map(opp => ({
+      id: opp.id,
+      name: opp.name,
+      chips: opp.chips,
+      cardCount: opp.cards.length,
+      status: opp.status,
+      isActive: state.activePlayerId === opp.id,
+      isWinner: !!(opp as any).isWinner,
+      isDealer: !!(opp as any).isDealer,
+      seatNum: parseInt(opp.id.replace('p', ''), 10) || 1,
+      isOpen: opp.presence === 'reserved' || opp.presence === 'open',
+    })),
+    ...Array.from({ length: Math.max(0, 4 - gridOpps.length) }, (_, index) => ({
+      id: `open-${index}`,
+      name: 'OPEN',
+      chips: 0,
+      cardCount: 0,
+      status: 'folded' as const,
+      isActive: false,
+      isWinner: false,
+      isDealer: false,
+      seatNum: 0,
+      isOpen: true,
+    })),
+  ];
 
   const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
 
   return (
-    <div ref={tableRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
-
-      {/* ── Opponent 2×2 grid ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '8px 10px 4px', flexShrink: 0 }}>
-        {gridOpps.map(opp => {
-          if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
-          const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
-            return (
-              <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel
-              name={opp.name} chips={opp.chips} cardCount={opp.cards.length} status={opp.status}
-              isActive={state.activePlayerId === opp.id} isWinner={!!(opp as any).isWinner}
-               isDealer={!!(opp as any).isDealer} seatNum={seatNum} /></div>
-          );
-        })}
-        {Array.from({ length: emptyCount }).map((_, i) => <EmptyPanel key={`e-${i}`} />)}
-      </div>
-
-      {/* ── Centre ────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 0', pointerEvents: 'none' }}>
+    <FiveSeatPokerTable
+      players={state.players}
+      phase={state.phase}
+      myId={myId}
+      opponents={opponents}
+      accent="#ef4444"
+      modeLabel="dead7"
+      center={(
         <motion.div key={state.phase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
           style={{ fontSize: 11, fontFamily: 'monospace', color: R(0.7), letterSpacing: '0.12em', textTransform: 'uppercase', textShadow: `0 0 12px ${R(0.3)}` }}>
           {phaseLabel(state.phase)}
@@ -230,10 +149,9 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
             {me?.name ?? 'You'}
           </span>
         </div>
-      </div>
-
-      {/* ── Hero hand ─────────────────────────────────────────────── */}
-      <div data-deal-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      )}
+      hero={(
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDrawPhase && selectedCardIndices.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20,
@@ -268,8 +186,8 @@ export function Dead7Table({ state, myId, selectedCardIndices, onCardClick, isDr
             ))}
           </div>
         )}
-      </div>
-      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
-    </div>
+        </div>
+      )}
+    />
   );
 }
