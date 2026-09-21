@@ -286,7 +286,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const cardsPerHandForMode = modeId === 'suitspoker' ? 5 : 4;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root" data-mode={modeId}>
+    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root overflow-x-hidden" data-mode={modeId}>
       {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
 
       {/* Fixed top status bar */}
@@ -364,7 +364,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       )}
 
       {/* ── Main content column ───────────────────────────────────────────── */}
-      <main ref={dealRootRef} className="relative flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-x-hidden">
+      <main ref={dealRootRef} className="relative flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-visible">
 
         {/* Table 3D scene */}
         <ThreeDTableScene

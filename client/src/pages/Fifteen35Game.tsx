@@ -455,7 +455,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
   const totalColor = isBust ? '#F87171' : (isLowMade || isHighMade) ? '#6EE7B7' : isDanger ? '#FB923C' : 'rgba(255,255,255,0.88)';
 
   return (
-    <div data-deal-seat={player.id} style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '10px 12px 8px', backdropFilter: 'blur(2px)', overflow: 'hidden' }}>
+    <div data-deal-seat={player.id} style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '18px 16px 10px', backdropFilter: 'blur(2px)', overflow: 'visible' }}>
       {/* Chains — decorative background scoped to hero strip only */}
       <img
         src="/assets/ui/chains.png"

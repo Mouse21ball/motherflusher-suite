@@ -299,7 +299,7 @@ export function HeroHandPanel({
       data-testid="panel-hero-hand"
       data-deal-seat={player.id}
     >
-      <div className="relative rounded-2xl border border-[#C9A227]/30 bg-gradient-to-br from-[#1a1a1f]/90 to-[#0a0a0e]/95 backdrop-blur-xl overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="relative rounded-2xl border border-[#C9A227]/30 bg-gradient-to-br from-[#1a1a1f]/90 to-[#0a0a0e]/95 backdrop-blur-xl overflow-visible shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)]">
 
         {/* Gold accent line at top */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-transparent via-[#C9A227]/40 to-transparent rounded-full" />
@@ -309,7 +309,7 @@ export function HeroHandPanel({
           <div className="grid grid-cols-1 gap-0 divide-y divide-white/[0.06] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
 
             {/* Column 1: Cards */}
-            <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
+            <div className="px-5 pt-6 pb-4 flex items-center justify-center min-w-0 overflow-visible">
               <CardFan
                 cards={cards}
                 selectedCardIndices={selectedCardIndices}

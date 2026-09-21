@@ -84,7 +84,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       boxShadow: `0 0 12px ${glowCol}`,
       padding: '8px 8px 6px', opacity: isFolded ? 0.7 : 1,
       transition: 'border 0.3s, box-shadow 0.3s',
-      display: 'flex', flexDirection: 'column', gap: 5,
+      display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0, width: '100%',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{
@@ -102,7 +102,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
               <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.85, repeat: Infinity }}
                 style={{ width: 5, height: 5, borderRadius: '50%', background: YELLOW, flexShrink: 0 }} />
             )}
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ display: 'block', flex: 1, minWidth: 0, maxWidth: '100%', fontSize: 11, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {name}
             </span>
             {isDealer && (
@@ -186,12 +186,12 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
     <div ref={tableRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
       {/* Opponent 2×2 grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '8px 10px 4px', flexShrink: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 7, padding: '8px 10px 4px', flexShrink: 0, minWidth: 0 }}>
         {gridOpps.map(opp => {
           if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
             return (
-              <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel name={opp.name} chips={opp.chips} cardCount={opp.cards.length}
+              <div key={opp.id} data-deal-seat={opp.id} style={{ minWidth: 0 }}><OpponentPanel name={opp.name} chips={opp.chips} cardCount={opp.cards.length}
               status={opp.status} isActive={state.activePlayerId === opp.id} isWinner={!!opp.isWinner}
                isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} /></div>
           );
