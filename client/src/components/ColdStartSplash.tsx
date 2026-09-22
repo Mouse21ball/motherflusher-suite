@@ -5,20 +5,19 @@ import "./ColdStartSplash.css";
 let coldStartSplashConsumed = false;
 
 const WREATH_PATH = [
-  "M 236 274",
-  "C 319 243 397 253 462 286",
-  "L 564 350",
-  "C 592 367 609 397 609 430",
-  "L 608 553",
-  "C 606 592 583 621 552 643",
-  "L 462 718",
-  "C 419 749 351 759 297 744",
-  "L 177 707",
-  "C 130 691 101 662 86 620",
-  "L 63 510",
-  "C 56 470 69 429 91 397",
-  "L 150 318",
-  "C 172 294 201 282 236 274",
+  "M 531 180",
+  "C 488 154 444 153 405 177",
+  "L 190 306",
+  "C 151 330 129 366 126 410",
+  "L 112 647",
+  "C 109 691 131 727 173 751",
+  "L 406 881",
+  "C 448 905 494 906 536 883",
+  "L 768 759",
+  "C 810 736 833 701 833 659",
+  "L 832 430",
+  "C 832 388 809 351 766 324",
+  "L 531 180",
   "Z",
 ].join(" ");
 
@@ -93,13 +92,13 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
         >
           <div className="cgp-cold-splash__scene" aria-hidden="true">
             <div className="cgp-cold-splash__art" />
-            <svg className="cgp-cold-splash__path" viewBox="0 0 680 1024" preserveAspectRatio="xMidYMid meet">
+            <svg className="cgp-cold-splash__path" viewBox="0 0 941 1672" preserveAspectRatio="xMidYMid meet">
               <path className="cgp-cold-splash__wreath" d={WREATH_PATH} pathLength="1000" />
               <path className="cgp-cold-splash__comet" d={WREATH_PATH} pathLength="1000" />
               <circle
                 className="cgp-cold-splash__dot"
-                cx={reducedMotion ? 236 : 0}
-                cy={reducedMotion ? 274 : 0}
+                cx={reducedMotion ? 531 : 0}
+                cy={reducedMotion ? 180 : 0}
                 r="7"
               >
                 {!reducedMotion && (
@@ -109,13 +108,13 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
             </svg>
             <div className="cgp-cold-splash__reflection">
               <div className="cgp-cold-splash__art" />
-              <svg className="cgp-cold-splash__path cgp-cold-splash__reflection-path" viewBox="0 0 680 1024" preserveAspectRatio="xMidYMid meet">
+              <svg className="cgp-cold-splash__path cgp-cold-splash__reflection-path" viewBox="0 0 941 1672" preserveAspectRatio="xMidYMid meet">
                 <path className="cgp-cold-splash__wreath" d={WREATH_PATH} pathLength="1000" />
                 <path className="cgp-cold-splash__comet" d={WREATH_PATH} pathLength="1000" />
                 <circle
                   className="cgp-cold-splash__dot"
-                  cx={reducedMotion ? 236 : 0}
-                  cy={reducedMotion ? 274 : 0}
+                  cx={reducedMotion ? 531 : 0}
+                  cy={reducedMotion ? 180 : 0}
                   r="7"
                 >
                   {!reducedMotion && (

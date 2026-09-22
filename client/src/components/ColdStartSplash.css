@@ -23,14 +23,14 @@
 .cgp-cold-splash__scene {
   position: relative;
   width: min(92vw, 31rem);
-  aspect-ratio: 680 / 1024;
+  aspect-ratio: 941 / 1672;
   transform: translateY(-1.5%);
 }
 
 .cgp-cold-splash__art {
   position: absolute;
   inset: 0;
-  background: url('/hero-chain-logo.png') center / contain no-repeat;
+  background: url('/splash-chain-gang-logo.png') center / contain no-repeat;
 }
 
 .cgp-cold-splash__art {
@@ -50,11 +50,11 @@
 
 .cgp-cold-splash__wreath {
   fill: none;
-  stroke: #A855F7;
+  stroke: #D4A73D;
   stroke-width: 5;
   stroke-linejoin: round;
   opacity: 0;
-  filter: drop-shadow(0 0 8px rgba(168,85,247,.18));
+  filter: drop-shadow(0 0 8px rgba(240,184,41,.18));
   animation:
     cgp-wreath-in 650ms ease-out 420ms forwards,
     cgp-wreath-out 500ms ease-in 5300ms forwards;
@@ -62,13 +62,13 @@
 
 .cgp-cold-splash__comet {
   fill: none;
-  stroke: #C084FC;
+  stroke: #FFD666;
   stroke-width: 7;
   stroke-linecap: round;
   stroke-dasharray: 120 880;
   stroke-dashoffset: 1000;
   opacity: 0;
-  filter: drop-shadow(0 0 9px rgba(192,132,252,.88));
+  filter: drop-shadow(0 0 9px rgba(240,184,41,.88));
   animation:
     cgp-comet-in 260ms ease-out 650ms forwards,
     cgp-comet-travel 1480ms linear 650ms infinite,
@@ -76,9 +76,9 @@
 }
 
 .cgp-cold-splash__dot {
-  fill: #E9D5FF;
+  fill: #FFF3D6;
   opacity: 0;
-  filter: drop-shadow(0 0 8px rgba(192,132,252,.95));
+  filter: drop-shadow(0 0 8px rgba(240,184,41,.95));
   animation:
     cgp-dot-in 220ms ease-out 650ms forwards,
     cgp-dot-out 220ms ease-in 5600ms forwards;
