@@ -30,8 +30,12 @@ jobs:
           NODE_ENV: development
           NPM_CONFIG_PRODUCTION: "false"
 
-      - name: Verify Playwright CLI
+      - name: Bootstrap development toolchain from public npm
         run: |
+          DEV_DEPENDENCIES="$(node -e "const p=require('./package.json'); process.stdout.write(Object.entries(p.devDependencies).map(([name,version]) => name + '@' + version).join(' '))")"
+          npm install --no-save --package-lock=false --ignore-scripts \
+            --registry=https://registry.npmjs.org \
+            $DEV_DEPENDENCIES
           test -x ./node_modules/.bin/playwright
           ./node_modules/.bin/playwright --version
 
