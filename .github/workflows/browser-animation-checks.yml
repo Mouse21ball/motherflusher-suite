@@ -11,6 +11,8 @@ jobs:
   browser-animations:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Check out repository
@@ -23,13 +25,10 @@ jobs:
           cache: npm
 
       - name: Install project dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
-      - name: Install Chromium system dependencies
-        run: npx playwright install-deps chromium
-
-      - name: Install managed Chromium
-        run: npm run test:browser:install
+      - name: Install Chromium and system dependencies
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Run browser animation checks
         run: npm run test:browser

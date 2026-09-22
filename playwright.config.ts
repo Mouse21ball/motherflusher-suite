@@ -25,6 +25,6 @@ export default defineConfig({
     command: 'npm run dev:client -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173/table-deal-test.html',
     reuseExistingServer: false,
-    timeout: 30_000,
+    timeout: 60_000,
   },
 });
