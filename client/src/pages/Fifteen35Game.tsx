@@ -34,6 +34,7 @@ import { useXPWatcher } from "@/lib/useXPWatcher";
 import { XPToast } from "@/components/XPToast";
 import { cn } from "@/lib/utils";
 import type { Player, Declaration } from "@/lib/poker/types";
+import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
 
 // ── Card-value helper (identical to Fifteen35TableScene) ──────────────────────
 // ACE=11 (soft; subtract 10 per ace while total > 35). J/Q/K = 0.5. Numeric = face.
@@ -1021,6 +1022,7 @@ export default function Fifteen35Game() {
   const openSeats    = state.players.filter(p => p.presence === 'reserved').length;
   const totalSeats   = state.players.filter(p => p.presence !== 'reserved').length;
   const ante         = state.minBet ?? 1;
+  const modeIntro = MODE_INTROS.fifteen35;
 
   return (
     <div
@@ -1035,6 +1037,7 @@ export default function Fifteen35Game() {
         backgroundAttachment: 'fixed',
       }}
     >
+      <ModeIntro modeId="fifteen35" {...modeIntro} />
       <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '45%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
       {/* ── Top status bar ────────────────────────────────────────────────── */}
       <F35StatusBar

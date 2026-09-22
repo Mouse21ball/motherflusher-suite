@@ -45,7 +45,7 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
     if (!visible) return;
     coldStartSplashConsumed = true;
     const finish = () => setVisible(false);
-    const timer = window.setTimeout(finish, reducedMotion ? 700 : 3420);
+    const timer = window.setTimeout(finish, reducedMotion ? 700 : 6000);
     window.addEventListener("pointerdown", finish, { once: true });
     window.addEventListener("keydown", finish, { once: true });
     return () => {

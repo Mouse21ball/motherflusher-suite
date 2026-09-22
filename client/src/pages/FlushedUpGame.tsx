@@ -329,7 +329,8 @@ function FlushedUpGameUI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
+  const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID]
+    ?? MODE_INTROS.swing;
   void isRewardAvailable;
 
   const handleBack = useCallback(() => {

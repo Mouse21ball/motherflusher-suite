@@ -17,7 +17,7 @@
   color: inherit;
   font: inherit;
   -webkit-tap-highlight-color: transparent;
-  animation: cgp-splash-exit 520ms cubic-bezier(.76,0,.24,1) 2900ms both;
+  animation: cgp-splash-exit 520ms cubic-bezier(.76,0,.24,1) 5480ms both;
 }
 
 .cgp-cold-splash__scene {
@@ -37,7 +37,7 @@
   opacity: 0;
   animation:
     cgp-art-build 900ms cubic-bezier(.2,.75,.25,1) 90ms forwards,
-    cgp-art-out 420ms ease-in 2820ms forwards;
+    cgp-art-out 420ms ease-in 5400ms forwards;
 }
 
 .cgp-cold-splash__path {
@@ -57,7 +57,7 @@
   filter: drop-shadow(0 0 8px rgba(168,85,247,.18));
   animation:
     cgp-wreath-in 650ms ease-out 420ms forwards,
-    cgp-wreath-out 500ms ease-in 2720ms forwards;
+    cgp-wreath-out 500ms ease-in 5300ms forwards;
 }
 
 .cgp-cold-splash__comet {
@@ -72,7 +72,7 @@
   animation:
     cgp-comet-in 260ms ease-out 650ms forwards,
     cgp-comet-travel 1480ms linear 650ms infinite,
-    cgp-comet-out 300ms ease-in 2920ms forwards;
+    cgp-comet-out 300ms ease-in 5500ms forwards;
 }
 
 .cgp-cold-splash__dot {
@@ -81,7 +81,7 @@
   filter: drop-shadow(0 0 8px rgba(192,132,252,.95));
   animation:
     cgp-dot-in 220ms ease-out 650ms forwards,
-    cgp-dot-out 220ms ease-in 3020ms forwards;
+    cgp-dot-out 220ms ease-in 5600ms forwards;
 }
 
 .cgp-cold-splash__reflection {
@@ -93,7 +93,7 @@
   mask-image: linear-gradient(to bottom, rgba(0,0,0,.3), transparent 73%);
   animation:
     cgp-reflection-in 850ms ease-out 920ms forwards,
-    cgp-reflection-out 620ms ease-in 2580ms forwards;
+    cgp-reflection-out 620ms ease-in 5100ms forwards;
 }
 
 .cgp-cold-splash__reflection::after {
