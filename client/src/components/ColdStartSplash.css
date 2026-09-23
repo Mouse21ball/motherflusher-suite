@@ -82,7 +82,9 @@
   stroke-linejoin: round;
   stroke-dasharray: 150 850;
   stroke-dashoffset: 0;
-  animation: cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards;
+  animation:
+    cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards,
+    cgp-trace-disappear 420ms ease-in 3380ms 1 forwards;
 }
 
 .cgp-cold-splash__metal-illumination {
@@ -103,7 +105,9 @@
   stroke-width: 42;
   stroke-dasharray: 190 810;
   filter: url(#cgp-trace-glow);
-  animation: cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards;
+  animation:
+    cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards,
+    cgp-trace-disappear 420ms ease-in 3380ms 1 forwards;
 }
 
 .cgp-cold-splash__trace-core {
@@ -111,7 +115,9 @@
   stroke-width: 12;
   stroke-dasharray: 135 865;
   filter: drop-shadow(0 0 7px rgba(240,184,41,.95));
-  animation: cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards;
+  animation:
+    cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards,
+    cgp-trace-disappear 420ms ease-in 3380ms 1 forwards;
 }
 
 .cgp-cold-splash__trace-hot {
@@ -119,7 +125,9 @@
   stroke-width: 5;
   stroke-dasharray: 48 952;
   filter: drop-shadow(0 0 4px rgba(255,248,217,1));
-  animation: cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards;
+  animation:
+    cgp-metal-travel 3500ms cubic-bezier(.18,.7,.25,1) 300ms 1 forwards,
+    cgp-trace-disappear 420ms ease-in 3380ms 1 forwards;
 }
 
 .cgp-cold-splash__wordmark-sweep {
@@ -162,6 +170,11 @@
 @keyframes cgp-metal-travel {
   from { stroke-dashoffset: 0; }
   to { stroke-dashoffset: -1000; }
+}
+
+@keyframes cgp-trace-disappear {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes cgp-wordmark-reveal {
