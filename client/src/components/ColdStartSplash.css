@@ -100,7 +100,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 35%, rgba(216,180,254,.18) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(240,184,41,.18) 50%, transparent 65%);
   background-size: 220% 100%;
   mix-blend-mode: screen;
   animation: cgp-reflection-shimmer 1200ms ease-in-out 1100ms infinite;
@@ -115,7 +115,7 @@
   bottom: max(5.5vh, 2rem);
   left: 0;
   right: 0;
-  color: rgba(233,213,255,.42);
+  color: rgba(240,184,41,.42);
   font: 500 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: .22em;
   text-align: center;
