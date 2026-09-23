@@ -116,7 +116,7 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
                 </filter>
                 <mask id="cgp-metal-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="941" height="1672">
                   <rect width="941" height="1672" fill="black" />
-                  <path className="cgp-cold-splash__metal-mask-path" d={CHAIN_TRACE_PATH} pathLength="100" />
+                  <path className="cgp-cold-splash__metal-mask-path" d={CHAIN_TRACE_PATH} pathLength="1000" />
                 </mask>
               </defs>
               <image
@@ -130,10 +130,9 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
                 mask="url(#cgp-metal-mask)"
                 filter="url(#cgp-metal-illumination)"
               />
-              <path className="cgp-cold-splash__trace-glow" d={CHAIN_TRACE_PATH} pathLength="100" />
-              <path className="cgp-cold-splash__trace-settled" d={CHAIN_TRACE_PATH} pathLength="100" />
-              <path className="cgp-cold-splash__trace-core" d={CHAIN_TRACE_PATH} pathLength="100" />
-              <path className="cgp-cold-splash__trace-hot" d={CHAIN_TRACE_PATH} pathLength="100" />
+              <path className="cgp-cold-splash__trace-glow" d={CHAIN_TRACE_PATH} pathLength="1000" />
+              <path className="cgp-cold-splash__trace-core" d={CHAIN_TRACE_PATH} pathLength="1000" />
+              <path className="cgp-cold-splash__trace-hot" d={CHAIN_TRACE_PATH} pathLength="1000" />
             </svg>
             <div className="cgp-cold-splash__wordmark-sweep" />
             <div className="cgp-cold-splash__hint">Tap to enter</div>
