@@ -199,86 +199,29 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
 }
 
 // ── Welcome Back ──────────────────────────────────────────────────────────────
-function WelcomeBackScreen({ name, onPlay }: { name: string; onPlay: () => void }) {
+function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
   return (
-    <BrandBackground variant="welcome">
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-sm flex flex-col items-center text-center anim-slide-down">
-          {/* Existing splash artwork, cropped to the emblem and wordmark */}
-          <div
-            className="w-52 h-36 rounded-2xl overflow-hidden mb-6"
-            style={{
-              border: '1px solid rgba(240,184,41,0.24)',
-              boxShadow: '0 0 36px rgba(240,184,41,0.14), 0 12px 30px rgba(0,0,0,0.35)',
-              backgroundColor: '#08070A',
-            }}
-          >
-            <img
-              src="/splash-chain-gang-logo.png"
-              alt="Chain Gang Poker"
-              className="w-full h-full object-cover"
-              style={{ objectPosition: 'center 23%' }}
-            />
-          </div>
-
-          <p
-            className="text-[10px] font-mono uppercase tracking-[0.24em]"
-            style={{ color: 'rgba(240,184,41,0.58)' }}
-          >
-            Chain Gang Poker
-          </p>
-          <h1
-            className="text-2xl sm:text-3xl font-bold tracking-tight font-sans mt-2"
-            style={{ color: 'rgba(255,255,255,0.93)', textShadow: '0 2px 16px rgba(255,255,255,0.12)' }}
-            data-testid="text-welcome-back-title"
-          >
-            Welcome Back
-          </h1>
-          <p
-            className="text-sm font-mono mt-2"
-            style={{ color: 'rgba(255,255,255,0.52)' }}
-            data-testid="text-welcome-back-player"
-          >
-            Good to see you, <span style={{ color: '#F0B829' }}>{name}</span>
-          </p>
-
-          {/* Gold divider */}
-          <div
-            className="w-16 h-[1px] my-6"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(240,184,41,0.55), transparent)' }}
-            aria-hidden="true"
-          />
-
-          <div className="flex items-center justify-center gap-7 mb-7" aria-label="The four card suits">
-            <span className="text-3xl leading-none" style={{ color: '#F0B829', textShadow: '0 0 14px rgba(240,184,41,0.28)' }}>♠</span>
-            <span className="text-3xl leading-none" style={{ color: '#D94A45', textShadow: '0 0 14px rgba(217,74,69,0.24)' }}>♥</span>
-            <span className="text-3xl leading-none" style={{ color: '#F0B829', textShadow: '0 0 14px rgba(240,184,41,0.28)' }}>♣</span>
-            <span className="text-3xl leading-none" style={{ color: '#D94A45', textShadow: '0 0 14px rgba(217,74,69,0.24)' }}>♦</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onPlay}
-            className="w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200 active:scale-[0.97] hover:scale-[1.02]"
-            style={{
-              backgroundColor: '#F0B829',
-              color: '#05050A',
-              boxShadow: '0 4px 28px rgba(240,184,41,0.32), 0 6px 20px rgba(255,200,80,0.30)',
-            }}
-            data-testid="button-welcome-back-play"
-          >
-            Play Now
-          </button>
-
-          <p
-            className="text-[10px] font-mono uppercase tracking-[0.22em] mt-5"
-            style={{ color: 'rgba(240,184,41,0.45)' }}
-          >
-            Same tables. Higher stakes.
-          </p>
-        </div>
-      </div>
-    </BrandBackground>
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-black">
+      <img
+        src="/welcome-back-chain-gang.png"
+        alt="Chain Gang Poker — Welcome Back"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ objectPosition: 'center' }}
+      />
+      <button
+        type="button"
+        onClick={onPlay}
+        aria-label="Play now"
+        className="absolute appearance-none border-0 bg-transparent p-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F0B829]"
+        style={{
+          left: '15.8%',
+          top: '71.9%',
+          width: '68.3%',
+          height: '9.8%',
+        }}
+        data-testid="button-welcome-back-play"
+      />
+    </div>
   );
 }
 
