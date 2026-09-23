@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import "./ColdStartSplash.css";
 
 let coldStartSplashConsumed = false;
 
-const WREATH_PATH = "M 465.0 140.0 C 451.3 141.3 480.8 121.2 426.0 154.0 C 371.2 186.8 186.7 303.3 136.0 337.0 C 85.3 370.7 125.8 342.5 122.0 356.0 C 118.2 369.5 115.3 356.8 113.0 418.0 C 110.7 479.2 106.3 668.8 108.0 723.0 C 109.7 777.2 78.3 714.0 123.0 743.0 C 167.7 772.0 329.7 872.2 376.0 897.0 C 422.3 921.8 389.5 888.0 401.0 892.0 C 412.5 896.0 429.8 915.8 445.0 921.0 C 460.2 926.2 478.2 926.2 492.0 923.0 C 505.8 919.8 516.8 905.5 528.0 902.0 C 539.2 898.5 536.5 912.8 559.0 902.0 C 581.5 891.2 643.3 852.2 663.0 837.0 C 682.7 821.8 669.7 818.0 677.0 811.0 C 684.3 804.0 697.7 797.3 707.0 795.0 C 716.3 792.7 714.8 805.0 733.0 797.0 C 751.2 789.0 799.5 758.8 816.0 747.0 C 832.5 735.2 829.3 789.7 832.0 726.0 C 834.7 662.3 835.7 429.3 832.0 365.0 C 828.3 300.7 858.3 371.7 810.0 340.0 C 761.7 308.3 592.3 207.3 542.0 175.0 C 491.7 142.7 520.8 151.8 508.0 146.0 C 495.2 140.2 478.7 138.7 465.0 140.0 Z";
+// This route is drawn over the metal centerline of the supplied chain emblem.
+// It stays inside the visible link geometry; it is deliberately not a freeform
+// decorative path floating outside the artwork.
+const CHAIN_TRACE_PATH =
+  "M 468 337 C 445 324 423 328 402 341 L 247 438 C 222 454 212 484 223 509 C 229 523 239 533 252 541 L 366 611 L 250 684 C 226 699 216 727 225 752 C 230 766 240 778 254 787 L 453 913 C 468 922 486 928 504 922 L 704 799 C 728 785 738 758 728 733 C 723 720 713 710 701 702 L 586 632 L 701 561 C 725 546 735 518 726 493 C 722 480 712 469 700 461 L 515 344 C 500 334 483 330 468 337 Z";
 
 interface ColdStartSplashProps {
   children: ReactNode;
@@ -17,8 +21,21 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
   const [reducedMotion, setReducedMotion] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
+  const [exiting, setExiting] = useState(false);
   const appContentRef = useRef<HTMLDivElement>(null);
   const skipButtonRef = useRef<HTMLButtonElement>(null);
+  const exitTimerRef = useRef<number | null>(null);
+
+  const finish = useCallback(() => {
+    setExiting((alreadyExiting) => {
+      if (alreadyExiting) return alreadyExiting;
+      exitTimerRef.current = window.setTimeout(
+        () => setVisible(false),
+        reducedMotion ? 80 : 420,
+      );
+      return true;
+    });
+  }, [reducedMotion]);
 
   useEffect(() => {
     if (legalPage) {
@@ -26,18 +43,23 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
       setVisible(false);
       return;
     }
-    if (!visible) return;
+    if (!visible || exiting) return;
     coldStartSplashConsumed = true;
-    const finish = () => setVisible(false);
-    const timer = window.setTimeout(finish, reducedMotion ? 700 : 6000);
     window.addEventListener("pointerdown", finish, { once: true });
     window.addEventListener("keydown", finish, { once: true });
     return () => {
-      window.clearTimeout(timer);
       window.removeEventListener("pointerdown", finish);
       window.removeEventListener("keydown", finish);
     };
-  }, [legalPage, reducedMotion, visible]);
+  }, [exiting, finish, legalPage, visible]);
+
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -71,58 +93,49 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
         <button
           ref={skipButtonRef}
           type="button"
-          className="cgp-cold-splash"
+          className={`cgp-cold-splash${exiting ? " cgp-cold-splash--exiting" : ""}`}
           aria-label="Skip Chain Gang Poker introduction"
-          onClick={() => setVisible(false)}
+          onClick={finish}
         >
           <div className="cgp-cold-splash__scene" aria-hidden="true">
             <div className="cgp-cold-splash__art" />
+            <div className="cgp-cold-splash__art cgp-cold-splash__art--wordmark" />
+            <div className="cgp-cold-splash__art cgp-cold-splash__art--tagline" />
+            <div className="cgp-cold-splash__art cgp-cold-splash__art--suits" />
             <svg className="cgp-cold-splash__path" viewBox="0 0 941 1672" preserveAspectRatio="xMidYMid meet">
               <defs>
-                <linearGradient id="cgp-comet-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="22%" stopColor="#FFF9E8" />
-                  <stop offset="58%" stopColor="#FFD666" />
-                  <stop offset="100%" stopColor="#D4931D" stopOpacity="0" />
-                </linearGradient>
+                <filter id="cgp-metal-illumination" x="-20%" y="-20%" width="140%" height="140%">
+                  <feColorMatrix
+                    type="matrix"
+                    values="1.35 0 0 0 0.12  0 1.12 0 0 0.06  0 0 0.62 0 0  0 0 0 1 0"
+                  />
+                  <feGaussianBlur stdDeviation="0.35" />
+                </filter>
+                <filter id="cgp-trace-glow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="13" />
+                </filter>
+                <mask id="cgp-metal-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="941" height="1672">
+                  <rect width="941" height="1672" fill="black" />
+                  <path className="cgp-cold-splash__metal-mask-path" d={CHAIN_TRACE_PATH} pathLength="100" />
+                </mask>
               </defs>
-              <path className="cgp-cold-splash__wreath" d={WREATH_PATH} pathLength="1000" />
-              <path className="cgp-cold-splash__comet" d={WREATH_PATH} pathLength="1000" />
-              <circle
-                className="cgp-cold-splash__dot"
-                cx={reducedMotion ? 465 : 0}
-                cy={reducedMotion ? 140 : 0}
-                r="7"
-              >
-                {!reducedMotion && (
-                  <animateMotion dur="1.48s" begin=".65s" repeatCount="indefinite" path={WREATH_PATH} />
-                )}
-              </circle>
+              <image
+                className="cgp-cold-splash__metal-illumination"
+                href="/splash-chain-gang-logo.png"
+                x="0"
+                y="0"
+                width="941"
+                height="1672"
+                preserveAspectRatio="none"
+                mask="url(#cgp-metal-mask)"
+                filter="url(#cgp-metal-illumination)"
+              />
+              <path className="cgp-cold-splash__trace-glow" d={CHAIN_TRACE_PATH} pathLength="100" />
+              <path className="cgp-cold-splash__trace-settled" d={CHAIN_TRACE_PATH} pathLength="100" />
+              <path className="cgp-cold-splash__trace-core" d={CHAIN_TRACE_PATH} pathLength="100" />
+              <path className="cgp-cold-splash__trace-hot" d={CHAIN_TRACE_PATH} pathLength="100" />
             </svg>
-            <div className="cgp-cold-splash__reflection">
-              <div className="cgp-cold-splash__art" />
-              <svg className="cgp-cold-splash__path cgp-cold-splash__reflection-path" viewBox="0 0 941 1672" preserveAspectRatio="xMidYMid meet">
-                <path className="cgp-cold-splash__wreath" d={WREATH_PATH} pathLength="1000" />
-                <path className="cgp-cold-splash__comet" d={WREATH_PATH} pathLength="1000" />
-                <circle
-                  className="cgp-cold-splash__dot"
-                  cx={reducedMotion ? 465 : 0}
-                  cy={reducedMotion ? 140 : 0}
-                  r="7"
-                >
-                  {!reducedMotion && (
-                    <animateMotion dur="1.48s" begin=".65s" repeatCount="indefinite" path={WREATH_PATH} />
-                  )}
-                </circle>
-              </svg>
-            </div>
             <div className="cgp-cold-splash__wordmark-sweep" />
-            <div className="cgp-cold-splash__suits">
-              <span className="cgp-cold-splash__suit cgp-cold-splash__suit--gold">♠</span>
-              <span className="cgp-cold-splash__suit cgp-cold-splash__suit--red">♥</span>
-              <span className="cgp-cold-splash__suit cgp-cold-splash__suit--gold">♣</span>
-              <span className="cgp-cold-splash__suit cgp-cold-splash__suit--red">♦</span>
-            </div>
             <div className="cgp-cold-splash__hint">Tap to enter</div>
           </div>
         </button>
