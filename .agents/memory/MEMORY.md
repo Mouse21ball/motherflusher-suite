@@ -12,3 +12,4 @@
 - [Splash trace geometry](splash-trace-geometry.md) — poster-based electricity must use the supplied emblem geometry as its mask, never an independent decorative path.
 - [Interactive card animations](interactive-card-animations.md) — animation branches must retain button hit targets; same-phase server snapshots must not cancel active deal flights.
 - [Authoritative table effects](authoritative-table-effects.md) — derive chip, payout, and fold flights from state deltas; never recreate game math in the visual layer.
+- [Platform-aware API URLs](platform-aware-api-urls.md) — client API calls must pass paths through apiUrl; relative fetch URLs fail under Capacitor/WebView origins.

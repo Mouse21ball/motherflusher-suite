@@ -241,7 +241,7 @@ export default function LadyLuck() {
       try {
         const wsTimingStart = Date.now();
         console.log(`[LL-TIMING] GET /api/auth/ws-ticket starting at ${wsTimingStart}`);
-        const tokenRes = await apiFetch('/api/auth/ws-ticket');
+        const tokenRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.ticket ?? null; }
         console.log(`[LL-TIMING] GET /api/auth/ws-ticket resolved at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
@@ -376,7 +376,7 @@ export default function LadyLuck() {
     console.log(`[LL-TIMING] JOIN tapped at ${llStart} (+0ms)`);
     setJoining(true); setJoinError(null);
     try {
-      const res = await apiFetch('/api/ladyluck/tables', {
+      const res = await apiFetch(apiUrl('/api/ladyluck/tables'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomType }),
       });
