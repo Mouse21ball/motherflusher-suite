@@ -22,21 +22,29 @@
 
 .cgp-cold-splash__scene {
   position: relative;
-  width: min(92vw, 31rem);
+  width: min(92vw, 31rem, calc(78vh * .5628));
   aspect-ratio: 941 / 1672;
-  transform: translateY(-1.5%);
+  transform: translateY(-3%);
+}
+
+@property --reveal-y {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
 }
 
 .cgp-cold-splash__art {
   position: absolute;
   inset: 0;
   background: url('/splash-chain-gang-logo.png') center / contain no-repeat;
-}
-
-.cgp-cold-splash__art {
+  --reveal-y: 0%;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 var(--reveal-y), transparent calc(var(--reveal-y) + 4%));
+  mask-image: linear-gradient(to bottom, #000 0%, #000 var(--reveal-y), transparent calc(var(--reveal-y) + 4%));
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   opacity: 0;
   animation:
-    cgp-art-build 900ms cubic-bezier(.2,.75,.25,1) 90ms forwards,
+    cgp-art-reveal 3400ms linear 90ms forwards,
     cgp-art-out 420ms ease-in 5400ms forwards;
 }
 
@@ -54,21 +62,17 @@
   stroke-width: 5;
   stroke-linejoin: round;
   opacity: 0;
-  filter: drop-shadow(0 0 8px rgba(240,184,41,.18));
-  animation:
-    cgp-wreath-in 650ms ease-out 420ms forwards,
-    cgp-wreath-out 500ms ease-in 5300ms forwards;
 }
 
 .cgp-cold-splash__comet {
   fill: none;
-  stroke: #FFD666;
+  stroke: url(#cgp-comet-gradient);
   stroke-width: 7;
   stroke-linecap: round;
-  stroke-dasharray: 120 880;
+  stroke-dasharray: 54 946;
   stroke-dashoffset: 1000;
   opacity: 0;
-  filter: drop-shadow(0 0 9px rgba(240,184,41,.88));
+  filter: drop-shadow(0 0 10px rgba(240,184,41,.95));
   animation:
     cgp-comet-in 260ms ease-out 650ms forwards,
     cgp-comet-travel 1480ms linear 650ms infinite,
@@ -106,13 +110,49 @@
   animation: cgp-reflection-shimmer 1200ms ease-in-out 1100ms infinite;
 }
 
+.cgp-cold-splash__wordmark-sweep {
+  position: absolute;
+  top: 55%;
+  left: 0;
+  right: 0;
+  height: 29%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255,249,232,.30) 48%, rgba(240,184,41,.18) 52%, transparent 65%);
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cgp-wordmark-sweep 800ms ease-in-out 2200ms 1 forwards;
+}
+
+.cgp-cold-splash__suits {
+  position: absolute;
+  top: 93%;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  opacity: 0;
+  transform: translateY(5px);
+  animation: cgp-suits-in 420ms ease-out 3400ms 1 forwards;
+}
+
+.cgp-cold-splash__suit {
+  font: 700 1.15rem/1 ui-serif, Georgia, serif;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.cgp-cold-splash__suit--gold { color: #F0B829; }
+.cgp-cold-splash__suit--red { color: #D94A45; }
+
 .cgp-cold-splash__reflection-path {
   opacity: .28;
 }
 
 .cgp-cold-splash__hint {
   position: absolute;
-  bottom: max(5.5vh, 2rem);
+  top: calc(100% + 1.25rem);
   left: 0;
   right: 0;
   color: rgba(240,184,41,.42);
@@ -121,16 +161,17 @@
   text-align: center;
   text-transform: uppercase;
   opacity: 0;
-  animation: cgp-hint-in 450ms ease-out 1750ms forwards;
+  animation: cgp-hint-in 450ms ease-out 3800ms forwards;
 }
 
-@keyframes cgp-art-build {
-  from { opacity: 0; transform: scale(.94); filter: brightness(.35) saturate(.5); }
-  to { opacity: 1; transform: scale(1); filter: brightness(.9) saturate(.9); }
+@keyframes cgp-art-reveal {
+  0% { --reveal-y: 0%; opacity: 0; transform: scale(.97); filter: brightness(.35) saturate(.5); }
+  8% { --reveal-y: 6%; opacity: 1; transform: scale(1); filter: brightness(.72) saturate(.78); }
+  64.7% { --reveal-y: 55%; }
+  88.2% { --reveal-y: 82%; }
+  100% { --reveal-y: 100%; filter: brightness(.9) saturate(.9); }
 }
 @keyframes cgp-art-out { to { opacity: .22; filter: brightness(.42) saturate(.7); } }
-@keyframes cgp-wreath-in { from { opacity: 0; } to { opacity: .82; } }
-@keyframes cgp-wreath-out { to { opacity: .08; filter: drop-shadow(0 0 2px transparent); } }
 @keyframes cgp-comet-in { to { opacity: 1; } }
 @keyframes cgp-comet-travel { to { stroke-dashoffset: 0; } }
 @keyframes cgp-comet-out { to { opacity: 0; } }
@@ -138,6 +179,15 @@
 @keyframes cgp-dot-out { to { opacity: 0; } }
 @keyframes cgp-reflection-in { from { opacity: 0; } to { opacity: .28; } }
 @keyframes cgp-reflection-out { to { opacity: 0; } }
+@keyframes cgp-wordmark-sweep {
+  0% { background-position: 120% 0; opacity: 0; }
+  20% { opacity: .9; }
+  100% { background-position: -20% 0; opacity: 0; }
+}
+@keyframes cgp-suits-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: .92; transform: translateY(0); }
+}
 @keyframes cgp-reflection-shimmer {
   0%, 100% { background-position: 120% 0; opacity: .12; }
   50% { background-position: -20% 0; opacity: .35; }
@@ -149,7 +199,7 @@
 }
 
 @media (max-width: 420px) {
-  .cgp-cold-splash__scene { width: min(106vw, 31rem); }
+  .cgp-cold-splash__scene { width: min(106vw, 31rem, calc(78vh * .5628)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -160,10 +210,26 @@
   .cgp-cold-splash__dot,
   .cgp-cold-splash__reflection,
   .cgp-cold-splash__reflection::after,
+   .cgp-cold-splash__wordmark-sweep,
+   .cgp-cold-splash__suits,
   .cgp-cold-splash__hint {
     animation-duration: 1ms;
     animation-delay: 0ms;
     animation-iteration-count: 1;
+  }
+  .cgp-cold-splash__art {
+    --reveal-y: 100%;
+    opacity: 1;
+    filter: brightness(.9) saturate(.9);
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .cgp-cold-splash__suits {
+    opacity: .92;
+    transform: none;
+  }
+  .cgp-cold-splash__hint {
+    opacity: .82;
   }
   .cgp-cold-splash { animation-duration: 260ms; animation-delay: 420ms; }
 }
