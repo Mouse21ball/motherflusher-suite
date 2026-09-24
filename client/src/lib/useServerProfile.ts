@@ -9,6 +9,7 @@
 
 import {
   createContext,
+  createElement,
   useCallback,
   useContext,
   useEffect,
@@ -135,11 +136,7 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
   const refetch = useCallback(() => setTick(t => t + 1), []);
   const value = useMemo(() => ({ profile, loading, refetch }), [profile, loading, refetch]);
 
-  return (
-    <ServerProfileContext.Provider value={value}>
-      {children}
-    </ServerProfileContext.Provider>
-  );
+  return createElement(ServerProfileContext.Provider, { value }, children);
 }
 
 export function useServerProfile(): UseServerProfileResult {

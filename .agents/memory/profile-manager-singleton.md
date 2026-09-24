@@ -5,10 +5,10 @@ description: Never call useServerProfile in more than one top-level App componen
 
 # ProfileManager singleton pattern
 
-**Rule:** Only one top-level App-level component may call `useServerProfile()`. Multiple sibling components calling it simultaneously trigger concurrent `guest-init` inserts for the same player ID, causing a DB unique-constraint violation (500).
+**Rule:** Keep one application-level server-profile request lifecycle and expose it through the shared profile provider. All consumers must read and refetch through that context rather than owning independent request state.
 
 **Why:** `useServerProfile` falls through to `POST /api/auth/guest-init` for unauthenticated users. Each hook instance makes its own independent fetch. If two run in parallel for a fresh session, both try to INSERT the same profile row → one succeeds, one gets a 500.
 
-**How to apply:** Merge any sibling components that each need the server profile into a single component (`ProfileManager`). Pass the profile down as props, or use a context/event if siblings are deeply nested. Never add a second `useServerProfile()` call at the App root level.
+**How to apply:** Mount the shared provider once around global managers and routed pages. `useServerProfile()` must consume that provider so concurrent consumers share profile, loading, and refetch state without duplicate `/me` or `guest-init` requests.
 
-**Fix applied:** Merged `DiamondBackground` (active subscription tier → diamond-elite body class) and `MusicManager` (route → music track URL) into a single `ProfileManager` that calls `useServerProfile()` once and handles both side-effects via two separate `useEffect` calls.
+**Fix applied:** Profile fetching is owned by one provider above global managers and routes. Global effects and page-level consumers now share the same profile state and stable refetch callback.
