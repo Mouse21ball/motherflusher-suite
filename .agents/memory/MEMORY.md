@@ -14,3 +14,4 @@
 - [Authoritative table effects](authoritative-table-effects.md) — derive chip, payout, and fold flights from state deltas; never recreate game math in the visual layer.
 - [Platform-aware API URLs](platform-aware-api-urls.md) — client API calls must pass paths through apiUrl; relative fetch URLs fail under Capacitor/WebView origins.
 - [Sensitive response logging](sensitive-response-logging.md) — recursively redact response values and avoid exception details on credential-bearing paths.
+- [Validated .replit edits](validated-dot-replit-edit.md) — stage full TOML in a workspace temp file and use the validator; direct `.replit` edits are blocked.
