@@ -49,37 +49,6 @@ const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
 const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
   'Subscriptions are temporarily unavailable. Please try again shortly.';
 
-// ── Merch ─────────────────────────────────────────────────────────────────────
-const MERCH_ITEMS = [
-  {
-    icon: '👕',
-    name: 'CHAIN GANG TEE',
-    sub: 'I PLAY CHAIN GANG POKER — animal crew print',
-    price: '$30',
-    originalPrice: null as string | null,
-    hot: false,
-    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Tee%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Tee%20(%2430).%0A%0ASize%3A%20%0AShipping%20address%3A%20%0AColor%20preference%3A%20",
-  },
-  {
-    icon: '🧢',
-    name: 'CHAIN GANG SNAPBACK',
-    sub: 'Trucker mesh — premium logo patch',
-    price: '$25',
-    originalPrice: null,
-    hot: true,
-    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Chain%20Gang%20Snapback%20Order&body=I%27d%20like%20to%20order%20the%20Chain%20Gang%20Snapback%20(%2425).%0A%0ASize%3A%20%0AShipping%20address%3A%20",
-  },
-  {
-    icon: '🃏',
-    name: 'CHAIN GANG PLAYING CARDS',
-    sub: 'Full custom deck — chain gang artwork',
-    price: '$18',
-    originalPrice: null,
-    hot: false,
-    href: "mailto:Dgm.entertainment2026@gmail.com?subject=Playing%20Cards%20Order&body=I%27d%20like%20to%20order%20Chain%20Gang%20Playing%20Cards%20(%2418).%0A%0AQuantity%3A%20%0AShipping%20address%3A%20",
-  },
-];
-
 // ── Subscription tier definitions ─────────────────────────────────────────────
 interface TierDef {
   id:                'basic' | 'pro' | 'elite';
@@ -978,49 +947,6 @@ export default function Shop() {
 
             <p className="text-[9px] font-mono text-white/20 text-center mt-4 leading-relaxed italic">
               Stripes are virtual currency for cosmetic features only. No real-world value. Purchases processed via Google Play.
-            </p>
-          </div>
-
-          {/* ── Chain Gang Gear (merch) ────────────────────────────────────── */}
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ Chain Gang Gear</div>
-              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,107,0,0.2), transparent)' }} />
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {MERCH_ITEMS.map((item, i) => (
-                <a
-                  key={i}
-                  href={item.href}
-                  className="w-full rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-white/20 transition-colors"
-                  style={{ background: 'rgba(15,10,25,0.50)', border: '1px solid rgba(255,255,255,0.07)' }}
-                  data-testid={`merch-item-${i}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-2xl">{item.icon}</div>
-                    <div>
-                      <div className="text-sm font-bold text-white/85 flex items-center gap-2">
-                        {item.name}
-                        {item.hot && (
-                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 uppercase">
-                            HOT
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] font-mono text-white/30 mt-0.5">{item.sub}</div>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-base font-bold font-mono text-white/85">{item.price}</div>
-                    {item.originalPrice && (
-                      <div className="text-[10px] font-mono text-white/25 line-through">{item.originalPrice}</div>
-                    )}
-                  </div>
-                </a>
-              ))}
-            </div>
-            <p className="text-[9px] font-mono text-white/20 text-center mt-3">
-              Order via email. Ships worldwide.
             </p>
           </div>
 
