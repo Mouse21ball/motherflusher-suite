@@ -13,6 +13,7 @@ import { BonecrusherMode } from '../shared/modes/bonecrusher';
 import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/modes/boxchevy';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
+import { takeAnte } from '../shared/engine/botUtils';
 import {
   scheduleGenericSave,
   loadPersistedGenericTables,
@@ -2369,9 +2370,15 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // ── ante ─────────────────────────────────────────────────────────────────
     if (action === 'ante' && s.phase === 'ANTE') {
       const player = newPlayers[playerIdx];
-      newPlayers[playerIdx] = { ...player, chips: player.chips - 25, hasActed: true };
-      newPot += 25;
-      msg = `${player.name} pays $25 Ante`;
+      const ante = takeAnte(player.chips, 25);
+      newPlayers[playerIdx] = {
+        ...player,
+        chips: ante.chips,
+        hasActed: true,
+        totalBet: (player.totalBet || 0) + ante.contribution,
+      };
+      newPot += ante.contribution;
+      msg = `${player.name} pays $${ante.contribution} Ante`;
     }
 
     // ── fold ─────────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 // Server:  import { BadugiMode } from '../shared/modes/badugi'
 
 import type { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
-import { decideBet, applyBetDecision, botPersonality } from '../engine/botUtils';
+import { decideBet, applyBetDecision, botPersonality, takeAnte } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, resolveSplitPots } from '../engine/sidePots';
 
 const rankValue = (rank: string): number => {
@@ -97,9 +97,10 @@ export const BadugiMode: GameMode = {
     const bot = newPlayers[bIdx];
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
-      newPot += 25;
-      message = `${bot.name} paid $25 Ante`;
+      const ante = takeAnte(bot.chips, 25);
+      newPlayers[bIdx] = { ...bot, chips: ante.chips, hasActed: true };
+      newPot += ante.contribution;
+      message = `${bot.name} paid $${ante.contribution} Ante`;
     } else if (state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3') {
       const cards = bot.cards;
       const evaluation = evaluateBadugi(cards);

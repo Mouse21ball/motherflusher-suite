@@ -1,6 +1,6 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
 import { getNextActivePlayerIndex, getDealerIndex } from '../engine/core';
-import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, resolveSplitPots } from '../engine/sidePots';
 
 const cardValue = (rank: string): number => {
@@ -80,9 +80,10 @@ export const Fifteen35Mode: GameMode = {
     const isHitPhase = state.phase.startsWith('HIT_');
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
-      newPot += 25;
-      message = `${bot.name} paid $25 Ante`;
+      const ante = takeAnte(bot.chips, 25);
+      newPlayers[bIdx] = { ...bot, chips: ante.chips, hasActed: true };
+      newPot += ante.contribution;
+      message = `${bot.name} paid $${ante.contribution} Ante`;
     } else if (isHitPhase) {
       if (bot.declaration === 'STAY' || bot.declaration === 'BUST') {
         newPlayers[bIdx] = { ...bot, hasActed: true };

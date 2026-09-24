@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
-import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 const RANK_VALUES: Record<string, number> = {
@@ -165,9 +165,10 @@ export const FlushedUpMode: GameMode = {
     const isDrawPhase = ['DRAW_1', 'DRAW_2', 'DRAW_3'].includes(state.phase);
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
-      newPot += 25;
-      message = `${bot.name} paid $25 Ante`;
+      const ante = takeAnte(bot.chips, 25);
+      newPlayers[bIdx] = { ...bot, chips: ante.chips, hasActed: true };
+      newPot += ante.contribution;
+      message = `${bot.name} paid $${ante.contribution} Ante`;
 
     } else if (isDrawPhase) {
       const maxDiscard = discardLimitForPhase(state.phase);

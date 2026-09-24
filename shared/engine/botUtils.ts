@@ -470,3 +470,15 @@ export function applyBetDecision(
     message: `${bot.name} raised to $${newBet}`
   };
 }
+
+export function takeAnte(
+  chips: number,
+  requiredAnte: number,
+): { chips: number; contribution: number } {
+  const availableChips = Math.max(0, chips);
+  const contribution = Math.min(requiredAnte, availableChips);
+  return {
+    chips: availableChips - contribution,
+    contribution,
+  };
+}

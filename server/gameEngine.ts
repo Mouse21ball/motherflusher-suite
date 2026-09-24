@@ -12,6 +12,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
+import { takeAnte } from '../shared/engine/botUtils';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
@@ -1948,15 +1949,21 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── ante ─────────────────────────────────────────────────────────────────
     if (action === 'ante' && s.phase === 'ANTE') {
+      const player = s.players.find(p => p.id === playerId);
+      if (!player) {
+        table.actionLock = false;
+        return;
+      }
+      const ante = takeAnte(player.chips, 25);
       table.state = addMsg({
         ...s,
-        pot: s.pot + 25,
+        pot: s.pot + ante.contribution,
         players: s.players.map(p =>
           p.id === playerId
-            ? { ...p, chips: p.chips - 25, hasActed: true, totalBet: (p.totalBet || 0) + 25 }
+            ? { ...p, chips: ante.chips, hasActed: true, totalBet: (p.totalBet || 0) + ante.contribution }
             : p
         ),
-      }, 'You paid $25 Ante');
+      }, `You paid $${ante.contribution} Ante`);
       engineLog('ACTION', tableId, { player: playerId, action: 'ante', accepted: true, pot: table.state.pot });
       table.actionLock = false;
       afterHumanAction(table);

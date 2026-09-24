@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
-import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
 
 const RANK_VALUES: Record<string, number> = {
   '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
@@ -207,9 +207,10 @@ export const KamikazeMode: GameMode = {
     const isDrawPhase = ['DRAW_1', 'DRAW_2', 'DRAW_3'].includes(state.phase);
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - 25), hasActed: true };
-      newPot += 25;
-      message = `${bot.name} paid $25 Ante`;
+      const ante = takeAnte(bot.chips, 25);
+      newPlayers[bIdx] = { ...bot, chips: ante.chips, hasActed: true };
+      newPot += ante.contribution;
+      message = `${bot.name} paid $${ante.contribution} Ante`;
 
     } else if (state.phase === 'DECLARE') {
       const botCards = bot.cards.map(c => ({ ...c, isHidden: false }));

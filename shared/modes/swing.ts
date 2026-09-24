@@ -1,6 +1,7 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
 import { evaluateBestHand } from '../evaluator';
 import { getNextActivePlayerIndex } from '../engine/core';
+import { takeAnte } from '../engine/botUtils';
 
 export const SwingPokerMode: GameMode = {
   id: 'swing_poker',
@@ -29,9 +30,10 @@ export const SwingPokerMode: GameMode = {
     const bot = newPlayers[bIdx];
 
     if (state.phase === 'ANTE') {
-      newPlayers[bIdx] = { ...bot, chips: bot.chips - 1, hasActed: true };
-      newPot += 1;
-      message = `${bot.name} paid $1 Ante`;
+      const ante = takeAnte(bot.chips, 1);
+      newPlayers[bIdx] = { ...bot, chips: ante.chips, hasActed: true };
+      newPot += ante.contribution;
+      message = `${bot.name} paid $${ante.contribution} Ante`;
     } else if (state.phase === 'DRAW') {
       const numDraws = Math.floor(Math.random() * 3);
       if (numDraws > 0 && newDeck.length >= numDraws) {

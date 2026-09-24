@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
-import { decideBet, applyBetDecision, botPersonality } from '../engine/botUtils';
+import { decideBet, applyBetDecision, botPersonality, takeAnte } from '../engine/botUtils';
 
 // ── Rank tables ───────────────────────────────────────────────────────────────
 
@@ -197,9 +197,10 @@ export const BoxChevyMode: GameMode = {
     // ── ANTE ─────────────────────────────────────────────────────────────────
     if (phase === 'ANTE') {
       const ante = 25;
-      newPlayers[bIdx] = { ...bot, chips: Math.max(0, bot.chips - ante), hasActed: true };
-      newPot += ante;
-      message = `${bot.name} paid $${ante} ante`;
+      const payment = takeAnte(bot.chips, ante);
+      newPlayers[bIdx] = { ...bot, chips: payment.chips, hasActed: true };
+      newPot += payment.contribution;
+      message = `${bot.name} paid $${payment.contribution} ante`;
     }
 
     // ── DRAW phases ──────────────────────────────────────────────────────────

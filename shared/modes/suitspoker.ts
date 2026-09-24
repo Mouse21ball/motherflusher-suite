@@ -1,6 +1,6 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
 import { getNextActivePlayerIndex } from '../engine/core';
-import { decideBet, applyBetDecision } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 function suitsCardValue(rank: string): number {
@@ -163,9 +163,10 @@ export const SuitsPokerMode: GameMode = {
     const nextIdx = getNextActivePlayerIndex(players, botIdx, skipAllIn);
 
     if (phase === 'ANTE') {
-      const newPlayers = players.map(p => p.id === botId ? { ...p, chips: Math.max(0, p.chips - 25), hasActed: true } : p);
+      const ante = takeAnte(bot.chips, 25);
+      const newPlayers = players.map(p => p.id === botId ? { ...p, chips: ante.chips, hasActed: true } : p);
       const roundOver = newPlayers.filter(p => p.status === 'active').every(p => p.hasActed);
-      return { stateUpdates: { pot: pot + 25, players: newPlayers }, message: `${bot.name} antes $25`, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
+      return { stateUpdates: { pot: pot + ante.contribution, players: newPlayers }, message: `${bot.name} antes $${ante.contribution}`, roundOver, nextPlayerId: roundOver ? undefined : players[nextIdx].id };
     }
 
     if (phase === 'DRAW') {
