@@ -1986,49 +1986,48 @@ export async function registerRoutes(
       const subNotif = notification?.subscriptionNotification;
       if (subNotif?.purchaseToken) {
         const { purchaseToken, notificationType } = subNotif;
-        const tokenTail = (purchaseToken as string).slice(-8);
         // notificationType values from Google:
         // 1=RECOVERED 2=RENEWED 3=CANCELED 4=PURCHASED 5=ON_HOLD
         // 6=IN_GRACE_PERIOD 7=RESTARTED 12=EXPIRED 13=REVOKED (subscription refund)
         switch (notificationType) {
           case 1:
-            console.log(`[billing:play] play-webhook: event=RECOVERED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=RECOVERED at=${at}`);
             await handleSubscriptionRecovered(purchaseToken);
             break;
           case 2:
-            console.log(`[billing:play] play-webhook: event=RENEWED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=RENEWED at=${at}`);
             await handleSubscriptionRenewal(purchaseToken);
             break;
           case 3:
-            console.log(`[billing:play] play-webhook: event=CANCELED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=CANCELED at=${at}`);
             await handleSubscriptionCancellation(purchaseToken);
             break;
           case 4:
             // PURCHASED is a no-op here — handled client-side by /verify-subscription.
-            console.log(`[billing:play] play-webhook: event=PURCHASED token=...${tokenTail} at=${at} action=no_op (handled by verify-subscription)`);
+            console.log(`[billing:play] play-webhook: event=PURCHASED at=${at} action=no_op (handled by verify-subscription)`);
             break;
           case 5:
-            console.log(`[billing:play] play-webhook: event=ON_HOLD token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=ON_HOLD at=${at}`);
             await handleSubscriptionOnHold(purchaseToken);
             break;
           case 6:
-            console.log(`[billing:play] play-webhook: event=IN_GRACE_PERIOD token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=IN_GRACE_PERIOD at=${at}`);
             await handleSubscriptionGracePeriod(purchaseToken);
             break;
           case 7:
-            console.log(`[billing:play] play-webhook: event=RESTARTED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=RESTARTED at=${at}`);
             await handleSubscriptionRecovered(purchaseToken);
             break;
           case 12:
-            console.log(`[billing:play] play-webhook: event=EXPIRED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=EXPIRED at=${at}`);
             await handleSubscriptionExpiration(purchaseToken);
             break;
           case 13:
-            console.log(`[billing:play] play-webhook: event=REVOKED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=REVOKED at=${at}`);
             await handleSubscriptionRefund(purchaseToken);
             break;
           default:
-            console.log(`[billing:play] play-webhook: event=UNKNOWN(${notificationType}) token=...${tokenTail} at=${at}`);
+            console.log(`[billing:play] play-webhook: event=UNKNOWN(${notificationType}) at=${at}`);
         }
         res.status(200).json({ received: true });
         return;
@@ -3201,7 +3200,7 @@ export async function registerRoutes(
     try {
       const { reason } = adminReasonSchema.parse(req.body);
       const { resetToken } = await storage.adminTriggerPasswordReset(req.sessionPlayerId!, req.params.id as string, reason);
-      // Token logged server-side (see storage). Phase 3 will email it.
+      // Return the token to the authorized admin for manual delivery; never log it.
       res.json({ ok: true, resetToken });
     } catch (err: any) {
       if (err.name === 'ZodError') { res.status(400).json({ error: err.errors[0]?.message ?? "Invalid request" }); return; }
