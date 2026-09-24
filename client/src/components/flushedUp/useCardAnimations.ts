@@ -89,13 +89,14 @@ export function advanceTableDealTracker(
   };
   if (!previous) return { tracker, events: [], reset: false };
 
-  const playerRemoved = previous.ids.some(id => !tracker.ids.includes(id));
-  const seatOrderChanged =
-    previous.ids.length === tracker.ids.length &&
+  // Any change to the active seat list can move a destination while cards
+  // are in flight, including insertion (not just removals and reorders).
+  const seatsChanged =
+    previous.ids.length !== tracker.ids.length ||
     previous.ids.some((id, index) => tracker.ids[index] !== id);
   const returnedToWaiting = phase === 'WAITING' && previous.phase !== 'WAITING';
   const restartedAnte = phase === 'ANTE' && !DEAL_PHASES.has(previous.phase);
-  if (playerRemoved || seatOrderChanged || returnedToWaiting || restartedAnte) {
+  if (seatsChanged || returnedToWaiting || restartedAnte) {
     return { tracker, events: [], reset: true };
   }
 

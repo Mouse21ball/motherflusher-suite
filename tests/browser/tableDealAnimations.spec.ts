@@ -226,6 +226,45 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.getByTestId('table').locator('.playing-card-back')).toHaveCount(2);
   });
 
+  test('resets flights when an authoritative player joins between seats mid-deal', async ({ page }) => {
+    await openFixture(page);
+    const table = page.getByTestId('table');
+    const shiftedSeat = table.locator('[data-deal-seat="opponent-1"]');
+    const before = await shiftedSeat.boundingBox();
+    expect(before).not.toBeNull();
+
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+    await expect(shiftedSeat).toHaveCSS('visibility', 'hidden');
+    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    await expect(opponentFlights).toHaveCount(2);
+    const opponentMarkup = await opponentFlights.evaluateAll(flights =>
+      flights.map(flight => ({ html: flight.outerHTML.toLowerCase(), text: flight.textContent })),
+    );
+    for (const flight of opponentMarkup) {
+      expect(flight.text).toBe('');
+      expect(flight.html).not.toContain('king');
+      expect(flight.html).not.toContain('hearts');
+      expect(flight.html).not.toContain('opponent-');
+    }
+
+    await page.getByTestId('insert-seat').click();
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+    const after = await shiftedSeat.boundingBox();
+    expect(after).not.toBeNull();
+    expect(after!.x).toBeGreaterThan(before!.x);
+    const seats = table.locator(seatSelector);
+    await expect(seats).toHaveCount(4);
+    expect(await seats.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-deal-seat')))).toEqual([
+      'hero', 'opponent-joined', 'opponent-1', 'opponent-2',
+    ]);
+    expect(await seats.evaluateAll(nodes =>
+      nodes.every(node => getComputedStyle(node).visibility === 'visible'),
+    )).toBe(true);
+    await expect(table.locator('.playing-card-front')).toHaveCount(1);
+    await expect(table.locator('.playing-card-back')).toHaveCount(3);
+  });
+
   test('renders Badugi table effects and the authoritative turn timer', async ({ page }) => {
     await openFixture(page);
     const table = page.getByTestId('badugi-effects-table');
