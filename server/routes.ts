@@ -1968,13 +1968,13 @@ export async function registerRoutes(
           await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
           console.log(
             `[billing:play] play-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `player=${txn.playerId} ` +
             `action=debit_stripes amount=${txn.stripesGranted} at=${at}`
           );
         } else {
           console.log(
             `[billing:play] play-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} action=no_op ` +
+            `action=no_op ` +
             `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${at}`
           );
         }
@@ -2040,7 +2040,7 @@ export async function registerRoutes(
         const { sku, purchaseToken, notificationType } = notification.oneTimeProductNotification;
         console.log(
           `[billing:play] play-webhook: event=oneTimeProduct ` +
-          `sku=${sku} type=${notificationType} token=...${String(purchaseToken).slice(-8)} at=${at} action=no_op`
+          `sku=${sku} type=${notificationType} at=${at} action=no_op`
         );
         res.status(200).json({ received: true });
         return;
@@ -2087,13 +2087,13 @@ export async function registerRoutes(
           await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
           console.log(
             `[billing] refund-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `player=${txn.playerId} ` +
             `action=debit_stripes amount=${txn.stripesGranted} at=${new Date().toISOString()}`
           );
         } else {
           console.log(
             `[billing] refund-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} action=no_op ` +
+            `action=no_op ` +
             `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${new Date().toISOString()}`
           );
         }
@@ -2170,7 +2170,6 @@ export async function registerRoutes(
       const subNotif = notification?.subscriptionNotification;
       if (subNotif?.purchaseToken) {
         const { purchaseToken, notificationType } = subNotif;
-        const tokenTail = (purchaseToken as string).slice(-8);
         const at = new Date().toISOString();
         // notificationType values from Google:
         // 1=RECOVERED 2=RENEWED 3=CANCELED 4=PURCHASED 5=ON_HOLD
@@ -2180,42 +2179,42 @@ export async function registerRoutes(
         // subscription row via purchaseToken — not from the webhook body.
         switch (notificationType) {
           case 1:
-            console.log(`[billing:sub] subscription-webhook: event=RECOVERED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=RECOVERED at=${at}`);
             await handleSubscriptionRecovered(purchaseToken);
             break;
           case 2:
-            console.log(`[billing:sub] subscription-webhook: event=RENEWED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=RENEWED at=${at}`);
             await handleSubscriptionRenewal(purchaseToken);
             break;
           case 3:
-            console.log(`[billing:sub] subscription-webhook: event=CANCELED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=CANCELED at=${at}`);
             await handleSubscriptionCancellation(purchaseToken);
             break;
           case 4:
-            console.log(`[billing:sub] subscription-webhook: event=PURCHASED token=...${tokenTail} at=${at} action=no_op (handled by verify-subscription)`);
+            console.log(`[billing:sub] subscription-webhook: event=PURCHASED at=${at} action=no_op (handled by verify-subscription)`);
             break;
           case 5:
-            console.log(`[billing:sub] subscription-webhook: event=ON_HOLD token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=ON_HOLD at=${at}`);
             await handleSubscriptionOnHold(purchaseToken);
             break;
           case 6:
-            console.log(`[billing:sub] subscription-webhook: event=IN_GRACE_PERIOD token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=IN_GRACE_PERIOD at=${at}`);
             await handleSubscriptionGracePeriod(purchaseToken);
             break;
           case 7:
-            console.log(`[billing:sub] subscription-webhook: event=RESTARTED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=RESTARTED at=${at}`);
             await handleSubscriptionRecovered(purchaseToken);
             break;
           case 12:
-            console.log(`[billing:sub] subscription-webhook: event=EXPIRED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=EXPIRED at=${at}`);
             await handleSubscriptionExpiration(purchaseToken);
             break;
           case 13:
-            console.log(`[billing:sub] subscription-webhook: event=REVOKED token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=REVOKED at=${at}`);
             await handleSubscriptionRefund(purchaseToken);
             break;
           default:
-            console.log(`[billing:sub] subscription-webhook: event=UNKNOWN(${notificationType}) token=...${tokenTail} at=${at}`);
+            console.log(`[billing:sub] subscription-webhook: event=UNKNOWN(${notificationType}) at=${at}`);
         }
       }
 
@@ -2229,13 +2228,13 @@ export async function registerRoutes(
           await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
           console.log(
             `[billing:sub] subscription-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} player=${txn.playerId} ` +
+            `player=${txn.playerId} ` +
             `action=debit_stripes amount=${txn.stripesGranted} at=${new Date().toISOString()}`
           );
         } else {
           console.log(
             `[billing:sub] subscription-webhook: event=voidedPurchase ` +
-            `token=...${token.slice(-8)} action=no_op ` +
+            `action=no_op ` +
             `reason=${!txn ? "transaction_not_found" : "not_verified"} at=${new Date().toISOString()}`
           );
         }
