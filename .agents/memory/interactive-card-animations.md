@@ -14,3 +14,9 @@ Active table-deal flights should survive authoritative updates that remain in th
 **Why:** Fast same-phase snapshots from bots previously erased flights almost immediately, making deals appear as an instant flash.
 
 **How to apply:** Keep a short landing hold after the calculated flight sequence and test both same-phase updates and explicit phase interruptions.
+
+Flights measured from DOM anchors should cancel on viewport or table geometry changes, revealing the authoritative cards instead of retargeting cards already mid-flight.
+
+**Why:** A flight with stale coordinates can visually land over another seat, while the destination cards are already authoritative and safe to show immediately.
+
+**How to apply:** Restore hidden destination cards when canceling, and detach geometry watchers along with the flight timer; do not replay the same deal solely because the layout changed.

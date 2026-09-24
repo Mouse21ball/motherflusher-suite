@@ -84,14 +84,58 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
       seat.style.visibility = 'hidden';
     });
     setFlights(measured);
-    const stagger = getDealStagger(measured.length);
-    const sequenceMs = TRAVEL_MS + Math.max(0, measured.length - 1) * stagger;
-    cleanupRef.current = setTimeout(() => {
+    let active = true;
+    let resizeObserver: ResizeObserver | null = null;
+    const stopWatching = () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', cancelFlights);
+      window.removeEventListener('orientationchange', cancelFlights);
+    };
+    const cancelFlights = () => {
+      if (!active) return;
+      active = false;
+      stopWatching();
+      if (cleanupRef.current) clearTimeout(cleanupRef.current);
+      cleanupRef.current = null;
       setFlights([]);
       restoreSeats();
-    }, sequenceMs + LANDING_HOLD_MS);
+    };
+    // ResizeObserver also catches table-only layout changes that don't emit a
+    // window resize. Its initial notification is harmless unless an anchor moved.
+    const checkGeometry = () => {
+      if (!active) return;
+      const currentRoot = tableRoot.getBoundingClientRect();
+      const currentDeck = deck.getBoundingClientRect();
+      const moved = (a: number, b: number) => Math.abs(a - b) > 0.5;
+      if (moved(currentRoot.width, rootRect.width) ||
+          moved(currentRoot.height, rootRect.height) ||
+          !tableRoot.contains(deck) ||
+          moved(currentDeck.left + currentDeck.width / 2 - currentRoot.left, sx) ||
+          moved(currentDeck.top + currentDeck.height / 2 - currentRoot.top, sy) ||
+          measured.some(event => {
+            const seat = seats.get(event.playerId)!;
+            if (!tableRoot.contains(seat)) return true;
+            const rect = seat.getBoundingClientRect();
+            return moved(rect.left + rect.width / 2 - currentRoot.left, event.sx + event.dx) ||
+              moved(rect.top + rect.height / 2 - currentRoot.top, event.sy + event.dy);
+          })) {
+        cancelFlights();
+      }
+    };
+    resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(checkGeometry);
+    resizeObserver?.observe(tableRoot);
+    resizeObserver?.observe(deck);
+    seats.forEach(seat => resizeObserver?.observe(seat));
+    window.addEventListener('resize', cancelFlights);
+    window.addEventListener('orientationchange', cancelFlights);
+    const stagger = getDealStagger(measured.length);
+    const sequenceMs = TRAVEL_MS + Math.max(0, measured.length - 1) * stagger;
+    cleanupRef.current = setTimeout(cancelFlights, sequenceMs + LANDING_HOLD_MS);
     return () => {
+      active = false;
+      stopWatching();
       if (cleanupRef.current) clearTimeout(cleanupRef.current);
+      cleanupRef.current = null;
       restoreSeats();
     };
   }, [deal.generation, deal.events, reduced, tableRoot, restoreSeats]);

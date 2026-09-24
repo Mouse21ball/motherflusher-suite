@@ -105,6 +105,7 @@ function TableDealAnimatorBrowserHarness() {
   const [phase, setPhase] = useState('ANTE');
   const [mounted, setMounted] = useState(true);
   const [showDeck, setShowDeck] = useState(true);
+  const [narrowTable, setNarrowTable] = useState(false);
   const [visibleSeats, setVisibleSeats] = useState<Record<string, boolean>>({});
   const [fullDealRequested, setFullDealRequested] = useState(false);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
@@ -171,6 +172,7 @@ function TableDealAnimatorBrowserHarness() {
         <button type="button" data-testid="same-phase-update" onClick={samePhaseUpdate}>Same-phase update</button>
         <button type="button" data-testid="remove-seat" onClick={removeSeatDuringDeal}>Remove seat</button>
         <button type="button" data-testid="reorder-seats" onClick={reorderSeatsDuringDeal}>Reorder seats</button>
+        <button type="button" data-testid="resize-table" onClick={() => setNarrowTable(value => !value)}>Resize table</button>
         <button type="button" data-testid="interrupt" onClick={interruptDeal}>Interrupt</button>
         <button type="button" data-testid="missing-deck" onClick={() => startMissingDeal('deck')}>Missing deck</button>
         <button type="button" data-testid="missing-seat" onClick={() => startMissingDeal('seat')}>Missing seat</button>
@@ -217,7 +219,7 @@ function TableDealAnimatorBrowserHarness() {
         data-testid="table"
         style={{
           position: 'relative',
-          width: '375px',
+          width: narrowTable ? '180px' : '375px',
           height: '560px',
           overflow: 'hidden',
           background: '#111',

@@ -103,6 +103,58 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator(flightSelector)).toHaveCount(3);
   });
 
+  test('restores authoritative cards when the table resizes during a flight', async ({ page }) => {
+    await openFixture(page);
+    const table = page.getByTestId('table');
+    const destination = table.locator('[data-deal-seat="opponent-2"]');
+    const before = await destination.boundingBox();
+    expect(before).not.toBeNull();
+
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+    await expect(destination).toHaveCSS('visibility', 'hidden');
+    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    await expect(opponentFlights).toHaveCount(2);
+    const markup = await opponentFlights.evaluateAll(flights =>
+      flights.map(flight => flight.outerHTML.toLowerCase()),
+    );
+    for (const flight of markup) {
+      expect(flight).not.toContain('king');
+      expect(flight).not.toContain('hearts');
+      expect(flight).not.toContain('opponent-');
+    }
+    expect(await opponentFlights.evaluateAll(flights =>
+      flights.every(flight => flight.textContent === ''),
+    )).toBe(true);
+
+    await page.getByTestId('resize-table').click();
+    await expect(table).toHaveCSS('width', '180px');
+    const after = await destination.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.y - before!.y)).toBeGreaterThan(20);
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+    expect(await table.locator(seatSelector).evaluateAll(seats =>
+      seats.every(seat => getComputedStyle(seat).visibility === 'visible'),
+    )).toBe(true);
+    await expect(table.locator('.playing-card-front')).toHaveCount(1);
+    await expect(table.locator('.playing-card-back')).toHaveCount(2);
+  });
+
+  test('cancels flights and reveals destinations on viewport resize', async ({ page }) => {
+    await openFixture(page);
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+    await expect(page.getByTestId('table').locator(seatSelector).first()).toHaveCSS('visibility', 'hidden');
+    await page.setViewportSize({ width: 600, height: 667 });
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+    const table = page.getByTestId('table');
+    expect(await table.locator(seatSelector).evaluateAll(seats =>
+      seats.every(seat => getComputedStyle(seat).visibility === 'visible'),
+    )).toBe(true);
+    await expect(table.locator('.playing-card-front')).toHaveCount(1);
+    await expect(table.locator('.playing-card-back')).toHaveCount(2);
+  });
+
   test('cleans up privacy-safe flights when a seat is removed during a deal', async ({ page }) => {
     await openFixture(page);
     await page.getByTestId('deal').click();
