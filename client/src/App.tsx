@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WelcomeGate } from "@/components/WelcomeGate";
 import { ColdStartSplash } from "@/components/ColdStartSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useServerProfile } from "@/lib/useServerProfile";
+import { ServerProfileProvider, useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
 import { music } from "@/lib/music";
@@ -40,8 +40,8 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 
 // ── Combined profile-driven manager ──────────────────────────────────────────
-// Single useServerProfile call handles both Diamond Elite background and
-// context-aware music playback. Merged to avoid duplicate guest-init races.
+// Shared profile state handles Diamond Elite background, music playback, and
+// page-level profile consumers without issuing parallel guest-init requests.
 const LADY_LUCK_PREFIX = '/ladyluck';
 const GAME_ROUTE_PREFIXES = [
   '/badugi', '/dead7', '/fifteen35', '/suitspoker',
@@ -161,19 +161,21 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        {/* Screen-edge vignette — always on top, no pointer events */}
-        <div className="cgp-vignette" aria-hidden="true" />
-        <ProfileManager />
-        <ErrorBoundary>
-          <ColdStartSplash>
-            <WelcomeGate>
-              <Router />
-            </WelcomeGate>
-          </ColdStartSplash>
-        </ErrorBoundary>
-      </TooltipProvider>
+      <ServerProfileProvider>
+        <TooltipProvider>
+          <Toaster />
+          {/* Screen-edge vignette — always on top, no pointer events */}
+          <div className="cgp-vignette" aria-hidden="true" />
+          <ProfileManager />
+          <ErrorBoundary>
+            <ColdStartSplash>
+              <WelcomeGate>
+                <Router />
+              </WelcomeGate>
+            </ColdStartSplash>
+          </ErrorBoundary>
+        </TooltipProvider>
+      </ServerProfileProvider>
     </QueryClientProvider>
   );
 }

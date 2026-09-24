@@ -7,7 +7,15 @@
 // Falls back silently to `null` values so callers can always fall back to
 // localStorage stats when the fetch is loading or fails (e.g. offline).
 
-import { useState, useEffect } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
 import { apiFetch, getSessionToken, setSessionToken } from './session';
@@ -50,7 +58,14 @@ interface UseServerProfileResult {
   refetch:  () => void;
 }
 
-export function useServerProfile(): UseServerProfileResult {
+const ServerProfileContext = createContext<UseServerProfileResult | null>(null);
+
+/**
+ * Owns the single server-profile request lifecycle for the application.
+ * Consumers use useServerProfile() to share this state rather than starting
+ * independent /me or guest-init requests.
+ */
+export function ServerProfileProvider({ children }: { children: ReactNode }) {
   const [profile,  setProfile]  = useState<ServerProfile | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [tick,     setTick]     = useState(0);
@@ -117,7 +132,20 @@ export function useServerProfile(): UseServerProfileResult {
     return () => { cancelled = true; };
   }, [tick]);
 
-  const refetch = () => setTick(t => t + 1);
+  const refetch = useCallback(() => setTick(t => t + 1), []);
+  const value = useMemo(() => ({ profile, loading, refetch }), [profile, loading, refetch]);
 
-  return { profile, loading, refetch };
+  return (
+    <ServerProfileContext.Provider value={value}>
+      {children}
+    </ServerProfileContext.Provider>
+  );
+}
+
+export function useServerProfile(): UseServerProfileResult {
+  const context = useContext(ServerProfileContext);
+  if (!context) {
+    throw new Error('useServerProfile must be used within ServerProfileProvider');
+  }
+  return context;
 }
