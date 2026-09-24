@@ -94,25 +94,23 @@ export function log(message: string, source = "express") {
 // Deep-clones the object so the actual HTTP response is never altered.
 const REDACTED_KEYS = new Set([
   'sessionToken', 'token', 'password', 'passwordHash', 'hashedPassword',
-  'refreshToken', 'accessToken', 'idToken', 'googlePlayServiceAccount',
-  'serviceAccountKey',
+  'resetToken', 'passwordResetToken', 'purchaseToken', 'refreshToken',
+  'accessToken', 'idToken', 'googlePlayServiceAccount',
+  'serviceAccountKey', 'error', 'message', 'details', 'reason',
 ]);
-const SENSITIVE_KEY_PATTERN = /secret|private[_\-]?key/i;
+const SENSITIVE_KEY_PATTERN = /password|token|secret|private[_\-]?key|error|message|detail|reason/i;
 
 function shouldRedactKey(key: string): boolean {
   return REDACTED_KEYS.has(key) || SENSITIVE_KEY_PATTERN.test(key);
 }
 
-function redactSensitive(obj: Record<string, any>): Record<string, any> {
+function redactSensitive(value: any): any {
+  if (Array.isArray(value)) return value.map(redactSensitive);
+  if (value === null || typeof value !== 'object') return value;
+
   const out: Record<string, any> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (shouldRedactKey(k)) {
-      out[k] = '[REDACTED]';
-    } else if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
-      out[k] = redactSensitive(v as Record<string, any>);
-    } else {
-      out[k] = v;
-    }
+  for (const [key, nestedValue] of Object.entries(value)) {
+    out[key] = shouldRedactKey(key) ? '[REDACTED]' : redactSensitive(nestedValue);
   }
   return out;
 }
@@ -120,7 +118,7 @@ function redactSensitive(obj: Record<string, any>): Record<string, any> {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: any = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -189,11 +187,11 @@ app.use((req, res, next) => {
           isNull(purchaseTransactions.verifiedAt),
         )
       )
-      .returning({ id: purchaseTransactions.id, token: purchaseTransactions.purchaseToken });
+      .returning({ id: purchaseTransactions.id });
     if (resetResult.length > 0) {
       console.log(
         `[startup] Reset ${resetResult.length} rejected→failed_retryable purchase_transaction(s):`,
-        resetResult.map(r => `${r.id.slice(0, 8)}… token=…${r.token.slice(-8)}`).join(', '),
+        resetResult.map(r => `${r.id.slice(0, 8)}…`).join(', '),
       );
     }
   } catch (cleanupErr: any) {
@@ -246,7 +244,11 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
+    console.error("Internal Server Error", {
+      name: err?.name,
+      status,
+      code: err?.code,
+    });
 
     if (res.headersSent) {
       return next(err);

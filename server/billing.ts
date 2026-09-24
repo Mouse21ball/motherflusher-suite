@@ -142,8 +142,7 @@ export async function verifyGooglePlayPurchase(
   purchaseToken: string,
 ): Promise<GooglePurchaseData> {
   console.log(
-    `[billing] verify start: productId=${productId} ` +
-    `token=${purchaseToken.slice(0, 16)}… testMode=${TEST_MODE}`
+    `[billing] verify start: productId=${productId} testMode=${TEST_MODE}`
   );
   console.log("[diagnostic] verifyGooglePlayPurchase calling Google with packageName:", PACKAGE_NAME);
 
@@ -202,8 +201,7 @@ export async function verifyGooglePlaySubscription(
   purchaseToken: string,
 ): Promise<GoogleSubscriptionData> {
   console.log(
-    `[billing:sub] verify start: productId=${productId} ` +
-    `token=${purchaseToken.slice(0, 16)}… testMode=${TEST_MODE}`
+    `[billing:sub] verify start: productId=${productId} testMode=${TEST_MODE}`
   );
 
   if (TEST_MODE && purchaseToken.startsWith("test_")) {
@@ -723,7 +721,7 @@ export interface ApplePurchaseData {
  * The route catches it and returns HTTP 402 so the server never crashes at startup or at runtime.
  */
 export async function verifyAppleAppStorePurchase(transactionId: string): Promise<ApplePurchaseData> {
-  console.log(`[billing:apple] verify start: transactionId=${transactionId.slice(0, 20)}…`);
+  console.log(`[billing:apple] verify start: transactionIdPresent=${Boolean(transactionId)}`);
 
   const creds = getAppleCredentials();
   if (!creds) {

@@ -1794,7 +1794,7 @@ export function addGenericConnection(
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
-    engineLog('SPECTATOR_JOIN', `${modeId}:${tableId}`, { session: sessionId.slice(-8), count: table.spectators.size });
+    engineLog('SPECTATOR_JOIN', `${modeId}:${tableId}`, { count: table.spectators.size });
     try {
       ws.send(JSON.stringify({
         type: 'mode:init',
@@ -1833,10 +1833,7 @@ export function addGenericConnection(
           if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         }
         engineLog('SESSION_TAKEOVER', `${modeId}:${tableId}`, {
-          identity: identityId.slice(-8),
           seat: foundSeat,
-          oldSession: (oldSessionId ?? '').slice(-8),
-          newSession: sessionId.slice(-8),
         });
         seat = foundSeat as typeof seat;
       } else {
@@ -1844,9 +1841,7 @@ export function addGenericConnection(
         const dt = table.disconnectTimers.get(foundSeat);
         if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         engineLog('RECONNECT_NEW_TAB', `${modeId}:${tableId}`, {
-          identity: identityId.slice(-8),
           reclaimedSeat: foundSeat,
-          newSession: sessionId.slice(-8),
         });
         seat = foundSeat as typeof seat;
       }
@@ -1992,7 +1987,6 @@ export function addGenericConnection(
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', `${modeId}:${tableId}`, {
     player: seat,
-    session: sessionId.slice(-8),
     phase: table.state.phase,
     wasReserved,
     hasIdentity: !!identityId,
@@ -2022,7 +2016,7 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
     // Handle spectator disconnect
     if (table.spectators.has(sessionId)) {
       table.spectators.delete(sessionId);
-      engineLog('SPECTATOR_LEAVE', `${modeId}:${tableId}`, { session: sessionId.slice(-8), remaining: table.spectators.size });
+    engineLog('SPECTATOR_LEAVE', `${modeId}:${tableId}`, { remaining: table.spectators.size });
       broadcastState(table);
       return;
     }
@@ -2086,7 +2080,7 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         const t = tables.get(key);
         if (!t) return;
         if (t.connections.has(seat)) return;
-        engineLog('RECONNECT_EXPIRED', `${modeId}:${tableId}`, { player: seat, session: capturedSession.slice(-8) });
+        engineLog('RECONNECT_EXPIRED', `${modeId}:${tableId}`, { player: seat });
         t.disconnectTimers.delete(seat);
         t.sessionToSeat.delete(capturedSession);
         const id = t.seatToIdentityId.get(seat);
@@ -2107,7 +2101,6 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
 
     engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', `${modeId}:${tableId}`, {
       player: seat,
-      session: sessionId.slice(-8),
       remaining: table.connections.size,
       intentional,
     });
@@ -2192,7 +2185,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
   }
 
   if (!table) {
-    console.warn('[CGP][server] handleGenericAction: NO TABLE FOUND', { tableId, playerOrSessionId, action });
+    console.warn('[CGP][server] handleGenericAction: NO TABLE FOUND', { tableId, action });
     return;
   }
   if (table.actionLock) {
@@ -2207,7 +2200,9 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     // Resolve seat: if playerOrSessionId is a UUID, map via sessionToSeat;
     // if it's already a seatId (p1-p5), fall back to it directly.
     const playerId = table.sessionToSeat.get(playerOrSessionId) || playerOrSessionId;
-    console.log('[CGP][server] handleGenericAction enter', { mode: table.modeId, tableId, action, playerId, phase: s.phase });
+    console.log('[CGP][server] handleGenericAction enter', {
+      mode: table.modeId, tableId, action, hasSessionMapping: table.sessionToSeat.has(playerOrSessionId), phase: s.phase,
+    });
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
@@ -2668,7 +2663,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     if (resolveByFold(table)) return;
     afterHumanAction(table, wasRaise);
   } catch (err) {
-    console.error('[genericEngine:ERROR] handleGenericAction threw:', err);
+    console.error('[genericEngine:ERROR] handleGenericAction failed');
     table.actionLock = false;
   }
 }

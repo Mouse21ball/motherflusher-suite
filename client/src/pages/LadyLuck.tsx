@@ -249,7 +249,7 @@ export default function LadyLuck() {
         if (!alive) return;
 
         console.log(`[LL-TIMING] new WebSocket() called at ${Date.now()} (+${Date.now() - wsTimingStart}ms)`);
-        console.log('[ladyluck] WS connecting, tableId from state:', tableId, '| wsUrl:', wsUrl(token));
+        console.log('[ladyluck] WS connecting, tableId from state:', tableId);
         ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;
         const wsCreatedAt = Date.now();

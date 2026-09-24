@@ -13,3 +13,4 @@
 - [Interactive card animations](interactive-card-animations.md) — animation branches must retain button hit targets; same-phase server snapshots must not cancel active deal flights.
 - [Authoritative table effects](authoritative-table-effects.md) — derive chip, payout, and fold flights from state deltas; never recreate game math in the visual layer.
 - [Platform-aware API URLs](platform-aware-api-urls.md) — client API calls must pass paths through apiUrl; relative fetch URLs fail under Capacitor/WebView origins.
+- [Sensitive response logging](sensitive-response-logging.md) — recursively redact response values and avoid exception details on credential-bearing paths.

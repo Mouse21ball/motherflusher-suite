@@ -626,7 +626,7 @@ export async function registerRoutes(
       if (err?.name === "ZodError") {
         res.status(400).json({ error: err.issues[0]?.message ?? "Invalid data" });
       } else {
-        console.error("Register error:", err);
+        console.error("[auth:register] request failed");
         res.status(500).json({ error: "Registration failed" });
       }
     }
@@ -687,7 +687,7 @@ export async function registerRoutes(
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid request" });
       } else {
-        console.error("Login error:", err);
+        console.error("[auth:login] request failed");
         res.status(500).json({ error: "Login failed" });
       }
     }
@@ -740,7 +740,7 @@ export async function registerRoutes(
         equippedLadyLuckTrack: (profile as any).equippedLadyLuckTrack ?? null,
       });
     } catch (err) {
-      console.error("Auth me error:", err);
+      console.error("[auth:me] request failed");
       res.status(500).json({ error: "Failed to fetch profile" });
     }
   });
@@ -816,7 +816,7 @@ export async function registerRoutes(
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid request" });
       } else {
-        console.error("Guest init error:", err);
+        console.error("[auth:guest-init] request failed");
         res.status(500).json({ error: "Failed to initialize guest session" });
       }
     }
@@ -844,7 +844,7 @@ export async function registerRoutes(
 
       const resetUrl = `https://chainggangpoker.com/reset-password?token=${token}`;
 
-      const resendResult = await getResendClient().emails.send({
+      await getResendClient().emails.send({
         from:    "Chain Gang Poker <noreply@chainggangpoker.com>",
         to:      email.trim().toLowerCase(),
         subject: "Reset your Chain Gang Poker password",
@@ -902,15 +902,12 @@ export async function registerRoutes(
 </body>
 </html>`,
       });
-      console.log("RESEND-DEBUG send result:", JSON.stringify(resendResult));
-
       res.json({ message: GENERIC_OK });
     } catch (err: any) {
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid email address." });
       } else {
-        console.log("RESEND-DEBUG send error:", err?.message, err?.stack);
-        console.error("[forgot-password] error:", err);
+        console.error(`[forgot-password] request failed at=${new Date().toISOString()}`);
         // Still return generic OK — don't leak internal errors to caller
         res.json({ message: GENERIC_OK });
       }
@@ -948,7 +945,7 @@ export async function registerRoutes(
       if (err?.name === "ZodError") {
         res.status(400).json({ error: err.issues[0]?.message ?? "Invalid request." });
       } else {
-        console.error("[reset-password] error:", err);
+        console.error(`[reset-password] request failed at=${new Date().toISOString()}`);
         res.status(500).json({ error: "Password reset failed. Please try again." });
       }
     }
@@ -1203,7 +1200,7 @@ export async function registerRoutes(
       await storage.invalidateSession(token);
       res.json({ loggedOut: true });
     } catch (err) {
-      console.error("Logout error:", err);
+      console.error("[auth:logout] request failed");
       res.status(500).json({ error: "Logout failed" });
     }
   });
@@ -1512,7 +1509,7 @@ export async function registerRoutes(
         // Infrastructure failures are retryable; Google API errors are permanent.
         const hasGoogleResponse = !!(verifyErr as any)?.response;
         const failStatus = hasGoogleResponse ? "rejected" : "failed_retryable";
-        console.error(`[billing] Verification failed (${failStatus}): ${verifyErr.message}`);
+        console.error(`[billing] Verification failed (${failStatus})`);
         await storage.updatePurchaseTransactionStatus(txnId, failStatus);
         res.status(402).json({ error: `Purchase verification failed: ${verifyErr.message}` });
         return;
@@ -1539,8 +1536,7 @@ export async function registerRoutes(
         }
         if (purchaseData.obfuscatedExternalAccountId !== playerId) {
           console.log(
-            `[BILLING_AUTHZ] mismatch: session=${playerId.slice(0, 8)} ` +
-            `purchase=${purchaseData.obfuscatedExternalAccountId.slice(0, 8)} product=${productId}`,
+            `[BILLING_AUTHZ] account mismatch: player=${playerId.slice(0, 8)} product=${productId}`,
           );
           await storage.updatePurchaseTransactionStatus(txnId, "rejected");
           res.status(403).json({ error: "Purchase authorization failed: account ID mismatch" });
@@ -1577,7 +1573,7 @@ export async function registerRoutes(
         await acknowledgeGooglePlayPurchase(productId, purchaseToken);
       } catch (ackErr: any) {
         // Non-fatal: Google auto-refunds after 3 days if not consumed. Log for manual action.
-        console.error(`[billing] Acknowledge failed (manual action needed): ${ackErr.message}`);
+        console.error("[billing] Acknowledge failed (manual action needed)");
       }
 
       console.log(
@@ -1593,7 +1589,7 @@ export async function registerRoutes(
       if (err?.name === "ZodError") {
         res.status(400).json({ error: "Invalid purchase data" });
       } else {
-        console.error("[billing] verify-purchase error:", err);
+        console.error("[billing] verify-purchase failed");
         res.status(500).json({ error: "Purchase processing failed" });
       }
     }
@@ -1757,7 +1753,7 @@ export async function registerRoutes(
       try {
         appleData = await verifyAppleAppStorePurchase(transactionId);
       } catch (verifyErr: any) {
-        console.error(`[billing:apple] Verification error: ${verifyErr.message}`);
+        console.error("[billing:apple] Verification failed");
         await storage.updatePurchaseTransactionStatus(txnId, 'failed_retryable');
         res.status(402).json({ error: `Apple purchase verification failed: ${verifyErr.message}` });
         return;
@@ -1788,8 +1784,7 @@ export async function registerRoutes(
       }
       if (appleData.appAccountToken !== playerId) {
         console.log(
-          `[BILLING_AUTHZ:apple] mismatch: session=${playerId.slice(0, 8)} ` +
-          `appAccountToken=${appleData.appAccountToken.slice(0, 8)} product=${productId}`,
+          `[BILLING_AUTHZ:apple] account mismatch: player=${playerId.slice(0, 8)} product=${productId}`,
         );
         await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
         res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
@@ -1832,7 +1827,7 @@ export async function registerRoutes(
       if (err?.name === 'ZodError') {
         res.status(400).json({ error: 'Invalid purchase data' });
       } else {
-        console.error('[billing:apple] verify-apple-purchase error:', err);
+        console.error('[billing:apple] verify-apple-purchase failed');
         res.status(500).json({ error: 'Purchase processing failed' });
       }
     }
@@ -1867,7 +1862,7 @@ export async function registerRoutes(
         try {
           appleData = await verifyAppleAppStorePurchase(transactionId);
         } catch (verifyErr: any) {
-          console.error('[billing:apple-sub] Apple API verification failed:', verifyErr.message);
+          console.error('[billing:apple-sub] Apple API verification failed');
           res.status(402).json({ error: `Apple subscription verification failed: ${verifyErr.message}` });
           return;
         }
@@ -1921,7 +1916,7 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       if (err?.name === 'ZodError') { res.status(400).json({ error: 'Invalid request' }); return; }
-      console.error('[billing:apple-sub] verify-apple-subscription error:', err);
+      console.error('[billing:apple-sub] verify-apple-subscription failed');
       res.status(500).json({ error: err.message ?? 'Subscription activation failed' });
     }
   });
@@ -2037,7 +2032,7 @@ export async function registerRoutes(
       // Not yet actioned — consumable purchases are verified client-side via
       // /api/billing/verify-purchase. Log for observability.
       if (notification?.oneTimeProductNotification) {
-        const { sku, purchaseToken, notificationType } = notification.oneTimeProductNotification;
+        const { sku, notificationType } = notification.oneTimeProductNotification;
         console.log(
           `[billing:play] play-webhook: event=oneTimeProduct ` +
           `sku=${sku} type=${notificationType} at=${at} action=no_op`
@@ -2047,10 +2042,10 @@ export async function registerRoutes(
       }
 
       // Unknown notification shape — log and ACK.
-      console.warn(`[billing:play] play-webhook: unrecognised notification shape at=${at}`, JSON.stringify(notification).slice(0, 200));
+      console.warn(`[billing:play] play-webhook: unrecognised notification shape at=${at}`);
       res.status(200).json({ received: true });
     } catch (err: any) {
-      console.error("[billing:play] play-webhook error:", err.message);
+      console.error("[billing:play] play-webhook failed");
       // Still ACK — do not let Pub/Sub retry a message that caused an internal error.
       res.status(200).json({ received: true });
     }
@@ -2102,7 +2097,7 @@ export async function registerRoutes(
       // Always ACK the Pub/Sub message to prevent re-delivery
       res.status(200).json({ received: true });
     } catch (err: any) {
-      console.error("[billing] refund-webhook error:", err.message);
+      console.error("[billing] refund-webhook failed");
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -2142,7 +2137,7 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       if (err?.name === "ZodError") { res.status(400).json({ error: "Invalid request" }); return; }
-      console.error("[billing:sub] verify-subscription error:", err);
+      console.error("[billing:sub] verify-subscription failed");
       res.status(500).json({ error: err.message ?? "Subscription activation failed" });
     }
   });
@@ -2242,7 +2237,7 @@ export async function registerRoutes(
 
       res.status(200).json({ received: true });
     } catch (err: any) {
-      console.error("[billing:sub] subscription-webhook error:", err.message);
+      console.error("[billing:sub] subscription-webhook failed");
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -2266,7 +2261,7 @@ export async function registerRoutes(
         billingPeriod: sub.billingPeriod,
       });
     } catch (err) {
-      console.error("[billing:sub] subscription fetch error:", err);
+      console.error("[billing:sub] subscription fetch failed");
       res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });

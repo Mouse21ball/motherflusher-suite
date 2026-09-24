@@ -1433,7 +1433,7 @@ export function addBadugiConnection(
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
-    engineLog('SPECTATOR_JOIN', tableId, { session: sessionId.slice(-8), count: table.spectators.size });
+    engineLog('SPECTATOR_JOIN', tableId, { count: table.spectators.size });
     try {
       ws.send(JSON.stringify({
         type: 'badugi:init',
@@ -1477,10 +1477,7 @@ export function addBadugiConnection(
           if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         }
         engineLog('SESSION_TAKEOVER', tableId, {
-          identity: identityId.slice(-8),
           seat: foundSeat,
-          oldSession: (oldSessionId ?? '').slice(-8),
-          newSession: sessionId.slice(-8),
         });
         seat = foundSeat as typeof seat;
       } else {
@@ -1489,9 +1486,7 @@ export function addBadugiConnection(
         const dt = table.disconnectTimers.get(foundSeat);
         if (dt) { clearTimeout(dt); table.disconnectTimers.delete(foundSeat); }
         engineLog('RECONNECT_NEW_TAB', tableId, {
-          identity: identityId.slice(-8),
           reclaimedSeat: foundSeat,
-          newSession: sessionId.slice(-8),
         });
         seat = foundSeat as typeof seat;
       }
@@ -1615,7 +1610,6 @@ export function addBadugiConnection(
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
     player: seat,
-    session: sessionId.slice(-8),
     phase: table.state.phase,
     connections: table.connections.size,
     wasReserved,
@@ -1644,7 +1638,7 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
   // Handle spectator disconnect
   if (table.spectators.has(sessionId)) {
     table.spectators.delete(sessionId);
-    engineLog('SPECTATOR_LEAVE', tableId, { session: sessionId.slice(-8), remaining: table.spectators.size });
+    engineLog('SPECTATOR_LEAVE', tableId, { remaining: table.spectators.size });
     broadcastState(table);
     return;
   }
@@ -1714,7 +1708,7 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
         if (t.connections.has(seat)) return;
       }
 
-      engineLog('RECONNECT_EXPIRED', tableId, { player: seat, session: capturedSession.slice(-8) });
+      engineLog('RECONNECT_EXPIRED', tableId, { player: seat });
       t.disconnectTimers.delete(seat);
       t.sessionToSeat.delete(capturedSession);
 
@@ -1737,7 +1731,6 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
 
   engineLog(intentional ? 'PLAYER_LEAVE' : 'PLAYER_DISCONNECT', tableId, {
     player: seat,
-    session: sessionId.slice(-8),
     phase: table.state.phase,
     remaining: table.connections.size,
     intentional,
@@ -1805,8 +1798,8 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
 export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): void {
   const table = tables.get(tableId);
   if (!table) {
-    console.warn('[CGP][server] handleBadugiAction: NO TABLE FOUND', { tableId, playerId, action });
-    engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'no-table' });
+    console.warn('[CGP][server] handleBadugiAction: NO TABLE FOUND', { tableId, action });
+    engineLog('ACTION', tableId, { action, accepted: false, reason: 'no-table' });
     return;
   }
 
@@ -2098,7 +2091,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     table.actionLock = false;
   } catch (err) {
     engineLog('ERROR', tableId, { msg: 'action-threw', player: playerId, action, phase: tables.get(tableId)?.state.phase ?? '?' });
-    console.error('[badugi:ERROR] action error:', err);
+    console.error('[badugi:ERROR] action failed');
     table.actionLock = false;
   }
 }
