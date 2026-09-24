@@ -3027,14 +3027,14 @@ export class MemStorage implements IStorage {
     if (!target.email) throw new Error('Player has no email — cannot trigger password reset');
     const resetToken = randomBytes(32).toString('hex');
     // Phase 3: store resetToken in a password_reset_tokens table and email it.
-    // For now: log it for manual delivery.
-    console.log(`[ADMIN_RESET] playerId=${targetPlayerId} email=${target.email} token=${resetToken} adminId=${adminId}`);
+    // For now: return it to the authorized admin for manual delivery. Never log it.
     await db.insert(adminActions).values({
       adminId, targetPlayerId, actionType: 'reset_password', reason,
       beforeState: { email: target.email },
       afterState:  { resetTokenGenerated: true },
       metadata:    { email: target.email },
     });
+    console.log(`[ADMIN_RESET] at=${new Date().toISOString()} adminId=${adminId} playerId=${targetPlayerId}`);
     return { resetToken };
   }
 

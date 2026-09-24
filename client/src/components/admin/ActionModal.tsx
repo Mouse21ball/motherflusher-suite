@@ -127,7 +127,6 @@ export function ActionModal({ actionType, playerId, ownedCosmetics, onClose, onS
         const body = await res.json().catch(() => null) as { token?: string } | null;
         if (body?.token) {
           successMsg = `Reset token: ${body.token}`;
-          console.warn("[ADMIN RESET TOKEN]", body.token);
         }
       }
 

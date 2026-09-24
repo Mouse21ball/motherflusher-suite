@@ -23,7 +23,7 @@ export function logAuthFailure(req: Request, reason: string): void {
     `method=${req.method} path=${req.path} ` +
     `reason=${reason} ip=${req.ip ?? "unknown"} ` +
     `attempted_id=${req.params?.id ?? "n/a"} ` +
-    `token_prefix=${token?.slice(0, 8) ?? "none"}`
+    `token_present=${Boolean(token)}`
   );
 }
 

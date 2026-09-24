@@ -460,7 +460,7 @@ export async function processSubscriptionPurchase(
 export async function handleSubscriptionRenewal(purchaseToken: string): Promise<void> {
   const sub = await storage.getSubscriptionByToken(purchaseToken);
   if (!sub) {
-    console.warn(`[billing:sub] renewal: unknown token ${purchaseToken.slice(0, 16)}…`);
+    console.warn("[billing:sub] renewal: unknown purchase token");
     return;
   }
 
