@@ -65,6 +65,11 @@ app.use(cors({
     // Allow requests with no origin (server-to-server, curl, Pub/Sub webhooks)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
+    // Replit's internal preview screenshot browser uses this loopback origin.
+    // Keep it development-only; production origins remain explicitly allowlisted.
+    if (process.env.NODE_ENV === 'development' && origin === 'http://127.0.0.1:5000') {
+      return callback(null, true);
+    }
     // Allow all Replit preview/dev subdomains (dynamic URLs in the editor)
     if (origin.endsWith('.replit.dev') || origin.endsWith('.repl.co')) return callback(null, true);
     callback(new Error(`CORS: origin not allowed — ${origin}`));

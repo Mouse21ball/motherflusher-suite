@@ -269,6 +269,24 @@ describe('BonecrusherMode.resolveShowdown — SWING all-or-nothing', () => {
     expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
   });
 
+  it('fails SWING when it ties for best HIGH but wins LOW outright', () => {
+    const highOnlyCards = [
+      card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'),
+      card('J', 'spades'), card('10', 'spades'), card('9', 'spades'),
+    ];
+    const players = [
+      player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
+      player('B', straightFlushWheelCards, { declaration: 'HIGH',  chips: 1000 }),
+      player('C', highOnlyCards,           { declaration: 'LOW',   chips: 1000 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+  });
+
   it('falls back to non-SWING declarers when SWING players tie on both sides', () => {
     const players = [
       player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
@@ -289,6 +307,18 @@ describe('BonecrusherMode.resolveShowdown — SWING all-or-nothing', () => {
     const players = [
       player('A', royalFlushCards, { declaration: 'SWING', chips: 1000 }),
       player('B', wheelCards,      { declaration: 'SWING', chips: 1000 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+  });
+
+  it('splits normally when all SWING declarers tie on both sides', () => {
+    const players = [
+      player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
+      player('B', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
     ];
     const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
 

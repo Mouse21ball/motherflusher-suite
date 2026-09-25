@@ -234,6 +234,23 @@ describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
     expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
   });
 
+  it('fails SWING when it ties for best HIGH but wins LOW outright', () => {
+    const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
+    const swingHole = [card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades')];
+    const weakerLowHole = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
+    const players = [
+      player('A', swingHole,      { declaration: 'SWING', chips: 1000 }),
+      player('B', swingHole,      { declaration: 'HIGH',  chips: 1000 }),
+      player('C', weakerLowHole,  { declaration: 'LOW',   chips: 1000 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+  });
+
   it('falls back to non-SWING declarers when SWING players tie on both sides', () => {
     const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
     const weakHole = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
@@ -259,6 +276,19 @@ describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
     const players = [
       player('A', highFlush, { declaration: 'SWING', chips: 1000 }),
       player('B', wheelLow,  { declaration: 'SWING', chips: 1000 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+  });
+
+  it('splits normally when all SWING declarers tie on both sides', () => {
+    const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
+    const players = [
+      player('A', royalHole, { declaration: 'SWING', chips: 1000 }),
+      player('B', royalHole, { declaration: 'SWING', chips: 1000 }),
     ];
     const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
 
