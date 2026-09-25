@@ -218,24 +218,53 @@ describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
 
   it('SWING who fails LOW — HIGH half goes to non-SWING HIGH declarer', () => {
     const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
-    // A: strong HIGH (royal) but bad LOW; B: weak HIGH; C: strong LOW
-    const strongHighHole = [card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades')];
-    const weakHighHole   = [card('7', 'hearts'), card('8', 'clubs'),  card('9', 'spades'), card('J', 'clubs'),  card('Q', 'clubs')];
-    // Strong low: A-2 in hole + comm 3-4-5 → but A is in strongHighHole; each player is independent
-    // C low hole: use 7 8 9 J Q — same as weakHighHole (different player, same ranks per their own eval)
-    // Actually the low evaluation uses player.cards + communityCards for each player independently
-    // So C with 7 8 9 J Q hole + commSafe 2 3 4 5 6 → all unique, and their bestLowHand picks best 5-card low
-    // A with strong high hole + commSafe → A will have best HIGH, and their LOW hand is A K Q J 10 2 3 4 5 6 → pick 5 lowest = 2 3 4 5 6 = OK low
-    // C with 7 8 9 J Q + commSafe 2 3 4 5 6 → pick 5 lowest = 2 3 4 5 6 → same low as A!
-    // This is getting complex. Let's just verify chip conservation and SWING failure message.
+    const swingHole = [card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades')];
+    const tiedLowHole = [card('A', 'hearts'), card('K', 'clubs'), card('Q', 'hearts'), card('J', 'diamonds'), card('10', 'clubs')];
+    const weakerHighHole = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
     const players = [
-      player('A', strongHighHole, { declaration: 'SWING', chips: 1000 }),
-      player('B', weakHighHole,   { declaration: 'HIGH',  chips: 1000 }),
-      player('C', weakHighHole,   { declaration: 'LOW',   chips: 1000 }),
+      player('A', swingHole,      { declaration: 'SWING', chips: 1000 }),
+      player('B', tiedLowHole,    { declaration: 'LOW',   chips: 1000 }),
+      player('C', weakerHighHole, { declaration: 'HIGH',  chips: 1000 }),
     ];
-    const { players: out, pot: rem } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
-    const total = out.reduce((s, p) => s + p.chips, 0) + rem;
-    expect(total).toBe(3200); // chip conservation regardless of who won
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+  });
+
+  it('falls back to non-SWING declarers when SWING players tie on both sides', () => {
+    const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
+    const weakHole = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
+    const players = [
+      player('A', royalHole, { declaration: 'SWING', chips: 1000 }),
+      player('B', royalHole, { declaration: 'SWING', chips: 1000 }),
+      player('C', weakHole,  { declaration: 'HIGH',  chips: 1000 }),
+      player('D', weakHole,  { declaration: 'LOW',   chips: 1000 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'D')!.chips).toBe(1100);
+  });
+
+  it('resolves normally among all declarers when every declarer is SWING', () => {
+    const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
+    const highFlush = [card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades'), card('9', 'spades')];
+    const wheelLow = [card('A', 'clubs'), card('7', 'hearts'), card('8', 'spades'), card('10', 'clubs'), card('J', 'hearts')];
+    const players = [
+      player('A', highFlush, { declaration: 'SWING', chips: 1000 }),
+      player('B', wheelLow,  { declaration: 'SWING', chips: 1000 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 200, 'A', commSafe);
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
   });
 });
 

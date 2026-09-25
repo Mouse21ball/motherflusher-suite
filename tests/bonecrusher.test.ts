@@ -254,6 +254,48 @@ describe('BonecrusherMode.resolveShowdown — SWING all-or-nothing', () => {
     expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
     expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
   });
+
+  it('fails SWING when it wins HIGH outright but ties for best LOW', () => {
+    const players = [
+      player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
+      player('B', wheelCards,               { declaration: 'LOW',   chips: 1000 }),
+      player('C', pairAceCards,              { declaration: 'HIGH',  chips: 1000 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+  });
+
+  it('falls back to non-SWING declarers when SWING players tie on both sides', () => {
+    const players = [
+      player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
+      player('B', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
+      player('C', pairAceCards,              { declaration: 'HIGH',  chips: 1000 }),
+      player('D', highOnlyCards,              { declaration: 'LOW',   chips: 1000 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'D')!.chips).toBe(1100);
+  });
+
+  it('resolves normally among all declarers when every declarer is SWING', () => {
+    const players = [
+      player('A', royalFlushCards, { declaration: 'SWING', chips: 1000 }),
+      player('B', wheelCards,      { declaration: 'SWING', chips: 1000 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 200, 'A');
+
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1100);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+  });
 });
 
 describe('BonecrusherMode.resolveShowdown — chip conservation', () => {

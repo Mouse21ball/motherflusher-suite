@@ -448,39 +448,36 @@ export const BonecrusherMode: GameMode = {
       const highWinners = findHighWinners(highPool);
       const lowWinners  = findLowWinners(lowPool);
 
-      const swingBothWinners = swingPool.filter(s =>
-        highWinners.some(w => w.id === s.id) && lowWinners.some(w => w.id === s.id)
-      );
+      const swingWinner =
+        highWinners.length === 1 &&
+        lowWinners.length === 1 &&
+        highWinners[0].id === lowWinners[0].id &&
+        highWinners[0].declaration === 'SWING'
+          ? highWinners[0]
+          : null;
 
-      if (swingBothWinners.length > 0) {
-        award(swingBothWinners, pot);
-        const ev = evalMap.get(swingBothWinners[0].id)!;
-        messages.push(`SWING: ${swingBothWinners.map(p => p.name).join(' & ')} takes the whole pot $${pot} — ${ev.high.name} HIGH / ${ev.low.desc} LOW!`);
+      if (swingWinner) {
+        award([swingWinner], pot);
+        const ev = evalMap.get(swingWinner.id)!;
+        messages.push(`SWING: ${swingWinner.name} takes the whole pot $${pot} — ${ev.high.name} HIGH / ${ev.low.desc} LOW!`);
       } else {
-        const swingHighOnly = swingPool.filter(s =>
-          highWinners.some(w => w.id === s.id) && !lowWinners.some(w => w.id === s.id)
-        );
-        const swingLowOnly = swingPool.filter(s =>
-          !highWinners.some(w => w.id === s.id) && lowWinners.some(w => w.id === s.id)
-        );
+        const hasNonSwingDeclarer = active.some(p => p.declaration !== 'SWING');
+        const fallbackPlayers = hasNonSwingDeclarer
+          ? active.filter(p => p.declaration !== 'SWING')
+          : active;
 
-        if (swingHighOnly.length > 0) {
-          messages.push(`${swingHighOnly.map(p => p.name).join(', ')} (SWING) loses LOW — forfeits HIGH`);
-        }
-        if (swingLowOnly.length > 0) {
-          messages.push(`${swingLowOnly.map(p => p.name).join(', ')} (SWING) loses HIGH — forfeits LOW`);
+        if (swingPool.length > 0) {
+          messages.push(hasNonSwingDeclarer
+            ? `SWING: ${swingPool.map(p => p.name).join(', ')} fails — wins no pot`
+            : 'SWING: no sole winner on both sides — all-SWING players resolve normally');
         }
 
-        const disqualifiedIds = new Set([...swingHighOnly, ...swingLowOnly].map(p => p.id));
-        const eligHighWinners = highWinners.filter(w => !disqualifiedIds.has(w.id));
-        const eligLowWinners  = lowWinners.filter(w  => !disqualifiedIds.has(w.id));
-
-        const actualHigh = eligHighWinners.length > 0
-          ? eligHighWinners
-          : findHighWinners(highPool.filter(p => p.declaration === 'HIGH'));
-        const actualLow = eligLowWinners.length > 0
-          ? eligLowWinners
-          : findLowWinners(lowPool.filter(p => p.declaration === 'LOW'));
+        const actualHigh = findHighWinners(
+          fallbackPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING')
+        );
+        const actualLow = findLowWinners(
+          fallbackPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING')
+        );
 
         if (actualHigh.length > 0) {
           award(actualHigh, halfHigh);

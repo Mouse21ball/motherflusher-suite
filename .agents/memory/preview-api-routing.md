@@ -8,3 +8,10 @@ Before using the Replit development preview for authenticated or game-flow verif
 **Why:** App startup can create guest profiles, and entering a game can create or join a table. Testing those flows against production causes persistent production writes.
 
 **How to apply:** Route API requests and WebSocket connections to the development host in the test browser before loading the app. Confirm the development workflow receives the requests, and never log session tokens or WebSocket tickets.
+
+## Internal preview browser origin
+The internal screenshot browser may load the app from `http://127.0.0.1:5000`, while development CORS allows `http://localhost:5000` and Replit domains but not the loopback IP. That makes preview screenshots show a blank page even though direct requests succeed.
+
+**Why:** The CORS callback rejects the screenshot browser's `Origin` header on Vite module requests; broadening the production allowlist is not needed to test the app.
+
+**How to apply:** Use `http://localhost:5000` for browser-based development checks and reroute production API/WebSocket URLs to the local server. Do not send guest or game-flow requests to production.
