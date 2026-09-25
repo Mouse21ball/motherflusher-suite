@@ -4,8 +4,8 @@ export type CelebrationType =
   | 'NORMAL_WIN' | 'BIG_POT' | 'RARE_HAND' | 'WIN_STREAK' | 'BLUFF_WIN'
   | 'PLAYER_BUST' | 'BADUGI_SPECIAL' | 'DEAD7_SPECIAL' | '1535_SPECIAL';
 export type CelebrationIntensity = 'normal' | 'big' | 'premium';
-export type CelebrationAnimation = 'chip-glow' | 'chain-sweep' | 'dead7-skull';
-export type CelebrationParticles = 'gold-sparks' | 'amber-burst' | 'red-gold-pulse' | 'none';
+export type CelebrationAnimation = 'chip-glow' | 'chain-sweep' | 'dead7-skull' | 'rare-halo' | 'streak-flare';
+export type CelebrationParticles = 'gold-sparks' | 'amber-burst' | 'red-gold-pulse' | 'violet-stars' | 'flame-sparks' | 'none';
 export type CelebrationScreenEffect = 'none' | 'punch' | 'dim-pulse';
 export type CelebrationSound = 'chipClink' | 'win' | 'bigWin' | 'none';
 
@@ -21,6 +21,8 @@ export interface CelebrationEvent {
   playerName: string;
   targets: CelebrationTarget[];
   amount: number;
+  handName?: string;
+  streakCount?: number;
   text?: string;
   durationMs?: number;
   animation?: CelebrationAnimation;
@@ -56,6 +58,14 @@ export const CELEBRATION_PRESETS: Partial<Record<CelebrationType, CelebrationPre
     animation: 'dead7-skull', durationMs: 2100, text: 'DEAD 7',
     sound: 'bigWin', particles: 'red-gold-pulse', screenEffect: 'dim-pulse', intensity: 'premium',
   },
+  RARE_HAND: {
+    animation: 'rare-halo', durationMs: 2300, text: 'RARE HAND',
+    sound: 'bigWin', particles: 'violet-stars', screenEffect: 'dim-pulse', intensity: 'premium',
+  },
+  WIN_STREAK: {
+    animation: 'streak-flare', durationMs: 2000, text: 'HOT STREAK',
+    sound: 'win', particles: 'flame-sparks', screenEffect: 'punch', intensity: 'big',
+  },
 };
 
 export function resolveCelebration(event: CelebrationEvent): CelebrationPreset {
@@ -80,20 +90,49 @@ export interface CelebrationSnapshot {
   tableId: string;
   phase: string;
   players: Record<string, { chips: number; totalBet: number; isWinner: boolean }>;
+  winStreaks: Record<string, number>;
 }
 
-export function snapshotForCelebrations(state: GameState): CelebrationSnapshot {
+export function snapshotForCelebrations(state: GameState, winStreaks: Record<string, number> = {}): CelebrationSnapshot {
   return {
     tableId: state.tableId,
     phase: state.phase,
     players: Object.fromEntries(state.players.map(p => [
       p.id, { chips: p.chips, totalBet: p.totalBet ?? 0, isWinner: !!p.isWinner },
     ])),
+    winStreaks,
   };
 }
 
 // BIG_POT is based on observed awarded chips (not a client-side pot calculation).
 export const BIG_POT_MIN_CHIPS = 500;
+export const WIN_STREAK_MIN_HANDS = 3;
+
+// Only server-provided evaluated results count. Do not classify cards in the
+// presentation layer; a strong hand before showdown is not a confirmed win.
+function rareHandName(player: GameState['players'][number], modeId: string): string | null {
+  const score = player.score;
+  if (!score) return null;
+  if (modeId === 'badugi' && score.isValidBadugi
+    && score.badugiRankValues?.join(',') === '4,3,2,1') return 'Perfect Badugi';
+  const names = [score.highEval?.description, score.description];
+  return names.find(name => name && /^(Royal Flush|Straight Flush|Four of a Kind)$/i.test(name)) ?? null;
+}
+
+/** Advance only after an observed, paid showdown; ignore spectators and sitting-out seats. */
+export function streaksAfterCelebration(
+  previous: CelebrationSnapshot | null,
+  state: GameState,
+  event: CelebrationEvent | null,
+): Record<string, number> {
+  if (!previous || previous.tableId !== state.tableId) return {};
+  if (!event) return previous.winStreaks;
+  const winners = new Set(event.targets.map(target => target.playerId));
+  return Object.fromEntries(state.players
+    .filter(player => player.status !== 'sitting_out' && previous.players[player.id])
+    .map(player => [player.id, winners.has(player.id)
+      ? (previous.winStreaks[player.id] ?? 0) + 1 : 0]));
+}
 
 export function deriveCelebration(
   previous: CelebrationSnapshot | null,
@@ -115,16 +154,28 @@ export function deriveCelebration(
   });
   if (paid.length === 0) return null; // rollover, reconnect or unresolved showdown
 
-  const primary = [...paid].sort((a, b) => b.amount - a.amount)[0];
+  const byAward = [...paid].sort((a, b) => b.amount - a.amount);
+  // A single presentation slot: signature mode > rare evaluated hand > streak > big pot.
+  const rare = modeId === 'dead7' ? undefined : byAward
+    .map(award => ({ award, handName: rareHandName(state.players.find(p => p.id === award.playerId)!, modeId) }))
+    .find(result => result.handName);
+  const streak = modeId === 'dead7' ? undefined : byAward
+    .find(award => (previous.winStreaks?.[award.playerId] ?? 0) + 1 >= WIN_STREAK_MIN_HANDS);
+  const primary = rare?.award ?? streak ?? byAward[0];
   const amount = paid.reduce((sum, award) => sum + award.amount, 0);
   const type: CelebrationType = modeId === 'dead7'
     ? 'DEAD7_SPECIAL'
+    : rare ? 'RARE_HAND'
+    : streak ? 'WIN_STREAK'
     : amount >= BIG_POT_MIN_CHIPS ? 'BIG_POT' : 'NORMAL_WIN';
   return {
     type,
     playerId: primary.playerId,
-    playerName: paid.length > 1 ? paid.map(p => p.playerName).join(' & ') : primary.playerName,
+    playerName: (rare || streak) ? primary.playerName
+      : paid.length > 1 ? paid.map(p => p.playerName).join(' & ') : primary.playerName,
     targets: paid.map(({ playerId, amount: award }) => ({ playerId, amount: award })),
     amount,
+    ...(rare?.handName ? { handName: rare.handName } : {}),
+    ...(streak && !rare ? { streakCount: (previous.winStreaks?.[streak.playerId] ?? 0) + 1 } : {}),
   };
 }

@@ -20,6 +20,8 @@
 
 .cgp-celebration--dead7-skull .cgp-celebration-title-group { top: 4%; }
 .cgp-celebration--chip-glow .cgp-celebration-title-group { top: 15%; }
+.cgp-celebration--rare-halo .cgp-celebration-title-group,
+.cgp-celebration--streak-flare .cgp-celebration-title-group { top: 18%; }
 
 .cgp-celebration-title {
   position: relative;
@@ -41,6 +43,30 @@
   font-size: clamp(28px, 6vw, 54px);
   background-image: linear-gradient(180deg, #fdf5da, #bf9a52 45%, #751d17 74%, #f6d27c);
 }
+.cgp-celebration--rare-halo .cgp-celebration-title {
+  background-image: linear-gradient(180deg, #fff, #e6caff 38%, #a966ef 70%, #fff2cf);
+  filter: drop-shadow(0 0 22px #aa6df5);
+}
+.cgp-celebration--streak-flare .cgp-celebration-title {
+  background-image: linear-gradient(180deg, #fff8d4, #ffc359 40%, #ec5e20 70%, #ffd68b);
+  filter: drop-shadow(0 0 24px #f97425);
+}
+.cgp-celebration-emblem {
+  position: absolute;
+  left: 50%;
+  top: 17%;
+  width: clamp(110px, 28vw, 210px);
+  height: clamp(110px, 28vw, 210px);
+  display: grid;
+  place-items: center;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: cgp-celebration-emblem 1100ms ease-out both;
+}
+.cgp-celebration-emblem svg { width: 42%; height: 42%; }
+.cgp-celebration--rare-halo .cgp-celebration-emblem { color: #d9b8ff; box-shadow: 0 0 34px #a467de, inset 0 0 35px #9e67ca; }
+.cgp-celebration--streak-flare .cgp-celebration-emblem { color: #ffb263; box-shadow: 0 0 34px #f46b2b, inset 0 0 35px #d64e19; }
 
 .cgp-celebration-subtitle {
   position: relative;
@@ -172,6 +198,8 @@
   background: #fa4534;
   box-shadow: 0 0 10px 4px #bd251c;
 }
+.cgp-celebration-particles--violet-stars .cgp-celebration-spark { background: #ead3ff; box-shadow: 0 0 12px 4px #aa70ec; }
+.cgp-celebration-particles--flame-sparks .cgp-celebration-spark { background: #fff1ae; box-shadow: 0 0 12px 4px #ef612a; }
 .cgp-celebrating-card {
   box-shadow: 0 0 12px 3px rgba(255,209,80,.9), 0 0 28px 6px rgba(217,145,25,.6) !important;
 }
@@ -184,6 +212,7 @@
 .cgp-celebration--reduced .cgp-celebration-particles,
 .cgp-celebration--reduced .cgp-celebration-skull,
 .cgp-celebration--reduced .cgp-celebration-character { display: none; }
+.cgp-celebration--reduced .cgp-celebration-emblem { display: none; }
 .cgp-celebration--reduced .cgp-celebration-title-group { animation: none; }
 .cgp-celebration--reduced .cgp-celebration-title { font-size: clamp(26px, 6vw, 45px); }
 
@@ -226,4 +255,9 @@
   0% { opacity: 0; transform: translate(0,0) scale(.2); }
   18% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--x),var(--y)) scale(.5); }
+}
+@keyframes cgp-celebration-emblem {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.35) rotate(-25deg); }
+  45% { opacity: .9; transform: translate(-50%, -50%) scale(1.1) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35) rotate(15deg); }
 }

@@ -5,6 +5,8 @@ import {
   deriveCelebration,
   resolveCelebration,
   snapshotForCelebrations,
+  streaksAfterCelebration,
+  WIN_STREAK_MIN_HANDS,
   type CelebrationEvent,
 } from '../client/src/components/celebrations/celebrationEvents';
 import {
@@ -238,6 +240,77 @@ describe('celebration event derivation', () => {
 
     expect(deriveCelebration(previous, current, 'badugi')).toBeNull();
   });
+
+  it('celebrates only confirmed paid rare hands, including a perfect Badugi', () => {
+    const before = snapshotForCelebrations(state('BET_4', [player('winner', { chips: 700 })]));
+    const royal = state('SHOWDOWN', [player('winner', {
+      chips: 900, isWinner: true, score: { highEval: { description: 'Royal Flush', usedHoleCardIndices: [], usedCommunityCardIndices: [] } },
+    })]);
+    expect(deriveCelebration(before, royal, 'suitspoker')).toMatchObject({
+      type: 'RARE_HAND', handName: 'Royal Flush', amount: 200,
+    });
+    expect(deriveCelebration(before, state('SHOWDOWN', [
+      { ...royal.players[0], isWinner: false },
+    ]), 'suitspoker')).toBeNull();
+    expect(deriveCelebration(null, royal, 'suitspoker')).toBeNull();
+    expect(deriveCelebration(before, royal, 'suitspoker', 'init')).toBeNull();
+    const perfect = state('SHOWDOWN', [player('winner', {
+      chips: 900, isWinner: true,
+      score: { description: '4-High Badugi', isValidBadugi: true, badugiRankValues: [4, 3, 2, 1] },
+    })]);
+    expect(deriveCelebration(before, perfect, 'badugi')).toMatchObject({
+      type: 'RARE_HAND', handName: 'Perfect Badugi',
+    });
+    perfect.players[0].score!.badugiRankValues = [4, 3, 2, 2];
+    expect(deriveCelebration(before, perfect, 'badugi')?.type).toBe('NORMAL_WIN');
+  });
+
+  it('counts consecutive confirmed wins, resets on losses, and does not count duplicate snapshots', () => {
+    let previous = snapshotForCelebrations(state('BET_4', [
+      player('hot', { chips: 700 }), player('other'),
+    ]));
+    for (let hand = 1; hand <= WIN_STREAK_MIN_HANDS + 1; hand++) {
+      const resolved = state('SHOWDOWN', [
+        player('hot', { chips: 700 + hand * 100, isWinner: true }),
+        player('other', { chips: 1000 - hand * 100 }),
+      ]);
+      const event = deriveCelebration(previous, resolved, 'badugi');
+      expect(event?.type).toBe(hand >= WIN_STREAK_MIN_HANDS ? 'WIN_STREAK' : 'NORMAL_WIN');
+      if (hand >= WIN_STREAK_MIN_HANDS) expect(event?.streakCount).toBe(hand);
+      previous = snapshotForCelebrations(resolved, streaksAfterCelebration(previous, resolved, event));
+      expect(deriveCelebration(previous, resolved, 'badugi')).toBeNull();
+      previous = snapshotForCelebrations(state('BET_4', resolved.players.map(p => ({ ...p, isWinner: false }))), previous.winStreaks);
+    }
+    const loss = state('SHOWDOWN', [
+      player('hot', { chips: 1000 }), player('other', { chips: 800, isWinner: true }),
+    ]);
+    const lossEvent = deriveCelebration(previous, loss, 'badugi');
+    expect(streaksAfterCelebration(previous, loss, lossEvent).hot).toBe(0);
+    const reset = snapshotForCelebrations(state('BET_4', [
+      player('hot', { chips: 1000 }), player('other', { chips: 800 }),
+    ]), streaksAfterCelebration(previous, loss, lossEvent));
+    expect(deriveCelebration(reset, state('SHOWDOWN', [
+      player('hot', { chips: 1100, isWinner: true }), player('other', { chips: 700 }),
+    ]), 'badugi')?.type).toBe('NORMAL_WIN');
+    expect(streaksAfterCelebration(previous, loss, null)).toBe(previous.winStreaks);
+  });
+
+  it('gives rare hands priority over streaks and big pots without dropping split targets', () => {
+    const before = snapshotForCelebrations(state('BET_4', [
+      player('rare', { chips: 100 }), player('streak', { chips: 100 }),
+    ]), { streak: 2 });
+    const resolved = state('SHOWDOWN', [
+      player('rare', { chips: 300, isWinner: true, score: { description: 'Straight Flush' } }),
+      player('streak', { chips: 700, isWinner: true }),
+    ]);
+    expect(deriveCelebration(before, resolved, 'boxchevy')).toMatchObject({
+      type: 'RARE_HAND', playerId: 'rare', handName: 'Straight Flush',
+      amount: 800, targets: [{ playerId: 'rare', amount: 200 }, { playerId: 'streak', amount: 600 }],
+    });
+    expect(streaksAfterCelebration(before, resolved, deriveCelebration(before, resolved, 'boxchevy'))).toEqual({
+      rare: 1, streak: 3,
+    });
+  });
 });
 
 describe('celebration presentation presets', () => {
@@ -254,9 +327,24 @@ describe('celebration presentation presets', () => {
     expect(resolveCelebration({ ...event, durationMs: 5000 }).durationMs).toBe(1500);
   });
 
+  it('registers distinct bounded presets for rare hands and streaks', () => {
+    const event: CelebrationEvent = {
+      type: 'RARE_HAND', playerId: 'p1', playerName: 'P1',
+      targets: [{ playerId: 'p1', amount: 100 }], amount: 100,
+    };
+    expect(resolveCelebration(event)).toMatchObject({
+      animation: 'rare-halo', intensity: 'premium', durationMs: 2300,
+    });
+    expect(resolveCelebration({ ...event, durationMs: 9999 }).durationMs).toBe(3000);
+    expect(resolveCelebration({ ...event, type: 'WIN_STREAK' })).toMatchObject({
+      animation: 'streak-flare', intensity: 'big', durationMs: 2000,
+    });
+    expect(resolveCelebration({ ...event, type: 'WIN_STREAK', durationMs: 9999 }).durationMs).toBe(2200);
+  });
+
   it('fails explicitly when a celebration type has no registered preset', () => {
     const event: CelebrationEvent = {
-      type: 'RARE_HAND',
+      type: 'BLUFF_WIN',
       playerId: 'p1',
       playerName: 'Player 1',
       targets: [{ playerId: 'p1', amount: 100 }],
@@ -264,7 +352,7 @@ describe('celebration presentation presets', () => {
     };
 
     expect(() => resolveCelebration(event)).toThrow(
-      'No presentation preset registered for RARE_HAND',
+      'No presentation preset registered for BLUFF_WIN',
     );
   });
 });

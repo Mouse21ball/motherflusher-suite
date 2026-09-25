@@ -3,11 +3,13 @@ import { expect, test, type Page } from '@playwright/test';
 const preferenceKey = 'cgp_celebration_motion';
 
 interface FakeCelebration {
-  type: 'NORMAL_WIN' | 'BIG_POT' | 'DEAD7_SPECIAL';
+  type: 'NORMAL_WIN' | 'BIG_POT' | 'DEAD7_SPECIAL' | 'RARE_HAND' | 'WIN_STREAK';
   playerId: string;
   playerName: string;
   targets: { playerId: string; amount: number }[];
   amount: number;
+  handName?: string;
+  streakCount?: number;
 }
 
 async function publishCelebration(page: Page, event: FakeCelebration) {
@@ -157,15 +159,37 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   await expect(celebration.locator('.cgp-celebration-skull')).toBeVisible();
   await expect(celebration).toHaveCount(0, { timeout: 4_000 });
 
+  await publishCelebration(page, { ...fakeEvent('RARE_HAND', 225), handName: 'Royal Flush' });
+  await expect(celebration).toHaveAttribute('data-celebration', 'RARE_HAND');
+  await expect(celebration.locator('.cgp-celebration-title')).toHaveText('RARE HAND');
+  await expect(celebration.locator('.cgp-celebration-emblem svg')).toBeVisible();
+  await expect(celebration).toContainText('Royal Flush');
+  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
+
+  await publishCelebration(page, { ...fakeEvent('WIN_STREAK', 300), streakCount: 3 });
+  await expect(celebration).toHaveAttribute('data-celebration', 'WIN_STREAK');
+  await expect(celebration.locator('.cgp-celebration-title')).toHaveText('HOT STREAK');
+  await expect(celebration).toContainText('3 WINS');
+  await expect(celebration.locator('.cgp-celebration-emblem svg')).toBeVisible();
+  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
+
   await setMotionPreference(page, 'reduced');
-  await publishCelebration(page, fakeEvent('DEAD7_SPECIAL', 300));
+  await publishCelebration(page, fakeEvent('RARE_HAND', 300));
   await expect(celebration).toBeVisible();
   await expect(celebration).toHaveClass(/cgp-celebration--reduced/);
   await expect(celebration).toHaveAttribute('style', /--celebration-duration: 900ms/);
+  await expect(celebration.locator('.cgp-celebration-emblem')).toBeHidden();
+  await expect(celebration).toHaveCount(0, { timeout: 2_000 });
+
+  await publishCelebration(page, fakeEvent('WIN_STREAK', 300));
+  await expect(celebration).toHaveClass(/cgp-celebration--reduced/);
+  await expect(celebration.locator('.cgp-celebration-emblem')).toBeHidden();
   await expect(celebration).toHaveCount(0, { timeout: 2_000 });
 
   await setMotionPreference(page, 'off');
-  await publishCelebration(page, fakeEvent('BIG_POT', 750));
+  await publishCelebration(page, fakeEvent('RARE_HAND', 750));
+  await expect(celebration).toHaveCount(0);
+  await publishCelebration(page, fakeEvent('WIN_STREAK', 750));
   await expect(celebration).toHaveCount(0);
 
   await setMotionPreference(page, 'full');

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Skull } from 'lucide-react';
+import { Skull, Sparkles, Flame } from 'lucide-react';
 import { sfx } from '@/lib/sounds';
 import { useCelebrationMotion } from '@/lib/celebrationPreferences';
 import {
@@ -66,6 +66,8 @@ function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; red
   const { event, preset, paths } = active;
   const isDead7 = preset.animation === 'dead7-skull';
   const isBig = preset.animation === 'chain-sweep';
+  const isRare = preset.animation === 'rare-halo';
+  const isStreak = preset.animation === 'streak-flare';
   const primarySeat = seatFor(event.playerId);
   const impact = centerOf(primarySeat, { x: window.innerWidth / 2, y: window.innerHeight * 0.55 });
   const baseParticleCount = preset.particles === 'gold-sparks' ? 10 : 20;
@@ -80,7 +82,7 @@ function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; red
       data-celebration={event.type}
       style={{ '--celebration-duration': `${reduced ? 900 : preset.durationMs}ms` } as CSSProperties}
       role="status"
-      aria-label={`${preset.text}: ${event.playerName} wins ${event.amount.toLocaleString()} chips`}
+      aria-label={`${preset.text}: ${event.playerName}${event.handName ? `, ${event.handName}` : ''}${event.streakCount ? `, ${event.streakCount} wins in a row` : ''} wins ${event.amount.toLocaleString()} chips`}
     >
       {preset.screenEffect === 'dim-pulse' && <div className="cgp-celebration-vignette" aria-hidden="true" />}
       {preset.screenEffect === 'punch' && <div className="cgp-celebration-punch" aria-hidden="true" />}
@@ -88,6 +90,11 @@ function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; red
       {isBig && (
         <div className="cgp-celebration-chain" aria-hidden="true">
           {Array.from({ length: 14 }, (_, i) => <span key={i} className="cgp-celebration-link" />)}
+        </div>
+      )}
+      {(isRare || isStreak) && (
+        <div className="cgp-celebration-emblem" aria-hidden="true">
+          {isRare ? <Sparkles strokeWidth={1.3} /> : <Flame strokeWidth={1.3} />}
         </div>
       )}
 
@@ -119,7 +126,9 @@ function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; red
         {preset.characterAsset && <img className="cgp-celebration-character" src={preset.characterAsset} alt="" />}
         <div className="cgp-celebration-title">{preset.text}</div>
         <div className="cgp-celebration-subtitle">
-          {event.playerName} <span>{event.type === 'NORMAL_WIN' ? 'POT ' : '+'}{event.amount.toLocaleString()} CHIPS</span>
+          {event.playerName} {event.handName && <span>{event.handName} · </span>}
+          {event.streakCount && <span>{event.streakCount} WINS · </span>}
+          <span>{event.type === 'NORMAL_WIN' ? 'POT ' : '+'}{event.amount.toLocaleString()} CHIPS</span>
         </div>
         {preset.particles !== 'none' && (
           <div className={`cgp-celebration-particles cgp-celebration-particles--${preset.particles}`} aria-hidden="true">

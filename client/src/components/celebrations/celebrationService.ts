@@ -3,6 +3,7 @@ import type { GameState } from '@shared/gameTypes';
 import {
   deriveCelebration,
   snapshotForCelebrations,
+  streaksAfterCelebration,
   type CelebrationEvent,
   type CelebrationSnapshot,
 } from './celebrationEvents';
@@ -35,7 +36,9 @@ export function useAuthoritativeCelebrations(state: GameState, modeId: string, m
       === JSON.stringify(state.players.map(player => player.id));
     const isInit = messageType?.endsWith(':init') ?? false;
     const event = sameSeats ? deriveCelebration(previous, state, modeId, isInit ? 'init' : 'update') : null;
-    previousRef.current = snapshotForCelebrations(state);
+    // Never infer a streak across a reconnect, table change or changed seats.
+    const streakBase = isInit || !sameSeats ? null : previous;
+    previousRef.current = snapshotForCelebrations(state, streaksAfterCelebration(streakBase, state, event));
     if (isInit || !sameSeats || (previous && previous.tableId !== state.tableId)) dismissCelebration();
     if (previous?.phase === 'SHOWDOWN' && state.phase !== 'SHOWDOWN') dismissCelebration();
     if (event) playCelebration(event);
