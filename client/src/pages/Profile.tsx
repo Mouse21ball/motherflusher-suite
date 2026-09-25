@@ -25,6 +25,7 @@ import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { resolveAvatarSrc } from '@/lib/persistence';
 import { BUILD_COMMIT } from '@/lib/buildInfo';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
+import { setCelebrationMotion, useCelebrationMotion, type CelebrationMotion } from '@/lib/celebrationPreferences';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -78,7 +79,8 @@ function formatChipBadge(n: number): string {
 
 export default function Profile() {
   const [, navigate] = useLocation();
-  const footerRef   = useRef<HTMLDivElement>(null);
+  const celebrationSettingsRef = useRef<HTMLFieldSetElement>(null);
+  const celebrationMotion = useCelebrationMotion();
 
   // ── Data sources ───────────────────────────────────────────────────────────
   const identity    = ensurePlayerIdentity();
@@ -318,7 +320,9 @@ export default function Profile() {
 
           {/* Settings gear */}
           <button
-            onClick={() => footerRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => celebrationSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            aria-label="Celebration animation settings"
+            title="Celebration animation settings"
             style={{
               width: 40, height: 40, borderRadius: '50%',
               border: '2px solid rgba(255,215,0,0.50)',
@@ -964,7 +968,53 @@ export default function Profile() {
             </button>
           )}
 
-          <div ref={footerRef} className="flex flex-col gap-3 mt-2">
+          <div className="flex flex-col gap-3 mt-2">
+            <fieldset
+              ref={celebrationSettingsRef}
+              data-testid="settings-celebration-motion"
+              className="rounded-xl p-4"
+              style={{ background: 'rgba(15,10,25,0.55)', border: '1px solid rgba(255,215,0,0.12)' }}
+            >
+              <legend style={{ padding: '0 6px', fontSize: 10, color: 'rgba(201,162,39,0.75)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Celebration Animations
+              </legend>
+              <p id="celebration-motion-description" style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)', lineHeight: 1.5, margin: '0 0 12px' }}>
+                Choose how much motion appears in celebration effects.
+              </p>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-describedby="celebration-motion-description">
+                {([
+                  ['full', 'Full'],
+                  ['reduced', 'Reduced'],
+                  ['off', 'Off'],
+                ] as const).map(([value, label]) => {
+                  const selected = celebrationMotion === value;
+                  return (
+                    <label
+                      key={value}
+                      className="flex items-center justify-center rounded-lg px-2 py-3 cursor-pointer transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#FFD700]"
+                      style={{
+                        border: selected ? '1px solid rgba(255,215,0,0.55)' : '1px solid rgba(255,255,255,0.10)',
+                        background: selected ? 'rgba(255,215,0,0.10)' : 'rgba(255,255,255,0.025)',
+                        color: selected ? '#FFD700' : 'rgba(255,255,255,0.55)',
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="celebration-motion"
+                        value={value}
+                        checked={selected}
+                        onChange={() => setCelebrationMotion(value as CelebrationMotion)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
             {/* Feedback */}
             <a
               href="https://forms.gle/Vh6Uut9bB6neHA3J8"

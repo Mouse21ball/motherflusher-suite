@@ -4,7 +4,6 @@ import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./Card";
 import { getAvatarForSeat, getHeroAvatar } from "@shared/engine/avatarMap";
 import { ResolutionOverlay } from "./ResolutionOverlay";
-import { WinCelebration } from "./WinCelebration";
 import { ReactionBar } from "./ReactionBar";
 import { DiscardPile } from "./DiscardPile";
 import { getPhaseLabel } from "@/lib/phaseLabel";
@@ -278,7 +277,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
       {isFifteen35 && totalCards > 0 && !isShowdown && (
         <div className="flex items-end mt-0.5 overflow-visible">
           {player.cards.map((card, i) => (
-            <div key={i} className="relative" style={{ marginLeft: i > 0 ? cardFanML : 0, zIndex: i }}>
+            <div key={i} className="relative" data-celebration-card style={{ marginLeft: i > 0 ? cardFanML : 0, zIndex: i }}>
               <PlayingCard card={card} className="w-7 h-10" />
             </div>
           ))}
@@ -303,7 +302,9 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
       {isShowdown && totalCards > 0 && (
         <div className="flex gap-0.5 mt-0.5">
           {player.cards.map((c, i) => (
-            <PlayingCard key={i} card={{ ...c, isHidden: false }} className="w-[22px] h-[31px]" />
+            <div key={i} data-celebration-card>
+              <PlayingCard card={{ ...c, isHidden: false }} className="w-[22px] h-[31px]" />
+            </div>
           ))}
         </div>
       )}
@@ -503,24 +504,6 @@ export function ThreeDTableScene({
     }
   }, [gameState.phase]);
 
-  // ── Win celebration (ring layout only) ───────────────────────────────────
-  const [showCelebration, setShowCelebration] = useState(false);
-  const celebFiredRef = useRef(false);
-  useEffect(() => {
-    if (isRingLayout && gameState.phase === 'SHOWDOWN' && !celebFiredRef.current) {
-      const hero = gameState.players.find(p => p.id === myId);
-      if (!hero?.isWinner) return;
-      const isSwingScoop = hero.declaration === 'SWING' && !!(hero.score?.high && hero.score?.low);
-      const activeAtShowdown = gameState.players.filter(p => p.status !== 'folded').length;
-      const potSignificant = gameState.pot >= gameState.minBet * 8;
-      if (isSwingScoop || (activeAtShowdown >= 2 && potSignificant)) {
-        celebFiredRef.current = true;
-        setShowCelebration(true);
-      }
-    }
-    if (gameState.phase !== 'SHOWDOWN') celebFiredRef.current = false;
-  }, [gameState.phase, gameState.players, gameState.pot, gameState.minBet, myId, isRingLayout]);
-
   const heroAtShowdown = gameState.players.find(p => p.id === myId);
   const isScoop = !!heroAtShowdown?.isWinner && heroAtShowdown.declaration === 'SWING' && !!(heroAtShowdown.score?.high && heroAtShowdown.score?.low);
 
@@ -667,6 +650,7 @@ export function ThreeDTableScene({
         className={cn("pot-display-premium", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")}
         style={potPulse ? { animationDuration: potAnimDur } : undefined}
         data-testid="text-pot"
+        data-pot-anchor
       >
         <span className="text-[11px] sm:text-[11px] text-[#C9A227]/70 uppercase font-bold tracking-[0.22em] font-sans">POT</span>
         <div className="flex items-center gap-2">
@@ -709,7 +693,7 @@ export function ThreeDTableScene({
               </div>
               <div className="flex flex-col items-center gap-2 sm:gap-4 pointer-events-auto">
                 {gameState.pot > 0 && (
-                  <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
+                  <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot" data-pot-anchor>
                     <div className="gold-chip w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className={cn("text-sm sm:text-base font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
                     <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/60 ml-0.5">pot</span>
@@ -720,15 +704,21 @@ export function ThreeDTableScene({
             </div>
           </div>
 
-          {/* Win celebration */}
-          {showCelebration && <WinCelebration isScoop={isScoop} heroChipChange={gameState.heroChipChange} showSignatureTrace onDone={() => setShowCelebration(false)} />}
+          {isShowdown && isScoop && (
+            <div
+              className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 z-[60] pointer-events-none px-4 py-1.5 rounded-full border border-[#C9A227]/40 bg-[#080809]/80 text-[#E8C96B] text-sm font-bold tracking-[0.22em]"
+              data-testid="text-swing-scoop"
+            >
+              SCOOP!
+            </div>
+          )}
 
           {/* All 5 seats — 'open' club-table placeholders render as empty seats */}
           {Array.from({ length: 5 }).map((_, i) => {
             const player = orderedPlayers[i];
             const seatPlayer = player?.presence === 'open' ? null : (player ?? null);
             return (
-              <div key={i} className={getRingPosition(i)}>
+              <div key={i} className={getRingPosition(i)} data-player-seat={seatPlayer?.id}>
                 <PlayerSeat
                   player={seatPlayer}
                   seatNumber={i}
@@ -769,7 +759,7 @@ export function ThreeDTableScene({
     const activeSPOpponents = opponents.filter(p => p.status !== 'sitting_out');
     return (
       <div className="game-scene-scaler">
-      <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter flex flex-col gap-2">
+      <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter flex flex-col gap-2" data-player-seat={me?.id}>
 
         {/* ── Message bar ── */}
         <div className="w-full text-center min-h-[28px] flex items-center justify-center relative z-40">
@@ -788,7 +778,7 @@ export function ThreeDTableScene({
         {/* ── Opponents compact row ── */}
         <div className="flex justify-center gap-1.5 sm:gap-2 flex-wrap min-h-[80px] items-center">
           {activeSPOpponents.map(player => (
-            <div key={player.id} data-deal-seat={player.id}>
+            <div key={player.id} data-deal-seat={player.id} data-player-seat={player.id}>
               <CompactOpponent
                 player={player}
                 isActive={player.id === gameState.activePlayerId}
@@ -809,7 +799,7 @@ export function ThreeDTableScene({
         {/* ── Pot ── */}
         {gameState.pot > 0 && (
           <div className="flex justify-center">
-            <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot">
+            <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#080809]/80 border border-[#C9A227]/14", potPulse && "anim-pot-arrival", potPulse && "anim-pot-shimmer")} data-testid="text-pot" data-pot-anchor>
               <div className="gold-chip w-3.5 h-3.5" />
               <span className={cn("text-sm font-mono font-bold tabular-nums", potPulse ? "text-[#C9A227]" : "text-white/80")}>${gameState.pot}</span>
               <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C9A227]/60 ml-0.5">pot</span>
@@ -823,8 +813,6 @@ export function ThreeDTableScene({
           heroPlayer={gameState.players.find(p => p.id === myId)}
           heroChipChange={gameState.heroChipChange}
         />
-
-        {showCelebration && <WinCelebration isScoop={isScoop} heroChipChange={gameState.heroChipChange} showSignatureTrace onDone={() => setShowCelebration(false)} />}
 
         {lastResultEcho && (
           <div className="w-full flex justify-center">
@@ -861,7 +849,7 @@ export function ThreeDTableScene({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="game-scene-scaler">
-    <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter">
+    <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 pt-2 pb-4 table-scene-enter" data-player-seat={me?.id}>
 
       {/* Message bar above table */}
       <div className="w-full text-center mb-1 relative z-40 min-h-[28px] flex items-center justify-center">
@@ -988,7 +976,7 @@ export function ThreeDTableScene({
 
         {/* Opponent seats — compact chips for Phase A layout */}
         {opponents.map((player, i) => (
-          <div key={player.id} className={`${getArcPosition(i, opponents.length)} ${getArcScale(i, opponents.length, modeId)} origin-center`}>
+          <div key={player.id} className={`${getArcPosition(i, opponents.length)} ${getArcScale(i, opponents.length, modeId)} origin-center`} data-player-seat={player.id}>
             <CompactOpponent
               player={player}
               isActive={player.id === gameState.activePlayerId}

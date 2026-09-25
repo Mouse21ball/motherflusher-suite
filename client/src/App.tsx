@@ -38,6 +38,7 @@ import LadyLuckSpectate from "@/pages/LadyLuckSpectate";
 import LadyLuckHistory from "@/pages/LadyLuckHistory";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import { CelebrationHost } from "@/components/celebrations/CelebrationHost";
 
 // ── Combined profile-driven manager ──────────────────────────────────────────
 // Shared profile state handles Diamond Elite background, music playback, and
@@ -164,6 +165,7 @@ function App() {
       <ServerProfileProvider>
         <TooltipProvider>
           <Toaster />
+          <CelebrationHost />
           {/* Screen-edge vignette — always on top, no pointer events */}
           <div className="cgp-vignette" aria-hidden="true" />
           <ProfileManager />

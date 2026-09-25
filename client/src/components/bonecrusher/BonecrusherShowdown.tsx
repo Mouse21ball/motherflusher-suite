@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { ChipBurst } from '@/components/flushedUp/ChipBurst';
+import { useCelebrationMotion } from '@/lib/celebrationPreferences';
 import { evaluateBonecrusher } from '@shared/modes/bonecrusher';
 import type { BonecrusherEval } from '@shared/modes/bonecrusher';
 import type { GameState } from '@shared/gameTypes';
@@ -36,9 +37,10 @@ function CountdownBar() {
 }
 
 /* ── Rolling chip counter ───────────────────────────────────────────────── */
-function AnimatedCounter({ target }: { target: number }) {
+function AnimatedCounter({ target, animate }: { target: number; animate: boolean }) {
   const [value, setValue] = useState(0);
   useEffect(() => {
+    if (!animate) { setValue(target); return; }
     if (target === 0) { setValue(0); return; }
     const start = Date.now(); const duration = 1800; let raf: number;
     const tick = () => {
@@ -49,18 +51,18 @@ function AnimatedCounter({ target }: { target: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [target]);
+  }, [target, animate]);
   return <>{value.toLocaleString()}</>;
 }
 
 /* ── Card row using real PlayingCard ────────────────────────────────────── */
-function CardRow({ cards, glow, dim = false, cardW, cardH }: {
-  cards: AnyCard[]; glow?: string | null; dim?: boolean; cardW: number; cardH: number;
+function CardRow({ cards, glow, dim = false, cardW, cardH, celebrationCards = false }: {
+  cards: AnyCard[]; glow?: string | null; dim?: boolean; cardW: number; cardH: number; celebrationCards?: boolean;
 }) {
   return (
     <div style={{ display: 'flex', gap: 3, justifyContent: 'center', flexWrap: 'nowrap', filter: dim ? 'brightness(0.6) saturate(0.4)' : 'none' }}>
       {cards.slice(0, 5).map((card, i) => (
-        <div key={i} style={{
+        <div key={i} data-celebration-card={celebrationCards ? '' : undefined} style={{
           width: cardW, height: cardH, flexShrink: 0, borderRadius: 5, overflow: 'hidden',
           border: '1px solid rgba(217,119,6,0.3)',
           boxShadow: glow ? `0 0 14px ${glow}, 0 2px 8px rgba(0,0,0,0.7)` : '0 2px 8px rgba(0,0,0,0.7)',
@@ -96,6 +98,7 @@ interface BonecrusherShowdownProps {
 
 /* ── Showdown ───────────────────────────────────────────────────────────── */
 export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShowdownProps) {
+  const fullCelebrationMotion = useCelebrationMotion() === 'full';
   const me           = state.players.find(p => p.id === myId);
   const winners      = state.players.filter(p => (p as any).isWinner);
   const heroIsWinner = winners.some(w => w.id === myId);
@@ -137,11 +140,11 @@ export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShow
 
       {heroIsWinner ? (
         /* ── Hero wins ── */
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
-          <ChipBurst active={true} originX={0.5} originY={0.42} />
+        <div data-celebration-result-seat={me?.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
+          {fullCelebrationMotion && <ChipBurst active={true} originX={0.5} originY={0.42} />}
           <motion.div
-            animate={{ scale: [1, 1.05, 1], opacity: [0.88, 1, 0.88] }}
-            transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+            animate={fullCelebrationMotion ? { scale: [1, 1.05, 1], opacity: [0.88, 1, 0.88] } : undefined}
+            transition={fullCelebrationMotion ? { duration: 1.7, repeat: Infinity, ease: 'easeInOut' } : undefined}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 800, color: '#d97706', letterSpacing: '0.28em', textShadow: '0 0 32px rgba(217,119,6,0.55)' }}>
               {isSplitPot ? '⚡  SPLIT POT  ⚡' : '★    WINNER    ★'}
@@ -154,7 +157,7 @@ export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShow
             <DeclarationBadge declaration={me.declaration} />
           )}
           {me?.cards?.length ? (
-            <CardRow cards={me.cards as AnyCard[]} glow="rgba(217,119,6,0.7)" cardW={WIN_CARD_W} cardH={WIN_CARD_H} />
+            <CardRow cards={me.cards as AnyCard[]} glow="rgba(217,119,6,0.7)" cardW={WIN_CARD_W} cardH={WIN_CARD_H} celebrationCards />
           ) : null}
           {heroEval && (
             <div style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#d97706', letterSpacing: '0.1em' }}>
@@ -162,8 +165,8 @@ export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShow
             </div>
           )}
           {potAmount > 0 && (
-            <div style={{ fontSize: 21, fontFamily: 'monospace', fontWeight: 800, color: '#d97706', letterSpacing: '0.08em' }}>
-              +<AnimatedCounter target={potAmount} /> chips
+            <div data-celebration-result-pot style={{ fontSize: 21, fontFamily: 'monospace', fontWeight: 800, color: '#d97706', letterSpacing: '0.08em' }}>
+              +<AnimatedCounter target={potAmount} animate={fullCelebrationMotion} /> chips
             </div>
           )}
         </div>
@@ -171,14 +174,14 @@ export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShow
         /* ── Hero loses ── */
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center', width: '100%', maxWidth: 420 }}>
           {primaryWinner && (
-            <div style={{ width: '100%', padding: '12px', borderRadius: 14, background: 'rgba(217,119,6,0.06)', border: '1.5px solid rgba(217,119,6,0.35)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div data-celebration-result-seat={primaryWinner.id} style={{ width: '100%', padding: '12px', borderRadius: 14, background: 'rgba(217,119,6,0.06)', border: '1.5px solid rgba(217,119,6,0.35)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 800, color: 'rgba(217,119,6,0.75)', letterSpacing: '0.14em' }}>WINNER</div>
               <div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>{primaryWinner.name}</div>
               {primaryWinner.declaration && primaryWinner.declaration !== 'FOLD' && (
                 <DeclarationBadge declaration={primaryWinner.declaration} />
               )}
               {primaryWinner.cards?.length ? (
-                <CardRow cards={primaryWinner.cards as AnyCard[]} glow="rgba(217,119,6,0.7)" cardW={WIN_CARD_W} cardH={WIN_CARD_H} />
+                <CardRow cards={primaryWinner.cards as AnyCard[]} glow="rgba(217,119,6,0.7)" cardW={WIN_CARD_W} cardH={WIN_CARD_H} celebrationCards />
               ) : null}
               {winnerEval && (
                 <div style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#d97706', letterSpacing: '0.09em' }}>
@@ -204,6 +207,9 @@ export function BonecrusherShowdown({ state, myId, onContinue }: BonecrusherShow
         </div>
       )}
 
+      {(!heroIsWinner || potAmount <= 0) && (
+        <div data-celebration-result-pot aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
+      )}
       <CountdownBar />
     </motion.div>
   );

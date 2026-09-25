@@ -17,6 +17,7 @@ import { registerTable, saveSessionResult } from '../../tableSession';
 import { FEATURES } from '../../featureFlags';
 import { apiUrl, wsUrl } from '../../apiConfig';
 import { apiFetch } from '../../session';
+import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
 // Persisted in sessionStorage so a page refresh on the same tab gets the same
@@ -367,5 +368,6 @@ export function useServerBadugi(tableId: string) {
     ws.send(JSON.stringify({ type, tableId: tableIdRef.current, playerId: myIdRef.current, ...payload }));
   }, []);
 
+  useAuthoritativeCelebrations(state, 'badugi', lastWsType);
   return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
 }

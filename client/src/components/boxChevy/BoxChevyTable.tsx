@@ -70,7 +70,9 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
       ) : isShowdown && player.cards.some(c => !c.isHidden) ? (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           {player.cards.map((c, i) => (
-            <PlayingCard key={i} card={c} className="!w-[26px] !h-[38px]" />
+            <div key={i} data-celebration-card style={{ width: 26, height: 38, flexShrink: 0 }}>
+              <PlayingCard card={c} className="!w-[26px] !h-[38px]" />
+            </div>
           ))}
         </div>
       ) : (
@@ -147,7 +149,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
         gap: 8,
       }}>
         {opponents.slice(0, 4).map(opp => (
-          <div key={opp.id} data-deal-seat={opp.id}><OpponentPanel player={opp} phase={phase} /></div>
+          <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id}><OpponentPanel player={opp} phase={phase} /></div>
         ))}
       </div>
 
@@ -174,6 +176,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
                   {i < visibleCount && (
                     <motion.div
                       key={`comm-${i}`}
+                      data-celebration-card
                       initial={{ opacity: 0, y: -22, rotateY: 90, scale: 0.85 }}
                       animate={{ opacity: 1, y: 0,   rotateY: 0,  scale: 1    }}
                       transition={{ duration: 0.32, ease: 'easeOut' }}
@@ -209,7 +212,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
         fontFamily: 'monospace', fontSize: 11,
         boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
       }}>
-        <div style={{ color: SLV }}>
+        <div data-pot-anchor style={{ color: SLV }}>
           POT <span style={{ color: '#e2e8f0', fontWeight: 700 }}>${pot}</span>
         </div>
 

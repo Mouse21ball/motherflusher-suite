@@ -60,6 +60,7 @@ function OpponentCardFan({ id, cardCount, folded }: { id: string; cardCount: num
         {Array.from({ length: count }).map((_, index) => (
           <motion.img
             key={`${id}-card-${index}`}
+            data-celebration-card
             src={CARD_BACK}
             alt=""
             initial={{ opacity: 0, y: -5, scale: 0.86 }}

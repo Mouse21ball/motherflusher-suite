@@ -155,7 +155,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
 
         {/* Winner combined 10-card display */}
         {primaryWinner && communityCards.length > 0 && (
-          <div style={{
+          <div data-celebration-result-seat={primaryWinner.id} style={{
             borderRadius: 12,
             background: 'rgba(251,191,36,0.07)',
             border: '1px solid rgba(251,191,36,0.3)',
@@ -176,7 +176,9 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             </div>
             <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 8 }}>
               {primaryWinner.cards.map((c, i) => (
-                <PlayingCard key={i} card={c} className="!w-[36px] !h-[52px]" />
+                <div key={i} data-celebration-card>
+                  <PlayingCard card={c} className="!w-[36px] !h-[52px]" />
+                </div>
               ))}
             </div>
             {/* Community cards row */}
@@ -236,7 +238,7 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
             const dc = declColor(p.declaration);
             const isWin = !!p.isWinner;
             return (
-              <div key={p.id} style={{
+              <div key={p.id} data-celebration-result-seat={isWin ? p.id : undefined} style={{
                 borderRadius: 10,
                 background: isWin ? 'rgba(251,191,36,0.08)' : isMe ? blA(0.07) : nvA(0.5),
                 border: `1px solid ${isWin ? 'rgba(251,191,36,0.3)' : isMe ? blA(0.25) : nvA(0.7)}`,
@@ -262,7 +264,11 @@ export function BoxChevyShowdown({ state, myId, onContinue }: BoxChevyShowdownPr
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
-                  {p.cards.map((c, i) => <SmallCard key={i} card={c} />)}
+                  {p.cards.map((c, i) => (
+                    <div key={i} data-celebration-card={isWin ? '' : undefined}>
+                      <SmallCard card={c} />
+                    </div>
+                  ))}
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {(p.declaration === 'HIGH' || p.declaration === 'SWING') && ev.isMade && (

@@ -1,8 +1,7 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { CardHand } from './CardHand';
-import { WinnerOverlay } from './WinnerOverlay';
 import type { CardAnimState } from './useCardAnimations';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
@@ -65,7 +64,7 @@ function AnimatedPot({ pot }: { pot: number }) {
   useEffect(() => { spring.set(pot); }, [pot, spring]);
 
   return (
-    <div style={{
+    <div data-pot-anchor style={{
       background: 'rgba(0,0,0,0.55)',
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
@@ -200,7 +199,7 @@ function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isD
       ) : (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
           {Array.from({ length: Math.max(cardCount, 5) }).map((_, i) => (
-            <div key={i} style={{
+            <div key={i} data-celebration-card style={{
               width: 14, height: 20, borderRadius: 3, flexShrink: 0,
               background: 'linear-gradient(145deg, rgba(75,30,130,0.7), rgba(40,15,80,0.9))',
               border: '1px solid rgba(124,58,237,0.4)',
@@ -282,28 +281,6 @@ export function FlushedUpTable({
   const gridOpps  = reorderedOpps.slice(0, 4);
   const emptyCount = Math.max(0, 4 - gridOpps.length);
 
-  /* Winner overlay */
-  const [winnerData, setWinnerData] = useState<{ name: string; pot: number; isHero: boolean } | null>(null);
-  const [showWinner, setShowWinner] = useState(false);
-  const prevPhaseRef = useRef(state.phase);
-
-  useEffect(() => {
-    if (state.phase === 'SHOWDOWN' && prevPhaseRef.current !== 'SHOWDOWN') {
-      const winner = state.players.find(p => p.isWinner);
-      if (winner) {
-        setTimeout(() => {
-          setWinnerData({ name: winner.name, pot: state.pot, isHero: winner.id === myId });
-          setShowWinner(true);
-        }, 900);
-      }
-    }
-    if (state.phase === 'WAITING') {
-      setShowWinner(false);
-      setWinnerData(null);
-    }
-    prevPhaseRef.current = state.phase;
-  }, [state.phase, state.players, state.pot, myId]);
-
   const heroCardW = 54;
   const heroCardH = 76;
 
@@ -334,7 +311,7 @@ export function FlushedUpTable({
           }
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
           return (
-            <div key={opp.id} data-deal-seat={opp.id} style={{ minWidth: 0 }}>
+            <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id} style={{ minWidth: 0 }}>
               <OpponentPanel
                 name={opp.name}
                 chips={opp.chips}
@@ -409,7 +386,7 @@ export function FlushedUpTable({
       </div>
 
       {/* ── Hero hand ─────────────────────────────────────────────────── */}
-      <div data-deal-seat={myId} style={{
+      <div data-deal-seat={myId} data-player-seat={myId} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         paddingBottom: 8, flexShrink: 0,
       }}>
@@ -451,6 +428,7 @@ export function FlushedUpTable({
                 drawingIndices={animState.drawingIndices}
                 discardingIndices={animState.discardingIndices}
                 isShowdown={isShowdown}
+                celebrationCardMarkers
                 cardWidth={heroCardW}
                 cardHeight={heroCardH}
               />
@@ -496,16 +474,6 @@ export function FlushedUpTable({
         )}
       </div>
 
-      {/* ── Winner overlay ─────────────────────────────────────────────── */}
-      {winnerData && (
-        <WinnerOverlay
-          show={showWinner}
-          winnerName={winnerData.name}
-          potAmount={winnerData.pot}
-          isHeroWinner={winnerData.isHero}
-          onDone={() => setShowWinner(false)}
-        />
-      )}
       <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );

@@ -177,7 +177,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
             <div style={{ width: '100%', boxSizing: 'border-box', padding: '12px 10px 4px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
-              <CardHand cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick}
+              <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices}
                 drawingIndices={animState.drawingIndices} discardingIndices={animState.discardingIndices}
                 isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} />

@@ -230,13 +230,11 @@ export function ResolutionOverlay({ messages, phase, heroPlayer, heroChipChange 
       if (!soundPlayed.current) {
         soundPlayed.current = true;
         if (isSuitsPoker) {
-          // For suitspoker use isWinner/isLoser directly
-          if (heroPlayer?.isWinner) sfx.win();
-          else if (heroPlayer?.isLoser) sfx.lose();
+          // CelebrationHost owns winner sounds; keep the local loss cue.
+          if (heroPlayer?.isLoser) sfx.lose();
         } else {
           const result = classifyResult(resolutionMessages, heroPlayer, heroChipChange);
-          if (result.type === 'win') sfx.win();
-          else if (result.type === 'loss' || result.type === 'fold') sfx.lose();
+          if (result.type === 'loss' || result.type === 'fold') sfx.lose();
         }
       }
 

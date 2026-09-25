@@ -17,6 +17,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { ChipBurst } from './ChipBurst';
+import { useCelebrationMotion } from '@/lib/celebrationPreferences';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import type { GameState } from '@shared/gameTypes';
@@ -84,12 +85,14 @@ function CardRow({
   cards,
   glowColor,
   dim = false,
+  celebrationCards = false,
   cardW,
   cardH,
 }: {
   cards: AnyCard[];
   glowColor?: string | null;
   dim?: boolean;
+  celebrationCards?: boolean;
   cardW: number;
   cardH: number;
 }) {
@@ -101,6 +104,7 @@ function CardRow({
       {cards.map((card, i) => (
         <div
           key={i}
+          data-celebration-card={celebrationCards ? '' : undefined}
           style={{
             width: cardW, height: cardH, flexShrink: 0,
             borderRadius: 6, overflow: 'hidden',
@@ -161,6 +165,8 @@ interface ShowdownScreenProps {
 }
 
 export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
+  const celebrationMotion = useCelebrationMotion();
+  const fullCelebrationMotion = celebrationMotion === 'full';
   const me         = state.players.find(p => p.id === myId);
   const winners    = state.players.filter(p => (p as any).isWinner);
   const heroIsWinner = winners.some(w => w.id === myId);
@@ -215,13 +221,13 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
         <div style={{
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', gap: 18, textAlign: 'center',
-        }}>
-          <ChipBurst active={true} originX={0.5} originY={0.42} />
+        }} data-celebration-result-seat={me?.id}>
+          {fullCelebrationMotion && <ChipBurst active={true} originX={0.5} originY={0.42} />}
 
           {/* Banner */}
           <motion.div
-            animate={{ scale: [1, 1.05, 1], opacity: [0.88, 1, 0.88] }}
-            transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+            animate={fullCelebrationMotion ? { scale: [1, 1.05, 1], opacity: [0.88, 1, 0.88] } : undefined}
+            transition={fullCelebrationMotion ? { duration: 1.7, repeat: Infinity, ease: 'easeInOut' } : undefined}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
           >
             <div style={{
@@ -245,6 +251,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
             <CardRow
               cards={(me.cards as AnyCard[])}
               glowColor={heroGlowColor}
+              celebrationCards
               cardW={WIN_CARD_W}
               cardH={WIN_CARD_H}
             />
@@ -267,7 +274,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
               fontSize: 21, fontFamily: 'monospace', fontWeight: 800,
               color: '#C9A227', letterSpacing: '0.08em',
               textShadow: '0 0 18px rgba(201,162,39,0.4)',
-            }}>
+            }} data-celebration-result-pot>
               +<AnimatedCounter target={potAmount} /> chips
             </div>
           )}
@@ -290,7 +297,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
               border: '1.5px solid rgba(201,162,39,0.38)',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', gap: 8,
-            }}>
+            }} data-celebration-result-seat={primaryWinner.id}>
               <div style={{
                 fontSize: 11, fontFamily: 'monospace', fontWeight: 800,
                 color: 'rgba(201,162,39,0.75)', letterSpacing: '0.14em',
@@ -310,6 +317,7 @@ export function ShowdownScreen({ state, myId }: ShowdownScreenProps) {
                 <CardRow
                   cards={(primaryWinner.cards as AnyCard[])}
                   glowColor={winnerGlowColor}
+                  celebrationCards
                   cardW={WIN_CARD_W}
                   cardH={WIN_CARD_H}
                 />

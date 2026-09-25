@@ -111,6 +111,7 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
     <div
       className={cn("flex flex-col items-center gap-[3px]", isFolded && "opacity-35")}
       data-testid={`fifteen35-seat-${player.id}`}
+      data-player-seat={player.id}
     >
       {/* Avatar with active glow */}
       <div className="relative">
@@ -150,6 +151,7 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
             <div
               key={i}
               className="absolute bottom-0"
+              data-celebration-card
               style={{
                 left: Math.max(0, (i - stackCards.length) * 3 + 6),
                 zIndex: i,
@@ -160,7 +162,7 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
             </div>
           ))}
           {/* Lead card — face-up, on top */}
-          <div className="absolute right-0 bottom-0" style={{ zIndex: player.cards.length }}>
+          <div className="absolute right-0 bottom-0" data-celebration-card style={{ zIndex: player.cards.length }}>
             <PlayingCard
               card={{ ...leadCard, isHidden: false }}
               className="w-[28px] h-[40px] shadow-md"
@@ -173,7 +175,9 @@ function OpponentSeat({ player, isActive, isShowdown, seatIndex, phase, lastActi
       {isShowdown && revealed && hasCards && (
         <div className="flex gap-[2px] mt-[3px] flex-wrap justify-center max-w-[70px]">
           {player.cards.map((c, i) => (
-            <PlayingCard key={i} card={{ ...c, isHidden: false }} className="w-[20px] h-[28px]" />
+            <div key={i} data-celebration-card>
+              <PlayingCard card={{ ...c, isHidden: false }} className="w-[20px] h-[28px]" />
+            </div>
           ))}
         </div>
       )}
@@ -478,6 +482,7 @@ export function Fifteen35TableScene({
                   className={cn("f35-pot-plate", potPulse && "anim-pot-arrival anim-pot-shimmer")}
                   style={potPulse ? { animationDuration: potAnimDur } : undefined}
                   data-testid="text-pot"
+                  data-pot-anchor
                 >
                   <span className="f35-pot-label">POT</span>
                   <div className="f35-pot-chip" />
@@ -512,7 +517,7 @@ export function Fifteen35TableScene({
 
         {/* ── Hero seat — docked below the ring ── */}
         {me && (
-          <div className="f35-hero-seat flex flex-col items-center gap-2 w-full max-w-[300px]">
+          <div className="f35-hero-seat flex flex-col items-center gap-2 w-full max-w-[300px]" data-player-seat={me.id}>
             {/* Avatar + info row */}
             <div className="flex items-center gap-3">
               <div
@@ -551,6 +556,7 @@ export function Fifteen35TableScene({
             {me.cards.length > 0 && !isShowdown && (
               <CardHand
                 cards={me.cards}
+                celebrationCardMarkers
                 selectedIndices={selectedCardIndices}
                 onCardClick={onCardClick}
                 isSelectable={selectableCards}
@@ -564,6 +570,7 @@ export function Fifteen35TableScene({
             {isShowdown && me.cards.length > 0 && (
               <CardHand
                 cards={me.cards.map(card => ({ ...card, isHidden: false }))}
+                celebrationCardMarkers
                 isShowdown
                 cardWidth={50}
                 cardHeight={70}

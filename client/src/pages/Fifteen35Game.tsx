@@ -26,7 +26,6 @@ import { ResolutionOverlay } from "@/components/game/ResolutionOverlay";
 import { PlayingCard } from "@/components/game/Card";
 import { CardHand } from "@/components/flushedUp/CardHand";
 import { TableDealAnimator } from "@/components/flushedUp/TableDealAnimator";
-import { WinCelebration } from "@/components/game/WinCelebration";
 import { sfx } from "@/lib/sounds";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { useGameToasts } from "@/lib/useGameToasts";
@@ -205,7 +204,7 @@ function F35StatusBar({
         <div className="w-px h-6 mx-3" style={{ background: 'rgba(255,255,255,0.07)' }} />
         <StatBlk label="PLAYERS" value={`${totalSeats}/${totalSeats}`} />
         <div className="w-px h-6 mx-3" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <StatBlk label="POT" value={pot > 0 ? `$${pot.toLocaleString()}` : '—'} gold={pot > 0} />
+        <StatBlk label="POT" value={pot > 0 ? `$${pot.toLocaleString()}` : '—'} gold={pot > 0} data-pot-anchor />
       </div>
 
       {/* Stripes badge */}
@@ -240,9 +239,9 @@ function F35StatusBar({
   );
 }
 
-function StatBlk({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
+function StatBlk({ label, value, gold, 'data-pot-anchor': potAnchor }: { label: string; value: string; gold?: boolean; 'data-pot-anchor'?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-[2px]">
+    <div className="flex flex-col items-center gap-[2px]" data-pot-anchor={potAnchor ? '' : undefined}>
       <span style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase' }}>{label}</span>
       <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: gold ? '#C9A227' : 'rgba(255,255,255,0.72)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
@@ -403,11 +402,12 @@ function F35OpponentRow({
           <div className="flex items-center gap-0.5 flex-shrink-0" style={{ zoom }}>
             {inPlay && player.cards.length > 0 ? (
               player.cards.map((card, i) => (
-                <PlayingCard
-                  key={i}
-                  card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
-                  className="w-9 h-[52px] sm:w-9 sm:h-[52px]"
-                />
+                <div key={i} data-celebration-card style={{ width: 36, height: 52, flexShrink: 0 }}>
+                  <PlayingCard
+                    card={(isShowdown && revealed) ? { ...card, isHidden: false } : card}
+                    className="w-9 h-[52px] sm:w-9 sm:h-[52px]"
+                  />
+                </div>
               ))
             ) : (
               <div className="w-9 h-[52px] rounded border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }} />
@@ -456,7 +456,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
   const totalColor = isBust ? '#F87171' : (isLowMade || isHighMade) ? '#6EE7B7' : isDanger ? '#FB923C' : 'rgba(255,255,255,0.88)';
 
   return (
-    <div data-deal-seat={player.id} style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '18px 16px 10px', backdropFilter: 'blur(2px)', overflow: 'visible' }}>
+    <div data-deal-seat={player.id} data-player-seat={player.id} style={{ position: 'relative', borderTop: '2px solid rgba(212,168,58,0.32)', background: 'rgba(6,6,9,0.98)', padding: '18px 16px 10px', backdropFilter: 'blur(2px)', overflow: 'visible' }}>
       {/* Chains — decorative background scoped to hero strip only */}
       <img
         src="/assets/ui/chains.png"
@@ -550,6 +550,7 @@ function F35HeroStrip({ player, isShowdown, phase }: { player: Player; isShowdow
         <CardHand
           cards={player.cards.map(card => isShowdown ? { ...card, isHidden: false } : card)}
           isShowdown={isShowdown}
+          celebrationCardMarkers
           cardWidth={52}
           cardHeight={73}
           className="mt-2.5"
@@ -999,22 +1000,6 @@ export default function Fifteen35Game() {
     }
   }, [state.players, state.phase]);
 
-  // ── Win celebration ───────────────────────────────────────────────────────
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [showWinTrace, setShowWinTrace] = useState(false);
-  const celebFiredRef = useRef(false);
-  useEffect(() => {
-    if (state.phase === 'SHOWDOWN' && !celebFiredRef.current) {
-      const hero = state.players.find(p => p.id === myId);
-      if (hero?.isWinner) {
-        const activeAtShowdown = state.players.filter(p => p.status !== 'folded').length;
-        setShowWinTrace(activeAtShowdown >= 2 && state.pot >= state.minBet * 8);
-        celebFiredRef.current = true;
-        setShowCelebration(true);
-      }
-    }
-    if (state.phase !== 'SHOWDOWN') celebFiredRef.current = false;
-  }, [state.phase, state.players, state.pot, state.minBet, myId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const opponents    = state.players.filter(p => p.id !== myId && p.presence !== 'reserved');
@@ -1110,6 +1095,7 @@ export default function Fifteen35Game() {
               <div
                 key={player.id}
                 data-deal-seat={player.id}
+                data-player-seat={player.id}
                 style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
               >
                 <F35OpponentRow
@@ -1203,14 +1189,6 @@ export default function Fifteen35Game() {
         heroChipChange={state.heroChipChange}
       />
 
-      {showCelebration && (
-        <WinCelebration
-          isScoop={false}
-          heroChipChange={state.heroChipChange}
-          showSignatureTrace={showWinTrace}
-          onDone={() => setShowCelebration(false)}
-        />
-      )}
 
       {xpToast && xpToast.xpGained > 0 && (
         <XPToast

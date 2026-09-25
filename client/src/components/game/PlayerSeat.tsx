@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { sfx } from '@/lib/sounds';
+import { useCelebrationMotion } from '@/lib/celebrationPreferences';
 
 /* ── Avatar color palette — 10 distinct player colors ─────────────────── */
 const AVATAR_PALETTE = [
@@ -59,8 +60,9 @@ const visibleCardValue = (rank: string): number => {
 export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending, enlarged }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
-  const [showWinEffect, setShowWinEffect] = useState(false);
   const selfWonRef = useRef(false);
+  const celebrationMotion = useCelebrationMotion();
+  const fullCelebrationMotion = celebrationMotion === 'full';
 
   // ── Draw animation: track card content changes for throw + deal-in ──────────
   // Fires for hero only (face-up cards). Opponent cards are hidden so content
@@ -165,15 +167,12 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
 
   useEffect(() => {
     if (showdownState && player?.isWinner && isSelf) {
-      sfx.bigWin();
-      setShowWinEffect(true);
       selfWonRef.current = true;
     } else if (showdownState && player?.isLoser && isSelf) {
       sfx.lose();
-      setShowWinEffect(false);
       selfWonRef.current = false;
     } else {
-      setShowWinEffect(false);
+      selfWonRef.current = false;
     }
   }, [showdownState, player?.isWinner, player?.isLoser, isSelf]);
 
@@ -287,6 +286,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           return (
             <div
               key={idx}
+              data-celebration-card
               className={cn("relative", isSelf && selectableCards && !isSelected ? "hero-card-item" : undefined)}
               style={{
                 marginLeft: `${marginLeft}px`,
@@ -305,6 +305,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
               {throwData && (
                 <div
                   className="absolute inset-0 anim-card-throw-out pointer-events-none"
+                  data-celebration-card
                   style={{
                     '--throw-rot': `${throwData.rot}deg`,
                     '--throw-x': `${throwData.xPx}px`,
@@ -380,8 +381,8 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
           : "",
         justActed && !isActive && !showdownState ? "border-white/[0.26]" : "",
         /* Winner/loser showdown styles — only after reveal */
-        !isPending && showdownState && player.isWinner && "anim-winner",
-        !isPending && showdownState && player.isWinner && isSelf && "anim-win-flash",
+        !isPending && showdownState && player.isWinner && fullCelebrationMotion && "anim-winner",
+        !isPending && showdownState && player.isWinner && isSelf && fullCelebrationMotion && "anim-win-flash",
         !isPending && showdownState && player.isLoser && "border-white/[0.03]"
       )}>
         {/* Avatar + name row */}
@@ -432,12 +433,12 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 : sessionDelta < -75
                 ? (isSelf ? "text-red-400/80" : "text-red-400/70")
                 : (isSelf ? "text-[#C9A227]" : isStackLeader ? "text-[#C9A227]/82" : "text-[#C9A227]/70"),
-              chipFlash && (
+              chipFlash && fullCelebrationMotion && (
                 sessionDelta > 75  ? "text-emerald-400 anim-pulse-gold" :
                 sessionDelta < -75 ? "text-red-400 anim-pulse-gold" :
                                      "text-[#D4B44A] anim-pulse-gold"
               ),
-              showdownState && player.isWinner && "anim-win-chip-pop",
+              showdownState && player.isWinner && fullCelebrationMotion && "anim-win-chip-pop",
               showdownState && player.isLoser && "anim-fold-drop"
             )}>
               {isStackLeader && !showdownState && (

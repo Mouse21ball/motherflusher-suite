@@ -14,6 +14,7 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { apiUrl, wsUrl } from '../../apiConfig';
 import { apiFetch } from '../../session';
+import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
 
@@ -367,5 +368,6 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     ws.send(JSON.stringify({ type, tableId: tableIdRef.current, playerId: myIdRef.current, ...payload }));
   }, []);
 
+  useAuthoritativeCelebrations(state, modeId, lastWsType);
   return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
 }

@@ -1,9 +1,8 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { PlayingCard } from '@/components/game/Card';
 import { CardHand } from '@/components/flushedUp/CardHand';
-import { WinnerOverlay } from '@/components/flushedUp/WinnerOverlay';
 import { evaluateBonecrusher } from '@shared/modes/bonecrusher';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
@@ -62,7 +61,7 @@ function AnimatedPot({ pot }: { pot: number }) {
   const display = useTransform(spring, v => Math.round(v).toLocaleString());
   useEffect(() => { spring.set(pot); }, [pot, spring]);
   return (
-    <div style={{
+    <div data-pot-anchor style={{
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)',
       border: `1px solid ${aA(0.45)}`, boxShadow: `0 0 18px ${aA(0.15)}, 0 2px 12px rgba(0,0,0,0.6)`,
       textAlign: 'center', padding: '6px 22px', borderRadius: 50,
@@ -146,14 +145,14 @@ function OpponentPanel({ name, chips, cards, status, isActive, isWinner, isDeale
         <div style={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'flex-end', flexWrap: 'nowrap' }}>
           {cards.length > 0 ? cards.map((card, i) =>
             card.isHidden ? (
-              <div key={i} style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.3)}` }} />
+              <div key={i} data-celebration-card style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.3)}` }} />
             ) : (
-              <div key={i} style={{ width: 28, height: 40, borderRadius: 4, flexShrink: 0, overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
+                <div key={i} data-celebration-card style={{ width: 28, height: 40, borderRadius: 4, flexShrink: 0, overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
                 <PlayingCard card={card} className="!w-full !h-full !rounded-none !shrink-0" />
               </div>
             )
           ) : Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.35)}` }} />
+              <div key={i} data-celebration-card style={{ width: 13, height: 19, borderRadius: 2, flexShrink: 0, background: 'rgba(10,5,0,0.85)', border: `1px solid ${aA(0.35)}` }} />
           ))}
         </div>
       )}
@@ -204,18 +203,6 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
   const gridOpps     = reorderedOpps.slice(0, 4);
   const emptyCount   = Math.max(0, 4 - gridOpps.length);
 
-  const [winnerData, setWinnerData] = useState<{ name: string; pot: number; isHero: boolean } | null>(null);
-  const [showWinner, setShowWinner] = useState(false);
-  const prevPhaseRef = useRef(state.phase);
-  useEffect(() => {
-    if (state.phase === 'SHOWDOWN' && prevPhaseRef.current !== 'SHOWDOWN') {
-      const winner = state.players.find(p => p.isWinner);
-      if (winner) setTimeout(() => { setWinnerData({ name: winner.name, pot: state.pot, isHero: winner.id === myId }); setShowWinner(true); }, 900);
-    }
-    if (state.phase === 'WAITING') { setShowWinner(false); setWinnerData(null); }
-    prevPhaseRef.current = state.phase;
-  }, [state.phase, state.players, state.pot, myId]);
-
   const communityCards = state.communityCards ?? [];
 
   return (
@@ -228,7 +215,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
           if (opp.presence === 'reserved' || opp.presence === 'open') return <EmptyPanel key={opp.id} />;
           const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
             return (
-              <div key={opp.id} data-deal-seat={opp.id} style={{ minWidth: 0 }}><OpponentPanel name={opp.name} chips={opp.chips} cards={opp.cards}
+              <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id} style={{ minWidth: 0 }}><OpponentPanel name={opp.name} chips={opp.chips} cards={opp.cards}
               status={opp.status} isActive={state.activePlayerId === opp.id} isWinner={!!opp.isWinner}
                isDealer={!!opp.isDealer} seatNum={seatNum} declaration={opp.declaration} /></div>
           );
@@ -241,7 +228,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, padding: '4px 0' }}>
           <div style={{ fontSize: 11, fontFamily: 'monospace', color: `rgba(74,222,128,0.7)`, letterSpacing: '0.08em', marginRight: 4 }}>BOARD</div>
           {communityCards.map((card, i) => (
-            <motion.div key={i} initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ delay: i * 0.12, duration: 0.3 }}
+            <motion.div key={i} data-celebration-card initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ delay: i * 0.12, duration: 0.3 }}
               style={{ width: 32, height: 45, borderRadius: 4, overflow: 'hidden', border: `1px solid rgba(74,222,128,0.4)`, boxShadow: `0 0 8px rgba(74,222,128,0.15)` }}>
               <PlayingCard card={card} className="!w-full !h-full !rounded-none" />
             </motion.div>
@@ -279,7 +266,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
       </div>
 
       {/* Hero hand */}
-      <div data-deal-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      <div data-deal-seat={myId} data-player-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
         {isDiscardPhase && selectedCards.size > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', fontSize: 11, fontFamily: 'monospace', color: '#ef4444', letterSpacing: '0.08em' }}>
@@ -304,6 +291,7 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
               drawingIndices={[]}
               discardingIndices={[]}
               isShowdown={isShowdown}
+              celebrationCardMarkers
               cardWidth={CARD_W}
               cardHeight={CARD_H}
             />
@@ -323,10 +311,6 @@ export function BonecrusherTable({ state, myId, selectedCards, onCardClick, phas
         )}
       </div>
 
-      {winnerData && (
-        <WinnerOverlay show={showWinner} winnerName={winnerData.name} potAmount={winnerData.pot}
-          isHeroWinner={winnerData.isHero} onDone={() => setShowWinner(false)} />
-      )}
       <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
     </div>
   );

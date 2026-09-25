@@ -31,6 +31,7 @@ export interface CardHandProps {
   cardHeight?: number;
   className?: string;
   testIdPrefix?: string;
+  celebrationCardMarkers?: boolean;
 }
 
 /* ─── CardHand ───────────────────────────────────────────────────────────── */
@@ -48,6 +49,7 @@ export function CardHand({
   cardHeight = 81,
   className,
   testIdPrefix,
+  celebrationCardMarkers = false,
 }: CardHandProps) {
   const handRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(320);
@@ -125,6 +127,7 @@ export function CardHand({
               layout="position"
               key={identity}
               data-testid={testIdPrefix ? `${testIdPrefix}-${index}` : undefined}
+              data-celebration-card={celebrationCardMarkers ? '' : undefined}
               initial={false}
               animate={{ x: selectionOffsets[index] }}
               exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}

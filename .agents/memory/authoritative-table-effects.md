@@ -9,14 +9,14 @@ Table effects must compare consecutive authoritative snapshots and animate only 
 
 **How to apply:** Keep displayed balances immediate and authoritative. Treat flights as temporary overlays, create one payout flight per server-marked winner with that winner's observed chip increase, and suppress effects when the authoritative delta is absent.
 
-Showdown overlays should not cover payout travel the instant the winning snapshot arrives.
+For global celebrations, an unbroadcast final bet can make the net winner chip delta smaller than the award, or zero for an all-in winner. Use the change in the server's cumulative bet alongside the chip delta to observe the gross award; never calculate side-pot shares on the client. Treat reconnect/init snapshots as a new baseline, not a fresh win.
 
-**Why:** A fixed full-screen reveal can make a correct table-level payout flight completely invisible.
+**Why:** Some engines publish the resolved showdown without a separate snapshot for the final bet. Reconnects can also skip the payout transition entirely.
 
-**How to apply:** Sequence the reveal after the short payout flight while keeping the underlying showdown state and winner fields authoritative.
+**How to apply:** Compare the two server snapshots, require server-marked winners, and suppress celebration derivation for init/reconnect messages.
 
-Start reveal timing from the resolved snapshot that contains positive winner awards, not from initial entry into a showdown phase. Suppress the reveal when a legal rollover has no paid winner, and keep its hold duration within the server's reset window.
+A full-screen result overlay must not leave celebration flights or winning-card glow aimed at hidden table geometry. Either sequence it after the short payout flight or expose visible winner, pot, and card anchors for the global host to prefer.
 
-**Why:** Some modes enter showdown before resolution, then publish winners later; starting early can hide payout travel, show a blank rollover overlay, or truncate the reveal during reset.
+**Why:** A result screen may mount immediately or during a celebration; table coordinates can then be obscured or removed.
 
-**How to apply:** Cache pre-showdown balances, use each winner's positive chip delta as their displayed share, and choose the overlay delay plus hold duration to finish before authoritative reset.
+**How to apply:** Mark actual rendered winner result groups and cards with semantic anchors, and move glow to them when the result screen mounts. Keep effects within the server's reset window and suppress them for unpaid rollovers.

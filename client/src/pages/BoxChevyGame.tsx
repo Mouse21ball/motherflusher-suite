@@ -351,7 +351,7 @@ function BoxChevyGameUI() {
 
       {/* Hero hand — pinned just above action bar, closer to controls */}
       {!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 && (
-        <div data-deal-seat={myId} style={{
+        <div data-deal-seat={myId} data-player-seat={myId} style={{
           flexShrink: 0,
           background: 'rgba(9,22,40,0.92)',
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -377,6 +377,7 @@ function BoxChevyGameUI() {
             drawingIndices={[]}
             discardingIndices={[]}
             isShowdown={phase === 'SHOWDOWN'}
+            celebrationCardMarkers
             cardWidth={52}
             cardHeight={73}
           />
