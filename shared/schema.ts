@@ -373,6 +373,9 @@ export type InsertChipTransaction = z.infer<typeof insertChipTransactionSchema>;
 export type ChipTransaction = typeof chipTransactions.$inferSelect;
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
+// DEPRECATED: Keep this legacy table for compatibility only; do not use it for
+// new features. Authentication and player data now use player_profiles (with
+// guest-first onboarding and first-party session tokens).
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),

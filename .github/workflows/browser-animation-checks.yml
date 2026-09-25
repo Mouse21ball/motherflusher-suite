@@ -30,6 +30,12 @@ jobs:
           NODE_ENV: development
           NPM_CONFIG_PRODUCTION: "false"
 
+      - name: Run TypeScript check
+        run: npm run check
+
+      - name: Run Vitest suite
+        run: npm test
+
       - name: Bootstrap development toolchain from public npm
         run: |
           DEV_DEPENDENCIES="$(node -e "const p=require('./package.json'); process.stdout.write(Object.entries(p.devDependencies).map(([name,version]) => name + '@' + version).join(' '))")"
