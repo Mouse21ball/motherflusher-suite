@@ -145,6 +145,10 @@ export interface ReactionEvent {
 export interface GameState {
   tableId: string;
   phase: GamePhase;
+  /** Server-owned consecutive wins per seat for this active table. */
+  winStreaks?: Record<string, number>;
+  /** Server-only seat ownership for restored streaks; strip from all client snapshots. */
+  seatStreakOwners?: Record<string, string>;
   pot: number;
   currentBet: number;
   minBet: number;

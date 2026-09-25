@@ -5,10 +5,10 @@ import {
   deriveCelebration,
   resolveCelebration,
   snapshotForCelebrations,
-  streaksAfterCelebration,
   WIN_STREAK_MIN_HANDS,
   type CelebrationEvent,
 } from '../client/src/components/celebrations/celebrationEvents';
+import { confirmedWinStreaks } from '../server/utils/tableWinStreaks';
 import {
   dismissCelebration,
   playCelebration,
@@ -34,10 +34,16 @@ function player(id: string, overrides: Partial<Player> = {}): Player {
   };
 }
 
-function state(phase: GameState['phase'], players: Player[], tableId = 'table-1'): GameState {
+function state(
+  phase: GameState['phase'],
+  players: Player[],
+  tableId = 'table-1',
+  winStreaks: Record<string, number> = {},
+): GameState {
   return {
     tableId,
     phase,
+    winStreaks,
     pot: 0,
     currentBet: 0,
     minBet: 25,
@@ -49,6 +55,10 @@ function state(phase: GameState['phase'], players: Player[], tableId = 'table-1'
     deck: [],
     discardPile: [],
   };
+}
+
+function settledState(before: GameState, players: Player[]): GameState {
+  return state('SHOWDOWN', players, before.tableId, confirmedWinStreaks(before, players));
 }
 
 describe('celebration event derivation', () => {
@@ -266,64 +276,81 @@ describe('celebration event derivation', () => {
   });
 
   it('counts consecutive confirmed wins, resets on losses, and does not count duplicate snapshots', () => {
-    let previous = snapshotForCelebrations(state('BET_4', [
+    let before = state('BET_4', [
       player('hot', { chips: 700 }), player('other'),
-    ]));
+    ]);
     for (let hand = 1; hand <= WIN_STREAK_MIN_HANDS + 1; hand++) {
-      const resolved = state('SHOWDOWN', [
+      const resolved = settledState(before, [
         player('hot', { chips: 700 + hand * 100, isWinner: true }),
         player('other', { chips: 1000 - hand * 100 }),
       ]);
-      const event = deriveCelebration(previous, resolved, 'badugi');
+      const event = deriveCelebration(snapshotForCelebrations(before), resolved, 'badugi');
       expect(event?.type).toBe(hand >= WIN_STREAK_MIN_HANDS ? 'WIN_STREAK' : 'NORMAL_WIN');
       if (hand >= WIN_STREAK_MIN_HANDS) expect(event?.streakCount).toBe(hand);
-      previous = snapshotForCelebrations(resolved, streaksAfterCelebration(previous, resolved, event));
-      expect(deriveCelebration(previous, resolved, 'badugi')).toBeNull();
-      previous = snapshotForCelebrations(state('BET_4', resolved.players.map(p => ({ ...p, isWinner: false }))), previous.winStreaks);
+      expect(deriveCelebration(snapshotForCelebrations(resolved), resolved, 'badugi')).toBeNull();
+      before = state('BET_4', resolved.players.map(p => ({ ...p, isWinner: false })),
+        resolved.tableId, resolved.winStreaks);
     }
-    const loss = state('SHOWDOWN', [
+    const loss = settledState(before, [
       player('hot', { chips: 1000 }), player('other', { chips: 800, isWinner: true }),
     ]);
-    const lossEvent = deriveCelebration(previous, loss, 'badugi');
-    expect(streaksAfterCelebration(previous, loss, lossEvent).hot).toBe(0);
-    const reset = snapshotForCelebrations(state('BET_4', [
+    expect(loss.winStreaks?.hot).toBe(0);
+    const reset = state('BET_4', [
       player('hot', { chips: 1000 }), player('other', { chips: 800 }),
-    ]), streaksAfterCelebration(previous, loss, lossEvent));
-    expect(deriveCelebration(reset, state('SHOWDOWN', [
+    ], before.tableId, loss.winStreaks);
+    expect(deriveCelebration(snapshotForCelebrations(reset), settledState(reset, [
       player('hot', { chips: 1100, isWinner: true }), player('other', { chips: 700 }),
     ]), 'badugi')?.type).toBe('NORMAL_WIN');
-    expect(streaksAfterCelebration(previous, loss, null)).toBe(previous.winStreaks);
   });
 
   it('does not replay a win-streak celebration from a reconnect initialization snapshot', () => {
-    const previous = snapshotForCelebrations(state('BET_4', [
+    const before = state('BET_4', [
       player('hot', { chips: 700 }),
-    ]), { hot: WIN_STREAK_MIN_HANDS - 1 });
-    const resolved = state('SHOWDOWN', [
+    ], 'table-1', { hot: WIN_STREAK_MIN_HANDS - 1 });
+    const resolved = settledState(before, [
       player('hot', { chips: 800, isWinner: true }),
     ]);
 
-    expect(deriveCelebration(previous, resolved, 'badugi')).toMatchObject({
+    expect(deriveCelebration(snapshotForCelebrations(before), resolved, 'badugi')).toMatchObject({
       type: 'WIN_STREAK',
       streakCount: WIN_STREAK_MIN_HANDS,
     });
-    expect(deriveCelebration(previous, resolved, 'badugi', 'init')).toBeNull();
+    expect(deriveCelebration(snapshotForCelebrations(before), resolved, 'badugi', 'init')).toBeNull();
     expect(deriveCelebration(null, resolved, 'badugi', 'init')).toBeNull();
   });
 
+  it('uses the restored server streak after reconnect and celebrates the next confirmed win', () => {
+    const reconnect = state('SHOWDOWN', [
+      player('hot', { chips: 900, isWinner: true }),
+    ], 'table-1', { hot: 4 });
+    expect(deriveCelebration(null, reconnect, 'badugi', 'init')).toBeNull();
+    expect(deriveCelebration(snapshotForCelebrations(reconnect), reconnect, 'badugi')).toBeNull();
+
+    const nextHand = state('BET_4', [
+      player('hot', { chips: 800 }),
+    ], reconnect.tableId, reconnect.winStreaks);
+    const fifthWin = settledState(nextHand, [
+      player('hot', { chips: 1000, isWinner: true }),
+    ]);
+    expect(fifthWin.winStreaks?.hot).toBe(5);
+    expect(deriveCelebration(snapshotForCelebrations(nextHand), fifthWin, 'badugi')).toMatchObject({
+      type: 'WIN_STREAK', streakCount: 5,
+    });
+  });
+
   it('gives rare hands priority over streaks and big pots without dropping split targets', () => {
-    const before = snapshotForCelebrations(state('BET_4', [
+    const before = state('BET_4', [
       player('rare', { chips: 100 }), player('streak', { chips: 100 }),
-    ]), { streak: 2 });
-    const resolved = state('SHOWDOWN', [
+    ], 'table-1', { streak: 2 });
+    const resolved = settledState(before, [
       player('rare', { chips: 300, isWinner: true, score: { description: 'Straight Flush' } }),
       player('streak', { chips: 700, isWinner: true }),
     ]);
-    expect(deriveCelebration(before, resolved, 'boxchevy')).toMatchObject({
+    expect(deriveCelebration(snapshotForCelebrations(before), resolved, 'boxchevy')).toMatchObject({
       type: 'RARE_HAND', playerId: 'rare', handName: 'Straight Flush',
       amount: 800, targets: [{ playerId: 'rare', amount: 200 }, { playerId: 'streak', amount: 600 }],
     });
-    expect(streaksAfterCelebration(before, resolved, deriveCelebration(before, resolved, 'boxchevy'))).toEqual({
+    expect(resolved.winStreaks).toEqual({
       rare: 1, streak: 3,
     });
   });

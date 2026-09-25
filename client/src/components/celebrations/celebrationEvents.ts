@@ -90,17 +90,15 @@ export interface CelebrationSnapshot {
   tableId: string;
   phase: string;
   players: Record<string, { chips: number; totalBet: number; isWinner: boolean }>;
-  winStreaks: Record<string, number>;
 }
 
-export function snapshotForCelebrations(state: GameState, winStreaks: Record<string, number> = {}): CelebrationSnapshot {
+export function snapshotForCelebrations(state: GameState): CelebrationSnapshot {
   return {
     tableId: state.tableId,
     phase: state.phase,
     players: Object.fromEntries(state.players.map(p => [
       p.id, { chips: p.chips, totalBet: p.totalBet ?? 0, isWinner: !!p.isWinner },
     ])),
-    winStreaks,
   };
 }
 
@@ -117,21 +115,6 @@ function rareHandName(player: GameState['players'][number], modeId: string): str
     && score.badugiRankValues?.join(',') === '4,3,2,1') return 'Perfect Badugi';
   const names = [score.highEval?.description, score.description];
   return names.find(name => name && /^(Royal Flush|Straight Flush|Four of a Kind)$/i.test(name)) ?? null;
-}
-
-/** Advance only after an observed, paid showdown; ignore spectators and sitting-out seats. */
-export function streaksAfterCelebration(
-  previous: CelebrationSnapshot | null,
-  state: GameState,
-  event: CelebrationEvent | null,
-): Record<string, number> {
-  if (!previous || previous.tableId !== state.tableId) return {};
-  if (!event) return previous.winStreaks;
-  const winners = new Set(event.targets.map(target => target.playerId));
-  return Object.fromEntries(state.players
-    .filter(player => player.status !== 'sitting_out' && previous.players[player.id])
-    .map(player => [player.id, winners.has(player.id)
-      ? (previous.winStreaks[player.id] ?? 0) + 1 : 0]));
 }
 
 export function deriveCelebration(
@@ -160,7 +143,7 @@ export function deriveCelebration(
     .map(award => ({ award, handName: rareHandName(state.players.find(p => p.id === award.playerId)!, modeId) }))
     .find(result => result.handName);
   const streak = modeId === 'dead7' ? undefined : byAward
-    .find(award => (previous.winStreaks?.[award.playerId] ?? 0) + 1 >= WIN_STREAK_MIN_HANDS);
+    .find(award => (state.winStreaks?.[award.playerId] ?? 0) >= WIN_STREAK_MIN_HANDS);
   const primary = rare?.award ?? streak ?? byAward[0];
   const amount = paid.reduce((sum, award) => sum + award.amount, 0);
   const type: CelebrationType = modeId === 'dead7'
@@ -176,6 +159,6 @@ export function deriveCelebration(
     targets: paid.map(({ playerId, amount: award }) => ({ playerId, amount: award })),
     amount,
     ...(rare?.handName ? { handName: rare.handName } : {}),
-    ...(streak && !rare ? { streakCount: (previous.winStreaks?.[streak.playerId] ?? 0) + 1 } : {}),
+    ...(streak && !rare ? { streakCount: state.winStreaks![streak.playerId] } : {}),
   };
 }

@@ -14,6 +14,7 @@ import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import { takeAnte } from '../shared/engine/botUtils';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
+import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 import { filterChatMessage } from './chatFilter';
@@ -281,6 +282,8 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
   return {
     tableId,
     phase: 'WAITING',
+    winStreaks: {},
+    seatStreakOwners: {},
     pot: 0,
     currentBet: 0,
     minBet: 50,
@@ -301,8 +304,10 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
 
 function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
   const isShowdown = state.phase === 'SHOWDOWN';
+  const publicState = { ...state };
+  delete publicState.seatStreakOwners;
   return {
-    ...state,
+    ...publicState,
     deck: [],                // never expose the deck to clients
     players: state.players.map(p => {
       if (p.id === forPlayerId) return p;
@@ -393,7 +398,7 @@ const tables = new Map<string, AuthTable>();
 
 // ─── Seat assignment ──────────────────────────────────────────────────────────
 
-function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
+function assignSeat(table: AuthTable, sessionId: string, identityId?: string): SeatId | null {
   // Reconnect: session already has a seat — reuse it.
   const existing = table.sessionToSeat.get(sessionId);
   if (existing && SEAT_ORDER.includes(existing as SeatId)) return existing as SeatId;
@@ -401,11 +406,7 @@ function assignSeat(table: AuthTable, sessionId: string): SeatId | null {
   // Enforce host-configured maxPlayers — don't seat more humans than allowed.
   if (table.humanSeats.size >= table.maxPlayers) return null;
 
-  // New session: first seat with no live connection.
-  for (const seat of SEAT_ORDER) {
-    if (!table.connections.has(seat)) return seat;
-  }
-  return null; // table fully occupied
+  return availableStreakSeat(table.state, SEAT_ORDER, table.connections, identityId) as SeatId | null;
 }
 
 // ─── Session stats helper ─────────────────────────────────────────────────────
@@ -431,7 +432,7 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
     ?? ss?.startChips ?? 0;
   const startChips    = ss?.startChips ?? currentChips;
   const netProfit     = currentChips - startChips;
-  const winStreak     = ss?.winStreak    ?? 0;
+  const winStreak     = table.state.winStreaks?.[seatId] ?? 0;
   const lossStreak    = ss?.lossStreak   ?? 0;
   const handsPlayed   = ss?.handsPlayed  ?? 0;
 
@@ -739,6 +740,7 @@ function resolveShowdown(table: AuthTable): void {
     table.state = {
       ...s,
       players: result.players,
+      winStreaks: confirmedWinStreaks(s, result.players),
       pot: result.pot,
       messages: [
         ...s.messages,
@@ -795,6 +797,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     table.state = {
       ...s,
       players: newPlayers,
+      winStreaks: confirmedWinStreaks(s, newPlayers),
       pot: 0,
       phase: 'SHOWDOWN' as GamePhase,
       activePlayerId: winner.id,
@@ -926,12 +929,11 @@ function resetToAnte(table: AuthTable): void {
     const ss = table.sessionStats.get(p.id);
     if (ss) {
       ss.handsPlayed++;
+      ss.winStreak = s.winStreaks?.[p.id] ?? 0;
       if (isWinner) {
-        ss.winStreak++;
         ss.lossStreak = 0;
         if (potWon > ss.biggestPotWon) ss.biggestPotWon = potWon;
       } else {
-        ss.winStreak = 0;
         ss.lossStreak++;
       }
       // Session pressure fields — never stored in DB.
@@ -1021,6 +1023,7 @@ function releaseSeat(table: AuthTable, seat: string): void {
 
   table.state = {
     ...table.state,
+    ...releaseSeatStreak(table.state, seat),
     players: table.state.players.map(p => {
       if (p.id !== seat) return p;
       if (isBetweenHands) {
@@ -1430,7 +1433,7 @@ export function addBadugiConnection(
     quickFillBots(table);
   }
 
-  let seat = assignSeat(table, sessionId);
+  let seat = assignSeat(table, sessionId, identityId);
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
@@ -1499,7 +1502,17 @@ export function addBadugiConnection(
   const pendingDisconnect = table.disconnectTimers.get(seat);
   if (pendingDisconnect) { clearTimeout(pendingDisconnect); table.disconnectTimers.delete(seat); }
 
-  const isReconnect = table.sessionToSeat.has(sessionId) || (identityId ? !!table.seatToIdentityId.get(seat) : false);
+  const sameSession = table.sessionToSeat.get(sessionId) === seat;
+  const mappedIdentity = table.seatToIdentityId.get(seat);
+  const isReconnect = sameSession || !!(identityId && (
+    mappedIdentity === identityId || table.state.seatStreakOwners?.[seat] === identityId
+  ));
+  const streakClaim = claimSeatStreak(table.state, seat, identityId, sameSession, mappedIdentity);
+  if (!isReconnect) {
+    for (const [oldSession, heldSeat] of table.sessionToSeat) {
+      if (heldSeat === seat) table.sessionToSeat.delete(oldSession);
+    }
+  }
   table.sessionToSeat.set(sessionId, seat);
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
@@ -1508,6 +1521,7 @@ export function addBadugiConnection(
   const wasReserved = (p => p === 'reserved' || p === 'open')(table.state.players.find(p => p.id === seat)?.presence ?? '');
   table.state = {
     ...table.state,
+    ...streakClaim,
     players: table.state.players.map(p => {
       if (p.id !== seat) return p;
       return {
@@ -1536,7 +1550,7 @@ export function addBadugiConnection(
         startChips: placeholder,
         handsPlayed: 0,
         biggestPotWon: 0,
-        winStreak: 0,
+        winStreak: table.state.winStreaks?.[seat] ?? 0,
         lossStreak: 0,
         sessionHighProfit: 0,
         sessionLowProfit: 0,
@@ -1583,7 +1597,7 @@ export function addBadugiConnection(
             startChips: effectiveStack,
             handsPlayed: 0,
             biggestPotWon: 0,
-            winStreak: 0,
+            winStreak: t.state.winStreaks?.[seat] ?? 0,
             lossStreak: 0,
             sessionHighProfit: 0,
             sessionLowProfit: 0,
@@ -1858,7 +1872,12 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       const resolved = s.messages.some(m => m.isResolution);
       if (!resolved) {
         const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
-        table.state = { ...table.state, players: result.players, pot: result.pot };
+        table.state = {
+          ...table.state,
+          players: result.players,
+          winStreaks: confirmedWinStreaks(s, result.players),
+          pot: result.pot,
+        };
       }
       for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
       table.botTimers.clear();

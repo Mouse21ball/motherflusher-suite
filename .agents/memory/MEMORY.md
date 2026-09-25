@@ -16,3 +16,4 @@
 - [Sensitive response logging](sensitive-response-logging.md) — recursively redact response values and avoid exception details on credential-bearing paths.
 - [Validated .replit edits](validated-dot-replit-edit.md) — stage full TOML in a workspace temp file and use the validator; direct `.replit` edits are blocked.
 - [Preview API routing](preview-api-routing.md) — development preview may target production APIs; reroute API and WebSocket traffic to dev before testing guest/game flows.
+- [Table streak ownership](table-streak-ownership.md) — persisted streaks reserve seats for matching identities after restart; unpaid winner flags must not advance them.
