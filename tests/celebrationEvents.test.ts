@@ -295,6 +295,22 @@ describe('celebration event derivation', () => {
     expect(streaksAfterCelebration(previous, loss, null)).toBe(previous.winStreaks);
   });
 
+  it('does not replay a win-streak celebration from a reconnect initialization snapshot', () => {
+    const previous = snapshotForCelebrations(state('BET_4', [
+      player('hot', { chips: 700 }),
+    ]), { hot: WIN_STREAK_MIN_HANDS - 1 });
+    const resolved = state('SHOWDOWN', [
+      player('hot', { chips: 800, isWinner: true }),
+    ]);
+
+    expect(deriveCelebration(previous, resolved, 'badugi')).toMatchObject({
+      type: 'WIN_STREAK',
+      streakCount: WIN_STREAK_MIN_HANDS,
+    });
+    expect(deriveCelebration(previous, resolved, 'badugi', 'init')).toBeNull();
+    expect(deriveCelebration(null, resolved, 'badugi', 'init')).toBeNull();
+  });
+
   it('gives rare hands priority over streaks and big pots without dropping split targets', () => {
     const before = snapshotForCelebrations(state('BET_4', [
       player('rare', { chips: 100 }), player('streak', { chips: 100 }),
