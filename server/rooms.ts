@@ -585,7 +585,10 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
         console.log('[CGP][server] ← badugi:action', { tableId, playerId: pid, action, gateOn: SERVER_BADUGI_ON });
         if (!SERVER_BADUGI_ON) { console.warn('[CGP][server] badugi:action DROPPED — gate off'); return; }
-        handleBadugiAction(tableId, pid, action, payload);
+        const error = handleBadugiAction(tableId, pid, action, payload);
+        if (error && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', message: error }));
+        }
         return;
       }
 

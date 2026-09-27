@@ -12,6 +12,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
+import { applyBadugiDraw } from './utils/badugiDraw';
 import { takeAnte } from '../shared/engine/botUtils';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
@@ -1844,7 +1845,7 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
   scheduleSave(table.tableId, table.state, table.handId);
 }
 
-export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): void {
+export function handleBadugiAction(tableId: string, playerId: string, action: string, payload: unknown): string | void {
   const table = tables.get(tableId);
   if (!table) {
     console.warn('[CGP][server] handleBadugiAction: NO TABLE FOUND', { tableId, action });
@@ -2114,33 +2115,15 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── draw ──────────────────────────────────────────────────────────────────
     if (action === 'draw' && s.phase.startsWith('DRAW')) {
-      const indices: number[] = Array.isArray(payload) ? (payload as number[]) : [];
-      let newDeck      = [...s.deck];
-      const newDiscard = [...(s.discardPile || [])];
-
-      const newPlayers = s.players.map(p => {
-        if (p.id !== playerId) return p;
-        if (indices.length === 0) return { ...p, hasActed: true };
-        const newCards = [...p.cards];
-        indices.forEach(idx => {
-          newDiscard.push(newCards[idx]);
-          if (newDeck.length === 0 && newDiscard.length > 0) {
-            const reshuffled = [...newDiscard];
-            newDiscard.length = 0;
-            for (let i = reshuffled.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [reshuffled[i], reshuffled[j]] = [reshuffled[j], reshuffled[i]];
-            }
-            newDeck = reshuffled;
-          }
-          newCards[idx] = { ...newDeck.shift()!, isHidden: false };
-        });
-        return { ...p, cards: newCards, hasActed: true };
-      });
-
-      const msg = indices.length === 0 ? 'You stood pat' : `You discarded ${indices.length} card${indices.length > 1 ? 's' : ''}`;
-      engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: indices.length, phase: s.phase });
-      table.state = addMsg({ ...s, players: newPlayers, deck: newDeck, discardPile: newDiscard }, msg);
+      const result = applyBadugiDraw(s, playerId, payload);
+      if (!result.ok) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: result.reason, phase: s.phase });
+        table.actionLock = false;
+        return result.message;
+      }
+      const msg = result.count === 0 ? 'You stood pat' : `You discarded ${result.count} card${result.count > 1 ? 's' : ''}`;
+      engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: result.count, phase: s.phase });
+      table.state = addMsg({ ...s, players: result.players, deck: result.deck, discardPile: result.discardPile }, msg);
       table.actionLock = false;
       afterHumanAction(table);
       return;
