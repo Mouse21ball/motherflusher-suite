@@ -418,7 +418,7 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
 // Used by 15/35 where the first dealt card and all hit cards are public (blackjack-style).
 // Swing/SuitsPoker have no public player cards (empty map → all opponent cards hidden).
 
-function maskStateForPlayer(
+export function maskStateForPlayer(
   state: GameState,
   forPlayerId: string,
   publicCardIndicesPerPlayer: Record<string, number[]> = {},
@@ -429,6 +429,9 @@ function maskStateForPlayer(
   return {
     ...publicState,
     deck: [],
+    // Wire-only card backs: never serialize ranks/suits before the board reveals them.
+    // The authoritative state keeps the real cards for evaluation and later reveals.
+    communityCards: state.communityCards.map(c => c.isHidden === true ? { isHidden: true } as CardType : c),
     players: state.players.map(p => {
       if (p.id === forPlayerId) {
         // Hero always sees their own cards regardless of server-stored isHidden
