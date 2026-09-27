@@ -347,6 +347,8 @@ interface AuthTable {
   handId: number;
   // Prevents re-entrant mutations.
   actionLock: boolean;
+  settlementPromise?: Promise<void>;
+  settlementRetryTimer?: ReturnType<typeof setTimeout>;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
   // connections keyed by game seat id (p1/p2/p3/p4/p5)
   connections: Map<string, WebSocket>;
@@ -713,7 +715,8 @@ function resolveShowdown(table: AuthTable): void {
   const fenced = table.handId;
 
   setTimeout(() => {
-    if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+    // A manual restart can resolve this hand while its settlement is pending.
+    if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN' || table.resolvedPot !== undefined) return;
 
     const s = table.state;
     const grossPot = s.pot;
@@ -756,8 +759,7 @@ function resolveShowdown(table: AuthTable): void {
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
-      resetToAnte(table);
-      broadcastState(table);
+      advanceAfterSettlement(table);
     }, 2500);
   }, 650);
 }
@@ -822,8 +824,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     const fenced = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
-      resetToAnte(table);
-      broadcastState(table);
+      advanceAfterSettlement(table);
     }, 2500);
     return true;
   }
@@ -846,8 +847,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     const fenced = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
-      resetToAnte(table);
-      broadcastState(table);
+      advanceAfterSettlement(table);
     }, 1500);
     return true;
   }
@@ -857,7 +857,36 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
 
 // ─── Reset after showdown ─────────────────────────────────────────────────────
 
-function resetToAnte(table: AuthTable): void {
+function advanceAfterSettlement(table: AuthTable): void {
+  const handId = table.handId;
+  void resetToAnte(table).then(() => {
+    if (table.settlementRetryTimer) clearTimeout(table.settlementRetryTimer);
+    table.settlementRetryTimer = undefined;
+    broadcastState(table);
+  }).catch(err => {
+    console.error(`[gameEngine] hand settlement failed table=${table.tableId} hand=${handId}`, err);
+    engineLog('ERROR', table.tableId, { msg: 'hand-settlement-failed', handId });
+    if (!table.settlementRetryTimer) {
+      table.settlementRetryTimer = setTimeout(() => {
+        table.settlementRetryTimer = undefined;
+        if (table.handId === handId && table.state.phase === 'SHOWDOWN') advanceAfterSettlement(table);
+      }, 2000);
+    }
+  });
+}
+
+export function resetToAnte(table: AuthTable): Promise<void> {
+  if (table.settlementPromise) return table.settlementPromise;
+  const pending = settleAndResetToAnte(table);
+  table.settlementPromise = pending;
+  const clearPending = () => {
+    if (table.settlementPromise === pending) table.settlementPromise = undefined;
+  };
+  void pending.then(clearPending, clearPending); // Preserve rejection for the caller's logged retry.
+  return pending;
+}
+
+async function settleAndResetToAnte(table: AuthTable): Promise<void> {
   const s = table.state;
   /* A real rollover = pot carried forward because nobody qualified.
      If there was a winner, pot was already distributed (s.pot === 0). */
@@ -899,26 +928,18 @@ function resetToAnte(table: AuthTable): void {
   const dealerIdx   = getDealerIndex(nextPlayers);
   const firstActIdx = getNextActivePlayerIndex(nextPlayers, dealerIdx);
 
-  // Cancel all pending bot timers from the previous hand
-  for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
-  table.botTimers.clear();
-  table.handId += 1;
-
   // ── Sync human chip balances to player profiles ────────────────────────────
-  // Runs AFTER handId increments so lastChipSyncHand records the NEW handId.
-  // Disconnect syncs skip the write if lastChipSyncHand matches current handId,
-  // preventing a late connection-drop from overwriting this post-winnings balance
-  // with stale mid-hand chips.
+  // Leave the resolved SHOWDOWN intact until all idempotent DB writes succeed.
   //
   // IMPORTANT: nextPlayers.map() already set isWinner: undefined on all players.
   // Winner status must be resolved from s.players (SHOWDOWN snapshot) BEFORE
   // iterating nextPlayers — otherwise `won` is always false and handsWon /
   // winStreak / biggestPotWon / lifetimeProfit are never updated.
   const potWon = table.resolvedPot ?? s.pot;
-  table.resolvedPot = undefined;
-  const completedHandId = String(table.handId - 1);
+  const completedHandId = String(table.handId);
   const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
 
+  const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
   for (const p of nextPlayers) {
     if (p.presence !== 'human') continue;
     const identityId = table.seatToIdentityId.get(p.id);
@@ -929,7 +950,17 @@ function resetToAnte(table: AuthTable): void {
     // Per-hand profit delta: end-of-hand chips minus recorded hand-start chips.
     const prevChips = table.chipsAtHandStart.get(p.id) ?? p.chips;
     const deltaChips = p.chips - prevChips;
+    settlements.push({ player: p, identityId, isWinner, deltaChips });
+    await storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: completedHandId, modeId: 'badugi', potSize: potWon });
+  }
 
+  // On failure, the hand stays in SHOWDOWN and can be safely retried.
+  for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+  table.botTimers.clear();
+  table.handId += 1;
+  table.resolvedPot = undefined;
+
+  for (const { player: p, identityId, isWinner, deltaChips } of settlements) {
     // Update in-memory session stats.
     const ss = table.sessionStats.get(p.id);
     if (ss) {
@@ -953,7 +984,6 @@ function resetToAnte(table: AuthTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: completedHandId, modeId: 'badugi', potSize: potWon }).catch(console.error);
     if (isWinner) storage.awardWinStripes(identityId).catch(() => {});
   }
 
@@ -1874,7 +1904,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       // Detection: resolveShowdown appends isResolution messages; absence means
       // it hasn't run.
       const resolved = s.messages.some(m => m.isResolution);
-      if (!resolved) {
+      if (!resolved && table.resolvedPot === undefined) {
         table.resolvedPot = s.pot;
         const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
         table.state = {
@@ -1888,8 +1918,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       table.botTimers.clear();
       table.actionLock = false;
       engineLog('ACTION', tableId, { player: playerId, action: 'restart', accepted: true });
-      resetToAnte(table);
-      broadcastState(table);
+      advanceAfterSettlement(table);
       return;
     }
 
