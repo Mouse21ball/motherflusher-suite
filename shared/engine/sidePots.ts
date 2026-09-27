@@ -67,6 +67,44 @@ export function sidePotsForShowdown(players: Player[], pot: number, eligibleIds:
   });
 }
 
+// SWING is adjudicated afresh in each eligibility tier. A failed SWING is
+// excluded when another declaration is available, exactly as in the modes'
+// original whole-pot showdown; all-SWING tables retain their normal fallback.
+export function resolveSwingSidePots(
+  pots: SidePot[],
+  active: Player[],
+  findHigh: (pool: Player[]) => Player[],
+  findLow: (pool: Player[]) => Player[],
+): SplitResolution {
+  const combined: SplitResolution = {
+    deltas: {}, rolledOver: 0, highWinnerIds: new Set(), lowWinnerIds: new Set(),
+    scoopWinnerIds: new Set(), hadAnyWinner: false,
+  };
+  for (const pot of pots) {
+    const eligible = active.filter(p => pot.eligibleIds.includes(p.id));
+    const high = findHigh(eligible.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING'));
+    const low = findLow(eligible.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING'));
+    const swingWinner = high.length === 1 && low.length === 1 &&
+      high[0].id === low[0].id && high[0].declaration === 'SWING' ? high[0] : null;
+    const fallback = !swingWinner && eligible.some(p => p.declaration !== 'SWING')
+      ? eligible.filter(p => p.declaration !== 'SWING') : eligible;
+    const result = resolveSplitPots([pot], active, {
+      findScoop: () => eligible.length === 1 ? [eligible[0].id] : swingWinner ? [swingWinner.id] : [],
+      findHigh: () => findHigh(fallback.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING')).map(p => p.id),
+      findLow: () => findLow(fallback.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING')).map(p => p.id),
+    });
+    for (const [id, amount] of Object.entries(result.deltas)) {
+      combined.deltas[id] = (combined.deltas[id] ?? 0) + amount;
+    }
+    combined.rolledOver += result.rolledOver;
+    combined.hadAnyWinner ||= result.hadAnyWinner;
+    for (const id of result.highWinnerIds) combined.highWinnerIds.add(id);
+    for (const id of result.lowWinnerIds) combined.lowWinnerIds.add(id);
+    for (const id of result.scoopWinnerIds) combined.scoopWinnerIds.add(id);
+  }
+  return combined;
+}
+
 // ─── Generic split-pot resolver ──────────────────────────────────────────────
 // Iterates side pots and applies per-pot awarders.  Any pot with no winner
 // rolls over.  Caller maps deltas back onto Player.chips and isWinner flags.

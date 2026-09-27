@@ -1,6 +1,7 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
 import { getNextActivePlayerIndex } from '../engine/core';
 import { decideBet, applyBetDecision, getBotThinkDelay, botTier, botPersonality, takeAnte } from '../engine/botUtils';
+import { sidePotsForShowdown, resolveSwingSidePots } from '../engine/sidePots';
 
 // ── Rank tables ───────────────────────────────────────────────────────────────
 
@@ -391,43 +392,23 @@ export const BonecrusherMode: GameMode = {
     const active = finalPlayers.filter(p =>
       p.status !== 'folded' && p.declaration && p.declaration !== 'FOLD'
     );
+    const sidePots = sidePotsForShowdown(finalPlayers, pot, active.map(p => p.id));
 
     if (active.length === 0) {
       return { players: finalPlayers, pot, messages: ['No declarers — pot rolls over'] };
     }
     if (active.length === 1) {
       const sole = active[0];
+      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((sum, sp) => sum + sp.amount, 0);
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
-      messages.push(`${sole.name} wins $${pot} — last one standing`);
-      return { players: finalPlayers, pot: 0, messages };
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
+      messages.push(`${sole.name} wins $${award} — last one standing`);
+      return { players: finalPlayers, pot: pot - award, messages };
     }
 
     const evalMap = new Map<string, { high: { value: number; name: string }; low: { value: number; desc: string } }>();
     for (const p of active) {
       evalMap.set(p.id, { high: bestHighHand(p.cards), low: bestLowHand(p.cards) });
-    }
-
-    const highPool  = active.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING');
-    const lowPool   = active.filter(p => p.declaration === 'LOW'  || p.declaration === 'SWING');
-    const swingPool = active.filter(p => p.declaration === 'SWING');
-    const hasHigh   = highPool.length > 0;
-    const hasLow    = lowPool.length  > 0;
-
-    const halfHigh = Math.floor(pot / 2);
-    const halfLow  = pot - halfHigh;
-
-    const deltas: Record<string, number> = {};
-    const winnerSet = new Set<string>();
-
-    function award(winners: Player[], amount: number): void {
-      if (!winners.length || amount <= 0) return;
-      const share = Math.floor(amount / winners.length);
-      let rem = amount - share * winners.length;
-      for (const w of winners) {
-        deltas[w.id] = (deltas[w.id] ?? 0) + share + (rem-- > 0 ? 1 : 0);
-        winnerSet.add(w.id);
-      }
     }
 
     function findHighWinners(pool: Player[]): Player[] {
@@ -444,70 +425,11 @@ export const BonecrusherMode: GameMode = {
       return pool.filter(p => evalMap.get(p.id)!.low.value === best);
     }
 
-    if (hasHigh && hasLow) {
-      const highWinners = findHighWinners(highPool);
-      const lowWinners  = findLowWinners(lowPool);
-
-      const swingWinner =
-        highWinners.length === 1 &&
-        lowWinners.length === 1 &&
-        highWinners[0].id === lowWinners[0].id &&
-        highWinners[0].declaration === 'SWING'
-          ? highWinners[0]
-          : null;
-
-      if (swingWinner) {
-        award([swingWinner], pot);
-        const ev = evalMap.get(swingWinner.id)!;
-        messages.push(`SWING: ${swingWinner.name} takes the whole pot $${pot} — ${ev.high.name} HIGH / ${ev.low.desc} LOW!`);
-      } else {
-        const hasNonSwingDeclarer = active.some(p => p.declaration !== 'SWING');
-        const fallbackPlayers = hasNonSwingDeclarer
-          ? active.filter(p => p.declaration !== 'SWING')
-          : active;
-
-        if (swingPool.length > 0) {
-          messages.push(hasNonSwingDeclarer
-            ? `SWING: ${swingPool.map(p => p.name).join(', ')} fails — wins no pot`
-            : 'SWING: no sole winner on both sides — all-SWING players resolve normally');
-        }
-
-        const actualHigh = findHighWinners(
-          fallbackPlayers.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING')
-        );
-        const actualLow = findLowWinners(
-          fallbackPlayers.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING')
-        );
-
-        if (actualHigh.length > 0) {
-          award(actualHigh, halfHigh);
-          const ev = evalMap.get(actualHigh[0].id)!;
-          messages.push(`HIGH: ${actualHigh.map(p => p.name).join(' & ')} wins $${halfHigh} — ${ev.high.name}`);
-        } else {
-          messages.push(`No HIGH winner — $${halfHigh} stays in pot`);
-        }
-        if (actualLow.length > 0) {
-          award(actualLow, halfLow);
-          const ev = evalMap.get(actualLow[0].id)!;
-          messages.push(`LOW: ${actualLow.map(p => p.name).join(' & ')} wins $${halfLow} — ${ev.low.desc}`);
-        } else {
-          messages.push(`No LOW winner — $${halfLow} stays in pot`);
-        }
-      }
-    } else if (hasHigh) {
-      const winners = findHighWinners(highPool);
-      award(winners, pot);
-      if (winners.length > 0) {
-        const ev = evalMap.get(winners[0].id)!;
-        messages.push(`${winners.map(p => p.name).join(' & ')} wins $${pot} — ${ev.high.name}`);
-      }
-    } else {
-      const winners = findLowWinners(lowPool);
-      award(winners, pot);
-      if (winners.length > 0) {
-        const ev = evalMap.get(winners[0].id)!;
-        messages.push(`${winners.map(p => p.name).join(' & ')} wins $${pot} — ${ev.low.desc}`);
-      }
+    const resolution = resolveSwingSidePots(sidePots, active, findHighWinners, findLowWinners);
+    const deltas = resolution.deltas;
+    const winnerSet = new Set(Object.keys(deltas));
+    for (const [id, amount] of Object.entries(deltas)) {
+      messages.push(`${finalPlayers.find(p => p.id === id)!.name} wins $${amount}`);
     }
 
     const result = finalPlayers.map(p => ({

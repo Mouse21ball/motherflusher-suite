@@ -23,6 +23,7 @@ function player(
     chips?: number;
     declaration?: Player['declaration'];
     status?: Player['status'];
+    totalBet?: number;
   } = {},
 ): Player {
   return {
@@ -31,7 +32,7 @@ function player(
     presence: 'bot',
     chips: opts.chips ?? 1000,
     bet: 0,
-    totalBet: 0,
+    totalBet: opts.totalBet ?? 0,
     cards,
     status: opts.status ?? 'active',
     hasActed: true,
@@ -340,5 +341,43 @@ describe('BonecrusherMode.resolveShowdown — chip conservation', () => {
     const { players: out, pot: remaining } = BonecrusherMode.resolveShowdown!(players, pot, 'A');
     const totalAfter = out.reduce((s, p) => s + p.chips, 0) + remaining;
     expect(totalAfter).toBe(totalBefore);
+  });
+});
+
+describe('BonecrusherMode.resolveShowdown — side pots', () => {
+  it('restricts a short all-in to the main pot and splits the overbet pot by eligible hands', () => {
+    const players = [
+      player('A', royalFlushCards, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', wheelCards, { declaration: 'LOW', chips: 0, totalBet: 150 }),
+      player('C', highOnlyCards, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 350, 'A');
+    expect(out.map(p => p.chips)).toEqual([75, 175, 100]);
+    expect(pot).toBe(0);
+  });
+
+  it('awards the full side pot to HIGH when its eligible players have no LOW declarer', () => {
+    const players = [
+      player('A', royalFlushCards, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', highOnlyCards, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+      player('C', pairAceCards, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 350, 'A');
+    expect(out.map(p => p.chips)).toEqual([150, 200, 0]);
+    expect(pot).toBe(0);
+  });
+
+  it('judges SWING separately in the main and side pot, conserving all chips', () => {
+    const players = [
+      player('A', royalFlushCards, { declaration: 'HIGH', chips: 25, totalBet: 50 }),
+      player('B', straightFlushWheelCards, { declaration: 'SWING', chips: 75, totalBet: 150 }),
+      player('C', highOnlyCards, { declaration: 'LOW', chips: 75, totalBet: 150 }),
+      player('D', pairAceCards, { status: 'folded', chips: 30, totalBet: 100 }),
+    ];
+    const before = players.reduce((sum, p) => sum + p.chips, 450);
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 450, 'A');
+    expect(out.map(p => p.chips)).toEqual([125, 325, 175, 30]);
+    expect(out.reduce((sum, p) => sum + p.chips, pot)).toBe(before);
+    expect(pot).toBe(0);
   });
 });
