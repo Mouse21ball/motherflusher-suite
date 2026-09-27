@@ -27,7 +27,7 @@ function eval5Cards(cards: CardType[]): { value: number; name: string } {
   const rc = ranks.reduce((a, r) => { a[r] = (a[r] || 0) + 1; return a; }, {} as Record<number,number>);
   const counts = Object.values(rc).sort((a, b) => b - a);
   const byCount = Object.entries(rc).sort((a, b) => b[1] !== a[1] ? b[1] - a[1] : +b[0] - +a[0]).map(([r]) => +r);
-  const kicker = byCount.reduce((s, r, i) => s + r * Math.pow(15, 4 - i), 0);
+  const kicker = (isAceLow ? [5, 4, 3, 2, 1] : byCount).reduce((s, r, i) => s + r * Math.pow(15, 4 - i), 0);
   if (isStraight && isFlush) { if (!isAceLow && ranks[0] === 14 && ranks[1] === 13) return { value: 9_000_000 + kicker, name: 'Royal Flush' }; return { value: 8_000_000 + kicker, name: 'Straight Flush' }; }
   if (counts[0] === 4) return { value: 7_000_000 + kicker, name: 'Four of a Kind' };
   if (counts[0] === 3 && counts[1] === 2) return { value: 6_000_000 + kicker, name: 'Full House' };

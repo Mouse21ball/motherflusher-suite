@@ -53,11 +53,12 @@ function eval5Cards(cards: CardType[]): { value: number; name: string } {
   const ranks = cards.map(c => pokerRankValues[c.rank]).sort((a, b) => b - a);
   const suits = cards.map(c => c.suit);
   const isFlush = new Set(suits).size === 1;
-  const isStraight = (new Set(ranks).size === 5 && ranks[0] - ranks[4] === 4) || (ranks[0] === 14 && ranks[1] === 5 && ranks[2] === 4 && ranks[3] === 3 && ranks[4] === 2);
+  const isAceLow = ranks[0] === 14 && ranks[1] === 5 && ranks[2] === 4 && ranks[3] === 3 && ranks[4] === 2;
+  const isStraight = (new Set(ranks).size === 5 && ranks[0] - ranks[4] === 4) || isAceLow;
   const rankCounts = ranks.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {} as Record<number, number>);
   const counts = Object.values(rankCounts).sort((a, b) => b - a);
   const sortedByCount = Object.entries(rankCounts).sort((a, b) => b[1] !== a[1] ? b[1] - a[1] : parseInt(b[0]) - parseInt(a[0])).map(([r]) => parseInt(r));
-  const kicker = sortedByCount.reduce((sum, r, i) => sum + r * Math.pow(15, 4 - i), 0);
+  const kicker = (isAceLow ? [5, 4, 3, 2, 1] : sortedByCount).reduce((sum, r, i) => sum + r * Math.pow(15, 4 - i), 0);
   if (isStraight && isFlush) { if (ranks[0] === 14 && ranks[1] === 13) return { value: 9000000 + kicker, name: 'Royal Flush' }; return { value: 8000000 + kicker, name: 'Straight Flush' }; }
   if (counts[0] === 4) return { value: 7000000 + kicker, name: 'Four of a Kind' };
   if (counts[0] === 3 && counts[1] === 2) return { value: 6000000 + kicker, name: 'Full House' };

@@ -197,13 +197,13 @@ describe('BonecrusherMode.resolveShowdown — SWING all-or-nothing', () => {
   it('SWING player who wins both sides scoops the entire pot', () => {
     // A = [A♣ 2♣ 3♣ 4♣ 5♣ K♦]:
     //   HIGH: best 5-card high = A-2-3-4-5 clubs = Straight Flush (~8M) > opponent flush
-    //   LOW:  best 5-card low  = A-2-3-4-5 (wheel) << opponent's K-Q-J-10-9 low
-    // B/C = [K♠ Q♠ J♠ 10♠ 9♠ 8♠]:
-    //   HIGH: best 5-card = K-Q-J-10-9 spades = Flush (~5M) < A's straight flush
-    //   LOW:  best 5-card = 8-9-10-J-Q (all high ranks) >> A's wheel
+    //   LOW:  best 5-card low  = A-2-3-4-5 (wheel) << opponent's low
+    // B/C = [K♠ Q♠ J♠ 9♠ 7♠ 6♠]:
+    //   HIGH: best 5-card is a Flush (~5M) < A's straight flush
+    //   LOW:  best 5-card = 6-7-9-J-Q >> A's wheel
     const highLowCombo = [
       card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'),
-      card('10', 'spades'), card('9', 'spades'), card('8', 'spades'),
+      card('9', 'spades'), card('7', 'spades'), card('6', 'spades'),
     ];
     const players = [
       player('A', straightFlushWheelCards, { declaration: 'SWING', chips: 1000 }),
