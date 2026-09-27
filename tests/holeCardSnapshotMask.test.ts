@@ -68,3 +68,21 @@ it('keeps deliberately public generic-mode cards visible while redacting the sam
     expect(view.players[0].cards).toEqual([aCards[0], { isHidden: true }]);
   }
 });
+
+describe('Badugi discard-pile snapshots', () => {
+  it.each(['DRAW_2', 'SHOWDOWN'] as const)(
+    'hides discarded card values from players and spectators at %s without changing the server pile',
+    phase => {
+      const state = dealtState(phase);
+      const discarded: CardType = { rank: 'Q', suit: 'hearts', isHidden: false };
+      state.discardPile = [discarded];
+
+      for (const recipient of ['p1', 'p2', '__spectator__']) {
+        const snapshot = onWire(maskBadugi(state, recipient));
+        expect(snapshot.discardPile).toEqual([{ isHidden: true }]);
+        expect(JSON.stringify(snapshot)).not.toContain('"rank":"Q"');
+      }
+      expect(state.discardPile).toEqual([discarded]);
+    },
+  );
+});

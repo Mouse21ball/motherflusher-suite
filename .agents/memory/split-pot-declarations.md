@@ -8,3 +8,9 @@ Judge SWING separately for each side pot, considering only players eligible for 
 **Why:** Detroit explicitly resolved the ambiguity: “whoever has the only valid hand wins it all if other side cant claim. Thats for all games.” This supersedes the prior Kamikaze half-rollover behavior.
 
 **How to apply:** Preserve these rules when modifying Kamikaze, Bonecrusher, or Box Chevy payouts, including main and side pots. Do not treat a player outside a side pot's eligibility set as a competitor for its SWING result.
+
+An uncontested sole survivor is different from a multi-player showdown: when everyone else folds, award that survivor the entire available pot immediately, rather than leaving an ineligible side-pot remainder for the next hand.
+
+**Why:** Detroit's no-rollover instruction applies to an uncontested winner as well; there is no competing hand to receive the remaining chips.
+
+**How to apply:** Use side-pot eligibility to compare competing hands, not to withhold chips from the only player left after folds. Award the actual net pot passed to settlement so rake does not create extra chips.

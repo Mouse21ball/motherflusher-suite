@@ -310,6 +310,9 @@ export function maskStateForPlayer(state: GameState, forPlayerId: string): GameS
   return {
     ...publicState,
     deck: [],                // never expose the deck to clients
+    // Discards have no owner metadata. Keep their count, but never send their
+    // identities, even at showdown: discarded cards are not revealed there.
+    discardPile: state.discardPile.map(() => ({ isHidden: true } as CardType)),
     players: state.players.map(p => {
       if (p.id === forPlayerId) return p;
       if (isShowdown) return p; // all hands revealed at resolution
