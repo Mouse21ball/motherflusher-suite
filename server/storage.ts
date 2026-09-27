@@ -2418,21 +2418,16 @@ export class MemStorage implements IStorage {
 
   async debitChipsForBuyin(playerId: string, amount: number): Promise<boolean> {
     return await db.transaction(async (tx) => {
-      const rows = await tx
-        .select({ chipBalance: playerProfiles.chipBalance })
-        .from(playerProfiles)
-        .where(eq(playerProfiles.id, playerId))
-        .limit(1);
-      if (!rows[0] || rows[0].chipBalance < amount) return false;
-      const before = rows[0].chipBalance;
-      const after  = before - amount;
-      await tx
+      const [updated] = await tx
         .update(playerProfiles)
         .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
-        .where(eq(playerProfiles.id, playerId));
+        .where(and(eq(playerProfiles.id, playerId), gte(playerProfiles.chipBalance, amount)))
+        .returning({ chipBalance: playerProfiles.chipBalance });
+      if (!updated) return false;
+      const after = updated.chipBalance;
       await this._insertChipLedger(tx, {
         playerId,
-        beforeBalance: before,
+        beforeBalance: after + amount,
         amountChange:  -amount,
         afterBalance:  after,
         reason:        'buy_in',
