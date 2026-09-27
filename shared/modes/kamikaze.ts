@@ -1,5 +1,6 @@
 import { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
 import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { sidePotsForShowdown, resolveSplitPots } from '../engine/sidePots';
 
 const RANK_VALUES: Record<string, number> = {
   '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
@@ -328,6 +329,7 @@ export const KamikazeMode: GameMode = {
 
     const messages: string[] = [];
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded' && p.declaration && p.declaration !== 'FOLD');
+    const sidePots = sidePotsForShowdown(finalPlayers, pot, activePlayers.map(p => p.id));
 
     if (activePlayers.length === 0) {
       messages.push(`No qualifying hands — $${pot} rolls over`);
@@ -336,19 +338,17 @@ export const KamikazeMode: GameMode = {
 
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
+      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((sum, sp) => sum + sp.amount, 0);
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
-      messages.push(`${sole.name} wins $${pot} (last standing)`);
-      return { players: finalPlayers, pot: 0, messages };
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
+      messages.push(`${sole.name} wins $${award} (last standing)`);
+      return { players: finalPlayers, pot: pot - award, messages };
     }
 
     const evalMap = new Map<string, KamikazeEval>();
     for (const p of activePlayers) {
       evalMap.set(p.id, evaluateKamikaze(p.cards.map(c => ({ ...c, isHidden: false }))));
     }
-
-    const highPool = activePlayers.filter(p => p.declaration === 'HIGH');
-    const lowPool  = activePlayers.filter(p => p.declaration === 'LOW');
 
     function findHighWinners(pool: Player[]): Player[] {
       const valid = pool.filter(p => evalMap.get(p.id)?.isValid);
@@ -374,30 +374,22 @@ export const KamikazeMode: GameMode = {
 
     const deltas: Record<string, number> = {};
     const winnerSet = new Set<string>();
-
-    function award(winners: Player[], amount: number) {
-      const share = Math.floor(amount / winners.length);
-      let rem = amount - share * winners.length;
-      for (const w of winners) {
-        const give = share + (rem-- > 0 ? 1 : 0);
-        deltas[w.id] = (deltas[w.id] ?? 0) + give;
-        winnerSet.add(w.id);
+    for (const [index, sp] of sidePots.entries()) {
+      const eligible = activePlayers.filter(p => sp.eligibleIds.includes(p.id));
+      const hw = findHighWinners(eligible.filter(p => p.declaration === 'HIGH'));
+      const lw = findLowWinners(eligible.filter(p => p.declaration === 'LOW'));
+      const resolution = resolveSplitPots([sp], activePlayers, {
+        findScoop: pool => pool.length === 1 ? [pool[0].id] : [],
+        findHigh: () => hw.map(p => p.id),
+        findLow: () => lw.map(p => p.id),
+      });
+      for (const [id, amount] of Object.entries(resolution.deltas)) {
+        deltas[id] = (deltas[id] ?? 0) + amount;
+        winnerSet.add(id);
       }
-    }
-
-    if (highPool.length > 0 && lowPool.length > 0) {
-      const halfHigh = Math.floor(pot / 2);
-      const halfLow  = pot - halfHigh;
-      const hw = findHighWinners(highPool);
-      const lw = findLowWinners(lowPool);
-      if (hw.length > 0) { award(hw, halfHigh); messages.push(`HIGH: ${hw.map(p => p.name).join(' & ')} wins $${halfHigh}`); }
-      if (lw.length > 0) { award(lw, halfLow);  messages.push(`LOW: ${lw.map(p => p.name).join(' & ')} wins $${halfLow}`); }
-    } else if (highPool.length > 0) {
-      const hw = findHighWinners(highPool);
-      if (hw.length > 0) { award(hw, pot); messages.push(`HIGH: ${hw.map(p => p.name).join(' & ')} wins $${pot}`); }
-    } else {
-      const lw = findLowWinners(lowPool);
-      if (lw.length > 0) { award(lw, pot); messages.push(`LOW: ${lw.map(p => p.name).join(' & ')} wins $${pot}`); }
+      if (resolution.hadAnyWinner) {
+        messages.push(`Pot ${index + 1}: ${Object.entries(resolution.deltas).map(([id, amount]) => `${finalPlayers.find(p => p.id === id)!.name} wins $${amount}`).join(', ')}`);
+      }
     }
 
     finalPlayers = finalPlayers.map(p => {

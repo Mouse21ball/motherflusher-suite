@@ -24,6 +24,7 @@ function player(
     chips?: number;
     declaration?: Player['declaration'];
     status?: Player['status'];
+    totalBet?: number;
   } = {},
 ): Player {
   return {
@@ -32,7 +33,7 @@ function player(
     presence: 'bot',
     chips: opts.chips ?? 1000,
     bet: 0,
-    totalBet: 0,
+    totalBet: opts.totalBet ?? 0,
     cards,
     status: opts.status ?? 'active',
     hasActed: true,
@@ -219,7 +220,7 @@ describe('KamikazeMode.resolveShowdown — HIGH vs LOW split', () => {
     expect(chipsB).toBe(1100);
   });
 
-  it('HIGH with invalid hand loses their half; LOW winner takes only LOW half, HIGH half rolls over', () => {
+  it('awards the entire pot to LOW when HIGH has no valid hand', () => {
     const players = [
       player('A', invalid411, { declaration: 'HIGH', chips: 1000 }),   // invalid — no made hand
       player('B', valid321Low, { declaration: 'LOW', chips: 1000 }),   // valid
@@ -227,11 +228,9 @@ describe('KamikazeMode.resolveShowdown — HIGH vs LOW split', () => {
     const { players: out, pot: remaining } = KamikazeMode.resolveShowdown!(players, 200, 'A');
     const chipsA = out.find(p => p.id === 'A')!.chips;
     const chipsB = out.find(p => p.id === 'B')!.chips;
-    // A declared HIGH but invalid → wins nothing; B wins LOW half ($100)
-    // HIGH half stays in pot (no valid HIGH contestant)
-    expect(chipsB).toBe(1100);
+    expect(chipsB).toBe(1200);
     expect(chipsA).toBe(1000);
-    expect(remaining).toBe(100);
+    expect(remaining).toBe(0);
   });
 
   it('tie in HIGH pool is split equally', () => {
@@ -256,6 +255,33 @@ describe('KamikazeMode.resolveShowdown — HIGH vs LOW split', () => {
     expect(chipsA).toBe(1100);
     expect(chipsB).toBe(1100);
     expect(remaining).toBe(0);
+  });
+});
+
+describe('KamikazeMode.resolveShowdown — side pots', () => {
+  it('limits a short all-in to the main pot and awards the overbet side pot independently', () => {
+    const players = [
+      player('A', valid321, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', valid321Low, { declaration: 'LOW', chips: 0, totalBet: 150 }),
+      player('C', invalid411, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot } = KamikazeMode.resolveShowdown!(players, 350, 'A');
+    expect(out.map(p => p.chips)).toEqual([75, 275, 0]);
+    expect(pot).toBe(0);
+  });
+
+  it('conserves chips with mixed valid hands, a folded contributor, and a short stack', () => {
+    const players = [
+      player('A', valid321, { declaration: 'HIGH', chips: 25, totalBet: 50 }),
+      player('B', valid321Low, { declaration: 'LOW', chips: 75, totalBet: 150 }),
+      player('C', invalid411, { declaration: 'HIGH', chips: 75, totalBet: 150 }),
+      player('D', invalid411, { status: 'folded', chips: 30, totalBet: 100 }),
+    ];
+    const before = players.reduce((sum, p) => sum + p.chips, 450);
+    const { players: out, pot } = KamikazeMode.resolveShowdown!(players, 450, 'A');
+    expect(out.map(p => p.chips)).toEqual([125, 425, 75, 30]);
+    expect(out.reduce((sum, p) => sum + p.chips, pot)).toBe(before);
+    expect(pot).toBe(0);
   });
 });
 

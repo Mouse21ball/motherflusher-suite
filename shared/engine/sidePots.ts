@@ -50,6 +50,23 @@ export function totalSidePotAmount(pots: SidePot[]): number {
   return pots.reduce((s, p) => s + p.amount, 0);
 }
 
+// The showdown pot may be smaller than contributions after rake, or larger
+// when chips were carried into this hand. Keep eligibility tiers intact while
+// making their amounts add up to the actual chips available for payout.
+export function sidePotsForShowdown(players: Player[], pot: number, eligibleIds: string[]): SidePot[] {
+  const pots = computeSidePots(players);
+  const contributed = totalSidePotAmount(pots);
+  if (!pots.length) return pot > 0 ? [{ amount: pot, eligibleIds }] : [];
+  if (contributed === pot) return pots;
+  if (pot > contributed) return [{ ...pots[0], amount: pots[0].amount + pot - contributed }, ...pots.slice(1)];
+  let allocated = 0;
+  return pots.map((p, i) => {
+    const amount = i === pots.length - 1 ? pot - allocated : Math.floor(p.amount * pot / contributed);
+    allocated += amount;
+    return { ...p, amount };
+  });
+}
+
 // ─── Generic split-pot resolver ──────────────────────────────────────────────
 // Iterates side pots and applies per-pot awarders.  Any pot with no winner
 // rolls over.  Caller maps deltas back onto Player.chips and isWinner flags.
