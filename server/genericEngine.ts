@@ -442,10 +442,9 @@ export function maskStateForPlayer(
       const publicIndices = publicCardIndicesPerPlayer[p.id] ?? [];
       return {
         ...p,
-        cards: p.cards.map((c, i) => ({
-          ...c,
-          isHidden: !publicIndices.includes(i),
-        })),
+        cards: p.cards.map((c, i) => publicIndices.includes(i)
+          ? { ...c, isHidden: false }
+          : { isHidden: true } as CardType),
       };
     }),
   };

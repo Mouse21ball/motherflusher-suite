@@ -303,7 +303,7 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
 // Canonical state has all cards face-up (server sees everything).
 // When broadcasting to a player, hide all opponents' cards except at SHOWDOWN.
 
-function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
+export function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
   const isShowdown = state.phase === 'SHOWDOWN';
   const publicState = { ...state };
   delete publicState.seatStreakOwners;
@@ -313,7 +313,7 @@ function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
     players: state.players.map(p => {
       if (p.id === forPlayerId) return p;
       if (isShowdown) return p; // all hands revealed at resolution
-      return { ...p, cards: p.cards.map(c => ({ ...c, isHidden: true })) };
+      return { ...p, cards: p.cards.map(() => ({ isHidden: true } as CardType)) };
     }),
   };
 }
