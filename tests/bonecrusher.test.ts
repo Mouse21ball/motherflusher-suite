@@ -345,6 +345,16 @@ describe('BonecrusherMode.resolveShowdown — chip conservation', () => {
 });
 
 describe('BonecrusherMode.resolveShowdown — side pots', () => {
+  it('keeps the LOW-side odd chip and never pays more than the net pot', () => {
+    const players = [
+      player('A', royalFlushCards, { declaration: 'HIGH', chips: 0, totalBet: 51 }),
+      player('B', wheelCards, { declaration: 'LOW', chips: 0, totalBet: 51 }),
+    ];
+    const { players: out, pot } = BonecrusherMode.resolveShowdown!(players, 101, 'A');
+    expect(out.map(p => p.chips)).toEqual([50, 51]);
+    expect(pot).toBe(0);
+  });
+
   it('restricts a short all-in to the main pot and splits the overbet pot by eligible hands', () => {
     const players = [
       player('A', royalFlushCards, { declaration: 'HIGH', chips: 0, totalBet: 50 }),

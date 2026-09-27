@@ -382,6 +382,7 @@ export const KamikazeMode: GameMode = {
         findScoop: pool => pool.length === 1 ? [pool[0].id] : [],
         findHigh: () => hw.map(p => p.id),
         findLow: () => lw.map(p => p.id),
+        oddChipToLow: true,
       });
       for (const [id, amount] of Object.entries(resolution.deltas)) {
         deltas[id] = (deltas[id] ?? 0) + amount;

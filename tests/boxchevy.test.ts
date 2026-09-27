@@ -320,6 +320,16 @@ describe('BoxChevyMode.resolveShowdown — side pots', () => {
   const lowHole = [card('A', 'clubs'), card('7', 'hearts'), card('8', 'spades'), card('9', 'diamonds'), card('10', 'clubs')];
   const otherHigh = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
 
+  it('keeps the LOW-side odd chip and never pays more than the net pot', () => {
+    const players = [
+      player('A', royalHole, { declaration: 'HIGH', chips: 0, totalBet: 51 }),
+      player('B', lowHole, { declaration: 'LOW', chips: 0, totalBet: 51 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 101, 'A', comm);
+    expect(out.map(p => p.chips)).toEqual([50, 51]);
+    expect(pot).toBe(0);
+  });
+
   it('limits a short all-in to the main pot and divides the overbet pot by eligible players', () => {
     const players = [
       player('A', royalHole, { declaration: 'HIGH', chips: 0, totalBet: 50 }),

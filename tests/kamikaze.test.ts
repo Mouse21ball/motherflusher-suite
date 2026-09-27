@@ -259,6 +259,16 @@ describe('KamikazeMode.resolveShowdown — HIGH vs LOW split', () => {
 });
 
 describe('KamikazeMode.resolveShowdown — side pots', () => {
+  it('keeps the LOW-side odd chip and pays only the net pot after rake', () => {
+    const players = [
+      player('A', valid321, { declaration: 'HIGH', chips: 0, totalBet: 51 }),
+      player('B', valid321Low, { declaration: 'LOW', chips: 0, totalBet: 51 }),
+    ];
+    const { players: out, pot } = KamikazeMode.resolveShowdown!(players, 101, 'A');
+    expect(out.map(p => p.chips)).toEqual([50, 51]);
+    expect(pot).toBe(0);
+  });
+
   it('limits a short all-in to the main pot and awards the overbet side pot independently', () => {
     const players = [
       player('A', valid321, { declaration: 'HIGH', chips: 0, totalBet: 50 }),

@@ -92,6 +92,7 @@ export function resolveSwingSidePots(
       findScoop: () => eligible.length === 1 ? [eligible[0].id] : swingWinner ? [swingWinner.id] : [],
       findHigh: () => findHigh(fallback.filter(p => p.declaration === 'HIGH' || p.declaration === 'SWING')).map(p => p.id),
       findLow: () => findLow(fallback.filter(p => p.declaration === 'LOW' || p.declaration === 'SWING')).map(p => p.id),
+      oddChipToLow: true,
     });
     for (const [id, amount] of Object.entries(result.deltas)) {
       combined.deltas[id] = (combined.deltas[id] ?? 0) + amount;
@@ -113,6 +114,7 @@ export interface SplitAwardOptions {
   findScoop?: (eligible: Player[]) => string[];
   findHigh: (eligible: Player[]) => string[];
   findLow?: (eligible: Player[]) => string[];
+  oddChipToLow?: boolean;
 }
 
 export interface SplitResolution {
@@ -164,7 +166,10 @@ export function resolveSplitPots(
     } else {
       const half = Math.floor(pot.amount / 2);
       highShare = half; lowShare = half;
-      if (pot.amount % 2 !== 0) highShare += 1;
+      if (pot.amount % 2 !== 0) {
+        if (opts.oddChipToLow) lowShare += 1;
+        else highShare += 1;
+      }
       if (highIds.length === 0) { lowShare += highShare; highShare = 0; }
       else if (lowIds.length === 0) { highShare += lowShare; lowShare = 0; }
     }
