@@ -257,7 +257,7 @@ export const Fifteen35Mode: GameMode = {
       const cands = eligible.filter(p => qualifiesLow(bestTotal(p.cards).total));
       if (cands.length === 0) return [];
       cands.sort((a, b) =>
-        Math.abs(bestTotal(b.cards).total - 15) - Math.abs(bestTotal(a.cards).total - 15)
+        Math.abs(bestTotal(a.cards).total - 15) - Math.abs(bestTotal(b.cards).total - 15)
         || bestTotal(b.cards).total - bestTotal(a.cards).total);
       const best = bestTotal(cands[0].cards).total;
       return cands.filter(p => bestTotal(p.cards).total === best).map(p => p.id);
