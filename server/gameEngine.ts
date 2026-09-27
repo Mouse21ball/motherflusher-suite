@@ -339,6 +339,7 @@ interface SessionStat {
 }
 
 interface AuthTable {
+  resolvedPot?: number;
   tableId: string;
   state: GameState;
   // Increments on each new hand. Bot timers capture this value at creation;
@@ -716,6 +717,7 @@ function resolveShowdown(table: AuthTable): void {
 
     const s = table.state;
     const grossPot = s.pot;
+    table.resolvedPot = grossPot;
     const { winnerPot, rake } = applyRake(grossPot);
     if (rake > 0) {
       storage.logHouseRake({
@@ -777,6 +779,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
   if (nonFolded.length === 1) {
     const winner = nonFolded[0];
     const pot = s.pot;
+    table.resolvedPot = pot;
     const { winnerPot, rake } = applyRake(pot);
     if (rake > 0) {
       storage.logHouseRake({
@@ -911,7 +914,9 @@ function resetToAnte(table: AuthTable): void {
   // Winner status must be resolved from s.players (SHOWDOWN snapshot) BEFORE
   // iterating nextPlayers — otherwise `won` is always false and handsWon /
   // winStreak / biggestPotWon / lifetimeProfit are never updated.
-  const potWon = s.pot; // capture pot BEFORE state is replaced
+  const potWon = table.resolvedPot ?? s.pot;
+  table.resolvedPot = undefined;
+  const completedHandId = String(table.handId - 1);
   const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
 
   for (const p of nextPlayers) {
@@ -948,9 +953,8 @@ function resetToAnte(table: AuthTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: String(table.handId) }).catch(() => {});
+    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: completedHandId, modeId: 'badugi', potSize: potWon }).catch(console.error);
     if (isWinner) storage.awardWinStripes(identityId).catch(() => {});
-    storage.incrementHandsPlayed(identityId, 'badugi').catch(() => {});
   }
 
   table.state = {
@@ -1683,9 +1687,9 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       // lastChipSyncHand is set to table.handId inside resetToAnte (after the
       // handId increment), so equality means hand-end already wrote for this hand.
       const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
-      if (lastSynced !== table.handId) {
+      if (intentional && lastSynced !== table.handId) {
         const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
-        storage.syncPlayerChips(identityId, player.chips - prevChips).catch(() => {});
+        storage.syncPlayerChips(identityId, player.chips - prevChips).catch(console.error);
       }
     }
 
@@ -1871,6 +1875,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       // it hasn't run.
       const resolved = s.messages.some(m => m.isResolution);
       if (!resolved) {
+        table.resolvedPot = s.pot;
         const result = BadugiMode.resolveShowdown(s.players, s.pot, '__server__');
         table.state = {
           ...table.state,

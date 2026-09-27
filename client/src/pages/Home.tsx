@@ -298,9 +298,9 @@ export default function Home() {
   useEffect(() => { syncXPFromHistory(); }, []);
 
   const [progression, setProgression] = useState(() => getProgression());
-  const levelInfo = getLevelInfo(progression.xp);
-
   const { profile: serverProfile, refetch } = useServerProfile();
+  const levelInfo = getLevelInfo(serverProfile?.xp ?? 0);
+
 
   // ── Guest nudge banner (show once per device for unauthenticated guests) ─────
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState<boolean>(() => {
@@ -329,10 +329,7 @@ export default function Home() {
   const [serverBonusStreakDay, setServerBonusStreakDay] = useState(1);
   const [hourlyOpen,        setHourlyOpen]        = useState(false);
   const [starterOpen,       setStarterOpen]        = useState(false);
-  const [rewardReady,       setRewardReady]        = useState(isRewardAvailable);
-  const [hourlyReady,       setHourlyReady]        = useState(isHourlyReady);
   const starterAvailable = serverProfile?.welcomeKitClaimed === false;
-  const streakInfo = getStreakInfo();
 
   // Live tables (30s poll, used for header live count + new live section)
   const [liveTables, setLiveTables] = useState<LiveTableEntry[]>([]);
@@ -446,13 +443,11 @@ export default function Home() {
 
   const handleDailyClose = useCallback(() => {
     setDailyOpen(false);
-    setRewardReady(false);
     setProgression(getProgression());
   }, []);
 
   const handleHourlyClose = useCallback(() => {
     setHourlyOpen(false);
-    setHourlyReady(isHourlyReady());
   }, []);
 
   const handleStarterClose = useCallback((claimed?: boolean) => {
@@ -498,9 +493,8 @@ export default function Home() {
 
   // Suppress unused-var lint on stats (kept for existing logic parity)
   void stats;
-  void hourlyReady;
 
-  const canClaimBonus = serverBonusCanClaim === true || (serverBonusCanClaim === null && rewardReady);
+  const canClaimBonus = serverBonusCanClaim === true;
 
   const stripes = serverProfile?.stripes ?? 0;
   let stripeGoalLabel = '';
@@ -716,9 +710,7 @@ export default function Home() {
               <div style={{ fontWeight: 900, color: 'white', fontSize: 15, lineHeight: 1.2 }}>
                 {serverBonusCanClaim !== null
                   ? `Day ${serverBonusStreakDay} Ready`
-                  : streakInfo.streak > 0
-                    ? `${streakInfo.streak}-Day Streak`
-                    : 'Day 1 Ready'}
+                  : 'Loading bonus…'}
               </div>
               {!canClaimBonus && (
                 <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', display: 'flex', justifyContent: 'space-between' }}>

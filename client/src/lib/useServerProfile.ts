@@ -30,6 +30,7 @@ export interface ServerProfile {
   handsPlayed:          number;
   lifetimeProfit:       number;
   level:                number;
+  xp:                   number;
   hasAuth:              boolean;
   email:                string | null;
   // ── Avatar & customisation ─────────────────────────────────────────────────

@@ -30,6 +30,7 @@ import {
 } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
+import { levelFromXP } from "@shared/progressionRules";
 import { requireAuth, requireAdmin, requireSelf } from "./middleware/auth";
 import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
 
@@ -610,7 +611,7 @@ export async function registerRoutes(
       const hash = await hashPassword(parsed.password);
       await storage.setPlayerAuth(profile.id, parsed.email, hash);
 
-      const level = Math.floor(profile.handsPlayed / 50);
+      const level = levelFromXP(profile.xp);
       const regExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const sessionToken = await storage.createSession(profile.id, regExpiresAt);
       res.status(201).json({
@@ -620,6 +621,7 @@ export async function registerRoutes(
         handsPlayed:  profile.handsPlayed,
         lifetimeProfit: profile.lifetimeProfit,
         level,
+        xp:           profile.xp,
         sessionToken,
       });
     } catch (err: any) {
@@ -671,7 +673,7 @@ export async function registerRoutes(
         }
       }
 
-      const level = Math.floor(profile.handsPlayed / 50);
+      const level = levelFromXP(profile.xp);
       const loginExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const sessionToken = await storage.createSession(profile.id, loginExpiresAt);
       res.json({
@@ -681,6 +683,7 @@ export async function registerRoutes(
         handsPlayed:    profile.handsPlayed,
         lifetimeProfit: profile.lifetimeProfit,
         level,
+        xp:             profile.xp,
         sessionToken,
       });
     } catch (err: any) {
@@ -705,7 +708,7 @@ export async function registerRoutes(
         res.status(404).json({ error: "Profile not found" });
         return;
       }
-      const level = Math.floor(profile.handsPlayed / 50);
+      const level = levelFromXP(profile.xp);
       const isGuest = !profile.email && !profile.passwordHash;
       const resetRef = profile.lastResetAt ?? profile.createdAt;
       const nextResetAt = isGuest
@@ -724,6 +727,7 @@ export async function registerRoutes(
         email:            profile.email ?? null,
         hasAuth:          !!profile.passwordHash,
         level,
+        xp:               profile.xp,
         avatarId:            profile.avatarId            ?? null,
         equippedAvatarId:    profile.equippedAvatarId    ?? null,
         equippedFrameId:     profile.equippedFrameId     ?? null,
@@ -785,7 +789,7 @@ export async function registerRoutes(
         return;
       }
 
-      const level = Math.floor(profile.handsPlayed / 50);
+      const level = levelFromXP(profile.xp);
       const resetRef = profile.lastResetAt ?? profile.createdAt;
       const nextResetAt = new Date(resetRef.getTime() + 24 * 60 * 60 * 1000).toISOString();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -801,6 +805,7 @@ export async function registerRoutes(
         email:            null,
         hasAuth:          false,
         level,
+        xp:               profile.xp,
         avatarId:            profile.avatarId            ?? null,
         equippedAvatarId:    profile.equippedAvatarId    ?? null,
         equippedFrameId:     profile.equippedFrameId     ?? null,
@@ -1028,32 +1033,27 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/players/:id/bonus-chips
-  // Credits virtual chips from in-app bonuses (daily reward, hourly bonus, starter pack)
-  // directly to the DB bankroll. Fire-and-forget safe — client already updates local state.
-  // Max 100,000 chips per call guards against accidental over-grant.
+  // Legacy arbitrary bonus credits are intentionally disabled.
   app.post("/api/players/:id/bonus-chips", requireAuth, requireSelf, async (req, res) => {
-    try {
-      const id = req.params.id as string;
-      const bonusSchema = z.object({ chips: z.number().int().positive().max(100000) });
-      const { chips } = bonusSchema.parse(req.body);
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) {
-        res.status(404).json({ error: "Player not found" });
-        return;
-      }
-      await storage.addChipsToPlayer(id, chips, { reason: 'other', source: 'bonusChips' });
-      const updated = await storage.getPlayerProfile(id);
-      res.json({ chipBalance: updated?.chipBalance ?? profile.chipBalance + chips });
-    } catch (err: any) {
-      if (err?.name === "ZodError") {
-        res.status(400).json({ error: "chips must be a positive integer ≤ 100,000" });
-      } else {
-        console.error("bonus-chips error:", err);
-        res.status(500).json({ error: "Failed to add bonus chips" });
-      }
-    }
+    res.status(410).json({ error: "Use a named bonus claim" });
   });
+
+  app.get("/api/players/:id/rewards/status", requireAuth, requireSelf, async (req, res) => {
+    try { res.json(await storage.getBonusStatus(req.params.id as string)); }
+    catch { res.status(500).json({ error: "Unable to load rewards" }); }
+  });
+  for (const kind of ["daily", "hourly"] as const) {
+    app.post(`/api/players/:id/rewards/${kind}/claim`, requireAuth, requireSelf, async (req, res) => {
+      try {
+        res.json(kind === "daily"
+          ? await storage.claimDailyReward(req.params.id as string)
+          : await storage.claimHourlyReward(req.params.id as string));
+      } catch (err: any) {
+        res.status(err?.code === "ALREADY_CLAIMED" ? 409 : err?.code === "NOT_FOUND" ? 404 : 500)
+          .json({ error: err?.code === "ALREADY_CLAIMED" ? "Reward not available yet" : "Claim failed" });
+      }
+    });
+  }
 
   // POST /api/players/:id/chip-loan
   // Grants a one-time 1,000 chip loan to a broke player (chipBalance ≤ 500, no existing loan).
@@ -1075,22 +1075,15 @@ export async function registerRoutes(
   });
 
   // POST /api/players/:id/claim-welcome-kit
-  // Marks the new-player welcome kit as claimed in the DB.
-  // Idempotent: calling it again on an already-claimed account is a no-op.
+  // Atomically marks the kit claimed and credits chips and Stripes.
+  // Repeat requests cannot credit again; they receive 409.
   app.post("/api/players/:id/claim-welcome-kit", requireAuth, requireSelf, async (req, res) => {
     try {
       const id = req.params.id as string;
-      const profile = await storage.getPlayerProfile(id);
-      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
-      if (profile.welcomeKitClaimed) {
-        res.status(409).json({ error: "Welcome kit already claimed" });
-        return;
-      }
-      await storage.claimWelcomeKit(id);
-      const newStripes = await storage.creditStripes(id, 250, 'welcome_kit');
-      console.log(`[welcome-kit] player=${id} welcomeKitClaimed=true stripes=+250 newTotal=${newStripes}`);
-      res.json({ ok: true });
-    } catch (err) {
+      res.json({ ok: true, ...await storage.claimWelcomeKit(id) });
+    } catch (err: any) {
+      if (err?.code === "ALREADY_CLAIMED") { res.status(409).json({ error: "Welcome kit already claimed" }); return; }
+      if (err?.code === "NOT_FOUND") { res.status(404).json({ error: "Player not found" }); return; }
       console.error("claim-welcome-kit error:", err);
       res.status(500).json({ error: "Failed to claim welcome kit" });
     }

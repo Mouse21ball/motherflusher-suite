@@ -10,6 +10,8 @@ import {
   isRewardAvailable, getStreakInfo, DAILY_REWARD_TIERS,
 } from '@/lib/dailyReward';
 import { getLevelInfo, getProgression, xpForLevel } from '@/lib/progression';
+import { useServerProfile } from '@/lib/useServerProfile';
+import { useBonusStatus } from '@/lib/useBonusStatus';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
@@ -44,7 +46,9 @@ export default function BonusCenter() {
   const [, navigate] = useLocation();
 
   const progression = getProgression();
-  const levelInfo   = getLevelInfo(progression.xp);
+  const { profile: serverProfile } = useServerProfile();
+  const bonusStatus = useBonusStatus();
+  const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
   const level       = levelInfo.level;
   const vip         = getVipTier(level);
 
@@ -52,23 +56,31 @@ export default function BonusCenter() {
   const [hourlyOpen,  setHourlyOpen]  = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
 
-  const [dailyReady,  setDailyReady]  = useState(isRewardAvailable);
-  const [hourlyReady, setHourlyReady] = useState(isHourlyReady);
-  const [starterAvailable, setStarterAvailable] = useState(shouldShowStarterPack);
+  const [dailyReady,  setDailyReady]  = useState(false);
+  const [hourlyReady, setHourlyReady] = useState(false);
+  const [starterAvailable, setStarterAvailable] = useState(false);
   const [countdown,   setCountdown]   = useState(() => getHourlyCountdown());
 
-  const streakInfo = getStreakInfo();
+  const streakInfo = bonusStatus?.daily
+    ? { streak: bonusStatus.daily.streak, dayInCycle: bonusStatus.daily.day }
+    : { streak: 0, dayInCycle: 1 };
+  useEffect(() => {
+    setDailyReady(bonusStatus?.daily.available ?? false);
+    setHourlyReady(bonusStatus?.hourly.available ?? false);
+    setStarterAvailable(bonusStatus?.welcomeKitClaimed === false);
+  }, [bonusStatus]);
 
   useEffect(() => { track({ name: 'bonus_page_visited' }); }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
-      const remaining = getHourlyCountdown();
+      const remaining = bonusStatus?.hourly.nextAt
+        ? Math.max(0, new Date(bonusStatus.hourly.nextAt).getTime() - Date.now()) : 0;
       setCountdown(remaining);
-      if (remaining === 0) setHourlyReady(true);
+      if (bonusStatus && remaining === 0 && bonusStatus.hourly.available) setHourlyReady(true);
     }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [bonusStatus]);
 
   const handleDailyClose = useCallback(() => {
     setDailyOpen(false);
@@ -77,8 +89,8 @@ export default function BonusCenter() {
 
   const handleHourlyClose = useCallback(() => {
     setHourlyOpen(false);
-    setHourlyReady(isHourlyReady());
-    setCountdown(getHourlyCountdown());
+    setHourlyReady(false);
+    setCountdown(3600000);
   }, []);
 
   const handleStarterClose = useCallback(() => {
@@ -86,12 +98,12 @@ export default function BonusCenter() {
     setStarterAvailable(false);
   }, []);
 
-  const hourlyChips = getHourlyBonusChips(level);
-  const todayReward = DAILY_REWARD_TIERS[(streakInfo.dayInCycle - 1) % 7];
+  const hourlyChips = bonusStatus?.hourly.chips ?? getHourlyBonusChips(level);
+  const todayReward = DAILY_REWARD_TIERS[(bonusStatus?.daily.day ?? 1) - 1];
 
   // VIP progress to next tier
   const nextTierInfo = vip.nextLevel != null
-    ? { level: vip.nextLevel, xpNeeded: xpForLevel(vip.nextLevel) - progression.xp }
+    ? { level: vip.nextLevel, xpNeeded: xpForLevel(vip.nextLevel) - (serverProfile?.xp ?? 0) }
     : null;
   const vipProgressPct = vip.nextLevel != null
     ? Math.min(100, Math.round(

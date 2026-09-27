@@ -104,20 +104,20 @@ export default function Leaderboard() {
   const [, navigate] = useLocation();
   const identity    = ensurePlayerIdentity();
   const progression = getProgression();
-  const levelInfo   = getLevelInfo(progression.xp);
+  const { profile: serverProfile } = useServerProfile();
+  const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
   const rank        = getRankForLevel(levelInfo.level);
   const playerCount = getSimulatedPlayerCount();
 
-  const { profile: serverProfile } = useServerProfile();
   const [tab, setTab] = useState<'xp' | 'hands'>('xp');
 
   const board = getSimulatedLeaderboard(dayKey);
   const playerEntry = {
     name:             identity.name,
-    xp:               progression.xp,
+    xp:               serverProfile?.xp ?? 0,
     level:            levelInfo.level,
     rank:             rank.name,
-    handsPlayed:      progression.handsPlayed,
+    handsPlayed:      serverProfile?.handsPlayed ?? 0,
     color:            getAvatarColor(identity.avatarSeed),
     isMe:             true,
     equippedAvatarId: serverProfile?.equippedAvatarId ?? null,

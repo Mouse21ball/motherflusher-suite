@@ -19,6 +19,7 @@ import { DeckSelector } from "./DeckSelector";
 import type { GamePhase } from "@/lib/poker/types";
 import { getProgression, getLevelInfo, getRankForLevel } from "@/lib/progression";
 import { getPlayerStats } from "@/lib/persistence";
+import { useServerProfile } from "@/lib/useServerProfile";
 
 export interface ModeInfo {
   abbrev: string;
@@ -370,8 +371,9 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
   }, []);
 
   // Player level for in-game progression display
+  const { profile: serverProfile } = useServerProfile();
   const progression = getProgression();
-  const levelInfo = getLevelInfo(progression.xp);
+  const levelInfo = getLevelInfo(serverProfile?.xp ?? 0);
   const rank = getRankForLevel(levelInfo.level);
 
   // Streak: prefer server sessionStats; fall back to localStorage history.

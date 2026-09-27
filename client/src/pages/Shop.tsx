@@ -176,7 +176,7 @@ export default function Shop() {
 
   const identity    = ensurePlayerIdentity();
   const prog        = getProgression();
-  const levelInfo   = getLevelInfo(prog.xp);
+  const levelInfo   = getLevelInfo(profile?.xp ?? 0);
   const rank        = getRankForLevel(levelInfo.level);
   const initials    = getAvatarInitials(profile?.displayName ?? identity.name);
   const avatarColor = getAvatarColor(identity.id);

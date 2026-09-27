@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { claimDailyReward, DAILY_REWARD_TIERS, getStreakInfo, type DailyRewardTier } from '@/lib/dailyReward';
-import { awardDailyXP, getLevelInfo, getProgression } from '@/lib/progression';
+import { getLevelInfo } from '@/lib/progression';
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getVipTier, DISCLAIMER } from '@/lib/retention';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 interface DailyRewardModalProps {
   open: boolean;
@@ -19,47 +20,56 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
   const [claimed, setClaimed] = useState<DailyRewardTier | null>(null);
   const [animating, setAnimating] = useState(false);
   const [streakInfo, setStreakInfo] = useState(getStreakInfo);
-  const progression = getProgression();
-  const levelInfo   = getLevelInfo(progression.xp);
+  const { profile, refetch } = useServerProfile();
+  const [status, setStatus] = useState<{ daily: { available: boolean; streak: number; day: number; chips: number; xp: number } } | null>(null);
+  const [error, setError] = useState('');
+  const levelInfo   = getLevelInfo(profile?.xp ?? 0);
   const vip         = getVipTier(levelInfo.level);
 
   useEffect(() => {
-    if (open) setStreakInfo(getStreakInfo());
+    if (open) {
+      setStatus(null);
+      setError('');
+      setClaimed(null);
+      setStreakInfo(getStreakInfo());
+      const identity = ensurePlayerIdentity();
+      apiFetch(apiUrl(`/api/players/${identity.id}/rewards/status`))
+        .then(r => { if (!r.ok) throw new Error('Unable to load reward'); return r.json(); })
+        .then(setStatus).catch(() => setError('Unable to load reward'));
+    }
   }, [open]);
 
   if (!open) return null;
 
-  const todayReward = DAILY_REWARD_TIERS[(streakInfo.dayInCycle - 1) % 7];
+  const todayReward = status ? DAILY_REWARD_TIERS[status.daily.day - 1] : DAILY_REWARD_TIERS[(streakInfo.dayInCycle - 1) % 7];
 
-  const handleClaim = () => {
-    if (animating || claimed) return;
+  const handleClaim = async () => {
+    if (animating || claimed || !status?.daily.available) return;
     setAnimating(true);
-    const reward = claimDailyReward();
-    track({ name: 'daily_ration_claimed', streak_day: streakInfo.streak, chips_awarded: reward.chips });
+    try {
+      const identity = ensurePlayerIdentity();
+      const response = await apiFetch(apiUrl(`/api/players/${identity.id}/rewards/daily/claim`), { method: 'POST' });
+      if (!response.ok) throw new Error('Daily reward already claimed or unavailable');
+      const result = await response.json() as { chips: number; xp: number; day: number; streak: number };
+      const reward = DAILY_REWARD_TIERS[result.day - 1];
+      track({ name: 'daily_ration_claimed', streak_day: result.streak, chips_awarded: result.chips });
+      claimDailyReward(); // local notification cache; server result is authoritative
 
     // Apply chips across all modes (localStorage — immediate display)
     const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
     for (const modeId of modes) {
-      saveChips(modeId, getChips(modeId) + reward.chips);
+      saveChips(modeId, getChips(modeId) + result.chips);
     }
-    // Award XP
-    awardDailyXP(reward.xp);
-
-    // Persist to DB so balance survives refresh/login on any device
-    const identity = ensurePlayerIdentity();
-    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chips: reward.chips }),
-    }).catch(() => {});
-
+    refetch();
+    setStatus(prev => prev ? { daily: { ...prev.daily, available: false } } : prev);
     setTimeout(() => {
       setClaimed(reward);
       setAnimating(false);
     }, 600);
+    } catch (e) { setError((e as Error).message); setAnimating(false); }
   };
 
-  const flameStr = STREAK_FLAMES[Math.min(streakInfo.streak, 7)] || '🔥';
+  const flameStr = STREAK_FLAMES[Math.min(status?.daily.streak ?? streakInfo.streak, 7)] || '🔥';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
@@ -76,10 +86,10 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
             <h2 className="text-lg font-bold text-white/90 font-sans" data-testid="text-daily-title">
               {claimed ? 'Reward Claimed!' : 'Daily Bonus'}
             </h2>
-            {streakInfo.streak > 0 && (
+            {(status?.daily.streak ?? streakInfo.streak) > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-mono text-white/35 uppercase tracking-widest">
-                  {streakInfo.streak} day streak
+                  {status?.daily.streak ?? streakInfo.streak} day streak
                 </span>
                 <span className="text-sm leading-none">{flameStr}</span>
               </div>
@@ -103,9 +113,9 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
           <div className="w-full grid grid-cols-7 gap-1">
             {DAILY_REWARD_TIERS.map((tier, i) => {
               const dayNum = i + 1;
-              const isPast = dayNum < streakInfo.dayInCycle;
-              const isToday = dayNum === streakInfo.dayInCycle;
-              const isFuture = dayNum > streakInfo.dayInCycle;
+              const isPast = dayNum < (status?.daily.day ?? streakInfo.dayInCycle);
+              const isToday = dayNum === (status?.daily.day ?? streakInfo.dayInCycle);
+              const isFuture = dayNum > (status?.daily.day ?? streakInfo.dayInCycle);
               return (
                 <div
                   key={tier.day}
@@ -165,7 +175,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
           {!claimed ? (
             <button
               onClick={handleClaim}
-              disabled={animating}
+              disabled={animating || !status?.daily.available}
               className={[
                 'w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200',
                 'bg-[#C9A227] text-[#0B0B0D] hover:bg-[#D4B44A] active:scale-[0.98]',
@@ -174,7 +184,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
               ].join(' ')}
               data-testid="button-claim-daily"
             >
-              {animating ? 'Claiming…' : todayReward.isJackpot ? '🎉 Claim Jackpot!' : 'Claim Reward'}
+              {animating ? 'Claiming…' : !status ? 'Loading…' : !status.daily.available ? 'Already claimed today' : todayReward.isJackpot ? '🎉 Claim Jackpot!' : 'Claim Reward'}
             </button>
           ) : (
             <button
@@ -186,6 +196,7 @@ export function DailyRewardModal({ open, onClose }: DailyRewardModalProps) {
             </button>
           )}
 
+          {error && <p role="alert" className="text-red-400 text-xs">{error}</p>}
           {/* Come back reminder */}
           {claimed && (
             <p className="text-[10px] text-white/20 font-mono text-center tracking-wide">

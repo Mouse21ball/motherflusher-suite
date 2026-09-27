@@ -18,6 +18,17 @@ export const playerProfiles = pgTable("player_profiles", {
   handsPlayed1535:      integer("hands_played_1535").notNull().default(0),
   handsPlayedSuits:     integer("hands_played_suits").notNull().default(0),
   handsWon:             integer("hands_won").notNull().default(0),
+  xp:                   integer("xp").notNull().default(0),
+  xpBackfilled:         boolean("xp_backfilled").notNull().default(false),
+  xpWinStreak:          integer("xp_win_streak").notNull().default(0),
+  xpLossStreak:         integer("xp_loss_streak").notNull().default(0),
+  xpBiggestPot:         integer("xp_biggest_pot").notNull().default(0),
+  xpBadugisWon:         integer("xp_badugis_won").notNull().default(0),
+  xpModesPlayed:        jsonb("xp_modes_played").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  xpAchievements:       jsonb("xp_achievements").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  lastDailyRewardAt:    timestamp("last_daily_reward_at"),
+  dailyRewardStreak:    integer("daily_reward_streak").notNull().default(0),
+  lastHourlyRewardAt:   timestamp("last_hourly_reward_at"),
   lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
   email:                text("email").unique(),
   passwordHash:         text("password_hash"),
@@ -103,6 +114,13 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
 
 export type InsertPlayerProfile = z.infer<typeof insertPlayerProfileSchema>;
 export type PlayerProfile = typeof playerProfiles.$inferSelect;
+
+export const handXpAwards = pgTable("hand_xp_awards", {
+  playerId: text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  gameId: text("game_id").notNull(),
+  handId: text("hand_id").notNull(),
+  xpGranted: integer("xp_granted").notNull(),
+}, (table) => [uniqueIndex("hand_xp_awards_unique").on(table.playerId, table.gameId, table.handId)]);
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────
 export const sessions = pgTable("sessions", {

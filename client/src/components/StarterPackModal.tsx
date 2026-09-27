@@ -28,6 +28,7 @@ const PACK_CONTENTS = [
 export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPackModalProps) {
   const [claimed,   setClaimed]   = useState(false);
   const [animating, setAnimating] = useState(false);
+  const [error, setError] = useState('');
 
   if (!open) return null;
 
@@ -37,20 +38,12 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
 
     const identity = ensurePlayerIdentity();
 
-    // Persist chips to DB — fire and forget
-    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chips: STARTER_PACK_CHIPS }),
-    }).catch(() => {});
-
-    // Mark welcome kit claimed + grant 250 Stripes — awaited so both ops complete
-    // before we update UI. 409 = already claimed (safe to ignore).
     try {
-      await apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), {
+      const response = await apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), {
         method: 'POST',
       });
-    } catch {}
+      if (!response.ok) throw new Error(response.status === 409 ? 'Welcome kit already claimed' : 'Unable to claim welcome kit');
+    } catch (e) { setError((e as Error).message); setAnimating(false); return; }
 
     try { localStorage.setItem('cgp_emotes_just_unlocked', '1'); } catch {}
 
@@ -87,6 +80,7 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
         />
 
         <div className="relative p-6 flex flex-col items-center gap-4">
+          {error && <p role="alert" className="text-red-400 text-xs">{error}</p>}
 
           {/* Header */}
           <div className="flex flex-col items-center gap-1.5">

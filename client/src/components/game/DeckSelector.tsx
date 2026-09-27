@@ -3,6 +3,7 @@ import { Layers, Lock, Check } from 'lucide-react';
 import { DECK_THEMES, useDeckTheme, type DeckTheme } from '@/lib/deckTheme';
 import { getProgression, getLevelInfo } from '@/lib/progression';
 import { cn } from '@/lib/utils';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 interface DeckSelectorProps {
   className?: string;
@@ -13,7 +14,8 @@ export function DeckSelector({ className }: DeckSelectorProps) {
   const [theme, setTheme] = useDeckTheme();
 
   const progression = getProgression();
-  const { level } = getLevelInfo(progression.xp);
+  const { profile } = useServerProfile();
+  const { level } = getLevelInfo(profile?.xp ?? 0);
 
   const handleSelect = (id: DeckTheme, unlockLevel: number) => {
     if (level < unlockLevel) return;

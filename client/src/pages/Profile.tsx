@@ -86,7 +86,8 @@ export default function Profile() {
   const identity    = ensurePlayerIdentity();
   const progression = getProgression();
   const [newAchievementIds] = useState<string[]>(() => getProgression().newAchievements);
-  const levelInfo   = getLevelInfo(progression.xp);
+  const { profile: serverProfile, refetch } = useServerProfile();
+  const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
   const stats       = getPlayerStats();
   const chips       = getAllChips();
   const streakInfo  = getStreakInfo();
@@ -95,7 +96,6 @@ export default function Profile() {
   const avatarColor = getAvatarColor(identity.avatarSeed);
   const totalChips  = Object.values(chips).reduce((s, c) => s + c, 0);
 
-  const { profile: serverProfile, refetch } = useServerProfile();
 
   const displayChips = serverProfile?.chipBalance    ?? totalChips;
   const displayHands = serverProfile?.handsPlayed    ?? stats.handsPlayed;

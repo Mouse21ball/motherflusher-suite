@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import {
-  isHourlyReady, getHourlyCountdown, getHourlyBonusChips,
-  claimHourlyBonus, getVipTier, DISCLAIMER,
-} from '@/lib/retention';
+import { getHourlyBonusChips, claimHourlyBonus, getVipTier, DISCLAIMER } from '@/lib/retention';
 import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getLevelInfo, getProgression } from '@/lib/progression';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
+import { useServerProfile } from '@/lib/useServerProfile';
 
 interface HourlyBonusModalProps {
   open: boolean;
@@ -24,61 +22,71 @@ function formatCountdown(ms: number): string {
 const MODES = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
 
 export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
-  const progression = getProgression();
-  const levelInfo   = getLevelInfo(progression.xp);
+  const { profile, refetch } = useServerProfile();
+  const [status, setStatus] = useState<{ hourly: { available: boolean; chips: number; nextAt: string | null } } | null>(null);
+  const [error, setError] = useState('');
+  const levelInfo   = getLevelInfo(profile?.xp ?? 0);
   const level       = levelInfo.level;
   const vip         = getVipTier(level);
 
   const [claimed,    setClaimed]    = useState(false);
   const [chipsGained, setChipsGained] = useState(0);
   const [animating,  setAnimating]  = useState(false);
-  const [ready,      setReady]      = useState(() => isHourlyReady());
-  const [countdown,  setCountdown]  = useState(() => getHourlyCountdown());
+  const [countdown,  setCountdown]  = useState(0);
+  const ready = status?.hourly.available === true;
 
   useEffect(() => {
     if (!open) return;
-    setReady(isHourlyReady());
-    setCountdown(getHourlyCountdown());
+    setStatus(null);
+    setError('');
+    const identity = ensurePlayerIdentity();
+    apiFetch(apiUrl(`/api/players/${identity.id}/rewards/status`))
+      .then(r => { if (!r.ok) throw new Error('Unable to load bonus'); return r.json(); })
+      .then(setStatus).catch(() => setError('Unable to load bonus'));
     setClaimed(false);
     setChipsGained(0);
   }, [open]);
 
   useEffect(() => {
-    if (!open || ready) return;
+    if (!open || !status || ready) return;
     const id = setInterval(() => {
-      const remaining = getHourlyCountdown();
+      const remaining = Math.max(0, new Date(status.hourly.nextAt ?? 0).getTime() - Date.now());
       setCountdown(remaining);
-      if (remaining === 0) setReady(true);
+      if (remaining === 0) {
+        const identity = ensurePlayerIdentity();
+        apiFetch(apiUrl(`/api/players/${identity.id}/rewards/status`))
+          .then(r => r.json()).then(setStatus).catch(() => setError('Unable to refresh bonus'));
+      }
     }, 1000);
     return () => clearInterval(id);
-  }, [open, ready]);
+  }, [open, ready, status]);
 
   if (!open) return null;
 
-  const chips = getHourlyBonusChips(level);
+  const chips = status?.hourly.chips ?? getHourlyBonusChips(level);
 
-  const handleClaim = () => {
-    if (animating || claimed || !ready) return;
+  const handleClaim = async () => {
+    if (animating || claimed || !status?.hourly.available) return;
     setAnimating(true);
-    const earned = claimHourlyBonus(level);
+    try {
+    const identity = ensurePlayerIdentity();
+    const response = await apiFetch(apiUrl(`/api/players/${identity.id}/rewards/hourly/claim`), { method: 'POST' });
+    if (!response.ok) throw new Error('Hourly reward on cooldown or unavailable');
+    const { chips: earned } = await response.json() as { chips: number };
+    claimHourlyBonus(level); // local notification cache
     track({ name: 'hourly_bonus_claimed', chips_awarded: earned });
     for (const modeId of MODES) {
       saveChips(modeId, getChips(modeId) + earned);
     }
 
-    // Persist to DB so balance survives refresh/login on any device
-    const identity = ensurePlayerIdentity();
-    apiFetch(apiUrl(`/api/players/${identity.id}/bonus-chips`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chips: earned }),
-    }).catch(() => {});
-
+    refetch();
+    setStatus(prev => prev ? { hourly: { ...prev.hourly, available: false } } : prev);
     setTimeout(() => {
       setChipsGained(earned);
       setClaimed(true);
       setAnimating(false);
     }, 500);
+    } catch (e) { setError((e as Error).message); setAnimating(false); }
   };
 
   return (
@@ -171,7 +179,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
           {!claimed ? (
             <button
               onClick={handleClaim}
-              disabled={!ready || animating}
+              disabled={!status?.hourly.available || animating}
               className={[
                 'w-full h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all duration-200',
                 ready && !animating
@@ -187,9 +195,10 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
             >
               {animating
                 ? 'Collecting…'
-                : ready
+                : !status ? 'Loading…'
+                : status.hourly.available
                 ? 'Collect Bonus'
-                : `Come back in ${formatCountdown(countdown)}`}
+                : `Come back in ${formatCountdown(Math.max(0, new Date(status.hourly.nextAt ?? 0).getTime() - Date.now()))}`}
             </button>
           ) : (
             <button
@@ -201,6 +210,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
             </button>
           )}
 
+          {error && <p role="alert" className="text-red-400 text-xs">{error}</p>}
           {/* Compliance disclaimer */}
           <p
             className="text-[9px] font-mono text-white/20 text-center leading-relaxed"

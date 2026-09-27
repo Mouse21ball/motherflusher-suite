@@ -465,6 +465,7 @@ interface SessionStat {
 }
 
 interface GenericTable {
+  resolvedPot?: number;
   tableId: string;
   modeId: string;
   mode: GameMode;
@@ -1186,6 +1187,7 @@ function resolveShowdown(table: GenericTable): void {
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
     const s = table.state;
     const grossPot = s.pot;
+    table.resolvedPot = grossPot;
     const { winnerPot, rake } = applyRake(grossPot);
     if (rake > 0) {
       storage.logHouseRake({
@@ -1246,6 +1248,7 @@ function resolveByFold(table: GenericTable): boolean {
   if (nonFolded.length === 1) {
     const winner = nonFolded[0];
     const pot = s.pot;
+    table.resolvedPot = pot;
     const { winnerPot, rake } = applyRake(pot);
     if (rake > 0) {
       storage.logHouseRake({
@@ -1385,7 +1388,9 @@ function resetToAnte(table: GenericTable): void {
   // players. We must resolve winner status from s.players (SHOWDOWN state) BEFORE
   // iterating nextPlayers — otherwise `won` is always false and handsWon / winStreak
   // are never updated.
-  const potWon = s.pot; // capture pot BEFORE state is replaced
+  const potWon = table.resolvedPot ?? s.pot;
+  table.resolvedPot = undefined;
+  const completedHandId = String(table.handId - 1);
   const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
 
   for (const p of nextPlayers) {
@@ -1422,8 +1427,7 @@ function resetToAnte(table: GenericTable): void {
     table.chipsAtHandStart.set(p.id, p.chips);
 
     table.lastChipSyncHand.set(p.id, table.handId);
-    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: String(table.handId) }).catch(() => {});
-    storage.incrementHandsPlayed(identityId, table.modeId).catch(() => {});
+    storage.syncPlayerChips(identityId, deltaChips, { won: isWinner, deltaChips, gameId: table.tableId, handId: completedHandId, modeId: table.modeId, potSize: potWon }).catch(console.error);
 
     // Crew chip-win tracking + win-Stripes: accumulate only genuine gameplay wins (not bonuses).
     if (isWinner && deltaChips > 0) {
@@ -2054,9 +2058,9 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
       const player = table.state.players.find(p => p.id === seat);
       if (player) {
         const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
-        if (lastSynced !== table.handId) {
+        if (intentional && lastSynced !== table.handId) {
           const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
-          storage.syncPlayerChips(identityId, player.chips - prevChips).catch(() => {});
+          storage.syncPlayerChips(identityId, player.chips - prevChips).catch(console.error);
         }
       }
 
@@ -2253,6 +2257,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       // winner/pot state and never shows a false rollover message.
       const resolved = s.messages.some(m => m.isResolution);
       if (!resolved) {
+        table.resolvedPot = s.pot;
         const result = table.mode.resolveShowdown(s.players, s.pot, '__server__', s.communityCards);
         table.state = {
           ...table.state,

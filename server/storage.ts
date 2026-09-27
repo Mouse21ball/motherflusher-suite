@@ -25,6 +25,7 @@ import {
   adminActions,
   houseRakeLogs,
   ladyluckRaceResults,
+  handXpAwards,
   type LLSeatResult,
 } from "@shared/schema";
 import type { SubscriptionTier } from "./billing";
@@ -32,9 +33,11 @@ import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc } from "drizzle-orm";
+import { eq, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
+import { DAILY_REWARDS, handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
 
 const scryptAsync = promisify(scrypt);
+const chipSyncQueue = new Map<string, Promise<void>>();
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
@@ -65,7 +68,7 @@ export interface IStorage {
   setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
   getPlayerByResetToken(token: string): Promise<PlayerProfile | undefined>;
   clearPasswordResetToken(id: string): Promise<void>;
-  syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void>;
+  syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null; modeId: string; potSize: number }): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   getPlayerActiveTable(id: string): Promise<string | null>;
@@ -81,7 +84,10 @@ export interface IStorage {
   // ── Display name change (90-day cooldown) ──────────────────────────────────
   updatePlayerDisplayName(id: string, name: string): Promise<void>;
   // ── Welcome kit ────────────────────────────────────────────────────────────
-  claimWelcomeKit(id: string): Promise<void>;
+  claimWelcomeKit(id: string): Promise<{ chips: number; stripes: number }>;
+  getBonusStatus(id: string): Promise<{ daily: { available: boolean; streak: number; day: number; chips: number; xp: number }; hourly: { available: boolean; chips: number; nextAt: string | null }; welcomeKitClaimed: boolean }>;
+  claimDailyReward(id: string): Promise<{ chips: number; xp: number; day: number; streak: number }>;
+  claimHourlyReward(id: string): Promise<{ chips: number }>;
   // ── Guest reset job ────────────────────────────────────────────────────────
   getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]>;
   resetGuestAccount(id: string): Promise<void>;
@@ -621,15 +627,18 @@ export class MemStorage implements IStorage {
       .limit(1);
 
     if (existing.length > 0) {
+      await this.ensureHistoricalXP(id);
+      const player = existing[0].xpBackfilled
+        ? existing[0] : { ...existing[0], xp: existing[0].handsPlayed * 10, xpBackfilled: true };
       // Update display name if a new one was supplied
-      if (displayName && displayName !== existing[0].displayName) {
+      if (displayName && displayName !== player.displayName) {
         await db
           .update(playerProfiles)
           .set({ displayName, updatedAt: new Date() })
           .where(eq(playerProfiles.id, id));
-        return { ...existing[0], displayName };
+        return { ...player, displayName };
       }
-      return existing[0];
+      return player;
     }
 
     const now = new Date();
@@ -682,6 +691,10 @@ export class MemStorage implements IStorage {
       equippedLadyLuckTrack:          null,
       createdAt: now,
       updatedAt: now,
+      xp: 0, xpWinStreak: 0, xpLossStreak: 0, xpBiggestPot: 0,
+      xpBackfilled: true,
+      xpBadugisWon: 0, xpModesPlayed: [], xpAchievements: [],
+      lastDailyRewardAt: null, dailyRewardStreak: 0, lastHourlyRewardAt: null,
     };
 
     // Wrap creation + genesis ledger in one transaction so new players always
@@ -702,12 +715,22 @@ export class MemStorage implements IStorage {
   }
 
   async getPlayerProfile(id: string): Promise<PlayerProfile | undefined> {
+    await this.ensureHistoricalXP(id);
     const rows = await db
       .select()
       .from(playerProfiles)
       .where(eq(playerProfiles.id, id))
       .limit(1);
     return rows[0];
+  }
+
+  private async ensureHistoricalXP(id: string): Promise<void> {
+    // An existing profile receives base XP exactly once, including after a
+    // publish that applies schema changes without running data migrations.
+    await db.update(playerProfiles).set({
+      xp: sql`${playerProfiles.handsPlayed} * 10`,
+      xpBackfilled: true,
+    }).where(and(eq(playerProfiles.id, id), eq(playerProfiles.xpBackfilled, false)));
   }
 
   async getPlayerIsAdmin(id: string): Promise<boolean> {
@@ -725,6 +748,11 @@ export class MemStorage implements IStorage {
       .from(playerProfiles)
       .where(eq(playerProfiles.email, email))
       .limit(1);
+    if (!rows[0]) return undefined;
+    if (!rows[0].xpBackfilled) {
+      await this.ensureHistoricalXP(rows[0].id);
+      return { ...rows[0], xp: rows[0].handsPlayed * 10, xpBackfilled: true };
+    }
     return rows[0];
   }
 
@@ -758,26 +786,77 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
-  async syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null }): Promise<void> {
+  async syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null; modeId: string; potSize: number }): Promise<void> {
+    await this.ensureHistoricalXP(id);
+    const preceding = chipSyncQueue.get(id) ?? Promise.resolve();
+    const task = preceding.catch(() => {}).then(async () => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await this._syncPlayerChipsOnce(id, sessionDelta, handResult);
+          return;
+        } catch (err) {
+          if (attempt >= 2) throw err;
+          await new Promise(resolve => setTimeout(resolve, 100 * 2 ** attempt));
+        }
+      }
+    });
+    chipSyncQueue.set(id, task);
+    void task.finally(() => { if (chipSyncQueue.get(id) === task) chipSyncQueue.delete(id); }).catch(() => {});
+    return task;
+  }
+
+  private async _syncPlayerChipsOnce(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null; modeId: string; potSize: number }): Promise<void> {
     await db.transaction(async (tx) => {
       const rows = await tx
-        .select({ chipBalance: playerProfiles.chipBalance })
+        .select()
         .from(playerProfiles)
         .where(eq(playerProfiles.id, id))
-        .limit(1);
+        .limit(1).for("update");
+      if (!rows[0]) throw new Error("Player not found");
+      if (handResult) {
+        if (!handResult.gameId || !handResult.handId) throw new Error("Hand identity required");
+        const inserted = await tx.insert(handXpAwards).values({
+          playerId: id, gameId: handResult.gameId, handId: handResult.handId, xpGranted: 0,
+        }).onConflictDoNothing().returning();
+        if (!inserted.length) return;
+      }
       const before = rows[0]?.chipBalance ?? 0;
       const after  = before + sessionDelta;
 
       if (handResult) {
+        const profile = rows[0];
+        const [activeSub] = await tx.select({ tier: subscriptions.tier })
+          .from(subscriptions)
+          .where(and(eq(subscriptions.playerId, id),
+            inArray(subscriptions.status, ["active", "in_grace_period", "canceled"]),
+            gt(subscriptions.expiresAt, new Date())))
+          .orderBy(asc(subscriptions.tier)).limit(1);
+        const { next, gained } = handXP({
+          handsPlayed: profile.handsPlayed, handsWon: profile.handsWon,
+          winStreak: profile.xpWinStreak, lossStreak: profile.xpLossStreak,
+          biggestPot: profile.xpBiggestPot, badugisWon: profile.xpBadugisWon,
+          modesPlayed: profile.xpModesPlayed, achievements: profile.xpAchievements,
+        }, { won: handResult.won, modeId: handResult.modeId, potSize: handResult.potSize },
+        activeSub?.tier ?? null);
+        await tx.update(handXpAwards).set({ xpGranted: gained }).where(and(
+          eq(handXpAwards.playerId, id), eq(handXpAwards.gameId, handResult.gameId!), eq(handXpAwards.handId, handResult.handId!),
+        ));
+        const modeCounter =
+          handResult.modeId === "badugi" ? { handsPlayedBadugi: sql`${playerProfiles.handsPlayedBadugi} + 1` } :
+          handResult.modeId === "dead7" ? { handsPlayedDead7: sql`${playerProfiles.handsPlayedDead7} + 1` } :
+          (handResult.modeId === "1535" || handResult.modeId === "fifteen35") ? { handsPlayed1535: sql`${playerProfiles.handsPlayed1535} + 1` } :
+          (handResult.modeId === "suits" || handResult.modeId === "suitspoker") ? { handsPlayedSuits: sql`${playerProfiles.handsPlayedSuits} + 1` } : {};
         await tx
           .update(playerProfiles)
           .set({
+            ...modeCounter,
             chipBalance: sql`${playerProfiles.chipBalance} + ${sessionDelta}`,
             updatedAt: new Date(),
-            handsPlayed: sql`${playerProfiles.handsPlayed} + 1`,
-            handsWon: handResult.won
-              ? sql`${playerProfiles.handsWon} + 1`
-              : playerProfiles.handsWon,
+            handsPlayed: next.handsPlayed, handsWon: next.handsWon,
+            xp: sql`${playerProfiles.xp} + ${gained}`,
+            xpWinStreak: next.winStreak, xpLossStreak: next.lossStreak,
+            xpBiggestPot: next.biggestPot, xpBadugisWon: next.badugisWon,
+            xpModesPlayed: next.modesPlayed, xpAchievements: next.achievements,
             lifetimeProfit: handResult.deltaChips != null
               ? sql`${playerProfiles.lifetimeProfit} + ${handResult.deltaChips}`
               : playerProfiles.lifetimeProfit,
@@ -947,11 +1026,67 @@ export class MemStorage implements IStorage {
 
   // ── Welcome kit ────────────────────────────────────────────────────────────
 
-  async claimWelcomeKit(id: string): Promise<void> {
-    await db
-      .update(playerProfiles)
-      .set({ welcomeKitClaimed: true, updatedAt: new Date() })
-      .where(eq(playerProfiles.id, id));
+  async claimWelcomeKit(id: string): Promise<{ chips: number; stripes: number }> {
+    await this.ensureHistoricalXP(id);
+    return db.transaction(async tx => {
+      const [p] = await tx.select().from(playerProfiles).where(eq(playerProfiles.id, id)).for("update");
+      if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
+      if (p.welcomeKitClaimed) throw Object.assign(new Error("Already claimed"), { code: "ALREADY_CLAIMED" });
+      await tx.update(playerProfiles).set({
+        welcomeKitClaimed: true, chipBalance: p.chipBalance + 2500,
+        stripes: p.stripes + 250, updatedAt: new Date(),
+      }).where(eq(playerProfiles.id, id));
+      await tx.insert(stripeTransactions).values({ playerId: id, amount: 250, reason: "welcome_kit", balanceAfter: p.stripes + 250 });
+      await this._insertChipLedger(tx, { playerId: id, beforeBalance: p.chipBalance, amountChange: 2500, afterBalance: p.chipBalance + 2500, reason: "other", source: "welcomeKit" });
+      return { chips: 2500, stripes: 250 };
+    });
+  }
+
+  async getBonusStatus(id: string) {
+    const p = await this.getPlayerProfile(id);
+    if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
+    const now = new Date();
+    const dailyAvailable = !p.lastDailyRewardAt || utcDateStr(p.lastDailyRewardAt) !== utcDateStr(now);
+    const streak = p.lastDailyRewardAt && now.getTime() - p.lastDailyRewardAt.getTime() <= 48 * 3600000 ? p.dailyRewardStreak : 0;
+    const day = streak % 7 + 1;
+    const nextAt = p.lastHourlyRewardAt ? new Date(p.lastHourlyRewardAt.getTime() + 3600000) : null;
+    return {
+      daily: { available: dailyAvailable, streak, day, ...DAILY_REWARDS[day - 1] },
+      hourly: { available: !nextAt || now >= nextAt, chips: hourlyChips(levelFromXP(p.xp)), nextAt: nextAt?.toISOString() ?? null },
+      welcomeKitClaimed: p.welcomeKitClaimed,
+    };
+  }
+
+  async claimDailyReward(id: string) {
+    await this.ensureHistoricalXP(id);
+    return db.transaction(async tx => {
+      const [p] = await tx.select().from(playerProfiles).where(eq(playerProfiles.id, id)).for("update");
+      if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
+      const now = new Date();
+      if (p.lastDailyRewardAt && utcDateStr(p.lastDailyRewardAt) === utcDateStr(now))
+        throw Object.assign(new Error("Already claimed today"), { code: "ALREADY_CLAIMED" });
+      const streak = p.lastDailyRewardAt && now.getTime() - p.lastDailyRewardAt.getTime() <= 48 * 3600000 ? p.dailyRewardStreak + 1 : 1;
+      const day = (streak - 1) % 7 + 1;
+      const { chips, xp } = DAILY_REWARDS[day - 1];
+      await tx.update(playerProfiles).set({ chipBalance: p.chipBalance + chips, xp: p.xp + xp, lastDailyRewardAt: now, dailyRewardStreak: streak, updatedAt: now }).where(eq(playerProfiles.id, id));
+      await this._insertChipLedger(tx, { playerId: id, beforeBalance: p.chipBalance, amountChange: chips, afterBalance: p.chipBalance + chips, reason: "daily_bonus", source: "dailyReward" });
+      return { chips, xp, day, streak };
+    });
+  }
+
+  async claimHourlyReward(id: string) {
+    await this.ensureHistoricalXP(id);
+    return db.transaction(async tx => {
+      const [p] = await tx.select().from(playerProfiles).where(eq(playerProfiles.id, id)).for("update");
+      if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
+      const now = new Date();
+      if (p.lastHourlyRewardAt && now.getTime() - p.lastHourlyRewardAt.getTime() < 3600000)
+        throw Object.assign(new Error("Hourly reward on cooldown"), { code: "ALREADY_CLAIMED" });
+      const chips = hourlyChips(levelFromXP(p.xp));
+      await tx.update(playerProfiles).set({ chipBalance: p.chipBalance + chips, lastHourlyRewardAt: now, updatedAt: now }).where(eq(playerProfiles.id, id));
+      await this._insertChipLedger(tx, { playerId: id, beforeBalance: p.chipBalance, amountChange: chips, afterBalance: p.chipBalance + chips, reason: "other", source: "hourlyReward" });
+      return { chips };
+    });
   }
 
   // ── Guest reset helpers ────────────────────────────────────────────────────

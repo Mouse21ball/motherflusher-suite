@@ -17,6 +17,12 @@
 const PRODUCTION_FALLBACK = 'https://chainggangpoker.com';
 
 const _base: string = (() => {
+  // A development preview must not create guest profiles or game state on
+  // production, even if a mobile build's API base is configured in the repl.
+  if (import.meta.env.DEV && typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+       window.location.hostname === '127.0.0.1' ||
+       window.location.hostname.endsWith('.replit.dev'))) return '';
   const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
   if (configured) return configured;
 
