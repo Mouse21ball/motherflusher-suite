@@ -24,6 +24,7 @@ function player(
     chips?: number;
     declaration?: Player['declaration'];
     status?: Player['status'];
+    totalBet?: number;
   } = {},
 ): Player {
   return {
@@ -32,7 +33,7 @@ function player(
     presence: 'bot',
     chips: opts.chips ?? 1000,
     bet: 0,
-    totalBet: 0,
+    totalBet: opts.totalBet ?? 0,
     cards: holeCards,
     status: opts.status ?? 'active',
     hasActed: true,
@@ -311,5 +312,47 @@ describe('BoxChevyMode.resolveShowdown — chip conservation', () => {
     const { players: out, pot: rem } = BoxChevyMode.resolveShowdown!(players, pot, 'A', commSafe);
     const totalAfter = out.reduce((s, p) => s + p.chips, 0) + rem;
     expect(totalAfter).toBe(totalBefore);
+  });
+});
+
+describe('BoxChevyMode.resolveShowdown — side pots', () => {
+  const comm = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
+  const lowHole = [card('A', 'clubs'), card('7', 'hearts'), card('8', 'spades'), card('9', 'diamonds'), card('10', 'clubs')];
+  const otherHigh = [card('7', 'hearts'), card('8', 'clubs'), card('9', 'spades'), card('J', 'clubs'), card('Q', 'clubs')];
+
+  it('limits a short all-in to the main pot and divides the overbet pot by eligible players', () => {
+    const players = [
+      player('A', royalHole, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', lowHole, { declaration: 'LOW', chips: 0, totalBet: 150 }),
+      player('C', otherHigh, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 350, 'A', comm);
+    expect(out.map(p => p.chips)).toEqual([75, 175, 100]);
+    expect(pot).toBe(0);
+  });
+
+  it('gives the whole side pot to HIGH when no eligible player declares LOW', () => {
+    const players = [
+      player('A', royalHole, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', otherHigh, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+      player('C', lowHole, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 350, 'A', comm);
+    expect(out.map(p => p.chips)).toEqual([150, 200, 0]);
+    expect(pot).toBe(0);
+  });
+
+  it('fails a tied SWING in the main pot but wins the side pot independently, conserving chips', () => {
+    const players = [
+      player('A', royalHole, { declaration: 'HIGH', chips: 25, totalBet: 50 }),
+      player('B', royalHole, { declaration: 'SWING', chips: 75, totalBet: 150 }),
+      player('C', otherHigh, { declaration: 'LOW', chips: 75, totalBet: 150 }),
+      player('D', otherHigh, { status: 'folded', chips: 30, totalBet: 100 }),
+    ];
+    const before = players.reduce((sum, p) => sum + p.chips, 450);
+    const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 450, 'A', comm);
+    expect(out.map(p => p.chips)).toEqual([125, 325, 175, 30]);
+    expect(out.reduce((sum, p) => sum + p.chips, pot)).toBe(before);
+    expect(pot).toBe(0);
   });
 });
