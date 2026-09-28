@@ -82,6 +82,29 @@ export function getVipTier(level: number): VipTierInfo {
   return VIP_TIERS[0];
 }
 
+// Starter-pack emotes and VIP emotes are separate entitlements. Keep this
+// catalog ordered so each tier unlocks the next distinct VIP reactions.
+export const STARTER_REACTION_EMOTES = ['🔥', '👀', '😈', '💀', '😂'] as const;
+export const VIP_REACTION_EMOTES = [
+  '⛓️', '💯', '🫡', '🤝', '🥶', '🚀', '🃏', '💸', '🎯', '👑',
+  '🧊', '⚡', '🦈', '🍀', '🏆',
+] as const;
+export const REACTION_EMOTES = [...STARTER_REACTION_EMOTES, ...VIP_REACTION_EMOTES] as const;
+
+/** Purely derive available reactions from VIP level and claimed starter emotes. */
+export function getEntitledReactions(
+  level: number | null | undefined,
+  starterPackEmoteCount: number,
+): readonly string[] {
+  const safeLevel = typeof level === 'number' && Number.isFinite(level) ? level : 0;
+  const safeStarterCount = Number.isFinite(starterPackEmoteCount)
+    ? Math.max(0, Math.min(STARTER_REACTION_EMOTES.length, Math.floor(starterPackEmoteCount)))
+    : 0;
+  const starterEmotes = STARTER_REACTION_EMOTES.slice(0, safeStarterCount);
+  const vipEmotes = VIP_REACTION_EMOTES.slice(0, getVipTier(safeLevel).extraEmotes);
+  return [...starterEmotes, ...vipEmotes];
+}
+
 // ─── Hourly Bonus ─────────────────────────────────────────────────────────────
 
 interface HourlyState {

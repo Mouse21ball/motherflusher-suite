@@ -334,7 +334,7 @@ function KamikazeGameUI() {
       )}
 
       {!effectiveSpectator && (
-        <ChatEmoteRow onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions} onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
+        <ChatEmoteRow level={serverProfile?.level} onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions} onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
       )}
 
       <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={text => handleAction('chat', text)} open={chatOpen} onOpenChange={setChatOpen}

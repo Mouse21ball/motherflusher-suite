@@ -469,6 +469,7 @@ function FlushedUpGameUI() {
       {/* ── Emote row ────────────────────────────────────────────── */}
       {!effectiveSpectator && (
         <ChatEmoteRow
+          level={serverProfile?.level}
           onReact={(emoji) => handleAction('reaction', emoji)}
           incomingReactions={state.liveReactions}
           onOpenChat={() => setChatOpen(true)}

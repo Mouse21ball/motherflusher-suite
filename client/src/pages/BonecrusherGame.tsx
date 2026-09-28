@@ -380,7 +380,7 @@ function BonecrusherGameUI() {
       )}
 
       {!effectiveSpectator && (
-        <ChatEmoteRow onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions} onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
+        <ChatEmoteRow level={serverProfile?.level} onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions} onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
       )}
 
       <ChatBox

@@ -7,11 +7,12 @@ interface ChatEmoteRowProps {
   onOpenChat: () => void;
   onReact: (emoji: string) => void;
   incomingReactions?: ReactionEvent[];
+  level?: number;
   phaseHint?: string;
   chatUnread?: number;
 }
 
-export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, phaseHint, chatUnread = 0 }: ChatEmoteRowProps) {
+export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, level, phaseHint, chatUnread = 0 }: ChatEmoteRowProps) {
   return (
     <div className="relative z-[35] w-full max-w-md md:max-w-2xl mx-auto px-3 md:px-4 flex flex-col items-stretch gap-2" data-testid="row-chat-emote">
 
@@ -38,6 +39,7 @@ export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, phaseHint
           <ReactionBar
             onReact={onReact}
             incomingReactions={incomingReactions}
+            level={level}
           />
         </div>
 

@@ -302,7 +302,7 @@ export function Dead7FullPage({
       )}
 
       {!effectiveSpectator && (
-        <ChatEmoteRow onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions}
+        <ChatEmoteRow level={serverProfile?.level} onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions}
           onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
       )}
 

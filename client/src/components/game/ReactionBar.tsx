@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactionEvent } from '@/lib/poker/types';
-
-const REACTIONS = ['🔥', '👀', '😈', '💀', '⛓️', '💯', '😂'] as const;
+import { getEntitledReactions, getStarterEmoteCount } from '@/lib/retention';
 
 // Key written by StarterPackModal when the pack (including emotes) is claimed.
-// Cleared here after showing the one-time "Emotes unlocked" badge.
+// Cleared here after showing the one-time starter-emotes badge.
 const EMOTES_UNLOCKED_KEY = 'cgp_emotes_just_unlocked';
 
 function consumeEmotesUnlockedFlag(): boolean {
@@ -27,17 +26,21 @@ interface FloatItem {
 interface ReactionBarProps {
   onReact?: (emoji: string) => void;
   incomingReactions?: ReactionEvent[];
+  level?: number;
   className?: string;
 }
 
-export function ReactionBar({ onReact, incomingReactions, className = '' }: ReactionBarProps) {
+export function ReactionBar({ onReact, incomingReactions, level, className = '' }: ReactionBarProps) {
   const [floats, setFloats]         = useState<FloatItem[]>([]);
   const [cooldowns, setCooldowns]   = useState<Partial<Record<string, boolean>>>({});
   const [showUnlocked, setShowUnlocked] = useState(false);
+  const [starterPackEmoteCount, setStarterPackEmoteCount] = useState(() => getStarterEmoteCount());
   const seenReactionIds             = useRef<Set<string>>(new Set());
+  const reactions = getEntitledReactions(level, starterPackEmoteCount);
 
-  // One-time "Emotes unlocked!" badge after StarterPack is claimed.
+  // One-time starter-emotes badge after StarterPack is claimed.
   useEffect(() => {
+    setStarterPackEmoteCount(getStarterEmoteCount());
     if (consumeEmotesUnlockedFlag()) {
       setShowUnlocked(true);
       const t = setTimeout(() => setShowUnlocked(false), 3200);
@@ -92,7 +95,7 @@ export function ReactionBar({ onReact, incomingReactions, className = '' }: Reac
         ))}
       </div>
 
-      {/* One-time "Emotes unlocked" badge after StarterPack claim (T09) */}
+      {/* One-time starter-emotes badge after StarterPack claim (T09) */}
       {showUnlocked && (
         <div
           className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none"
@@ -109,13 +112,17 @@ export function ReactionBar({ onReact, incomingReactions, className = '' }: Reac
             animation: 'fadeIn 0.3s ease',
           }}
         >
-          🎭 Emotes unlocked — tap any reaction!
+          🎭 Starter emotes unlocked!
         </div>
       )}
 
       {/* Trigger tray — compact pill at table edge */}
-      <div className="flex items-center gap-0.5 px-2 py-1 bg-black/50 backdrop-blur-sm border border-white/[0.07] rounded-full">
-        {REACTIONS.map(emoji => (
+      <div
+        className="flex max-w-full items-center gap-0.5 px-2 py-1 bg-black/50 backdrop-blur-sm border border-white/[0.07] rounded-full overflow-x-auto"
+        aria-label="Available reactions"
+        data-testid="reaction-tray"
+      >
+        {reactions.map(emoji => (
           <button
             key={emoji}
             type="button"
@@ -124,7 +131,7 @@ export function ReactionBar({ onReact, incomingReactions, className = '' }: Reac
             aria-label={`React ${emoji}`}
             data-testid={`button-react-${emoji}`}
             className={[
-              'text-[15px] leading-none w-7 h-7 rounded-full flex items-center justify-center select-none',
+              'text-[15px] leading-none w-7 h-7 shrink-0 rounded-full flex items-center justify-center select-none',
               'transition-all duration-150 cursor-pointer',
               cooldowns[emoji]
                 ? 'opacity-20 scale-75 pointer-events-none'
