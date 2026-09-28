@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "69690174067",
+    "project_id": "chain-gang-poker-b7a08",
+    "storage_bucket": "chain-gang-poker-b7a08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:69690174067:android:d831d6b4f759ad58d35806",
+        "android_client_info": {
+          "package_name": "com.dgmentertainment.poker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQ3kfFU89BUcGTV86-82MVrDhP62T-AhI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
