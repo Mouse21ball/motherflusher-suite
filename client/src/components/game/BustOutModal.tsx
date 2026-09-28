@@ -3,6 +3,7 @@ import { track, getModeFromPath } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
 import { apiFetch } from "@/lib/session";
 import { apiUrl } from "@/lib/apiConfig";
+import { watchRewardedAd } from "@/lib/rewardedAds";
 import { BuyInSlider } from "./BuyInSlider";
 
 interface BustOutModalProps {
@@ -56,6 +57,9 @@ export function BustOutModal({
   const [rescueNow, setRescueNow] = useState(Date.now());
   const [rescueBusy, setRescueBusy] = useState(false);
   const [rescueMessage, setRescueMessage] = useState("");
+  const [adBusy, setAdBusy] = useState(false);
+  const [adMessage, setAdMessage] = useState("");
+  const [adTestMode, setAdTestMode] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -107,6 +111,29 @@ export function BustOutModal({
       setRescueMessage(error instanceof Error ? error.message : "Rescue purchase failed. Contact support if charged.");
     } finally {
       setRescueBusy(false);
+    }
+  }
+
+  async function handleWatchReward() {
+    if (adBusy) return;
+    setAdBusy(true);
+    setAdMessage("");
+    setAdTestMode(false);
+    try {
+      if (onWatchAd) {
+        await onWatchAd();
+        setAdMessage("Reward flow completed.");
+      } else {
+        const result = await watchRewardedAd(setAdTestMode);
+        setAdTestMode(result.testMode);
+        setAdMessage(result.pendingVerification
+          ? "Ad watched. Your 500-chip reward is awaiting secure server verification."
+          : "✓ 500 chips credited to your personal balance.");
+      }
+    } catch (error) {
+      setAdMessage(error instanceof Error ? error.message : "Unable to show a rewarded video.");
+    } finally {
+      setAdBusy(false);
     }
   }
 
@@ -271,17 +298,18 @@ export function BustOutModal({
         {tier === 2 && (
           <>
             <button
-              onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
-              disabled={!onWatchAd}
+              onClick={handleWatchReward}
+              disabled={adBusy}
               data-testid="button-bust-watch-ad"
               className={`w-full py-4 rounded-xl font-black text-lg tracking-wider mb-3 active:scale-[0.98] flex flex-col items-center gap-0.5 transition-all
-                ${onWatchAd
+                ${!adBusy
                   ? "bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] shadow-[0_0_20px_rgba(201,162,39,0.4)]"
                   : "bg-white/[0.06] border border-white/[0.10] text-white/60 cursor-not-allowed"}`}
             >
-              <span>🎬 WATCH AD FOR $500 CHIPS</span>
-              {!onWatchAd && <span className="text-[11px] font-bold opacity-70 tracking-wide">Coming Soon</span>}
+              <span>{adBusy ? "LOADING REWARDED VIDEO…" : "🎬 WATCH AD FOR 500 CHIPS"}</span>
             </button>
+            {adTestMode && <p className="mb-2 text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
+            {adMessage && <p className="mb-3 text-center text-xs text-white/75" role="status">{adMessage}</p>}
             <div className="space-y-2">
               <SecBtn label="Free Rebuy — Get 1,000 Chips" onClick={() => onStarterPack?.()} testId="button-bust-free-rebuy" />
               <LoanBtn />
@@ -308,11 +336,13 @@ export function BustOutModal({
             <div className="space-y-2">
               <LoanBtn />
               <SecBtn
-                label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
-                onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
+                label={adBusy ? "Preparing rewarded video…" : "Watch Ad for 500 Chips"}
+                onClick={handleWatchReward}
                 testId="button-bust-watch-ad"
-                disabled={!onWatchAd}
+                disabled={adBusy}
               />
+              {adTestMode && <p className="text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
+              {adMessage && <p className="text-center text-xs text-white/75" role="status">{adMessage}</p>}
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>

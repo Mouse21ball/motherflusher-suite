@@ -20,6 +20,9 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- Google SAMPLE/TEST app ID, not Chain Gang Poker's production ID; replace with its iOS app ID before release. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 <key>CGPBuildCommit</key>
 <string>development</string>
 <key>CGPBuildTimestamp</key>

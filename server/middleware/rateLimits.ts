@@ -125,6 +125,45 @@ const purchasePlayerLimiter = rateLimit({
 
 export const purchaseVerificationRateLimit = [purchaseIpLimiter, purchasePlayerLimiter];
 
+// Rewarded ads are limited per authenticated player (not session token, which
+// can rotate for one account) as well as by IP. The route runs requireAuth
+// before this middleware, so sessionPlayerId is populated here.
+export const REWARDED_AD_PLAYER_RATE_LIMIT = 5;
+export const REWARDED_AD_PLAYER_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+export function rewardedAdPlayerRateLimitKey(req: Request): string {
+  return req.sessionPlayerId
+    ? `player:${req.sessionPlayerId}`
+    : `ip:${ipKeyGenerator(req.ip ?? '')}`;
+}
+
+const rewardedAdPlayerLimiter = rateLimit({
+  windowMs:        REWARDED_AD_PLAYER_RATE_WINDOW_MS,
+  limit:           REWARDED_AD_PLAYER_RATE_LIMIT,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    rewardedAdPlayerRateLimitKey,
+  handler:         makeHandler('You have started too many rewarded ads. Please try again later.'),
+});
+
+const rewardedAdIpLimiter = rateLimit({
+  windowMs:        60 * 60 * 1000,
+  limit:           30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler:         makeHandler('Too many rewarded-ad requests from this network.'),
+});
+
+export const rewardedAdRateLimit = [rewardedAdPlayerLimiter, rewardedAdIpLimiter];
+
+export const admobSsvRateLimit = rateLimit({
+  windowMs:        60 * 1000,
+  limit:           120,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler:         makeHandler('Too many AdMob verification callbacks.'),
+});
+
 // ─── e) General API safety net ────────────────────────────────────────────────
 // 300 requests per IP per minute — catches abusive automation, not real users.
 // Skips the billing simulation endpoints (test paths are X-Test-Secret gated

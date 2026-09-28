@@ -13,7 +13,7 @@ import {
   type StripeTransaction,
   type AdminAction,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, playerReferrals, purchaseTransactions,
-  bustRescueOffers, firstPurchaseOffers,
+  bustRescueOffers, firstPurchaseOffers, rewardedAdSessions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
@@ -195,6 +195,16 @@ export interface IStorage {
   getBustRescueOffer(playerId: string): Promise<{
     issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
   } | null>;
+  createRewardedAdSession(params: {
+    id: string; playerId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
+  }): Promise<void>;
+  getRewardedAdSessionForSsv(id: string): Promise<{ id: string; adUnitId: string; testMode: boolean } | null>;
+  getRewardedAdSession(id: string, playerId: string): Promise<{
+    id: string; testMode: boolean; expiresAt: Date; completedAt: Date | null;
+  } | null>;
+  completeRewardedAdSession(params: {
+    id: string; transactionId: string; completedAt: Date;
+  }): Promise<{ completed: boolean; idempotent: boolean; playerId?: string; newBalance?: number }>;
   // ── Cosmetics ──────────────────────────────────────────────────────────────
   getCosmeticCatalog(): Promise<CosmeticItem[]>;
   getPlayerInventory(playerId: string): Promise<PlayerInventoryResult>;
@@ -2108,6 +2118,86 @@ export class MemStorage implements IStorage {
       claimedAt: bustRescueOffers.claimedAt,
     }).from(bustRescueOffers).where(eq(bustRescueOffers.playerId, playerId)).limit(1);
     return offer ?? null;
+  }
+
+  async createRewardedAdSession(params: {
+    id: string; playerId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
+  }): Promise<void> {
+    await db.insert(rewardedAdSessions).values({
+      id: params.id,
+      playerId: params.playerId,
+      adUnitId: params.adUnitId,
+      testMode: params.testMode,
+      createdAt: params.createdAt,
+      expiresAt: params.expiresAt,
+    });
+  }
+
+  async getRewardedAdSessionForSsv(id: string) {
+    const [session] = await db.select({
+      id: rewardedAdSessions.id,
+      adUnitId: rewardedAdSessions.adUnitId,
+      testMode: rewardedAdSessions.testMode,
+    }).from(rewardedAdSessions).where(eq(rewardedAdSessions.id, id)).limit(1);
+    return session ?? null;
+  }
+
+  async getRewardedAdSession(id: string, playerId: string) {
+    const [session] = await db.select({
+      id: rewardedAdSessions.id,
+      testMode: rewardedAdSessions.testMode,
+      expiresAt: rewardedAdSessions.expiresAt,
+      completedAt: rewardedAdSessions.completedAt,
+    }).from(rewardedAdSessions).where(and(
+      eq(rewardedAdSessions.id, id),
+      eq(rewardedAdSessions.playerId, playerId),
+    )).limit(1);
+    return session ?? null;
+  }
+
+  async completeRewardedAdSession(params: {
+    id: string; transactionId: string; completedAt: Date;
+  }): Promise<{ completed: boolean; idempotent: boolean; playerId?: string; newBalance?: number }> {
+    return db.transaction(async tx => {
+      const [session] = await tx.update(rewardedAdSessions).set({
+        completedAt: params.completedAt,
+        transactionId: params.transactionId,
+      }).where(and(
+        eq(rewardedAdSessions.id, params.id),
+        isNull(rewardedAdSessions.completedAt),
+        lte(rewardedAdSessions.createdAt, params.completedAt),
+        gt(rewardedAdSessions.expiresAt, params.completedAt),
+      )).returning({ playerId: rewardedAdSessions.playerId });
+
+      if (!session) {
+        const [existing] = await tx.select({
+          playerId: rewardedAdSessions.playerId,
+          completedAt: rewardedAdSessions.completedAt,
+        }).from(rewardedAdSessions).where(eq(rewardedAdSessions.id, params.id)).limit(1);
+        if (existing?.completedAt) {
+          return { completed: true, idempotent: true, playerId: existing.playerId };
+        }
+        return { completed: false, idempotent: false };
+      }
+
+      const [updated] = await tx.update(playerProfiles).set({
+        chipBalance: sql`${playerProfiles.chipBalance} + 500`,
+        updatedAt: params.completedAt,
+      }).where(eq(playerProfiles.id, session.playerId))
+        .returning({ chipBalance: playerProfiles.chipBalance });
+      if (!updated) throw new Error("Rewarded-ad player profile is missing");
+      await this._insertChipLedger(tx, {
+        playerId: session.playerId,
+        beforeBalance: updated.chipBalance - 500,
+        amountChange: 500,
+        afterBalance: updated.chipBalance,
+        reason: 'rewarded_ad',
+        source: 'admob_rewarded_video',
+        handId: params.id,
+        metadata: { watchSessionId: params.id, transactionId: params.transactionId },
+      });
+      return { completed: true, idempotent: false, playerId: session.playerId, newBalance: updated.chipBalance };
+    });
   }
 
   async hasPriorPaidPurchase(playerId: string): Promise<boolean> {

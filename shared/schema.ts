@@ -185,6 +185,19 @@ export const bustRescueOffers = pgTable("bust_rescue_offers", {
   claimedAt: timestamp("claimed_at"),
 });
 
+// Server-issued rewarded-ad sessions are credited only by a verified AdMob SSV
+// callback, except for explicitly enabled non-production test-ad sessions.
+export const rewardedAdSessions = pgTable("rewarded_ad_sessions", {
+  id:            text("id").primaryKey(),
+  playerId:      text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  adUnitId:      text("ad_unit_id").notNull(),
+  testMode:      boolean("test_mode").notNull().default(false),
+  createdAt:     timestamp("created_at").notNull().defaultNow(),
+  expiresAt:     timestamp("expires_at").notNull(),
+  completedAt:   timestamp("completed_at"),
+  transactionId: text("transaction_id").unique(),
+});
+
 // First-purchase bundle exposure is durable and account-level, never browser-local.
 export const firstPurchaseOffers = pgTable("first_purchase_offers", {
   playerId:  text("player_id").primaryKey().references(() => playerProfiles.id, { onDelete: "cascade" }),
@@ -390,6 +403,7 @@ export type ChipTxReason =
   | 'hand_win'
   | 'daily_bonus'
   | 'subscription_grant'
+  | 'rewarded_ad'
   | 'buy_in'
   | 'guest_reset'
   | 'admin_grant'

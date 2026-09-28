@@ -7,6 +7,8 @@ import {
   guestInitRateLimit,
   dailyBonusRateLimit,
   purchaseVerificationRateLimit,
+  rewardedAdRateLimit,
+  admobSsvRateLimit,
   generalApiRateLimit,
   reportRateLimit,
   ladyLuckTableCreateLimit,
@@ -74,9 +76,11 @@ import {
   isFirstPurchaseBundlePurchaseValid,
   isFirstPurchaseOfferAvailable,
 } from "./firstPurchase";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
+import { getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
+import { isRewardedAdTestModeEnabled } from "./rewardedAdConfig";
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
@@ -167,6 +171,167 @@ export async function registerRoutes(
       commit: BUILD_COMMIT,
       buildTimestamp: BUILD_TIMESTAMP,
     });
+  });
+
+  // ── AdMob rewarded video ────────────────────────────────────────────────────
+  const rewardedAdStartSchema = z.object({
+    platform: z.enum(["android", "ios"]),
+  }).strict();
+  const rewardedAdSessionSchema = z.object({
+    sessionId: z.string().uuid(),
+  }).strict();
+  const ADMOB_TEST_AD_UNITS = {
+    android: "ca-app-pub-3940256099942544/5224354917",
+    ios: "ca-app-pub-3940256099942544/1712485313",
+  } as const;
+  // Google sample rewarded TEST unit IDs are the non-production default;
+  // ADMOB_TEST_REWARDS_ENABLED=false opts dev/staging out. Production always
+  // requires its platform-specific (or shared) configured real ad unit.
+  const rewardedAdTestModeEnabled = isRewardedAdTestModeEnabled(
+    process.env.NODE_ENV,
+    process.env.ADMOB_TEST_REWARDS_ENABLED,
+  );
+
+  app.post("/api/ads/rewarded/start", requireAuth, ...rewardedAdRateLimit, async (req, res) => {
+    try {
+      const { platform } = rewardedAdStartSchema.parse(req.body);
+      const adUnitId = rewardedAdTestModeEnabled
+        ? ADMOB_TEST_AD_UNITS[platform]
+        : process.env[`ADMOB_${platform.toUpperCase()}_REWARDED_AD_UNIT_ID`]
+          ?? process.env.ADMOB_REWARDED_AD_UNIT_ID;
+      if (!adUnitId) {
+        res.status(503).json({ error: "Rewarded ads are not configured on this server." });
+        return;
+      }
+
+      const now = new Date();
+      const sessionId = randomUUID();
+      await storage.createRewardedAdSession({
+        id: sessionId,
+        playerId: req.sessionPlayerId!,
+        adUnitId,
+        testMode: rewardedAdTestModeEnabled,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + 30 * 60 * 1000),
+      });
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        sessionId,
+        adUnitId,
+        testMode: rewardedAdTestModeEnabled,
+        rewardChips: 500,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: "Unsupported ad platform." });
+      } else {
+        console.error("[rewarded-ad] failed to start session:", err);
+        res.status(500).json({ error: "Unable to start a rewarded ad." });
+      }
+    }
+  });
+
+  // Deliberately unavailable in production. In this non-production test mode only, the
+  // client SDK's test-ad reward event is accepted to exercise the local flow.
+  // Real rewards are never credited from a client completion claim; production
+  // credits exclusively from the cryptographically verified AdMob SSV callback.
+  app.post("/api/ads/rewarded/complete-test", requireAuth, ...rewardedAdRateLimit, async (req, res) => {
+    if (process.env.NODE_ENV === "production" || !rewardedAdTestModeEnabled) {
+      res.status(404).json({ error: "Test rewarded ads are disabled." });
+      return;
+    }
+    try {
+      const { sessionId } = rewardedAdSessionSchema.parse(req.body);
+      const session = await storage.getRewardedAdSession(sessionId, req.sessionPlayerId!);
+      if (!session || !session.testMode || session.expiresAt <= new Date()) {
+        res.status(404).json({ error: "Rewarded-ad session is unavailable." });
+        return;
+      }
+      const result = await storage.completeRewardedAdSession({
+        id: sessionId,
+        transactionId: `test:${sessionId}`,
+        completedAt: new Date(),
+      });
+      if (!result.completed) {
+        res.status(409).json({ error: "Rewarded-ad session has expired." });
+        return;
+      }
+      res.json({
+        completed: true,
+        idempotent: result.idempotent,
+        chipBalance: result.newBalance ?? (await storage.getPlayerProfile(req.sessionPlayerId!))?.chipBalance,
+        testMode: true,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid rewarded-ad session." });
+      } else {
+        console.error("[rewarded-ad] test completion failed:", err);
+        res.status(500).json({ error: "Unable to complete the test reward." });
+      }
+    }
+  });
+
+  app.get("/api/ads/rewarded/:sessionId", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const { sessionId } = rewardedAdSessionSchema.parse({ sessionId: req.params.sessionId });
+      const session = await storage.getRewardedAdSession(sessionId, req.sessionPlayerId!);
+      if (!session) {
+        res.status(404).json({ error: "Rewarded-ad session not found." });
+        return;
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        completed: !!session.completedAt,
+        expired: !session.completedAt && session.expiresAt <= new Date(),
+        testMode: session.testMode,
+        chipBalance: session.completedAt
+          ? (await storage.getPlayerProfile(req.sessionPlayerId!))?.chipBalance
+          : undefined,
+      });
+    } catch (err: any) {
+      res.status(err instanceof z.ZodError ? 400 : 500).json({
+        error: err instanceof z.ZodError ? "Invalid rewarded-ad session." : "Unable to check the reward.",
+      });
+    }
+  });
+
+  // Configure this endpoint as the AdMob rewarded-ad SSV callback URL. Google
+  // signs the raw query string; the server verifies it against Google's
+  // published verifier keys before trusting any reward fields.
+  app.get("/api/ads/admob/ssv", admobSsvRateLimit, async (req, res) => {
+    try {
+      const rawQuery = req.originalUrl.split("?", 2)[1] ?? "";
+      const keys = await getAdMobVerifierKeys();
+      const verified = verifyAdMobSsvQuery(rawQuery, keys);
+      if (!verified) {
+        res.status(400).send("Invalid AdMob SSV callback");
+        return;
+      }
+      const session = await storage.getRewardedAdSessionForSsv(verified.watchSessionId);
+      if (!session || session.adUnitId !== verified.adUnitId) {
+        res.status(400).send("Unknown or mismatched AdMob watch session");
+        return;
+      }
+      const result = await storage.completeRewardedAdSession({
+        id: verified.watchSessionId,
+        transactionId: verified.transactionId,
+        completedAt: new Date(verified.timestamp),
+      });
+      if (!result.completed) {
+        res.status(400).send("Unknown, expired, or already consumed AdMob session");
+        return;
+      }
+      res.status(200).send("OK");
+    } catch (err: any) {
+      if (err?.code === "23505") {
+        // A Google transaction ID can credit only one watch session.
+        res.status(200).send("OK");
+      } else {
+        console.error("[rewarded-ad] SSV verification failed:", err);
+        res.status(500).send("AdMob SSV verification temporarily unavailable");
+      }
+    }
   });
 
   // Analytics — unchanged

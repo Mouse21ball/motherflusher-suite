@@ -4,4 +4,6 @@
     <string name="title_activity_main">Chain Gang Poker</string>
     <string name="package_name">com.dgmentertainment.poker</string>
     <string name="custom_url_scheme">com.dgmentertainment.poker</string>
+    <!-- Google SAMPLE/TEST app ID; replace with Chain Gang Poker's Android app ID before release. -->
+    <string name="admob_test_app_id">ca-app-pub-3940256099942544~3347511713</string>
 </resources>
