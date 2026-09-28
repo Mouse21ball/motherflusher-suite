@@ -1,6 +1,6 @@
 import { GameMode, GameState, Player, CardType, GamePhase, Declaration } from '../gameTypes';
 import { getNextActivePlayerIndex } from '../engine/core';
-import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 function suitsCardValue(rank: string): number {
@@ -211,7 +211,7 @@ export const SuitsPokerMode: GameMode = {
       const raisesSoFar = state.raisesThisRound ?? 0;
       const activeOpponents = players.filter(p => p.id !== botId && p.status === 'active').length;
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
-      const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips, { raisesThisRound: raisesSoFar, raiseCap });
+      const decision = decideBet(handStrength, pot, currentBet, bot.bet, bot.chips, { raisesThisRound: raisesSoFar, raiseCap, personality: botPersonality(botId) });
       const result = applyBetDecision(decision, bot, currentBet, pot, raisesSoFar);
       const newPlayers = players.map(p => p.id !== botId ? p : { ...p, status: result.status as any, chips: result.chips, bet: result.bet, hasActed: true, declaration: declaration || p.declaration });
       const activeForRound = isDeclarePhase ? newPlayers.filter(p => p.status === 'active') : newPlayers.filter(p => p.status === 'active' && p.chips > 0);

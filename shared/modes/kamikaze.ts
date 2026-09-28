@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
-import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { sidePotsForShowdown, resolveSplitPots } from '../engine/sidePots';
 
 const RANK_VALUES: Record<string, number> = {
@@ -299,7 +299,7 @@ export const KamikazeMode: GameMode = {
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
       const raisesSoFar = state.raisesThisRound ?? 0;
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
-        largePot: state.pot >= 200, raisesThisRound: raisesSoFar, raiseCap,
+        largePot: state.pot >= 200, raisesThisRound: raisesSoFar, raiseCap, personality: botPersonality(botId),
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as Player['status'], hasActed: true };

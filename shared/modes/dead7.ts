@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
-import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 const rankValue = (rank: string): number => {
@@ -203,7 +203,7 @@ export const Dead7Mode: GameMode = {
       // Never fold in BET_1 / BET_2 unless the hand is nearly hopeless — draws remain.
       if (state.phase === 'BET_1' || state.phase === 'BET_2') strength = Math.max(strength, 0.15);
 
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { largePot, raisesThisRound: raisesSoFar, raiseCap });
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { largePot, raisesThisRound: raisesSoFar, raiseCap, personality: botPersonality(botId) });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot; newCurrentBet = result.currentBet; newRaisesThisRound = result.raisesThisRound; message = result.message;

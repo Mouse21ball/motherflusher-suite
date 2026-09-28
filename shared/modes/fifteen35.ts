@@ -1,6 +1,6 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
 import { getNextActivePlayerIndex, getDealerIndex } from '../engine/core';
-import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, resolveSplitPots } from '../engine/sidePots';
 
 const cardValue = (rank: string): number => {
@@ -154,7 +154,7 @@ export const Fifteen35Mode: GameMode = {
       const raisesSoFar = state.raisesThisRound ?? 0;
       const activeOpponents = state.players.filter(p => p.id !== botId && p.status === 'active').length;
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
-      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap });
+      const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, { heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap, personality: botPersonality(botId) });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = { ...bot, chips: result.chips, bet: result.bet, status: result.status as any, hasActed: true };
       newPot = result.pot; newCurrentBet = result.currentBet; newRaisesThisRound = result.raisesThisRound; message = result.message;

@@ -1,5 +1,5 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
-import { decideBet, applyBetDecision, takeAnte } from '../engine/botUtils';
+import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
 const RANK_VALUES: Record<string, number> = {
@@ -211,7 +211,7 @@ export const FlushedUpMode: GameMode = {
       const raisesSoFar = state.raisesThisRound ?? 0;
 
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
-        largePot, raisesThisRound: raisesSoFar, raiseCap,
+        largePot, raisesThisRound: raisesSoFar, raiseCap, personality: botPersonality(botId),
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = {
