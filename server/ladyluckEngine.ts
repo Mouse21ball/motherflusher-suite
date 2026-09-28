@@ -611,7 +611,7 @@ export async function handleLLSideBet(
   if (!player) return { ok: false, error: 'not_in_table' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
-  if (amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
+  if (!Number.isFinite(amount) || amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
 
   // Synchronous lock: prevents double-submission from rapid taps or two tabs
   // charging the same player twice for one side bet.
@@ -704,7 +704,7 @@ export async function handleLLSpectatorSideBet(
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'bet_already_placed' })); } catch {}
     return;
   }
-  if (amount < 100 || amount > 2000) {
+  if (!Number.isFinite(amount) || amount < 100 || amount > 2000) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'invalid_amount' })); } catch {}
     return;
   }
