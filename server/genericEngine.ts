@@ -13,6 +13,7 @@ import { BonecrusherMode } from '../shared/modes/bonecrusher';
 import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/modes/boxchevy';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
+import { applyGenericDraw } from './utils/genericDraw';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
 import {
@@ -2502,39 +2503,20 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── draw ─────────────────────────────────────────────────────────────────
     else if (action === 'draw') {
-      const indices: number[] = Array.isArray(payload) ? payload : [];
       const drawCap = s.phase === 'DRAW_1' ? 3 : s.phase === 'DRAW_2' ? 2 : s.phase === 'DRAW_3' ? 1 : s.phase === 'DRAW' ? 2 : 0;
-      if (indices.length > drawCap) { table.actionLock = false; return; }
       const player = newPlayers[playerIdx];
-      const newCards = [...player.cards];
-      const newDiscard = [...(s.discardPile || [])];
-      const newDeck = [...s.deck];
-      for (const idx of indices) {
-        if (idx >= 0 && idx < newCards.length) {
-          newDiscard.push(newCards[idx]);
-          if (newDeck.length === 0 && newDiscard.length > 0) {
-            const reshuffled = [...newDiscard];
-            newDiscard.length = 0;
-            for (let ri = reshuffled.length - 1; ri > 0; ri--) {
-              const rj = Math.floor(Math.random() * (ri + 1));
-              [reshuffled[ri], reshuffled[rj]] = [reshuffled[rj], reshuffled[ri]];
-            }
-            newDeck.push(...reshuffled);
-          }
-          const drawn = newDeck.shift();
-          if (drawn) newCards[idx] = { ...drawn, isHidden: false };
-        }
-      }
-      newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
+      const drawn = applyGenericDraw(player.cards, s.deck, s.discardPile || [], payload, drawCap);
+      if (!drawn.ok) { table.actionLock = false; return; }
+      newPlayers[playerIdx] = { ...player, cards: drawn.cards, hasActed: true };
       const newState = {
         ...s,
         players: newPlayers,
-        deck: newDeck,
-        discardPile: newDiscard,
+        deck: drawn.deck,
+        discardPile: drawn.discardPile,
         pot: newPot,
         currentBet: newCurrentBet,
       };
-      table.state = addMsg(newState, indices.length > 0 ? `${player.name} draws ${indices.length}` : `${player.name} stands pat`);
+      table.state = addMsg(newState, drawn.count > 0 ? `${player.name} draws ${drawn.count}` : `${player.name} stands pat`);
       table.actionLock = false;
       afterHumanAction(table, false);
       return;
