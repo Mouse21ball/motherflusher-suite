@@ -138,6 +138,7 @@ export interface IStorage {
     playerId:           string;
     productId:          string;
     stripesGranted:     number;
+    chipsGranted?:      number;
     priceUsdCents:      number;
     purchaseToken:      string;
     verificationStatus?: string;
@@ -151,6 +152,14 @@ export interface IStorage {
     verifiedAt?:   Date,
   ): Promise<void>;
   debitStripesForRefund(playerId: string, amount: number, purchaseTransactionId: string): Promise<void>;
+  completePersonalChipPurchase(params: {
+    purchaseTransactionId: string;
+    playerId: string;
+    productId: string;
+    chips: number;
+    orderId?: string;
+  }): Promise<{ idempotent: boolean; newBalance: number }>;
+  debitChipsForRefund(purchaseTransactionId: string): Promise<boolean>;
   // ── Cosmetics ──────────────────────────────────────────────────────────────
   getCosmeticCatalog(): Promise<CosmeticItem[]>;
   getPlayerInventory(playerId: string): Promise<PlayerInventoryResult>;
@@ -1696,6 +1705,7 @@ export class MemStorage implements IStorage {
     playerId:            string;
     productId:           string;
     stripesGranted:      number;
+    chipsGranted?:       number;
     priceUsdCents:       number;
     purchaseToken:       string;
     verificationStatus?: string;
@@ -1707,6 +1717,7 @@ export class MemStorage implements IStorage {
       playerId:           data.playerId,
       productId:          data.productId,
       stripesGranted:     data.stripesGranted,
+      chipsGranted:       data.chipsGranted ?? 0,
       priceUsdCents:      data.priceUsdCents,
       purchaseToken:      data.purchaseToken,
       verificationStatus: data.verificationStatus ?? "pending",
@@ -1741,6 +1752,99 @@ export class MemStorage implements IStorage {
         ...(verifiedAt    !== undefined ? { verifiedAt    } : {}),
       })
       .where(eq(purchaseTransactions.id, id));
+  }
+
+  async completePersonalChipPurchase(params: {
+    purchaseTransactionId: string;
+    playerId: string;
+    productId: string;
+    chips: number;
+    orderId?: string;
+  }): Promise<{ idempotent: boolean; newBalance: number }> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, params.purchaseTransactionId))
+        .for("update");
+      if (!purchase || purchase.playerId !== params.playerId || purchase.productId !== params.productId) {
+        throw new Error("Personal chip purchase transaction binding mismatch");
+      }
+      if (purchase.verificationStatus === "verified") {
+        const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+          .from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).limit(1);
+        return { idempotent: true, newBalance: profile?.chipBalance ?? 0 };
+      }
+      if (purchase.verificationStatus !== "pending") {
+        throw new Error(`Personal chip purchase cannot be completed from ${purchase.verificationStatus}`);
+      }
+
+      const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).for("update");
+      if (!profile) throw new Error("Player profile not found for personal chip purchase");
+      const beforeBalance = profile.chipBalance;
+      const newBalance = beforeBalance + params.chips;
+      await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${params.chips}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, params.playerId));
+      await this._insertChipLedger(tx, {
+        playerId: params.playerId,
+        beforeBalance,
+        amountChange: params.chips,
+        afterBalance: newBalance,
+        reason: "iap_purchase",
+        source: "personal_chip_pack",
+        metadata: { productId: params.productId, purchaseTransactionId: purchase.id },
+      });
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "verified",
+        chipsGranted: params.chips,
+        ...(params.orderId ? { googleOrderId: params.orderId } : {}),
+        verifiedAt: new Date(),
+      }).where(eq(purchaseTransactions.id, purchase.id));
+      return { idempotent: false, newBalance };
+    });
+  }
+
+  async debitChipsForRefund(purchaseTransactionId: string): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, purchaseTransactionId)).for("update");
+      if (!purchase || purchase.verificationStatus === "refunded") return false;
+      if (purchase.chipsGranted <= 0) {
+        if (purchase.verificationStatus === "pending" || purchase.verificationStatus === "failed_retryable") {
+          // A store void notification can beat the client-side receipt verification.
+          // Persist it so a later verified callback cannot grant a refunded purchase.
+          await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+            .where(eq(purchaseTransactions.id, purchase.id));
+          return true;
+        }
+        return false;
+      }
+      if (purchase.verificationStatus !== "verified") return false;
+      const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(eq(playerProfiles.id, purchase.playerId)).for("update");
+      if (!profile) {
+        await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+          .where(eq(purchaseTransactions.id, purchase.id));
+        return true;
+      }
+      const debit = Math.min(purchase.chipsGranted, profile.chipBalance);
+      const newBalance = profile.chipBalance - debit;
+      await tx.update(playerProfiles)
+        .set({ chipBalance: newBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, purchase.playerId));
+      await this._insertChipLedger(tx, {
+        playerId: purchase.playerId,
+        beforeBalance: profile.chipBalance,
+        amountChange: -debit,
+        afterBalance: newBalance,
+        reason: "refund",
+        source: "personal_chip_purchase_refund",
+        metadata: { productId: purchase.productId, purchaseTransactionId: purchase.id },
+      });
+      await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+        .where(eq(purchaseTransactions.id, purchase.id));
+      return true;
+    });
   }
 
   async debitStripesForRefund(

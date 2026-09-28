@@ -4,7 +4,12 @@ import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/p
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
-import { GOOGLE_SUBSCRIPTION_PRODUCT_IDS } from '@shared/billingProducts';
+import {
+  APPLE_PERSONAL_CHIP_PRODUCTS,
+  GOOGLE_PERSONAL_CHIP_PRODUCTS,
+  PERSONAL_CHIP_PACKS,
+  GOOGLE_SUBSCRIPTION_PRODUCT_IDS,
+} from '@shared/billingProducts';
 import {
   APPLE_STRIPES_SHOP_PRODUCTS,
   APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
@@ -40,6 +45,12 @@ const STRIPES_PACKS = [
   { id: 'stripes_large_2499',  name: 'Large Pack',    stripes: 3250,  price: '$24.99', badge: 'BEST VALUE',           featured: true  },
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
+
+const PERSONAL_CHIP_SHOP_PACKS = PERSONAL_CHIP_PACKS.map(pack => ({
+  tier: pack.tier,
+  chips: pack.chips,
+  price: `$${(pack.priceCents / 100).toFixed(2)}`,
+}));
 
 const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
   'Subscriptions are temporarily unavailable. Please try again shortly.';
@@ -243,6 +254,10 @@ export default function Shop() {
   // iOS  → Apple App Store product IDs with App Store prices/quantities
   // Web/Android → Google Play product IDs
   const activePacks = isIOS ? APPLE_STRIPES_SHOP_PRODUCTS : STRIPES_PACKS;
+  const activePersonalChipPacks = PERSONAL_CHIP_SHOP_PACKS.map(pack => ({
+    ...pack,
+    id: isIOS ? APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier] : GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier],
+  }));
 
   const subscriptionPriceFor = (tier: TierDef): string => {
     if (isIOS && billingPeriod === 'yearly') {
@@ -288,7 +303,9 @@ export default function Shop() {
     setPurchaseMsg(null);
     try {
       const result = await billing.purchase(productId);
-      setPurchaseMsg(`✓ ${result.stripesGranted}◆ Stripes added!`);
+      setPurchaseMsg(result.chipsGranted
+        ? `✓ ${result.chipsGranted.toLocaleString()} personal chips added!`
+        : `✓ ${result.stripesGranted}◆ Stripes added!`);
       refetch();
     } catch (err: any) {
       setPurchaseMsg(err.message ?? 'Purchase failed');
@@ -945,6 +962,83 @@ export default function Shop() {
 
             <p className="text-[9px] font-mono text-white/20 text-center mt-4 leading-relaxed italic">
               Stripes are virtual currency for cosmetic features only. No real-world value. Purchases processed via Google Play.
+            </p>
+          </div>
+
+          <div className="mb-6" data-testid="personal-chip-packs-section">
+            <SectionHeader>PERSONAL CHIP PACKS</SectionHeader>
+            <p className="text-[11px] text-center mb-4 text-white/55">
+              Chips are added directly to your personal balance — not a crew bank.
+            </p>
+            {purchaseMsg && (
+              <div
+                className="text-xs font-mono text-center mb-3 py-2 px-3 rounded-xl"
+                style={{
+                  background: purchaseMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                  color: purchaseMsg.startsWith('✓') ? '#4ade80' : '#f87171',
+                }}
+                data-testid="personal-chip-purchase-status"
+              >
+                {purchaseMsg}
+              </div>
+            )}
+            <div className="flex flex-col" style={{ gap: 10 }}>
+              {activePersonalChipPacks.map(pack => (
+                <div
+                  key={pack.id}
+                  className="flex items-center gap-3"
+                  style={{
+                    background: 'rgba(15,10,25,0.50)',
+                    borderRadius: 14,
+                    padding: '14px 18px',
+                    border: '1px solid rgba(79,209,197,0.20)',
+                  }}
+                  data-testid={`personal-chip-pack-${pack.tier}`}
+                >
+                  <div
+                    className="shrink-0 flex items-center justify-center rounded-full"
+                    style={{
+                      width: 52, height: 52, border: '3px dashed #4FD1C5',
+                      color: '#4FD1C5', fontWeight: 900, fontSize: 21,
+                    }}
+                    aria-hidden="true"
+                  >
+                    ●
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.90)' }}>
+                      {pack.tier[0].toUpperCase() + pack.tier.slice(1)} Personal Chips
+                    </div>
+                    <div style={{ fontWeight: 900, fontSize: 18, color: '#4FD1C5', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                      {pack.chips.toLocaleString()} chips
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handlePurchase(pack.id)}
+                    disabled={!!purchaseBusy}
+                    className="shrink-0 transition-all duration-150 active:scale-[0.97]"
+                    style={{
+                      background: purchaseBusy === pack.id ? 'rgba(79,209,197,0.35)' : 'linear-gradient(135deg, #4FD1C5 0%, #289E96 100%)',
+                      color: '#071110',
+                      fontWeight: 800,
+                      padding: '12px 20px',
+                      borderRadius: 10,
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      opacity: purchaseBusy && purchaseBusy !== pack.id ? 0.4 : 1,
+                      minHeight: 44,
+                      minWidth: 72,
+                    }}
+                    data-testid={`button-buy-personal-chips-${pack.tier}`}
+                  >
+                    {purchaseBusy === pack.id ? '…' : pack.price}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[9px] font-mono text-white/20 text-center mt-4 leading-relaxed italic">
+              Personal chip purchases never fund or debit a crew chip bank.
             </p>
           </div>
 

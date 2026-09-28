@@ -18,6 +18,9 @@
 import {
   APPLE_SUBSCRIPTION_PRODUCTS,
   GOOGLE_SUBSCRIPTION_PRODUCT_IDS,
+  PERSONAL_CHIP_PACKS,
+  GOOGLE_PERSONAL_CHIP_PRODUCTS,
+  APPLE_PERSONAL_CHIP_PRODUCTS,
 } from "../shared/billingProducts";
 
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
@@ -46,6 +49,44 @@ export const CLUB_CHIP_PACKS: Record<string, { chips: number; priceCents: number
   'club-chips-medium-2499': { chips: 30000,  priceCents: 2499 },
   'club-chips-large-4999':  { chips: 75000,  priceCents: 4999 },
 };
+
+export function isGooglePurchaseAccountBound(
+  receiptPlayerId: string | undefined,
+  playerId: string,
+  purchaseToken: string,
+  testMode: boolean,
+): boolean {
+  return testMode && purchaseToken.startsWith("test_")
+    ? true
+    : !!receiptPlayerId && receiptPlayerId === playerId;
+}
+
+export function isApplePurchaseAccountBound(
+  appAccountToken: string | undefined,
+  playerId: string,
+): boolean {
+  return !!appAccountToken && appAccountToken === playerId;
+}
+
+// Personal chip purchases credit only the authenticated player's chipBalance.
+export const PERSONAL_CHIP_PACK_CATALOG: Record<string, { chips: number; priceCents: number }> =
+  Object.fromEntries(PERSONAL_CHIP_PACKS.map((pack) => {
+    const productId = GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]
+      ?? APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier];
+    return [productId, { chips: pack.chips, priceCents: pack.priceCents }];
+  }));
+for (const pack of PERSONAL_CHIP_PACKS) {
+  PERSONAL_CHIP_PACK_CATALOG[APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier]] = {
+    chips: pack.chips,
+    priceCents: pack.priceCents,
+  };
+}
+for (const pack of PERSONAL_CHIP_PACKS) {
+  PERSONAL_CHIP_PACK_CATALOG[GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]] = {
+    chips: pack.chips,
+    priceCents: pack.priceCents,
+  };
+}
 
 // ─── Subscription product catalog ────────────────────────────────────────────
 export type SubscriptionTier   = "gold_pro" | "diamond_elite";

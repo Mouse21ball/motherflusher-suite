@@ -25,12 +25,20 @@ import {
   APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
   APPLE_SUBSCRIPTION_PRODUCT_IDS,
   APPLE_SUBSCRIPTION_PRODUCTS as APPLE_SUBSCRIPTION_PRODUCT_ID,
+  GOOGLE_PERSONAL_CHIP_PRODUCTS,
+  APPLE_PERSONAL_CHIP_PRODUCTS,
+  GOOGLE_PERSONAL_CHIP_PRODUCT_IDS,
+  APPLE_PERSONAL_CHIP_PRODUCT_IDS,
   GOOGLE_SUBSCRIPTION_PRODUCT_ID_LIST,
 } from "@shared/billingProducts";
 
 export {
   APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
   APPLE_SUBSCRIPTION_PRODUCT_IDS,
+  GOOGLE_PERSONAL_CHIP_PRODUCTS,
+  APPLE_PERSONAL_CHIP_PRODUCTS,
+  GOOGLE_PERSONAL_CHIP_PRODUCT_IDS,
+  APPLE_PERSONAL_CHIP_PRODUCT_IDS,
 };
 
 const PURCHASE_TIMEOUT_MS = 45_000;
@@ -78,6 +86,9 @@ export const CLUB_CHIP_PRODUCT_IDS = [
 ] as const;
 
 export type ClubChipProductId = typeof CLUB_CHIP_PRODUCT_IDS[number];
+
+export const PERSONAL_CHIP_PRODUCT_IDS = GOOGLE_PERSONAL_CHIP_PRODUCT_IDS;
+export const APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST = APPLE_PERSONAL_CHIP_PRODUCT_IDS;
 
 // ─── Subscription product catalog ────────────────────────────────────────────
 export const SUBSCRIPTION_PRODUCT_IDS = GOOGLE_SUBSCRIPTION_PRODUCT_ID_LIST;
@@ -370,6 +381,20 @@ class NativeBillingPlugin implements BillingPlugin {
         platform: Platform.APPLE_APPSTORE,
       }))
     );
+    store.register(
+      PERSONAL_CHIP_PRODUCT_IDS.map(id => ({
+        id,
+        type: ProductType.CONSUMABLE,
+        platform: Platform.GOOGLE_PLAY,
+      }))
+    );
+    store.register(
+      APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST.map(id => ({
+        id,
+        type: ProductType.CONSUMABLE,
+        platform: Platform.APPLE_APPSTORE,
+      }))
+    );
 
     // Register club chip consumable packs (Google Play only; no Apple equivalents yet)
     store.register(
@@ -444,7 +469,8 @@ class NativeBillingPlugin implements BillingPlugin {
       const sessionToken  = getSessionToken() ?? "";
       const isStripesPack  = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
       const isClubChipPack = (CLUB_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
-      const isConsumable   = isStripesPack || isClubChipPack;
+      const isPersonalChipPack = (PERSONAL_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
+      const isConsumable   = isStripesPack || isClubChipPack || isPersonalChipPack;
 
       try {
         if (isConsumable) {
@@ -546,7 +572,10 @@ class NativeBillingPlugin implements BillingPlugin {
       const isGoogleStripesPack = (STRIPES_PRODUCT_IDS as readonly string[]).includes(productId);
       const isStripesPack  = isAppleStripesPack || isGoogleStripesPack;
       const isClubChipPack = (CLUB_CHIP_PRODUCT_IDS as readonly string[]).includes(productId);
-      const isConsumable   = isStripesPack || isClubChipPack;
+      const isPersonalChipPack =
+        (PERSONAL_CHIP_PRODUCT_IDS as readonly string[]).includes(productId)
+        || (APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST as readonly string[]).includes(productId);
+      const isConsumable   = isStripesPack || isClubChipPack || isPersonalChipPack;
 
       try {
         if (isConsumable) {

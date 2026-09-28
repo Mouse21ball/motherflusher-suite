@@ -166,6 +166,7 @@ export const purchaseTransactions = pgTable("purchase_transactions", {
   playerId:           text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
   productId:          text("product_id").notNull(),
   stripesGranted:     integer("stripes_granted").notNull(),
+  chipsGranted:       integer("chips_granted").notNull().default(0),
   priceUsdCents:      integer("price_usd_cents").notNull(),
   purchaseToken:      text("purchase_token").notNull().unique(),
   verificationStatus: text("verification_status").notNull().default("pending"),
