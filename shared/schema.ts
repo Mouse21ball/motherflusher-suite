@@ -171,12 +171,22 @@ export const purchaseTransactions = pgTable("purchase_transactions", {
   purchaseToken:      text("purchase_token").notNull().unique(),
   verificationStatus: text("verification_status").notNull().default("pending"),
   googleOrderId:      text("google_order_id"),
+  verificationLeaseUntil: timestamp("verification_lease_until"),
+  crewId:             text("crew_id"),
   createdAt:          timestamp("created_at").defaultNow().notNull(),
   verifiedAt:         timestamp("verified_at"),
 });
 
 // A bust-rescue offer is issued once per account and cannot be renewed by reopening the modal.
 export const bustRescueOffers = pgTable("bust_rescue_offers", {
+  playerId:  text("player_id").primaryKey().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  issuedAt:  timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  claimedAt: timestamp("claimed_at"),
+});
+
+// First-purchase bundle exposure is durable and account-level, never browser-local.
+export const firstPurchaseOffers = pgTable("first_purchase_offers", {
   playerId:  text("player_id").primaryKey().references(() => playerProfiles.id, { onDelete: "cascade" }),
   issuedAt:  timestamp("issued_at").notNull(),
   expiresAt: timestamp("expires_at").notNull(),

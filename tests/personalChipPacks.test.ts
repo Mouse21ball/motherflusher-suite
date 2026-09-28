@@ -7,6 +7,7 @@ import {
   GOOGLE_PERSONAL_CHIP_PRODUCTS,
   PERSONAL_CHIP_PACKS,
   BUST_RESCUE_PRODUCT,
+  FIRST_PURCHASE_BUNDLE,
 } from "../shared/billingProducts";
 import {
   isApplePurchaseAccountBound,
@@ -32,10 +33,12 @@ describe("personal chip pack catalog and receipt account binding", () => {
   it("centralizes five matching Google and Apple products with parallel price tiers", () => {
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.priceCents)).toEqual([99, 499, 999, 2499, 9999]);
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.chips)).toEqual([1_000, 6_000, 15_000, 45_000, 200_000]);
-    expect(PERSONAL_CHIP_PRODUCT_IDS).toHaveLength(6);
-    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toHaveLength(6);
+    expect(PERSONAL_CHIP_PRODUCT_IDS).toHaveLength(7);
+    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toHaveLength(7);
     expect(PERSONAL_CHIP_PRODUCT_IDS).toContain(BUST_RESCUE_PRODUCT.googleId);
     expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toContain(BUST_RESCUE_PRODUCT.appleId);
+    expect(PERSONAL_CHIP_PRODUCT_IDS).toContain(FIRST_PURCHASE_BUNDLE.googleId);
+    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toContain(FIRST_PURCHASE_BUNDLE.appleId);
     for (const pack of PERSONAL_CHIP_PACKS) {
       expect(GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]).toBeTruthy();
       expect(APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier]).toBeTruthy();

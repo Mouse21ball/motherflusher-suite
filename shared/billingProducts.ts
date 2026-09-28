@@ -58,13 +58,25 @@ export const BUST_RESCUE_PRODUCT = {
   offerDurationMs: 10 * 60 * 1000,
 } as const;
 
+// One-time 24-hour introduction offer shown from the first Shop visit.
+export const FIRST_PURCHASE_BUNDLE = {
+  chips: 6_000,
+  stripes: 200,
+  priceCents: 199,
+  offerDurationMs: 24 * 60 * 60 * 1000,
+  googleId: "first-purchase-bundle-199",
+  appleId: "com.dgmentertainment.poker.firstpurchase.bundle",
+} as const;
+
 export const GOOGLE_PERSONAL_CHIP_PRODUCT_IDS = [
   ...Object.values(GOOGLE_PERSONAL_CHIP_PRODUCTS),
   BUST_RESCUE_PRODUCT.googleId,
+  FIRST_PURCHASE_BUNDLE.googleId,
 ];
 export const APPLE_PERSONAL_CHIP_PRODUCT_IDS = [
   ...Object.values(APPLE_PERSONAL_CHIP_PRODUCTS),
   BUST_RESCUE_PRODUCT.appleId,
+  FIRST_PURCHASE_BUNDLE.appleId,
 ];
 export const PERSONAL_CHIP_PRODUCT_BY_GOOGLE_ID: Record<string, string> = {
   [GOOGLE_PERSONAL_CHIP_PRODUCTS.starter]: APPLE_PERSONAL_CHIP_PRODUCTS.starter,

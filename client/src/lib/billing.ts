@@ -44,6 +44,7 @@ export {
 const PURCHASE_TIMEOUT_MS = 45_000;
 const VERIFICATION_TIMEOUT_MS = 30_000;
 const PENDING_PURCHASES_KEY = "cgp_pending_native_products";
+const PENDING_CREW_PURCHASES_KEY = "cgp_pending_native_crew_destinations";
 
 function purchaseErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.name === "AbortError") {
@@ -267,6 +268,26 @@ class NativeBillingPlugin implements BillingPlugin {
     } catch {}
   }
 
+  private getPersistedCrewId(productId: string): string | undefined {
+    try {
+      const value = JSON.parse(localStorage.getItem(PENDING_CREW_PURCHASES_KEY) ?? "{}");
+      const crewId = value?.[productId];
+      return typeof crewId === "string" ? crewId : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private setPersistedCrewId(productId: string, crewId?: string): void {
+    try {
+      const value = JSON.parse(localStorage.getItem(PENDING_CREW_PURCHASES_KEY) ?? "{}");
+      const destinations = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      if (crewId) destinations[productId] = crewId;
+      else delete destinations[productId];
+      localStorage.setItem(PENDING_CREW_PURCHASES_KEY, JSON.stringify(destinations));
+    } catch {}
+  }
+
   private setPending<T>(
     productId: string,
     resolve: (value: T) => void,
@@ -301,6 +322,8 @@ class NativeBillingPlugin implements BillingPlugin {
       startedAt: Date.now(),
       crewId,
     });
+    this.setPersistedPending(productId, true);
+    this.setPersistedCrewId(productId, crewId);
     return true;
   }
 
@@ -308,6 +331,7 @@ class NativeBillingPlugin implements BillingPlugin {
     const entry = this.pending.get(productId);
     const wasPersisted = this.getPersistedPending().has(productId);
     this.setPersistedPending(productId, false);
+    this.setPersistedCrewId(productId);
     if (!entry) {
       if (wasPersisted && typeof window !== "undefined") {
         this.dispatchReconciled(productId);
@@ -342,6 +366,7 @@ class NativeBillingPlugin implements BillingPlugin {
     if (!retainForReconciliation) {
       this.pending.delete(productId);
       this.setPersistedPending(productId, false);
+      this.setPersistedCrewId(productId);
     } else {
       this.setPersistedPending(productId, true);
     }
@@ -475,8 +500,9 @@ class NativeBillingPlugin implements BillingPlugin {
       try {
         if (isConsumable) {
           const body: Record<string, unknown> = { productId, purchaseToken };
-          if (isClubChipPack && belongsToPending && pendingAttempt?.crewId) {
-            body.crewId = pendingAttempt.crewId;
+          const destinationCrewId = pendingAttempt?.crewId ?? this.getPersistedCrewId(productId);
+          if (isClubChipPack && destinationCrewId) {
+            body.crewId = destinationCrewId;
           }
           const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-purchase"), {
             method:  "POST",
@@ -580,8 +606,9 @@ class NativeBillingPlugin implements BillingPlugin {
       try {
         if (isConsumable) {
           const body: Record<string, unknown> = { productId, transactionId };
-          if (isClubChipPack && belongsToPending && pendingAttempt?.crewId) {
-            body.crewId = pendingAttempt.crewId;
+          const destinationCrewId = pendingAttempt?.crewId ?? this.getPersistedCrewId(productId);
+          if (isClubChipPack && destinationCrewId) {
+            body.crewId = destinationCrewId;
           }
           const resp = await fetchWithTimeout(apiUrl("/api/billing/verify-apple-purchase"), {
             method:  "POST",

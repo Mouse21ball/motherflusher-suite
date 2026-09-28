@@ -60,14 +60,20 @@ import {
   handleSubscriptionRecovered,
   handleSubscriptionRefund,
   verifyAppleAppStorePurchase,
+  extractAppleNotificationTransactionId,
   type ApplePurchaseData,
 } from "./billing";
-import { BUST_RESCUE_PRODUCT } from "@shared/billingProducts";
+import { BUST_RESCUE_PRODUCT, FIRST_PURCHASE_BUNDLE } from "@shared/billingProducts";
 import {
   BUST_RESCUE_OFFER_DURATION_MS,
   isBustRescueOfferAvailable,
   isBustRescuePurchaseValid,
 } from "./bustRescue";
+import {
+  FIRST_PURCHASE_OFFER_DURATION_MS,
+  isFirstPurchaseBundlePurchaseValid,
+  isFirstPurchaseOfferAvailable,
+} from "./firstPurchase";
 import { randomBytes } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
@@ -1477,6 +1483,90 @@ export async function registerRoutes(
     }
   });
 
+  // The first Shop view starts the durable 24-hour offer window, if this
+  // account has no verified one-time purchase or subscription history.
+  app.post("/api/billing/first-purchase-offer", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const offer = await storage.issueFirstPurchaseOffer(
+        playerId,
+        new Date(),
+        FIRST_PURCHASE_OFFER_DURATION_MS,
+      );
+      const eligible = !await storage.hasPriorPaidPurchase(playerId);
+      res.json({
+        eligible,
+        issuedAt: offer?.issuedAt.toISOString() ?? null,
+        expiresAt: offer?.expiresAt.toISOString() ?? null,
+        claimed: !!offer?.claimedAt,
+        available: eligible && isFirstPurchaseOfferAvailable(offer),
+      });
+    } catch (err) {
+      console.error("[billing] first-purchase offer load failed:", err);
+      res.status(500).json({ error: "Could not load the first-purchase offer." });
+    }
+  });
+
+  app.post("/api/billing/first-purchase-offer/claim", requireAuth, async (req, res) => {
+    try {
+      const offer = await storage.claimFirstPurchaseOffer(req.sessionPlayerId!, new Date());
+      if (!offer) {
+        res.status(409).json({ error: "This first-purchase offer is expired, unavailable, or already claimed." });
+        return;
+      }
+      res.json({
+        productId: FIRST_PURCHASE_BUNDLE.googleId,
+        appleProductId: FIRST_PURCHASE_BUNDLE.appleId,
+        chips: FIRST_PURCHASE_BUNDLE.chips,
+        stripes: FIRST_PURCHASE_BUNDLE.stripes,
+        priceCents: FIRST_PURCHASE_BUNDLE.priceCents,
+        expiresAt: offer.expiresAt.toISOString(),
+      });
+    } catch (err) {
+      console.error("[billing] first-purchase offer claim failed:", err);
+      res.status(500).json({ error: "Could not claim the first-purchase offer." });
+    }
+  });
+
+  // App Store Server Notifications provide signed JWS data. Its transaction ID
+  // is only a lookup key here: the refund decision is based on a fresh App
+  // Store Server API response and the recorded account/product binding.
+  app.post("/api/billing/apple-server-notifications", ...purchaseVerificationRateLimit, async (req, res) => {
+    try {
+      const { signedPayload } = z.object({ signedPayload: z.string().min(1) }).parse(req.body);
+      const transactionId = extractAppleNotificationTransactionId(signedPayload);
+      const purchase = await storage.getPurchaseTransactionByToken(transactionId);
+      if (!purchase) {
+        res.status(200).json({ received: true, reconciled: false });
+        return;
+      }
+      const appleData = await verifyAppleAppStorePurchase(transactionId);
+      if (appleData.transactionId !== transactionId
+        || appleData.productId !== purchase.productId
+        || !isApplePurchaseAccountBound(appleData.appAccountToken, purchase.playerId)) {
+        res.status(403).json({ error: "Apple notification transaction binding mismatch." });
+        return;
+      }
+      if (appleData.revocationReason === undefined) {
+        res.status(200).json({ received: true, reconciled: false });
+        return;
+      }
+      const refunded = await storage.refundConsumablePurchase(
+        purchase.id,
+        purchase.playerId,
+        purchase.productId,
+      );
+      res.status(200).json({ received: true, reconciled: true, refunded });
+    } catch (err: any) {
+      if (err?.name === "ZodError") {
+        res.status(400).json({ error: "Invalid Apple notification payload." });
+      } else {
+        console.error("[billing:apple] server notification reconciliation failed:", err);
+        res.status(500).json({ error: "Apple refund notification could not be verified; retry later." });
+      }
+    }
+  });
+
   // POST /api/billing/verify-purchase
   // Called by the native client after Google Play returns a purchase token.
   // Performs server-side verification via Play Developer API, credits Stripes,
@@ -1493,29 +1583,107 @@ export async function registerRoutes(
       // ── Club chip IAP: credits chips directly to the crew bank ───────────────
       const clubPack = CLUB_CHIP_PACKS[productId];
       if (clubPack) {
-        if (!crewId) {
-          res.status(400).json({ error: 'crewId required for club chip purchases' });
+        const clubPlayerId = req.sessionPlayerId!;
+        let clubPurchase = await storage.getPurchaseTransactionByToken(purchaseToken);
+        if (clubPurchase?.crewId && crewId && clubPurchase.crewId !== crewId) {
+          res.status(409).json({ error: "Purchase is bound to a different club." });
           return;
         }
-        const clubPlayerId = req.sessionPlayerId!;
+        const resolvedCrewId = clubPurchase?.crewId ?? crewId;
+        if (!resolvedCrewId) {
+          res.status(400).json({ error: "crewId required for club chip purchases." });
+          return;
+        }
+        if (clubPurchase) {
+          if (clubPurchase.playerId !== clubPlayerId) {
+            res.status(403).json({ error: "Purchase authorization failed: token belongs to another player" });
+            return;
+          }
+          if (clubPurchase.productId !== productId) {
+            res.status(409).json({ error: "Purchase token was created for a different product." });
+            return;
+          }
+          if (clubPurchase.verificationStatus === "verified") {
+            res.json({ chipsGranted: clubPack.chips, crewId: resolvedCrewId, orderId: clubPurchase.googleOrderId ?? "", idempotent: true });
+            return;
+          }
+          if (clubPurchase.verificationStatus !== "pending" && clubPurchase.verificationStatus !== "failed_retryable") {
+            res.status(409).json({ error: "Purchase token already used or rejected." });
+            return;
+          }
+        } else {
+          try {
+            clubPurchase = await storage.createPurchaseTransaction({
+              playerId: clubPlayerId,
+              productId,
+              crewId: resolvedCrewId,
+              stripesGranted: 0,
+              chipsGranted: 0,
+              priceUsdCents: clubPack.priceCents,
+              purchaseToken,
+              verificationStatus: "pending",
+            });
+          } catch (createErr) {
+            clubPurchase = await storage.getPurchaseTransactionByToken(purchaseToken);
+            if (!clubPurchase) throw createErr;
+            if (clubPurchase.playerId !== clubPlayerId) {
+              res.status(403).json({ error: "Purchase authorization failed: token belongs to another player" });
+              return;
+            }
+            if (clubPurchase.productId !== productId) {
+              res.status(409).json({ error: "Purchase token was created for a different product." });
+              return;
+            }
+            res.status(409).json({ error: "Purchase is still being processed. Please wait." });
+            return;
+          }
+        }
+        if (!await storage.claimPurchaseVerification(clubPurchase.id, new Date(), 5 * 60_000)) {
+          res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+          return;
+        }
         let clubPurchaseData;
         try {
           clubPurchaseData = await verifyGooglePlayPurchase(productId, purchaseToken);
         } catch (verifyErr: any) {
+          await storage.updatePurchaseTransactionStatus(
+            clubPurchase.id,
+            verifyErr?.response ? "rejected" : "failed_retryable",
+          );
           res.status(402).json({ error: `Purchase verification failed: ${verifyErr.message}` });
           return;
         }
         if (clubPurchaseData.purchaseState !== 0) {
           const state = clubPurchaseData.purchaseState === 1 ? 'canceled' : 'pending';
+          if (clubPurchaseData.purchaseState === 1) {
+            await storage.updatePurchaseTransactionStatus(clubPurchase.id, "rejected");
+          }
           res.status(402).json({ error: `Purchase is ${state} — not completed.` });
           return;
         }
-        await storage.addChipsToCrewBank(crewId, clubPlayerId, clubPack.chips);
+        if (!isGooglePurchaseAccountBound(
+          clubPurchaseData.obfuscatedExternalAccountId,
+          clubPlayerId,
+          purchaseToken,
+          process.env.BILLING_TEST_MODE === "true",
+        )) {
+          await storage.updatePurchaseTransactionStatus(clubPurchase.id, "rejected");
+          res.status(403).json({ error: "Purchase authorization failed: account ID mismatch or missing" });
+          return;
+        }
+        const clubGrant = await storage.completeCrewChipPurchase({
+          purchaseTransactionId: clubPurchase.id,
+          playerId: clubPlayerId,
+          productId,
+          crewId: resolvedCrewId,
+          chips: clubPack.chips,
+          orderId: clubPurchaseData.orderId,
+        });
         await acknowledgeGooglePlayPurchase(productId, purchaseToken);
         console.log(
-          `[billing] club-chips: player=${clubPlayerId} crewId=${crewId} chips=+${clubPack.chips}`
+          `[billing] club-chips: player=${clubPlayerId} crewId=${resolvedCrewId} chips=+${clubPack.chips}`
         );
-        res.json({ chipsGranted: clubPack.chips, crewId });
+        res.json({ chipsGranted: clubPack.chips, crewId: resolvedCrewId, orderId: clubPurchaseData.orderId, idempotent: clubGrant.idempotent });
         return;
       }
 
@@ -1523,6 +1691,8 @@ export async function registerRoutes(
       const personalPack = PERSONAL_CHIP_PACK_CATALOG[productId];
       if (personalPack) {
         const playerId = req.sessionPlayerId!;
+        const isFirstPurchaseBundle = productId === FIRST_PURCHASE_BUNDLE.googleId
+          || productId === FIRST_PURCHASE_BUNDLE.appleId;
         let purchase = await storage.getPurchaseTransactionByToken(purchaseToken);
         if (purchase) {
           if (purchase.playerId !== playerId) {
@@ -1534,22 +1704,25 @@ export async function registerRoutes(
             return;
           }
           if (purchase.verificationStatus === "verified") {
-            res.json({ chipsGranted: purchase.chipsGranted, orderId: purchase.googleOrderId ?? "", idempotent: true });
+            res.json({
+              chipsGranted: purchase.chipsGranted,
+              stripesGranted: purchase.stripesGranted,
+              orderId: purchase.googleOrderId ?? "",
+              idempotent: true,
+            });
             return;
           }
-          if (purchase.verificationStatus === "pending") {
-            res.status(409).json({ error: "Purchase is still being processed. Please wait." });
-            return;
-          }
-          if (purchase.verificationStatus !== "failed_retryable") {
+          if (purchase.verificationStatus !== "pending" && purchase.verificationStatus !== "failed_retryable") {
             res.status(409).json({ error: "Purchase token already used or rejected." });
             return;
           }
-          await storage.updatePurchaseTransactionStatus(purchase.id, "pending");
         } else {
           try {
             purchase = await storage.createPurchaseTransaction({
-              playerId, productId, stripesGranted: 0, chipsGranted: 0,
+              playerId,
+              productId,
+              stripesGranted: isFirstPurchaseBundle ? FIRST_PURCHASE_BUNDLE.stripes : 0,
+              chipsGranted: 0,
               priceUsdCents: personalPack.priceCents, purchaseToken,
               verificationStatus: "pending",
             });
@@ -1566,7 +1739,12 @@ export async function registerRoutes(
               return;
             }
             if (purchase.verificationStatus === "verified") {
-              res.json({ chipsGranted: purchase.chipsGranted, orderId: purchase.googleOrderId ?? "", idempotent: true });
+              res.json({
+                chipsGranted: purchase.chipsGranted,
+                stripesGranted: purchase.stripesGranted,
+                orderId: purchase.googleOrderId ?? "",
+                idempotent: true,
+              });
               return;
             }
             res.status(409).json({ error: "Purchase is still being processed. Please wait." });
@@ -1574,6 +1752,10 @@ export async function registerRoutes(
           }
         }
 
+        if (!await storage.claimPurchaseVerification(purchase.id, new Date(), 5 * 60_000)) {
+          res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+          return;
+        }
         let purchaseData;
         try {
           purchaseData = await verifyGooglePlayPurchase(productId, purchaseToken);
@@ -1612,19 +1794,50 @@ export async function registerRoutes(
             return;
           }
         }
-        const grant = await storage.completePersonalChipPurchase({
-          purchaseTransactionId: purchase.id,
-          playerId,
-          productId,
-          chips: personalPack.chips,
-          orderId: purchaseData.orderId,
-        });
+        let grant;
+        if (isFirstPurchaseBundle) {
+          const offer = await storage.getFirstPurchaseOffer(playerId);
+          const purchaseAt = purchaseData.purchaseTimeMillis
+            ? new Date(Number(purchaseData.purchaseTimeMillis))
+            : null;
+          if (!purchaseAt || Number.isNaN(purchaseAt.getTime())
+            || !isFirstPurchaseBundlePurchaseValid(offer, purchaseAt)) {
+            await storage.updatePurchaseTransactionStatus(purchase.id, "rejected");
+            res.status(409).json({
+              error: "This first-purchase bundle was outside its valid offer window or the account already purchased.",
+            });
+            return;
+          }
+          grant = await storage.completeFirstPurchaseBundle({
+            purchaseTransactionId: purchase.id,
+            playerId,
+            productId,
+            chips: FIRST_PURCHASE_BUNDLE.chips,
+            stripes: FIRST_PURCHASE_BUNDLE.stripes,
+            purchaseAt,
+            orderId: purchaseData.orderId,
+          });
+        } else {
+          grant = await storage.completePersonalChipPurchase({
+            purchaseTransactionId: purchase.id,
+            playerId,
+            productId,
+            chips: personalPack.chips,
+            orderId: purchaseData.orderId,
+          });
+        }
         try {
           await acknowledgeGooglePlayPurchase(productId, purchaseToken);
         } catch (ackErr) {
           console.error("[billing] personal chip pack acknowledge failed; manual action may be needed");
         }
-        res.json({ chipsGranted: personalPack.chips, newBalance: grant.newBalance, orderId: purchaseData.orderId, idempotent: grant.idempotent });
+        res.json({
+          chipsGranted: personalPack.chips,
+          stripesGranted: isFirstPurchaseBundle ? FIRST_PURCHASE_BUNDLE.stripes : 0,
+          newBalance: "chipBalance" in grant ? grant.chipBalance : grant.newBalance,
+          orderId: purchaseData.orderId,
+          idempotent: grant.idempotent,
+        });
         return;
       }
 
@@ -1640,6 +1853,10 @@ export async function registerRoutes(
       const existing = await storage.getPurchaseTransactionByToken(purchaseToken);
       let txnId: string;
       if (existing) {
+        if (existing.playerId !== playerId || existing.productId !== productId) {
+          res.status(409).json({ error: "Purchase token is bound to a different account or product." });
+          return;
+        }
         if (existing.verificationStatus === "verified") {
           res.json({
             stripesGranted: existing.stripesGranted,
@@ -1648,14 +1865,7 @@ export async function registerRoutes(
           });
           return;
         }
-        if (existing.verificationStatus === "pending") {
-          res.status(409).json({ error: "Purchase is still being processed. Please wait." });
-          return;
-        }
-        if (existing.verificationStatus === "failed_retryable") {
-          // Previous attempt crashed before Google responded (e.g. missing googleapis bundle).
-          // Reset to pending and allow this attempt to proceed through full verification.
-          await storage.updatePurchaseTransactionStatus(existing.id, "pending");
+        if (existing.verificationStatus === "pending" || existing.verificationStatus === "failed_retryable") {
           txnId = existing.id;
         } else {
           // "rejected" (Google confirmed bad) or "refunded" — permanently blocked.
@@ -1675,6 +1885,10 @@ export async function registerRoutes(
         txnId = txn.id;
       }
 
+      if (!await storage.claimPurchaseVerification(txnId, new Date(), 5 * 60_000)) {
+        res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+        return;
+      }
       // Server-side Google Play verification
       let purchaseData;
       try {
@@ -1720,29 +1934,14 @@ export async function registerRoutes(
         }
       }
 
-      // Credit Stripes (atomic via stripe_transactions audit table)
-      await storage.creditStripes(playerId, pack.stripes, `purchase:${productId}`);
-
-      // Fix B: chip_transactions audit row for IAP (amountChange=0 — Stripes grant, not chips).
-      // Provides a single ledger trail linking every IAP event to a chip_transactions row.
-      const iapProfile = await storage.getPlayerProfile(playerId);
-      await storage.recordChipTransaction({
+      await storage.completeStripePurchase({
+        purchaseTransactionId: txnId,
         playerId,
-        beforeBalance: iapProfile?.chipBalance ?? 0,
-        amountChange:  0,
-        afterBalance:  iapProfile?.chipBalance ?? 0,
-        reason:        'iap_purchase',
-        source:        'google_play',
-        metadata:      { productId, purchaseToken: purchaseToken.slice(0, 20) },
+        productId,
+        stripes: pack.stripes,
+        source: "google_play",
+        orderId: purchaseData.orderId,
       });
-
-      // Mark verified with Google's orderId
-      await storage.updatePurchaseTransactionStatus(
-        txnId,
-        "verified",
-        purchaseData.orderId,
-        new Date(),
-      );
 
       // Acknowledge (consume) so Google allows re-purchase and doesn't auto-refund
       try {
@@ -1789,13 +1988,17 @@ export async function registerRoutes(
       // ── Club chip IAP: credits chips directly to the crew bank ────────────────
       const clubPack = CLUB_CHIP_PACKS[productId];
       if (clubPack) {
-        if (!crewId) {
-          res.status(400).json({ error: 'crewId required for club chip purchases' });
-          return;
-        }
-
         // Use the Apple transactionId as the dedup key, matching Stripes purchases.
         const existing = await storage.getPurchaseTransactionByToken(transactionId);
+        if (existing?.crewId && crewId && existing.crewId !== crewId) {
+          res.status(409).json({ error: "Purchase is bound to a different club." });
+          return;
+        }
+        const resolvedCrewId = existing?.crewId ?? crewId;
+        if (!resolvedCrewId) {
+          res.status(400).json({ error: "crewId required for club chip purchases." });
+          return;
+        }
         let txnId: string;
         if (existing) {
           if (existing.playerId !== playerId) {
@@ -1809,18 +2012,13 @@ export async function registerRoutes(
           if (existing.verificationStatus === 'verified') {
             res.json({
               chipsGranted: clubPack.chips,
-              crewId,
+              crewId: resolvedCrewId,
               orderId: existing.googleOrderId ?? transactionId,
               idempotent: true,
             });
             return;
           }
-          if (existing.verificationStatus === 'pending') {
-            res.status(409).json({ error: 'Purchase is still being processed. Please wait and try again.' });
-            return;
-          }
-          if (existing.verificationStatus === 'failed_retryable') {
-            await storage.updatePurchaseTransactionStatus(existing.id, 'pending');
+          if (existing.verificationStatus === 'pending' || existing.verificationStatus === 'failed_retryable') {
             txnId = existing.id;
           } else {
             res.status(409).json({ error: 'Purchase token already used or rejected.' });
@@ -1830,6 +2028,7 @@ export async function registerRoutes(
           const txn = await storage.createPurchaseTransaction({
             playerId,
             productId,
+            crewId: resolvedCrewId,
             stripesGranted:     0,
             priceUsdCents:      clubPack.priceCents,
             purchaseToken:      transactionId,
@@ -1838,6 +2037,10 @@ export async function registerRoutes(
           txnId = txn.id;
         }
 
+        if (!await storage.claimPurchaseVerification(txnId, new Date(), 5 * 60_000)) {
+          res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+          return;
+        }
         let appleClubData: ApplePurchaseData;
         try {
           appleClubData = await verifyAppleAppStorePurchase(transactionId);
@@ -1866,21 +2069,29 @@ export async function registerRoutes(
           res.status(403).json({ error: 'Purchase authorization failed: account ID mismatch' });
           return;
         }
-        await storage.addChipsToCrewBank(crewId, playerId, clubPack.chips);
-        await storage.updatePurchaseTransactionStatus(
-          txnId,
-          'verified',
-          appleClubData.originalTransactionId,
-          new Date(),
-        );
-        console.log(`[billing:apple] club-chips: player=${playerId} crewId=${crewId} chips=+${clubPack.chips}`);
-        res.json({ chipsGranted: clubPack.chips, crewId, orderId: appleClubData.originalTransactionId });
+        const clubGrant = await storage.completeCrewChipPurchase({
+          purchaseTransactionId: txnId,
+          playerId,
+          productId,
+          crewId: resolvedCrewId,
+          chips: clubPack.chips,
+          orderId: appleClubData.originalTransactionId,
+        });
+        console.log(`[billing:apple] club-chips: player=${playerId} crewId=${resolvedCrewId} chips=+${clubPack.chips}`);
+        res.json({
+          chipsGranted: clubPack.chips,
+          crewId: resolvedCrewId,
+          orderId: appleClubData.originalTransactionId,
+          idempotent: clubGrant.idempotent,
+        });
         return;
       }
 
       // ── Personal chip pack IAP: server-verify, then credit player chips ─────
       const personalPack = PERSONAL_CHIP_PACK_CATALOG[productId];
       if (personalPack) {
+        const isFirstPurchaseBundle = productId === FIRST_PURCHASE_BUNDLE.googleId
+          || productId === FIRST_PURCHASE_BUNDLE.appleId;
         let purchase = await storage.getPurchaseTransactionByToken(transactionId);
         if (purchase) {
           if (purchase.playerId !== playerId) {
@@ -1891,21 +2102,19 @@ export async function registerRoutes(
             res.status(409).json({ error: "Purchase token was created for a different product." });
             return;
           }
-          if (purchase.verificationStatus === "pending") {
-            res.status(409).json({ error: "Purchase is still being processed. Please wait and try again." });
-            return;
-          }
-          if (purchase.verificationStatus !== "verified" && purchase.verificationStatus !== "failed_retryable") {
+          if (purchase.verificationStatus !== "verified"
+            && purchase.verificationStatus !== "pending"
+            && purchase.verificationStatus !== "failed_retryable") {
             res.status(409).json({ error: "Purchase token already used or rejected." });
             return;
-          }
-          if (purchase.verificationStatus === "failed_retryable") {
-            await storage.updatePurchaseTransactionStatus(purchase.id, "pending");
           }
         } else {
           try {
             purchase = await storage.createPurchaseTransaction({
-              playerId, productId, stripesGranted: 0, chipsGranted: 0,
+              playerId,
+              productId,
+              stripesGranted: isFirstPurchaseBundle ? FIRST_PURCHASE_BUNDLE.stripes : 0,
+              chipsGranted: 0,
               priceUsdCents: personalPack.priceCents,
               purchaseToken: transactionId,
               verificationStatus: "pending",
@@ -1926,6 +2135,11 @@ export async function registerRoutes(
           }
         }
 
+        if (purchase.verificationStatus !== "verified"
+          && !await storage.claimPurchaseVerification(purchase.id, new Date(), 5 * 60_000)) {
+          res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+          return;
+        }
         let appleData: ApplePurchaseData;
         try {
           appleData = await verifyAppleAppStorePurchase(transactionId);
@@ -1937,7 +2151,12 @@ export async function registerRoutes(
           return;
         }
         if (appleData.revocationReason !== undefined) {
-          await storage.debitChipsForRefund(purchase.id);
+          if (appleData.productId !== productId
+            || !isApplePurchaseAccountBound(appleData.appAccountToken, playerId)) {
+            res.status(403).json({ error: "Refunded Apple transaction account or product mismatch." });
+            return;
+          }
+          await storage.refundConsumablePurchase(purchase.id, playerId, productId);
           res.status(402).json({ error: "Apple purchase was refunded or revoked." });
           return;
         }
@@ -1955,6 +2174,15 @@ export async function registerRoutes(
           res.status(403).json({ error: "Purchase authorization failed: account ID mismatch or missing" });
           return;
         }
+        if (isFirstPurchaseBundle && purchase.verificationStatus === "verified") {
+          res.json({
+            chipsGranted: purchase.chipsGranted,
+            stripesGranted: purchase.stripesGranted,
+            orderId: appleData.originalTransactionId,
+            idempotent: true,
+          });
+          return;
+        }
         if (productId === BUST_RESCUE_PRODUCT.appleId) {
           const offer = await storage.getBustRescueOffer(playerId);
           const purchaseAt = appleData.purchaseDate ? new Date(appleData.purchaseDate) : null;
@@ -1967,14 +2195,45 @@ export async function registerRoutes(
             return;
           }
         }
-        const grant = await storage.completePersonalChipPurchase({
-          purchaseTransactionId: purchase.id,
-          playerId,
-          productId,
-          chips: personalPack.chips,
+        let grant;
+        if (isFirstPurchaseBundle) {
+          const offer = await storage.getFirstPurchaseOffer(playerId);
+          const purchaseAt = appleData.purchaseDate ? new Date(appleData.purchaseDate) : null;
+          if (!purchaseAt || Number.isNaN(purchaseAt.getTime())
+            || !isFirstPurchaseBundlePurchaseValid(offer, purchaseAt)) {
+            if (purchase.verificationStatus !== "verified") {
+              await storage.updatePurchaseTransactionStatus(purchase.id, "rejected");
+            }
+            res.status(409).json({
+              error: "This first-purchase bundle was outside its valid offer window or the account already purchased.",
+            });
+            return;
+          }
+          grant = await storage.completeFirstPurchaseBundle({
+            purchaseTransactionId: purchase.id,
+            playerId,
+            productId,
+            chips: FIRST_PURCHASE_BUNDLE.chips,
+            stripes: FIRST_PURCHASE_BUNDLE.stripes,
+            purchaseAt,
+            orderId: appleData.originalTransactionId,
+          });
+        } else {
+          grant = await storage.completePersonalChipPurchase({
+            purchaseTransactionId: purchase.id,
+            playerId,
+            productId,
+            chips: personalPack.chips,
+            orderId: appleData.originalTransactionId,
+          });
+        }
+        res.json({
+          chipsGranted: personalPack.chips,
+          stripesGranted: isFirstPurchaseBundle ? FIRST_PURCHASE_BUNDLE.stripes : 0,
+          newBalance: "chipBalance" in grant ? grant.chipBalance : grant.newBalance,
           orderId: appleData.originalTransactionId,
+          idempotent: grant.idempotent,
         });
-        res.json({ chipsGranted: personalPack.chips, newBalance: grant.newBalance, orderId: appleData.originalTransactionId, idempotent: grant.idempotent });
         return;
       }
 
@@ -2001,12 +2260,7 @@ export async function registerRoutes(
           res.json({ stripesGranted: existing.stripesGranted, orderId: existing.googleOrderId ?? transactionId, idempotent: true });
           return;
         }
-        if (existing.verificationStatus === 'pending') {
-          res.status(409).json({ error: 'Purchase is still being processed. Please wait and try again.' });
-          return;
-        }
-        if (existing.verificationStatus === 'failed_retryable') {
-          await storage.updatePurchaseTransactionStatus(existing.id, 'pending');
+        if (existing.verificationStatus === 'pending' || existing.verificationStatus === 'failed_retryable') {
           txnId = existing.id;
         } else {
           res.status(409).json({ error: 'Purchase token already used or rejected.' });
@@ -2024,6 +2278,10 @@ export async function registerRoutes(
         txnId = txn.id;
       }
 
+      if (!await storage.claimPurchaseVerification(txnId, new Date(), 5 * 60_000)) {
+        res.status(409).json({ error: "Purchase verification is already in progress. Retry shortly." });
+        return;
+      }
       // Verify with Apple App Store Server API
       let appleData: ApplePurchaseData;
       try {
@@ -2037,7 +2295,12 @@ export async function registerRoutes(
 
       // Reject refunded / revoked purchases
       if (appleData.revocationReason !== undefined) {
-        await storage.updatePurchaseTransactionStatus(txnId, 'rejected');
+        if (appleData.productId !== productId
+          || !isApplePurchaseAccountBound(appleData.appAccountToken, playerId)) {
+          res.status(403).json({ error: "Refunded Apple transaction account or product mismatch." });
+          return;
+        }
+        await storage.refundConsumablePurchase(txnId, playerId, productId);
         res.status(402).json({ error: 'Apple purchase was refunded or revoked.' });
         return;
       }
@@ -2067,27 +2330,14 @@ export async function registerRoutes(
         return;
       }
 
-      // Credit Stripes to the player's account
-      await storage.creditStripes(playerId, pack.stripes, `purchase:${productId}`);
-
-      const iapProfile = await storage.getPlayerProfile(playerId);
-      await storage.recordChipTransaction({
+      await storage.completeStripePurchase({
+        purchaseTransactionId: txnId,
         playerId,
-        beforeBalance: iapProfile?.chipBalance ?? 0,
-        amountChange:  0,
-        afterBalance:  iapProfile?.chipBalance ?? 0,
-        reason:        'iap_purchase',
-        source:        'apple_appstore',
-        metadata:      { productId, transactionId: transactionId.slice(0, 40), environment: appleData.environment },
+        productId,
+        stripes: pack.stripes,
+        source: "apple_appstore",
+        orderId: appleData.originalTransactionId,
       });
-
-      // Mark verified using Apple's originalTransactionId as the orderId
-      await storage.updatePurchaseTransactionStatus(
-        txnId,
-        'verified',
-        appleData.originalTransactionId,
-        new Date(),
-      );
 
       // No server-side acknowledgement needed for Apple consumables:
       // the client calls transaction.finish() which tells StoreKit to remove the transaction
@@ -2235,12 +2485,10 @@ export async function registerRoutes(
       if (voidedPurchase?.purchaseToken) {
         const token = voidedPurchase.purchaseToken as string;
         const txn = await storage.getPurchaseTransactionByToken(token);
-        if (txn && (txn.verificationStatus === "verified" || PERSONAL_CHIP_PACK_CATALOG[txn.productId])) {
-          if (PERSONAL_CHIP_PACK_CATALOG[txn.productId]) {
-            await storage.debitChipsForRefund(txn.id);
-          } else {
-            await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
-          }
+        if (txn && (txn.verificationStatus === "verified"
+          || PERSONAL_CHIP_PACK_CATALOG[txn.productId]
+          || CLUB_CHIP_PACKS[txn.productId])) {
+          await storage.refundConsumablePurchase(txn.id, txn.playerId, txn.productId);
           console.log(
             `[billing:play] play-webhook: event=voidedPurchase ` +
             `player=${txn.playerId} ` +
@@ -2359,12 +2607,10 @@ export async function registerRoutes(
         // Look up the player via the purchase_transaction row — never trust
         // a player ID from the webhook body itself.
         const txn = await storage.getPurchaseTransactionByToken(token);
-        if (txn && (txn.verificationStatus === "verified" || PERSONAL_CHIP_PACK_CATALOG[txn.productId])) {
-          if (PERSONAL_CHIP_PACK_CATALOG[txn.productId]) {
-            await storage.debitChipsForRefund(txn.id);
-          } else {
-            await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
-          }
+        if (txn && (txn.verificationStatus === "verified"
+          || PERSONAL_CHIP_PACK_CATALOG[txn.productId]
+          || CLUB_CHIP_PACKS[txn.productId])) {
+          await storage.refundConsumablePurchase(txn.id, txn.playerId, txn.productId);
           console.log(
             `[billing] refund-webhook: event=voidedPurchase ` +
             `player=${txn.playerId} ` +
@@ -2505,12 +2751,10 @@ export async function registerRoutes(
       if (voidedPurchase?.purchaseToken) {
         const token = voidedPurchase.purchaseToken as string;
         const txn = await storage.getPurchaseTransactionByToken(token);
-        if (txn && (txn.verificationStatus === "verified" || PERSONAL_CHIP_PACK_CATALOG[txn.productId])) {
-          if (PERSONAL_CHIP_PACK_CATALOG[txn.productId]) {
-            await storage.debitChipsForRefund(txn.id);
-          } else {
-            await storage.debitStripesForRefund(txn.playerId, txn.stripesGranted, txn.id);
-          }
+        if (txn && (txn.verificationStatus === "verified"
+          || PERSONAL_CHIP_PACK_CATALOG[txn.productId]
+          || CLUB_CHIP_PACKS[txn.productId])) {
+          await storage.refundConsumablePurchase(txn.id, txn.playerId, txn.productId);
           console.log(
             `[billing:sub] subscription-webhook: event=voidedPurchase ` +
             `player=${txn.playerId} ` +

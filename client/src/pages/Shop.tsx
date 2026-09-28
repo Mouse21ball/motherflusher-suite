@@ -4,10 +4,13 @@ import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/p
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
+import { apiUrl } from '@/lib/apiConfig';
+import { getSessionToken } from '@/lib/session';
 import {
   APPLE_PERSONAL_CHIP_PRODUCTS,
   GOOGLE_PERSONAL_CHIP_PRODUCTS,
   PERSONAL_CHIP_PACKS,
+  FIRST_PURCHASE_BUNDLE,
   GOOGLE_SUBSCRIPTION_PRODUCT_IDS,
 } from '@shared/billingProducts';
 import {
@@ -151,6 +154,13 @@ export default function Shop() {
 
   const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
   const [purchaseMsg,  setPurchaseMsg]  = useState<string | null>(null);
+  const [firstPurchaseOffer, setFirstPurchaseOffer] = useState<{
+    eligible: boolean;
+    available: boolean;
+    claimed: boolean;
+    expiresAt: string | null;
+  } | null>(null);
+  const [offerClock, setOfferClock] = useState(Date.now());
 
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [subStatus,     setSubStatus]     = useState<ActiveSubscription | null>(null);
@@ -160,6 +170,35 @@ export default function Shop() {
   const [appleProductReadiness, setAppleProductReadiness] = useState<Record<string, SubscriptionProductReadiness>>(
     Object.fromEntries(APPLE_SUBSCRIPTION_PRODUCT_IDS.map(id => [id, 'loading'])),
   );
+
+  async function refreshFirstPurchaseOffer() {
+    try {
+      const response = await fetch(apiUrl('/api/billing/first-purchase-offer'), {
+        method: 'POST',
+        headers: { 'X-Session-Token': getSessionToken() ?? '' },
+      });
+      if (!response.ok) {
+        setFirstPurchaseOffer(null);
+        return;
+      }
+      const data = await response.json();
+      setFirstPurchaseOffer(data);
+    } catch {
+      setFirstPurchaseOffer(null);
+    }
+  }
+
+  useEffect(() => {
+    void refreshFirstPurchaseOffer();
+    const refresh = window.setInterval(() => void refreshFirstPurchaseOffer(), 30_000);
+    return () => window.clearInterval(refresh);
+  }, []);
+
+  useEffect(() => {
+    if (!firstPurchaseOffer?.available || !firstPurchaseOffer.expiresAt) return;
+    const timer = window.setInterval(() => setOfferClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [firstPurchaseOffer?.available, firstPurchaseOffer?.expiresAt]);
 
   useEffect(() => {
     billing.getActiveSubscription().then(setSubStatus).catch(() => {});
@@ -175,6 +214,7 @@ export default function Shop() {
         setPurchaseMsg('✓ Your delayed purchase was verified and applied.');
       }
       refetch();
+      void refreshFirstPurchaseOffer();
     };
     window.addEventListener('billing:purchase-reconciled', handleReconciledPurchase);
     return () => window.removeEventListener('billing:purchase-reconciled', handleReconciledPurchase);
@@ -303,12 +343,41 @@ export default function Shop() {
     setPurchaseMsg(null);
     try {
       const result = await billing.purchase(productId);
-      setPurchaseMsg(result.chipsGranted
+      setPurchaseMsg(result.productId === FIRST_PURCHASE_BUNDLE.googleId
+        || result.productId === FIRST_PURCHASE_BUNDLE.appleId
+        ? `✓ ${result.chipsGranted?.toLocaleString()} personal chips + ${result.stripesGranted}◆ Stripes added!`
+        : result.chipsGranted
         ? `✓ ${result.chipsGranted.toLocaleString()} personal chips added!`
         : `✓ ${result.stripesGranted}◆ Stripes added!`);
       refetch();
+      void refreshFirstPurchaseOffer();
     } catch (err: any) {
       setPurchaseMsg(err.message ?? 'Purchase failed');
+    } finally {
+      setPurchaseBusy(null);
+    }
+  }
+
+  async function handleFirstPurchaseBundle() {
+    const googleProductId = FIRST_PURCHASE_BUNDLE.googleId;
+    setPurchaseBusy(googleProductId);
+    setPurchaseMsg(null);
+    try {
+      const claim = await fetch(apiUrl('/api/billing/first-purchase-offer/claim'), {
+        method: 'POST',
+        headers: { 'X-Session-Token': getSessionToken() ?? '' },
+      });
+      const claimData = await claim.json().catch(() => ({}));
+      if (!claim.ok) throw new Error(claimData.error ?? 'This offer is no longer available.');
+      setFirstPurchaseOffer(current => current ? { ...current, claimed: true, available: false } : null);
+      const productId = isIOS ? claimData.appleProductId : claimData.productId;
+      const result = await billing.purchase(productId);
+      setPurchaseMsg(`✓ ${result.chipsGranted?.toLocaleString()} personal chips + ${result.stripesGranted}◆ Stripes added!`);
+      refetch();
+      void refreshFirstPurchaseOffer();
+    } catch (err: any) {
+      setPurchaseMsg(err.message ?? 'Bundle purchase failed');
+      void refreshFirstPurchaseOffer();
     } finally {
       setPurchaseBusy(null);
     }
@@ -337,6 +406,7 @@ export default function Shop() {
         setSubscriptionSuccessTrace(true);
       }
       refetch();
+      void refreshFirstPurchaseOffer();
     } catch (err: unknown) {
       setSubMsg(subscriptionErrorMessage(err));
     } finally {
@@ -377,6 +447,12 @@ export default function Shop() {
   const eliteCardState  = getCardState(eliteTier);
   const eliteIsActive   = eliteCardState === 'active';
   const elitePrice      = `${subscriptionPriceFor(eliteTier)}${billingPeriod === 'monthly' ? '/MO' : '/YR'}`;
+  const firstPurchaseMsLeft = firstPurchaseOffer?.expiresAt
+    ? Math.max(0, new Date(firstPurchaseOffer.expiresAt).getTime() - offerClock)
+    : 0;
+  const firstPurchaseCountdown = `${String(Math.floor(firstPurchaseMsLeft / 3_600_000)).padStart(2, '0')}:` +
+    `${String(Math.floor((firstPurchaseMsLeft % 3_600_000) / 60_000)).padStart(2, '0')}:` +
+    `${String(Math.floor((firstPurchaseMsLeft % 60_000) / 1_000)).padStart(2, '0')}`;
 
   // ── CTA button renderer for tier cards ─────────────────────────────────────
   function TierCTA({ tier }: { tier: TierDef }) {
@@ -1041,6 +1117,49 @@ export default function Shop() {
               Personal chip purchases never fund or debit a crew chip bank.
             </p>
           </div>
+
+          {firstPurchaseOffer?.eligible
+            && firstPurchaseOffer.available
+            && !firstPurchaseOffer.claimed
+            && firstPurchaseMsLeft > 0 && (
+            <div
+              className="mb-6 rounded-2xl p-4"
+              style={{
+                border: '1px solid rgba(255,107,26,0.7)',
+                background: 'linear-gradient(135deg, rgba(255,107,26,0.20), rgba(201,162,39,0.13))',
+                boxShadow: '0 0 24px rgba(255,107,26,0.15)',
+              }}
+              data-testid="first-purchase-bundle-offer"
+            >
+              <div className="text-center font-black text-lg tracking-wide text-[#FFD36B]">
+                FIRST-PURCHASE SPECIAL
+              </div>
+              <p className="text-center text-xs text-white/75 mt-1">
+                One-time offer — expires in <span className="font-mono font-bold text-[#FFB36B]" data-testid="first-purchase-countdown">{firstPurchaseCountdown}</span>
+              </p>
+              <div className="my-4 text-center">
+                <div className="font-mono font-black text-2xl text-white">
+                  {FIRST_PURCHASE_BUNDLE.chips.toLocaleString()} chips + {FIRST_PURCHASE_BUNDLE.stripes}◆
+                </div>
+                <div className="text-xl font-black text-[#FFD36B]">$1.99</div>
+              </div>
+              <button
+                onClick={handleFirstPurchaseBundle}
+                disabled={!!purchaseBusy || firstPurchaseMsLeft <= 0}
+                className="w-full rounded-xl py-3 font-black tracking-wide text-[#0B0B0D] transition active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, #FFD36B, #FF8C42)',
+                  opacity: purchaseBusy ? 0.5 : 1,
+                }}
+                data-testid="button-first-purchase-bundle"
+              >
+                {purchaseBusy === FIRST_PURCHASE_BUNDLE.googleId ? '…' : 'CLAIM ONE-TIME BUNDLE — $1.99'}
+              </button>
+              <p className="text-[10px] text-center text-white/45 mt-2">
+                For new purchasers only. Chips and Stripes have no real-world value.
+              </p>
+            </div>
+          )}
 
           <div className="h-24" />
         </div>

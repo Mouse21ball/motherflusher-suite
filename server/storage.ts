@@ -13,7 +13,7 @@ import {
   type StripeTransaction,
   type AdminAction,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, playerReferrals, purchaseTransactions,
-  bustRescueOffers,
+  bustRescueOffers, firstPurchaseOffers,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
@@ -35,7 +35,7 @@ import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, ne, notLike, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
+import { eq, ne, notLike, sql, and, or, gte, isNull, lt, lte, gt, desc, ilike, asc, inArray } from "drizzle-orm";
 import { handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
@@ -140,6 +140,7 @@ export interface IStorage {
     productId:          string;
     stripesGranted:     number;
     chipsGranted?:      number;
+    crewId?:            string;
     priceUsdCents:      number;
     purchaseToken:      string;
     verificationStatus?: string;
@@ -161,6 +162,30 @@ export interface IStorage {
     orderId?: string;
   }): Promise<{ idempotent: boolean; newBalance: number }>;
   debitChipsForRefund(purchaseTransactionId: string): Promise<boolean>;
+  claimPurchaseVerification(purchaseTransactionId: string, now: Date, leaseMs: number): Promise<boolean>;
+  refundConsumablePurchase(purchaseTransactionId: string, playerId: string, productId: string): Promise<boolean>;
+  hasPriorPaidPurchase(playerId: string): Promise<boolean>;
+  issueFirstPurchaseOffer(playerId: string, now: Date, durationMs: number): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  } | null>;
+  claimFirstPurchaseOffer(playerId: string, now: Date): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  } | null>;
+  getFirstPurchaseOffer(playerId: string): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  } | null>;
+  completeFirstPurchaseBundle(params: {
+    purchaseTransactionId: string; playerId: string; productId: string;
+    chips: number; stripes: number; purchaseAt: Date; orderId?: string;
+  }): Promise<{ idempotent: boolean; chipBalance: number; stripesBalance: number }>;
+  completeCrewChipPurchase(params: {
+    purchaseTransactionId: string; playerId: string; productId: string;
+    crewId: string; chips: number; orderId?: string;
+  }): Promise<{ idempotent: boolean; newBankBalance: number }>;
+  completeStripePurchase(params: {
+    purchaseTransactionId: string; playerId: string; productId: string;
+    stripes: number; source: "google_play" | "apple_appstore"; orderId?: string;
+  }): Promise<{ idempotent: boolean; newBalance: number }>;
   issueBustRescueOffer(playerId: string, now: Date, durationMs: number): Promise<{
     issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
   }>;
@@ -1716,6 +1741,7 @@ export class MemStorage implements IStorage {
     productId:           string;
     stripesGranted:      number;
     chipsGranted?:       number;
+    crewId?:             string;
     priceUsdCents:       number;
     purchaseToken:       string;
     verificationStatus?: string;
@@ -1728,6 +1754,8 @@ export class MemStorage implements IStorage {
       productId:          data.productId,
       stripesGranted:     data.stripesGranted,
       chipsGranted:       data.chipsGranted ?? 0,
+      crewId:             data.crewId ?? null,
+      verificationLeaseUntil: null,
       priceUsdCents:      data.priceUsdCents,
       purchaseToken:      data.purchaseToken,
       verificationStatus: data.verificationStatus ?? "pending",
@@ -1758,10 +1786,168 @@ export class MemStorage implements IStorage {
       .update(purchaseTransactions)
       .set({
         verificationStatus: status,
+        verificationLeaseUntil: null,
         ...(googleOrderId !== undefined ? { googleOrderId } : {}),
         ...(verifiedAt    !== undefined ? { verifiedAt    } : {}),
       })
       .where(eq(purchaseTransactions.id, id));
+  }
+
+  async claimPurchaseVerification(
+    purchaseTransactionId: string,
+    now: Date,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const [claimed] = await db.update(purchaseTransactions)
+      .set({
+        verificationStatus: "pending",
+        verificationLeaseUntil: new Date(now.getTime() + leaseMs),
+      })
+      .where(and(
+        eq(purchaseTransactions.id, purchaseTransactionId),
+        inArray(purchaseTransactions.verificationStatus, ["pending", "failed_retryable"]),
+        or(isNull(purchaseTransactions.verificationLeaseUntil), lte(purchaseTransactions.verificationLeaseUntil, now)),
+      ))
+      .returning({ id: purchaseTransactions.id });
+    return !!claimed;
+  }
+
+  async completeStripePurchase(params: {
+    purchaseTransactionId: string;
+    playerId: string;
+    productId: string;
+    stripes: number;
+    source: "google_play" | "apple_appstore";
+    orderId?: string;
+  }): Promise<{ idempotent: boolean; newBalance: number }> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, params.purchaseTransactionId)).for("update");
+      if (!purchase || purchase.playerId !== params.playerId || purchase.productId !== params.productId) {
+        throw new Error("Stripe purchase transaction binding mismatch");
+      }
+      if (purchase.verificationStatus === "verified") {
+        const [profile] = await tx.select({ stripes: playerProfiles.stripes })
+          .from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).limit(1);
+        return { idempotent: true, newBalance: profile?.stripes ?? 0 };
+      }
+      if (purchase.verificationStatus !== "pending") {
+        throw new Error(`Stripe purchase cannot be completed from ${purchase.verificationStatus}`);
+      }
+      const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance, stripes: playerProfiles.stripes })
+        .from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).for("update");
+      if (!profile) throw new Error("Player profile not found for Stripe purchase");
+      const newBalance = profile.stripes + params.stripes;
+      const now = new Date();
+      await tx.update(playerProfiles).set({ stripes: newBalance, updatedAt: now })
+        .where(eq(playerProfiles.id, params.playerId));
+      await tx.insert(stripeTransactions).values({
+        playerId: params.playerId,
+        amount: params.stripes,
+        reason: `purchase:${params.productId}`,
+        balanceAfter: newBalance,
+      });
+      await this._insertChipLedger(tx, {
+        playerId: params.playerId,
+        beforeBalance: profile.chipBalance,
+        amountChange: 0,
+        afterBalance: profile.chipBalance,
+        reason: "iap_purchase",
+        source: params.source,
+        metadata: { productId: params.productId, purchaseTransactionId: purchase.id },
+      });
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "verified",
+        stripesGranted: params.stripes,
+        verificationLeaseUntil: null,
+        ...(params.orderId ? { googleOrderId: params.orderId } : {}),
+        verifiedAt: now,
+      }).where(eq(purchaseTransactions.id, purchase.id));
+      return { idempotent: false, newBalance };
+    });
+  }
+
+  async refundConsumablePurchase(
+    purchaseTransactionId: string,
+    playerId: string,
+    productId: string,
+  ): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, purchaseTransactionId)).for("update");
+      if (!purchase || purchase.playerId !== playerId || purchase.productId !== productId) {
+        throw new Error("Refund purchase transaction binding mismatch");
+      }
+      if (purchase.verificationStatus === "refunded") return false;
+      if (purchase.verificationStatus !== "verified") {
+        if (purchase.verificationStatus === "pending" || purchase.verificationStatus === "failed_retryable") {
+          await tx.update(purchaseTransactions).set({
+            verificationStatus: "refunded",
+            verificationLeaseUntil: null,
+          }).where(eq(purchaseTransactions.id, purchase.id));
+          return true;
+        }
+        return false;
+      }
+      if (purchase.crewId && purchase.chipsGranted > 0) {
+        const [crew] = await tx.select({ chipBank: crews.chipBank })
+          .from(crews).where(eq(crews.id, purchase.crewId)).for("update");
+        if (crew) {
+          await tx.update(crews).set({
+            chipBank: Math.max(0, crew.chipBank - purchase.chipsGranted),
+          }).where(eq(crews.id, purchase.crewId));
+        }
+        await tx.update(purchaseTransactions).set({
+          verificationStatus: "refunded",
+          verificationLeaseUntil: null,
+        }).where(eq(purchaseTransactions.id, purchase.id));
+        return true;
+      }
+      const [profile] = await tx.select({
+        chipBalance: playerProfiles.chipBalance,
+        stripes: playerProfiles.stripes,
+      }).from(playerProfiles).where(eq(playerProfiles.id, playerId)).for("update");
+      if (!profile) {
+        await tx.update(purchaseTransactions).set({
+          verificationStatus: "refunded",
+          verificationLeaseUntil: null,
+        }).where(eq(purchaseTransactions.id, purchase.id));
+        return true;
+      }
+      const chipsDebit = Math.min(purchase.chipsGranted, profile.chipBalance);
+      const stripesDebit = Math.min(purchase.stripesGranted, profile.stripes);
+      const chipBalance = profile.chipBalance - chipsDebit;
+      const stripesBalance = profile.stripes - stripesDebit;
+      await tx.update(playerProfiles).set({
+        chipBalance,
+        stripes: stripesBalance,
+        updatedAt: new Date(),
+      }).where(eq(playerProfiles.id, playerId));
+      if (purchase.chipsGranted > 0) {
+        await this._insertChipLedger(tx, {
+          playerId,
+          beforeBalance: profile.chipBalance,
+          amountChange: -chipsDebit,
+          afterBalance: chipBalance,
+          reason: "refund",
+          source: "personal_chip_purchase_refund",
+          metadata: { productId, purchaseTransactionId: purchase.id },
+        });
+      }
+      if (purchase.stripesGranted > 0) {
+        await tx.insert(stripeTransactions).values({
+          playerId,
+          amount: -stripesDebit,
+          reason: `refund:${purchase.id}`,
+          balanceAfter: stripesBalance,
+        });
+      }
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "refunded",
+        verificationLeaseUntil: null,
+      }).where(eq(purchaseTransactions.id, purchase.id));
+      return true;
+    });
   }
 
   async completePersonalChipPurchase(params: {
@@ -1807,6 +1993,7 @@ export class MemStorage implements IStorage {
       await tx.update(purchaseTransactions).set({
         verificationStatus: "verified",
         chipsGranted: params.chips,
+        verificationLeaseUntil: null,
         ...(params.orderId ? { googleOrderId: params.orderId } : {}),
         verifiedAt: new Date(),
       }).where(eq(purchaseTransactions.id, purchase.id));
@@ -1823,7 +2010,10 @@ export class MemStorage implements IStorage {
         if (purchase.verificationStatus === "pending" || purchase.verificationStatus === "failed_retryable") {
           // A store void notification can beat the client-side receipt verification.
           // Persist it so a later verified callback cannot grant a refunded purchase.
-          await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+          await tx.update(purchaseTransactions).set({
+            verificationStatus: "refunded",
+            verificationLeaseUntil: null,
+          })
             .where(eq(purchaseTransactions.id, purchase.id));
           return true;
         }
@@ -1833,7 +2023,10 @@ export class MemStorage implements IStorage {
       const [profile] = await tx.select({ chipBalance: playerProfiles.chipBalance })
         .from(playerProfiles).where(eq(playerProfiles.id, purchase.playerId)).for("update");
       if (!profile) {
-        await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+        await tx.update(purchaseTransactions).set({
+          verificationStatus: "refunded",
+          verificationLeaseUntil: null,
+        })
           .where(eq(purchaseTransactions.id, purchase.id));
         return true;
       }
@@ -1851,7 +2044,27 @@ export class MemStorage implements IStorage {
         source: "personal_chip_purchase_refund",
         metadata: { productId: purchase.productId, purchaseTransactionId: purchase.id },
       });
-      await tx.update(purchaseTransactions).set({ verificationStatus: "refunded" })
+      if (purchase.stripesGranted > 0) {
+        const [stripeProfile] = await tx.select({ stripes: playerProfiles.stripes })
+          .from(playerProfiles).where(eq(playerProfiles.id, purchase.playerId)).for("update");
+        if (stripeProfile) {
+          const stripeDebit = Math.min(purchase.stripesGranted, stripeProfile.stripes);
+          const newStripes = stripeProfile.stripes - stripeDebit;
+          await tx.update(playerProfiles)
+            .set({ stripes: newStripes, updatedAt: new Date() })
+            .where(eq(playerProfiles.id, purchase.playerId));
+          await tx.insert(stripeTransactions).values({
+            playerId: purchase.playerId,
+            amount: -stripeDebit,
+            reason: `refund:${purchase.id}`,
+            balanceAfter: newStripes,
+          });
+        }
+      }
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "refunded",
+        verificationLeaseUntil: null,
+      })
         .where(eq(purchaseTransactions.id, purchase.id));
       return true;
     });
@@ -1895,6 +2108,186 @@ export class MemStorage implements IStorage {
       claimedAt: bustRescueOffers.claimedAt,
     }).from(bustRescueOffers).where(eq(bustRescueOffers.playerId, playerId)).limit(1);
     return offer ?? null;
+  }
+
+  async hasPriorPaidPurchase(playerId: string): Promise<boolean> {
+    const [purchase] = await db.select({ id: purchaseTransactions.id })
+      .from(purchaseTransactions)
+      .where(and(
+        eq(purchaseTransactions.playerId, playerId),
+        inArray(purchaseTransactions.verificationStatus, ["verified", "refunded"]),
+      )).limit(1);
+    if (purchase) return true;
+    const [subscription] = await db.select({ id: subscriptions.id })
+      .from(subscriptions).where(eq(subscriptions.playerId, playerId)).limit(1);
+    return !!subscription;
+  }
+
+  async issueFirstPurchaseOffer(playerId: string, now: Date, durationMs: number) {
+    if (await this.hasPriorPaidPurchase(playerId)) return null;
+    await db.insert(firstPurchaseOffers).values({
+      playerId,
+      issuedAt: now,
+      expiresAt: new Date(now.getTime() + durationMs),
+    }).onConflictDoNothing();
+    return this.getFirstPurchaseOffer(playerId);
+  }
+
+  async claimFirstPurchaseOffer(playerId: string, now: Date) {
+    // This is the checkout-time eligibility gate. Receipt finalization still
+    // honors a timely claimed bundle if a separate purchase settles afterward.
+    if (await this.hasPriorPaidPurchase(playerId)) return null;
+    const [offer] = await db.update(firstPurchaseOffers)
+      .set({ claimedAt: now })
+      .where(and(
+        eq(firstPurchaseOffers.playerId, playerId),
+        isNull(firstPurchaseOffers.claimedAt),
+        gt(firstPurchaseOffers.expiresAt, now),
+      ))
+      .returning({
+        issuedAt: firstPurchaseOffers.issuedAt,
+        expiresAt: firstPurchaseOffers.expiresAt,
+        claimedAt: firstPurchaseOffers.claimedAt,
+      });
+    return offer ?? null;
+  }
+
+  async getFirstPurchaseOffer(playerId: string) {
+    const [offer] = await db.select({
+      issuedAt: firstPurchaseOffers.issuedAt,
+      expiresAt: firstPurchaseOffers.expiresAt,
+      claimedAt: firstPurchaseOffers.claimedAt,
+    }).from(firstPurchaseOffers).where(eq(firstPurchaseOffers.playerId, playerId)).limit(1);
+    return offer ?? null;
+  }
+
+  async completeFirstPurchaseBundle(params: {
+    purchaseTransactionId: string;
+    playerId: string;
+    productId: string;
+    chips: number;
+    stripes: number;
+    purchaseAt: Date;
+    orderId?: string;
+  }): Promise<{ idempotent: boolean; chipBalance: number; stripesBalance: number }> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, params.purchaseTransactionId)).for("update");
+      if (!purchase || purchase.playerId !== params.playerId || purchase.productId !== params.productId) {
+        throw new Error("First-purchase bundle transaction binding mismatch");
+      }
+      if (purchase.verificationStatus === "verified") {
+        const [profile] = await tx.select({
+          chipBalance: playerProfiles.chipBalance,
+          stripes: playerProfiles.stripes,
+        }).from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).limit(1);
+        return {
+          idempotent: true,
+          chipBalance: profile?.chipBalance ?? 0,
+          stripesBalance: profile?.stripes ?? 0,
+        };
+      }
+      if (purchase.verificationStatus !== "pending") {
+        throw new Error(`First-purchase bundle cannot be completed from ${purchase.verificationStatus}`);
+      }
+      const [offer] = await tx.select({
+        issuedAt: firstPurchaseOffers.issuedAt,
+        expiresAt: firstPurchaseOffers.expiresAt,
+        claimedAt: firstPurchaseOffers.claimedAt,
+      }).from(firstPurchaseOffers)
+        .where(eq(firstPurchaseOffers.playerId, params.playerId)).for("update");
+      if (!offer?.claimedAt
+        || params.purchaseAt.getTime() < offer.issuedAt.getTime()
+        || params.purchaseAt.getTime() < offer.claimedAt.getTime()
+        || params.purchaseAt.getTime() >= offer.expiresAt.getTime()
+        || params.purchaseAt.getTime() > Date.now() + 60_000) {
+        throw new Error("First-purchase bundle offer is not valid for the verified store timestamp");
+      }
+      // Eligibility is checked atomically at offer claim. Do not reject a paid,
+      // in-window receipt here if another purchase settles after that claim.
+      const [profile] = await tx.select({
+        chipBalance: playerProfiles.chipBalance,
+        stripes: playerProfiles.stripes,
+      }).from(playerProfiles).where(eq(playerProfiles.id, params.playerId)).for("update");
+      if (!profile) throw new Error("Player profile not found for first-purchase bundle");
+      const chipBalance = profile.chipBalance + params.chips;
+      const stripesBalance = profile.stripes + params.stripes;
+      const now = new Date();
+      await tx.update(playerProfiles).set({
+        chipBalance: sql`${playerProfiles.chipBalance} + ${params.chips}`,
+        stripes: sql`${playerProfiles.stripes} + ${params.stripes}`,
+        updatedAt: now,
+      }).where(eq(playerProfiles.id, params.playerId));
+      await this._insertChipLedger(tx, {
+        playerId: params.playerId,
+        beforeBalance: profile.chipBalance,
+        amountChange: params.chips,
+        afterBalance: chipBalance,
+        reason: "iap_purchase",
+        source: "first_purchase_bundle",
+        metadata: { productId: params.productId, purchaseTransactionId: purchase.id },
+      });
+      await tx.insert(stripeTransactions).values({
+        playerId: params.playerId,
+        amount: params.stripes,
+        reason: `purchase:${params.productId}`,
+        balanceAfter: stripesBalance,
+      });
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "verified",
+        chipsGranted: params.chips,
+        stripesGranted: params.stripes,
+        verificationLeaseUntil: null,
+        ...(params.orderId ? { googleOrderId: params.orderId } : {}),
+        verifiedAt: now,
+      }).where(eq(purchaseTransactions.id, purchase.id));
+      return { idempotent: false, chipBalance, stripesBalance };
+    });
+  }
+
+  async completeCrewChipPurchase(params: {
+    purchaseTransactionId: string;
+    playerId: string;
+    productId: string;
+    crewId: string;
+    chips: number;
+    orderId?: string;
+  }): Promise<{ idempotent: boolean; newBankBalance: number }> {
+    return db.transaction(async (tx) => {
+      const [purchase] = await tx.select().from(purchaseTransactions)
+        .where(eq(purchaseTransactions.id, params.purchaseTransactionId)).for("update");
+      if (!purchase || purchase.playerId !== params.playerId || purchase.productId !== params.productId
+        || purchase.crewId !== params.crewId) {
+        throw new Error("Crew chip purchase transaction binding mismatch");
+      }
+      if (purchase.verificationStatus === "verified") {
+        const [crew] = await tx.select({ chipBank: crews.chipBank })
+          .from(crews).where(eq(crews.id, params.crewId)).limit(1);
+        return { idempotent: true, newBankBalance: crew?.chipBank ?? 0 };
+      }
+      if (purchase.verificationStatus !== "pending") {
+        throw new Error(`Crew chip purchase cannot be completed from ${purchase.verificationStatus}`);
+      }
+      const [membership] = await tx.select({ role: crewMembers.role })
+        .from(crewMembers)
+        .where(and(eq(crewMembers.crewId, params.crewId), eq(crewMembers.playerId, params.playerId)));
+      if (!membership || !["owner", "captain", "agent"].includes(membership.role)) {
+        throw Object.assign(new Error("Not authorized to fund this club bank"), { code: "unauthorized" });
+      }
+      const [crew] = await tx.update(crews)
+        .set({ chipBank: sql`COALESCE(${crews.chipBank}, 0) + ${params.chips}` })
+        .where(eq(crews.id, params.crewId))
+        .returning({ chipBank: crews.chipBank });
+      if (!crew) throw Object.assign(new Error("Crew not found"), { code: "crew_not_found" });
+      await tx.update(purchaseTransactions).set({
+        verificationStatus: "verified",
+        chipsGranted: params.chips,
+        verificationLeaseUntil: null,
+        ...(params.orderId ? { googleOrderId: params.orderId } : {}),
+        verifiedAt: new Date(),
+      }).where(eq(purchaseTransactions.id, purchase.id));
+      return { idempotent: false, newBankBalance: crew.chipBank };
+    });
   }
 
   async debitStripesForRefund(

@@ -22,6 +22,7 @@ import {
   GOOGLE_PERSONAL_CHIP_PRODUCTS,
   APPLE_PERSONAL_CHIP_PRODUCTS,
   BUST_RESCUE_PRODUCT,
+  FIRST_PURCHASE_BUNDLE,
 } from "../shared/billingProducts";
 
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
@@ -89,6 +90,14 @@ PERSONAL_CHIP_PACK_CATALOG[BUST_RESCUE_PRODUCT.googleId] = {
 PERSONAL_CHIP_PACK_CATALOG[BUST_RESCUE_PRODUCT.appleId] = {
   chips: BUST_RESCUE_PRODUCT.chips,
   priceCents: BUST_RESCUE_PRODUCT.priceCents,
+};
+PERSONAL_CHIP_PACK_CATALOG[FIRST_PURCHASE_BUNDLE.googleId] = {
+  chips: FIRST_PURCHASE_BUNDLE.chips,
+  priceCents: FIRST_PURCHASE_BUNDLE.priceCents,
+};
+PERSONAL_CHIP_PACK_CATALOG[FIRST_PURCHASE_BUNDLE.appleId] = {
+  chips: FIRST_PURCHASE_BUNDLE.chips,
+  priceCents: FIRST_PURCHASE_BUNDLE.priceCents,
 };
 for (const pack of PERSONAL_CHIP_PACKS) {
   PERSONAL_CHIP_PACK_CATALOG[GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]] = {
@@ -760,6 +769,25 @@ function decodeAppleJWS(jws: string): Record<string, unknown> {
   const parts = jws.split('.');
   if (parts.length !== 3) throw new Error('Invalid JWS format (expected 3 dot-separated segments)');
   return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+}
+
+/**
+ * Extracts a transaction id from an App Store Server Notification v2 body.
+ * Neither JWS here is treated as proof: the refund handler must fetch the
+ * transaction from Apple's Server API and check its revocation and account.
+ */
+export function extractAppleNotificationTransactionId(signedPayload: string): string {
+  const notification = decodeAppleJWS(signedPayload);
+  const data = notification["data"] as Record<string, unknown> | undefined;
+  const signedTransactionInfo = data?.["signedTransactionInfo"];
+  if (typeof signedTransactionInfo !== "string") {
+    throw new Error("Apple notification is missing signed transaction information");
+  }
+  const transaction = decodeAppleJWS(signedTransactionInfo);
+  if (typeof transaction["transactionId"] !== "string" || !transaction["transactionId"]) {
+    throw new Error("Apple notification is missing transactionId");
+  }
+  return transaction["transactionId"];
 }
 
 export interface ApplePurchaseData {
