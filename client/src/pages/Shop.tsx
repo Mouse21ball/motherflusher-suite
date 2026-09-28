@@ -82,15 +82,15 @@ const TIER_DEFS: TierDef[] = [
     monthlyProductId: null, yearlyProductId: null,
   },
   {
-    id: 'pro', name: 'Gold Pro', tier: 'gold_pro',
+    id: 'pro', name: 'Chain Pro', tier: 'gold_pro',
     color: '#C9A227', bg: 'rgba(201,162,39,0.08)', border: 'rgba(201,162,39,0.30)',
-    emblem: '/cosmetics/badges/badge-gold-pro.png', badge: 'MOST POPULAR',
+    emblem: '/cosmetics/badges/badge-chain-pro.svg', badge: 'MOST POPULAR',
     features: [
       'Exclusive Gold avatar frame',
       '2x daily chip reward',
       'Monthly 1,000◆ Stripes grant',
       'XP boost: +50% per hand',
-      'Gold Pro badge at table',
+      'Chain Pro badge at table',
     ],
     monthlyPrice: '$4.99', yearlyPrice: '$29.99',
     yearlySavings: '~$2.50/mo · save ~50%',
@@ -102,7 +102,7 @@ const TIER_DEFS: TierDef[] = [
     color: '#9D7DC8', bg: 'rgba(155,89,182,0.08)', border: 'rgba(155,89,182,0.30)',
     emblem: '/cosmetics/badges/badge-diamond-elite.png', badge: 'BEST VALUE',
     features: [
-      'All Gold Pro benefits',
+      'All Chain Pro benefits',
       'Exclusive animated Diamond frame',
       '3x daily chip reward',
       'Monthly 2,500◆ Stripes grant',

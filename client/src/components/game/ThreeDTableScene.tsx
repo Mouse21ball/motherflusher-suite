@@ -259,7 +259,7 @@ function CompactOpponent({ player, isActive, lastAction, isShowdown, seatIndex =
       <div className="flex items-center gap-0.5">
         <span className="text-[12px] font-mono text-white/80 truncate max-w-[64px]">{player.name}</span>
         {player.subscriptionTier === 'gold_pro' && (
-          <img src="/cosmetics/badges/badge-gold-pro.png" alt="G" className="h-3 w-auto shrink-0"
+          <img src="/cosmetics/badges/badge-chain-pro.svg" alt="Chain Pro" className="h-3 w-auto shrink-0"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
         )}
         {player.subscriptionTier === 'diamond_elite' && (

@@ -229,7 +229,7 @@ export function ActionModal({ actionType, playerId, ownedCosmetics, onClose, onS
                   onChange={e => set("tier", e.target.value as "gold_pro" | "diamond_elite")}
                   className="w-full bg-white/[0.04] border border-white/[0.12] rounded px-2 py-2 text-sm font-mono text-white/80 appearance-none"
                 >
-                  <option value="gold_pro">Gold Pro</option>
+                  <option value="gold_pro">Chain Pro</option>
                   <option value="diamond_elite">Diamond Elite</option>
                 </select>
               </div>

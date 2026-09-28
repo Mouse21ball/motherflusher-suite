@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 160" role="img" aria-label="Chain Pro badge">
+  <defs>
+    <linearGradient id="metal" x2="0" y2="1">
+      <stop stop-color="#fff2ad"/><stop offset=".18" stop-color="#b68322"/>
+      <stop offset=".48" stop-color="#5b3810"/><stop offset=".72" stop-color="#d8ac3e"/>
+      <stop offset="1" stop-color="#604014"/>
+    </linearGradient>
+    <linearGradient id="face" x2="0" y2="1">
+      <stop stop-color="#806024"/><stop offset=".3" stop-color="#e0b84d"/>
+      <stop offset=".55" stop-color="#926a25"/><stop offset="1" stop-color="#55330d"/>
+    </linearGradient>
+    <filter id="shadow"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <rect x="25" y="65" width="238" height="52" rx="24" fill="#030201" opacity=".7" filter="url(#shadow)"/>
+  <path d="M42 63H246l23 25-23 25H42L19 88Z" fill="url(#metal)" stroke="#efdb8c" stroke-width="2"/>
+  <path d="M53 69H235l17 19-17 19H53L36 88Z" fill="url(#face)" stroke="#4b310e" stroke-width="2"/>
+  <path d="M62 75H226l11 13-11 13H62L51 88Z" fill="none" stroke="#fce294" stroke-width="1.5"/>
+  <circle cx="43" cy="88" r="4" fill="#ffeca0" stroke="#69400d" stroke-width="1.5"/>
+  <circle cx="245" cy="88" r="4" fill="#ffeca0" stroke="#69400d" stroke-width="1.5"/>
+  <text x="144" y="95" fill="#fff2bf" stroke="#573610" stroke-width=".7"
+    paint-order="stroke" text-anchor="middle" font-family="Arial, sans-serif"
+    font-size="25" font-weight="900" letter-spacing="1">CHAIN PRO</text>
+</svg>

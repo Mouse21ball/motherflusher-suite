@@ -448,6 +448,24 @@ function computeNextStreakDay(lastBonusClaimedAt: Date | null, currentStreakDay:
 // Inserts the canonical cosmetic item set if the table is empty.
 // Uses onConflictDoNothing so repeated restarts are fully safe.
 export async function seedCosmeticItems(): Promise<void> {
+  // Older catalogs can be partially seeded. Ensure this existing entitlement
+  // ID has the current display name without resetting ownership or assets.
+  await db.insert(cosmeticItems).values({
+    id: 'frame_gold_subscription',
+    category: 'subscription_exclusive',
+    displayName: 'Chain Pro Frame',
+    description: 'Exclusive animated gold border. Auto-equipped while Chain Pro subscription is active.',
+    stripesCost: null,
+    assetPath: '/cosmetics/frames/frame-gold-subscription.png',
+    colorValue: null,
+    active: true,
+  }).onConflictDoUpdate({
+    target: cosmeticItems.id,
+    set: {
+      displayName: 'Chain Pro Frame',
+      description: 'Exclusive animated gold border. Auto-equipped while Chain Pro subscription is active.',
+    },
+  });
   const existing = await db.select({ id: cosmeticItems.id }).from(cosmeticItems).limit(1);
   if (existing.length > 0) return; // already seeded
 
@@ -481,7 +499,7 @@ export async function seedCosmeticItems(): Promise<void> {
     { id: 'color_silver',                category: 'name_color',            displayName: 'Silver',               description: 'Your name shines in polished silver.',                                                                       stripesCost: 50,   assetPath: '',                                                      colorValue: '#C0C0C0', active: true },
     // ── Subscription-exclusive ─────────────────────────────────────────────
     { id: 'frame_diamond_animated',      category: 'subscription_exclusive', displayName: 'Diamond Elite Frame', description: 'Exclusive animated diamond border. Auto-equipped while Diamond Elite subscription is active.',                stripesCost: null, assetPath: '/cosmetics/frames/frame-diamond-animated.png',          colorValue: null, active: true },
-    { id: 'frame_gold_subscription',     category: 'subscription_exclusive', displayName: 'Gold Pro Frame',      description: 'Exclusive animated gold border. Auto-equipped while Gold Pro subscription is active.',                       stripesCost: null, assetPath: '/cosmetics/frames/frame-gold-subscription.png',         colorValue: null, active: true },
+    { id: 'frame_gold_subscription',     category: 'subscription_exclusive', displayName: 'Chain Pro Frame',     description: 'Exclusive animated gold border. Auto-equipped while Chain Pro subscription is active.',                      stripesCost: null, assetPath: '/cosmetics/frames/frame-gold-subscription.png',         colorValue: null, active: true },
   ]).onConflictDoNothing();
 }
 

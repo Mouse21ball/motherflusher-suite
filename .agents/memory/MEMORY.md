@@ -19,3 +19,4 @@
 - [Table streak ownership](table-streak-ownership.md) — persisted streaks reserve seats for matching identities after restart; unpaid winner flags must not advance them.
 - [Split-pot declaration rules](split-pot-declarations.md) — Detroit chose independent per-pot SWING adjudication and full payout to the sole qualifying hi-lo side.
 - [Lady Luck house economics](lady-luck-house-economics.md) — bot stacks are house-owned escrow, not virtual chips; conserve reserve + bot/player balances + unsettled pot.
+- [Cosmetic seed evolution](cosmetic-seed-evolution.md) — existing catalogs may be partial; refresh subscription-only rows independently of the empty-table seed.

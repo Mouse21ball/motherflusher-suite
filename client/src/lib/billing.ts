@@ -151,7 +151,7 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
 export const APPLE_SUBSCRIPTION_PRODUCTS = {
   goldPro: {
     id: 'com.dgmentertainment.poker.goldpro.monthly',
-    name: 'Gold Pro',
+    name: 'Chain Pro',
     price: '$4.99',
     period: 'monthly',
   },

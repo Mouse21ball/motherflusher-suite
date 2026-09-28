@@ -483,7 +483,7 @@ app.use(createApiResponseLogger(log));
 
     <h2>6. Subscription Terms</h2>
     <p>
-      Chain Gang Poker offers two auto-renewing subscription tiers — <strong>Gold Pro</strong>
+      Chain Gang Poker offers two auto-renewing subscription tiers — <strong>Chain Pro</strong>
       and <strong>Diamond Elite</strong> — available on a monthly or yearly basis.
     </p>
     <ul>
@@ -705,7 +705,7 @@ app.use(createApiResponseLogger(log));
     </div>
 
     <div class="faq-item">
-      <h3>What are Gold Pro and Diamond Elite subscriptions?</h3>
+      <h3>What are Chain Pro and Diamond Elite subscriptions?</h3>
       <p>
         These are optional auto-renewing subscription tiers that provide monthly Stripes grants,
         XP boosts, exclusive avatar frames, and other in-game benefits. Subscriptions can be
