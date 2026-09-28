@@ -7,6 +7,7 @@ import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { HowToPlay } from '@/components/ui/HowToPlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
 import { usePhaseSounds } from '@/lib/usePhaseSounds';
@@ -38,11 +39,12 @@ function useTableId() {
 interface HeaderProps {
   onBack: () => void;
   onOpenChat: () => void;
+  onOpenHowToPlay: () => void;
   chatUnread: number;
   humanCount: number;
 }
 
-function BonecrusherHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderProps) {
+function BonecrusherHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, humanCount }: HeaderProps) {
   return (
     <div style={{
       flexShrink: 0, height: 52,
@@ -87,22 +89,31 @@ function BonecrusherHeader({ onBack, onOpenChat, chatUnread, humanCount }: Heade
         </div>
       </div>
 
-      <button onClick={onOpenChat} data-testid="button-chat" style={{
-        position: 'relative',
-        background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)',
-        borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.8)',
-        fontSize: 18, cursor: 'pointer',
-      }}>
-        💬
-        {chatUnread > 0 && (
-          <div style={{
-            position: 'absolute', top: -4, right: -4,
-            background: '#d97706', color: '#000', borderRadius: '50%',
-            width: 16, height: 16, fontSize: 9, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{chatUnread}</div>
-        )}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={onOpenHowToPlay} aria-label="How to play" title="How to play" data-testid="button-how-to-play-header" style={{
+          background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)',
+          borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.85)',
+          fontSize: 15, fontWeight: 700, fontFamily: 'monospace', cursor: 'pointer',
+        }}>
+          ?
+        </button>
+        <button onClick={onOpenChat} data-testid="button-chat" style={{
+          position: 'relative',
+          background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)',
+          borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.8)',
+          fontSize: 18, cursor: 'pointer',
+        }}>
+          💬
+          {chatUnread > 0 && (
+            <div style={{
+              position: 'absolute', top: -4, right: -4,
+              background: '#d97706', color: '#000', borderRadius: '50%',
+              width: 16, height: 16, fontSize: 9, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{chatUnread}</div>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -256,6 +267,7 @@ function BonecrusherGameUI() {
 
   /* ── Chat ────────────────────────────────────────────────────────────────── */
   const [chatOpen, setChatOpen] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const prevChatLenRef = useRef(state.chatMessages.length);
   useEffect(() => {
@@ -292,6 +304,7 @@ function BonecrusherGameUI() {
       <BonecrusherHeader
         onBack={handleBack}
         onOpenChat={() => setChatOpen(true)}
+        onOpenHowToPlay={() => setShowHowToPlay(true)}
         chatUnread={chatUnread}
         humanCount={humanCount}
       />
@@ -392,6 +405,8 @@ function BonecrusherGameUI() {
         seatToPlayerId={Object.fromEntries(state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!]))}
         myProfileId={serverProfile?.profileId}
       />
+
+      {showHowToPlay && <HowToPlay modeId="bonecrusher" onClose={() => setShowHowToPlay(false)} />}
 
       <BustOutModal
         open={showBustModal}

@@ -95,7 +95,7 @@ function SlideProTip({ proTip, onDismiss }: { proTip: string; onDismiss: () => v
         Let's Play
       </Button>
       <p className="text-center text-[12px] text-white/60 font-mono tracking-wider">
-        Tap "How to Play" in the header to see this again
+        Help opens the full rules; this intro will not reopen after dismissal
       </p>
     </div>
   );
@@ -195,7 +195,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
               Got it — Let's Play
             </Button>
             <p className="text-center text-[12px] text-white/60 mt-2.5 font-mono tracking-wider">
-              Tap "How to Play" in the header to see this again
+              Help opens the full rules; this intro will not reopen after dismissal
             </p>
           </div>
         )}
@@ -252,20 +252,44 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
       "There's a betting round between each hit round",
       "At showdown, qualifying hands (13–15 or 33–35) split the pot",
     ],
-    proTip: "J/Q/K each count as only ½ point — incredibly useful for fine-tuning your total near 15 or 35. A hand of face cards gets you to 35 very safely.",
+    proTip: "J/Q/K each count as only ½ point — incredibly useful for fine-tuning your total near 15 or 35. Face cards add up slowly, so combine them with higher-value cards to approach either target.",
     accentColor: "from-amber-800/60 to-[#141417]",
   },
   suitspoker: {
     title: "Suits & Poker",
-    objective: "A 12-card board splits into Side A, Center, and Side B. Declare Poker for the best 5-card hand, Suits for the highest flush total, or Swing for both.",
+    objective: "A 15-card board splits into Side A, Center, and Side B. The game automatically evaluates your best five-card Poker hand and best qualifying Suits score across both legal paths; declare Poker, Suits, or Swing.",
     steps: [
       "Receive 5 hole cards, then the board reveals in stages",
       "Draw phase: swap up to 2 of your hole cards",
-      "Pick a legal path through the board (Side A+Center or Side B+Center)",
-      "Declare Poker, Suits, or Swing, then one final bet",
+      "Both legal paths (Side A+Center and Side B+Center) are checked automatically",
+      "Declare Poker, Suits, or Swing with your final bet",
     ],
-    proTip: "Your hole cards are used with 3 community cards from any legal path. The path choice is automatic — focus on whether your cards build a poker hand or a flush run.",
+    proTip: "The evaluator chooses the best five cards available from your hole cards and one legal path; you do not select a path or exactly three board cards. Suits requires at least five visible cards of one suit on a legal path.",
     accentColor: "from-cyan-800/60 to-[#141417]",
+  },
+  flushed_up: {
+    title: "Flushed Up",
+    objective: "Make a genuine five-card flush: all five cards must be the same suit. Only a flush can win, even when everyone else folds.",
+    steps: [
+      "Receive 5 cards, then bet in the first betting round",
+      "Three draw rounds let you replace up to 3, then 2, then 1 card",
+      "A betting round follows each draw, for 4 betting rounds total",
+      "No declaration: at showdown, qualifying flushes compare by card ranks",
+    ],
+    proTip: "Keep cards of one suit and draw toward a complete five-card flush. If no one makes a flush, being the last player standing is not enough to win.",
+    accentColor: "from-indigo-800/60 to-[#141417]",
+  },
+  ladyluck: {
+    title: "Lady Luck",
+    objective: "A shuffled full 52-card deck—including Queens—starts the race. Pick a suit, then watch the cards turn: the first suit seen 9 times wins.",
+    steps: [
+      "Choose one of the four unique suits (not a Queen card), starting with the seat left of the dealer",
+      "Wager in 100-chip increments; room ranges are Pony 100–500, Thoroughbred 500–2,000, and Champion 2,000–5,000",
+      "Cards flip one at a time; the first suit to appear 9 times wins",
+      "Your main wager goes into the main pot, awarded to the winning suit after rake",
+    ],
+    proTip: "Optional side bets are separate from the main pot: a winning side bet pays 2.5× its stake gross, minus rake. You can skip side bets and play with your main wager only.",
+    accentColor: "from-rose-800/60 to-[#141417]",
   },
   box_chevy: {
     title: "Box Chevy",
@@ -281,26 +305,26 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
   },
   bonecrusher: {
     title: "Bonecrusher",
-    objective: "6 cards dealt face-down. Discard 2 permanently, reveal 1. Receive 3 community street cards one at a time. Choose your best 5, then flip 4 face-up. Declare HIGH (best standard hand), LOW (best A-5 lowball), or SWING (need both).",
+    objective: "6 cards dealt face-down. Discard 2 permanently, reveal 1, then receive 3 player-specific street cards one at a time. Choose your best 5, then flip 4 face-up. Declare HIGH (best standard hand), LOW (best A-5 lowball), or SWING.",
     steps: [
       "Receive 6 face-down cards — discard 2, reveal 1",
-      "3 street rounds: one new card + betting each street",
+      "Bet after the initial reveal, each of 3 streets, and each of 4 flips — 8 betting rounds total",
       "Select your best 5 cards (discard 2), then flip 4 face-up over 4 rounds",
       "Declare HIGH, LOW, or SWING — pot splits between each side's winner",
     ],
-    proTip: "SWING is high risk, high reward — you must win BOTH the high and the low half, or you get nothing. If you miss one side, the pot goes to the opposing declared players. Only go SWING if your hand dominates both directions.",
+    proTip: "A SWING must be the sole winner of both HIGH and LOW to scoop. If it fails and any eligible player chose HIGH or LOW, SWING players are excluded; if everyone chose SWING and none scoops, ordinary side outcomes among them can still tie or split.",
     accentColor: "from-amber-900/60 to-[#0a0702]",
   },
   kamikaze: {
     title: "Kamikaze",
-    objective: "Build a 6-card hand with exactly 3+2+1 suit distribution and no paired ranks. Then declare HIGH (highest card in your 3-suit) or LOW (lowest card, Ace = 1). Pot splits between the two sides.",
+    objective: "Build a 6-card hand with exactly 3+2+1 suit distribution and no paired ranks. Then declare HIGH (compare all 3 ranks in your 3-suit, highest-first; the other two break ties) or LOW (compare all 3 lowest-first, with Ace = 1). Pot splits between the two sides.",
     steps: [
       "Receive 6 face-down cards",
       "3 draw rounds: swap up to 3 / 2 / 1 cards",
       "One final betting round after draws",
       "Declare HIGH or LOW — each side picks a winner",
     ],
-    proTip: "Your 3-card suit determines everything. For HIGH, keep the highest possible rank in that suit. For LOW, protect a low Ace (counts as 1). Hands without 3+2+1 distribution are auto-folded before the declare.",
+    proTip: "All three ranks in your 3-card suit count: compare them highest-first for HIGH or lowest-first for LOW (Ace counts as 1); the remaining ranks break ties. Hands without 3+2+1 distribution are auto-folded before the declare.",
     accentColor: "from-red-900/60 to-[#000000]",
   },
 };

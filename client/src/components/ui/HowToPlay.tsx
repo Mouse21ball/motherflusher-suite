@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-type HowToPlayModeId = 'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck';
+type HowToPlayModeId =
+  | 'badugi' | 'dead7' | '1535' | 'suits'
+  | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy'
+  | 'ladyluck';
 
 interface HowToPlayProps {
   modeId: HowToPlayModeId;
@@ -330,26 +333,27 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '♠️♥️',
       title: 'What is Suits & Poker?',
-      desc: 'Two ways to win — POKER (best 5-card hand) or SUITS (highest single-suit score of 40+). Pot splits 50/50 between best poker hand and best suits score.',
+      desc: 'Compete for two halves: POKER (best 5-card hand) and SUITS (best five-card same-suit score on a board path). The pot is divided between those sides when both have winners.',
     },
     {
       icon: '🃏',
       title: 'How SUITS Scoring Works',
-      desc: 'Add up all cards of your strongest suit. Need 40 or more to qualify. Ace=11 face cards=10 others face value.',
+      desc: 'A qualifying SUITS hand needs at least 5 visible cards of one suit on a path. Score the best five of that suit: Ace=11, face cards=10, others face value. Highest score wins SUITS.',
       cards: [
         [
           { rank: 'A', suit: '♥' },
           { rank: 'K', suit: '♥' },
           { rank: 'Q', suit: '♥' },
           { rank: 'J', suit: '♥' },
+          { rank: '10', suit: '♥' },
         ],
       ],
-      cardLabels: ['A(11)+K(10)+Q(10)+J(10)=41 ✓ Qualifies'],
+      cardLabels: ['A+K+Q+J+10 = 51 suit points'],
     },
     {
       icon: '❌',
       title: 'SUITS Not Qualifying',
-      desc: 'Score below 40 = does not qualify. Declare POKER instead.',
+      desc: 'Fewer than 5 same-suit cards on either path means no SUITS hand, regardless of point total. Choose POKER or FOLD rather than declaring SUITS.',
       cards: [
         [
           { rank: '5', suit: '♥' },
@@ -358,17 +362,17 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
           { rank: 'A', suit: '♥' },
         ],
       ],
-      cardLabels: ['5+3+2+11=21 ✗ Does not qualify'],
+      cardLabels: ['4 hearts — not enough cards to qualify'],
     },
     {
       icon: '🃏',
       title: 'Poker Hand Rankings',
-      desc: 'Best 5-card hand from your hole cards and community cards:\n\n1. Royal Flush\n2. Straight Flush\n3. Four of a Kind\n4. Full House\n5. Flush\n6. Straight\n7. Three of a Kind\n8. Two Pair\n9. Pair\n10. High Card',
+      desc: 'Make the best five-card poker hand using your visible cards and a board path. The shared board has two side paths with a common center. Standard poker rankings apply, from Royal Flush down to High Card.',
     },
     {
       icon: '👑',
       title: 'Royal Flush — Best Hand',
-      desc: 'Royal Flush is the best poker hand AND scores 51 suit points — the perfect SWING hand.',
+      desc: 'A Royal Flush is the top poker ranking. These five suited cards also total 51 points for SUITS, if they are available together on a valid path.',
       cards: [
         [
           { rank: 'A',  suit: '♠' },
@@ -378,44 +382,279 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
           { rank: '10', suit: '♠' },
         ],
       ],
-      cardLabels: ['Royal Flush — A+K+Q+J+10 = 51 suit points'],
+      cardLabels: ['A+K+Q+J+10 = Royal Flush and 51 suit points'],
     },
     {
       icon: '🎯',
-      title: 'SWING Declaration',
-      desc: 'Declare SWING to compete for BOTH sides. You must have the highest suit score AND the best poker hand to scoop the entire pot. Fail either side — you win nothing.',
+      title: 'Declare with Your Final Bet',
+      desc: 'After the board is revealed, declare POKER, SUITS, or SWING as part of your final betting action. POKER competes on the poker side; SUITS competes on the suits side; SWING competes on both.',
     },
     {
       icon: '⚠️',
       title: 'SWING Risk',
-      desc: 'Failed SWING = you get nothing even if your poker hand would have won. Only SWING when you have a strong poker hand AND a suits score of 40 or higher.',
+      desc: 'A SWING declaration is all-or-nothing: you must win both sides to scoop. If it fails, you are removed from both sides; other eligible POKER/SUITS declarations can still win their half.',
     },
     {
       icon: '🔄',
       title: 'Draw Phase',
-      desc: 'You can swap up to 2 hole cards before betting begins. Use the draw to improve your poker hand or build a stronger suit score.',
+      desc: 'Before the board is fully revealed, you may draw up to 2 replacement hole cards. Build toward a poker hand or five same-suit cards on one of the board paths.',
     },
     {
       icon: '💡',
       title: 'Pro Tip',
-      desc: 'A Royal Flush scores 51 suit points and is the best poker hand. If you have one always SWING — it is the strongest possible hand in the entire game.',
+      desc: 'A high suit-point total is not enough by itself: SUITS still requires five same-suit cards on a path. Compare both your poker hand and qualifying suit score before choosing a declaration.',
+    },
+  ],
+  flushedup: [
+    {
+      icon: '♠️',
+      title: 'What is Flushed Up?',
+      desc: 'You start with 5 hole cards and draw to make a genuine five-card flush. At showdown, only players with at least 5 cards of one suit can win.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♠' }, { rank: '9', suit: '♠' },
+        { rank: '6', suit: '♠' }, { rank: '2', suit: '♠' },
+      ]],
+      cardLabels: ['Five spades — qualifying flush'],
+    },
+    {
+      icon: '🃏',
+      title: 'Five Hole Cards',
+      desc: 'Each active player is dealt 5 private hole cards. There is no community board; your hand is made from those five cards and any replacements you draw.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: '9', suit: '♠' },
+        { rank: '6', suit: '♦' }, { rank: '2', suit: '♠' },
+      ]],
+      cardLabels: ['Example starting hand — three spades'],
+    },
+    {
+      icon: '🔄',
+      title: 'Three Draws',
+      desc: 'You may replace up to 3 cards on draw 1, up to 2 on draw 2, and up to 1 on draw 3. Each draw replaces discarded cards in your hand.',
+    },
+    {
+      icon: '💰',
+      title: 'Four Betting Rounds',
+      desc: 'Betting takes place four times: before draw 1, between each later draw, and once after the final draw. Decide whether to continue chasing your suit.',
+    },
+    {
+      icon: '✅',
+      title: 'What Qualifies?',
+      desc: 'You must have at least 5 cards of a single suit at showdown. A four-card flush draw is not a made flush and cannot win, even if every other player has folded.',
+      cards: [[
+        { rank: 'A', suit: '♥' }, { rank: 'K', suit: '♥' }, { rank: '8', suit: '♥' },
+        { rank: '4', suit: '♥' }, { rank: '2', suit: '♣' },
+      ]],
+      cardLabels: ['Four hearts only — no qualifying flush'],
+    },
+    {
+      icon: '🏆',
+      title: 'Flush Showdown',
+      desc: 'Among qualifying flushes, the player with the most cards in their best suit wins. With five-card hands, that means a genuine five-card flush; higher ranks break ties.',
+      cards: [[
+        { rank: 'A', suit: '♦' }, { rank: 'Q', suit: '♦' }, { rank: '10', suit: '♦' },
+        { rank: '7', suit: '♦' }, { rank: '3', suit: '♦' },
+      ]],
+      cardLabels: ['Same suit; ranks decide a flush tie'],
+    },
+    {
+      icon: '↩️',
+      title: 'No Qualifying Flush?',
+      desc: 'If no eligible player has a genuine flush, that pot rolls over. Being the last player standing does not waive the flush requirement.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Protect a strong flush draw while tracking your remaining draws: you can replace 3, then 2, then 1 card. A big suit group is promising, but only five matching suits qualify.',
+    },
+  ],
+  kamikaze: [
+    {
+      icon: '💥',
+      title: 'What is Kamikaze?',
+      desc: 'Build a six-card hand with a strict 3+2+1 suit pattern: three cards in one suit, two in another, and one in a third. All six ranks must be unique.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: '8', suit: '♠' }, { rank: '4', suit: '♠' },
+        { rank: 'K', suit: '♥' }, { rank: '6', suit: '♥' }, { rank: '2', suit: '♦' },
+      ]],
+      cardLabels: ['3 spades + 2 hearts + 1 diamond; no paired ranks'],
+    },
+    {
+      icon: '🃏',
+      title: 'Six Private Cards',
+      desc: 'You receive 6 hole cards and have no community cards. Replacements keep the hand at six cards.',
+    },
+    {
+      icon: '🔄',
+      title: 'Draw 3, 2, Then 1',
+      desc: 'There are three draw rounds. You may discard up to 3 cards, then up to 2, then up to 1; each discarded card is replaced.',
+    },
+    {
+      icon: '💰',
+      title: 'Four Betting Rounds',
+      desc: 'The hand has four bets: one before each draw and a final bet after the third draw.',
+    },
+    {
+      icon: '✅',
+      title: 'Both Rules Must Fit',
+      desc: 'A hand is valid only with exactly three suits in a 3+2+1 count AND six different ranks. A duplicate rank makes the hand invalid, even if the suits fit.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: '8', suit: '♠' }, { rank: '4', suit: '♠' },
+        { rank: 'A', suit: '♥' }, { rank: '6', suit: '♥' }, { rank: '2', suit: '♦' },
+      ]],
+      cardLabels: ['A repeats — invalid hand'],
+    },
+    {
+      icon: '⬆️⬇️',
+      title: 'Only the Three-Card Suit Scores',
+      desc: 'Your three-card suit group alone determines your HIGH or LOW hand. HIGH compares its ranks from highest downward; LOW compares from lowest upward, with Ace counting as 1.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: '8', suit: '♠' }, { rank: '4', suit: '♠' },
+        { rank: 'K', suit: '♥' }, { rank: '6', suit: '♥' }, { rank: '2', suit: '♦' },
+      ]],
+      cardLabels: ['The three spades are the scoring group'],
+    },
+    {
+      icon: '📣',
+      title: 'Declare After the Last Bet',
+      desc: 'After the fourth bet, a valid hand declares HIGH or LOW; you may also choose FOLD. Invalid hands are automatically folded before declaration.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Plan both constraints together: preserve a 3+2+1 suit shape while eliminating duplicate ranks. Then choose HIGH or LOW based only on the ranks in your three-card suit.',
+    },
+  ],
+  bonecrusher: [
+    {
+      icon: '🦴',
+      title: 'What is Bonecrusher?',
+      desc: 'A six-card draw-and-reveal game with separate player hands, not a community board. Build a final five-card hand and choose HIGH, LOW, or SWING.',
+    },
+    {
+      icon: '🂠',
+      title: 'Start with Six Hidden Cards',
+      desc: 'Each player is dealt 6 face-down hole cards. First discard 2, then expose one of the four remaining cards.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: 'Q', suit: '♦' },
+        { rank: 'J', suit: '♣' }, { rank: '9', suit: '♠' }, { rank: '4', suit: '♥' },
+      ]],
+      cardLabels: ['Six dealt; discard two'],
+    },
+    {
+      icon: '🛣️',
+      title: 'Three Face-Up Streets',
+      desc: 'After the first card reveal, there is a bet. Then three streets are dealt face-up to each player, each followed by another bet. These are cards in your hand, not shared community cards.',
+    },
+    {
+      icon: '✂️',
+      title: 'Select Your Final Five',
+      desc: 'After the streets, you have seven cards. Discard 2 to select the five cards that will make your final hand.',
+      cards: [[
+        { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: 'Q', suit: '♦' },
+        { rank: 'J', suit: '♣' }, { rank: '9', suit: '♠' },
+      ]],
+      cardLabels: ['Five selected cards score at showdown'],
+    },
+    {
+      icon: '🪙',
+      title: 'Four Flip-and-Bet Pairs',
+      desc: 'After selecting five, four flip-and-bet pairs let you choose a card to flip before each bet. This is a reveal sequence for your hand, not a shared community board.',
+    },
+    {
+      icon: '⬆️⬇️',
+      title: 'HIGH and LOW',
+      desc: 'The final five-card hand is scored on both sides. HIGH uses standard poker rankings; LOW is Ace-to-five style, where Ace is low and duplicate ranks hurt the low score.',
+    },
+    {
+      icon: '🎯',
+      title: 'SWING Is a Strict Scoop',
+      desc: 'A SWING player must uniquely win both HIGH and LOW to scoop against other declarations. If a non-SWING rival is eligible and SWING fails, the SWING player is excluded; if everyone swings, ordinary side outcomes can still tie or split.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Choose the final five cards with both scoring systems in mind. SWING is not a guaranteed double win: it needs a sole win on both sides.',
+    },
+  ],
+  box_chevy: [
+    {
+      icon: '🚘',
+      title: 'What is Box Chevy?',
+      desc: 'Combine 5 private hole cards with 5 shared community cards. Draw up to three times, then declare HIGH, LOW, or SWING if your ten-card hand is made.',
+      cards: [
+        [
+          { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: 'Q', suit: '♦' },
+          { rank: 'J', suit: '♣' }, { rank: '9', suit: '♠' },
+        ],
+        [
+          { rank: '10', suit: '♥' }, { rank: '8', suit: '♦' }, { rank: '6', suit: '♣' },
+          { rank: '4', suit: '♥' }, { rank: '2', suit: '♦' },
+        ],
+      ],
+      cardLabels: ['Your 5 hole cards', '5-card community board'],
+    },
+    {
+      icon: '🧩',
+      title: 'The Board Starts Rank-Unique',
+      desc: 'The five community cards are dealt with distinct ranks within the board. The hole cards are not checked against the board when it is dealt.',
+    },
+    {
+      icon: '🔄',
+      title: 'Draw 3, 2, Then 1',
+      desc: 'You may replace up to 3 hole cards on draw 1, up to 2 on draw 2, and up to 1 on draw 3. The community board stays shared.',
+    },
+    {
+      icon: '💰',
+      title: 'Three Betting Rounds',
+      desc: 'A bet follows each draw. After the third draw and bet, the hand moves to declaration.',
+    },
+    {
+      icon: '✅',
+      title: 'Made Hand: Ten Unique Ranks',
+      desc: 'All 10 combined cards—your 5 hole cards plus the 5 board cards—must have different ranks. The board is unique by itself, but any duplicate within your hole cards or between hole and board invalidates your hand.',
+      cards: [
+        [
+          { rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }, { rank: 'Q', suit: '♦' },
+          { rank: 'J', suit: '♣' }, { rank: '9', suit: '♠' },
+        ],
+        [
+          { rank: '10', suit: '♥' }, { rank: '8', suit: '♦' }, { rank: '6', suit: '♣' },
+          { rank: '4', suit: '♥' }, { rank: '9', suit: '♦' },
+        ],
+      ],
+      cardLabels: ['Your five hole cards', 'Board is unique; 9 duplicates your hole-card rank'],
+    },
+    {
+      icon: '❌',
+      title: 'Invalid Means Auto-Fold',
+      desc: 'If the ten cards do not all have distinct ranks, you are automatically folded before the HIGH/LOW/SWING declaration prompt.',
+    },
+    {
+      icon: '⬆️⬇️',
+      title: 'Best Five from All Ten',
+      desc: 'For HIGH, the best standard poker hand is selected from any five of your ten cards. For LOW, the best five-card Ace-to-five low hand is selected, with Ace low.',
+    },
+    {
+      icon: '💡',
+      title: 'Pro Tip',
+      desc: 'Use your draws to avoid rank collisions with both your other hole cards and the board. Only a made ten-rank hand can enter declaration and compete.',
     },
   ],
   ladyluck: [
     {
       icon: '👑',
       title: 'What is Lady Luck?',
-      desc: 'Pick one of four suits and wager chips. A shuffled 52-card deck is flipped until one suit appears 9 times and wins the race.',
+      desc: 'Pick one of four distinct suits and wager chips. The shuffled 52-card deck, including all four Queens, is flipped until one suit appears 9 times and wins the race.',
     },
     {
       icon: '🔄',
       title: 'Pick Order',
-      desc: 'Action starts LEFT of the dealer going clockwise. The dealer picks last from the remaining suits.',
+      desc: 'Players choose different suits: action starts LEFT of the dealer and goes clockwise. The dealer picks last from the remaining suits.',
     },
     {
       icon: '💰',
       title: 'Place Your Wager',
-      desc: 'Bet chips before the race starts in 100-chip increments. Winner takes the entire pot.',
+      desc: 'Bet chips before the race starts in 100-chip increments. The winning suit’s main-pot payout is made after rake is deducted.',
     },
     {
       icon: '🃏',
@@ -442,6 +681,10 @@ const MODE_COLORS: Record<HowToPlayModeId, string> = {
   dead7:    '#f44336',
   '1535':   '#C9A227',
   suits:    '#2196F3',
+  flushedup: '#7c3aed',
+  kamikaze: '#ef4444',
+  bonecrusher: '#d97706',
+  box_chevy: '#3b82f6',
   ladyluck: '#e53935',
 };
 
@@ -450,6 +693,10 @@ const MODE_NAMES: Record<HowToPlayModeId, string> = {
   dead7:    'DEAD 7',
   '1535':   '15 / 35',
   suits:    'SUITS & POKER',
+  flushedup: 'FLUSHED UP',
+  kamikaze: 'KAMIKAZE',
+  bonecrusher: 'BONECRUSHER',
+  box_chevy: 'BOX CHEVY',
   ladyluck: 'LADY LUCK',
 };
 
@@ -457,6 +704,7 @@ const MODE_NAMES: Record<HowToPlayModeId, string> = {
 
 export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
   const [slide, setSlide] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const slides  = SLIDES[modeId];
   const color   = MODE_COLORS[modeId];
   const name    = MODE_NAMES[modeId];
@@ -465,9 +713,50 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
   const isLast  = slide === total - 1;
   const hasCards = !!(current.cards && current.cards.length > 0);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusables = () => dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [];
+
+    (focusables()[0] ?? dialog)?.focus();
+
+    const containTabFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !dialog) return;
+      const elements = focusables();
+      if (!elements.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', containTabFocus);
+    return () => {
+      document.removeEventListener('keydown', containTabFocus);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, []);
+
   return (
     <div
+      ref={dialogRef}
       data-testid="modal-how-to-play"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${name} how to play`}
+      tabIndex={-1}
       style={{
         position:      'fixed',
         inset:         0,

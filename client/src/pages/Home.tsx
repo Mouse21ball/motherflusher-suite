@@ -286,10 +286,12 @@ export default function Home() {
   const [, navigate] = useLocation();
   const [showPrivateSetup,   setShowPrivateSetup]   = useState(false);
   const [showOpenTableModal, setShowOpenTableModal] = useState(false);
-  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck' | null>(null);
+  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy' | 'ladyluck' | null>(null);
 
-  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'ladyluck'> = {
-    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits', ladyluck: 'ladyluck',
+  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy' | 'ladyluck'> = {
+    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
+    flushedup: 'flushedup', kamikaze: 'kamikaze', bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
+    ladyluck: 'ladyluck',
   };
 
   const identity    = ensurePlayerIdentity();

@@ -8,6 +8,7 @@ import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { HowToPlay } from '@/components/ui/HowToPlay';
 import { DebugOverlay } from '@/components/game/DebugOverlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
@@ -49,11 +50,12 @@ function getDrawLimit(phase: string): number {
 interface HeaderProps {
   onBack: () => void;
   onOpenChat: () => void;
+  onOpenHowToPlay: () => void;
   chatUnread: number;
   humanCount: number;
 }
 
-function KamikazeHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderProps) {
+function KamikazeHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, humanCount }: HeaderProps) {
   return (
     <div style={{
       flexShrink: 0, height: 52,
@@ -98,6 +100,14 @@ function KamikazeHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderPr
             {humanCount}P
           </span>
         )}
+        <button onClick={onOpenHowToPlay} aria-label="How to play" title="How to play" data-testid="button-how-to-play-header" style={{
+          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.8)',
+          fontSize: 15, fontWeight: 700, fontFamily: 'monospace', cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}>
+          ?
+        </button>
         <button onClick={onOpenChat} data-testid="button-chat-header" style={{
           position: 'relative', background: 'rgba(239,68,68,0.1)',
           border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '5px 9px',
@@ -253,6 +263,7 @@ function KamikazeGameUI() {
   };
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const prevChatLenRef = useRef(state.chatMessages.length);
   useEffect(() => {
@@ -276,7 +287,7 @@ function KamikazeGameUI() {
     }} data-mode={MODE_ID}>
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
-      <KamikazeHeader onBack={handleBack} onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} humanCount={humanCount} />
+      <KamikazeHeader onBack={handleBack} onOpenChat={() => setChatOpen(true)} onOpenHowToPlay={() => setShowHowToPlay(true)} chatUnread={chatUnread} humanCount={humanCount} />
 
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
 
@@ -340,6 +351,8 @@ function KamikazeGameUI() {
       <ChatBox messages={state.chatMessages} myId={myId} onSendMessage={text => handleAction('chat', text)} open={chatOpen} onOpenChange={setChatOpen}
         seatToPlayerId={Object.fromEntries(state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!]))}
         myProfileId={serverProfile?.profileId} />
+
+      {showHowToPlay && <HowToPlay modeId="kamikaze" onClose={() => setShowHowToPlay(false)} />}
 
       <BustOutModal open={showBustModal} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}

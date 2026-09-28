@@ -3,6 +3,8 @@ import { useLocation } from 'wouter';
 import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
+import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { HowToPlay } from '@/components/ui/HowToPlay';
 import {
   LadyLuckState,
   LadyLuckSuit,
@@ -199,7 +201,12 @@ function useLLRoomData(): LLRoomData {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function LadyLuck() {
+interface LadyLuckPageProps {
+  onGamePageChange: (active: boolean) => void;
+  onIntroEligible: () => void;
+}
+
+function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) {
   const [, navigate]          = useLocation();
   const [tableId, setTableId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('t'));
   const [state, setState]     = useState<LadyLuckState | null>(null);
@@ -218,6 +225,16 @@ export default function LadyLuck() {
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
   const { counts: roomCounts, fullTableId } = useLLRoomData();
+
+  useEffect(() => {
+    onGamePageChange(Boolean(tableId));
+  }, [tableId, onGamePageChange]);
+
+  useEffect(() => {
+    if (state?.players.some(player => player.id === identity.id && player.presence === 'human')) {
+      onIntroEligible();
+    }
+  }, [state?.players, identity.id, onIntroEligible]);
 
   // ── WebSocket connection ────────────────────────────────────────────────────
   useEffect(() => {
@@ -1951,4 +1968,64 @@ export default function LadyLuck() {
   }
 
   return null;
+}
+
+export default function LadyLuck() {
+  const [gamePageActive, setGamePageActive] = useState(
+    () => Boolean(new URLSearchParams(window.location.search).get('t')),
+  );
+  const [introEligible, setIntroEligible] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+
+  const handleGamePageChange = useCallback((active: boolean) => {
+    setGamePageActive(active);
+    if (!active) {
+      setIntroEligible(false);
+      setShowHowToPlay(false);
+    }
+  }, []);
+  const handleIntroEligible = useCallback(() => setIntroEligible(true), []);
+
+  return (
+    <>
+      <LadyLuckPage
+        onGamePageChange={handleGamePageChange}
+        onIntroEligible={handleIntroEligible}
+      />
+      {gamePageActive && (
+        <button
+          type="button"
+          onClick={() => setShowHowToPlay(true)}
+          aria-label="How to play Lady Luck"
+          title="How to play"
+          data-testid="button-how-to-play-ladyluck"
+          style={{
+            position: 'fixed',
+            top: 'max(12px, env(safe-area-inset-top))',
+            right: 'max(12px, calc((100vw - 480px) / 2 + 12px))',
+            zIndex: 30,
+            minHeight: 40,
+            padding: '0 12px',
+            borderRadius: 20,
+            border: '1px solid rgba(201,162,39,0.35)',
+            background: 'rgba(0,0,0,0.58)',
+            color: '#C9A227',
+            fontFamily: 'monospace',
+            fontSize: 11,
+            letterSpacing: 0.4,
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          ? HOW TO PLAY
+        </button>
+      )}
+      {introEligible && gamePageActive && (
+        <ModeIntro modeId="ladyluck" {...MODE_INTROS.ladyluck} />
+      )}
+      {showHowToPlay && gamePageActive && (
+        <HowToPlay modeId="ladyluck" onClose={() => setShowHowToPlay(false)} />
+      )}
+    </>
+  );
 }

@@ -47,8 +47,10 @@ function PillGroup({ label, value, valueClass = '' }: { label: string; value: st
   );
 }
 
-const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits'> = {
+const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy'> = {
   badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
+  flushedup: 'flushedup', flushed_up: 'flushedup', kamikaze: 'kamikaze',
+  bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
 };
 
 export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {

@@ -8,6 +8,7 @@ import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { HowToPlay } from '@/components/ui/HowToPlay';
 import { DebugOverlay } from '@/components/game/DebugOverlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
@@ -50,11 +51,12 @@ function getDrawLimit(phase: string): number {
 interface HeaderProps {
   onBack: () => void;
   onOpenChat: () => void;
+  onOpenHowToPlay: () => void;
   chatUnread: number;
   humanCount: number;
 }
 
-function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderProps) {
+function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, humanCount }: HeaderProps) {
   return (
     <div style={{
       flexShrink: 0,
@@ -112,6 +114,22 @@ function FlushedUpHeader({ onBack, onOpenChat, chatUnread, humanCount }: HeaderP
             {humanCount}P
           </span>
         )}
+        <button
+          onClick={onOpenHowToPlay}
+          aria-label="How to play"
+          title="How to play"
+          data-testid="button-how-to-play-header"
+          style={{
+            background: 'rgba(124,58,237,0.12)',
+            border: '1px solid rgba(124,58,237,0.25)',
+            borderRadius: 8, width: 30, height: 30,
+            color: 'rgba(255,255,255,0.8)', fontSize: 15, fontWeight: 700,
+            fontFamily: 'monospace', cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          ?
+        </button>
         <button
           onClick={onOpenChat}
           style={{
@@ -310,6 +328,7 @@ function FlushedUpGameUI() {
   };
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const prevChatLenRef = useRef(state.chatMessages.length);
   useEffect(() => {
@@ -359,6 +378,7 @@ function FlushedUpGameUI() {
       <FlushedUpHeader
         onBack={handleBack}
         onOpenChat={() => setChatOpen(true)}
+        onOpenHowToPlay={() => setShowHowToPlay(true)}
         chatUnread={chatUnread}
         humanCount={humanCount}
       />
@@ -489,6 +509,8 @@ function FlushedUpGameUI() {
         )}
         myProfileId={serverProfile?.profileId}
       />
+
+      {showHowToPlay && <HowToPlay modeId="flushedup" onClose={() => setShowHowToPlay(false)} />}
 
       {/* ── Bust out modal ────────────────────────────────────────── */}
       <BustOutModal

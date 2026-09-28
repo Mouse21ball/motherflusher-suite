@@ -20,3 +20,4 @@
 - [Mode eligibility on early folds](mode-eligibility-on-folds.md) — modes requiring a qualifying hand must enforce it in win-by-fold shortcuts, not only showdown.
 - [Lady Luck house economics](lady-luck-house-economics.md) — bot stacks are house-owned escrow, not virtual chips; conserve reserve + bot/player balances + unsettled pot.
 - [Cosmetic seed evolution](cosmetic-seed-evolution.md) — existing catalogs may be partial; refresh subscription-only rows independently of the empty-table seed.
+- [Tutorial continuity](tutorial-continuity.md) — first-visit walkthroughs need a stable parent across phase-specific game screens or their page resets mid-reading.
