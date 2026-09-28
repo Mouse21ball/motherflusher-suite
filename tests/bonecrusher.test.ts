@@ -179,6 +179,19 @@ describe('BonecrusherMode.resolveShowdown — sole survivor', () => {
     expect(out.find(p => p.id === 'A')!.chips).toBe(1500);
     expect(out.find(p => p.id === 'A')!.isWinner).toBe(true);
   });
+
+  it('pays only the available net pot to a short survivor against larger folded bets', () => {
+    const players = [
+      player('A', pairAceCards, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
+      player('B', royalFlushCards, { status: 'folded', chips: 0, totalBet: 150 }),
+      player('C', wheelCards, { status: 'folded', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot, messages } = BonecrusherMode.resolveShowdown!(players, 333, 'A');
+    expect(out.map(p => p.chips)).toEqual([333, 0, 0]);
+    expect(out[0].isWinner).toBe(true);
+    expect(pot).toBe(0);
+    expect(messages).toContain('A wins $333 — last one standing');
+  });
 });
 
 describe('BonecrusherMode.resolveShowdown — HIGH vs LOW split', () => {

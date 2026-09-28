@@ -338,11 +338,10 @@ export const KamikazeMode: GameMode = {
 
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
-      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((sum, sp) => sum + sp.amount, 0);
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
-      messages.push(`${sole.name} wins $${award} (last standing)`);
-      return { players: finalPlayers, pot: pot - award, messages };
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
+      messages.push(`${sole.name} wins $${pot} (last standing)`);
+      return { players: finalPlayers, pot: 0, messages };
     }
 
     const evalMap = new Map<string, KamikazeEval>();

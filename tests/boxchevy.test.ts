@@ -156,6 +156,19 @@ describe('BoxChevyMode.resolveShowdown — sole survivor', () => {
     expect(pot).toBe(0);
     expect(out.find(p => p.id === 'A')!.chips).toBe(1400);
   });
+
+  it('awards the actual net pot when the sole survivor bet less than folded contributors', () => {
+    const players = [
+      player('A', royalHole, { declaration: 'SWING', chips: 0, totalBet: 50 }),
+      player('B', hole1, { status: 'folded', chips: 0, totalBet: 150 }),
+      player('C', wheelHole, { status: 'folded', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot, messages } = BoxChevyMode.resolveShowdown!(players, 333, 'A', royalComm);
+    expect(out.map(p => p.chips)).toEqual([333, 0, 0]);
+    expect(out[0].isWinner).toBe(true);
+    expect(pot).toBe(0);
+    expect(messages).toContain('A wins $333 — last one standing');
+  });
 });
 
 describe('BoxChevyMode.resolveShowdown — HIGH vs LOW split', () => {

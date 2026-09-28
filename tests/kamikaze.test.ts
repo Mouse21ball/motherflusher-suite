@@ -204,6 +204,19 @@ describe('KamikazeMode.resolveShowdown — sole survivor', () => {
     expect(out.find(p => p.id === 'A')!.chips).toBe(1300);
     expect(out.find(p => p.id === 'A')!.isWinner).toBe(true);
   });
+
+  it('pays the net pot to the sole survivor even when folded players contributed more', () => {
+    const players = [
+      player('A', valid321, { declaration: 'LOW', chips: 0, totalBet: 50 }),
+      player('B', invalid411, { status: 'folded', chips: 0, totalBet: 150 }),
+      player('C', valid321Low, { status: 'folded', chips: 0, totalBet: 150 }),
+    ];
+    const { players: out, pot, messages } = KamikazeMode.resolveShowdown!(players, 333, 'A');
+    expect(out.map(p => p.chips)).toEqual([333, 0, 0]);
+    expect(out[0].isWinner).toBe(true);
+    expect(pot).toBe(0);
+    expect(messages).toContain('A wins $333 (last standing)');
+  });
 });
 
 describe('KamikazeMode.resolveShowdown — HIGH vs LOW split', () => {
