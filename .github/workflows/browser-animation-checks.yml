@@ -25,25 +25,60 @@ jobs:
           cache: npm
 
       - name: Install project dependencies
-        run: npm ci --include=dev
-        env:
-          NODE_ENV: development
-          NPM_CONFIG_PRODUCTION: "false"
+        id: dependencies
+        run: |
+          # Replit's lockfile mirrors npm tarballs through private hosts that
+          # GitHub runners cannot reach. Use the same public tarballs in CI;
+          # npm ci still verifies every tarball against the lockfile integrity.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          let replaced = 0;
+          for (const entry of Object.values(lock.packages)) {
+            if (!entry.resolved) continue;
+            const url = new URL(entry.resolved);
+            if (!['package-firewall.replit.local', 'package-firewall.replit.internal'].includes(url.hostname)) continue;
+            if (!url.pathname.startsWith('/npm/')) throw new Error(`Unexpected registry path: ${url.pathname}`);
+            entry.resolved = `https://registry.npmjs.org/${url.pathname.slice(5)}${url.search}`;
+            replaced++;
+          }
+          fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+          console.log(`Using public npm tarballs for ${replaced} mirrored packages.`);
+          NODE
+          npm ci --include=dev --registry=https://registry.npmjs.org
+
+          # npm has returned success after "Exit handler never called!" on CI.
+          # Never fall through to a global/stale tsc when installation is incomplete.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const expected = require('./package.json').devDependencies.typescript;
+          const locked = require('./package-lock.json').packages['node_modules/typescript'].version;
+          const binary = './node_modules/.bin/tsc';
+          let installed;
+          try { installed = require('./node_modules/typescript/package.json').version; } catch {}
+          if (expected !== locked || installed !== expected || !fs.existsSync(binary)) {
+            console.error(`::error::npm ci incomplete: TypeScript expected=${expected}, locked=${locked}, installed=${installed ?? 'missing'}, local tsc=${fs.existsSync(binary) ? 'present' : 'missing'}`);
+            process.exit(1);
+          }
+          console.log(`Verified local TypeScript ${installed} from package.json and package-lock.json.`);
+          NODE
+          test -x ./node_modules/.bin/playwright
+          ./node_modules/.bin/tsc --version
+
+      - name: Upload npm install diagnostics
+        if: failure() && steps.dependencies.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-install-debug-logs
+          path: ~/.npm/_logs/*-debug-0.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Run TypeScript check
         run: npm run check
 
       - name: Run Vitest suite
         run: npm test
-
-      - name: Bootstrap development toolchain from public npm
-        run: |
-          DEV_DEPENDENCIES="$(node -e "const p=require('./package.json'); process.stdout.write(Object.entries(p.devDependencies).map(([name,version]) => name + '@' + version).join(' '))")"
-          npm install --no-save --package-lock=false --ignore-scripts \
-            --registry=https://registry.npmjs.org \
-            $DEV_DEPENDENCIES
-          test -x ./node_modules/.bin/playwright
-          ./node_modules/.bin/playwright --version
 
       - name: Install Chromium and system dependencies
         run: ./node_modules/.bin/playwright install --with-deps chromium
