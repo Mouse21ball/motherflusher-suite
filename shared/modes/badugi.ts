@@ -303,7 +303,6 @@ export const BadugiMode: GameMode = {
       // ── Pot control: medium-strength hands keep pots small ────────────────
       const potControl = strength >= 0.30 && strength <= 0.52 && state.pot >= 6 && !trapFire;
 
-      const heroWeak      = heroPlayer ? !evaluateBadugi(heroPlayer.cards)?.isValidBadugi : false;
       const largePot      = state.pot >= 20;
       const earlyPressure = (state.phase === 'BET_1' && !slowPlay) || trapFire;
       const passiveExtra  = (isLastBet && !evaluation?.isValidBadugi) ? 0.22 : 0;
@@ -314,7 +313,7 @@ export const BadugiMode: GameMode = {
       if (hasDrawsLeft) strength = Math.max(strength, 0.15);
 
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
-        heroWeak, largePot, earlyPressure, passiveExtra,
+        largePot, earlyPressure, passiveExtra,
         activeOpponents, stackRisk, slowPlay,
         heroAggression, bluffLine, potControl,
         personality, momentum,

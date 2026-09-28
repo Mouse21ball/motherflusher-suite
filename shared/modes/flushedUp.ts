@@ -207,16 +207,11 @@ export const FlushedUpMode: GameMode = {
 
       const activeOpponents = state.players.filter(p => p.id !== botId && p.status === 'active').length;
       const raiseCap = activeOpponents <= 1 ? 4 : 3;
-      const heroPlayer = state.players.find(p => p.presence === 'human');
-      const heroEval = heroPlayer?.cards?.length === 5
-        ? evaluateFlushedUpHand(heroPlayer.cards.map(c => ({ ...c, isHidden: false })))
-        : null;
-      const heroWeak = heroEval ? heroEval.suitCount <= 2 : false;
       const largePot = state.pot >= 200;
       const raisesSoFar = state.raisesThisRound ?? 0;
 
       const decision = decideBet(strength, state.pot, state.currentBet, bot.bet, bot.chips, {
-        heroWeak, largePot, raisesThisRound: raisesSoFar, raiseCap,
+        largePot, raisesThisRound: raisesSoFar, raiseCap,
       });
       const result = applyBetDecision(decision, bot, state.currentBet, state.pot, raisesSoFar);
       newPlayers[bIdx] = {
