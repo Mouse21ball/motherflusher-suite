@@ -33,7 +33,15 @@ describe("personal chip pack catalog and receipt account binding", () => {
   it("centralizes five matching Google and Apple products with parallel price tiers", () => {
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.priceCents)).toEqual([99, 499, 999, 2499, 9999]);
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.chips)).toEqual([1_000, 6_000, 15_000, 45_000, 200_000]);
-    expect(PERSONAL_CHIP_PRODUCT_IDS).toHaveLength(7);
+    expect(PERSONAL_CHIP_PRODUCT_IDS).toEqual([
+      "personal_chips_starter_99",
+      "personal_chips_small_499",
+      "personal_chips_medium_999",
+      "personal_chips_large_2499",
+      "personal_chips_mega_9999",
+      "personal_chips_bust_rescue_99",
+      "first_purchase_bundle_199",
+    ]);
     expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toHaveLength(7);
     expect(PERSONAL_CHIP_PRODUCT_IDS).toContain(BUST_RESCUE_PRODUCT.googleId);
     expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toContain(BUST_RESCUE_PRODUCT.appleId);

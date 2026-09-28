@@ -23,3 +23,4 @@
 - [Tutorial continuity](tutorial-continuity.md) — first-visit walkthroughs need a stable parent across phase-specific game screens or their page resets mid-reading.
 - [Referral attribution boundary](referral-attribution.md) — table and crew invites do not identify a new account on their own; bind the inviter at signup before rewarding settled play.
 - [Claimed offer fulfillment](claimed-offer-fulfillment.md) — honor a valid claimed first-purchase receipt even if another purchase settles before verification; avoid charging without a grant.
+- [Google Play product ID format](google-play-product-ids.md) — use underscores for new Play in-app product identifiers; hyphenated IDs were rejected.

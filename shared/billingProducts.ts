@@ -34,11 +34,11 @@ export const PERSONAL_CHIP_PACKS = [
 ] as const;
 
 export const GOOGLE_PERSONAL_CHIP_PRODUCTS = {
-  starter: "personal-chips-starter-99",
-  small: "personal-chips-small-499",
-  medium: "personal-chips-medium-999",
-  large: "personal-chips-large-2499",
-  mega: "personal-chips-mega-9999",
+  starter: "personal_chips_starter_99",
+  small: "personal_chips_small_499",
+  medium: "personal_chips_medium_999",
+  large: "personal_chips_large_2499",
+  mega: "personal_chips_mega_9999",
 } as const;
 
 export const APPLE_PERSONAL_CHIP_PRODUCTS = {
@@ -53,7 +53,7 @@ export const APPLE_PERSONAL_CHIP_PRODUCTS = {
 export const BUST_RESCUE_PRODUCT = {
   chips: 3_000,
   priceCents: 99,
-  googleId: "personal-chips-bust-rescue-99",
+  googleId: "personal_chips_bust_rescue_99",
   appleId: "com.dgmentertainment.poker.personalchips.bustrescue",
   offerDurationMs: 10 * 60 * 1000,
 } as const;
@@ -64,7 +64,7 @@ export const FIRST_PURCHASE_BUNDLE = {
   stripes: 200,
   priceCents: 199,
   offerDurationMs: 24 * 60 * 60 * 1000,
-  googleId: "first-purchase-bundle-199",
+  googleId: "first_purchase_bundle_199",
   appleId: "com.dgmentertainment.poker.firstpurchase.bundle",
 } as const;
 
