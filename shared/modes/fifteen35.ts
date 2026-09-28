@@ -117,15 +117,13 @@ export const Fifteen35Mode: GameMode = {
               newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
               message = `${bot.name} hits and BUSTS!`;
             } else {
-              let autoStay = false;
               const active = newPlayers.filter(p => p.status === 'active');
-              if (active.length === 2) {
-                const other = active.find(p => p.id !== botId);
-                if (other && other.declaration === 'STAY') {
-                  const otherTotal = bestTotal(other.cards).total;
-                  if ((qualifiesLow(otherTotal) && qualifiesHigh(newTotal)) || (qualifiesHigh(otherTotal) && qualifiesLow(newTotal))) autoStay = true;
-                }
-              }
+              // A stayed opponent is public information; their face-down card
+              // is not. If our new total qualifies, staying now only skips the
+              // action the bot would take on its next turn anyway.
+              const other = active.length === 2 ? active.find(p => p.id !== botId) : undefined;
+              const autoStay = other?.declaration === 'STAY' &&
+                (qualifiesLow(newTotal) || qualifiesHigh(newTotal));
               if (autoStay) { newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'STAY', hasActed: true }; message = `${bot.name} hits and auto-stays!`; }
               else { newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true }; message = `${bot.name} hits`; }
             }
@@ -317,7 +315,6 @@ export const Fifteen35Mode: GameMode = {
     const other = active.find(p => p.id !== playerId);
     if (!me || !other || me.declaration || other.declaration !== 'STAY') return false;
     const myTotal = bestTotal(me.cards).total;
-    const otherTotal = bestTotal(other.cards).total;
-    return (qualifiesLow(myTotal) && qualifiesHigh(otherTotal)) || (qualifiesHigh(myTotal) && qualifiesLow(otherTotal));
+    return qualifiesLow(myTotal) || qualifiesHigh(myTotal);
   }
 };

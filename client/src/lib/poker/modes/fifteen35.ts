@@ -180,21 +180,10 @@ export const Fifteen35Mode: GameMode = {
               newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
               message = `${bot.name} hits and BUSTS!`;
             } else {
-              let autoStay = false;
               const active = newPlayers.filter(p => p.status === 'active');
-              if (active.length === 2) {
-                const other = active.find(p => p.id !== botId);
-                if (other && other.declaration === 'STAY') {
-                  const otherTotal = bestTotal(other.cards).total;
-                  const otherIsLow = qualifiesLow(otherTotal);
-                  const otherIsHigh = qualifiesHigh(otherTotal);
-                  const meIsLow = qualifiesLow(newTotal);
-                  const meIsHigh = qualifiesHigh(newTotal);
-                  if ((otherIsLow && meIsHigh) || (otherIsHigh && meIsLow)) {
-                    autoStay = true;
-                  }
-                }
-              }
+              const other = active.length === 2 ? active.find(p => p.id !== botId) : undefined;
+              const autoStay = other?.declaration === 'STAY' &&
+                (qualifiesLow(newTotal) || qualifiesHigh(newTotal));
               if (autoStay) {
                 newPlayers[bIdx] = { ...bot, cards: newCards, declaration: 'STAY', hasActed: true };
                 message = `${bot.name} hits and auto-stays!`;
@@ -501,11 +490,6 @@ export const Fifteen35Mode: GameMode = {
     if (me.declaration) return false;
     if (other.declaration !== 'STAY') return false;
     const myTotal = bestTotal(me.cards).total;
-    const otherTotal = bestTotal(other.cards).total;
-    const myIsLow = qualifiesLow(myTotal);
-    const myIsHigh = qualifiesHigh(myTotal);
-    const otherIsLow = qualifiesLow(otherTotal);
-    const otherIsHigh = qualifiesHigh(otherTotal);
-    return (myIsLow && otherIsHigh) || (myIsHigh && otherIsLow);
+    return qualifiesLow(myTotal) || qualifiesHigh(myTotal);
   }
 };
