@@ -97,4 +97,34 @@ describe('Fifteen35Mode.resolveShowdown', () => {
     });
     expect(pot).toBe(0);
   });
+
+  it('rejects 16 and face-card 15.5 on LOW while awarding a qualifying 14', () => {
+    const low14 = player('low-14', [{ rank: '9', suit: 'spades' }, { rank: '5', suit: 'hearts' }]);
+    const sixteen = player('sixteen', [{ rank: '10', suit: 'spades' }, { rank: '6', suit: 'hearts' }]);
+    const fifteenHalf = player('fifteen-half', [
+      { rank: '10', suit: 'clubs' }, { rank: '5', suit: 'diamonds' }, { rank: 'J', suit: 'hearts' },
+    ]);
+    const high35 = player('high-35', [
+      { rank: '10', suit: 'hearts' }, { rank: '10', suit: 'diamonds' },
+      { rank: '10', suit: 'clubs' }, { rank: '5', suit: 'spades' },
+    ]);
+
+    expect(Fifteen35Mode.evaluateHand!(fifteenHalf)?.description).toContain('15.5 — No Qualifier');
+    expect(Fifteen35Mode.evaluateHand!(sixteen)?.description).toContain('16 — No Qualifier');
+    const faceCards = player('faces', [
+      { rank: 'J', suit: 'spades' }, { rank: 'Q', suit: 'hearts' }, { rank: 'K', suit: 'clubs' },
+    ]);
+    expect(Fifteen35Mode.evaluateHand!(faceCards)?.description).toContain('1.5 — No Qualifier');
+
+    const { players: settled, pot } = Fifteen35Mode.resolveShowdown!(
+      [low14, sixteen, fifteenHalf, high35], 200,
+    );
+    expect(Object.fromEntries(settled.map(p => [p.id, p.chips]))).toEqual({
+      'low-14': 200,
+      sixteen: 100,
+      'fifteen-half': 100,
+      'high-35': 200,
+    });
+    expect(pot).toBe(0);
+  });
 });

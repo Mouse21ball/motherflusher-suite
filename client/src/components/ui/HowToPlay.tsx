@@ -272,7 +272,7 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '🃏',
       title: 'Card Values',
-      desc: 'Face cards J Q K are worth 0.5 each. Ace is worth 11 or 1 to avoid busting. Cards 2-10 are face value.',
+      desc: 'J, Q, and K count as 0.5 point each (all three add up to 1.5). Ace is worth 11 or 1 to avoid busting. Cards 2-10 are face value.',
       cards: [
         [{ rank: 'J', suit: '♠' }, { rank: 'Q', suit: '♥' }, { rank: 'K', suit: '♦' }],
         [{ rank: 'A', suit: '♠' }],
@@ -293,17 +293,17 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '🏆',
       title: 'Qualifying Totals',
-      desc: 'LOW qualifies at 13-15. HIGH qualifies at 33-35. Closest to 15 wins LOW. Closest to 35 wins HIGH. Same total = split pot.',
+      desc: 'LOW only qualifies from 13 through 15: 15 beats 14, which beats 13. A 16 does NOT beat a 14, even though both are one point from 15: 16 is outside the LOW band. HIGH only qualifies from 33 through 35; 35 beats 34, then 33. Equal qualifying totals split that side.',
     },
     {
       icon: '❌',
       title: 'Non-Qualifying Hands',
-      desc: 'These totals do NOT qualify — keep hitting or you lose that side:',
+      desc: 'The LOW band stops at 15, including fractions: 10+5+J = 15.5 is NOT a qualifying LOW. These totals do not qualify:',
       cards: [
-        [{ rank: '5', suit: '♠' }, { rank: '4', suit: '♥' }, { rank: '2', suit: '♦' }],
-        [{ rank: '2', suit: '♠' }, { rank: '3', suit: '♥' }],
+        [{ rank: '10', suit: '♠' }, { rank: '5', suit: '♥' }, { rank: 'J', suit: '♦' }],
+        [{ rank: '10', suit: '♠' }, { rank: '6', suit: '♥' }],
       ],
-      cardLabels: ['5+4+2=11 too low — keep hitting', '2+3=5 way too low — keep hitting'],
+      cardLabels: ['10+5+J=15.5 — NOT LOW', '10+6=16 — NOT LOW'],
     },
     {
       icon: '💥',
