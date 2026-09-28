@@ -13,6 +13,7 @@ import {
   type StripeTransaction,
   type AdminAction,
   analyticsEvents, playerProfiles, stripeTransactions, sessions, playerReferrals, purchaseTransactions,
+  bustRescueOffers,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
@@ -160,6 +161,15 @@ export interface IStorage {
     orderId?: string;
   }): Promise<{ idempotent: boolean; newBalance: number }>;
   debitChipsForRefund(purchaseTransactionId: string): Promise<boolean>;
+  issueBustRescueOffer(playerId: string, now: Date, durationMs: number): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  }>;
+  claimBustRescueOffer(playerId: string, now: Date): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  } | null>;
+  getBustRescueOffer(playerId: string): Promise<{
+    issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
+  } | null>;
   // ── Cosmetics ──────────────────────────────────────────────────────────────
   getCosmeticCatalog(): Promise<CosmeticItem[]>;
   getPlayerInventory(playerId: string): Promise<PlayerInventoryResult>;
@@ -1845,6 +1855,46 @@ export class MemStorage implements IStorage {
         .where(eq(purchaseTransactions.id, purchase.id));
       return true;
     });
+  }
+
+  async issueBustRescueOffer(playerId: string, now: Date, durationMs: number) {
+    await db.insert(bustRescueOffers).values({
+      playerId,
+      issuedAt: now,
+      expiresAt: new Date(now.getTime() + durationMs),
+    }).onConflictDoNothing();
+    const [offer] = await db.select({
+      issuedAt: bustRescueOffers.issuedAt,
+      expiresAt: bustRescueOffers.expiresAt,
+      claimedAt: bustRescueOffers.claimedAt,
+    }).from(bustRescueOffers).where(eq(bustRescueOffers.playerId, playerId)).limit(1);
+    if (!offer) throw new Error("Failed to issue bust-rescue offer");
+    return offer;
+  }
+
+  async claimBustRescueOffer(playerId: string, now: Date) {
+    const [offer] = await db.update(bustRescueOffers)
+      .set({ claimedAt: now })
+      .where(and(
+        eq(bustRescueOffers.playerId, playerId),
+        isNull(bustRescueOffers.claimedAt),
+        gt(bustRescueOffers.expiresAt, now),
+      ))
+      .returning({
+        issuedAt: bustRescueOffers.issuedAt,
+        expiresAt: bustRescueOffers.expiresAt,
+        claimedAt: bustRescueOffers.claimedAt,
+      });
+    return offer ?? null;
+  }
+
+  async getBustRescueOffer(playerId: string) {
+    const [offer] = await db.select({
+      issuedAt: bustRescueOffers.issuedAt,
+      expiresAt: bustRescueOffers.expiresAt,
+      claimedAt: bustRescueOffers.claimedAt,
+    }).from(bustRescueOffers).where(eq(bustRescueOffers.playerId, playerId)).limit(1);
+    return offer ?? null;
   }
 
   async debitStripesForRefund(

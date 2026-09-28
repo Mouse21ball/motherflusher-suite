@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { randomUUID } from "crypto";
 import { sql } from "drizzle-orm";
 import { db } from "../server/db";
-import { APPLE_PERSONAL_CHIP_PRODUCTS, GOOGLE_PERSONAL_CHIP_PRODUCTS, PERSONAL_CHIP_PACKS } from "../shared/billingProducts";
+import {
+  APPLE_PERSONAL_CHIP_PRODUCTS,
+  GOOGLE_PERSONAL_CHIP_PRODUCTS,
+  PERSONAL_CHIP_PACKS,
+  BUST_RESCUE_PRODUCT,
+} from "../shared/billingProducts";
 import {
   isApplePurchaseAccountBound,
   isGooglePurchaseAccountBound,
@@ -27,8 +32,10 @@ describe("personal chip pack catalog and receipt account binding", () => {
   it("centralizes five matching Google and Apple products with parallel price tiers", () => {
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.priceCents)).toEqual([99, 499, 999, 2499, 9999]);
     expect(PERSONAL_CHIP_PACKS.map(pack => pack.chips)).toEqual([1_000, 6_000, 15_000, 45_000, 200_000]);
-    expect(PERSONAL_CHIP_PRODUCT_IDS).toHaveLength(5);
-    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toHaveLength(5);
+    expect(PERSONAL_CHIP_PRODUCT_IDS).toHaveLength(6);
+    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toHaveLength(6);
+    expect(PERSONAL_CHIP_PRODUCT_IDS).toContain(BUST_RESCUE_PRODUCT.googleId);
+    expect(APPLE_PERSONAL_CHIP_PRODUCT_IDS_LIST).toContain(BUST_RESCUE_PRODUCT.appleId);
     for (const pack of PERSONAL_CHIP_PACKS) {
       expect(GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]).toBeTruthy();
       expect(APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier]).toBeTruthy();

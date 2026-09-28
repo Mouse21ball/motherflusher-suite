@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { track, getModeFromPath } from "@/lib/analytics";
+import { billing } from "@/lib/billing";
+import { apiFetch } from "@/lib/session";
+import { apiUrl } from "@/lib/apiConfig";
 import { BuyInSlider } from "./BuyInSlider";
 
 interface BustOutModalProps {
@@ -47,6 +50,65 @@ export function BustOutModal({
   bigBlind,
 }: BustOutModalProps) {
   const [showRebuySlider, setShowRebuySlider] = useState(false);
+  const [rescueOffer, setRescueOffer] = useState<{
+    issuedAt: number; expiresAt: number; claimed: boolean; available: boolean;
+  } | null>(null);
+  const [rescueNow, setRescueNow] = useState(Date.now());
+  const [rescueBusy, setRescueBusy] = useState(false);
+  const [rescueMessage, setRescueMessage] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    apiFetch(apiUrl("/api/billing/bust-rescue-offer"), { method: "POST" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Limited rescue offer unavailable.");
+        return response.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        setRescueOffer({
+          issuedAt: new Date(data.issuedAt).getTime(),
+          expiresAt: new Date(data.expiresAt).getTime(),
+          claimed: !!data.claimed,
+          available: !!data.available,
+        });
+      })
+      .catch(error => {
+        if (!cancelled) setRescueMessage(error.message || "Limited rescue offer unavailable.");
+      });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !rescueOffer?.available) return;
+    const timer = window.setInterval(() => setRescueNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [open, rescueOffer?.available]);
+
+  async function handlePaidRescue() {
+    if (rescueBusy) return;
+    setRescueBusy(true);
+    setRescueMessage("");
+    try {
+      const claim = await apiFetch(apiUrl("/api/billing/bust-rescue-offer/claim"), { method: "POST" });
+      const claimData = await claim.json().catch(() => ({}));
+      if (!claim.ok) throw new Error(claimData.error ?? "This rescue offer has expired.");
+      const isIOS = typeof window !== "undefined" && (
+        /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      );
+      const productId = isIOS ? claimData.appleProductId : claimData.productId;
+      if (!productId) throw new Error("Rescue purchase is unavailable on this store.");
+      await billing.purchase(productId);
+      setRescueOffer(current => current ? { ...current, claimed: true, available: false } : current);
+      setRescueMessage("✓ 3,000 chips added to your personal balance.");
+    } catch (error) {
+      setRescueMessage(error instanceof Error ? error.message : "Rescue purchase failed. Contact support if charged.");
+    } finally {
+      setRescueBusy(false);
+    }
+  }
 
   // ── Track bust modal shown ────────────────────────────────────────────────
   useEffect(() => {
@@ -89,6 +151,10 @@ export function BustOutModal({
   if (!open) return null;
 
   const tier = getTier(lifetimeBusts, sessionBusts, hasNeverPurchased);
+  const rescueSecondsLeft = rescueOffer
+    ? Math.max(0, Math.ceil((rescueOffer.expiresAt - rescueNow) / 1000))
+    : 0;
+  const rescueAvailable = !!rescueOffer?.available && !rescueOffer.claimed && rescueSecondsLeft > 0;
 
   // ── Secondary button helper ────────────────────────────────────────────────
   const SecBtn = ({
@@ -283,6 +349,41 @@ export function BustOutModal({
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>
           </>
+        )}
+
+        {/* Paid offer supplements all free triage choices; it never replaces them. */}
+        {!rescueOffer?.claimed && (
+          <section
+            className="mt-4 rounded-xl border border-[#4FD1C5]/30 bg-[#4FD1C5]/[0.06] p-3 text-center"
+            data-testid="bust-rescue-offer"
+          >
+            <div className="text-[11px] font-mono font-bold tracking-widest text-[#4FD1C5]">
+              {hasNeverPurchased ? "FIRST-TIME PLAYER RESCUE" : "LIMITED TABLE RESCUE"}
+            </div>
+            <p className="mt-1 text-xs text-white/75">
+              Get 3,000 personal chips for $0.99
+            </p>
+            {rescueAvailable ? (
+              <>
+                <p className="mt-1 text-[10px] font-mono text-white/55" data-testid="bust-rescue-countdown">
+                  OFFER ENDS IN {Math.floor(rescueSecondsLeft / 60)}:{String(rescueSecondsLeft % 60).padStart(2, "0")}
+                </p>
+                <button
+                  onClick={handlePaidRescue}
+                  disabled={rescueBusy}
+                  data-testid="button-bust-paid-rescue"
+                  className="mt-2 w-full rounded-lg bg-[#4FD1C5] px-3 py-2.5 text-sm font-black text-[#0B0B0D] disabled:opacity-60"
+                >
+                  {rescueBusy ? "OPENING STORE…" : "GET 3,000 CHIPS — $0.99"}
+                </button>
+              </>
+            ) : (
+              <p className="mt-1 text-[10px] font-mono text-white/45">
+                {rescueOffer?.claimed ? "Offer claimed" : rescueOffer && !rescueSecondsLeft ? "Offer expired" : "Loading limited offer…"}
+              </p>
+            )}
+            {rescueMessage && <p className="mt-2 text-[10px] text-white/70" role="status">{rescueMessage}</p>}
+          </section>
         )}
 
       </div>

@@ -49,8 +49,23 @@ export const APPLE_PERSONAL_CHIP_PRODUCTS = {
   mega: "com.dgmentertainment.poker.personalchips.mega",
 } as const;
 
-export const GOOGLE_PERSONAL_CHIP_PRODUCT_IDS = Object.values(GOOGLE_PERSONAL_CHIP_PRODUCTS);
-export const APPLE_PERSONAL_CHIP_PRODUCT_IDS = Object.values(APPLE_PERSONAL_CHIP_PRODUCTS);
+// One-time $0.99 bust-rescue offer; keep platform IDs centralized for later store mapping.
+export const BUST_RESCUE_PRODUCT = {
+  chips: 3_000,
+  priceCents: 99,
+  googleId: "personal-chips-bust-rescue-99",
+  appleId: "com.dgmentertainment.poker.personalchips.bustrescue",
+  offerDurationMs: 10 * 60 * 1000,
+} as const;
+
+export const GOOGLE_PERSONAL_CHIP_PRODUCT_IDS = [
+  ...Object.values(GOOGLE_PERSONAL_CHIP_PRODUCTS),
+  BUST_RESCUE_PRODUCT.googleId,
+];
+export const APPLE_PERSONAL_CHIP_PRODUCT_IDS = [
+  ...Object.values(APPLE_PERSONAL_CHIP_PRODUCTS),
+  BUST_RESCUE_PRODUCT.appleId,
+];
 export const PERSONAL_CHIP_PRODUCT_BY_GOOGLE_ID: Record<string, string> = {
   [GOOGLE_PERSONAL_CHIP_PRODUCTS.starter]: APPLE_PERSONAL_CHIP_PRODUCTS.starter,
   [GOOGLE_PERSONAL_CHIP_PRODUCTS.small]: APPLE_PERSONAL_CHIP_PRODUCTS.small,

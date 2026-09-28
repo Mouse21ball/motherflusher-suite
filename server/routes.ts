@@ -62,6 +62,12 @@ import {
   verifyAppleAppStorePurchase,
   type ApplePurchaseData,
 } from "./billing";
+import { BUST_RESCUE_PRODUCT } from "@shared/billingProducts";
+import {
+  BUST_RESCUE_OFFER_DURATION_MS,
+  isBustRescueOfferAvailable,
+  isBustRescuePurchaseValid,
+} from "./bustRescue";
 import { randomBytes } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
@@ -1430,6 +1436,47 @@ export async function registerRoutes(
     }
   });
 
+  // Issue the single bust-rescue window on the first modal open; expired windows never renew.
+  app.post("/api/billing/bust-rescue-offer", requireAuth, async (req, res) => {
+    try {
+      const offer = await storage.issueBustRescueOffer(
+        req.sessionPlayerId!,
+        new Date(),
+        BUST_RESCUE_OFFER_DURATION_MS,
+      );
+      res.json({
+        issuedAt: offer.issuedAt.toISOString(),
+        expiresAt: offer.expiresAt.toISOString(),
+        claimed: !!offer.claimedAt,
+        available: isBustRescueOfferAvailable(offer),
+      });
+    } catch (err) {
+      console.error("[billing] bust-rescue offer issuance failed:", err);
+      res.status(500).json({ error: "Could not load the bust-rescue offer." });
+    }
+  });
+
+  // Claim before opening the native purchase sheet. This is one-time and server-authoritative.
+  app.post("/api/billing/bust-rescue-offer/claim", requireAuth, async (req, res) => {
+    try {
+      const offer = await storage.claimBustRescueOffer(req.sessionPlayerId!, new Date());
+      if (!offer) {
+        res.status(409).json({ error: "This bust-rescue offer is expired or has already been used." });
+        return;
+      }
+      res.json({
+        productId: BUST_RESCUE_PRODUCT.googleId,
+        appleProductId: BUST_RESCUE_PRODUCT.appleId,
+        priceCents: BUST_RESCUE_PRODUCT.priceCents,
+        chips: BUST_RESCUE_PRODUCT.chips,
+        expiresAt: offer.expiresAt.toISOString(),
+      });
+    } catch (err) {
+      console.error("[billing] bust-rescue offer claim failed:", err);
+      res.status(500).json({ error: "Could not claim the bust-rescue offer." });
+    }
+  });
+
   // POST /api/billing/verify-purchase
   // Called by the native client after Google Play returns a purchase token.
   // Performs server-side verification via Play Developer API, credits Stripes,
@@ -1550,6 +1597,20 @@ export async function registerRoutes(
           await storage.updatePurchaseTransactionStatus(purchase.id, "rejected");
           res.status(403).json({ error: "Purchase authorization failed: account ID mismatch or missing" });
           return;
+        }
+        if (productId === BUST_RESCUE_PRODUCT.googleId) {
+          const offer = await storage.getBustRescueOffer(playerId);
+          const purchaseAt = purchaseData.purchaseTimeMillis
+            ? new Date(Number(purchaseData.purchaseTimeMillis))
+            : null;
+          if (!purchaseAt || Number.isNaN(purchaseAt.getTime())
+            || !isBustRescuePurchaseValid(offer, purchaseAt)) {
+            await storage.updatePurchaseTransactionStatus(purchase.id, "rejected");
+            res.status(409).json({
+              error: "This rescue purchase was outside its valid offer window. Contact support for purchase assistance.",
+            });
+            return;
+          }
         }
         const grant = await storage.completePersonalChipPurchase({
           purchaseTransactionId: purchase.id,
@@ -1893,6 +1954,18 @@ export async function registerRoutes(
           }
           res.status(403).json({ error: "Purchase authorization failed: account ID mismatch or missing" });
           return;
+        }
+        if (productId === BUST_RESCUE_PRODUCT.appleId) {
+          const offer = await storage.getBustRescueOffer(playerId);
+          const purchaseAt = appleData.purchaseDate ? new Date(appleData.purchaseDate) : null;
+          if (!purchaseAt || Number.isNaN(purchaseAt.getTime())
+            || !isBustRescuePurchaseValid(offer, purchaseAt)) {
+            await storage.updatePurchaseTransactionStatus(purchase.id, "rejected");
+            res.status(409).json({
+              error: "This rescue purchase was outside its valid offer window. Contact support for purchase assistance.",
+            });
+            return;
+          }
         }
         const grant = await storage.completePersonalChipPurchase({
           purchaseTransactionId: purchase.id,

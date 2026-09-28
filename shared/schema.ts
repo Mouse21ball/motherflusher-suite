@@ -175,6 +175,14 @@ export const purchaseTransactions = pgTable("purchase_transactions", {
   verifiedAt:         timestamp("verified_at"),
 });
 
+// A bust-rescue offer is issued once per account and cannot be renewed by reopening the modal.
+export const bustRescueOffers = pgTable("bust_rescue_offers", {
+  playerId:  text("player_id").primaryKey().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  issuedAt:  timestamp("issued_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  claimedAt: timestamp("claimed_at"),
+});
+
 export const insertPurchaseTransactionSchema = createInsertSchema(purchaseTransactions).omit({
   id: true,
   createdAt: true,

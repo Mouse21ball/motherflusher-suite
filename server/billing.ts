@@ -21,6 +21,7 @@ import {
   PERSONAL_CHIP_PACKS,
   GOOGLE_PERSONAL_CHIP_PRODUCTS,
   APPLE_PERSONAL_CHIP_PRODUCTS,
+  BUST_RESCUE_PRODUCT,
 } from "../shared/billingProducts";
 
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
@@ -81,6 +82,14 @@ for (const pack of PERSONAL_CHIP_PACKS) {
     priceCents: pack.priceCents,
   };
 }
+PERSONAL_CHIP_PACK_CATALOG[BUST_RESCUE_PRODUCT.googleId] = {
+  chips: BUST_RESCUE_PRODUCT.chips,
+  priceCents: BUST_RESCUE_PRODUCT.priceCents,
+};
+PERSONAL_CHIP_PACK_CATALOG[BUST_RESCUE_PRODUCT.appleId] = {
+  chips: BUST_RESCUE_PRODUCT.chips,
+  priceCents: BUST_RESCUE_PRODUCT.priceCents,
+};
 for (const pack of PERSONAL_CHIP_PACKS) {
   PERSONAL_CHIP_PACK_CATALOG[GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier]] = {
     chips: pack.chips,
@@ -171,6 +180,7 @@ export interface GooglePurchaseData {
   // Fix C: present when the client passed applicationUsername to offer.order().
   // Used to bind the purchase to the authenticated player server-side.
   obfuscatedExternalAccountId?: string;
+  purchaseTimeMillis?: string;
 }
 
 // Fix A: updated for purchases.subscriptionsv2.get (v2 API).
@@ -205,6 +215,7 @@ export async function verifyGooglePlayPurchase(
       purchaseState:    0,
       orderId:          `test_order_${Date.now()}`,
       consumptionState: 0,
+      purchaseTimeMillis: String(Date.now()),
     };
   }
 
@@ -240,6 +251,7 @@ export async function verifyGooglePlayPurchase(
     regionCode:       d.regionCode       ?? undefined,
     // Fix C: obfuscatedExternalAccountId is set when client passes applicationUsername
     obfuscatedExternalAccountId: d.obfuscatedExternalAccountId ?? undefined,
+    purchaseTimeMillis: d.purchaseTimeMillis ?? undefined,
   };
 }
 
