@@ -26,6 +26,8 @@ import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 import { filterChatMessage } from './chatFilter';
 import { secureShuffleInPlace } from './utils/secureShuffle';
+import { makeBotPlayer } from './utils/botPlayer';
+import { scheduleBotBanter } from './utils/botBanter';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -163,7 +165,7 @@ function convertReservedToBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
+        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -190,7 +192,7 @@ function quickFillBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) };
+      return makeBotPlayer(p, getBotName(table.tableId, p.id), 'active');
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -215,7 +217,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
+        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -350,7 +352,7 @@ function scheduleFlushedUpBotFill(key: string): void {
       ...t.state,
       players: t.state.players.map(p =>
         p.id === first.id
-          ? { ...p, presence: 'bot' as const, status: 'active' as const, name: botName }
+          ? makeBotPlayer(p, botName, 'active')
           : p,
       ),
     };
@@ -1129,59 +1131,6 @@ function dealCards(table: GenericTable): void {
 // Psychology-driven chat after showdown. Reinforces loss aversion, competitive
 // identity, and table atmosphere. Keeps sessions alive and drives re-entry.
 
-const BOT_BANTER_WIN = [
-  "That's what I'm talking about.",
-  "Easy money.",
-  "Next.",
-  "You see that? Classic.",
-  "Don't blink.",
-  "Read 'em and weep.",
-  "Prison rules pay off.",
-];
-const BOT_BANTER_LOSE = [
-  "Shake it off.",
-  "Variance is a beast.",
-  "I'll get it back.",
-  "Patience.",
-  "That hurt. Moving on.",
-  "One hand at a time.",
-];
-const BOT_BANTER_NEUTRAL = [
-  "Eyes on the pot.",
-  "Stay focused.",
-  "It's a long game.",
-  "No mercy out here.",
-  "Ante up.",
-  "Who's scared?",
-  "Stack up or pack up.",
-  "Prison rules. No mercy.",
-];
-
-function scheduleBotBanter(table: GenericTable, winnerIds: string[]): void {
-  if (Math.random() > 0.55) return; // ~55% chance of banter each showdown
-
-  const bots = table.state.players.filter(p => p.presence === 'bot' && p.status !== 'folded');
-  if (bots.length === 0) return;
-
-  const bot = bots[Math.floor(Math.random() * bots.length)];
-  const isWinner = winnerIds.includes(bot.id);
-
-  let pool: string[];
-  if (isWinner) pool = BOT_BANTER_WIN;
-  else if (Math.random() > 0.45) pool = BOT_BANTER_LOSE;
-  else pool = BOT_BANTER_NEUTRAL;
-
-  const text = pool[Math.floor(Math.random() * pool.length)];
-  const delay = 400 + Math.random() * 700;
-
-  setTimeout(() => {
-    if (table.state.phase !== 'SHOWDOWN') return;
-    const msg = { id: makeId(), senderId: bot.id, senderName: bot.name, text, time: Date.now() };
-    table.state = { ...table.state, chatMessages: [...table.state.chatMessages.slice(-49), msg] };
-    broadcastState(table);
-  }, delay);
-}
-
 // ─── Showdown resolution ──────────────────────────────────────────────────────
 
 function resolveShowdown(table: GenericTable): void {
@@ -1220,7 +1169,7 @@ function resolveShowdown(table: GenericTable): void {
 
     // Schedule bot banter after showdown
     const winnerIds = result.players.filter(p => p.isWinner).map(p => p.id);
-    scheduleBotBanter(table, winnerIds);
+    scheduleBotBanter(table, winnerIds, () => broadcastState(table));
 
     const fenced2 = table.handId;
     setTimeout(() => {
@@ -1619,7 +1568,7 @@ function releaseSeat(table: GenericTable, seat: string): void {
       if (table.crewId) {
         return { ...p, presence: 'open' as const, status: 'folded' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
-      return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
+      return makeBotPlayer(p, getBotName(table.tableId, p.id));
     }),
   };
 
@@ -2177,7 +2126,7 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         table.state = {
           ...table.state,
           players: table.state.players.map(p =>
-            p.id === seat ? { ...p, presence: 'bot' as const } : p
+            p.id === seat ? makeBotPlayer(p, getBotName(table.tableId, p.id)) : p
           ),
         };
         broadcastState(table);

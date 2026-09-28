@@ -20,6 +20,8 @@ import { storage } from './storage';
 import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 import { filterChatMessage } from './chatFilter';
 import { secureShuffleInPlace } from './utils/secureShuffle';
+import { makeBotPlayer } from './utils/botPlayer';
+import { scheduleBotBanter } from './utils/botBanter';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -133,7 +135,7 @@ function convertReservedToBots(table: AuthTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
+        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -160,7 +162,7 @@ function quickFillBots(table: AuthTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) };
+      return makeBotPlayer(p, getBotName(table.tableId, p.id), 'active');
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -187,7 +189,7 @@ function convertOneReservedToBot(table: AuthTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? { ...p, presence: 'bot' as const, status: 'active' as const, name: getBotName(table.tableId, p.id) }
+        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -756,6 +758,9 @@ function resolveShowdown(table: AuthTable): void {
 
     broadcastState(table);
 
+    const winnerIds = result.players.filter(p => p.isWinner).map(p => p.id);
+    scheduleBotBanter(table, winnerIds, () => broadcastState(table));
+
     // Auto-advance to next hand after 2.5 seconds
     const fenced2 = table.handId;
     setTimeout(() => {
@@ -1070,7 +1075,7 @@ function releaseSeat(table: AuthTable, seat: string): void {
       if (table.crewId) {
         return { ...p, presence: 'open' as const, status: 'folded' as const, name: 'Open', cards: [], bet: 0, totalBet: 0 };
       }
-      return { ...p, presence: 'bot' as const, name: getBotName(table.tableId, p.id) };
+      return makeBotPlayer(p, getBotName(table.tableId, p.id));
     }),
   };
 
