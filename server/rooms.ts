@@ -695,6 +695,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const uid      = spectatorMsg.userId;
         const username = spectatorMsg.username || 'Spectator';
         if (!tid || !uid) return;
+        if (uid !== authWs.authenticatedPlayerId) return;
         spectatorTableId = tid;
         spectatorUserId  = uid;
         const profile    = await storage.getPlayerProfile(uid).catch(() => null);
@@ -709,6 +710,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const suit   = spectatorMsg.suit;
         const amount = spectatorMsg.amount;
         if (!tid || !uid || !suit || amount == null) return;
+        if (uid !== authWs.authenticatedPlayerId) return;
         if (spectatorTableId !== tid || spectatorUserId !== uid) return;
         handleLLSpectatorSideBet(tid, uid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount, ws).catch(() => {});
         return;
@@ -718,6 +720,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const tid = spectatorMsg.tableId;
         const uid = spectatorMsg.userId;
         if (!tid || !uid) return;
+        if (uid !== authWs.authenticatedPlayerId || spectatorTableId !== tid || spectatorUserId !== uid) return;
         handleLLSpectatorLeave(tid, uid);
         spectatorTableId = undefined;
         spectatorUserId  = undefined;

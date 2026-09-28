@@ -20,6 +20,8 @@ export interface LadyLuckSideBet {
 }
 
 export interface LadyLuckState {
+  /** Unique accounting key for the current round (not a user credential). */
+  raceId?: string;
   phase: 'LOBBY' | 'SELECT' | 'WAGER' | 'RACE' | 'RESULTS' | 'BET';
   players: LadyLuckPlayer[];
   positions: Record<LadyLuckSuit, number>;

@@ -35,9 +35,16 @@ import { promisify } from "util";
 import { db } from "./db";
 import { eq, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
 import { DAILY_REWARDS, handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
+import { applyRake } from "./utils/rake";
 
 const scryptAsync = promisify(scrypt);
 const chipSyncQueue = new Map<string, Promise<void>>();
+
+/** Reserved internal profile: its balance is the available Lady Luck house reserve.
+ * Bot profile balances are house-owned stacks held separately from this reserve. */
+export const LADY_LUCK_HOUSE_ID = '__ladyluck_house__';
+export const LADY_LUCK_BOT_STACK = 10_000;
+const LADY_LUCK_HOUSE_SEED = 100_000_000;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
@@ -75,6 +82,24 @@ export interface IStorage {
   deletePlayer(id: string): Promise<void>;
   getPlayerIsAdmin(id: string): Promise<boolean>;
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
+  fundLadyLuckBot(botId: string, tableId: string): Promise<number>;
+  rebalanceLadyLuckBot(botId: string, tableId: string): Promise<number>;
+  releaseLadyLuckBot(botId: string, tableId: string): Promise<void>;
+  transferLadyLuckChips(fromId: string, toId: string, amount: number, source: string, tableId: string, rake?: number, handId?: string): Promise<boolean>;
+  ensureLadyLuckHouse(): Promise<void>;
+  settleLadyLuckPot(winnerId: string, grossPot: number, tableId: string): Promise<{ winnerPot: number; rake: number }>;
+  settleLadyLuckRace(params: {
+    tableId: string; raceId: string; winnerId: string; winningSuit: string; grossPot: number;
+    seatedBets: { playerId: string; suit: string; amount: number }[];
+    spectatorBets: { userId: string; suit: string; amount: number }[];
+  }): Promise<{ winnerPot: number; rake: number; seatedPayouts: { playerId: string; net: number }[]; spectatorPayouts: { userId: string; net: number; gross: number }[] }>;
+  wasLadyLuckRaceSettled(raceId: string): Promise<boolean>;
+  debitLadyLuckWager(playerId: string, amount: number, tableId: string, raceId: string): Promise<boolean>;
+  getLadyLuckOpenStakes(tableId: string, raceId: string): Promise<{
+    wagers: Map<string, number>; seated: Map<string, number>; spectators: Map<string, number>;
+  }>;
+  refundLadyLuckWager(playerId: string, amount: number, tableId: string, raceId: string): Promise<boolean>;
+  refundLadyLuckSideBet(playerId: string, amount: number, tableId: string, raceId: string, spectator: boolean): Promise<boolean>;
   recordChipTransaction(params: { playerId: string; beforeBalance: number; amountChange: number; afterBalance: number; reason: ChipTxReason; source: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   verifyPlayerBalanceConsistency(playerId: string): Promise<{ consistent: boolean; currentBalance: number; computedBalance: number; drift: number }>;
   logHouseRake(params: { tableId: string; gameMode: string; handOrRaceId?: string | null; grossPot: number; rakeAmount: number; netPot: number }): Promise<void>;
@@ -613,6 +638,276 @@ export class MemStorage implements IStorage {
       handId:        params.handId   ?? null,
       metadata:      params.metadata ?? null,
     });
+  }
+
+  async ensureLadyLuckHouse(): Promise<void> {
+    await db.transaction(async tx => {
+      const [created] = await tx.insert(playerProfiles).values({
+        id: LADY_LUCK_HOUSE_ID, displayName: 'Lady Luck House',
+        chipBalance: LADY_LUCK_HOUSE_SEED,
+      }).onConflictDoNothing().returning({ id: playerProfiles.id });
+      if (created) {
+        // One explicit, auditable genesis faucet, never repeated on restart.
+        await this._insertChipLedger(tx, {
+          playerId: LADY_LUCK_HOUSE_ID, beforeBalance: 0,
+          amountChange: LADY_LUCK_HOUSE_SEED, afterBalance: LADY_LUCK_HOUSE_SEED,
+          reason: 'other', source: 'ladyluck_house_genesis',
+        });
+      }
+    });
+  }
+
+  /** Atomic double-entry transfer, locking accounts in ID order. The bot's
+   * stack is held in a regular chip-balance row, never minted in table state. */
+  async transferLadyLuckChips(fromId: string, toId: string, amount: number, source: string, tableId: string, rake?: number, handId?: string): Promise<boolean> {
+    if (!Number.isSafeInteger(amount) || amount <= 0 || fromId === toId) throw new Error('Invalid Lady Luck transfer');
+    return db.transaction(async tx => {
+      const accounts = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(inArray(playerProfiles.id, [fromId, toId]))
+        .orderBy(asc(playerProfiles.id)).for('update');
+      const from = accounts.find(a => a.id === fromId);
+      const to = accounts.find(a => a.id === toId);
+      if (!from || !to || from.balance < amount) return false;
+      await tx.update(playerProfiles).set({ chipBalance: from.balance - amount, updatedAt: new Date() }).where(eq(playerProfiles.id, fromId));
+      await tx.update(playerProfiles).set({ chipBalance: to.balance + amount, updatedAt: new Date() }).where(eq(playerProfiles.id, toId));
+      await this._insertChipLedger(tx, { playerId: fromId, beforeBalance: from.balance, amountChange: -amount, afterBalance: from.balance - amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: toId, ...(rake != null ? { rake } : {}) } });
+      await this._insertChipLedger(tx, { playerId: toId, beforeBalance: to.balance, amountChange: amount, afterBalance: to.balance + amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: fromId, ...(rake != null ? { rake } : {}) } });
+      return true;
+    });
+  }
+
+  async fundLadyLuckBot(botId: string, tableId: string): Promise<number> {
+    if (!botId.startsWith('bot_')) throw new Error('Invalid Lady Luck bot ID');
+    await this.ensureLadyLuckHouse();
+    await db.transaction(async tx => {
+      const [created] = await tx.insert(playerProfiles).values({
+        id: botId, displayName: 'Lady Luck Bot', chipBalance: 0,
+      }).onConflictDoNothing().returning({ id: playerProfiles.id });
+      if (created) await this._insertChipLedger(tx, {
+        playerId: botId, beforeBalance: 0, amountChange: 0, afterBalance: 0,
+        reason: 'other', source: 'ladyluck_bot_genesis', gameId: tableId,
+      });
+    });
+    return this.rebalanceLadyLuckBot(botId, tableId);
+  }
+
+  async rebalanceLadyLuckBot(botId: string, tableId: string): Promise<number> {
+    const bot = await this.getPlayerProfile(botId);
+    if (!bot) throw new Error('Lady Luck bot has no ledger account');
+    const delta = LADY_LUCK_BOT_STACK - bot.chipBalance;
+    if (delta !== 0) {
+      const moved = delta > 0
+        ? await this.transferLadyLuckChips(LADY_LUCK_HOUSE_ID, botId, delta, 'ladyluck_bot_rebuy', tableId)
+        : await this.transferLadyLuckChips(botId, LADY_LUCK_HOUSE_ID, -delta, 'ladyluck_bot_sweep', tableId);
+      if (!moved) throw new Error('Lady Luck bot stack transfer failed');
+    }
+    return LADY_LUCK_BOT_STACK;
+  }
+
+  async releaseLadyLuckBot(botId: string, tableId: string): Promise<void> {
+    const bot = await this.getPlayerProfile(botId);
+    if (bot && bot.chipBalance > 0) {
+      const moved = await this.transferLadyLuckChips(botId, LADY_LUCK_HOUSE_ID, bot.chipBalance, 'ladyluck_bot_return', tableId);
+      if (!moved) throw new Error('Lady Luck bot return failed');
+    }
+  }
+
+  /** Commit the pot payout and house rake together so neither half can be lost. */
+  async settleLadyLuckPot(winnerId: string, grossPot: number, tableId: string): Promise<{ winnerPot: number; rake: number }> {
+    if (!Number.isSafeInteger(grossPot) || grossPot < 0) throw new Error('Invalid Lady Luck pot');
+    await this.ensureLadyLuckHouse();
+    const { winnerPot, rake } = applyRake(grossPot);
+    await db.transaction(async tx => {
+      const accounts = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(inArray(playerProfiles.id, [LADY_LUCK_HOUSE_ID, winnerId]))
+        .orderBy(asc(playerProfiles.id)).for('update');
+      if (!accounts.some(a => a.id === winnerId)) throw new Error('Lady Luck winner account missing');
+      for (const account of accounts) {
+        const amount = account.id === winnerId ? winnerPot : rake;
+        if (!amount) continue;
+        await tx.update(playerProfiles).set({ chipBalance: account.balance + amount, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, account.id));
+        await this._insertChipLedger(tx, {
+          playerId: account.id, beforeBalance: account.balance, amountChange: amount,
+          afterBalance: account.balance + amount, reason: 'other',
+          source: account.id === winnerId ? 'ladyluck_win' : 'ladyluck_main_rake',
+          gameId: tableId, metadata: { grossPot },
+        });
+      }
+    });
+    return { winnerPot, rake };
+  }
+
+  async wasLadyLuckRaceSettled(raceId: string): Promise<boolean> {
+    const [row] = await db.select({ id: chipTransactions.id }).from(chipTransactions)
+      .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.source, 'ladyluck_win'))).limit(1);
+    return !!row;
+  }
+
+  async debitLadyLuckWager(playerId: string, amount: number, tableId: string, raceId: string): Promise<boolean> {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid Lady Luck wager');
+    return db.transaction(async tx => {
+      const [updated] = await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
+        .where(and(eq(playerProfiles.id, playerId), gte(playerProfiles.chipBalance, amount)))
+        .returning({ chipBalance: playerProfiles.chipBalance });
+      if (!updated) return false;
+      await this._insertChipLedger(tx, { playerId, beforeBalance: updated.chipBalance + amount,
+        amountChange: -amount, afterBalance: updated.chipBalance, reason: 'buy_in',
+        source: 'ladyluck_wager', gameId: tableId, handId: raceId });
+      return true;
+    });
+  }
+
+  /** The ledger is authoritative when a crash occurs between debit and snapshot. */
+  async getLadyLuckOpenStakes(tableId: string, raceId: string): Promise<{
+    wagers: Map<string, number>; seated: Map<string, number>; spectators: Map<string, number>;
+  }> {
+    const entries = await db.select({ playerId: chipTransactions.playerId, source: chipTransactions.source,
+      change: chipTransactions.amountChange }).from(chipTransactions)
+      .where(and(eq(chipTransactions.gameId, tableId), eq(chipTransactions.handId, raceId),
+        inArray(chipTransactions.source, [
+          'ladyluck_wager', 'ladyluck_sidebet_stake', 'ladyluck_spectator_stake',
+          'ladyluck_late_wager_refund', 'ladyluck_late_sidebet_refund', 'ladyluck_late_spectator_refund',
+        ])));
+    const wagers = new Map<string, number>();
+    const seated = new Map<string, number>();
+    const spectators = new Map<string, number>();
+    for (const row of entries) {
+      if (row.playerId === LADY_LUCK_HOUSE_ID) continue;
+      const target = row.source === 'ladyluck_wager' || row.source === 'ladyluck_late_wager_refund'
+        ? wagers : row.source === 'ladyluck_sidebet_stake' || row.source === 'ladyluck_late_sidebet_refund'
+          ? seated : spectators;
+      target.set(row.playerId, (target.get(row.playerId) ?? 0) - row.change);
+    }
+    return { wagers, seated, spectators };
+  }
+
+  /** Retryable crash refund. A race-level advisory lock coordinates this with
+   * settlement, and the ledger row is the idempotency record. */
+  async refundLadyLuckWager(playerId: string, amount: number, tableId: string, raceId: string): Promise<boolean> {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid Lady Luck refund');
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${raceId}))`);
+      const [settled] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.source, 'ladyluck_win'))).limit(1);
+      if (settled) return false;
+      const [done] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.playerId, playerId),
+          eq(chipTransactions.source, 'lady_luck_crash_refund'))).limit(1);
+      if (done) return true;
+      const [account] = await tx.select({ balance: playerProfiles.chipBalance }).from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId)).for('update');
+      if (!account) throw new Error('Lady Luck refund account missing');
+      await tx.update(playerProfiles).set({ chipBalance: account.balance + amount, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await this._insertChipLedger(tx, { playerId, beforeBalance: account.balance, amountChange: amount,
+        afterBalance: account.balance + amount, reason: 'refund', source: 'lady_luck_crash_refund',
+        gameId: tableId, handId: raceId });
+      return true;
+    });
+  }
+
+  async refundLadyLuckSideBet(playerId: string, amount: number, tableId: string, raceId: string, spectator: boolean): Promise<boolean> {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid Lady Luck side-bet refund');
+    const source = spectator ? 'ladyluck_spectator_crash_refund' : 'ladyluck_sidebet_crash_refund';
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${raceId}))`);
+      const [settled] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.source, 'ladyluck_win'))).limit(1);
+      if (settled) return false;
+      const [done] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.playerId, playerId),
+          eq(chipTransactions.source, source))).limit(1);
+      if (done) return true;
+      const rows = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(inArray(playerProfiles.id, [LADY_LUCK_HOUSE_ID, playerId]))
+        .orderBy(asc(playerProfiles.id)).for('update');
+      const house = rows.find(row => row.id === LADY_LUCK_HOUSE_ID);
+      const player = rows.find(row => row.id === playerId);
+      if (!house || !player || house.balance < amount) throw new Error('Lady Luck refund reserve insufficient');
+      for (const [account, change] of [[house, -amount], [player, amount]] as const) {
+        await tx.update(playerProfiles).set({ chipBalance: account.balance + change, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, account.id));
+        await this._insertChipLedger(tx, { playerId: account.id, beforeBalance: account.balance,
+          amountChange: change, afterBalance: account.balance + change, reason: 'refund',
+          source, gameId: tableId, handId: raceId, metadata: { counterparty: account.id === playerId ? LADY_LUCK_HOUSE_ID : playerId } });
+      }
+      return true;
+    });
+  }
+
+  /** Race pot, winning side bets, and house rake settle as one ledger-backed
+   * transaction. The race ID prevents a second settlement after retry/restart. */
+  async settleLadyLuckRace(params: {
+    tableId: string; raceId: string; winnerId: string; winningSuit: string; grossPot: number;
+    seatedBets: { playerId: string; suit: string; amount: number }[];
+    spectatorBets: { userId: string; suit: string; amount: number }[];
+  }): Promise<{ winnerPot: number; rake: number; seatedPayouts: { playerId: string; net: number }[]; spectatorPayouts: { userId: string; net: number; gross: number }[] }> {
+    const { tableId, raceId, winnerId, winningSuit, grossPot } = params;
+    if (!raceId || !Number.isSafeInteger(grossPot) || grossPot < 0) throw new Error('Invalid Lady Luck settlement');
+    await this.ensureLadyLuckHouse();
+    const { winnerPot, rake } = applyRake(grossPot);
+    const seatedPayouts = params.seatedBets.filter(b => b.suit === winningSuit).map(b => ({
+      playerId: b.playerId, gross: Math.floor(b.amount * 2.5),
+    })).map(b => ({ ...b, ...applyRake(b.gross) }));
+    const spectatorPayouts = params.spectatorBets.filter(b => b.suit === winningSuit).map(b => ({
+      userId: b.userId, gross: Math.floor(b.amount * 2.5),
+    })).map(b => ({ ...b, ...applyRake(b.gross) }));
+    const recipients = [...new Set([LADY_LUCK_HOUSE_ID, winnerId,
+      ...seatedPayouts.map(b => b.playerId), ...spectatorPayouts.map(b => b.userId)])];
+
+    await db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${raceId}))`);
+      const [done] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), eq(chipTransactions.source, 'ladyluck_win'))).limit(1);
+      if (done) return;
+      const [refunded] = await tx.select({ id: chipTransactions.id }).from(chipTransactions)
+        .where(and(eq(chipTransactions.handId, raceId), inArray(chipTransactions.source, [
+          'lady_luck_crash_refund', 'ladyluck_sidebet_crash_refund', 'ladyluck_spectator_crash_refund',
+        ]))).limit(1);
+      if (refunded) throw new Error('Lady Luck race already refunded');
+      const rows = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(inArray(playerProfiles.id, recipients))
+        .orderBy(asc(playerProfiles.id)).for('update');
+      if (rows.length !== recipients.length) throw new Error('Lady Luck payout account missing');
+      const balances = new Map(rows.map(row => [row.id, row.balance]));
+      const post = async (id: string, amount: number, source: string, metadata?: Record<string, any>) => {
+        const before = balances.get(id);
+        if (before == null || before + amount < 0) throw new Error('Lady Luck house reserve insufficient');
+        balances.set(id, before + amount);
+        await tx.update(playerProfiles).set({ chipBalance: before + amount, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, id));
+        await this._insertChipLedger(tx, { playerId: id, beforeBalance: before, amountChange: amount,
+          afterBalance: before + amount, reason: 'other', source, gameId: tableId, handId: raceId,
+          metadata: metadata ?? null });
+      };
+      await post(LADY_LUCK_HOUSE_ID, rake, 'ladyluck_main_rake', { grossPot });
+      await post(winnerId, winnerPot, 'ladyluck_win', { grossPot, winningSuit });
+      for (const b of seatedPayouts) {
+        await post(LADY_LUCK_HOUSE_ID, -b.winnerPot, 'ladyluck_sidebet', { counterparty: b.playerId, rake: b.rake });
+        await post(b.playerId, b.winnerPot, 'ladyluck_sidebet', { counterparty: LADY_LUCK_HOUSE_ID, rake: b.rake });
+      }
+      for (const b of spectatorPayouts) {
+        await post(LADY_LUCK_HOUSE_ID, -b.winnerPot, 'ladyluck_spectator_win', { counterparty: b.userId, rake: b.rake });
+        await post(b.userId, b.winnerPot, 'ladyluck_spectator_win', { counterparty: LADY_LUCK_HOUSE_ID, rake: b.rake });
+      }
+      const log = async (gameMode: string, gross: number, totalRake: number) => {
+        if (!totalRake) return;
+        await tx.insert(houseRakeLogs).values({
+          tableId, gameMode, handOrRaceId: raceId, grossPot: gross,
+          rakeAmount: totalRake, netPot: gross - totalRake,
+        });
+      };
+      await log('ladyluck', grossPot, rake);
+      await log('ladyluck_sidebet', seatedPayouts.reduce((sum, b) => sum + b.gross, 0), seatedPayouts.reduce((sum, b) => sum + b.rake, 0));
+      await log('spectator_sidebet', spectatorPayouts.reduce((sum, b) => sum + b.gross, 0), spectatorPayouts.reduce((sum, b) => sum + b.rake, 0));
+    });
+    return {
+      winnerPot, rake,
+      seatedPayouts: seatedPayouts.map(b => ({ playerId: b.playerId, net: b.winnerPot })),
+      spectatorPayouts: spectatorPayouts.map(b => ({ userId: b.userId, net: b.winnerPot, gross: b.gross })),
+    };
   }
 
   // ── Player Profile methods ─────────────────────────────────────────────────

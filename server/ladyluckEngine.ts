@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
-import { storage } from './storage';
+import { randomUUID } from 'crypto';
+import { storage, LADY_LUCK_HOUSE_ID } from './storage';
 import { applyRake } from './utils/rake';
 import {
   LadyLuckState,
@@ -9,7 +10,7 @@ import {
   LADY_LUCK_ROOMS,
   SUITS,
 } from '../shared/modes/ladyluck';
-import { scheduleLLSave, loadPersistedLadyLuckTables } from './ladyluckPersistence';
+import { scheduleLLSave, flushLLFinancialState, loadPersistedLadyLuckTables, deleteLLPersistedTable } from './ladyluckPersistence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,6 @@ interface LLSpectator {
   username: string;
   avatar:   string;
   ws:       WebSocket;
-  sideBet?: { suit: LadyLuckSuit; amount: number };
 }
 
 interface LLTableMeta {
@@ -28,6 +28,7 @@ interface LLTableMeta {
   state: LadyLuckState;
   connections: Map<string, WebSocket>;
   spectators:  Map<string, LLSpectator>;
+  spectatorBets: Map<string, { suit: LadyLuckSuit; amount: number }>;
   raceInterval?: ReturnType<typeof setInterval>;
   botFillTimer?: ReturnType<typeof setTimeout>;
   countdownTimer?: ReturnType<typeof setInterval>;
@@ -35,6 +36,9 @@ interface LLTableMeta {
   betInterval?: ReturnType<typeof setInterval>;
   deck: LLCard[];
   hostId: string | null;
+  starting?: boolean;
+  settling?: boolean;
+  settlementAttempts?: number;
   /** Per-player/spectator lock: IDs currently awaiting a wager/sidebet debit.
    *  Prevents double-submission through the async debitChipsForBuyin TOCTOU window. */
   wagerLock: Set<string>;
@@ -105,7 +109,11 @@ function broadcastState(meta: LLTableMeta) {
   if (serializeMs > 1 || sendMs > 1 || sentCount > 0) {
     console.log(`[LL-TIMING-SERVER] broadcastState — JSON.stringify=${serializeMs}ms, ws.send x${sentCount}=${sendMs}ms`);
   }
-  scheduleLLSave(meta.tableId, meta.state, meta.deck, meta.hostId);
+  scheduleLLSave(meta.tableId, meta.state, meta.deck, meta.hostId, meta.spectatorBets);
+}
+
+function saveFinancialState(meta: LLTableMeta) {
+  flushLLFinancialState(meta.tableId, meta.state, meta.deck, meta.hostId, meta.spectatorBets);
 }
 
 function emptyPositions(): Record<LadyLuckSuit, number> {
@@ -117,6 +125,7 @@ function emptyPositions(): Record<LadyLuckSuit, number> {
 export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: string): void {
   if (tables.has(tableId)) return;
   const state: LadyLuckState = {
+    raceId:           randomUUID(),
     phase:            'LOBBY',
     players:          [],
     positions:        emptyPositions(),
@@ -139,6 +148,7 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
     state,
     connections: new Map(),
     spectators:  new Map(),
+    spectatorBets: new Map(),
     deck:        [],
     hostId,
     wagerLock:   new Set(),
@@ -146,7 +156,7 @@ export function createLLTable(tableId: string, roomType: LadyLuckRoom, hostId: s
   tables.set(tableId, meta);
 
   // Start 10-second bot-fill timer so lonely hosts aren't stuck waiting forever
-  meta.botFillTimer = setTimeout(() => scheduleBotFill(tableId), 10_000);
+  meta.botFillTimer = setTimeout(() => { void scheduleBotFill(tableId).catch(console.error); }, 10_000);
 }
 
 // ── Bot-fill helpers ──────────────────────────────────────────────────────────
@@ -157,16 +167,21 @@ function pickBotName(usedNames: string[]): string {
   return available[Math.floor(Math.random() * available.length)];
 }
 
-function addBotToLobby(tableId: string): void {
+async function addBotToLobby(tableId: string): Promise<void> {
   const meta = tables.get(tableId);
   if (!meta || meta.state.phase !== 'LOBBY' || meta.state.players.length >= 4) return;
   const { state } = meta;
   const name  = pickBotName(state.players.map(p => p.name));
-  const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+  const botId = `bot_${randomUUID()}`;
+  const chips = await storage.fundLadyLuckBot(botId, tableId);
+  if (tables.get(tableId) !== meta || state.phase !== 'LOBBY' || state.players.length >= 4) {
+    await storage.releaseLadyLuckBot(botId, tableId);
+    return;
+  }
   state.players.push({
     id:        botId,
     name,
-    chips:     10_000,
+    chips,
     suit:      null,
     wager:     0,
     presence:  'bot',
@@ -176,20 +191,20 @@ function addBotToLobby(tableId: string): void {
   broadcastState(meta);
 }
 
-function scheduleBotFill(tableId: string): void {
+async function scheduleBotFill(tableId: string): Promise<void> {
   const meta = tables.get(tableId);
   if (!meta || meta.state.phase !== 'LOBBY') return;
   meta.botFillTimer = undefined;
 
   // Add one bot immediately, then schedule the rest 2 s apart
-  addBotToLobby(tableId);
+  await addBotToLobby(tableId);
 
-  const refill = () => {
+  const refill = async () => {
     const m = tables.get(tableId);
     if (!m || m.state.phase !== 'LOBBY') return;
     if (m.state.players.length < 4) {
-      addBotToLobby(tableId);
-      m.botFillTimer = setTimeout(refill, 2_000);
+      await addBotToLobby(tableId);
+      m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
     } else {
       scheduleCountdown(tableId);
     }
@@ -198,7 +213,7 @@ function scheduleBotFill(tableId: string): void {
   const m = tables.get(tableId);
   if (!m) return;
   if (m.state.players.length < 4) {
-    m.botFillTimer = setTimeout(refill, 2_000);
+    m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
   } else {
     scheduleCountdown(tableId);
   }
@@ -224,7 +239,7 @@ function scheduleCountdown(tableId: string): void {
       clearInterval(m.countdownTimer);
       m.countdownTimer   = undefined;
       m.state.startingIn = null;
-      doStart(tableId);
+      void doStart(tableId).catch(console.error);
     } else {
       m.state.startingIn = ticks;
       broadcastState(m);
@@ -233,11 +248,13 @@ function scheduleCountdown(tableId: string): void {
 }
 
 /** Internal start — no host/player-count guards, called by auto-fill and handleLLStart */
-function doStart(tableId: string): void {
+async function doStart(tableId: string): Promise<void> {
   const meta = tables.get(tableId);
   if (!meta) return;
   const { state } = meta;
-  if (state.phase !== 'LOBBY') return;
+  if (state.phase !== 'LOBBY' || meta.starting) return;
+  meta.starting = true;
+  try {
 
   // Fill any remaining seats with bots (handles manual-start-with-2 case)
   const count = state.players.length;
@@ -246,11 +263,16 @@ function doStart(tableId: string): void {
     const needed    = 4 - count;
     for (let i = 0; i < needed; i++) {
       const name = pickBotName([...usedNames, ...Array.from({ length: i }, (_, k) => state.players[count + k]?.name ?? '')]);
-      const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+      const botId = `bot_${randomUUID()}`;
+      const chips = await storage.fundLadyLuckBot(botId, tableId);
+      if (tables.get(tableId) !== meta || state.phase !== 'LOBBY' || state.players.length >= 4) {
+        await storage.releaseLadyLuckBot(botId, tableId);
+        break;
+      }
       state.players.push({
         id:        botId,
         name,
-        chips:     10_000,
+        chips,
         suit:      null,
         wager:     0,
         presence:  'bot',
@@ -268,6 +290,9 @@ function doStart(tableId: string): void {
 
   broadcastState(meta);
   scheduleNextBotPick(tableId);
+  } finally {
+    meta.starting = false;
+  }
 }
 
 /** Find an existing joinable LOBBY table for this tier, or create a brand-new one.
@@ -404,7 +429,7 @@ export function handleLLStart(tableId: string, playerId: string): void {
   if (meta.botFillTimer)   { clearTimeout(meta.botFillTimer);   meta.botFillTimer   = undefined; }
   if (meta.countdownTimer) { clearInterval(meta.countdownTimer); meta.countdownTimer = undefined; }
 
-  doStart(tableId);
+  void doStart(tableId).catch(console.error);
 }
 
 // ── ll:select ─────────────────────────────────────────────────────────────────
@@ -498,6 +523,8 @@ export async function handleLLWager(
   if (!meta) return { ok: false, error: 'table_not_found' };
   const { state } = meta;
   if (state.phase !== 'WAGER' && state.phase !== 'BET') return { ok: false, error: 'wrong_phase' };
+  const phase = state.phase;
+  if (meta.settling) return { ok: false, error: 'wrong_phase' };
 
   const player = state.players.find(p => p.id === playerId);
   if (!player) return { ok: false, error: 'not_in_table' };
@@ -506,6 +533,7 @@ export async function handleLLWager(
   if (state.phase === 'BET' && player.suit === null) return { ok: false, error: 'no_suit_selected' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
+  if (!Number.isSafeInteger(amount)) return { ok: false, error: 'invalid_amount' };
   if (amount % 100 !== 0) return { ok: false, error: 'must_be_100_increment' };
   if (amount < room.minWager) return { ok: false, error: 'below_min' };
   if (amount > room.maxWager) return { ok: false, error: 'above_max' };
@@ -515,14 +543,19 @@ export async function handleLLWager(
   if (meta.wagerLock.has(playerId)) return { ok: false, error: 'already_processing' };
   meta.wagerLock.add(playerId);
   try {
-    if (player.presence === 'human') {
-      const ok = await storage.debitChipsForBuyin(playerId, amount);
-      if (!ok) return { ok: false, error: 'insufficient_chips' };
+    saveFinancialState(meta);
+    const ok = await storage.debitLadyLuckWager(playerId, amount, tableId, state.raceId ?? tableId);
+    if (!ok) return { ok: false, error: 'insufficient_chips' };
+    if (tables.get(tableId) !== meta || state.phase !== phase || meta.settling || player.presence === 'open') {
+      await storage.addChipsToPlayer(playerId, amount, { reason: 'refund', source: 'ladyluck_late_wager_refund', gameId: tableId, handId: state.raceId ?? tableId });
+      return { ok: false, error: 'wrong_phase' };
     }
 
     player.wager   = amount;
     player.wagered = true;
+    player.chips  -= amount;
     state.pot     += amount;
+    saveFinancialState(meta);
   } finally {
     meta.wagerLock.delete(playerId);
   }
@@ -606,22 +639,30 @@ export async function handleLLSideBet(
   if (!meta) return { ok: false, error: 'table_not_found' };
   const { state } = meta;
   if (state.phase !== 'WAGER' && state.phase !== 'BET') return { ok: false, error: 'wrong_phase' };
+  const phase = state.phase;
+  if (meta.settling) return { ok: false, error: 'wrong_phase' };
 
   const player = state.players.find(p => p.id === playerId);
   if (!player) return { ok: false, error: 'not_in_table' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
-  if (!Number.isFinite(amount) || amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
 
   // Synchronous lock: prevents double-submission from rapid taps or two tabs
   // charging the same player twice for one side bet.
   if (meta.wagerLock.has(playerId)) return { ok: false, error: 'already_processing' };
   meta.wagerLock.add(playerId);
   try {
-    if (player.presence === 'human') {
-      const ok = await storage.debitChipsForBuyin(playerId, amount);
-      if (!ok) return { ok: false, error: 'insufficient_chips' };
+    await storage.ensureLadyLuckHouse();
+    saveFinancialState(meta);
+    const ok = await storage.transferLadyLuckChips(playerId, LADY_LUCK_HOUSE_ID, amount, 'ladyluck_sidebet_stake', tableId, undefined, state.raceId ?? tableId);
+    if (!ok) return { ok: false, error: 'insufficient_chips' };
+    if (tables.get(tableId) !== meta || state.phase !== phase || meta.settling) {
+      const refunded = await storage.transferLadyLuckChips(LADY_LUCK_HOUSE_ID, playerId, amount, 'ladyluck_late_sidebet_refund', tableId, undefined, state.raceId ?? tableId);
+      if (!refunded) throw new Error('Lady Luck late side-bet refund failed');
+      return { ok: false, error: 'wrong_phase' };
     }
+    player.chips -= amount;
 
     state.sideBets.push({
       playerId:   player.id,
@@ -629,6 +670,7 @@ export async function handleLLSideBet(
       suit,
       amount,
     });
+    saveFinancialState(meta);
   } finally {
     meta.wagerLock.delete(playerId);
   }
@@ -652,6 +694,10 @@ export function handleLLSpectate(
     return;
   }
   meta.spectators.set(userId, { userId, username, avatar, ws });
+  const existingBet = meta.spectatorBets.get(userId);
+  if (existingBet && ws.readyState === WebSocket.OPEN) {
+    try { ws.send(JSON.stringify({ type: 'll:spectator_bet_confirmed', ...existingBet })); } catch {}
+  }
   // Bug fix: only push the current state to the NEW spectator — do NOT call
   // broadcastState() here because that would send ll:state to all existing players
   // during a RACE, resetting their client-side card-flip animation state and
@@ -695,16 +741,21 @@ export async function handleLLSpectatorSideBet(
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'wrong_phase' })); } catch {}
     return;
   }
+  const phase = state.phase;
+  if (meta.settling) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'wrong_phase' })); } catch {}
+    return;
+  }
   const spectator = meta.spectators.get(userId);
   if (!spectator) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'not_spectating' })); } catch {}
     return;
   }
-  if (spectator.sideBet) {
+  if (meta.spectatorBets.has(userId)) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'bet_already_placed' })); } catch {}
     return;
   }
-  if (!Number.isFinite(amount) || amount < 100 || amount > 2000) {
+  if (!Number.isSafeInteger(amount) || amount < 100 || amount > 2000) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'invalid_amount' })); } catch {}
     return;
   }
@@ -717,12 +768,22 @@ export async function handleLLSpectatorSideBet(
   }
   meta.wagerLock.add(userId);
   try {
-    const ok = await storage.debitChipsForBuyin(userId, amount);
+    await storage.ensureLadyLuckHouse();
+    saveFinancialState(meta);
+    const ok = await storage.transferLadyLuckChips(userId, LADY_LUCK_HOUSE_ID, amount, 'ladyluck_spectator_stake', tableId, undefined, state.raceId ?? tableId);
     if (!ok) {
       try { ws.send(JSON.stringify({ type: 'll:error', message: 'insufficient_chips' })); } catch {}
       return;
     }
-    spectator.sideBet = { suit, amount };
+    if (tables.get(tableId) !== meta || state.phase !== phase || meta.settling) {
+      const refunded = await storage.transferLadyLuckChips(LADY_LUCK_HOUSE_ID, userId, amount, 'ladyluck_late_spectator_refund', tableId, undefined, state.raceId ?? tableId);
+      if (!refunded) throw new Error('Lady Luck late spectator refund failed');
+      try { ws.send(JSON.stringify({ type: 'll:error', message: 'wrong_phase' })); } catch {}
+      return;
+    }
+    meta.spectatorBets.set(userId, { suit, amount });
+    saveFinancialState(meta);
+    broadcastState(meta);
     try { ws.send(JSON.stringify({ type: 'll:spectator_bet_confirmed', suit, amount })); } catch {}
   } finally {
     meta.wagerLock.delete(userId);
@@ -744,6 +805,11 @@ function startRace(tableId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
   const { state } = meta;
+  if (state.phase === 'RACE' || state.phase === 'RESULTS' || meta.settling) return;
+  if (meta.wagerLock.size > 0) {
+    setTimeout(() => startRace(tableId), 100);
+    return;
+  }
 
   state.phase       = 'RACE';
   state.positions   = emptyPositions();
@@ -762,7 +828,7 @@ function startRace(tableId: string) {
       clearInterval(m.raceInterval);
       const winner = (Object.entries(s.positions) as [LadyLuckSuit, number][])
         .sort((a, b) => b[1] - a[1])[0][0];
-      resolveRace(tableId, winner);
+      void resolveRace(tableId, winner).catch(err => console.error('[LadyLuck] Race settlement failed:', err));
       return;
     }
 
@@ -775,7 +841,7 @@ function startRace(tableId: string) {
 
     if (s.positions[card.suit] >= 9) {
       clearInterval(m.raceInterval);
-      resolveRace(tableId, card.suit);
+      void resolveRace(tableId, card.suit).catch(err => console.error('[LadyLuck] Race settlement failed:', err));
     }
   }, 1500);
 }
@@ -784,89 +850,39 @@ export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
   const meta = tables.get(tableId);
   if (!meta) return;
   const { state } = meta;
+  if (state.phase === 'RESULTS' || meta.settling) return;
+  meta.settling = true;
+  try {
 
-  state.winner = winningSuit;
-  state.phase  = 'RESULTS';
+  if (meta.raceInterval) { clearInterval(meta.raceInterval); meta.raceInterval = undefined; }
 
   // ── Payout ─────────────────────────────────────────────────────────────────
   const grossPot = state.pot;
-  const { winnerPot, rake } = applyRake(grossPot);
-  if (rake > 0) {
-    storage.logHouseRake({
-      tableId,
-      gameMode:     'ladyluck',
-      handOrRaceId: null,
-      grossPot,
-      rakeAmount:   rake,
-      netPot:       winnerPot,
-    }).catch(console.error);
-  }
   const winnerPlayer = state.players.find(p => p.suit === winningSuit);
-  if (winnerPlayer && winnerPlayer.presence === 'human') {
-    try {
-      await storage.addChipsToPlayer(winnerPlayer.id, winnerPot, { reason: 'other', source: 'ladyluck_win' });
-    } catch (e) {
-      console.error('[LadyLuck] Failed to credit winner chips:', e);
-    }
+  if (!winnerPlayer) throw new Error('Lady Luck winning suit has no player');
+  const settled = await storage.settleLadyLuckRace({
+    tableId, raceId: state.raceId ?? tableId, winnerId: winnerPlayer.id, winningSuit, grossPot,
+    seatedBets: state.sideBets,
+    spectatorBets: [...meta.spectatorBets].map(([userId, bet]) => ({ userId, ...bet })),
+  });
+  state.winner = winningSuit;
+  state.phase  = 'RESULTS';
+  winnerPlayer.chips += settled.winnerPot;
+  for (const payout of settled.seatedPayouts) {
+    const p = state.players.find(p => p.id === payout.playerId);
+    if (p) p.chips += payout.net;
   }
-  let seatedGrossPayout = 0;
-  let seatedTotalRake = 0;
-  for (const bet of state.sideBets) {
-    if (bet.suit === winningSuit && bet.playerId) {
-      const betPlayer = state.players.find(p => p.id === bet.playerId);
-      if (betPlayer && betPlayer.presence === 'human') {
-        const gross = Math.floor(bet.amount * 2.5);
-        const { winnerPot: payout, rake: sideBetRake } = applyRake(gross);
-        try {
-          await storage.addChipsToPlayer(bet.playerId, payout, { reason: 'other', source: 'ladyluck_sidebet' });
-          seatedGrossPayout += gross;
-          seatedTotalRake += sideBetRake;
-        } catch (e) {
-          console.error('[LadyLuck] Failed to credit side bet:', e);
-        }
-      }
-    }
-  }
-  if (seatedTotalRake > 0) {
-    storage.logHouseRake({
-      tableId, gameMode: 'ladyluck_sidebet', handOrRaceId: null,
-      grossPot: seatedGrossPayout, rakeAmount: seatedTotalRake,
-      netPot: seatedGrossPayout - seatedTotalRake,
-    }).catch(console.error);
-  }
-
-  // ── Spectator side bet payouts ──────────────────────────────────────────────
-  let spectatorGrossPayout = 0;
-  let spectatorTotalRake   = 0;
-  for (const spectator of meta.spectators.values()) {
-    if (!spectator.sideBet) continue;
-    const { suit, amount } = spectator.sideBet;
-    if (suit === winningSuit) {
-      const gross                        = Math.floor(amount * 2.5);
-      const { winnerPot: net, rake: spRake } = applyRake(gross);
-      spectatorGrossPayout += gross;
-      spectatorTotalRake   += spRake;
-      try {
-        await storage.addChipsToPlayer(spectator.userId, net, { reason: 'other', source: 'ladyluck_spectator_win' });
-      } catch (e) {
-        console.error('[LadyLuck] Failed to credit spectator side bet:', e);
-      }
-      try { spectator.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: true, grossPayout: gross, netPayout: net })); } catch {}
+  for (const [userId] of meta.spectatorBets) {
+    const spectator = meta.spectators.get(userId);
+    const payout = settled.spectatorPayouts.find(p => p.userId === userId);
+    if (payout) {
+      try { spectator?.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: true, grossPayout: payout.gross, netPayout: payout.net })); } catch {}
     } else {
-      try { spectator.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: false, suit: winningSuit })); } catch {}
+      try { spectator?.ws.send(JSON.stringify({ type: 'll:spectator_payout', won: false, suit: winningSuit })); } catch {}
     }
-    spectator.sideBet = undefined;
   }
-  if (spectatorTotalRake > 0) {
-    storage.logHouseRake({
-      tableId,
-      gameMode:     'spectator_sidebet',
-      handOrRaceId: null,
-      grossPot:     spectatorGrossPayout,
-      rakeAmount:   spectatorTotalRake,
-      netPot:       spectatorGrossPayout - spectatorTotalRake,
-    }).catch(console.error);
-  }
+  meta.spectatorBets.clear();
+  saveFinancialState(meta);
 
   // ── Log race result for history/stats ──────────────────────────────────────
   try {
@@ -878,7 +894,7 @@ export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
         pickedSuit: p.suit ?? 'none',
         wager:      p.wager,
         won:        p.suit === winningSuit,
-        chipChange: p.suit === winningSuit ? winnerPot - p.wager : -p.wager,
+        chipChange: p.suit === winningSuit ? settled.winnerPot - p.wager : -p.wager,
       }));
     await storage.logLadyLuckRace({
       tableId,
@@ -891,9 +907,9 @@ export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
     console.error('[LadyLuck] Failed to log race result:', e);
   }
 
-  // ── Update chip totals for human players so RESULTS UI shows live balances ─
+  // ── Update chip totals for all players so RESULTS UI shows ledger balances ─
   for (const p of state.players) {
-    if (p.presence === 'human') {
+    if (p.presence !== 'open') {
       try {
         const profile = await storage.getPlayerProfile(p.id);
         if (profile) p.chips = profile.chipBalance;
@@ -918,19 +934,66 @@ export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
       clearInterval(m.resultsInterval);
       m.resultsInterval       = undefined;
       m.state.resultsTimeLeft = null;
-      startNextRound(tableId);
+      void startNextRound(tableId).catch(console.error);
     } else {
       m.state.resultsTimeLeft = ticks;
       broadcastState(m);
     }
   }, 1_000);
+  } catch (err) {
+    meta.settlementAttempts = (meta.settlementAttempts ?? 0) + 1;
+    console.error(`[LadyLuck] Settlement attempt ${meta.settlementAttempts} failed:`, err);
+    if (meta.settlementAttempts < 3) {
+      setTimeout(() => {
+        if (tables.get(tableId) === meta && state.phase === 'RACE') {
+          void resolveRace(tableId, winningSuit).catch(console.error);
+        }
+      }, 3_000);
+    } else {
+      try {
+        const stakes = await storage.getLadyLuckOpenStakes(tableId, state.raceId ?? tableId);
+        for (const [id, amount] of stakes.wagers) {
+          if (amount > 0 && !await storage.refundLadyLuckWager(id, amount, tableId, state.raceId ?? tableId))
+            throw new Error('Race settled while refunding wagers');
+        }
+        for (const [id, amount] of stakes.seated) {
+          if (amount > 0 && !await storage.refundLadyLuckSideBet(id, amount, tableId, state.raceId ?? tableId, false))
+            throw new Error('Race settled while refunding seated bets');
+        }
+        for (const [id, amount] of stakes.spectators) {
+          if (amount > 0 && !await storage.refundLadyLuckSideBet(id, amount, tableId, state.raceId ?? tableId, true))
+            throw new Error('Race settled while refunding spectator bets');
+        }
+        for (const bot of state.players.filter(p => p.presence === 'bot')) {
+          await storage.releaseLadyLuckBot(bot.id, tableId);
+        }
+        broadcast(meta, { type: 'll:error', message: 'Race settlement failed; wagers refunded' });
+        clearAllTimers(meta);
+        deleteLLPersistedTable(tableId);
+        tables.delete(tableId);
+      } catch (refundErr) {
+        // Keep the persisted race for boot recovery if the database is unavailable.
+        console.error('[LadyLuck] Failed to refund unsettled race:', refundErr);
+      }
+    }
+    throw err;
+  } finally {
+    meta.settling = false;
+  }
 }
 
 // ── Inter-round transition ────────────────────────────────────────────────────
 
-function startNextRound(tableId: string) {
+export async function startNextRound(tableId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
+
+  // Return bot stacks to the house before a seat is released or the table is
+  // deleted. Rebuying a new bot next hand is a separate, logged transfer.
+  for (const p of meta.state.players.filter(p => p.presence === 'bot')) {
+    await storage.releaseLadyLuckBot(p.id, tableId);
+    p.chips = 0;
+  }
 
   // If no live connections remain the race finished while everyone was disconnected.
   // Payouts were already credited by resolveRace; clean up the table now rather than
@@ -966,11 +1029,18 @@ function startNextRound(tableId: string) {
     for (let i = 0; i < state.players.length; i++) {
       if (state.players[i].presence === 'open') {
         const name  = pickBotName(state.players.map(p => p.name));
-        const botId = `bot_${Math.random().toString(36).slice(2, 9)}`;
+        const botId = `bot_${randomUUID()}`;
+        // Future paid chip packs: revisit bot stakes/table economics so house
+        // subsidies cannot become a free-chip farm that undercuts sales.
+        const chips = await storage.fundLadyLuckBot(botId, tableId);
+        if (tables.get(tableId) !== meta || state.players[i].presence !== 'open') {
+          await storage.releaseLadyLuckBot(botId, tableId);
+          continue;
+        }
         state.players[i] = {
           id:        botId,
           name,
-          chips:     10_000,
+          chips,
           suit:      null,
           wager:     0,
           presence:  'bot',
@@ -987,6 +1057,7 @@ function startNextRound(tableId: string) {
   state.currentCard      = null;
   state.winner           = null;
   state.pot              = 0;
+  state.raceId           = randomUUID();
   state.sideBets         = [];
   state.claimedSuits     = [];
   state.startingIn       = null;
@@ -994,6 +1065,7 @@ function startNextRound(tableId: string) {
   state.betTimeLeft      = 30;
   state.phase            = 'BET';
 
+  saveFinancialState(meta);
   broadcastState(meta);
   scheduleBotAutobet(tableId);
 
@@ -1014,6 +1086,12 @@ function startNextRound(tableId: string) {
       // Force-wager any active player who hasn't yet (auto min-bet)
       const room = LADY_LUCK_ROOMS[m.state.roomType];
       for (const p of m.state.players) {
+        // A manual wager may already be awaiting its ledger debit. Wait for it
+        // rather than debiting the same seat twice or starting with an unpaid seat.
+        while (m.wagerLock.has(p.id)) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        if (tables.get(tableId) !== m || m.state.phase !== 'BET') return;
         if (p.presence === 'open' || p.wagered) continue;
         // Assign a suit if missing
         if (!p.suit) {
@@ -1023,31 +1101,38 @@ function startNextRound(tableId: string) {
             m.state.claimedSuits.push(p.suit);
           } else continue;
         }
-        if (p.presence === 'human') {
-          const ok = await storage.debitChipsForBuyin(p.id, room.minWager);
-          if (!ok) { p.presence = 'open'; continue; }
+        const originalPresence = p.presence;
+        m.wagerLock.add(p.id);
+        let ok: boolean;
+        try {
+          saveFinancialState(m);
+          ok = await storage.debitLadyLuckWager(p.id, room.minWager, tableId, m.state.raceId ?? tableId);
+        } finally {
+          m.wagerLock.delete(p.id);
+        }
+        if (!ok) { p.presence = 'open'; continue; }
           // Re-check presence after the async debit — handleLLDisconnect may have run
           // during the await and already set this player to 'open'. If so chips were
           // already taken from the DB but the player is gone; refund immediately.
-          if (p.presence !== 'human') {
-            console.warn(
-              `[LL] betInterval auto-wager: playerId=${p.id} disconnected during debit ` +
-              `— refunding ${room.minWager} chips (tableId=${tableId})`,
-            );
-            await storage.addChipsToPlayer(p.id, room.minWager, {
-              reason:   'other',
-              source:   'lady_luck_auto_wager_refund',
-              gameId:   tableId,
-              metadata: { refundReason: 'disconnect_during_auto_wager', amount: room.minWager },
-            }).catch(err =>
-              console.error(`[LL] auto-wager refund failed playerId=${p.id}:`, err),
-            );
-            continue;
-          }
+        if (p.presence !== originalPresence || tables.get(tableId) !== m || m.state.phase !== 'BET') {
+          console.warn(
+            `[LL] betInterval auto-wager: playerId=${p.id} disconnected during debit ` +
+            `— refunding ${room.minWager} chips (tableId=${tableId})`,
+          );
+          await storage.addChipsToPlayer(p.id, room.minWager, {
+            reason:   'other',
+            source:   'ladyluck_late_wager_refund',
+            gameId:   tableId,
+            handId:   m.state.raceId ?? tableId,
+            metadata: { refundReason: 'disconnect_during_auto_wager', amount: room.minWager },
+          });
+          continue;
         }
         p.wager   = room.minWager;
         p.wagered = true;
+        p.chips  -= room.minWager;
         m.state.pot += room.minWager;
+        saveFinancialState(m);
       }
       broadcastState(m);
       const active = m.state.players.filter(q => q.presence !== 'open');
@@ -1069,6 +1154,29 @@ function clearAllTimers(meta: LLTableMeta) {
   if (meta.betInterval)     { clearInterval(meta.betInterval);     meta.betInterval     = undefined; }
 }
 
+async function closeAbandonedLLTable(tableId: string, meta: LLTableMeta): Promise<void> {
+  if (meta.state.phase === 'WAGER' || meta.state.phase === 'BET') {
+    const raceId = meta.state.raceId ?? tableId;
+    const stakes = await storage.getLadyLuckOpenStakes(tableId, raceId);
+    for (const [playerId, amount] of stakes.wagers) {
+      if (amount > 0) await storage.refundLadyLuckWager(playerId, amount, tableId, raceId);
+    }
+    for (const [playerId, amount] of stakes.seated) {
+      if (amount > 0) await storage.refundLadyLuckSideBet(playerId, amount, tableId, raceId, false);
+    }
+    for (const [userId, amount] of stakes.spectators) {
+      if (amount > 0) await storage.refundLadyLuckSideBet(userId, amount, tableId, raceId, true);
+    }
+    meta.spectatorBets.clear();
+  }
+  for (const bot of meta.state.players.filter(p => p.presence === 'bot')) {
+    await storage.releaseLadyLuckBot(bot.id, tableId);
+  }
+  clearAllTimers(meta);
+  deleteLLPersistedTable(tableId);
+  tables.delete(tableId);
+}
+
 export function handleLLDisconnect(tableId: string, playerId: string) {
   const meta = tables.get(tableId);
   if (!meta) return;
@@ -1077,7 +1185,8 @@ export function handleLLDisconnect(tableId: string, playerId: string) {
   // During RESULTS or BET, open the seat instead of just removing the connection
   if (meta.state.phase === 'RESULTS' || meta.state.phase === 'BET') {
     const idx = meta.state.players.findIndex(p => p.id === playerId);
-    if (idx !== -1 && meta.state.players[idx].presence === 'human') {
+    if (idx !== -1 && meta.state.players[idx].presence === 'human'
+        && (meta.state.phase === 'RESULTS' || !meta.state.players[idx].wagered)) {
       meta.state.players[idx].presence = 'open';
       meta.state.players[idx].suit     = null;
       meta.state.players[idx].wager    = 0;
@@ -1093,22 +1202,26 @@ export function handleLLDisconnect(tableId: string, playerId: string) {
     // human disconnecting from a 1-human + N-bot table used to incorrectly kill the
     // race and strand the wager until the next server restart.
     const racingWithStakes =
-      meta.state.phase === 'RACE' &&
+      (meta.state.phase === 'RACE' || meta.state.phase === 'BET') &&
       meta.state.players.some(p => p.presence !== 'open' && p.wagered);
 
     if (racingWithStakes) {
-      // Preserve raceInterval — clear everything else that is no longer useful.
+      // Keep the race or BET timeout running until committed wagers resolve.
       if (meta.botFillTimer)    { clearTimeout(meta.botFillTimer);     meta.botFillTimer    = undefined; }
       if (meta.countdownTimer)  { clearInterval(meta.countdownTimer);  meta.countdownTimer  = undefined; }
       if (meta.resultsInterval) { clearInterval(meta.resultsInterval); meta.resultsInterval = undefined; }
-      if (meta.betInterval)     { clearInterval(meta.betInterval);     meta.betInterval     = undefined; }
-      // raceInterval keeps running; after resolveRace → startNextRound detects no
+      // raceInterval / betInterval keep running; after resolveRace → startNextRound detects no
       // connections and cleans up the table (see startNextRound guard below).
     } else {
       clearAllTimers(meta);
       setTimeout(() => {
         const m = tables.get(tableId);
-        if (m && m.connections.size === 0) tables.delete(tableId);
+        const inProgress = m && (m.state.phase === 'RACE' ||
+          (m.state.phase === 'BET' && m.state.players.some(p => p.wagered)) ||
+          m.settling || m.wagerLock.size > 0);
+        if (m && m.connections.size === 0 && !inProgress) {
+          void closeAbandonedLLTable(tableId, m).catch(console.error);
+        }
       }, 30_000);
     }
   }
