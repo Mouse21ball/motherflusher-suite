@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'wouter';
 
 type HowToPlayModeId =
   | 'badugi' | 'dead7' | '1535' | 'suits'
@@ -703,6 +704,7 @@ const MODE_NAMES: Record<HowToPlayModeId, string> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
+  const [, navigate] = useLocation();
   const [slide, setSlide] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const slides  = SLIDES[modeId];
@@ -891,13 +893,37 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
       <div
         style={{
           display:        'flex',
-          flexDirection:  'row',
+          flexDirection:  modeId === 'badugi' ? 'column' : 'row',
           justifyContent: 'space-between',
           alignItems:     'center',
           padding:        '0 24px 40px',
           gap:            16,
         }}
       >
+        {modeId === 'badugi' && (
+          <button
+            type="button"
+            data-testid="button-how-to-practice-badugi"
+            onClick={() => { onClose(); navigate('/practice/badugi'); }}
+            style={{
+              background: 'rgba(110,231,183,0.14)',
+              border: '1px solid rgba(110,231,183,0.55)',
+              borderRadius: 24,
+              padding: '10px 24px',
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              fontSize: 12,
+              color: '#6ee7b7',
+              cursor: 'pointer',
+              letterSpacing: '0.06em',
+              width: '100%',
+              marginBottom: 10,
+            }}
+          >
+            PRACTICE BADUGI →
+          </button>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 16 }}>
         <button
           data-testid="button-how-to-play-back"
           onClick={() => setSlide(s => Math.max(0, s - 1))}
@@ -939,6 +965,7 @@ export function HowToPlay({ modeId, onClose }: HowToPlayProps) {
         >
           {isLast ? "LET'S PLAY →" : 'NEXT →'}
         </button>
+        </div>
       </div>
     </div>
   );

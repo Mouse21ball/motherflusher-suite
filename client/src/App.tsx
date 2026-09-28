@@ -9,12 +9,14 @@ import { ColdStartSplash } from "@/components/ColdStartSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ServerProfileProvider, useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
+import { isPracticeBadugiPath } from "@/lib/practiceRoute";
 import { billing } from "@/lib/billing";
 import { music } from "@/lib/music";
 import { MUSIC_CATALOG } from "@/lib/musicTracks";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
+import PracticeBadugiPage from "@/pages/PracticeBadugiPage";
 import Dead7Game from "@/pages/Dead7Game";
 import Fifteen35Game from "@/pages/Fifteen35Game";
 import SuitsPokerGame from "@/pages/SuitsPokerGame";
@@ -107,6 +109,7 @@ function Router() {
         <Route path="/crews" component={Crews}/>
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
+        <Route path="/practice/badugi" component={PracticeBadugiPage}/>
         <Route path="/dead7" component={Dead7Game}/>
         <Route path="/fifteen35" component={Fifteen35Game}/>
         <Route path="/suitspoker" component={SuitsPokerGame}/>
@@ -131,9 +134,12 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  const isStandalonePractice = isPracticeBadugiPath(location);
+
   useEffect(() => {
-    initAnalytics();
-  }, []);
+    if (!isStandalonePractice) initAnalytics();
+  }, [isStandalonePractice]);
 
   // FIX 1: initialize billing once at app startup after the native bridge is ready.
   // cordova-plugin-purchase injects window.CdvPurchase on the 'deviceready' event.
@@ -141,7 +147,11 @@ function App() {
   // Fire-and-forget: errors are logged but never thrown so the rest of the app is
   // unaffected if Play Billing is unavailable.
   useEffect(() => {
+    if (isStandalonePractice) return;
+    let active = true;
+    let waitingForDeviceReady = false;
     const init = () => {
+      if (!active) return;
       billing
         .initialize()
         .then(() => console.log("[billing] initialized"))
@@ -155,12 +165,32 @@ function App() {
       if (typeof (window as any).CdvPurchase !== "undefined") {
         init();
       } else {
+        waitingForDeviceReady = true;
         document.addEventListener("deviceready", init, { once: true });
       }
     } else {
       init();
     }
-  }, []);
+    return () => {
+      active = false;
+      if (waitingForDeviceReady) document.removeEventListener("deviceready", init);
+    };
+  }, [isStandalonePractice]);
+
+  // The practice route deliberately bypasses profile/session bootstrap,
+  // billing initialization, session analytics, welcome identity persistence,
+  // and the profile-driven manager. Its age check is visit-local in memory.
+  if (isStandalonePractice) {
+    return (
+      <ErrorBoundary>
+        <TooltipProvider>
+          <Toaster />
+          <div className="cgp-vignette" aria-hidden="true" />
+          <PracticeBadugiPage />
+        </TooltipProvider>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

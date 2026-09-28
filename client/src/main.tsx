@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { captureReferralCodeFromUrl } from "./lib/referralAttribution";
+import { isPracticeBadugiRoute } from "./lib/practiceRoute";
 
-captureReferralCodeFromUrl();
+if (!isPracticeBadugiRoute()) captureReferralCodeFromUrl();
 
 // Initialize Sentry browser error tracking.
 // Set VITE_SENTRY_DSN in Replit Secrets to enable (no-op when absent).

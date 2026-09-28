@@ -664,6 +664,15 @@ export default function Home() {
                           HOW TO PLAY
                         </button>
                       )}
+                      {card.id === 'badugi' && (
+                        <button
+                          data-testid="button-practice-badugi"
+                          onClick={e => { e.stopPropagation(); navigate('/practice/badugi'); }}
+                          style={{ marginLeft: 6, background: 'rgba(110,231,183,0.14)', border: '1px solid rgba(110,231,183,0.55)', borderRadius: 20, padding: '4px 12px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#6ee7b7', letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase' }}
+                        >
+                          PRACTICE
+                        </button>
+                      )}
                     </div>
                   </div>
 

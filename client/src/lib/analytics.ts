@@ -1,5 +1,6 @@
 import { ensurePlayerIdentity } from './persistence';
 import { apiUrl } from './apiConfig';
+import { isPracticeBadugiRoute } from './practiceRoute';
 
 const SESSION_START_KEY = "poker_table_session_start";
 
@@ -8,6 +9,7 @@ function getPlayerId(): string {
 }
 
 function fire(body: Record<string, unknown>): void {
+  if (isPracticeBadugiRoute()) return;
   try {
     const payload = JSON.stringify({ ...body, playerId: getPlayerId() });
     fetch(apiUrl("/api/analytics/track"), {
@@ -20,11 +22,15 @@ function fire(body: Record<string, unknown>): void {
 }
 
 export function trackSessionStart(): void {
+  if (isPracticeBadugiRoute()) return;
   sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
   fire({ eventType: "session_start" });
 }
 
 export function trackSessionEnd(): void {
+  // Existing app-wide unload/visibility listeners can outlive navigation into
+  // practice, so guard before touching sessionStorage, identity, or the API.
+  if (isPracticeBadugiRoute()) return;
   const start = sessionStorage.getItem(SESSION_START_KEY);
   const durationMs = start ? Date.now() - Number(start) : undefined;
   fire({ eventType: "session_end", durationMs });
@@ -36,6 +42,7 @@ export function trackModePlay(mode: string): void {
 
 let initialized = false;
 export function initAnalytics(): void {
+  if (isPracticeBadugiRoute()) return;
   if (initialized) return;
   initialized = true;
   trackSessionStart();
@@ -69,12 +76,14 @@ export type AnalyticsEvent =
   | { name: 'feedback_link_clicked'; location: 'home_footer' | 'profile_menu' };
 
 export function track(event: AnalyticsEvent): void {
+  if (isPracticeBadugiRoute()) return;
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
   const { name, ...params } = event as { name: string } & Record<string, unknown>;
   window.gtag('event', name, params);
 }
 
 export function setUserId(userId: string | null): void {
+  if (isPracticeBadugiRoute()) return;
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
   if (userId) {
     window.gtag('config', 'G-6FFDK5JX95', { user_id: userId });

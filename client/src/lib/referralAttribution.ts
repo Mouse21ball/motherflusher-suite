@@ -1,3 +1,5 @@
+import { isPracticeBadugiRoute } from './practiceRoute';
+
 const REFERRAL_CODE_KEY = 'cgp_signup_referral_code';
 
 function normalizeCode(value: string | null | undefined): string | null {
@@ -6,7 +8,7 @@ function normalizeCode(value: string | null | undefined): string | null {
 }
 
 export function captureReferralCodeFromUrl(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isPracticeBadugiRoute()) return;
   const code = normalizeCode(new URLSearchParams(window.location.search).get('ref'));
   if (!code) return;
   try { localStorage.setItem(REFERRAL_CODE_KEY, code); } catch {}
