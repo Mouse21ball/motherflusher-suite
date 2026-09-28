@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { lookupTable } from "@/lib/tableSession";
+import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from "@shared/stakeTiers";
 
 const MODE_ROUTES: Record<string, string> = {
   badugi:      "/badugi",
@@ -14,6 +15,7 @@ export default function JoinTable() {
   const [, navigate] = useLocation();
   const params = useParams<{ code: string }>();
   const [status, setStatus] = useState<"looking" | "found" | "notfound">("looking");
+  const [stakeTier, setStakeTier] = useState<StakeTierId>(DEFAULT_STAKE_TIER_ID);
 
   useEffect(() => {
     const code = params.code?.toUpperCase();
@@ -27,6 +29,7 @@ export default function JoinTable() {
         setStatus("notfound");
         return;
       }
+      setStakeTier(getStakeTierId(table.stakeTier));
       setStatus("found");
       const basePath = MODE_ROUTES[table.modeId] ?? "/";
       const route = `${basePath}?t=${code}`;
@@ -47,6 +50,9 @@ export default function JoinTable() {
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-xl border border-[#00C896]/30 bg-[#00C896]/10 flex items-center justify-center text-xl">⛓️</div>
             <p className="text-[#00C896] text-xs font-mono tracking-widest uppercase">Table found — joining…</p>
+            <p className="text-[#F0B829]/70 text-[10px] font-mono tracking-widest uppercase" data-testid="text-table-lookup-stakes">
+              {(() => { const tier = STAKE_TIERS.find(t => t.id === stakeTier)!; return `${tier.label} · ${tier.minBet} BB`; })()}
+            </p>
           </div>
         )}
         {status === "notfound" && (

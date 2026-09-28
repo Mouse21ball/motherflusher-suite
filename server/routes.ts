@@ -81,6 +81,7 @@ import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
 import { getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled } from "./rewardedAdConfig";
+import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
@@ -106,6 +107,7 @@ interface TableRecord {
   isInviteOnly: boolean; // true = invite code required; false = appears in public list
   hostId:      string;   // session/identity id of creator (for authority checks)
   crewId?:     string;   // club this table belongs to (if any)
+  stakeTier:   StakeTierId;
 }
 
 const tables = new Map<string, TableRecord>();
@@ -153,6 +155,7 @@ const createTableSchema = z.object({
   maxPlayers:  z.number().int().min(2).max(5).default(5),
   botsEnabled: z.boolean().default(true),
   isInviteOnly: z.boolean().default(true),
+  stakeTier:   z.enum(["micro", "low", "mid", "high"]).default(DEFAULT_STAKE_TIER_ID),
   hostId:      z.string().min(1).optional(),
   crewId:      z.string().optional(),
 });
@@ -423,6 +426,7 @@ export async function registerRoutes(
         isInviteOnly: parsed.isInviteOnly,
         hostId:      parsed.hostId ?? parsed.createdBy,
         crewId:      parsed.crewId,
+        stakeTier:   parsed.stakeTier,
       };
       tables.set(code, record);
       res.status(201).json({
@@ -432,6 +436,7 @@ export async function registerRoutes(
         maxPlayers:  record.maxPlayers,
         botsEnabled: record.botsEnabled,
         isInviteOnly: record.isInviteOnly,
+        stakeTier: record.stakeTier,
       });
     } catch (err: any) {
       if (err?.name === "ZodError") {
@@ -462,6 +467,7 @@ export async function registerRoutes(
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
           crewId:       rec?.crewId,
+          stakeTier:    rec?.stakeTier ?? DEFAULT_STAKE_TIER_ID,
         };
       });
     const generic = getActiveGenericTables()
@@ -476,9 +482,10 @@ export async function registerRoutes(
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
           crewId:       rec?.crewId,
+          stakeTier:    rec?.stakeTier ?? DEFAULT_STAKE_TIER_ID,
         };
       });
-    let all: Array<{ tableId: string; modeId: string; humanCount: number; phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string }> = [
+    let all: Array<{ tableId: string; modeId: string; humanCount: number; phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string; stakeTier: StakeTierId }> = [
       ...badugi,
       ...generic.sort((a, b) => b.humanCount - a.humanCount),
     ];
@@ -498,6 +505,7 @@ export async function registerRoutes(
           maxPlayers:   rec.maxPlayers,
           isInviteOnly: rec.isInviteOnly ?? false,
           crewId:       rec.crewId,
+          stakeTier:    rec.stakeTier,
         });
       }
       console.log(`[club-tables] crewId=${filterCrewId} total=${all.length}`, all.map(t => `${t.tableId}(h=${t.humanCount})`));
@@ -521,7 +529,17 @@ export async function registerRoutes(
       res.status(404).json({ error: "Table not found" });
       return;
     }
-    res.json({ tableId: table.tableId, modeId: table.modeId, createdAt: table.createdAt, crewId: table.crewId ?? null });
+    res.json({
+      tableId: table.tableId,
+      modeId: table.modeId,
+      createdAt: table.createdAt,
+      crewId: table.crewId ?? null,
+      stakeTier: table.stakeTier,
+      minBet: getStakeTier(table.stakeTier).minBet,
+      maxPlayers: table.maxPlayers,
+      botsEnabled: table.botsEnabled,
+      isInviteOnly: table.isInviteOnly,
+    });
   });
 
   // DELETE /api/tables/:tableId — close a club table (host or crew owner/agent only)
@@ -3493,13 +3511,15 @@ export async function registerRoutes(
         mode_id:     z.string().min(1),
       }).parse(req.body);
 
-      // Lookup minBet from live engine (default 50 if table not yet created)
+      const tableRecord = getTableRecord(tableId);
+      // Prefer the live game state; use the registered tier while the engine
+      // table is still being created, and Low for unregistered quick-play codes.
       const minBet = (mode_id === 'badugi'
         ? getBadugiTableMinBet(tableId)
-        : getGenericTableMinBet(tableId, mode_id)) ?? 50;
+        : getGenericTableMinBet(tableId, mode_id))
+        ?? getStakeTier(tableRecord?.stakeTier).minBet;
 
-      const minBuyin = minBet * 20;
-      const maxBuyin = minBet * 200;
+      const { minBuyin, maxBuyin } = getBuyInBounds(minBet);
 
       if (buyin_chips < minBuyin || buyin_chips > maxBuyin) {
         res.status(400).json({
@@ -3534,16 +3554,21 @@ export async function registerRoutes(
         mode_id:       z.string().min(1),
       }).parse(req.body);
 
+      const tableRecord = getTableRecord(tableId);
       const minBet = (mode_id === 'badugi'
         ? getBadugiTableMinBet(tableId)
-        : getGenericTableMinBet(tableId, mode_id)) ?? 50;
+        : getGenericTableMinBet(tableId, mode_id))
+        ?? getStakeTier(tableRecord?.stakeTier).minBet;
 
-      const maxBuyin = minBet * 200;
+      const { minBuyin, maxBuyin } = getBuyInBounds(minBet);
       const wouldBeStack = current_stack + rebuy_chips;
 
-      if (wouldBeStack > maxBuyin) {
+      if (rebuy_chips < minBuyin || wouldBeStack > maxBuyin) {
         res.status(400).json({
-          error: `Rebuy would exceed the ${maxBuyin.toLocaleString()}-chip cap (200 BB). Max rebuy: ${(maxBuyin - current_stack).toLocaleString()} chips`,
+          error: rebuy_chips < minBuyin
+            ? `Minimum rebuy is ${minBuyin.toLocaleString()} chips (20 BB)`
+            : `Rebuy would exceed the ${maxBuyin.toLocaleString()}-chip cap (200 BB). Max rebuy: ${(maxBuyin - current_stack).toLocaleString()} chips`,
+          min_rebuy: minBuyin,
           max_rebuy: Math.max(0, maxBuyin - current_stack),
         });
         return;

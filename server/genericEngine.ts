@@ -28,6 +28,7 @@ import { filterChatMessage } from './chatFilter';
 import { secureShuffleInPlace } from './utils/secureShuffle';
 import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
+import { clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -393,7 +394,7 @@ function scheduleFlushedUpBotFill(key: string): void {
   }, 10_000);
 }
 
-function makeInitialState(tableId: string, isClubTable = false): GameState {
+function makeInitialState(tableId: string, isClubTable = false, minBet = 50): GameState {
   return {
     tableId,
     phase: 'WAITING',
@@ -401,7 +402,7 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
     seatStreakOwners: {},
     pot: 0,
     currentBet: 0,
-    minBet: 50,
+    minBet,
     raisesThisRound: 0,
     activePlayerId: 'p1',
     players: makeInitialPlayers(isClubTable),
@@ -501,6 +502,7 @@ interface GenericTable {
   maxPlayers: number;   // 2-5: how many human seats are open
   botsEnabled: boolean; // false = no bots ever fill empty seats
   crewId?: string;      // club table — bots suppressed regardless of botsEnabled
+  stakeTier: StakeTierId;
   // Per-seat chip balance at the START of the current hand (for profit delta calculation).
   // Initialized when player first loads chips from DB; updated after each hand sync.
   chipsAtHandStart: Map<string, number>;
@@ -1753,12 +1755,12 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
 
 // ─── Get or create table ─────────────────────────────────────────────────────
 
-function getOrCreateTable(
+export function getOrCreateTable(
   modeId: string,
   tableId: string,
   isPrivate = false,
   quickPlay = false,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): GenericTable | null {
   const mode = MODE_REGISTRY[modeId];
   if (!mode) return null;
@@ -1767,12 +1769,13 @@ function getOrCreateTable(
   if (!tables.has(key)) {
     const maxPlayers  = options.maxPlayers  ?? 5;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
+    const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     tables.set(key, {
       tableId,
       modeId,
       mode,
-      state: makeInitialState(tableId, !!options.crewId),
+      state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
       handId: 0,
       actionLock: false,
       botTimers: new Map(),
@@ -1789,6 +1792,7 @@ function getOrCreateTable(
       maxPlayers,
       botsEnabled,
       crewId: options.crewId,
+      stakeTier,
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
@@ -1810,6 +1814,10 @@ function getOrCreateTable(
     const t = tables.get(key)!;
     if (options.crewId !== undefined)     t.crewId     = options.crewId;
     if (options.botsEnabled !== undefined) t.botsEnabled = options.botsEnabled;
+    if (options.stakeTier !== undefined) {
+      t.stakeTier = getStakeTierId(options.stakeTier);
+      t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
+    }
   }
   return tables.get(key)!;
 }
@@ -1825,7 +1833,7 @@ export function addGenericConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
   buyinChips?: number
 ): string | null {
   const key = tableKey(modeId, tableId);
@@ -2001,12 +2009,11 @@ export function addGenericConnection(
         if (wasReserved || isBetweenHands) {
           // ── Buy-in Slider: determine effective table stack ──────────────
           const minBet = t.state.minBet;
-          const minBuyin = minBet * 20;
-          const maxBuyin = minBet * 200;
           let effectiveStack: number;
-          if (buyinChips != null && wasReserved) {
-            // Clamp to valid range, cap at available balance
-            const clamped = Math.max(minBuyin, Math.min(maxBuyin, Math.floor(buyinChips)));
+          if (wasReserved) {
+            // Clamp to the table's 20–200 BB range and available balance.
+            const requestedBuyin = buyinChips ?? profile.chipBalance;
+            const clamped = clampBuyIn(requestedBuyin, minBet);
             effectiveStack = Math.min(clamped, profile.chipBalance);
             t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
           } else {
@@ -2348,18 +2355,18 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       if (playerIdx === -1) { table.actionLock = false; return; }
       const player = s.players[playerIdx];
       const minBet  = s.minBet;
-      const maxBuyin = minBet * 200;
+      const { minBuyin, maxBuyin } = getBuyInBounds(minBet);
       const bankroll = table.seatBankroll.get(playerId) ?? 0;
 
       // Determine requested amount from payload (slider-based rebuy).
       const requestedAmount =
         typeof payload === 'number' ? Math.floor(payload) :
-        (payload && typeof payload === 'object' && 'amount' in payload)
+        (payload && typeof payload === 'object' && 'amount' in payload && typeof (payload as { amount: unknown }).amount === 'number')
           ? Math.floor((payload as { amount: number }).amount) : null;
 
       if (requestedAmount != null) {
         // New slider-based rebuy: can rebuy whenever stack < 200BB
-        if (requestedAmount <= 0) { table.actionLock = false; return; }
+        if (!Number.isFinite(requestedAmount) || requestedAmount < minBuyin) { table.actionLock = false; return; }
         if (player.chips + requestedAmount > maxBuyin) { table.actionLock = false; return; }
         if (bankroll < requestedAmount) { table.actionLock = false; return; }
         table.seatBankroll.set(playerId, bankroll - requestedAmount);
@@ -2523,6 +2530,9 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       if (raiseTotal <= newCurrentBet && !isAllIn) {
         table.actionLock = false; return;
       }
+      if (!meetsMinimumBet(newCurrentBet, raiseTotal, isAllIn, s.minBet)) {
+        table.actionLock = false; return;
+      }
       const chipCost = raiseTotal - player.bet;
       if (chipCost <= 0) {
         table.actionLock = false; return;
@@ -2682,6 +2692,7 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         const raiseTotal = Math.min(amt, player.chips + player.bet);
         const isAllIn = raiseTotal === player.chips + player.bet;
         if (raiseTotal <= newCurrentBet && !isAllIn) { table.actionLock = false; return; }
+        if (!meetsMinimumBet(newCurrentBet, raiseTotal, isAllIn, s.minBet)) { table.actionLock = false; return; }
         const chipCost = raiseTotal - player.bet;
         if (chipCost <= 0) { table.actionLock = false; return; }
         newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - chipCost, bet: raiseTotal, hasActed: true };
@@ -2875,6 +2886,8 @@ export async function initGenericEngine(): Promise<void> {
       isPrivate: false,
       maxPlayers: 5,
       botsEnabled: true,
+      crewId: undefined,
+      stakeTier: getStakeTierId(undefined),
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),

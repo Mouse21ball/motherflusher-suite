@@ -32,6 +32,7 @@ import {
   updateGenericTableSettings,
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
+import { DEFAULT_STAKE_TIER_ID, getStakeTierId, type StakeTierId } from '../shared/stakeTiers';
 import {
   handleLLJoin,
   handleLLSelect,
@@ -85,6 +86,7 @@ interface Room {
   botsEnabled: boolean;
   isInviteOnly: boolean;
   crewId?: string;
+  stakeTier: StakeTierId;
 }
 
 // ─── Client message types ─────────────────────────────────────────────────────
@@ -112,7 +114,7 @@ interface HostUpdate {
   type: 'host_update';
   hostId: string | null;
   hostName: string | null;
-  tableSettings: { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean };
+  tableSettings: { maxPlayers: number; botsEnabled: boolean; isInviteOnly: boolean; stakeTier: StakeTierId };
   crewId: string | null;
 }
 
@@ -151,6 +153,7 @@ function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Ro
     const maxPlayers  = record?.maxPlayers  ?? 5;
     const botsEnabled = record?.crewId ? false : (record?.botsEnabled ?? true);
     const isInviteOnly = record?.isInviteOnly ?? false;
+    const stakeTier = getStakeTierId(record?.stakeTier ?? DEFAULT_STAKE_TIER_ID);
     const hostId = playerId ?? record?.hostId ?? null;
 
     rooms.set(tableId, {
@@ -165,6 +168,7 @@ function getOrCreateRoom(tableId: string, modeId: string, playerId?: string): Ro
       botsEnabled,
       isInviteOnly,
       crewId: record?.crewId,
+      stakeTier,
     });
   }
   return rooms.get(tableId)!;
@@ -182,6 +186,7 @@ function buildHostUpdate(room: Room): HostUpdate {
       maxPlayers:  room.maxPlayers,
       botsEnabled: room.botsEnabled,
       isInviteOnly: room.isInviteOnly,
+      stakeTier: room.stakeTier,
     },
     crewId: room.crewId ?? null,
   };
@@ -414,7 +419,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
           room.seats.set(seatId, { seatId, playerId: pid, name: name || 'Player', joinedAt: Date.now() });
         }
 
-        const engineOptions = { maxPlayers: room.maxPlayers, botsEnabled: room.botsEnabled, crewId: room.crewId };
+        const engineOptions = {
+          maxPlayers: room.maxPlayers,
+          botsEnabled: room.botsEnabled,
+          crewId: room.crewId,
+          stakeTier: room.stakeTier,
+        };
 
         // ── Cross-table seat guard ───────────────────────────────────────────
         // Reject joins if the player is already seated at a different table.

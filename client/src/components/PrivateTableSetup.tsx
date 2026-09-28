@@ -9,6 +9,7 @@ import { generateTableCode } from '@/lib/tableSession';
 import { apiUrl } from '@/lib/apiConfig';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { track } from '@/lib/analytics';
+import { STAKE_TIERS, DEFAULT_STAKE_TIER_ID, type StakeTierId } from '@shared/stakeTiers';
 
 // ─── Mode definitions ─────────────────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [isInviteOnly, setIsInviteOnly] = useState(true);
   const [botsEnabled, setBotsEnabled] = useState(true);
+  const [stakeTier, setStakeTier] = useState<StakeTierId>(DEFAULT_STAKE_TIER_ID);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -178,6 +180,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
           maxPlayers,
           botsEnabled,
           isInviteOnly,
+          stakeTier,
           hostId:       identity.id,
         }),
       });
@@ -582,8 +585,35 @@ export function PrivateTableSetup({ open, onClose }: Props) {
             {/* Metal divider */}
             <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(130,85,15,0.35), transparent)', marginBottom: 8 }} />
 
-            {/* ── 4. BOTS ───────────────────────────────────────────── */}
-            <SectionLabel num={4} label="BOTS" />
+            {/* ── 4. STAKES ─────────────────────────────────────────── */}
+            <SectionLabel num={4} label="STAKE TIER" aside="BUY-INS: 20–200 BB" />
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
+              {STAKE_TIERS.map(tier => (
+                <button
+                  key={tier.id}
+                  type="button"
+                  data-testid={`button-stake-tier-${tier.id}`}
+                  onClick={() => setStakeTier(tier.id)}
+                  className="active:scale-95 transition-transform"
+                  style={{
+                    padding: '8px 3px',
+                    borderRadius: 4,
+                    border: stakeTier === tier.id ? '1px solid rgba(220,140,20,0.75)' : '1px solid rgba(80,55,15,0.40)',
+                    background: stakeTier === tier.id ? 'rgba(180,90,0,0.30)' : 'rgba(25,15,3,0.80)',
+                    color: stakeTier === tier.id ? '#e8a020' : 'rgba(140,100,30,0.65)',
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>{tier.label}</span>
+                  <span style={{ display: 'block', marginTop: 3 }}>${tier.minBet} BB</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ── 5. BOTS ───────────────────────────────────────────── */}
+            <SectionLabel num={5} label="BOTS" />
             <div className="grid grid-cols-2 gap-2 mb-4">
               {/* Bots ON */}
               <button

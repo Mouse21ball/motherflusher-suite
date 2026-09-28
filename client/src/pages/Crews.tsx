@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/session";
 import { billing } from "@/lib/billing";
 import { useQuery } from "@tanstack/react-query";
 import { AvatarWithFrame } from "@/components/ui/AvatarWithFrame";
+import { STAKE_TIERS, DEFAULT_STAKE_TIER_ID, getStakeTierId, type StakeTierId } from "@shared/stakeTiers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PublicClub {
@@ -34,7 +35,7 @@ interface ChipRequest {
 }
 interface LiveTable {
   tableId: string; modeId: string; humanCount: number;
-  phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string;
+  phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string; stakeTier?: StakeTierId;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -527,6 +528,7 @@ function OpenTableModal({ crew, playerId, onClose, onOpened }: {
 }) {
   const [selMode,     setSelMode]     = useState<ClubModeId>('badugi');
   const [maxPlayers,  setMaxPlayers]  = useState(5);
+  const [stakeTier,   setStakeTier]   = useState<StakeTierId>(DEFAULT_STAKE_TIER_ID);
   const [creating,    setCreating]    = useState(false);
   const [err,         setErr]         = useState<string | null>(null);
   const { toast } = useToast();
@@ -545,6 +547,7 @@ function OpenTableModal({ crew, playerId, onClose, onOpened }: {
         isInviteOnly: true,
         hostId:      playerId,
         crewId:      crew.id,
+        stakeTier,
       };
       console.log('[open-table] POST /api/tables body:', JSON.stringify(requestBody));
       const res = await apiFetch('/api/tables', {
@@ -609,6 +612,25 @@ function OpenTableModal({ crew, playerId, onClose, onOpened }: {
                   color:      maxPlayers === n ? GOLD : 'rgba(255,255,255,0.4)',
                 }}>
                 {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/40 mb-2 tracking-widest">STAKE TIER · LOW DEFAULT</p>
+          <div className="grid grid-cols-4 gap-2">
+            {STAKE_TIERS.map(tier => (
+              <button key={tier.id}
+                data-testid={`club-stake-tier-${tier.id}`}
+                onClick={() => setStakeTier(tier.id)}
+                className="rounded-lg py-2 font-mono text-[10px] font-bold transition-all active:scale-95"
+                style={{
+                  background: stakeTier === tier.id ? 'rgba(240,184,41,0.18)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${stakeTier === tier.id ? 'rgba(240,184,41,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                  color: stakeTier === tier.id ? GOLD : 'rgba(255,255,255,0.4)',
+                }}>
+                {tier.label}<br />${tier.minBet}
               </button>
             ))}
           </div>
@@ -717,6 +739,9 @@ function TablesTab({ crew, playerId, isOwnerOrAgent }: {
                     {table.humanCount}/{table.maxPlayers}
                   </span>
                 </div>
+                <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }} data-testid={`text-club-stakes-${table.tableId}`}>
+                  {(() => { const tier = STAKE_TIERS.find(t => t.id === getStakeTierId(table.stakeTier))!; return `${tier.label} · ${tier.minBet} BB`; })()}
+                </span>
                 <div className="flex gap-2">
                   <button
                     data-testid={`btn-join-table-${table.tableId}`}

@@ -167,6 +167,7 @@ export function getSessionResult(): SessionSnapshot | null {
 // ─── Server sync ──────────────────────────────────────────────────────────────
 
 import { apiUrl } from './apiConfig';
+import type { StakeTierId } from '@shared/stakeTiers';
 
 // Registers a new table on the server. Returns the server-echoed session.
 export async function registerTable(session: TableSession): Promise<{ ok: boolean }> {
@@ -190,7 +191,7 @@ export async function registerTable(session: TableSession): Promise<{ ok: boolea
 }
 
 // Looks up a table code on the server. Returns null if not found.
-export async function lookupTable(tableId: string): Promise<{ modeId: string; createdAt: number } | null> {
+export async function lookupTable(tableId: string): Promise<{ modeId: string; createdAt: number; stakeTier?: StakeTierId; minBet?: number } | null> {
   try {
     const res = await fetch(apiUrl(`/api/tables/${tableId.toUpperCase()}`));
     if (!res.ok) return null;

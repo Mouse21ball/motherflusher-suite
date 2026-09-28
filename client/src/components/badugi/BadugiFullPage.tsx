@@ -312,7 +312,7 @@ export function BadugiFullPage({
         seatToPlayerId={Object.fromEntries(state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!]))}
         myProfileId={serverProfile?.profileId} />
 
-      <BustOutModal open={showBustModal} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
+      <BustOutModal open={showBustModal} bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}

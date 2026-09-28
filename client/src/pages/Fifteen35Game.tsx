@@ -1203,6 +1203,7 @@ export default function Fifteen35Game() {
 
       <BustOutModal
         open={showBustModal}
+        bigBlind={state.minBet}
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}

@@ -22,6 +22,7 @@ import { filterChatMessage } from './chatFilter';
 import { secureShuffleInPlace } from './utils/secureShuffle';
 import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
+import { DEFAULT_STAKE_TIER_ID, clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -278,7 +279,7 @@ function scheduleBadugiBotFill(tableId: string): void {
   }, 8_000);
 }
 
-function makeInitialState(tableId: string, isClubTable = false): GameState {
+function makeInitialState(tableId: string, isClubTable = false, minBet = 50): GameState {
   return {
     tableId,
     phase: 'WAITING',
@@ -286,7 +287,7 @@ function makeInitialState(tableId: string, isClubTable = false): GameState {
     seatStreakOwners: {},
     pot: 0,
     currentBet: 0,
-    minBet: 50,
+    minBet,
     raisesThisRound: 0,
     activePlayerId: 'p1',
     players: makeInitialPlayers(10000, isClubTable),
@@ -386,6 +387,7 @@ interface AuthTable {
   maxPlayers: number;   // 2-5: how many human seats are open
   botsEnabled: boolean; // false = no bots ever fill empty seats
   crewId?: string;      // club table — bots suppressed regardless of botsEnabled
+  stakeTier: StakeTierId;
   // Turn-timer support: monotonic generation counter + active handle.
   // Increments whenever armTurnTimer or clearTurnTimer is called so that
   // a late-firing timeout can detect it is stale and abort cleanly.
@@ -1370,6 +1372,8 @@ export async function initEngine(): Promise<void> {
       isPrivate: false,
       maxPlayers: 5,
       botsEnabled: true,
+      crewId: undefined,
+      stakeTier: getStakeTierId(DEFAULT_STAKE_TIER_ID),
       turnTimerGen: 0,
       turnTimer: null,
       seatBankroll: new Map(),
@@ -1404,15 +1408,16 @@ export function getOrCreateBadugiTable(
   tableId: string,
   isPrivate = false,
   quickPlay = false,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {}
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): AuthTable {
   if (!tables.has(tableId)) {
     const maxPlayers  = options.maxPlayers  ?? 5;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
+    const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     const table: AuthTable = {
       tableId,
-      state: makeInitialState(tableId, !!options.crewId),
+      state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
       handId: 0,
       actionLock: false,
       botTimers: new Map(),
@@ -1430,6 +1435,7 @@ export function getOrCreateBadugiTable(
       maxPlayers,
       botsEnabled,
       crewId: options.crewId,
+      stakeTier,
       turnTimerGen: 0,
       turnTimer: null,
       seatBankroll: new Map(),
@@ -1448,6 +1454,10 @@ export function getOrCreateBadugiTable(
     const t = tables.get(tableId)!;
     if (options.crewId !== undefined)     t.crewId     = options.crewId;
     if (options.botsEnabled !== undefined) t.botsEnabled = options.botsEnabled;
+    if (options.stakeTier !== undefined) {
+      t.stakeTier = getStakeTierId(options.stakeTier);
+      t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
+    }
   }
   return tables.get(tableId)!;
 }
@@ -1464,7 +1474,7 @@ export function addBadugiConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
   buyinChips?: number
 ): string | null {
   const isNew = !tables.has(tableId);
@@ -1615,11 +1625,10 @@ export function addBadugiConnection(
         if (wasReserved || isBetweenHands) {
           // ── Buy-in Slider ───────────────────────────────────────────────
           const minBet   = t.state.minBet;
-          const minBuyin = minBet * 20;
-          const maxBuyin = minBet * 200;
           let effectiveStack: number;
-          if (buyinChips != null && wasReserved) {
-            const clamped = Math.max(minBuyin, Math.min(maxBuyin, Math.floor(buyinChips)));
+          if (wasReserved) {
+            const requestedBuyin = buyinChips ?? profile.chipBalance;
+            const clamped = clampBuyIn(requestedBuyin, minBet);
             effectiveStack = Math.min(clamped, profile.chipBalance);
             t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
           } else {
@@ -1928,6 +1937,46 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       return;
     }
 
+    // ── rebuy: pull chips from seatBankroll to table stack ───────────────────
+    if (action === 'rebuy') {
+      const player = s.players.find(p => p.id === playerId);
+      if (!player) { table.actionLock = false; return; }
+      const minBet = s.minBet;
+      const { minBuyin, maxBuyin } = getBuyInBounds(minBet);
+      const bankroll = table.seatBankroll.get(playerId) ?? 0;
+      const requestedAmount =
+        typeof payload === 'number' ? Math.floor(payload) :
+        (payload && typeof payload === 'object' && 'amount' in payload && typeof (payload as { amount: unknown }).amount === 'number')
+          ? Math.floor((payload as { amount: number }).amount) : null;
+
+      if (requestedAmount != null) {
+        if (!Number.isFinite(requestedAmount) || requestedAmount < minBuyin ||
+            player.chips + requestedAmount > maxBuyin || bankroll < requestedAmount) {
+          table.actionLock = false;
+          return;
+        }
+        table.seatBankroll.set(playerId, bankroll - requestedAmount);
+        table.state = addMsg({
+          ...s,
+          players: s.players.map(p => p.id === playerId ? { ...p, chips: p.chips + requestedAmount } : p),
+        }, `${player.name} rebuys ${requestedAmount.toLocaleString()} chips`);
+        table.actionLock = false;
+        broadcastState(table);
+        return;
+      }
+
+      if (player.chips > 0) { table.actionLock = false; return; }
+      const legacyAmount = bankroll > 0 ? Math.min(minBet * 100, bankroll) : Math.min(1000, maxBuyin);
+      if (bankroll > 0) table.seatBankroll.set(playerId, bankroll - legacyAmount);
+      table.state = addMsg({
+        ...s,
+        players: s.players.map(p => p.id === playerId ? { ...p, chips: legacyAmount } : p),
+      }, `${player.name} rebuys ${legacyAmount.toLocaleString()} chips`);
+      table.actionLock = false;
+      broadcastState(table);
+      return;
+    }
+
     // ── chat — no turn required, any seated player can message ─────────────
     if (action === 'chat') {
       const rawText = typeof payload === 'string' ? payload.trim().slice(0, 150) : '';
@@ -2085,6 +2134,10 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       // Must be a real raise above currentBet, unless going all-in
       if (desired <= s.currentBet && !isAllIn) {
         engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'below_current_bet', desired, currentBet: s.currentBet });
+        table.actionLock = false; return;
+      }
+      if (!meetsMinimumBet(s.currentBet, desired, isAllIn, s.minBet)) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'raise', accepted: false, reason: 'below_min_bet', desired, currentBet: s.currentBet, minBet: s.minBet });
         table.actionLock = false; return;
       }
       const increment = desired - prevBet;

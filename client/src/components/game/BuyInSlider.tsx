@@ -38,7 +38,7 @@ export function BuyInSlider({
   const effectiveMax = currentStack > 0
     ? Math.min(maxRebuy, chipBalance)
     : Math.min(maxBuyin, chipBalance);
-  const effectiveMin = currentStack > 0 ? bigBlind : minBuyin;
+  const effectiveMin = minBuyin;
 
   const defaultAmount = Math.min(Math.floor(effectiveMax * 0.5 / bigBlind) * bigBlind, effectiveMax);
   const safeDefault   = Math.max(effectiveMin, Math.min(defaultAmount, effectiveMax));

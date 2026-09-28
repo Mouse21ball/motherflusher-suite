@@ -34,6 +34,7 @@ import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
 import { MusicButton } from '@/components/MusicButton';
+import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ interface LiveTableEntry {
   phase:        string;
   maxPlayers:   number;
   isInviteOnly: boolean;
+  stakeTier?: StakeTierId;
 }
 
 const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string; icon: string; stakes: string }> = {
@@ -256,6 +258,10 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                <span className="font-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
                 {table.humanCount}/{table.maxPlayers} · {phaseLabel(table.phase)}
               </span>
+               <span className="font-mono" style={{ fontSize: 10, color: 'rgba(201,162,39,0.78)' }} data-testid={`text-live-stakes-${table.tableId}`}>
+                 {(() => { const tier = STAKE_TIERS.find(t => t.id === getStakeTierId(table.stakeTier))!; return `${tier.label} · ${tier.minBet} BB`; })()}
+               </span>
+               {info.stakes && <span className="font-mono" style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{info.stakes}</span>}
             </div>
              <div className="shrink-0 px-2.5 py-1 rounded-lg font-bold font-mono uppercase"
                style={{ fontSize: 12, background: isFull ? 'rgba(255,255,255,0.05)' : info.color + '22', color: isFull ? 'rgba(255,255,255,0.68)' : info.color }}>
@@ -827,7 +833,10 @@ export default function Home() {
                       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
                         👤 {table.humanCount}/{table.maxPlayers}
                       </span>
-                      {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.70)' }}>{info.stakes}</span>}
+                      {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{info.stakes}</span>}
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.70)' }} data-testid={`text-live-stakes-${table.tableId}`}>
+                         {(() => { const tier = STAKE_TIERS.find(t => t.id === getStakeTierId(table.stakeTier ?? DEFAULT_STAKE_TIER_ID))!; return `${tier.label} · ${tier.minBet} BB`; })()}
+                       </span>
                       <div style={{ padding: '5px 0', borderRadius: 8, textAlign: 'center', fontFamily: 'monospace', fontWeight: 900, fontSize: 12, letterSpacing: '0.06em', background: isFull ? 'rgba(255,255,255,0.06)' : isOpen ? `${info.color}22` : 'rgba(255,255,255,0.06)', color: isFull ? 'rgba(255,255,255,0.68)' : isOpen ? info.color : 'rgba(255,255,255,0.65)' }}>
                         {isFull ? 'FULL' : isOpen ? 'JOIN' : 'WATCH'}
                       </div>

@@ -481,6 +481,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
 
       <BustOutModal
         open={showBustModal}
+        bigBlind={state.minBet}
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}

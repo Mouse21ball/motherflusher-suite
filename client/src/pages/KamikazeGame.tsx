@@ -352,7 +352,7 @@ function KamikazeGameUI() {
 
       {showHowToPlay && <HowToPlay modeId="kamikaze" onClose={() => setShowHowToPlay(false)} />}
 
-      <BustOutModal open={showBustModal} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
+      <BustOutModal open={showBustModal} bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}

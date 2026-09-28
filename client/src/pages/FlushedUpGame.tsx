@@ -513,6 +513,7 @@ function FlushedUpGameUI() {
       {/* ── Bust out modal ────────────────────────────────────────── */}
       <BustOutModal
         open={showBustModal}
+        bigBlind={state.minBet}
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
