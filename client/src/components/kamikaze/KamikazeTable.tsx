@@ -7,6 +7,8 @@ import { evaluateKamikaze } from '@shared/modes/kamikaze';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
+import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
+import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 
 /* ── Graffiti Bomb palette ─────────────────────────────────────────────────── */
 const RED    = '#ef4444';
@@ -161,6 +163,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
 
   const heroEval  = (isShowdown || isDeclare) && me && me.cards.length > 0
     ? evaluateKamikaze(me.cards.map(c => ({ ...c, isHidden: false }))) : null;
+  const heroValidity = getHeroHandValidity('kamikaze', state.phase, me?.cards ?? []);
   const heroIsWinner = !!me?.isWinner;
   const heroIsLoser  = isShowdown && !heroIsWinner && me?.status !== 'folded';
 
@@ -236,6 +239,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
             ))}
           </div>
         )}
+        <HeroHandValidityBadge validity={heroValidity} phase={state.phase} />
         {isShowdown && heroEval && me?.status !== 'folded' && (
           <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace', color: heroIsWinner ? YELLOW : 'rgba(255,255,255,0.7)', fontWeight: heroIsWinner ? 700 : 400, letterSpacing: '0.06em', textAlign: 'center' }}>
             {heroEval.description}

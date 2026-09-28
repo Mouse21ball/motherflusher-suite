@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardType, GameState } from '@/lib/poker/types';
-import { hasMadeHand } from '../../../../shared/modes/boxchevy';
+import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
 import { PlayingCard } from '@/components/game/Card';
+import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 
 const SLV  = '#94a3b8';
 const ACT  = '#60a5fa';
@@ -89,15 +90,12 @@ interface BoxChevyTableProps {
   isDrawPhase: boolean;
 }
 
-export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTableProps) {
+export function BoxChevyTable({ state, myId, phase }: BoxChevyTableProps) {
   const me          = state.players.find(p => p.id === myId);
   const opponents   = state.players.filter(p => p.id !== myId);
   const communityCards: CardType[] = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
 
-  const heroCards = (me?.cards ?? []).map(c => ({ ...c, isHidden: false }));
-  const madeHand  = communityCards.length > 0 && heroCards.length > 0
-    ? hasMadeHand(heroCards, communityCards)
-    : null;
+  const heroValidity = getHeroHandValidity('boxchevy', phase, me?.cards ?? [], state.communityCards ?? []);
 
   const pot = state.pot;
 
@@ -216,17 +214,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase }: BoxChevyTable
           POT <span style={{ color: '#e2e8f0', fontWeight: 700 }}>${pot}</span>
         </div>
 
-        {madeHand !== null && (phase === 'BET_1' || phase === 'BET_2' || phase === 'BET_3' || isDrawPhase) && (
-          <div style={{
-            fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
-            color: madeHand ? '#86efac' : '#fca5a5',
-            background: madeHand ? 'rgba(134,239,172,0.18)' : 'rgba(252,165,165,0.18)',
-            border: `1px solid ${madeHand ? 'rgba(134,239,172,0.45)' : 'rgba(252,165,165,0.45)'}`,
-            borderRadius: 6, padding: '2px 8px',
-          }}>
-            {madeHand ? '✓ MADE HAND' : '✗ NO MADE HAND'}
-          </div>
-        )}
+        <HeroHandValidityBadge validity={heroValidity} phase={phase} />
 
         <div style={{
           fontSize: 11, fontWeight: 700,

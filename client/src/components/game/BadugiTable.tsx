@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 import { evaluateBadugi } from "@/lib/poker/modes/badugi";
-import { evaluateDead7 } from "@/lib/poker/modes/dead7";
 import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
+import { getHeroHandValidity } from "@shared/modes/heroHandValidity";
+import { HeroHandValidityBadge } from "./HeroHandValidityBadge";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -82,6 +83,9 @@ export function BadugiTable({
 
   const opponents = orderedPlayers.slice(1);
   const me = orderedPlayers[0];
+  const dead7Validity = modeId === 'dead7'
+    ? getHeroHandValidity('dead7', gameState.phase, me?.cards ?? [])
+    : null;
 
   // ── Hero made-hand status ─────────────────────────────────────────────────
   // Only shown hero-side, only when cards are held, only outside showdown.
@@ -100,12 +104,6 @@ export function BadugiTable({
       const ev = evaluateBadugi(me.cards);
       heroIsMade = !!ev?.isValidBadugi;
       heroMadeLabel = heroIsMade ? `✓ ${ev!.description}` : '✗ No Badugi yet';
-    } else if (modeId === 'dead7') {
-      const ev = evaluateDead7(me.cards.map(c => ({ ...c, isHidden: false })));
-      heroIsMade = !!ev?.isValidBadugi;
-      if (ev?.isDead) heroMadeLabel = '✗ Dead — has a 7';
-      else if (heroIsMade) heroMadeLabel = `✓ ${ev!.description}`;
-      else heroMadeLabel = '✗ No qualifier yet';
     } else if (modeId === 'fifteen35') {
       const ev = Fifteen35Mode.evaluateHand?.(me, []);
       heroIsMade = !!ev?.isValidBadugi;
@@ -462,7 +460,9 @@ export function BadugiTable({
             />
             {/* Hero made-hand status badge — below the chip so it stays
                 outside the felt area and doesn't block center table content */}
-            {showMadeStatus && heroMadeLabel && (
+            {modeId === 'dead7' ? (
+              <HeroHandValidityBadge validity={dead7Validity} phase={gameState.phase} />
+            ) : showMadeStatus && heroMadeLabel ? (
               <div
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-mono font-bold tracking-wide border transition-all duration-300"
                 data-testid="text-hero-made-status"
@@ -480,7 +480,7 @@ export function BadugiTable({
               >
                 {heroMadeLabel}
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>
