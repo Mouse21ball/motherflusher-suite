@@ -73,10 +73,10 @@ const TIER_DEFS: TierDef[] = [
     color: '#C0C0C0', bg: 'rgba(192,192,192,0.06)', border: 'rgba(192,192,192,0.15)',
     emblem: '/tier-bronze.png',
     features: [
-      '1,000 starting chips per mode',
+      '25,000 chips when you join',
       'Standard avatar',
       '5 reaction emotes',
-      'Daily 250 chip bonus',
+      'Daily and hourly chip bonuses',
     ],
     monthlyPrice: 'Free', yearlyPrice: 'Free', yearlySavings: '',
     monthlyProductId: null, yearlyProductId: null,

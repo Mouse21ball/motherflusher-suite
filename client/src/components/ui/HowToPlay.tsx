@@ -405,12 +405,12 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '👑',
       title: 'What is Lady Luck?',
-      desc: '4 Queens race to 9 card flips. Pick your Queen and wager your chips. First Queen to 9 wins the pot.',
+      desc: 'Pick one of four suits and wager chips. A shuffled 52-card deck is flipped until one suit appears 9 times and wins the race.',
     },
     {
       icon: '🔄',
       title: 'Pick Order',
-      desc: 'Action starts LEFT of the dealer going clockwise. Dealer automatically gets the last remaining Queen.',
+      desc: 'Action starts LEFT of the dealer going clockwise. The dealer picks last from the remaining suits.',
     },
     {
       icon: '💰',
@@ -420,17 +420,17 @@ const SLIDES: Record<HowToPlayModeId, Slide[]> = {
     {
       icon: '🃏',
       title: 'The Race',
-      desc: 'Cards flip one at a time every 1.5 seconds. When your suit appears your Queen advances one space toward 9.',
+      desc: 'Cards flip one at a time every 1.5 seconds. Each card advances its suit one space toward 9.',
     },
     {
       icon: '🎰',
       title: 'Side Bets',
-      desc: 'Bet on any Queen before the race at 2.5× payout. Placed during the wager phase only. Win and the house pays you 2.5×. Lose and the house keeps your bet.',
+      desc: 'Bet on any suit before the race at 2.5× gross payout. Placed during the wager phase only. Win and the house pays you (minus the side-bet rake). Lose and the house keeps your bet.',
     },
     {
       icon: '🏆',
       title: 'Win the Race',
-      desc: 'First Queen to reach 9 advances wins the entire pot. Side bet winners collect 2.5× from the house.',
+      desc: 'The first suit to appear 9 times wins the pot after rake. Winning side bets pay 2.5× gross, minus rake.',
     },
   ],
 };

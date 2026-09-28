@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
+import { getStripeGoal } from '@/lib/stripeGoal';
 import {
   ensurePlayerIdentity,
   getAvatarInitials,
@@ -118,7 +119,7 @@ const MODES = [
   { id: 'kamikaze',   name: 'KAMIKAZE',      tagline: '3+2+1. High or Low.',   path: '/kamikaze',   color: '#ef4444', icon: '/mode-icon-dead7.png'     },
   { id: 'bonecrusher', name: 'BONECRUSHER', tagline: '6 cards. High/Low/Swing.', path: '/bonecrusher', color: '#d97706', icon: '/mode-icon-dead7.png'     },
   { id: 'box_chevy',  name: 'BOX CHEVY',   tagline: '10 cards. No pairs. Swing.', path: '/box-chevy',  color: '#3b82f6', icon: '/mode-icon-dead7.png'     },
-  { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your Queen. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
+  { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your suit. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
 ] as const;
 
 // Card-specific background images and copy (per spec)
@@ -131,7 +132,7 @@ const MODE_CARD_CONFIGS = [
   { id: 'kamikaze',   bg: '/modes/bg-kamikaze.png',             color: '#ef4444', btnText: 'white', title: 'KAMIKAZE',      subtitle: '3+2+1. HIGH OR LOW.'   },
   { id: 'bonecrusher', bg: '/modes/bg-kamikaze.png',           color: '#d97706', btnText: 'white', title: 'BONECRUSHER',   subtitle: '6 CARDS. HIGH / LOW / SWING.' },
   { id: 'box_chevy',  bg: '/modes/bg-kamikaze.png',           color: '#3b82f6', btnText: 'white', title: 'BOX CHEVY',     subtitle: '10 CARDS. NO PAIRS. SWING.' },
-  { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR QUEEN. RUN THE RACE.', directNav: true },
+  { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR SUIT. RUN THE RACE.', directNav: true },
 ];
 
 // ── Live table browser ────────────────────────────────────────────────────────
@@ -497,21 +498,7 @@ export default function Home() {
   const canClaimBonus = serverBonusCanClaim === true;
 
   const stripes = serverProfile?.stripes ?? 0;
-  let stripeGoalLabel = '';
-  let stripeGoalPct = 0;
-  if (stripes < 100) {
-    stripeGoalLabel = `${100 - stripes} away from Gold Frame`;
-    stripeGoalPct = stripes / 100;
-  } else if (stripes < 125) {
-    stripeGoalLabel = `${125 - stripes} away from first avatar`;
-    stripeGoalPct = (stripes - 100) / 25;
-  } else if (stripes < 500) {
-    stripeGoalLabel = `${500 - stripes} away from creating a Crew`;
-    stripeGoalPct = (stripes - 125) / 375;
-  } else {
-    stripeGoalLabel = 'Ready to create a Crew';
-    stripeGoalPct = 1;
-  }
+  const { label: stripeGoalLabel, progress: stripeGoalPct } = getStripeGoal(stripes);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

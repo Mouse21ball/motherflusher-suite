@@ -227,7 +227,7 @@ function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
 
 // ── Feature list ──────────────────────────────────────────────────────────────
 const FEATURES = [
-  { icon: '⛓️', title: '4 Games Nobody Else Has', sub: 'Badugi · Dead 7 · 15/35 · Suits & Poker' },
+  { icon: '⛓️', title: '9 Games You Won’t Find Anywhere Else', sub: 'Draw poker · split pots · Lady Luck racing' },
   { icon: '⚡', title: 'Real Multiplayer', sub: 'Create a private table, share the link, run it with your crew' },
   { icon: '🔥', title: 'Streak Bonuses Every Day', sub: 'Come back daily for growing chip rewards — up to 7 days deep' },
   { icon: '🏆', title: 'Rank Up from Bronze to Master', sub: 'XP system, 6 rank tiers, 12 achievements to unlock' },

@@ -464,7 +464,7 @@ export default function LadyLuck() {
           {/* Subtitle with decorative lines */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', position: 'relative' }}>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8, whiteSpace: 'normal', textAlign: 'center' }}>PICK YOUR QUEEN. RUN THE RACE.</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8, whiteSpace: 'normal', textAlign: 'center' }}>PICK YOUR SUIT. RUN THE RACE.</span>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
           </div>
           {/* LOYALTY NEVER LEAVES — right side vertical banner */}
@@ -572,7 +572,7 @@ export default function LadyLuck() {
         <div style={{ margin: '10px 12px', background: "linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), url('/ladyluck/ladyluck-footer-bg.png') center/cover", backdropFilter: 'blur(12px)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src="/crews/icon-crown.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.1)', flexShrink: 0 }} />
           <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.72)', lineHeight: 1.5 }}>
-            4 Queens race to 9 card flips. Pick clockwise — dealer gets last. Wager chips, place side bets.{' '}
+             Four suits race to 9 matching cards from a 52-card deck. Pick clockwise — dealer picks last. Wager chips, place side bets.{' '}
             <span style={{ color: '#C9A227', fontWeight: 700 }}>FIRST TO 9 WINS THE POT. SIDE BETS PAY 2.5×.</span>
           </div>
           <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', border: '1px solid rgba(201,162,39,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anton, Impact, sans-serif', fontSize: 10, color: '#C9A227', letterSpacing: 1 }}>CGP</div>
@@ -612,10 +612,10 @@ export default function LadyLuck() {
               {/* Rules list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                 {[
-                  { icon: '♛', text: '4 Queens race to 9 card flips. Each flip reveals a card that advances one queen.' },
-                  { icon: '🃏', text: 'Cards flip one at a time from a shuffled deck. The suit on the card earns a flip for that queen.' },
-                  { icon: '💰', text: 'Pick your queen and wager chips before the race begins. First to 9 flips wins the pot.' },
-                  { icon: '🎲', text: 'Side bets: pick any suit to win 2.5× your bet if that queen finishes first.' },
+                   { icon: '♛', text: 'Pick one of four suits. The first suit to appear 9 times wins the race.' },
+                   { icon: '🃏', text: 'Cards flip one at a time from a shuffled 52-card deck. Each card advances its suit.' },
+                   { icon: '💰', text: 'Pick your suit and wager chips before the race begins. First suit to 9 wins the pot.' },
+                   { icon: '🎲', text: 'Side bets: pick any suit to win 2.5× your bet if that suit finishes first.' },
                   { icon: '👑', text: 'Selection order goes clockwise — the dealer picks last. Choose wisely.' },
                 ].map(({ icon, text }) => (
                   <div key={icon} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -725,7 +725,7 @@ export default function LadyLuck() {
           {/* Subtitle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8, textAlign: 'center' }}>PICK YOUR QUEEN. RUN THE RACE.</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8, textAlign: 'center' }}>PICK YOUR SUIT. RUN THE RACE.</span>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22780)' }} />
           </div>
         </div>
@@ -1840,9 +1840,9 @@ export default function LadyLuck() {
                 </div>
               </div>
             ) : mySuit === null ? (
-              /* PICK YOUR QUEEN — CGP card backs */
+              /* PICK YOUR SUIT — CGP card backs */
               <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(201,162,39,0.25)', borderRadius: 14, padding: 14 }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 1.2, marginBottom: 12, textAlign: 'center' }}>PICK YOUR QUEEN</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 1.2, marginBottom: 12, textAlign: 'center' }}>PICK YOUR SUIT</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {SUITS.map(suit => {
                     const taken = state.claimedSuits.includes(suit);
