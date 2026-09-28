@@ -12,7 +12,7 @@ import {
   type ChipTransaction,
   type StripeTransaction,
   type AdminAction,
-  analyticsEvents, playerProfiles, stripeTransactions, sessions, purchaseTransactions,
+  analyticsEvents, playerProfiles, stripeTransactions, sessions, playerReferrals, purchaseTransactions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
   subscriptions, subscriptionEvents,
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
@@ -74,6 +74,8 @@ export interface IStorage {
   getLeaderboard(viewerId: string): Promise<LeaderboardResponse>;
   getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
   setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
+  registerPlayerAuth(data: { id: string; email: string; passwordHash: string; displayName?: string; referralCode?: string }): Promise<PlayerProfile>;
+  getPlayerReferralCode(id: string): Promise<string | null>;
   setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
   getPlayerByResetToken(token: string): Promise<PlayerProfile | undefined>;
   clearPasswordResetToken(id: string): Promise<void>;
@@ -93,6 +95,7 @@ export interface IStorage {
   settleLadyLuckRace(params: {
     tableId: string; raceId: string; winnerId: string; winningSuit: string; grossPot: number;
     seatedBets: { playerId: string; suit: string; amount: number }[];
+    seatedPlayers: string[];
     spectatorBets: { userId: string; suit: string; amount: number }[];
   }): Promise<{ winnerPot: number; rake: number; seatedPayouts: { playerId: string; net: number }[]; spectatorPayouts: { userId: string; net: number; gross: number }[] }>;
   wasLadyLuckRaceSettled(raceId: string): Promise<boolean>;
@@ -861,6 +864,7 @@ export class MemStorage implements IStorage {
   async settleLadyLuckRace(params: {
     tableId: string; raceId: string; winnerId: string; winningSuit: string; grossPot: number;
     seatedBets: { playerId: string; suit: string; amount: number }[];
+    seatedPlayers: string[];
     spectatorBets: { userId: string; suit: string; amount: number }[];
   }): Promise<{ winnerPot: number; rake: number; seatedPayouts: { playerId: string; net: number }[]; spectatorPayouts: { userId: string; net: number; gross: number }[] }> {
     const { tableId, raceId, winnerId, winningSuit, grossPot } = params;
@@ -873,7 +877,7 @@ export class MemStorage implements IStorage {
     const spectatorPayouts = params.spectatorBets.filter(b => b.suit === winningSuit).map(b => ({
       userId: b.userId, gross: Math.floor(b.amount * 2.5),
     })).map(b => ({ ...b, ...applyRake(b.gross) }));
-    const recipients = [...new Set([LADY_LUCK_HOUSE_ID, winnerId,
+    const recipients = [...new Set([LADY_LUCK_HOUSE_ID, winnerId, ...params.seatedPlayers,
       ...seatedPayouts.map(b => b.playerId), ...spectatorPayouts.map(b => b.userId)])];
 
     await db.transaction(async tx => {
@@ -886,10 +890,17 @@ export class MemStorage implements IStorage {
           'lady_luck_crash_refund', 'ladyluck_sidebet_crash_refund', 'ladyluck_spectator_crash_refund',
         ]))).limit(1);
       if (refunded) throw new Error('Lady Luck race already refunded');
+      const referralRows = params.seatedPlayers.length
+        ? await tx.select({ refereeId: playerReferrals.refereePlayerId, referrerId: playerReferrals.referrerPlayerId })
+            .from(playerReferrals).where(inArray(playerReferrals.refereePlayerId, params.seatedPlayers))
+        : [];
+      const allLockIds = [...new Set([...recipients, ...referralRows.map(row => row.referrerId)])].sort();
       const rows = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
-        .from(playerProfiles).where(inArray(playerProfiles.id, recipients))
+        .from(playerProfiles).where(inArray(playerProfiles.id, allLockIds))
         .orderBy(asc(playerProfiles.id)).for('update');
-      if (rows.length !== recipients.length) throw new Error('Lady Luck payout account missing');
+      if (recipients.some(id => !rows.some(row => row.id === id))
+        || referralRows.some(referral => !rows.some(row => row.id === referral.referrerId)))
+        throw new Error('Lady Luck payout account missing');
       const balances = new Map(rows.map(row => [row.id, row.balance]));
       const post = async (id: string, amount: number, source: string, metadata?: Record<string, any>) => {
         const before = balances.get(id);
@@ -921,6 +932,19 @@ export class MemStorage implements IStorage {
       await log('ladyluck', grossPot, rake);
       await log('ladyluck_sidebet', seatedPayouts.reduce((sum, b) => sum + b.gross, 0), seatedPayouts.reduce((sum, b) => sum + b.rake, 0));
       await log('spectator_sidebet', spectatorPayouts.reduce((sum, b) => sum + b.gross, 0), spectatorPayouts.reduce((sum, b) => sum + b.rake, 0));
+
+      for (const playerId of params.seatedPlayers) {
+        const inserted = await tx.insert(handXpAwards).values({
+          playerId, gameId: tableId, handId: raceId, xpGranted: 0,
+        }).onConflictDoNothing().returning();
+        if (!inserted.length) continue;
+        await tx.update(playerProfiles)
+          .set({ handsPlayed: sql`${playerProfiles.handsPlayed} + 1`, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, playerId));
+        const [profile] = await tx.select({ handsPlayed: playerProfiles.handsPlayed })
+          .from(playerProfiles).where(eq(playerProfiles.id, playerId)).limit(1);
+        await this._awardReferralHandRewards(tx, playerId, profile?.handsPlayed ?? 0, tableId, raceId);
+      }
     });
     return {
       winnerPot, rake,
@@ -958,6 +982,8 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const profile: PlayerProfile = {
       id,
+      referralCode: randomBytes(8).toString("hex").toUpperCase(),
+      referredByPlayerId: null,
       displayName: displayName ?? "Guest",
       chipBalance: 25000,
       stripes: 0,
@@ -1077,6 +1103,68 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id));
   }
 
+  async registerPlayerAuth(data: {
+    id: string; email: string; passwordHash: string; displayName?: string; referralCode?: string;
+  }): Promise<PlayerProfile> {
+    return db.transaction(async tx => {
+      const [referee] = await tx.select().from(playerProfiles)
+        .where(eq(playerProfiles.id, data.id)).limit(1).for("update");
+      if (!referee) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
+      if (referee.email || referee.passwordHash)
+        throw Object.assign(new Error("This player already has an account"), { code: "ACCOUNT_EXISTS" });
+      let inviterId: string | null = null;
+      const code = data.referralCode?.trim().toUpperCase();
+      if (code) {
+        if (referee.handsPlayed > 0)
+          throw Object.assign(new Error("Invite codes can only be applied before playing a hand"), { code: "REFERRAL_TOO_LATE" });
+        const [playerInviter] = await tx.select({ id: playerProfiles.id })
+          .from(playerProfiles)
+          .where(and(eq(playerProfiles.referralCode, code), eq(playerProfiles.isDeleted, false)))
+          .limit(1);
+        if (playerInviter) {
+          inviterId = playerInviter.id;
+        } else {
+          const [crewInviter] = await tx.select({ captainId: crews.captainId })
+            .from(crews)
+            .where(and(eq(crews.inviteCode, code), isNull(crews.disbandedAt)))
+            .limit(1);
+          inviterId = crewInviter?.captainId ?? null;
+        }
+        if (!inviterId)
+          throw Object.assign(new Error("Invite code is not valid"), { code: "REFERRAL_INVALID" });
+        if (inviterId === data.id)
+          throw Object.assign(new Error("You cannot use your own invite code"), { code: "REFERRAL_SELF" });
+        const [inviter] = await tx.select({ id: playerProfiles.id, isDeleted: playerProfiles.isDeleted })
+          .from(playerProfiles).where(eq(playerProfiles.id, inviterId)).limit(1);
+        if (!inviter || inviter.isDeleted)
+          throw Object.assign(new Error("Invite code is not valid"), { code: "REFERRAL_INVALID" });
+      }
+
+      const [registered] = await tx.update(playerProfiles).set({
+        email: data.email,
+        passwordHash: data.passwordHash,
+        ...(data.displayName ? { displayName: data.displayName } : {}),
+        ...(inviterId ? { referredByPlayerId: inviterId } : {}),
+        updatedAt: new Date(),
+      }).where(eq(playerProfiles.id, data.id)).returning();
+
+      if (inviterId) {
+        await tx.insert(playerReferrals).values({
+          referrerPlayerId: inviterId,
+          refereePlayerId: data.id,
+          codeUsed: code!,
+        });
+      }
+      return registered;
+    });
+  }
+
+  async getPlayerReferralCode(id: string): Promise<string | null> {
+    const [profile] = await db.select({ referralCode: playerProfiles.referralCode })
+      .from(playerProfiles).where(eq(playerProfiles.id, id)).limit(1);
+    return profile?.referralCode ?? null;
+  }
+
   async setPasswordResetToken(id: string, token: string, expires: Date): Promise<void> {
     await db
       .update(playerProfiles)
@@ -1121,12 +1209,18 @@ export class MemStorage implements IStorage {
 
   private async _syncPlayerChipsOnce(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null; modeId: string; potSize: number }): Promise<void> {
     await db.transaction(async (tx) => {
-      const rows = await tx
-        .select()
-        .from(playerProfiles)
-        .where(eq(playerProfiles.id, id))
-        .limit(1).for("update");
-      if (!rows[0]) throw new Error("Player not found");
+      // Lock the referee and referrer in one global order. This keeps two
+      // reciprocal hand-settlement transactions from deadlocking while one
+      // grants the other's delayed referral payout.
+      const [attribution] = handResult
+        ? await tx.select({ referrerPlayerId: playerReferrals.referrerPlayerId })
+            .from(playerReferrals).where(eq(playerReferrals.refereePlayerId, id)).limit(1)
+        : [];
+      const profileIds = [...new Set([id, ...(attribution ? [attribution.referrerPlayerId] : [])])].sort();
+      const profiles = await tx.select().from(playerProfiles)
+        .where(inArray(playerProfiles.id, profileIds)).orderBy(asc(playerProfiles.id)).for("update");
+      const profile = profiles.find(row => row.id === id);
+      if (!profile) throw new Error("Player not found");
       if (handResult) {
         if (!handResult.gameId || !handResult.handId) throw new Error("Hand identity required");
         const inserted = await tx.insert(handXpAwards).values({
@@ -1134,11 +1228,10 @@ export class MemStorage implements IStorage {
         }).onConflictDoNothing().returning();
         if (!inserted.length) return;
       }
-      const before = rows[0]?.chipBalance ?? 0;
+      const before = profile.chipBalance;
       const after  = before + sessionDelta;
 
       if (handResult) {
-        const profile = rows[0];
         const [activeSub] = await tx.select({ tier: subscriptions.tier })
           .from(subscriptions)
           .where(and(eq(subscriptions.playerId, id),
@@ -1193,7 +1286,68 @@ export class MemStorage implements IStorage {
         gameId:        handResult?.gameId ?? null,
         handId:        handResult?.handId ?? null,
       });
+
+      if (handResult) {
+        const [nextProfile] = await tx.select({ handsPlayed: playerProfiles.handsPlayed })
+          .from(playerProfiles).where(eq(playerProfiles.id, id)).limit(1);
+        await this._awardReferralHandRewards(tx, id, nextProfile?.handsPlayed ?? 0, handResult.gameId!, handResult.handId!);
+      }
     });
+  }
+
+  private async _awardReferralHandRewards(
+    tx: any,
+    refereeId: string,
+    handsPlayed: number,
+    gameId: string,
+    handId: string,
+  ): Promise<void> {
+    const [referral] = await tx.select().from(playerReferrals)
+      .where(eq(playerReferrals.refereePlayerId, refereeId)).limit(1).for("update");
+    if (!referral) return;
+
+    const refereeDue = !referral.refereeRewardedAt && handsPlayed >= 1;
+    const referrerDue = !referral.referrerRewardedAt && handsPlayed >= 10;
+    if (!refereeDue && !referrerDue) return;
+
+    const recipientIds = [
+      ...(refereeDue ? [{ id: refereeId, role: "referee" }] : []),
+      ...(referrerDue ? [{ id: referral.referrerPlayerId, role: "referrer" }] : []),
+    ];
+    for (const recipient of recipientIds) {
+      const [profile] = await tx.select().from(playerProfiles).where(eq(playerProfiles.id, recipient.id)).limit(1);
+      if (!profile) throw new Error("Referral reward account is missing");
+      const chips = 2500;
+      const stripes = 100;
+      const afterBalance = profile.chipBalance + chips;
+      const afterStripes = profile.stripes + stripes;
+      await tx.update(playerProfiles).set({
+        chipBalance: afterBalance,
+        stripes: afterStripes,
+        updatedAt: new Date(),
+      }).where(eq(playerProfiles.id, recipient.id));
+      await this._insertChipLedger(tx, {
+        playerId: recipient.id,
+        beforeBalance: profile.chipBalance,
+        amountChange: chips,
+        afterBalance,
+        reason: "other",
+        source: "referral_reward",
+        gameId,
+        handId,
+        metadata: { referralId: referral.id, role: recipient.role, refereeId, handsPlayed },
+      });
+      await tx.insert(stripeTransactions).values({
+        playerId: recipient.id,
+        amount: stripes,
+        reason: `referral_reward:${recipient.role}:${referral.id}`,
+        balanceAfter: afterStripes,
+      });
+    }
+    await tx.update(playerReferrals).set({
+      ...(refereeDue ? { refereeRewardedAt: new Date() } : {}),
+      ...(referrerDue ? { referrerRewardedAt: new Date() } : {}),
+    }).where(eq(playerReferrals.id, referral.id));
   }
 
   async setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void> {

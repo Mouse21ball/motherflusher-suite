@@ -2,6 +2,9 @@ import * as Sentry from "@sentry/react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { captureReferralCodeFromUrl } from "./lib/referralAttribution";
+
+captureReferralCodeFromUrl();
 
 // Initialize Sentry browser error tracking.
 // Set VITE_SENTRY_DSN in Replit Secrets to enable (no-op when absent).

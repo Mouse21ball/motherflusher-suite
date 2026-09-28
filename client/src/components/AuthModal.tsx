@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { savePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
 import { setSessionToken } from '@/lib/session';
+import { clearSavedReferralCode, getSavedReferralCode } from '@/lib/referralAttribution';
 
 interface AuthModalProps {
   open:         boolean;
@@ -21,6 +22,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
   const [email,         setEmail]       = useState('');
   const [password,      setPassword]    = useState('');
   const [confirmPw,     setConfirmPw]   = useState('');
+  const [referralCode,   setReferralCode] = useState(getSavedReferralCode);
   const [busy,          setBusy]        = useState(false);
   const [error,         setError]       = useState<string | null>(null);
 
@@ -53,6 +55,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
         createdAt:  Date.now(),
       });
       if (data.sessionToken) setSessionToken(data.sessionToken);
+      clearSavedReferralCode();
       onSuccess(data.displayName);
     } catch {
       setError('Could not reach the server. Check your connection.');
@@ -85,6 +88,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
           email:       trimEmail,
           password,
           displayName: trimName,
+          referralCode: referralCode.trim().toUpperCase() || undefined,
         }),
       });
       const data = await res.json();
@@ -98,6 +102,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
         createdAt:  guestIdentity.createdAt,
       });
       if (data.sessionToken) setSessionToken(data.sessionToken);
+      clearSavedReferralCode();
       onSuccess(data.displayName);
     } catch {
       setError('Could not reach the server. Check your connection.');
@@ -212,6 +217,23 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
               data-testid="input-auth-password"
             />
           </div>
+
+          {tab === 'register' && (
+            <div>
+              <label className="block text-[9px] font-mono text-white/25 uppercase tracking-widest mb-1.5">
+                Invite Code <span className="text-white/15">(optional)</span>
+              </label>
+              <input
+                className={inputCls}
+                type="text"
+                value={referralCode}
+                onChange={e => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16))}
+                placeholder="From a friend or crew"
+                autoComplete="off"
+                data-testid="input-auth-referral-code"
+              />
+            </div>
+          )}
 
           {tab === 'register' && (
             <div>

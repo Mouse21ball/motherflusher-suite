@@ -861,6 +861,7 @@ export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
   const settled = await storage.settleLadyLuckRace({
     tableId, raceId: state.raceId ?? tableId, winnerId: winnerPlayer.id, winningSuit, grossPot,
     seatedBets: state.sideBets,
+    seatedPlayers: state.players.filter(player => player.presence === 'human').map(player => player.id),
     spectatorBets: [...meta.spectatorBets].map(([userId, bet]) => ({ userId, ...bet })),
   });
   state.winner = winningSuit;

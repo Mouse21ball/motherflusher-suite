@@ -500,6 +500,21 @@ export async function registerRoutes(
   // GET /api/players/:id — fetch player profile (authentication required)
   // Never exposes passwordHash. Email and other self-only fields are only
   // returned when the authenticated session belongs to the requested player.
+  // Public by design: this code is an invitation credential already intended
+  // to be copied into table links. It is opaque and cannot grant rewards alone.
+  app.get("/api/players/:id/referral-code", async (req, res) => {
+    try {
+      const referralCode = await storage.getPlayerReferralCode(req.params.id as string);
+      if (!referralCode) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      res.json({ referralCode });
+    } catch {
+      res.status(500).json({ error: "Unable to load invite code" });
+    }
+  });
+
   app.get("/api/players/:id", requireAuth, async (req, res) => {
     try {
       const profile = await storage.getPlayerProfile(req.params.id as string);
@@ -587,6 +602,7 @@ export async function registerRoutes(
     email:       z.string().email("Invalid email"),
     password:    z.string().min(8, "Password must be at least 8 characters"),
     displayName: z.string().min(1).max(32).optional(),
+    referralCode: z.string().trim().max(16).regex(/^[A-Za-z0-9]*$/).optional(),
   });
 
   const loginSchema = z.object({
@@ -611,24 +627,34 @@ export async function registerRoutes(
       // Ensure the guest profile exists, then link the auth credentials
       const profile = await storage.getOrCreatePlayer(parsed.identityId, parsed.displayName);
       const hash = await hashPassword(parsed.password);
-      await storage.setPlayerAuth(profile.id, parsed.email, hash);
+      const registered = await storage.registerPlayerAuth({
+        id: profile.id,
+        email: parsed.email,
+        passwordHash: hash,
+        displayName: parsed.displayName,
+        referralCode: parsed.referralCode,
+      });
 
-      const level = levelFromXP(profile.xp);
+      const level = levelFromXP(registered.xp);
       const regExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      const sessionToken = await storage.createSession(profile.id, regExpiresAt);
+      const sessionToken = await storage.createSession(registered.id, regExpiresAt);
       res.status(201).json({
-        profileId:    profile.id,
-        displayName:  profile.displayName,
-        chipBalance:  profile.chipBalance,
-        handsPlayed:  profile.handsPlayed,
-        lifetimeProfit: profile.lifetimeProfit,
+        profileId:    registered.id,
+        displayName:  registered.displayName,
+        chipBalance:  registered.chipBalance,
+        handsPlayed:  registered.handsPlayed,
+        lifetimeProfit: registered.lifetimeProfit,
         level,
-        xp:           profile.xp,
+        xp:           registered.xp,
         sessionToken,
       });
     } catch (err: any) {
       if (err?.name === "ZodError") {
         res.status(400).json({ error: err.issues[0]?.message ?? "Invalid data" });
+      } else if (["REFERRAL_INVALID", "REFERRAL_SELF", "REFERRAL_TOO_LATE"].includes(err?.code)) {
+        res.status(400).json({ error: err.message });
+      } else if (err?.code === "ACCOUNT_EXISTS" || err?.code === "23505") {
+        res.status(409).json({ error: err?.code === "ACCOUNT_EXISTS" ? err.message : "Email already registered" });
       } else {
         console.error("[auth:register] request failed");
         res.status(500).json({ error: "Registration failed" });

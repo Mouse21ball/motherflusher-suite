@@ -5,7 +5,7 @@
 //   • Non-host: reads settings as read-only; sees who the host is.
 
 import { useState } from 'react';
-import { shareOrigin } from '@/lib/apiConfig';
+import { apiUrl, shareOrigin } from '@/lib/apiConfig';
 
 export interface TableSettings {
   maxPlayers:  number;
@@ -32,8 +32,14 @@ function copyToClipboard(text: string): void {
   try { navigator.clipboard.writeText(text); } catch {}
 }
 
-async function shareInvite(tableCode: string, isInviteOnly: boolean): Promise<void> {
-  const url  = `${shareOrigin()}/join/${tableCode.toUpperCase()}`;
+async function shareInvite(tableCode: string, isInviteOnly: boolean, playerId: string): Promise<void> {
+  const response = await fetch(apiUrl(`/api/players/${encodeURIComponent(playerId)}/referral-code`));
+  if (!response.ok) throw new Error('Invite code unavailable');
+  const { referralCode } = await response.json();
+  if (!referralCode) throw new Error('Invite code unavailable');
+  const urlObject = new URL(`/join/${tableCode.toUpperCase()}`, shareOrigin());
+  urlObject.searchParams.set('ref', referralCode);
+  const url = urlObject.toString();
   const text = isInviteOnly
     ? `Join my private Chain Gang Poker table! Code: ${tableCode.toUpperCase()}`
     : `Play Chain Gang Poker with me!`;
@@ -68,16 +74,22 @@ export function HostControls({
 }: HostControlsProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState(false);
 
   const isHost = myId === hostId;
   if (!hostId) return null;
 
   const hostName = players.find(p => p.id === hostId)?.name ?? 'Host';
 
-  function handleShare() {
-    shareInvite(tableCode, tableSettings.isInviteOnly);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  async function handleShare() {
+    setShareError(false);
+    try {
+      await shareInvite(tableCode, tableSettings.isInviteOnly, myId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setShareError(true);
+    }
   }
 
   return (
@@ -156,7 +168,7 @@ export function HostControls({
                       color: copied ? '#10b981' : 'rgba(201,162,39,0.90)',
                     }}
                   >
-                    {copied ? '✓ Copied' : '↑ Share'}
+                    {shareError ? 'Retry Share' : copied ? '✓ Copied' : '↑ Share'}
                   </button>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { apiUrl } from "@/lib/apiConfig";
 import { setSessionToken } from "@/lib/session";
 import { BrandBackground } from "./BrandBackground";
 import { track, setUserId } from "@/lib/analytics";
+import { clearSavedReferralCode, getSavedReferralCode } from "@/lib/referralAttribution";
 
 const AGE_KEY = 'cgp_age_17_confirmed';
 
@@ -241,6 +242,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+  const [referralCode, setReferralCode] = useState(getSavedReferralCode);
   const [shaking,   setShaking]   = useState(false);
   const [focused,   setFocused]   = useState<string | null>(null);
   const [busy,      setBusy]      = useState(false);
@@ -273,6 +275,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         avatarSeed: data.profileId.slice(0, 8), createdAt: Date.now(),
       });
       if (data.sessionToken) setSessionToken(data.sessionToken);
+      clearSavedReferralCode();
       onComplete(data.displayName);
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
@@ -292,7 +295,13 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
       const res = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identityId: guest.id, email: email.trim().toLowerCase(), password, displayName: dn }),
+        body: JSON.stringify({
+          identityId: guest.id,
+          email: email.trim().toLowerCase(),
+          password,
+          displayName: dn,
+          referralCode: referralCode.trim().toUpperCase() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Registration failed. Try again.'); return; }
@@ -301,6 +310,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
         avatarSeed: data.profileId.slice(0, 8), createdAt: guest.createdAt,
       });
       if (data.sessionToken) setSessionToken(data.sessionToken);
+      clearSavedReferralCode();
       track({ name: 'account_created', from: 'guest' });
       setUserId(data.profileId);
       onComplete(data.displayName);
@@ -539,6 +549,14 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
                 onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
                 placeholder="••••••••" autoComplete="new-password" className={inputCls} style={inputStyle('password')}
                 data-testid="input-register-password" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Invite Code (Optional)</label>
+              <input type="text" value={referralCode}
+                onChange={e => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16))}
+                onFocus={() => setFocused('referral')} onBlur={() => setFocused(null)}
+                placeholder="From a friend or crew" autoComplete="off" className={inputCls} style={inputStyle('referral')}
+                data-testid="input-welcome-referral-code" />
             </div>
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-[0.18em] mb-2 pl-1" style={{ color: 'rgba(255,255,255,0.22)' }}>Confirm Password</label>

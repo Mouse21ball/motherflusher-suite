@@ -1,11 +1,15 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, boolean, jsonb, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // ─── Player Profiles ──────────────────────────────────────────────────────────
 export const playerProfiles = pgTable("player_profiles", {
   id:                   text("id").primaryKey(),
+  referralCode:         varchar("referral_code", { length: 16 }).notNull()
+    .default(sql`upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16))`).unique(),
+  // Signup attribution is immutable once the referral relationship is created.
+  referredByPlayerId:   text("referred_by_player_id").references((): AnyPgColumn => playerProfiles.id, { onDelete: "set null" }),
   displayName:          text("display_name").notNull().default("Guest"),
   chipBalance:          integer("chip_balance").notNull().default(1000),
   stripes:              integer("stripes").notNull().default(0),
@@ -129,6 +133,20 @@ export const sessions = pgTable("sessions", {
 });
 
 export type Session = typeof sessions.$inferSelect;
+
+// ─── Player referral rewards ─────────────────────────────────────────────────
+export const playerReferrals = pgTable("player_referrals", {
+  id:                   text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  referrerPlayerId:     text("referrer_player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  refereePlayerId:      text("referee_player_id").notNull().unique().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  codeUsed:             varchar("code_used", { length: 16 }).notNull(),
+  refereeRewardedAt:    timestamp("referee_rewarded_at"),
+  referrerRewardedAt:   timestamp("referrer_rewarded_at"),
+  createdAt:            timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("player_referrals_referrer_idx").on(table.referrerPlayerId),
+]);
+export type PlayerReferral = typeof playerReferrals.$inferSelect;
 
 // ─── Stripe Transactions (audit log) ─────────────────────────────────────────
 export const stripeTransactions = pgTable("stripe_transactions", {

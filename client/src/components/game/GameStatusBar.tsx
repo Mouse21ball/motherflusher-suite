@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Menu, Camera, Home, BookOpen, MessageSquare } from "lucide-react";
 import { HowToPlay } from "@/components/ui/HowToPlay";
@@ -14,7 +14,8 @@ import { DeckSelector } from "./DeckSelector";
 import { MODE_INFO } from "./GameHeader";
 import type { GameSessionStats } from "./GameHeader";
 import type { GameState, GamePhase } from "@/lib/poker/types";
-import { shareOrigin } from "@/lib/apiConfig";
+import { apiUrl, shareOrigin } from "@/lib/apiConfig";
+import { ensurePlayerIdentity } from "@/lib/persistence";
 
 const MID_HAND: Set<string> = new Set([
   'ANTE','DEAL','DRAW','DRAW_1','DRAW_2','DRAW_3',
@@ -57,7 +58,9 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inviteError, setInviteError] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [myReferralCode, setMyReferralCode] = useState('');
   const [, navigate] = useLocation();
   const htpModeId = HTP_MODE_ID[modeId];
 
@@ -67,7 +70,15 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
   const pot = gameState.pot;
   const ante = gameState.minBet;
 
-  const inviteUrl = useMemo(() => tableId ? `${shareOrigin()}/${modeId}?t=${tableId}` : '', [tableId, modeId]);
+  useEffect(() => {
+    const playerId = ensurePlayerIdentity().id;
+    let active = true;
+    fetch(apiUrl(`/api/players/${encodeURIComponent(playerId)}/referral-code`))
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (active && data?.referralCode) setMyReferralCode(data.referralCode); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const handleLobby = () => {
     if (isMidHand) { setExitDialogOpen(true); setMenuOpen(false); }
@@ -80,12 +91,25 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
     navigate('/');
   };
 
-  const handleCopy = () => {
-    if (!inviteUrl) return;
-    navigator.clipboard.writeText(inviteUrl).then(() => {
+  const handleCopy = async () => {
+    if (!tableId) return;
+    setInviteError(false);
+    try {
+      let code = myReferralCode;
+      if (!code) {
+        const response = await fetch(apiUrl(`/api/players/${encodeURIComponent(ensurePlayerIdentity().id)}/referral-code`));
+        if (!response.ok) throw new Error('Invite code unavailable');
+        code = (await response.json()).referralCode;
+        if (!code) throw new Error('Invite code unavailable');
+        setMyReferralCode(code);
+      }
+      const url = `${shareOrigin()}/${modeId}?t=${encodeURIComponent(tableId)}&ref=${encodeURIComponent(code)}`;
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    });
+    } catch {
+      setInviteError(true);
+    }
   };
 
   return (
@@ -209,7 +233,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               </div>
 
               {/* Invite link */}
-              {tableId && inviteUrl && (
+              {tableId && (
                 <div className="pb-4 border-b border-white/[0.06]">
                   <div className="text-xs font-mono uppercase tracking-widest text-white/60 mb-2">Invite Friends</div>
                   <div className="flex items-center gap-2">
@@ -220,7 +244,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
                         copied ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-white/60 border-white/[0.10] hover:text-white/60'
                       }`}
                     >
-                      {copied ? '✓ Copied' : 'Copy Link'}
+                      {inviteError ? 'Retry Link' : copied ? '✓ Copied' : 'Copy Link'}
                     </button>
                   </div>
                   {humanCount >= 2 && (
