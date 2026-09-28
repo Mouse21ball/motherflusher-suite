@@ -26,8 +26,6 @@ export const playerProfiles = pgTable("player_profiles", {
   xpBadugisWon:         integer("xp_badugis_won").notNull().default(0),
   xpModesPlayed:        jsonb("xp_modes_played").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   xpAchievements:       jsonb("xp_achievements").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  lastDailyRewardAt:    timestamp("last_daily_reward_at"),
-  dailyRewardStreak:    integer("daily_reward_streak").notNull().default(0),
   lastHourlyRewardAt:   timestamp("last_hourly_reward_at"),
   lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
   email:                text("email").unique(),

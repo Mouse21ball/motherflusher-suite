@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { isRewardAvailable, getTodayReward } from "@/lib/dailyReward";
 import { track, getModeFromPath } from "@/lib/analytics";
 import { BuyInSlider } from "./BuyInSlider";
 
@@ -11,7 +10,6 @@ interface BustOutModalProps {
   onRebuy: (amount?: number) => void;
   onLeaveTable: () => void;
   onSpectate: () => void;
-  onClaimDailyBonus: () => void;
   onWatchAd?: () => void;
   onStarterPack?: () => void;
   onBorrowChips?: () => void;
@@ -23,15 +21,13 @@ interface BustOutModalProps {
 }
 
 // ── Triage tiers ─────────────────────────────────────────────────────────────
-type Tier = 1 | 2 | 3 | 4 | 5;
+type Tier = 1 | 2 | 3 | 4;
 
 function getTier(lifetimeBusts: number, sessionBusts: number, hasNeverPurchased: boolean): Tier {
-  const dailyAvail = isRewardAvailable();
   if (lifetimeBusts === 1 && hasNeverPurchased) return 1;
-  if (dailyAvail) return 2;
-  if (sessionBusts >= 2 && !hasNeverPurchased) return 3;
-  if (sessionBusts >= 2 && hasNeverPurchased) return 4;
-  return 5;
+  if (sessionBusts >= 2 && !hasNeverPurchased) return 2;
+  if (sessionBusts >= 2 && hasNeverPurchased) return 3;
+  return 4;
 }
 
 export function BustOutModal({
@@ -42,7 +38,6 @@ export function BustOutModal({
   onRebuy,
   onLeaveTable,
   onSpectate,
-  onClaimDailyBonus,
   onWatchAd,
   onStarterPack,
   onBorrowChips,
@@ -94,8 +89,6 @@ export function BustOutModal({
   if (!open) return null;
 
   const tier = getTier(lifetimeBusts, sessionBusts, hasNeverPurchased);
-  const todayReward = getTodayReward();
-  const dailyChips = todayReward?.chips ?? 250;
 
   // ── Secondary button helper ────────────────────────────────────────────────
   const SecBtn = ({
@@ -208,33 +201,8 @@ export function BustOutModal({
           </>
         )}
 
-        {/* ── TIER 2: Daily bonus available ── */}
+        {/* ── TIER 2: 2+ session busts, paid before → ad CTA ── */}
         {tier === 2 && (
-          <>
-            <button
-              onClick={onClaimDailyBonus}
-              data-testid="button-bust-daily-bonus"
-              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-3 active:scale-[0.98] flex flex-col items-center gap-0.5"
-            >
-              <span>⚡ CLAIM DAILY BONUS</span>
-              <span className="text-[11px] font-bold opacity-70 tracking-wide">+{dailyChips.toLocaleString()} chips waiting</span>
-            </button>
-            <div className="space-y-2">
-              <RebuyBtn testId="button-bust-rebuy" />
-              <LoanBtn />
-              <SecBtn
-                label={onWatchAd ? "Watch Ad for $500 Chips" : "Watch Ad — Coming Soon"}
-                onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
-                testId="button-bust-watch-ad"
-                disabled={!onWatchAd}
-              />
-              <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
-            </div>
-          </>
-        )}
-
-        {/* ── TIER 3: 2+ session busts, paid before → ad CTA ── */}
-        {tier === 3 && (
           <>
             <button
               onClick={onWatchAd ?? (() => console.log("TODO: AdMob integration"))}
@@ -257,8 +225,8 @@ export function BustOutModal({
           </>
         )}
 
-        {/* ── TIER 4: 2+ session busts, never purchased → Free Rebuy push ── */}
-        {tier === 4 && (
+        {/* ── TIER 3: 2+ session busts, never purchased → Free Rebuy push ── */}
+        {tier === 3 && (
           <>
             <button
               onClick={() => onStarterPack?.()}
@@ -285,8 +253,8 @@ export function BustOutModal({
           </>
         )}
 
-        {/* ── TIER 5: Default — plain rebuy ── */}
-        {tier === 5 && (
+        {/* ── TIER 4: Default — plain rebuy ── */}
+        {tier === 4 && (
           <>
             {showRebuySlider && tableId && modeId && bankrollAvailable != null ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-3">

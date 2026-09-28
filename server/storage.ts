@@ -34,7 +34,7 @@ import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
 import { eq, ne, notLike, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
-import { DAILY_REWARDS, handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
+import { handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
 
@@ -112,8 +112,7 @@ export interface IStorage {
   updatePlayerDisplayName(id: string, name: string): Promise<void>;
   // ── Welcome kit ────────────────────────────────────────────────────────────
   claimWelcomeKit(id: string): Promise<{ chips: number; stripes: number }>;
-  getBonusStatus(id: string): Promise<{ daily: { available: boolean; streak: number; day: number; chips: number; xp: number }; hourly: { available: boolean; chips: number; nextAt: string | null }; welcomeKitClaimed: boolean }>;
-  claimDailyReward(id: string): Promise<{ chips: number; xp: number; day: number; streak: number }>;
+  getBonusStatus(id: string): Promise<{ hourly: { available: boolean; chips: number; nextAt: string | null }; welcomeKitClaimed: boolean }>;
   claimHourlyReward(id: string): Promise<{ chips: number }>;
   // ── Guest reset job ────────────────────────────────────────────────────────
   getEligibleGuestResets(cutoff: Date): Promise<PlayerProfile[]>;
@@ -1009,7 +1008,7 @@ export class MemStorage implements IStorage {
       xp: 0, xpWinStreak: 0, xpLossStreak: 0, xpBiggestPot: 0,
       xpBackfilled: true,
       xpBadugisWon: 0, xpModesPlayed: [], xpAchievements: [],
-      lastDailyRewardAt: null, dailyRewardStreak: 0, lastHourlyRewardAt: null,
+      lastHourlyRewardAt: null,
     };
 
     // Wrap creation + genesis ledger in one transaction so new players always
@@ -1361,32 +1360,11 @@ export class MemStorage implements IStorage {
     const p = await this.getPlayerProfile(id);
     if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
     const now = new Date();
-    const dailyAvailable = !p.lastDailyRewardAt || utcDateStr(p.lastDailyRewardAt) !== utcDateStr(now);
-    const streak = p.lastDailyRewardAt && now.getTime() - p.lastDailyRewardAt.getTime() <= 48 * 3600000 ? p.dailyRewardStreak : 0;
-    const day = streak % 7 + 1;
     const nextAt = p.lastHourlyRewardAt ? new Date(p.lastHourlyRewardAt.getTime() + 3600000) : null;
     return {
-      daily: { available: dailyAvailable, streak, day, ...DAILY_REWARDS[day - 1] },
       hourly: { available: !nextAt || now >= nextAt, chips: hourlyChips(levelFromXP(p.xp)), nextAt: nextAt?.toISOString() ?? null },
       welcomeKitClaimed: p.welcomeKitClaimed,
     };
-  }
-
-  async claimDailyReward(id: string) {
-    await this.ensureHistoricalXP(id);
-    return db.transaction(async tx => {
-      const [p] = await tx.select().from(playerProfiles).where(eq(playerProfiles.id, id)).for("update");
-      if (!p) throw Object.assign(new Error("Player not found"), { code: "NOT_FOUND" });
-      const now = new Date();
-      if (p.lastDailyRewardAt && utcDateStr(p.lastDailyRewardAt) === utcDateStr(now))
-        throw Object.assign(new Error("Already claimed today"), { code: "ALREADY_CLAIMED" });
-      const streak = p.lastDailyRewardAt && now.getTime() - p.lastDailyRewardAt.getTime() <= 48 * 3600000 ? p.dailyRewardStreak + 1 : 1;
-      const day = (streak - 1) % 7 + 1;
-      const { chips, xp } = DAILY_REWARDS[day - 1];
-      await tx.update(playerProfiles).set({ chipBalance: p.chipBalance + chips, xp: p.xp + xp, lastDailyRewardAt: now, dailyRewardStreak: streak, updatedAt: now }).where(eq(playerProfiles.id, id));
-      await this._insertChipLedger(tx, { playerId: id, beforeBalance: p.chipBalance, amountChange: chips, afterBalance: p.chipBalance + chips, reason: "daily_bonus", source: "dailyReward" });
-      return { chips, xp, day, streak };
-    });
   }
 
   async claimHourlyReward(id: string) {

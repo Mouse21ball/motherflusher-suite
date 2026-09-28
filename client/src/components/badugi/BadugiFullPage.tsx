@@ -317,7 +317,6 @@ export function BadugiFullPage({
         onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }}
-        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips} />

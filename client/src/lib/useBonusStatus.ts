@@ -5,7 +5,6 @@ import { apiFetch } from './session';
 import { useServerProfile } from './useServerProfile';
 
 export interface BonusStatus {
-  daily: { available: boolean; streak: number; day: number; chips: number; xp: number };
   hourly: { available: boolean; chips: number; nextAt: string | null };
   welcomeKitClaimed: boolean;
 }

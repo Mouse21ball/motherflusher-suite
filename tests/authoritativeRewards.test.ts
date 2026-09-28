@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAILY_REWARDS, handXP, hourlyChips, levelFromXP, xpForLevel, type XPCounters } from '../shared/progressionRules';
+import { handXP, hourlyChips, levelFromXP, xpForLevel, type XPCounters } from '../shared/progressionRules';
 
 const base = (): XPCounters => ({
   handsPlayed: 0, handsWon: 0, winStreak: 0, lossStreak: 0,
@@ -34,9 +34,7 @@ describe('authoritative XP rules', () => {
 });
 
 describe('server bonus amounts', () => {
-  it('preserves the seven-day cycle and XP schedule', () => {
-    expect(DAILY_REWARDS.map(r => r.chips)).toEqual([1250, 1750, 2500, 3750, 5000, 7500, 15000]);
-    expect(DAILY_REWARDS.map(r => r.xp)).toEqual([25, 35, 50, 75, 100, 125, 250]);
+  it('preserves the hourly reward amounts', () => {
     expect(hourlyChips(1)).toBe(500);
     expect(hourlyChips(11)).toBe(550);
     expect(hourlyChips(21)).toBe(600);

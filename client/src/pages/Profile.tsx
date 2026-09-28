@@ -10,7 +10,6 @@ import {
   getProgression, getLevelInfo, getRankForLevel, getUnlockedAchievements,
   ACHIEVEMENTS, clearNewAchievements, type Achievement,
 } from '@/lib/progression';
-import { getStreakInfo } from '@/lib/dailyReward';
 import {
   ensurePlayerIdentity, savePlayerIdentity,
   getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips,
@@ -90,7 +89,6 @@ export default function Profile() {
   const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
   const stats       = getPlayerStats();
   const chips       = getAllChips();
-  const streakInfo  = getStreakInfo();
   const unlocked    = getUnlockedAchievements();
   const initials    = getAvatarInitials(identity.name);
   const avatarColor = getAvatarColor(identity.avatarSeed);
@@ -141,7 +139,7 @@ export default function Profile() {
 
   const clearAllLocalData = () => {
     ['poker_table_identity', 'poker_table_player_name', 'poker_table_analytics_id',
-     'poker_table_chips', 'poker_table_history', 'pt_daily_reward', 'pt_progression',
+     'poker_table_chips', 'poker_table_history', 'pt_progression',
      'cgp_session_token', 'cgp_player_id']
       .forEach(k => { try { localStorage.removeItem(k); } catch {} });
   };
@@ -783,7 +781,7 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* DAILY STREAK + BEST POT trophy panel */}
+              {/* Hands played + best pot trophy panel */}
               <div
                 style={{
                   position: 'relative',
@@ -810,16 +808,16 @@ export default function Profile() {
                   zIndex: 1,
                 }} />
 
-                {/* LEFT: Daily Streak */}
+                {/* LEFT: Hands Played */}
                 <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 2 }}>
                   <div style={{ fontSize: 11, color: '#FFD700', letterSpacing: '0.12em', fontFamily: 'monospace', fontWeight: 700, marginBottom: 4 }}>
-                    DAILY STREAK
+                    HANDS PLAYED
                   </div>
                   <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif' }}>
-                    {streakInfo.streak > 0 ? streakInfo.streak : 0}
+                    {displayHands.toLocaleString()}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic', marginTop: 4, maxWidth: 120 }}>
-                    {streakInfo.streak > 0 ? `Day ${streakInfo.dayInCycle} of cycle` : 'Claim daily to start streak'}
+                    Across all modes
                   </div>
                 </div>
 

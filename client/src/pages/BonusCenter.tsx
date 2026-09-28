@@ -6,13 +6,9 @@ import {
   shouldShowStarterPack, getVipTier,
   VIP_TIERS, DISCLAIMER,
 } from '@/lib/retention';
-import {
-  isRewardAvailable, getStreakInfo, DAILY_REWARD_TIERS,
-} from '@/lib/dailyReward';
 import { getLevelInfo, getProgression, xpForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { useBonusStatus } from '@/lib/useBonusStatus';
-import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 
@@ -52,20 +48,14 @@ export default function BonusCenter() {
   const level       = levelInfo.level;
   const vip         = getVipTier(level);
 
-  const [dailyOpen,   setDailyOpen]   = useState(false);
   const [hourlyOpen,  setHourlyOpen]  = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
 
-  const [dailyReady,  setDailyReady]  = useState(false);
   const [hourlyReady, setHourlyReady] = useState(false);
   const [starterAvailable, setStarterAvailable] = useState(false);
   const [countdown,   setCountdown]   = useState(() => getHourlyCountdown());
 
-  const streakInfo = bonusStatus?.daily
-    ? { streak: bonusStatus.daily.streak, dayInCycle: bonusStatus.daily.day }
-    : { streak: 0, dayInCycle: 1 };
   useEffect(() => {
-    setDailyReady(bonusStatus?.daily.available ?? false);
     setHourlyReady(bonusStatus?.hourly.available ?? false);
     setStarterAvailable(bonusStatus?.welcomeKitClaimed === false);
   }, [bonusStatus]);
@@ -82,11 +72,6 @@ export default function BonusCenter() {
     return () => clearInterval(id);
   }, [bonusStatus]);
 
-  const handleDailyClose = useCallback(() => {
-    setDailyOpen(false);
-    setDailyReady(false);
-  }, []);
-
   const handleHourlyClose = useCallback(() => {
     setHourlyOpen(false);
     setHourlyReady(false);
@@ -99,7 +84,6 @@ export default function BonusCenter() {
   }, []);
 
   const hourlyChips = bonusStatus?.hourly.chips ?? getHourlyBonusChips(level);
-  const todayReward = DAILY_REWARD_TIERS[(bonusStatus?.daily.day ?? 1) - 1];
 
   // VIP progress to next tier
   const nextTierInfo = vip.nextLevel != null
@@ -147,73 +131,11 @@ export default function BonusCenter() {
       </header>
 
       {/* Modals */}
-      <DailyRewardModal open={dailyOpen} onClose={handleDailyClose} />
       <HourlyBonusModal open={hourlyOpen} onClose={handleHourlyClose} />
       <StarterPackModal open={starterOpen} onClose={handleStarterClose} />
 
       <div className="flex-1 flex flex-col items-center relative">
         <div className="w-full max-w-lg px-4 pt-5 pb-10 flex flex-col gap-5">
-
-          {/* ── DAILY REWARD ───────────────────────────────────────────────── */}
-          <div>
-            <SectionLabel>🎁 Daily Login Reward</SectionLabel>
-            <button
-              onClick={() => setDailyOpen(true)}
-              className="w-full rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.99] relative overflow-hidden text-left"
-              style={
-                dailyReady
-                  ? { background: 'linear-gradient(135deg, rgba(255,107,0,0.14) 0%, rgba(240,184,41,0.08) 100%)', border: '1px solid rgba(255,107,0,0.35)' }
-                  : { backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.05)' }
-              }
-              data-testid="button-daily-bonus-center"
-            >
-              {dailyReady && (
-                <div className="absolute inset-0 anim-shimmer pointer-events-none rounded-2xl opacity-50" />
-              )}
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 relative"
-                style={{
-                  backgroundColor: dailyReady ? 'rgba(255,107,0,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: dailyReady ? '1px solid rgba(255,107,0,0.25)' : '1px solid rgba(255,255,255,0.06)',
-                }}
-              >
-                {dailyReady ? '🎁' : streakInfo.streak > 0 ? '🔥' : '⏰'}
-                {dailyReady && <NotifDot />}
-              </div>
-              <div className="flex-1 min-w-0 relative">
-                <div className="font-bold text-sm font-sans" style={{ color: dailyReady ? '#FF6B00' : 'rgba(255,255,255,0.5)' }}>
-                  {dailyReady ? 'Daily Ration Ready' : streakInfo.streak > 0 ? `${streakInfo.streak}-Day Streak Running` : 'Daily Ration'}
-                </div>
-                <div className="text-[11px] font-mono text-white/40 mt-0.5">
-                  {dailyReady
-                    ? `Day ${streakInfo.dayInCycle} · +$${todayReward.chips.toLocaleString()} chips`
-                    : 'Come back tomorrow for your next reward'}
-                </div>
-                {/* 7-day mini tracker */}
-                <div className="flex gap-0.5 mt-2">
-                  {DAILY_REWARD_TIERS.map((_, i) => {
-                    const dayNum = i + 1;
-                    const isPast  = dayNum < streakInfo.dayInCycle;
-                    const isToday = dayNum === streakInfo.dayInCycle;
-                    return (
-                      <div
-                        key={i}
-                        className="h-1.5 flex-1 rounded-full"
-                        style={{
-                          backgroundColor: isPast
-                            ? 'rgba(240,184,41,0.6)'
-                            : isToday
-                            ? '#F0B829'
-                            : 'rgba(255,255,255,0.08)',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="text-white/30 text-lg shrink-0 relative">›</div>
-            </button>
-          </div>
 
           {/* ── HOURLY BONUS ───────────────────────────────────────────────── */}
           <div>

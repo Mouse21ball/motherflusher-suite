@@ -15,7 +15,6 @@ import { useGameToasts } from '@/lib/useGameToasts';
 import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { isRewardAvailable } from '@/lib/dailyReward';
 import { BonecrusherTable } from '@/components/bonecrusher/BonecrusherTable';
 import { BonecrusherActionBar } from '@/components/bonecrusher/BonecrusherActionBar';
 import { BonecrusherShowdown } from '@/components/bonecrusher/BonecrusherShowdown';
@@ -277,7 +276,6 @@ function BonecrusherGameUI() {
   }, [state.chatMessages.length, chatOpen]);
   useEffect(() => { if (chatOpen) setChatUnread(0); }, [chatOpen]);
 
-  void isRewardAvailable;
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }, [me, navigate]);
 
@@ -416,7 +414,6 @@ function BonecrusherGameUI() {
         onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }}
-        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}

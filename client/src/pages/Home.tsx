@@ -22,13 +22,8 @@ import {
 import { generateTableCode } from '@/lib/tableSession';
 import { PrivateTableSetup } from '@/components/PrivateTableSetup';
 import {
-  isRewardAvailable,
-  getStreakInfo,
-} from '@/lib/dailyReward';
-import {
   isHourlyReady,
 } from '@/lib/retention';
-import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
@@ -95,7 +90,7 @@ function getTierBadgeAsset(tierName: string): string {
   return map[tierName] ?? '/tier-bronze.png';
 }
 
-// ── Time until next daily ration ──────────────────────────────────────────────
+// ── Time until next daily bonus ───────────────────────────────────────────────
 
 function getTimeUntilMidnight(): string {
   const now      = new Date();
@@ -326,7 +321,6 @@ export default function Home() {
   const rank        = getRankForLevel(serverLevel);
   const progressPct = Math.round(levelInfo.progress * 100);
 
-  const [dailyOpen,         setDailyOpen]         = useState(false);
   const [dailyBonusCalOpen, setDailyBonusCalOpen] = useState(false);
   const [serverBonusCanClaim,  setServerBonusCanClaim]  = useState<boolean | null>(null);
   const [serverBonusStreakDay, setServerBonusStreakDay] = useState(1);
@@ -444,11 +438,6 @@ export default function Home() {
     [refetch],
   );
 
-  const handleDailyClose = useCallback(() => {
-    setDailyOpen(false);
-    setProgression(getProgression());
-  }, []);
-
   const handleHourlyClose = useCallback(() => {
     setHourlyOpen(false);
   }, []);
@@ -564,7 +553,6 @@ export default function Home() {
       )}
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
-      <DailyRewardModal open={dailyOpen} onClose={handleDailyClose} />
       <DailyBonusCalendarModal open={dailyBonusCalOpen} onClose={() => setDailyBonusCalOpen(false)} onClaimed={handleDailyBonusClaimed} />
       <HourlyBonusModal open={hourlyOpen} onClose={handleHourlyClose} />
       <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />

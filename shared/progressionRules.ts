@@ -1,10 +1,3 @@
-export const DAILY_REWARDS = [
-  { chips: 1250, xp: 25 }, { chips: 1750, xp: 35 },
-  { chips: 2500, xp: 50 }, { chips: 3750, xp: 75 },
-  { chips: 5000, xp: 100 }, { chips: 7500, xp: 125 },
-  { chips: 15000, xp: 250 },
-] as const;
-
 export function xpForLevel(level: number): number {
   return level <= 1 ? 0 : (level - 1) * 150 + (level - 1) * (level - 2) * 75 / 2;
 }

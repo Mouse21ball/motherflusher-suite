@@ -1209,7 +1209,6 @@ export default function Fifteen35Game() {
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips('fifteen35', me.chips); navigate('/'); }}
-        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
       />

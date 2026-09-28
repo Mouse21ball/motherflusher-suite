@@ -17,7 +17,6 @@ import { useGameToasts } from '@/lib/useGameToasts';
 import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { isRewardAvailable } from '@/lib/dailyReward';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
 import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
@@ -350,7 +349,6 @@ function FlushedUpGameUI() {
 
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID]
     ?? MODE_INTROS.swing;
-  void isRewardAvailable;
 
   const handleBack = useCallback(() => {
     if (me) saveChips(MODE_ID, me.chips);
@@ -521,7 +519,6 @@ function FlushedUpGameUI() {
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }}
-        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}

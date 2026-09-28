@@ -31,7 +31,7 @@ Chain Gang Poker is a premium poker platform offering five exclusive multiplayer
 - `prisma/schema.prisma` - Database schema definition
 - `shared/gameTypes.ts` - All TypeScript types (GameState, Player, GameMode, etc.)
 - `shared/modes/` - Server-side game mode logic
-- `client/src/lib/dailyReward.ts` - Daily reward logic
+- `client/src/components/DailyBonusCalendarModal.tsx` - Home's server-authoritative daily bonus
 - `client/src/lib/retention.ts` - Hourly bonus, starter pack, VIP logic
 - `client/src/pages/BonusCenter.tsx` - Bonus center UI
 - `client/src/pages/AuthModal.tsx` - Authentication UI

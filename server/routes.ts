@@ -1044,18 +1044,14 @@ export async function registerRoutes(
     try { res.json(await storage.getBonusStatus(req.params.id as string)); }
     catch { res.status(500).json({ error: "Unable to load rewards" }); }
   });
-  for (const kind of ["daily", "hourly"] as const) {
-    app.post(`/api/players/:id/rewards/${kind}/claim`, requireAuth, requireSelf, async (req, res) => {
-      try {
-        res.json(kind === "daily"
-          ? await storage.claimDailyReward(req.params.id as string)
-          : await storage.claimHourlyReward(req.params.id as string));
-      } catch (err: any) {
-        res.status(err?.code === "ALREADY_CLAIMED" ? 409 : err?.code === "NOT_FOUND" ? 404 : 500)
-          .json({ error: err?.code === "ALREADY_CLAIMED" ? "Reward not available yet" : "Claim failed" });
-      }
-    });
-  }
+  app.post("/api/players/:id/rewards/hourly/claim", requireAuth, requireSelf, async (req, res) => {
+    try {
+      res.json(await storage.claimHourlyReward(req.params.id as string));
+    } catch (err: any) {
+      res.status(err?.code === "ALREADY_CLAIMED" ? 409 : err?.code === "NOT_FOUND" ? 404 : 500)
+        .json({ error: err?.code === "ALREADY_CLAIMED" ? "Reward not available yet" : "Claim failed" });
+    }
+  });
 
   // POST /api/players/:id/chip-loan
   // Grants a one-time 1,000 chip loan to a broke player (chipBalance ≤ 500, no existing loan).

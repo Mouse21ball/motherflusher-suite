@@ -26,7 +26,6 @@ import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import { MusicButton } from "@/components/MusicButton";
 import { useServerProfile } from "@/lib/useServerProfile";
-import { isRewardAvailable } from "@/lib/dailyReward";
 import type { GameState } from "@/lib/poker/types";
 import type { GameSessionStats } from "@/components/game/GameHeader";
 import { qualifiesForSuits } from '@shared/modes/suitspoker';
@@ -125,7 +124,6 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const lifetimeBusts = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
   const sessionBusts = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
   const hasNeverPurchased = !localStorage.getItem('cgp_first_purchase_complete');
-  const dailyBonusAvailable = isRewardAvailable();
   const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
   const humanCount = state.players.filter(p => p.presence === 'human').length;
 
@@ -489,7 +487,6 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { if (me) saveChips(modeId, me.chips); navigate('/'); }}
-        onClaimDailyBonus={() => { setBustDismissed(true); navigate('/'); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}

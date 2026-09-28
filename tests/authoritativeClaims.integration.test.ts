@@ -35,9 +35,6 @@ describe.skipIf(!process.env.DATABASE_URL)('authoritative claims (development da
     });
     expect((await storage.getPlayerProfile(id))?.xp).toBe(260); // (10 base + 30 discovery) doubled
 
-    const daily = await Promise.allSettled([storage.claimDailyReward(id), storage.claimDailyReward(id)]);
-    expect(daily.filter(r => r.status === 'fulfilled')).toHaveLength(1);
-    expect(daily.filter(r => r.status === 'rejected' && duplicate(r.reason))).toHaveLength(1);
     const hourly = await Promise.allSettled([storage.claimHourlyReward(id), storage.claimHourlyReward(id)]);
     expect(hourly.filter(r => r.status === 'fulfilled')).toHaveLength(1);
     expect(hourly.filter(r => r.status === 'rejected' && duplicate(r.reason))).toHaveLength(1);
@@ -46,20 +43,9 @@ describe.skipIf(!process.env.DATABASE_URL)('authoritative claims (development da
     expect(welcome.filter(r => r.status === 'rejected' && duplicate(r.reason))).toHaveLength(1);
 
     const profile = await storage.getPlayerProfile(id);
-    expect(profile?.xp).toBe(285);
-    expect(profile?.chipBalance).toBe(25000 + 100 - 20 + 1250 + 500 + 2500);
+    expect(profile?.xp).toBe(260);
+    expect(profile?.chipBalance).toBe(25000 + 100 - 20 + 500 + 2500);
     expect(profile?.stripes).toBe(250);
     expect((await storage.verifyPlayerBalanceConsistency(id)).consistent).toBe(true);
-
-    // Force prior claims just over a UTC date boundary but still within 48h.
-    for (let day = 2; day <= 8; day++) {
-      await db.update(playerProfiles).set({ lastDailyRewardAt: new Date(Date.now() - 25 * 3600000) })
-        .where(eq(playerProfiles.id, id));
-      const reward = await storage.claimDailyReward(id);
-      expect(reward.day).toBe((day - 1) % 7 + 1);
-    }
-    await db.update(playerProfiles).set({ lastDailyRewardAt: new Date(Date.now() - 49 * 3600000) })
-      .where(eq(playerProfiles.id, id));
-    expect((await storage.claimDailyReward(id)).day).toBe(1);
   });
 });

@@ -60,7 +60,6 @@ export type AnalyticsEvent =
   | { name: 'age_gate_accepted' }
   | { name: 'mode_started';         mode: 'badugi' | 'dead7' | 'fifteen35' | 'suits' }
   | { name: 'hand_played';          mode: string; outcome: 'win' | 'loss' | 'fold' }
-  | { name: 'daily_ration_claimed'; streak_day: number; chips_awarded: number }
   | { name: 'hourly_bonus_claimed'; chips_awarded: number }
   | { name: 'account_created';      from: 'guest' | 'fresh' }
   | { name: 'crew_table_opened';    mode: 'badugi' }
