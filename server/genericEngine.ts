@@ -23,7 +23,7 @@ import {
   deletePersistedGenericTable,
 } from './tablePersistence';
 import { storage } from './storage';
-import { getBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
+import { getModeBotThinkDelay, getBotName, botTier } from '../shared/engine/botUtils';
 import { filterChatMessage } from './chatFilter';
 import { secureShuffleInPlace } from './utils/secureShuffle';
 import { makeBotPlayer } from './utils/botPlayer';
@@ -877,7 +877,9 @@ function advanceToNextPhase(table: GenericTable): void {
 
   engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: prevPhase, to: nextPhase });
 
-  // ── Bonecrusher: clear public card indices when entering SELECT_5 ─────────
+  // Bonecrusher starts a fresh four-flip sequence after SELECT_5. Previously
+  // revealed indices cannot carry over: up to four kept cards are already
+  // public, leaving fewer hidden cards than the four required flip decisions.
   if (nextPhase === 'SELECT_5') {
     table.publicCardIndicesPerPlayer = {};
   }
@@ -1532,7 +1534,7 @@ function scheduleNextBot(table: GenericTable): void {
   if (existing) clearTimeout(existing);
 
   const decisionType = capturedPhase.startsWith('BET') ? 'medium' as const : 'easy' as const;
-  const thinkMs      = getBotThinkDelay(botTier(botId), decisionType);
+  const thinkMs      = getModeBotThinkDelay(table.modeId, botTier(botId), decisionType);
 
   const timer = setTimeout(() => {
     table.botTimers.delete(botId);

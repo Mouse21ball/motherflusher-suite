@@ -395,6 +395,17 @@ export function getBotThinkDelay(tier: BotTier, decisionType: 'easy' | 'medium' 
   return Math.floor(min + Math.random() * (max - min));
 }
 
+export function getModeBotThinkDelay(
+  modeId: string,
+  tier: BotTier,
+  decisionType: 'easy' | 'medium' | 'hard',
+): number {
+  const delay = getBotThinkDelay(tier, decisionType);
+  // Bonecrusher has many sequential decisions in a hand. Keep a perceptible
+  // cadence, but avoid the long tanks and waits intended for other modes.
+  return modeId === 'bonecrusher' ? Math.min(450, Math.max(250, delay)) : delay;
+}
+
 // ── Bot name pool ─────────────────────────────────────────────────────────────
 export const BOT_NAMES = [
   'MikeFromVegas', 'ThunderLou', 'BigJ47', 'AceMurphy', 'DeuceMonk',

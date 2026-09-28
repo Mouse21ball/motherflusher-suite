@@ -9,7 +9,7 @@ description: Key decisions, gotchas, and wiring for the Bonecrusher game mode
 ## Engine wiring (genericEngine.ts)
 - `isPhaseRoundOver`: DISCARD_2, SELECT_5, REVEAL_1, FLIP_* extended into the draw-phase branch
 - `isRevealPhase`: extended to include STREET_*, DISCARD_2, SELECT_5, FLIP_* — this triggers getAutoTransition + no-bet reset
-- SELECT_5 entry clears `table.publicCardIndicesPerPlayer = {}`
+- SELECT_5 starts a fresh four-flip sequence, so earlier public card indices are cleared.
 - STREET_* auto-transition tracks new card indices into publicCardIndicesPerPlayer
 - Bot publicIndices applied from `result.publicIndices` in executeBotAction
 - `discard` WS action: for DISCARD_2/SELECT_5, removes cards at indices, remaps pub indices
@@ -29,3 +29,10 @@ description: Key decisions, gotchas, and wiring for the Bonecrusher game mode
 ## Why
 - Standard approach mirrors Kamikaze (same useServerMode API, handleAction, BustOutModal, ChatBox patterns)
 - SWING declaration is risky — must win both halves or forfeit; resolveShowdown handles disqualification
+
+## Visibility and four-flip constraint
+Do not preserve prior public-card flags into the four-flip sequence without a separate game-rule decision.
+
+**Why:** Up to four of the five selected cards can already be public. Retaining those flags leaves too few private cards for four mandatory flips; the human cannot complete the phase, while bot selection may reveal an unexposed card at a stale index after discards.
+
+**How to apply:** If changing reveal continuity later, redesign and test the human and bot flip rules together. Do not keep public flags across SELECT_5 as a presentation-only tweak.

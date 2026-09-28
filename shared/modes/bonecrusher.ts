@@ -188,7 +188,7 @@ export const BonecrusherMode: GameMode = {
   getAutoTransition(phase: GamePhase) {
     if (phase === 'STREET_1' || phase === 'STREET_2' || phase === 'STREET_3') {
       return {
-        delay: 700,
+        delay: 250,
         action: (state: GameState) => {
           const newDeck = [...state.deck];
           const newPlayers = state.players.map(p => {
