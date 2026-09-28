@@ -1,53 +1,16 @@
 // ─── Leaderboard ──────────────────────────────────────────────────────────────
 // Prison-vault redesign matching the CGP aesthetic mockup.
-// All existing logic (simulated board, sorting, player position) preserved unchanged.
+// Ranked by server-authoritative lifetime profit.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor, resolveAvatarSrc } from '@/lib/persistence';
-import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
-import { getSimulatedPlayerCount } from '@/lib/dailyReward';
+import { ensurePlayerIdentity, resolveAvatarSrc } from '@/lib/persistence';
+import { getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { useServerProfile } from '@/lib/useServerProfile';
-
-// ── Simulated leaderboard data ────────────────────────────────────────────────
-
-const NAMES = [
-  'AceHunter', 'BluffKing', 'CardShark', 'DeckMaster', 'EchoAce',
-  'FlushQueen', 'GoldStrike', 'HandReader', 'IronSuit', 'JackWild',
-  'KingBluff', 'LowBaller', 'MidStack', 'NightRider', 'OddBall',
-  'PotSweeper', 'QuadAces', 'RiverRat', 'SilkHand', 'TiltKing',
-  'UltBadugi', 'VegasGhost', 'WildFold', 'XtraWin', 'YardBird',
-  'StonePoker',
-];
-
-function getSimulatedLeaderboard(dayKey: number): {
-  name: string; xp: number; level: number; rank: string; handsPlayed: number; color: string;
-}[] {
-  const seed = dayKey;
-  const result = [];
-  for (let i = 0; i < 25; i++) {
-    const nameIdx = (seed * 17 + i * 31) % NAMES.length;
-    const xpBase = Math.max(50, 12000 - i * 450 - ((seed * 13 + i) % 200));
-    const xp = xpBase;
-    const levelInfo = getLevelInfo(xp);
-    const rank = getRankForLevel(levelInfo.level);
-    const colorSeed = (nameIdx * 7 + seed) % 10;
-    const colors = ['#C9A227','#7B61FF','#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#EC4899','#84CC16'];
-    result.push({
-      name: NAMES[nameIdx],
-      xp,
-      level: levelInfo.level,
-      rank: rank.name,
-      handsPlayed: Math.round(xp / 12 + ((seed * 3 + i) % 30)),
-      color: colors[colorSeed],
-    });
-  }
-  return result;
-}
-
-const dayKey = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-
+import { apiUrl } from '@/lib/apiConfig';
+import { apiFetch } from '@/lib/session';
+import type { LeaderboardResponse } from '@shared/leaderboard';
 
 // ── Medal badge component ─────────────────────────────────────────────────────
 function MedalBadge({ pos }: { pos: number }) {
@@ -103,36 +66,35 @@ function MedalBadge({ pos }: { pos: number }) {
 export default function Leaderboard() {
   const [, navigate] = useLocation();
   const identity    = ensurePlayerIdentity();
-  const progression = getProgression();
-  const { profile: serverProfile } = useServerProfile();
-  const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
-  const rank        = getRankForLevel(levelInfo.level);
-  const playerCount = getSimulatedPlayerCount();
+  const { profile: serverProfile, loading: profileLoading } = useServerProfile();
+  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<'xp' | 'hands'>('xp');
+  useEffect(() => {
+    if (!serverProfile?.profileId) return;
+    const controller = new AbortController();
+    setLeaderboard(null);
+    setError(null);
+    apiFetch(apiUrl('/api/leaderboard'), { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Leaderboard request failed (${response.status})`);
+        return response.json() as Promise<LeaderboardResponse>;
+      })
+      .then(data => {
+        if (!controller.signal.aborted) setLeaderboard(data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError('Could not load the leaderboard. Please try again later.');
+      });
+    return () => controller.abort();
+  }, [serverProfile?.profileId]);
 
-  const board = getSimulatedLeaderboard(dayKey);
-  const playerEntry = {
-    name:             identity.name,
-    xp:               serverProfile?.xp ?? 0,
-    level:            levelInfo.level,
-    rank:             rank.name,
-    handsPlayed:      serverProfile?.handsPlayed ?? 0,
-    color:            getAvatarColor(identity.avatarSeed),
-    isMe:             true,
-    equippedAvatarId: serverProfile?.equippedAvatarId ?? null,
-    equippedFrameId:  serverProfile?.equippedFrameId  ?? null,
-  };
-
-  const sorted = tab === 'xp'
-    ? [...board.map(e => ({ ...e, isMe: false })), playerEntry].sort((a, b) => b.xp - a.xp)
-    : [...board.map(e => ({ ...e, isMe: false })), playerEntry].sort((a, b) => b.handsPlayed - a.handsPlayed);
-
-  const top25        = sorted.slice(0, 25);
-  const myPosition   = sorted.findIndex(e => e.isMe) + 1;
-  const totalPlayers = sorted.length;
-  const topPct       = Math.round((myPosition / totalPlayers) * 100);
-  const initials     = getAvatarInitials(identity.name);
+  const levelInfo = serverProfile ? getLevelInfo(serverProfile.xp) : null;
+  const progressionRank = levelInfo ? getRankForLevel(levelInfo.level) : null;
+  const myPosition = leaderboard?.me?.rank;
+  const topPct = myPosition && leaderboard?.total
+    ? Math.ceil((myPosition / leaderboard.total) * 100) : null;
+  const myName = leaderboard?.me?.displayName ?? serverProfile?.displayName ?? identity.name;
 
   return (
     <div
@@ -239,8 +201,8 @@ export default function Leaderboard() {
             </div>
           </div>
 
-          {/* Live count — green glowing pill */}
-          <div
+          {/* Number of eligible players in the ranking, not an online count */}
+          {leaderboard && <div
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '5px 10px', borderRadius: 20, flexShrink: 0,
@@ -249,17 +211,10 @@ export default function Leaderboard() {
               boxShadow: '0 0 10px rgba(0,200,140,0.15)',
             }}
           >
-            <div style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: '#00C896',
-              boxShadow: '0 0 6px #00C896',
-              animation: 'pulse 2s infinite',
-              flexShrink: 0,
-            }} />
             <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'monospace', color: '#00C896', letterSpacing: '0.04em' }}>
-              {playerCount.toLocaleString()} LIVE
+              {leaderboard.total.toLocaleString()} RANKED
             </span>
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -314,7 +269,7 @@ export default function Leaderboard() {
               <AvatarWithFrame
                 avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
                 frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-                initials={(identity.name ?? 'ME').slice(0, 2).toUpperCase()}
+                initials={(myName || 'ME').slice(0, 2).toUpperCase()}
                 initialsColor="#F0B829"
                 size={86}
               />
@@ -322,15 +277,15 @@ export default function Leaderboard() {
               {/* Identity */}
               <div className="flex-1 min-w-0">
                 <div style={{ fontWeight: 800, fontSize: 22, color: '#C9A227', fontFamily: 'monospace', letterSpacing: '0.02em', lineHeight: 1.1, marginBottom: 4 }} data-testid="text-leaderboard-name">
-                  {identity.name}
+                  {myName}
                 </div>
                 <div className="flex items-center gap-2">
                   <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.60)', fontWeight: 600 }}>
-                    LVL {levelInfo.level}
+                    LVL {levelInfo?.level ?? '—'}
                   </span>
                   <span style={{ color: 'rgba(255,255,255,0.20)', fontSize: 10 }}>•</span>
                   <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700, letterSpacing: '0.06em' }}>
-                    {rank.name.toUpperCase()}
+                    {progressionRank?.name.toUpperCase() ?? 'UNAVAILABLE'}
                   </span>
                 </div>
               </div>
@@ -343,10 +298,10 @@ export default function Leaderboard() {
                   textShadow: '0 0 24px rgba(201,162,39,0.50)',
                   letterSpacing: '0.02em',
                 }} data-testid="text-leaderboard-rank">
-                  #{myPosition}
+                   {myPosition ? `#${myPosition}` : '—'}
                 </div>
                 <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 2 }}>
-                  TOP {topPct}%
+                   {topPct !== null ? `TOP ${topPct}%` : 'RANK PENDING'}
                 </div>
               </div>
             </div>
@@ -354,10 +309,10 @@ export default function Leaderboard() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════ */}
-        {/* METAL TOGGLE TABS                                              */}
+        {/* RANKING CRITERION — a single real, server-calculated ranking    */}
         {/* ══════════════════════════════════════════════════════════════ */}
         <div
-          className="w-full flex"
+          className="w-full"
           style={{
             background: 'rgba(15,10,30,0.80)',
             border: '1px solid rgba(120,70,220,0.25)',
@@ -365,36 +320,14 @@ export default function Leaderboard() {
             overflow: 'hidden',
           }}
         >
-          {(['xp', 'hands'] as const).map((t, idx) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              data-testid={`tab-${t}`}
-              style={{
-                flex: 1,
-                padding: '13px 0',
-                fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-                fontSize: 15,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                border: 'none',
-                borderRight: idx === 0 ? '1px solid rgba(120,70,220,0.25)' : 'none',
-                transition: 'all 0.2s ease',
-                ...(tab === t ? {
-                  background: 'linear-gradient(135deg, rgba(100,50,200,0.50) 0%, rgba(70,30,150,0.60) 100%)',
-                  color: '#fff',
-                  textShadow: '0 0 12px rgba(180,120,255,0.60)',
-                  boxShadow: 'inset 0 0 20px rgba(120,60,220,0.20)',
-                } : {
-                  background: 'transparent',
-                  color: 'rgba(255,255,255,0.28)',
-                }),
-              }}
-            >
-              {t === 'xp' ? 'BY XP' : 'BY HANDS'}
-            </button>
-          ))}
+            <div style={{
+              padding: '13px 16px', textAlign: 'center',
+              fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+              fontSize: 15, letterSpacing: '0.14em', color: '#fff',
+              background: 'linear-gradient(135deg, rgba(100,50,200,0.50) 0%, rgba(70,30,150,0.60) 100%)',
+            }}>
+              RANKED BY LIFETIME PROFIT
+            </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════ */}
@@ -409,20 +342,32 @@ export default function Leaderboard() {
             boxShadow: '0 4px 24px rgba(0,0,0,0.50)',
           }}
         >
-          {top25.map((entry, i) => {
-            const pos       = i + 1;
+          {(error || (!profileLoading && !serverProfile)) && (
+            <div role="alert" className="p-6 text-center text-sm text-white/70">
+              {error ?? 'Could not load your profile. Please reconnect and try again.'}
+            </div>
+          )}
+          {!error && (profileLoading || (serverProfile && !leaderboard)) && (
+            <div role="status" className="p-6 text-center text-sm text-white/70">Loading real player rankings…</div>
+          )}
+          {!error && leaderboard?.entries.length === 0 && (
+            <div className="p-6 text-center text-sm text-white/70">No ranked players yet.</div>
+          )}
+          {!error && leaderboard?.entries.map((entry, i) => {
+            const pos       = entry.rank;
             const isTop3    = pos <= 3;
-            const entryRank = getRankForLevel(entry.level);
-            const isMe      = (entry as any).isMe;
+            const entryLevel = getLevelInfo(entry.xp);
+            const entryRank = getRankForLevel(entryLevel.level);
+            const isMe      = entry.id === serverProfile?.profileId;
 
             return (
               <div
-                key={`${entry.name}-${i}`}
+                key={entry.id}
                 data-testid={isMe ? 'leaderboard-me' : `leaderboard-row-${pos}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 14px',
-                  borderBottom: i < top25.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  borderBottom: i < leaderboard.entries.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   background: isMe
                     ? 'rgba(201,162,39,0.08)'
                     : isTop3
@@ -449,9 +394,9 @@ export default function Leaderboard() {
 
                 {/* Avatar */}
                 <AvatarWithFrame
-                  avatarSrc={resolveAvatarSrc((entry as any).equippedAvatarId, (entry as any).avatarId)}
-                  frameSrc={(entry as any).equippedFrameId ? `/cosmetics/frames/${(entry as any).equippedFrameId.replace(/_/g, '-')}.png` : null}
-                  initials={(entry.name ?? '??').slice(0, 2).toUpperCase()}
+                  avatarSrc={resolveAvatarSrc(entry.equippedAvatarId, entry.avatarId)}
+                  frameSrc={entry.equippedFrameId ? `/cosmetics/frames/${entry.equippedFrameId.replace(/_/g, '-')}.png` : null}
+                  initials={(entry.displayName ?? '??').slice(0, 2).toUpperCase()}
                   initialsColor="#fff"
                   size={52}
                 />
@@ -464,7 +409,7 @@ export default function Leaderboard() {
                     letterSpacing: '0.01em',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {entry.name}
+                    {entry.displayName}
                     {isMe && (
                       <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(201,162,39,0.45)', marginLeft: 4 }}>
                         (you)
@@ -472,7 +417,7 @@ export default function Leaderboard() {
                     )}
                   </span>
                   <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 600, flexShrink: 0, color: entryRank.color }}>
-                    LVL {entry.level}
+                    LVL {entryLevel.level} · {entry.handsPlayed} hands
                   </span>
                 </div>
 
@@ -484,10 +429,9 @@ export default function Leaderboard() {
                     letterSpacing: '0.02em',
                     textShadow: isTop3 ? '0 0 8px rgba(201,162,39,0.40)' : 'none',
                   }}>
-                    {tab === 'xp'
-                      ? `${(entry.xp / 1000).toFixed(1)}K XP`
-                      : `${entry.handsPlayed} hands`}
+                    {entry.lifetimeProfit >= 0 ? '+' : ''}{entry.lifetimeProfit.toLocaleString()}
                   </span>
+                  <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.40)' }}>PROFIT</div>
                 </div>
               </div>
             );

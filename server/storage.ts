@@ -33,8 +33,9 @@ import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
+import { eq, ne, notLike, sql, and, or, gte, isNull, lt, gt, desc, ilike, asc, inArray } from "drizzle-orm";
 import { DAILY_REWARDS, handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
+import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
 
 const scryptAsync = promisify(scrypt);
@@ -70,6 +71,7 @@ export interface IStorage {
   // ── Player Profiles ────────────────────────────────────────────────────────
   getOrCreatePlayer(id: string, displayName?: string): Promise<PlayerProfile>;
   getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
+  getLeaderboard(viewerId: string): Promise<LeaderboardResponse>;
   getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
   setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
   setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
@@ -3041,6 +3043,47 @@ export class MemStorage implements IStorage {
       ...r,
       isBanned: r.bannedAt !== null,
     }));
+  }
+
+  async getLeaderboard(viewerId: string): Promise<LeaderboardResponse> {
+    const eligible = and(
+      eq(playerProfiles.isDeleted, false),
+      isNull(playerProfiles.bannedAt),
+      ne(playerProfiles.id, LADY_LUCK_HOUSE_ID),
+      notLike(playerProfiles.id, 'bot_%'),
+    );
+    const publicFields = {
+      id: playerProfiles.id,
+      displayName: playerProfiles.displayName,
+      lifetimeProfit: playerProfiles.lifetimeProfit,
+      xp: playerProfiles.xp,
+      handsPlayed: playerProfiles.handsPlayed,
+      avatarId: playerProfiles.avatarId,
+      equippedAvatarId: playerProfiles.equippedAvatarId,
+      equippedFrameId: playerProfiles.equippedFrameId,
+    };
+    const [leaders, [countRow], [viewer]] = await Promise.all([
+      db.select(publicFields).from(playerProfiles).where(eligible)
+        .orderBy(desc(playerProfiles.lifetimeProfit), asc(playerProfiles.id))
+        .limit(LEADERBOARD_LIMIT),
+      db.select({ total: sql<number>`count(*)::int` }).from(playerProfiles).where(eligible),
+      db.select(publicFields).from(playerProfiles)
+        .where(and(eligible, eq(playerProfiles.id, viewerId))).limit(1),
+    ]);
+    const entries = leaders.map((row, index) => ({ ...row, rank: index + 1 }));
+    let me = entries.find(row => row.id === viewerId) ?? null;
+    if (!me && viewer) {
+      const [ahead] = await db.select({ total: sql<number>`count(*)::int` })
+        .from(playerProfiles).where(and(
+          eligible,
+          or(
+            gt(playerProfiles.lifetimeProfit, viewer.lifetimeProfit),
+            and(eq(playerProfiles.lifetimeProfit, viewer.lifetimeProfit), lt(playerProfiles.id, viewerId)),
+          ),
+        ));
+      me = { ...viewer, rank: ahead.total + 1 };
+    }
+    return { entries, total: countRow.total, me };
   }
 
   async searchPlayers(query: string): Promise<PlayerSearchResult[]> {

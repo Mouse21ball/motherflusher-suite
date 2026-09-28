@@ -61,6 +61,7 @@ import {
 } from "./billing";
 import { randomBytes } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
+import { registerLeaderboardRoute } from "./leaderboardRoutes";
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
@@ -143,6 +144,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerLeaderboardRoute(app);
   // Public, read-only build provenance for the exact server artifact handling requests.
   app.get("/api/version", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
