@@ -21,6 +21,17 @@
 import { apiUrl } from "./apiConfig";
 import { getSessionToken } from "./session";
 import { ensurePlayerIdentity } from "./persistence";
+import {
+  APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
+  APPLE_SUBSCRIPTION_PRODUCT_IDS,
+  APPLE_SUBSCRIPTION_PRODUCTS as APPLE_SUBSCRIPTION_PRODUCT_ID,
+  GOOGLE_SUBSCRIPTION_PRODUCT_ID_LIST,
+} from "@shared/billingProducts";
+
+export {
+  APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
+  APPLE_SUBSCRIPTION_PRODUCT_IDS,
+};
 
 const PURCHASE_TIMEOUT_MS = 45_000;
 const VERIFICATION_TIMEOUT_MS = 30_000;
@@ -69,12 +80,7 @@ export const CLUB_CHIP_PRODUCT_IDS = [
 export type ClubChipProductId = typeof CLUB_CHIP_PRODUCT_IDS[number];
 
 // ─── Subscription product catalog ────────────────────────────────────────────
-export const SUBSCRIPTION_PRODUCT_IDS = [
-  "sub_gold_pro_monthly",
-  "sub_gold_pro_yearly",
-  "sub_diamond_elite_monthly",
-  "sub_diamond_elite_yearly",
-] as const;
+export const SUBSCRIPTION_PRODUCT_IDS = GOOGLE_SUBSCRIPTION_PRODUCT_ID_LIST;
 
 export type SubscriptionProductId = typeof SUBSCRIPTION_PRODUCT_IDS[number];
 
@@ -87,11 +93,6 @@ export const APPLE_STRIPES_PRODUCT_IDS = [
   'com.dgmentertainment.poker.stripes.popular.v2',
   'com.dgmentertainment.poker.stripes.big.v2',
   'com.dgmentertainment.poker.stripes.mega.v2',
-] as const;
-
-export const APPLE_SUBSCRIPTION_PRODUCT_IDS = [
-  'com.dgmentertainment.poker.goldpro.monthly',
-  'com.dgmentertainment.poker.diamond.monthly',
 ] as const;
 
 // ─── Apple App Store shop display catalog ─────────────────────────────────────
@@ -150,16 +151,19 @@ export const APPLE_STRIPES_SHOP_PRODUCTS: AppleStripesShopProduct[] = [
 
 export const APPLE_SUBSCRIPTION_PRODUCTS = {
   goldPro: {
-    id: 'com.dgmentertainment.poker.goldpro.monthly',
+    id: APPLE_SUBSCRIPTION_PRODUCT_ID.goldProMonthly,
     name: 'Chain Pro',
     price: '$4.99',
     period: 'monthly',
   },
   diamondElite: {
-    id: 'com.dgmentertainment.poker.diamond.monthly',
+    id: APPLE_SUBSCRIPTION_PRODUCT_ID.diamondEliteMonthly,
     name: 'Diamond Elite',
-    price: '$19.99',
+    price: '$9.99',
     period: 'monthly',
+    yearlyId: APPLE_SUBSCRIPTION_PRODUCT_ID.diamondEliteYearly,
+    yearlyPrice: '$59.99',
+    yearlyPeriod: 'yearly',
   },
 } as const;
 

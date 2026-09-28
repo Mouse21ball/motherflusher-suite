@@ -15,6 +15,11 @@
 //   3. Download the service account JSON key
 //   4. Set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON to the full JSON string
 
+import {
+  APPLE_SUBSCRIPTION_PRODUCTS,
+  GOOGLE_SUBSCRIPTION_PRODUCT_IDS,
+} from "../shared/billingProducts";
+
 // ─── Consumable pack catalog ──────────────────────────────────────────────────
 // Google Play product IDs must match Play Console exactly.
 // Apple App Store product IDs must match App Store Connect exactly.
@@ -60,35 +65,42 @@ export interface SubscriptionProduct {
 
 export const SUBSCRIPTION_PRODUCTS: Record<string, SubscriptionProduct> = {
   // ── Google Play ──────────────────────────────────────────────────────────────
-  sub_gold_pro_monthly: {
+  [GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly]: {
     tier: "gold_pro", billingPeriod: "monthly",
     priceCents: 499, stripesOnStart: 1000, stripesMonthly: 1000,
     dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
   },
-  sub_gold_pro_yearly: {
+  [GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProYearly]: {
     tier: "gold_pro", billingPeriod: "yearly",
     priceCents: 2999, stripesOnStart: 1000, stripesMonthly: 1000,
     dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
   },
-  sub_diamond_elite_monthly: {
+  [GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly]: {
     tier: "diamond_elite", billingPeriod: "monthly",
     priceCents: 999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
-  sub_diamond_elite_yearly: {
+  [GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteYearly]: {
     tier: "diamond_elite", billingPeriod: "yearly",
     priceCents: 5999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
   // ── Apple App Store ─────────────────────────────────────────────────────────
-  'com.dgmentertainment.poker.goldpro.monthly': {
+  [APPLE_SUBSCRIPTION_PRODUCTS.goldProMonthly]: {
     tier: "gold_pro", billingPeriod: "monthly",
     priceCents: 499, stripesOnStart: 1000, stripesMonthly: 1000,
     dailyChipMultiplier: 2, xpMultiplier: 1.5, frameId: "frame_gold_subscription",
   },
-  'com.dgmentertainment.poker.diamond.monthly': {
+  // Detroit must update the existing monthly price tier in App Store Connect
+  // and create the new yearly product there to match these code-side prices.
+  [APPLE_SUBSCRIPTION_PRODUCTS.diamondEliteMonthly]: {
     tier: "diamond_elite", billingPeriod: "monthly",
-    priceCents: 1999, stripesOnStart: 2500, stripesMonthly: 2500,
+    priceCents: 999, stripesOnStart: 2500, stripesMonthly: 2500,
+    dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
+  },
+  [APPLE_SUBSCRIPTION_PRODUCTS.diamondEliteYearly]: {
+    tier: "diamond_elite", billingPeriod: "yearly",
+    priceCents: 5999, stripesOnStart: 2500, stripesMonthly: 2500,
     dailyChipMultiplier: 3, xpMultiplier: 2.0, frameId: "frame_diamond_animated",
   },
 };

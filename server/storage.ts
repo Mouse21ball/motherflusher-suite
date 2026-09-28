@@ -28,6 +28,7 @@ import {
   handXpAwards,
   type LLSeatResult,
 } from "@shared/schema";
+import { GOOGLE_SUBSCRIPTION_PRODUCT_IDS } from "@shared/billingProducts";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -1837,8 +1838,8 @@ export class MemStorage implements IStorage {
       // subscribers share the same dailyChipMultiplier value in SUBSCRIPTION_PRODUCTS.
       const subTier = player.activeSubscriptionTier;
       const subProductKey =
-        subTier === 'diamond_elite' ? 'sub_diamond_elite_monthly'
-        : subTier === 'gold_pro'    ? 'sub_gold_pro_monthly'
+        subTier === 'diamond_elite' ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly
+        : subTier === 'gold_pro'    ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly
         : null;
       const chipMultiplier = subProductKey
         ? (SUBSCRIPTION_PRODUCTS[subProductKey]?.dailyChipMultiplier ?? 1)
@@ -3495,8 +3496,8 @@ export class MemStorage implements IStorage {
     // Mirror real purchase grants — use the monthly product's stripesOnStart as canonical
     // per-tier amount, matching what processSubscriptionPurchase credits on activation.
     const TIER_TO_PRODUCT_ID: Record<string, string> = {
-      gold_pro:      'sub_gold_pro_monthly',
-      diamond_elite: 'sub_diamond_elite_monthly',
+      gold_pro:      GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly,
+      diamond_elite: GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly,
     };
     const productId = TIER_TO_PRODUCT_ID[tier];
     const stripesGrant = productId ? (SUBSCRIPTION_PRODUCTS[productId]?.stripesOnStart ?? 0) : 0;

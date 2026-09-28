@@ -4,8 +4,10 @@ import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/p
 import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
+import { GOOGLE_SUBSCRIPTION_PRODUCT_IDS } from '@shared/billingProducts';
 import {
   APPLE_STRIPES_SHOP_PRODUCTS,
+  APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID,
   APPLE_SUBSCRIPTION_PRODUCT_IDS,
   APPLE_SUBSCRIPTION_PRODUCTS,
   billing,
@@ -38,13 +40,6 @@ const STRIPES_PACKS = [
   { id: 'stripes_large_2499',  name: 'Large Pack',    stripes: 3250,  price: '$24.99', badge: 'BEST VALUE',           featured: true  },
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
-
-// Maps Google Play monthly subscription IDs → Apple App Store equivalent IDs.
-// Used when the iOS purchase flow needs to call the right Apple product.
-const APPLE_MONTHLY_SUB_IDS: Record<string, string> = {
-  'sub_gold_pro_monthly':      APPLE_SUBSCRIPTION_PRODUCTS.goldPro.id,
-  'sub_diamond_elite_monthly': APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.id,
-};
 
 const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
   'Subscriptions are temporarily unavailable. Please try again shortly.';
@@ -94,8 +89,8 @@ const TIER_DEFS: TierDef[] = [
     ],
     monthlyPrice: '$4.99', yearlyPrice: '$29.99',
     yearlySavings: '~$2.50/mo · save ~50%',
-    monthlyProductId: 'sub_gold_pro_monthly',
-    yearlyProductId:  'sub_gold_pro_yearly',
+    monthlyProductId: GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly,
+    yearlyProductId:  GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProYearly,
   },
   {
     id: 'elite', name: 'Diamond Elite', tier: 'diamond_elite',
@@ -112,8 +107,8 @@ const TIER_DEFS: TierDef[] = [
     ],
     monthlyPrice: '$9.99', yearlyPrice: '$59.99',
     yearlySavings: '~$5.00/mo · save ~50%',
-    monthlyProductId: 'sub_diamond_elite_monthly',
-    yearlyProductId:  'sub_diamond_elite_yearly',
+    monthlyProductId: GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly,
+    yearlyProductId:  GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteYearly,
   },
 ];
 
@@ -249,17 +244,30 @@ export default function Shop() {
   // Web/Android → Google Play product IDs
   const activePacks = isIOS ? APPLE_STRIPES_SHOP_PRODUCTS : STRIPES_PACKS;
 
-  // Apple offers monthly subscriptions only. Use the App Store Connect price
-  // for iOS while preserving the separate Google Play catalog on Android.
-  const monthlyPriceFor = (tier: TierDef): string => {
+  const subscriptionPriceFor = (tier: TierDef): string => {
+    if (isIOS && billingPeriod === 'yearly') {
+      return tier.tier === 'diamond_elite'
+        ? APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.yearlyPrice
+        : 'Unavailable';
+    }
     if (isIOS && tier.tier === 'gold_pro') return APPLE_SUBSCRIPTION_PRODUCTS.goldPro.price;
     if (isIOS && tier.tier === 'diamond_elite') return APPLE_SUBSCRIPTION_PRODUCTS.diamondElite.price;
-    return tier.monthlyPrice;
+    return billingPeriod === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice;
+  };
+
+  const selectedProductIdFor = (tier: TierDef): string | null => {
+    const googleProductId = billingPeriod === 'monthly'
+      ? tier.monthlyProductId
+      : tier.yearlyProductId;
+    if (!googleProductId) return null;
+    if (!isIOS) return googleProductId;
+    return APPLE_SUBSCRIPTION_PRODUCT_BY_GOOGLE_ID[googleProductId] ?? null;
   };
 
   const appleReadinessFor = (tier: TierDef): SubscriptionProductReadiness => {
-    if (!isIOS || !tier.monthlyProductId) return 'available';
-    const productId = APPLE_MONTHLY_SUB_IDS[tier.monthlyProductId] ?? tier.monthlyProductId;
+    if (!isIOS || tier.tier === null) return 'available';
+    const productId = selectedProductIdFor(tier);
+    if (!productId) return 'unavailable';
     return appleProductReadiness[productId] ?? 'loading';
   };
 
@@ -290,22 +298,12 @@ export default function Shop() {
   }
 
   async function handleSubscribe(tier: TierDef) {
-    // On iOS, use Apple App Store product IDs. Apple only offers monthly.
-    let productId: string | null;
-    if (isIOS) {
-      if (billingPeriod === 'yearly') {
-        setSubMsg('Yearly subscriptions are not available on iOS. Please select Monthly.');
-        return;
-      }
-      productId = tier.monthlyProductId
-        ? (APPLE_MONTHLY_SUB_IDS[tier.monthlyProductId] ?? tier.monthlyProductId)
-        : null;
-    } else {
-      productId = billingPeriod === 'monthly'
-        ? tier.monthlyProductId
-        : tier.yearlyProductId;
+    // On iOS, only Apple identifiers registered in the shared catalog are usable.
+    const productId = selectedProductIdFor(tier);
+    if (!productId) {
+      setSubMsg(SUBSCRIPTIONS_UNAVAILABLE_MESSAGE);
+      return;
     }
-    if (!productId) return;
     if (isIOS && billing.getSubscriptionProductReadiness(productId) !== 'available') {
       setSubMsg(SUBSCRIPTIONS_UNAVAILABLE_MESSAGE);
       return;
@@ -361,7 +359,7 @@ export default function Shop() {
   const eliteTier       = TIER_DEFS[2];
   const eliteCardState  = getCardState(eliteTier);
   const eliteIsActive   = eliteCardState === 'active';
-  const elitePrice      = billingPeriod === 'monthly' ? `${monthlyPriceFor(eliteTier)}/MO` : `${eliteTier.yearlyPrice}/YR`;
+  const elitePrice      = `${subscriptionPriceFor(eliteTier)}${billingPeriod === 'monthly' ? '/MO' : '/YR'}`;
 
   // ── CTA button renderer for tier cards ─────────────────────────────────────
   function TierCTA({ tier }: { tier: TierDef }) {
@@ -569,7 +567,7 @@ export default function Shop() {
             {/* Price */}
             <div className="flex items-baseline gap-1.5 mb-4">
               <span style={{ fontSize: 28, fontWeight: 900, color: '#9D7DC8' }}>
-                {billingPeriod === 'monthly' ? monthlyPriceFor(eliteTier) : eliteTier.yearlyPrice}
+                {subscriptionPriceFor(eliteTier)}
               </span>
               <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.70)', fontWeight: 600 }}>
                 {billingPeriod === 'monthly' ? '/MO' : '/YR'}
@@ -643,7 +641,7 @@ export default function Shop() {
 
             {/* Monthly / Yearly toggle */}
             <div className="flex mb-4 rounded-full overflow-hidden mx-auto w-fit" style={{ border: '1px solid rgba(255,215,0,0.30)' }}>
-              {(isIOS ? (['monthly'] as const) : (['monthly', 'yearly'] as const)).map(period => (
+              {(['monthly', 'yearly'] as const).map(period => (
                 <button
                   key={period}
                   onClick={() => setBillingPeriod(period)}
@@ -788,7 +786,7 @@ export default function Shop() {
                         ) : (
                           <div className="flex items-baseline gap-1 mb-1">
                             <span style={{ fontWeight: 900, fontSize: 22, color: '#fff', fontFamily: 'monospace' }}>
-                              {billingPeriod === 'monthly' ? monthlyPriceFor(tier) : tier.yearlyPrice}
+                              {subscriptionPriceFor(tier)}
                             </span>
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
                               {billingPeriod === 'monthly' ? '/MO' : '/YR'}
