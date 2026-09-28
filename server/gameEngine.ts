@@ -23,6 +23,7 @@ import { secureShuffleInPlace } from './utils/secureShuffle';
 import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
 import { DEFAULT_STAKE_TIER_ID, clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
+import { resolveGiftSeats } from './personalChipGifts';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -2199,6 +2200,19 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
 export function getBadugiTablePhase(tableId: string): string | null {
   return tables.get(tableId)?.state.phase ?? null;
+}
+
+/** Resolve a gift recipient from the live Badugi human seat map. */
+export function resolveBadugiGiftRecipient(tableId: string, senderIdentityId: string, recipientSeatId: string): string | null {
+  const table = tables.get(tableId);
+  if (!table || table.connections.size === 0) return null;
+  return resolveGiftSeats(
+    table.seatToIdentityId,
+    table.humanSeats,
+    new Set(table.connections.keys()),
+    senderIdentityId,
+    recipientSeatId,
+  )?.recipientId ?? null;
 }
 
 // ─── Ticket-7 Public Exports ──────────────────────────────────────────────────

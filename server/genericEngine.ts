@@ -29,6 +29,7 @@ import { secureShuffleInPlace } from './utils/secureShuffle';
 import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
 import { clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
+import { resolveGiftSeats } from './personalChipGifts';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -2743,6 +2744,24 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
 export function getGenericTablePhase(modeId: string, tableId: string): string | null {
   return tables.get(tableKey(modeId, tableId))?.state.phase ?? null;
+}
+
+/** Resolve a gift recipient from a live generic-mode human seat map. */
+export function resolveGenericGiftRecipient(
+  modeId: string,
+  tableId: string,
+  senderIdentityId: string,
+  recipientSeatId: string,
+): string | null {
+  const table = tables.get(tableKey(modeId, tableId));
+  if (!table || table.connections.size === 0) return null;
+  return resolveGiftSeats(
+    table.seatToIdentityId,
+    table.humanSeats,
+    new Set(table.connections.keys()),
+    senderIdentityId,
+    recipientSeatId,
+  )?.recipientId ?? null;
 }
 
 export function updateGenericTableSettings(

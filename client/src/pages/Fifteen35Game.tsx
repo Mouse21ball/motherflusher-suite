@@ -20,6 +20,7 @@ import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
 import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import { getAvatarForSeat, getHeroAvatar } from "@shared/engine/avatarMap";
+import { PersonalChipGiftPanel } from "@/components/game/PersonalChipGiftPanel";
 import { BustOutModal } from "@/components/game/BustOutModal";
 import { ChatBox } from "@/components/game/ChatBox";
 import { ResolutionOverlay } from "@/components/game/ResolutionOverlay";
@@ -872,7 +873,7 @@ export default function Fifteen35Game() {
   }, [tableId]);
 
   const { state, handleAction, myId, role, sessionStats, isClubTable, lastWsAt } = useServerMode(tableId, 'fifteen35');
-  const { profile: serverProfile } = useServerProfile();
+  const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
 
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, '15/35');
@@ -1034,6 +1035,16 @@ export default function Fifteen35Game() {
         onChat={() => setChatOpen(true)}
         onLeave={() => { if (me) saveChips('fifteen35', me.chips); navigate('/'); }}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel
+          tableId={tableId}
+          modeId="fifteen35"
+          myId={myId}
+          players={state.players}
+          onGiftSuccess={refetchProfile}
+        />
+      )}
 
       {/* ── Scrollable content ────────────────────────────────────────────── */}
       <div

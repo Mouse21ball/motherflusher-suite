@@ -19,6 +19,7 @@ import {
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
   timeBankEvents,
   chipTransactions,
+  personalChipGifts,
   blockedPlayers,
   type BlockedPlayer,
   playerReports,
@@ -262,6 +263,9 @@ export interface IStorage {
   isCrewMember(crewId: string, playerId: string): Promise<boolean>;
   // ── Time Bank ───────────────────────────────────────────────────────────────
   debitChipsForBuyin(playerId: string, amount: number): Promise<boolean>;
+  giftTableChips(params: { requestId: string; senderId: string; recipientId: string; tableId: string }): Promise<{
+    replayed: boolean; senderBalance: number; recipientBalance: number;
+  }>;
   getTimeBankStatus(playerId: string): Promise<{ freeRemaining: number; purchased: number; tier: string | null }>;
   consumeTimeBankSlot(playerId: string, source: 'free' | 'subscription' | 'purchased', tableId?: string): Promise<void>;
   purchaseTimeBankUses(playerId: string, quantity: number): Promise<{ success: boolean; newStripes: number; newPurchasedUses: number }>;
@@ -3519,6 +3523,114 @@ export class MemStorage implements IStorage {
         source:        'gameEngine',
       });
       return true;
+    });
+  }
+
+  async giftTableChips(params: {
+    requestId: string;
+    senderId: string;
+    recipientId: string;
+    tableId: string;
+  }): Promise<{ replayed: boolean; senderBalance: number; recipientBalance: number }> {
+    const amount = 100;
+    const cooldownMs = 60_000;
+    return db.transaction(async (tx) => {
+      // Serialize repeated request ids globally, then sender/recipient/table
+      // gifts. Advisory transaction locks make the idempotency and cooldown
+      // checks safe against simultaneous requests on separate app workers.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${
+        `personal-gift-request:${params.requestId}`
+      }, 0))`);
+      const [prior] = await tx.select().from(personalChipGifts)
+        .where(eq(personalChipGifts.id, params.requestId)).limit(1);
+      if (prior) {
+        if (prior.senderId !== params.senderId || prior.recipientId !== params.recipientId || prior.tableId !== params.tableId) {
+          throw Object.assign(new Error('This gift request ID was already used for another request.'), { code: 'idempotency_conflict' });
+        }
+        const balances = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+          .from(playerProfiles)
+          .where(or(eq(playerProfiles.id, params.senderId), eq(playerProfiles.id, params.recipientId)));
+        const senderBalance = balances.find(row => row.id === params.senderId)?.balance;
+        const recipientBalance = balances.find(row => row.id === params.recipientId)?.balance;
+        if (senderBalance === undefined || recipientBalance === undefined) {
+          throw Object.assign(new Error('A gift participant no longer exists.'), { code: 'gift_participant_missing' });
+        }
+        return { replayed: true, senderBalance, recipientBalance };
+      }
+
+      const cooldownLockKey = `personal-gift-pair:${params.tableId}:${params.senderId}:${params.recipientId}`;
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${cooldownLockKey}, 0))`);
+      const [lastGift] = await tx.select({ createdAt: personalChipGifts.createdAt })
+        .from(personalChipGifts)
+        .where(and(
+          eq(personalChipGifts.tableId, params.tableId),
+          eq(personalChipGifts.senderId, params.senderId),
+          eq(personalChipGifts.recipientId, params.recipientId),
+        ))
+        .orderBy(desc(personalChipGifts.createdAt))
+        .limit(1);
+      if (lastGift && Date.now() - lastGift.createdAt.getTime() < cooldownMs) {
+        throw Object.assign(new Error('You can gift this player again after the 60-second cooldown.'), {
+          code: 'gift_cooldown',
+          retryAfterMs: Math.max(1, cooldownMs - (Date.now() - lastGift.createdAt.getTime())),
+        });
+      }
+
+      // Lock both profile rows in a stable order so reciprocal transfers cannot
+      // deadlock. The balance decrement itself is still guarded in SQL.
+      await tx.execute(sql`
+        SELECT id FROM player_profiles
+        WHERE id IN (${params.senderId}, ${params.recipientId})
+        ORDER BY id FOR UPDATE
+      `);
+      const [debited] = await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} - ${amount}`, updatedAt: new Date() })
+        .where(and(eq(playerProfiles.id, params.senderId), gte(playerProfiles.chipBalance, amount)))
+        .returning({ chipBalance: playerProfiles.chipBalance });
+      if (!debited) {
+        throw Object.assign(new Error('Not enough chips to send this gift.'), { code: 'insufficient_chips' });
+      }
+      const [credited] = await tx.update(playerProfiles)
+        .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${amount}`, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, params.recipientId))
+        .returning({ chipBalance: playerProfiles.chipBalance });
+      if (!credited) {
+        throw Object.assign(new Error('The recipient account could not be found.'), { code: 'gift_participant_missing' });
+      }
+      const createdAt = new Date();
+      await tx.insert(personalChipGifts).values({
+        id: params.requestId,
+        senderId: params.senderId,
+        recipientId: params.recipientId,
+        tableId: params.tableId,
+        amount,
+        createdAt,
+      });
+      await this._insertChipLedger(tx, {
+        playerId: params.senderId,
+        beforeBalance: debited.chipBalance + amount,
+        amountChange: -amount,
+        afterBalance: debited.chipBalance,
+        reason: 'personal_gift',
+        source: 'table_gift',
+        gameId: params.tableId,
+        metadata: { giftId: params.requestId, recipientId: params.recipientId },
+      });
+      await this._insertChipLedger(tx, {
+        playerId: params.recipientId,
+        beforeBalance: credited.chipBalance - amount,
+        amountChange: amount,
+        afterBalance: credited.chipBalance,
+        reason: 'personal_gift',
+        source: 'table_gift',
+        gameId: params.tableId,
+        metadata: { giftId: params.requestId, senderId: params.senderId },
+      });
+      return {
+        replayed: false,
+        senderBalance: debited.chipBalance,
+        recipientBalance: credited.chipBalance,
+      };
     });
   }
 

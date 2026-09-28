@@ -29,6 +29,7 @@ import { evaluateDead7 } from '@shared/modes/dead7';
 import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID = 'dead7';
 
@@ -245,6 +246,16 @@ export function Dead7FullPage({
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel
+          tableId={tableId}
+          modeId="dead7"
+          myId={myId}
+          players={state.players}
+          onGiftSuccess={refetchProfile}
+        />
+      )}
 
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
       {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (

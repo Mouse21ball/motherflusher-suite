@@ -18,6 +18,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { BonecrusherTable } from '@/components/bonecrusher/BonecrusherTable';
 import { BonecrusherActionBar } from '@/components/bonecrusher/BonecrusherActionBar';
 import { BonecrusherShowdown } from '@/components/bonecrusher/BonecrusherShowdown';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID   = 'bonecrusher';
 const ENGINE_ID = 'bonecrusher';
@@ -306,6 +307,10 @@ function BonecrusherGameUI() {
         chatUnread={chatUnread}
         humanCount={humanCount}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+      )}
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
         {actionError && <div role="alert" style={{ color: '#fca5a5', textAlign: 'center', fontSize: 12, marginBottom: 8 }}>{actionError}</div>}

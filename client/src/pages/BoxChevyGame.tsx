@@ -20,6 +20,7 @@ import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID   = 'box_chevy';
 const ENGINE_ID = 'box_chevy';
@@ -328,6 +329,10 @@ function BoxChevyGameUI() {
         chatUnread={chatUnread}
         humanCount={humanCount}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+      )}
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
         <BoxChevyTable

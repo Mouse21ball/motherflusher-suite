@@ -22,6 +22,7 @@ import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 import { KamikazeTable } from '@/components/kamikaze/KamikazeTable';
 import { KamikazeActionBar } from '@/components/kamikaze/KamikazeActionBar';
 import { KamikazeShowdown } from '@/components/kamikaze/KamikazeShowdown';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID   = 'kamikaze';
 const ENGINE_ID = 'kamikaze';
@@ -286,6 +287,10 @@ function KamikazeGameUI() {
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
       <KamikazeHeader onBack={handleBack} onOpenChat={() => setChatOpen(true)} onOpenHowToPlay={() => setShowHowToPlay(true)} chatUnread={chatUnread} humanCount={humanCount} />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+      )}
 
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
 

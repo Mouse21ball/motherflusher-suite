@@ -411,6 +411,7 @@ export type ChipTxReason =
   | 'refund'
   | 'iap_purchase'   // Fix B: Google Play IAP audit (amountChange=0; Stripes credited separately)
   | 'club_distribution'
+  | 'personal_gift'
   | 'other';
 
 export const chipTransactions = pgTable("chip_transactions", {
@@ -438,6 +439,18 @@ export const insertChipTransactionSchema = createInsertSchema(chipTransactions).
 
 export type InsertChipTransaction = z.infer<typeof insertChipTransactionSchema>;
 export type ChipTransaction = typeof chipTransactions.$inferSelect;
+
+// Durable idempotency and cooldown record for one fixed-amount table gift.
+export const personalChipGifts = pgTable("personal_chip_gifts", {
+  id:          text("id").primaryKey(),
+  senderId:    text("sender_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  recipientId: text("recipient_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  tableId:     text("table_id").notNull(),
+  amount:      integer("amount").notNull(),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("personal_chip_gifts_cooldown_idx").on(table.tableId, table.senderId, table.recipientId, table.createdAt),
+]);
 
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 // DEPRECATED: This table is a legacy leftover from an early authentication

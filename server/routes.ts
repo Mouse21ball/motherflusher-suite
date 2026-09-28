@@ -19,6 +19,7 @@ import { z } from "zod";
 import {
   getActiveBadugiTables,
   getBadugiTableMinBet,
+  resolveBadugiGiftRecipient,
   extendBadugiTurnTimer,
   getBadugiTimeBankSessionUsed,
   incrementBadugiTimeBankSessionUsed,
@@ -26,6 +27,7 @@ import {
 import {
   getActiveGenericTables,
   getGenericTableMinBet,
+  resolveGenericGiftRecipient,
   extendGenericTurnTimer,
   getGenericTimeBankSessionUsed,
   incrementGenericTimeBankSessionUsed,
@@ -3494,6 +3496,39 @@ export async function registerRoutes(
       res.json({ requests });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Personal table gifts ───────────────────────────────────────────────────
+  app.post("/api/tables/:table_id/personal-gifts", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const tableId = (req.params.table_id as string).toUpperCase();
+      const { mode_id, recipient_seat_id, request_id } = z.object({
+        mode_id: z.string().min(1).max(32),
+        recipient_seat_id: z.string().min(1).max(32),
+        request_id: z.string().uuid(),
+      }).parse(req.body);
+      const senderId = req.sessionPlayerId!;
+      const recipientId = mode_id === 'badugi'
+        ? resolveBadugiGiftRecipient(tableId, senderId, recipient_seat_id)
+        : resolveGenericGiftRecipient(mode_id, tableId, senderId, recipient_seat_id);
+      if (!recipientId || recipientId === senderId) {
+        res.status(403).json({ error: 'Gift recipient must be another currently seated human at this active table.' });
+        return;
+      }
+      const result = await storage.giftTableChips({ requestId: request_id, senderId, recipientId, tableId });
+      res.json({ success: true, amount: 100, ...result });
+    } catch (err: any) {
+      if (err.name === 'ZodError') { res.status(422).json({ error: 'Invalid gift request.' }); return; }
+      if (err.code === 'insufficient_chips') { res.status(402).json({ error: err.message }); return; }
+      if (err.code === 'gift_cooldown') {
+        res.status(429).json({ error: err.message, retry_after_ms: err.retryAfterMs });
+        return;
+      }
+      if (err.code === 'idempotency_conflict') { res.status(409).json({ error: err.message }); return; }
+      if (err.code === 'gift_participant_missing') { res.status(404).json({ error: err.message }); return; }
+      console.error('[personal-gift] request failed:', err);
+      res.status(500).json({ error: 'Could not complete chip gift.' });
     }
   });
 

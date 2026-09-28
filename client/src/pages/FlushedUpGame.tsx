@@ -22,6 +22,7 @@ import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
 import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID = 'flushed_up';
 const ENGINE_ID = 'flushed_up';
@@ -380,6 +381,10 @@ function FlushedUpGameUI() {
         chatUnread={chatUnread}
         humanCount={humanCount}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+      )}
 
       {/* ── Spectator / join-confirm banners ─────────────────────── */}
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}

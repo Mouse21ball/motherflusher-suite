@@ -36,6 +36,7 @@ import { evaluateBadugi } from '@shared/modes/badugi';
 import { evaluateDead7 } from '@shared/modes/dead7';
 import { BadugiFullPage } from '@/components/badugi/BadugiFullPage';
 import { Dead7FullPage } from '@/components/dead7/Dead7FullPage';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 // ── Unified game UI shell ─────────────────────────────────────────────────────
 
@@ -301,6 +302,16 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel
+          tableId={tableId}
+          modeId={SERVER_ENGINE_ID[modeId] ?? modeId}
+          myId={myId}
+          players={state.players}
+          onGiftSuccess={refetchProfile}
+        />
+      )}
 
       {/* Spectator banner */}
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}

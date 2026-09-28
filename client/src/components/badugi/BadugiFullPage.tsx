@@ -29,6 +29,7 @@ import { evaluateBadugi } from '@shared/modes/badugi';
 import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
+import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 
 const MODE_ID = 'badugi';
 
@@ -231,6 +232,16 @@ export function BadugiFullPage({
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
       />
+
+      {!effectiveSpectator && (
+        <PersonalChipGiftPanel
+          tableId={tableId}
+          modeId="badugi"
+          myId={myId}
+          players={state.players}
+          onGiftSuccess={refetchProfile}
+        />
+      )}
 
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
       {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
