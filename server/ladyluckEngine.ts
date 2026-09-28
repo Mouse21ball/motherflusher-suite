@@ -46,11 +46,11 @@ const tables = new Map<string, LLTableMeta>();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'K'];
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 const BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 'Cleo', 'Remy'];
 
-function buildDeck(): LLCard[] {
+export function buildDeck(): LLCard[] {
   const deck: LLCard[] = [];
   for (const suit of SUITS) {
     for (const rank of RANKS) {
