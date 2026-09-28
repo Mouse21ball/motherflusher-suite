@@ -22,3 +22,4 @@
 - [Cosmetic seed evolution](cosmetic-seed-evolution.md) — existing catalogs may be partial; refresh subscription-only rows independently of the empty-table seed.
 - [Tutorial continuity](tutorial-continuity.md) — first-visit walkthroughs need a stable parent across phase-specific game screens or their page resets mid-reading.
 - [Referral attribution boundary](referral-attribution.md) — table and crew invites do not identify a new account on their own; bind the inviter at signup before rewarding settled play.
+- [Claimed offer fulfillment](claimed-offer-fulfillment.md) — honor a valid claimed first-purchase receipt even if another purchase settles before verification; avoid charging without a grant.
