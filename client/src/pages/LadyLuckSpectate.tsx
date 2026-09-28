@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
-import type { LadyLuckState, LadyLuckSuit } from '../../../shared/modes/ladyluck';
+import { LADY_LUCK_ROOMS, type LadyLuckState, type LadyLuckSuit } from '../../../shared/modes/ladyluck';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -152,6 +152,11 @@ export default function LadyLuckSpectate() {
   const [betLocked, setBetLocked]     = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [prevPhase, setPrevPhase]     = useState<string | null>(null);
+  const roomLimits = state ? LADY_LUCK_ROOMS[state.roomType] : LADY_LUCK_ROOMS.pony;
+  const sideBetMin = roomLimits.minWager;
+  const sideBetMax = roomLimits.maxSideBet;
+  const sideBetChips = [...new Set([sideBetMin, sideBetMin * 2, sideBetMin * 5, sideBetMax]
+    .filter(amount => amount >= sideBetMin && amount <= sideBetMax))];
 
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
@@ -164,11 +169,15 @@ export default function LadyLuckSpectate() {
       setMyBet(null);
       setBetLocked(false);
       setSideBetSuit(null);
-      setSideBetAmt(100);
+      setSideBetAmt(state ? LADY_LUCK_ROOMS[state.roomType].minWager : 100);
       setError(null);
     }
     setPrevPhase(phase);
   }, [state?.phase]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (state) setSideBetAmt(LADY_LUCK_ROOMS[state.roomType].minWager);
+  }, [state?.roomType]);
 
   // ── WebSocket ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -234,7 +243,7 @@ export default function LadyLuckSpectate() {
   };
 
   const handleLockBet = () => {
-    if (!sideBetSuit || sideBetAmt < 100 || sideBetAmt > 2000 || betLocked) return;
+    if (!sideBetSuit || sideBetAmt < sideBetMin || sideBetAmt > sideBetMax || betLocked) return;
     setError(null);
     send({ type: 'll:spectator_sidebet', tableId, userId: identity.id, suit: sideBetSuit, amount: sideBetAmt });
     setMyBet({ suit: sideBetSuit, amount: sideBetAmt });
@@ -251,7 +260,7 @@ export default function LadyLuckSpectate() {
     setMyBet(null);
     setBetLocked(false);
     setSideBetSuit(null);
-    setSideBetAmt(100);
+    setSideBetAmt(sideBetMin);
     setError(null);
   };
 
@@ -463,20 +472,21 @@ export default function LadyLuckSpectate() {
                 {/* Wager input */}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginBottom: 6, letterSpacing: 0.5 }}>
-                    AMOUNT (100–2,000)
+                    AMOUNT ({sideBetMin.toLocaleString()}–{sideBetMax.toLocaleString()})
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {[100, 200, 500, 1000, 2000].map(v => (
+                    {sideBetChips.map(v => (
                       <button
                         key={v}
                         data-testid={`spectate-bet-chip-${v}`}
                         onClick={() => setSideBetAmt(v)}
+                        disabled={v < sideBetMin || v > sideBetMax}
                         style={{
                           background: sideBetAmt === v ? '#C9A227' : 'rgba(255,255,255,0.07)',
                           color: sideBetAmt === v ? '#000' : 'rgba(255,255,255,0.7)',
                           border: sideBetAmt === v ? 'none' : '1px solid rgba(255,255,255,0.12)',
                           borderRadius: 7, padding: '6px 10px', fontSize: 11, fontFamily: 'monospace',
-                          fontWeight: 700, cursor: 'pointer', letterSpacing: 0.5,
+                          fontWeight: 700, cursor: v >= sideBetMin && v <= sideBetMax ? 'pointer' : 'not-allowed', letterSpacing: 0.5,
                         }}
                       >
                         {v >= 1000 ? `${v / 1000}K` : v}
@@ -485,9 +495,9 @@ export default function LadyLuckSpectate() {
                   </div>
                   <input
                     data-testid="spectate-bet-input"
-                    type="number" min={100} max={2000} step={100}
+                    type="number" min={sideBetMin} max={sideBetMax} step={1}
                     value={sideBetAmt}
-                    onChange={e => setSideBetAmt(Math.max(100, Math.min(2000, Number(e.target.value))))}
+                    onChange={e => setSideBetAmt(Math.max(sideBetMin, Math.min(sideBetMax, Number(e.target.value))))}
                     style={{ marginTop: 8, width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#fff', fontFamily: 'monospace', fontSize: 13, padding: '8px 12px', boxSizing: 'border-box' }}
                   />
                 </div>
@@ -496,7 +506,7 @@ export default function LadyLuckSpectate() {
                 <button
                   data-testid="button-lock-bet"
                   onClick={handleLockBet}
-                  disabled={!sideBetSuit || sideBetAmt < 100 || sideBetAmt > 2000}
+                  disabled={!sideBetSuit || sideBetAmt < sideBetMin || sideBetAmt > sideBetMax}
                   style={{
                     width: '100%', background: sideBetSuit ? '#C9A227' : 'rgba(255,255,255,0.1)',
                     color: sideBetSuit ? '#000' : 'rgba(255,255,255,0.35)',

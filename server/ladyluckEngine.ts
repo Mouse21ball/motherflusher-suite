@@ -752,7 +752,8 @@ export async function handleLLSpectatorSideBet(
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'bet_already_placed' })); } catch {}
     return;
   }
-  if (!Number.isSafeInteger(amount) || amount < 100 || amount > 2000) {
+  const room = LADY_LUCK_ROOMS[state.roomType];
+  if (!Number.isSafeInteger(amount) || amount < room.minWager || amount > room.maxSideBet) {
     try { ws.send(JSON.stringify({ type: 'll:error', message: 'invalid_amount' })); } catch {}
     return;
   }

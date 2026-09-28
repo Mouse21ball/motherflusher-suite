@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type WebSocket from 'ws';
 import { createLLTable, handleLLJoin, handleLLSideBet, handleLLSpectate, handleLLSpectatorSideBet, handleLLStart, handleLLSelect, resolveRace } from '../server/ladyluckEngine';
 import { storage } from '../server/storage';
+import { LADY_LUCK_ROOMS, type LadyLuckRoom } from '../shared/modes/ladyluck';
 
 vi.mock('../server/ladyluckPersistence', () => ({ scheduleLLSave: vi.fn(), flushLLFinancialState: vi.fn(), deleteLLPersistedTable: vi.fn() }));
 vi.mock('../server/storage', () => ({
@@ -24,10 +25,10 @@ function socket() {
   };
 }
 
-async function setup() {
+async function setup(room: LadyLuckRoom = 'pony') {
   const id = `sidebet-${Math.random()}`;
   const ws = socket();
-  createLLTable(id, 'pony', 'p1');
+  createLLTable(id, room, 'p1');
   handleLLJoin(id, 'p1', 'One', 1000, ws as unknown as WebSocket);
   handleLLJoin(id, 'p2', 'Two', 1000, ws as unknown as WebSocket);
   handleLLStart(id, 'p1');
@@ -68,6 +69,53 @@ describe('Lady Luck side-bet amounts', () => {
     expect(spectatorWs.messages.at(-1)).toEqual({ type: 'll:error', message: 'invalid_amount' });
     expect(storage.debitLadyLuckWager).not.toHaveBeenCalled();
   });
+
+  it.each(Object.entries(LADY_LUCK_ROOMS) as [LadyLuckRoom, typeof LADY_LUCK_ROOMS[LadyLuckRoom]][])(
+    'enforces %s spectator side-bet limits from the room configuration',
+    async (room, limits) => {
+      const { id } = await setup(room);
+      const spectatorWs = socket();
+      handleLLSpectate(id, 'spectator', 'Watcher', '', spectatorWs as unknown as WebSocket);
+
+      await handleLLSpectatorSideBet(id, 'spectator', 'spades', limits.minWager, spectatorWs as unknown as WebSocket);
+      expect(spectatorWs.messages.at(-1)).toEqual({
+        type: 'll:spectator_bet_confirmed',
+        suit: 'spades',
+        amount: limits.minWager,
+      });
+      expect(storage.transferLadyLuckChips).toHaveBeenLastCalledWith(
+        'spectator', '__ladyluck_house__', limits.minWager, 'ladyluck_spectator_stake',
+        id, undefined, expect.any(String),
+      );
+
+      const maxTable = await setup(room);
+      const maxSpectatorWs = socket();
+      handleLLSpectate(maxTable.id, 'spectator-max', 'Watcher', '', maxSpectatorWs as unknown as WebSocket);
+      await handleLLSpectatorSideBet(maxTable.id, 'spectator-max', 'spades', limits.maxSideBet, maxSpectatorWs as unknown as WebSocket);
+      expect(maxSpectatorWs.messages.at(-1)).toEqual({
+        type: 'll:spectator_bet_confirmed',
+        suit: 'spades',
+        amount: limits.maxSideBet,
+      });
+    },
+  );
+
+  it.each(Object.entries(LADY_LUCK_ROOMS) as [LadyLuckRoom, typeof LADY_LUCK_ROOMS[LadyLuckRoom]][])(
+    'rejects spectator side-bets outside %s limits before charging',
+    async (room, limits) => {
+      const { id } = await setup(room);
+      const spectatorWs = socket();
+      handleLLSpectate(id, 'spectator', 'Watcher', '', spectatorWs as unknown as WebSocket);
+
+      await handleLLSpectatorSideBet(id, 'spectator', 'spades', limits.minWager - 1, spectatorWs as unknown as WebSocket);
+      expect(spectatorWs.messages.at(-1)).toEqual({ type: 'll:error', message: 'invalid_amount' });
+      expect(storage.transferLadyLuckChips).not.toHaveBeenCalled();
+
+      await handleLLSpectatorSideBet(id, 'spectator', 'spades', limits.maxSideBet + 1, spectatorWs as unknown as WebSocket);
+      expect(spectatorWs.messages.at(-1)).toEqual({ type: 'll:error', message: 'invalid_amount' });
+      expect(storage.transferLadyLuckChips).not.toHaveBeenCalled();
+    },
+  );
 
   it('credits a seated side-bet winner the same raked net as a spectator', async () => {
     const { id } = await setup();

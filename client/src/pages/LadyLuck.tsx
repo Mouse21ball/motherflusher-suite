@@ -1234,6 +1234,11 @@ export default function LadyLuck() {
               );
             })}
           </div>
+          {sideBetSuit && myPlayer?.suit === sideBetSuit && (
+            <div data-testid="own-suit-sidebet-disclosure" role="note" style={{ marginBottom: 10, background: 'rgba(229,57,53,0.12)', border: '1px solid rgba(255,180,80,0.65)', borderRadius: 8, padding: '9px 11px', color: '#ffe0b2', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5 }}>
+              This is your assigned suit: it increases your exposure. On the same result, you can receive your regular pot share (gross 1×) plus the side-bet payout (gross 2.5×). Both payouts are reduced by the house rake.
+            </div>
+          )}
           {/* Amount + place bet */}
           {sideBetSuit && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -1673,7 +1678,7 @@ export default function LadyLuck() {
             {myDelta >= 0 ? '+' : ''}{myDelta.toLocaleString()}
           </div>
           <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.18)', textAlign: 'center', marginTop: 5, letterSpacing: 1 }}>
-            WAGER {myWager.toLocaleString()} · SIDE BETS {myBetsTotal.toLocaleString()} · PAYOUT {(myPayout + myBetPayout).toLocaleString()}
+            WAGER {myWager.toLocaleString()} · SIDE BETS {myBetsTotal.toLocaleString()} · GROSS PAYOUT {(myPayout + myBetPayout).toLocaleString()} (BEFORE RAKE)
           </div>
         </div>
 
@@ -1826,6 +1831,13 @@ export default function LadyLuck() {
         </div>
 
         {/* ── ACTION AREA ── */}
+        {amActive && myPlayer?.presence === 'human' && !myWagered && betTime > 0 && betTime <= 10 && (
+          <div data-testid="bet-countdown-warning" role="alert" style={{ margin: '0 14px 10px', background: 'rgba(229,57,53,0.18)', border: '1px solid rgba(255,107,107,0.75)', borderRadius: 10, padding: '10px 12px', color: '#fff', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, boxShadow: '0 0 14px rgba(229,57,53,0.2)', flexShrink: 0 }}>
+            <strong style={{ color: '#ff8a80', fontSize: 14 }}>⏳ {betTime} SECONDS LEFT — PLACE YOUR WAGER</strong>
+            <div>If you take no action, {room.minWager.toLocaleString()} chips will be wagered and a suit will be auto-assigned.</div>
+            <div>If you have fewer than {room.minWager.toLocaleString()} chips, you may be removed from the table.</div>
+          </div>
+        )}
         <div style={{ margin: '0 14px', flexShrink: 0 }}>
           {amActive ? (
             myWagered ? (
