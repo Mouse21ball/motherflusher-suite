@@ -2,6 +2,15 @@
 // Hourly bonus, starter pack, VIP tier helpers.
 // All purely client-side (localStorage). No real money, no gambling.
 
+import {
+  REACTION_EMOTES,
+  STARTER_REACTION_EMOTES,
+  VIP_REACTION_EMOTES,
+  VIP_REACTION_EXTRA_COUNTS,
+  VIP_REACTION_UNLOCK_LEVELS,
+  vipReactionCountAtLevel,
+} from '../../../shared/reactionEntitlements';
+
 const HOURLY_KEY  = 'cgp_hourly_bonus';
 const STARTER_KEY = 'cgp_starter_pack';
 const HOUR_MS     = 60 * 60 * 1000;
@@ -32,10 +41,10 @@ export const VIP_TIERS: VipTierInfo[] = [
     bg: 'rgba(205,127,50,0.10)',
     dailyBonusPct: 0,
     hourlyBonusPct: 0,
-    extraEmotes: 0,
+    extraEmotes: VIP_REACTION_EXTRA_COUNTS[0],
     badge: '🥉',
-    minLevel: 1,
-    nextLevel: 11,
+    minLevel: VIP_REACTION_UNLOCK_LEVELS[0],
+    nextLevel: VIP_REACTION_UNLOCK_LEVELS[1],
   },
   {
     name: 'Silver',
@@ -44,10 +53,10 @@ export const VIP_TIERS: VipTierInfo[] = [
     bg: 'rgba(192,192,192,0.08)',
     dailyBonusPct: 10,
     hourlyBonusPct: 10,
-    extraEmotes: 5,
+    extraEmotes: VIP_REACTION_EXTRA_COUNTS[1],
     badge: '🥈',
-    minLevel: 11,
-    nextLevel: 21,
+    minLevel: VIP_REACTION_UNLOCK_LEVELS[1],
+    nextLevel: VIP_REACTION_UNLOCK_LEVELS[2],
   },
   {
     name: 'Gold',
@@ -56,10 +65,10 @@ export const VIP_TIERS: VipTierInfo[] = [
     bg: 'rgba(240,184,41,0.10)',
     dailyBonusPct: 20,
     hourlyBonusPct: 20,
-    extraEmotes: 10,
+    extraEmotes: VIP_REACTION_EXTRA_COUNTS[2],
     badge: '🥇',
-    minLevel: 21,
-    nextLevel: 36,
+    minLevel: VIP_REACTION_UNLOCK_LEVELS[2],
+    nextLevel: VIP_REACTION_UNLOCK_LEVELS[3],
   },
   {
     name: 'Platinum+',
@@ -68,28 +77,22 @@ export const VIP_TIERS: VipTierInfo[] = [
     bg: 'rgba(176,224,230,0.08)',
     dailyBonusPct: 25,
     hourlyBonusPct: 25,
-    extraEmotes: 15,
+    extraEmotes: VIP_REACTION_EXTRA_COUNTS[3],
     badge: '💎',
-    minLevel: 36,
+    minLevel: VIP_REACTION_UNLOCK_LEVELS[3],
     nextLevel: null,
   },
 ];
 
 export function getVipTier(level: number): VipTierInfo {
-  if (level >= 36) return VIP_TIERS[3];
-  if (level >= 21) return VIP_TIERS[2];
-  if (level >= 11) return VIP_TIERS[1];
+  if (level >= VIP_REACTION_UNLOCK_LEVELS[3]) return VIP_TIERS[3];
+  if (level >= VIP_REACTION_UNLOCK_LEVELS[2]) return VIP_TIERS[2];
+  if (level >= VIP_REACTION_UNLOCK_LEVELS[1]) return VIP_TIERS[1];
   return VIP_TIERS[0];
 }
 
-// Starter-pack emotes and VIP emotes are separate entitlements. Keep this
-// catalog ordered so each tier unlocks the next distinct VIP reactions.
-export const STARTER_REACTION_EMOTES = ['🔥', '👀', '😈', '💀', '😂'] as const;
-export const VIP_REACTION_EMOTES = [
-  '⛓️', '💯', '🫡', '🤝', '🥶', '🚀', '🃏', '💸', '🎯', '👑',
-  '🧊', '⚡', '🦈', '🍀', '🏆',
-] as const;
-export const REACTION_EMOTES = [...STARTER_REACTION_EMOTES, ...VIP_REACTION_EMOTES] as const;
+// Re-export the shared catalog to preserve existing UI imports.
+export { REACTION_EMOTES, STARTER_REACTION_EMOTES, VIP_REACTION_EMOTES };
 
 /** Purely derive available reactions from VIP level and claimed starter emotes. */
 export function getEntitledReactions(
@@ -101,7 +104,7 @@ export function getEntitledReactions(
     ? Math.max(0, Math.min(STARTER_REACTION_EMOTES.length, Math.floor(starterPackEmoteCount)))
     : 0;
   const starterEmotes = STARTER_REACTION_EMOTES.slice(0, safeStarterCount);
-  const vipEmotes = VIP_REACTION_EMOTES.slice(0, getVipTier(safeLevel).extraEmotes);
+  const vipEmotes = VIP_REACTION_EMOTES.slice(0, vipReactionCountAtLevel(safeLevel));
   return [...starterEmotes, ...vipEmotes];
 }
 

@@ -15,6 +15,7 @@ import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { FEATURES } from '../shared/featureFlags';
 import { storage } from './storage';
+import { dispatchOwnedAction } from './reactionAuthorization';
 import { consumeWsTicket } from './wsTickets';
 import {
   addBadugiConnection,
@@ -585,7 +586,17 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
         console.log('[CGP][server] ← badugi:action', { tableId, playerId: pid, action, gateOn: SERVER_BADUGI_ON });
         if (!SERVER_BADUGI_ON) { console.warn('[CGP][server] badugi:action DROPPED — gate off'); return; }
-        const error = handleBadugiAction(tableId, pid, action, payload);
+        const dispatch = await dispatchOwnedAction(
+          authWs.authenticatedPlayerId,
+          tableId,
+          pid,
+          getSeatOwner,
+          action,
+          payload,
+          (id) => storage.getPlayerProfile(id),
+          () => handleBadugiAction(tableId, pid, action, payload),
+        );
+        const error = dispatch.error ?? dispatch.result;
         if (error && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'error', message: error }));
         }
@@ -610,7 +621,17 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
         console.log('[CGP][server] ← mode:action', { tableId, modeId: msg.modeId, playerId: pid, action, gateOn: SERVER_MODES_ON });
         if (!SERVER_MODES_ON) { console.warn('[CGP][server] mode:action DROPPED — gate off'); return; }
-        const error = handleGenericAction(tableId, pid, action, payload);
+        const dispatch = await dispatchOwnedAction(
+          authWs.authenticatedPlayerId,
+          tableId,
+          pid,
+          getSeatOwner,
+          action,
+          payload,
+          (id) => storage.getPlayerProfile(id),
+          () => handleGenericAction(tableId, pid, action, payload),
+        );
+        const error = dispatch.error ?? dispatch.result;
         if (error && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'error', message: error }));
         }
