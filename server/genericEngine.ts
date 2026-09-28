@@ -7,7 +7,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
 import { SuitsPokerMode, suitsDeclarationError } from '../shared/modes/suitspoker';
-import { FlushedUpMode } from '../shared/modes/flushedUp';
+import { FlushedUpMode, evaluateFlushedUpHand } from '../shared/modes/flushedUp';
 import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
 import { BonecrusherMode } from '../shared/modes/bonecrusher';
 import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/modes/boxchevy';
@@ -1238,7 +1238,7 @@ function resolveShowdown(table: GenericTable): void {
 // Returns true if the hand was resolved here; callers should bail out of any
 // further phase advancement when true.
 
-function resolveByFold(table: GenericTable): boolean {
+export function resolveByFold(table: GenericTable): boolean {
   const s = table.state;
   // Only fire mid-hand. WAITING/SHOWDOWN/ANTE/DEAL handle themselves.
   if (s.phase === 'WAITING' || s.phase === 'SHOWDOWN' || s.phase === 'ANTE' || s.phase === 'DEAL' || s.phase === 'DECLARE') {
@@ -1251,6 +1251,60 @@ function resolveByFold(table: GenericTable): boolean {
   if (nonFolded.length === 1) {
     const winner = nonFolded[0];
     const pot = s.pot;
+
+    // Flushed Up requires a qualifying flush even when every opponent folds.
+    // Resolve a lone non-flush through the mode's normal showdown path so its
+    // post-rake pot rolls over instead of being awarded as a fold win.
+    if (
+      table.modeId === 'flushed_up' &&
+      !evaluateFlushedUpHand(winner.cards.map(card => ({ ...card, isHidden: false }))).isFlush
+    ) {
+      table.resolvedPot = pot;
+      const { winnerPot, rake } = applyRake(pot);
+      if (rake > 0) {
+        storage.logHouseRake({
+          tableId:      table.tableId,
+          gameMode:     table.modeId,
+          handOrRaceId: String(table.handId),
+          grossPot:     pot,
+          rakeAmount:   rake,
+          netPot:       winnerPot,
+        }).catch(console.error);
+      }
+      const result = FlushedUpMode.resolveShowdown(s.players, winnerPot, '__server__', s.communityCards);
+      const rolloverMessage = `No qualifying hands — $${winnerPot} rolls over!`;
+      table.state = {
+        ...s,
+        players: result.players,
+        // Flushed Up's showdown resolver builds pot tiers from totalBet; keep
+        // this fold-only rollover at the post-rake amount used by showdown.
+        pot: winnerPot,
+        phase: 'SHOWDOWN' as GamePhase,
+        activePlayerId: winner.id,
+        currentBet: 0,
+        messages: [
+          ...s.messages,
+          ...result.messages.map(text => ({
+            id: makeId(),
+            text: text.startsWith('No qualifying hands') ? rolloverMessage : text,
+            time: Date.now(),
+            isResolution: true,
+          })),
+        ].slice(-10),
+      };
+
+      for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+      table.botTimers.clear();
+      broadcastState(table);
+
+      const fenced = table.handId;
+      setTimeout(() => {
+        if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+        advanceAfterSettlement(table);
+      }, 2500);
+      return true;
+    }
+
     table.resolvedPot = pot;
     const { winnerPot, rake } = applyRake(pot);
     if (rake > 0) {

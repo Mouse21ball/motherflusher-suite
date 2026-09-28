@@ -290,6 +290,14 @@ export const FlushedUpMode: GameMode = {
 
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
+      const soleEval = sole.score as FlushedUpEval | undefined;
+      if (!soleEval?.isFlush) {
+        finalPlayers = finalPlayers.map(p =>
+          p.id === sole.id ? { ...p, isLoser: true } : p,
+        );
+        messages.push(`No qualifying hands — $${totalAwardable} rolls over!`);
+        return { players: finalPlayers, pot: totalAwardable, messages };
+      }
       const award = sidePots
         .filter(sp => sp.eligibleIds.includes(sole.id))
         .reduce((s, sp) => s + sp.amount, 0);
@@ -316,12 +324,16 @@ export const FlushedUpMode: GameMode = {
         );
       }
 
+      const qualifying = eligible.filter(p => evalMap.get(p.id)!.isFlush);
+      if (qualifying.length === 0) { rolledOver += sp.amount; continue; }
+
       let bestEval: FlushedUpEval | null = null;
-      for (const e of evalMap.values()) {
+      for (const p of qualifying) {
+        const e = evalMap.get(p.id)!;
         if (!bestEval || compareFlushedUpHands(e, bestEval) > 0) bestEval = e;
       }
 
-      const winners = eligible.filter(p => {
+      const winners = qualifying.filter(p => {
         const e = evalMap.get(p.id)!;
         return compareFlushedUpHands(e, bestEval!) === 0;
       });
@@ -360,7 +372,7 @@ export const FlushedUpMode: GameMode = {
       }
     }
 
-    if (winnerSet.size === 0) {
+    if (rolledOver > 0) {
       messages.push(`No qualifying hands — $${rolledOver} rolls over!`);
     }
 

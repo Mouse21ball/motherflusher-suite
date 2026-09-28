@@ -53,7 +53,7 @@ function TutorialPanel() {
         {[
           { icon: '🎴', label: 'DRAW UP TO 3', sub: 'Cards per round' },
           { icon: '🗑', label: 'DISCARD ANY', sub: 'Tap to select' },
-          { icon: '♠', label: 'GET THE MOST', sub: 'Best flush wins' },
+          { icon: '♠', label: 'MAKE A FLUSH', sub: '5 same-suit cards qualify; otherwise pot rolls over' },
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 18 }}>{step.icon}</span>
