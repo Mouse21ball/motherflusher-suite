@@ -25,3 +25,4 @@
 - [Claimed offer fulfillment](claimed-offer-fulfillment.md) — honor a valid claimed first-purchase receipt even if another purchase settles before verification; avoid charging without a grant.
 - [Google Play product ID format](google-play-product-ids.md) — use underscores for new Play in-app product identifiers; hyphenated IDs were rejected.
 - [External CI npm mirrors](external-ci-npm-mirrors.md) — Replit-mirrored lockfile tarballs can silently break GitHub npm ci; verify local pinned tools before checks.
+- [Firebase console security status](firebase-console-security.md) — mobile API keys were restricted and unused Firebase databases/storage were confirmed disabled in the console.
