@@ -1984,14 +1984,14 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
           players: s.players.map(p =>
             p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p
           ),
-        }, 'You declared FOLD');
+        }, `${me.name} declared FOLD`);
       } else {
         table.state = addMsg({
           ...s,
           players: s.players.map(p =>
             p.id === playerId ? { ...p, declaration, hasActed: true } : p
           ),
-        }, `You declared ${declaration}`);
+        }, `${me.name} declared ${declaration}`);
       }
       engineLog('ACTION', tableId, { player: playerId, action: 'declare', accepted: true, declaration: String(declaration) });
       table.actionLock = false;
