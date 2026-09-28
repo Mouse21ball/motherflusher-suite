@@ -7,9 +7,10 @@ import {
   evaluateKamikaze,
   compareKamikazeHigh,
   compareKamikazeLow,
+  chooseKamikazeDeclaration,
   KamikazeMode,
 } from '../shared/modes/kamikaze';
-import type { CardType, Player } from '../shared/gameTypes';
+import type { CardType, GameState, Player } from '../shared/gameTypes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,35 @@ const valid321Low = [
   card('5', 'diamonds'), card('6', 'diamonds'),
   card('7', 'clubs'),
 ];
+
+describe('Kamikaze bot declaration', () => {
+  it('chooses the more competitive showdown side rather than flipping a coin', () => {
+    const premiumHigh = evaluateKamikaze(valid321);       // A-K-Q high, weak low
+    const premiumLow = evaluateKamikaze(valid321Low);     // 2-3-4 low, weak high
+    const aceLow = evaluateKamikaze([
+      card('A', 'hearts'), card('2', 'hearts'), card('3', 'hearts'),
+      card('7', 'diamonds'), card('8', 'diamonds'), card('9', 'clubs'),
+    ]);
+    expect(chooseKamikazeDeclaration(premiumHigh)).toBe('HIGH');
+    expect(chooseKamikazeDeclaration(premiumLow)).toBe('LOW');
+    expect(chooseKamikazeDeclaration(aceLow)).toBe('LOW');
+    expect(chooseKamikazeDeclaration(premiumHigh)).toBe('HIGH');
+  });
+
+  it('uses that decision in botAction and folds non-qualifying hands', () => {
+    const declare = (cards: CardType[]) => {
+      const state = {
+        phase: 'DECLARE', players: [{ ...player('bot', cards), hasActed: false },
+          { ...player('human', valid321Low), presence: 'human', hasActed: true }],
+        pot: 200, currentBet: 0, deck: [], discardPile: [],
+      } as GameState;
+      return KamikazeMode.botAction(state, 'bot').stateUpdates.players![0];
+    };
+    expect(declare(valid321).declaration).toBe('HIGH');
+    expect(declare(valid321Low).declaration).toBe('LOW');
+    expect(declare([card('A', 'hearts')]).status).toBe('folded');
+  });
+});
 
 // Invalid: 4-1-1 distribution
 const invalid411 = [

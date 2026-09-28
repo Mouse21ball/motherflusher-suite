@@ -91,6 +91,33 @@ export function compareKamikazeLow(a: KamikazeEval, b: KamikazeEval): number {
   return 0;
 }
 
+// A valid hand's 3-card suit group has three distinct ranks. Compare its
+// showdown strength against every possible 3-rank group on each side; the
+// higher win percentile is the more competitive declaration.
+const KAMIKAZE_RANK_GROUPS: Pick<KamikazeEval, 'highRanks' | 'lowRanks'>[] = [];
+for (let a = 1; a <= 11; a++) {
+  for (let b = a + 1; b <= 12; b++) {
+    for (let c = b + 1; c <= 13; c++) {
+      KAMIKAZE_RANK_GROUPS.push({
+        highRanks: [a, b, c].map(r => r === 1 ? 14 : r).sort((x, y) => y - x),
+        lowRanks: [a, b, c],
+      });
+    }
+  }
+}
+
+export function chooseKamikazeDeclaration(ev: KamikazeEval): 'HIGH' | 'LOW' {
+  if (!ev.isValid) throw new Error('Cannot declare a non-qualifying Kamikaze hand');
+  let highBeats = 0;
+  let lowBeats = 0;
+  for (const ranks of KAMIKAZE_RANK_GROUPS) {
+    // The comparators use only the corresponding rank arrays.
+    if (compareKamikazeHigh(ev, ranks as KamikazeEval) > 0) highBeats++;
+    if (compareKamikazeLow(ev, ranks as KamikazeEval) > 0) lowBeats++;
+  }
+  return highBeats >= lowBeats ? 'HIGH' : 'LOW';
+}
+
 function discardLimitForPhase(phase: string): number {
   if (phase === 'DRAW_1') return 3;
   if (phase === 'DRAW_2') return 2;
@@ -220,7 +247,7 @@ export const KamikazeMode: GameMode = {
         newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true };
         message = `${bot.name} folds (no qualifying hand)`;
       } else {
-        const declaration: Declaration = Math.random() < 0.5 ? 'HIGH' : 'LOW';
+        const declaration: Declaration = chooseKamikazeDeclaration(ev);
         newPlayers[bIdx] = { ...bot, declaration, hasActed: true };
         message = `${bot.name} declares ${declaration}`;
       }
