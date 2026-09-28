@@ -9,8 +9,18 @@ export const createDeck = (): CardType[] => {
       deck.push({ suit, rank, isHidden: true });
     }
   }
+  // Web Crypto works in the browser and Node; rejection sampling avoids
+  // modulo bias when mapping a 32-bit secure value to a deck index.
+  const random = new Uint32Array(1);
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const bound = i + 1;
+    const limit = 0x1_0000_0000 - (0x1_0000_0000 % bound);
+    let value: number;
+    do {
+      globalThis.crypto.getRandomValues(random);
+      value = random[0];
+    } while (value >= limit);
+    const j = value % bound;
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
