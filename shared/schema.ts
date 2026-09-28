@@ -31,6 +31,7 @@ export const playerProfiles = pgTable("player_profiles", {
   xpModesPlayed:        jsonb("xp_modes_played").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   xpAchievements:       jsonb("xp_achievements").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   lastHourlyRewardAt:   timestamp("last_hourly_reward_at"),
+  lastActivityAt:       timestamp("last_activity_at"),
   lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
   email:                text("email").unique(),
   passwordHash:         text("password_hash"),
@@ -232,6 +233,36 @@ export const insertDailyBonusClaimSchema = createInsertSchema(dailyBonusClaims).
 
 export type InsertDailyBonusClaim = z.infer<typeof insertDailyBonusClaimSchema>;
 export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
+
+// ─── Push notification preferences, devices, and idempotency claims ────────────
+export const notificationPreferences = pgTable("notification_preferences", {
+  playerId:    text("player_id").primaryKey().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  streakAtRisk: boolean("streak_at_risk").notNull().default(true),
+  hourlyReady:  boolean("hourly_ready").notNull().default(true),
+  winBack:      boolean("win_back").notNull().default(true),
+  updatedAt:    timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const notificationDevices = pgTable("notification_devices", {
+  token:      varchar("token", { length: 4096 }).primaryKey(),
+  installationId: varchar("installation_id", { length: 128 }).notNull(),
+  playerId:   text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  platform:   varchar("platform", { length: 8 }).notNull(),
+  createdAt:  timestamp("created_at").notNull().defaultNow(),
+  updatedAt:  timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  playerIdx: index("notification_devices_player_idx").on(table.playerId),
+  installationUnique: uniqueIndex("notification_devices_installation_unique").on(table.installationId),
+}));
+
+export const notificationClaims = pgTable("notification_claims", {
+  id:        text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  playerId:  text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  eventKey:  varchar("event_key", { length: 128 }).notNull(),
+  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+}, table => ({
+  playerEventUnique: uniqueIndex("notification_claims_player_event_unique").on(table.playerId, table.eventKey),
+}));
 
 // ─── Cosmetic Items (server-controlled catalog) ───────────────────────────────
 export const cosmeticItems = pgTable("cosmetic_items", {

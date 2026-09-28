@@ -28,6 +28,7 @@ import { db } from "./db";
 import { purchaseTransactions, playerProfiles } from "../shared/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { createApiResponseLogger } from "./responseLogger";
+import { startPushNotificationJob } from "./pushNotifications";
 
 // Flush all debounced persistence writes before the process exits
 // so mid-hand state is not lost on graceful restart (SIGTERM from nodemon/pm2).
@@ -188,6 +189,7 @@ app.use(createApiResponseLogger(log));
   app.use('/api', generalApiRateLimit);
 
   await registerRoutes(httpServer, app);
+  startPushNotificationJob();
 
   // Sentry Express error handler — must come before the custom error handler so
   // Sentry can capture the error object before it is converted to JSON.

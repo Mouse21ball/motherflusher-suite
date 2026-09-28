@@ -1105,6 +1105,7 @@ export class MemStorage implements IStorage {
       xpBackfilled: true,
       xpBadugisWon: 0, xpModesPlayed: [], xpAchievements: [],
       lastHourlyRewardAt: null,
+      lastActivityAt: null,
     };
 
     // Wrap creation + genesis ledger in one transaction so new players always

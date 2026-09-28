@@ -42,6 +42,7 @@ import LadyLuckHistory from "@/pages/LadyLuckHistory";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import { CelebrationHost } from "@/components/celebrations/CelebrationHost";
+import { activatePushForProfile, deactivatePushForProfile } from "@/lib/pushNotifications";
 
 // ── Combined profile-driven manager ──────────────────────────────────────────
 // Shared profile state handles Diamond Elite background, music playback, and
@@ -92,6 +93,20 @@ function ProfileManager() {
       : null;
     music.setTrackUrl(url);
   }, [location, profile?.equippedLobbyTrack, profile?.equippedGameTrack, profile?.equippedLadyLuckTrack]);
+
+  return null;
+}
+
+function PushRegistrationManager() {
+  const { profile } = useServerProfile();
+
+  useEffect(() => {
+    if (!profile?.profileId) return;
+    void activatePushForProfile(profile.profileId).catch(() => {
+      // Push is optional; settings surface errors when the player actively changes it.
+    });
+    return () => deactivatePushForProfile(profile.profileId);
+  }, [profile?.profileId]);
 
   return null;
 }
@@ -198,6 +213,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <CelebrationHost />
+          <PushRegistrationManager />
           {/* Screen-edge vignette — always on top, no pointer events */}
           <div className="cgp-vignette" aria-hidden="true" />
           <ProfileManager />

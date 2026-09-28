@@ -15,6 +15,7 @@ import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { FEATURES } from '../shared/featureFlags';
 import { storage } from './storage';
+import { recordMeaningfulActivity } from './activity';
 import { dispatchOwnedAction } from './reactionAuthorization';
 import { consumeWsTicket } from './wsTickets';
 import {
@@ -483,6 +484,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // Send host/settings context to the joining player after engine init
         sendHostUpdateTo(ws, room);
         broadcastRoomState(room);
+        if (authWs.authenticatedPlayerId) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         return;
       }
 
@@ -617,6 +619,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           () => handleBadugiAction(tableId, pid, action, payload),
         );
         const error = dispatch.error ?? dispatch.result;
+        if (!error && authWs.authenticatedPlayerId) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         if (error && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'error', message: error }));
         }
@@ -652,6 +655,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           () => handleGenericAction(tableId, pid, action, payload),
         );
         const error = dispatch.error ?? dispatch.result;
+        if (!error && authWs.authenticatedPlayerId) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         if (error && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'error', message: error }));
         }
@@ -683,6 +687,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const profile = await storage.getPlayerProfile(pid).catch(() => null);
         const chips   = profile?.chipBalance ?? 1000;
         handleLLJoin(tid, pid, name || 'Player', chips, ws);
+        void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         return;
       }
 
@@ -699,6 +704,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (!tid || !pid || !suit) return;
         if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
         const result = handleLLSelect(tid, pid, suit as import('../shared/modes/ladyluck').LadyLuckSuit);
+        if (result.ok) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         if (!result.ok && ws.readyState === WebSocket.OPEN) {
           try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
         }
@@ -710,6 +716,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (!tid || !pid || amount == null) return;
         if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
         handleLLWager(tid, pid, amount).then(result => {
+          if (result.ok) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
           if (!result.ok && ws.readyState === WebSocket.OPEN) {
             try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
           }
@@ -722,6 +729,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (!tid || !pid || !suit || amount == null) return;
         if (getSeatOwner(tid, pid) !== authWs.authenticatedPlayerId) return;
         handleLLSideBet(tid, pid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount).then(result => {
+          if (result.ok) void recordMeaningfulActivity(authWs.authenticatedPlayerId);
           if (!result.ok && ws.readyState === WebSocket.OPEN) {
             try { ws.send(JSON.stringify({ type: 'll:error', message: result.error })); } catch {}
           }
@@ -742,6 +750,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const profile    = await storage.getPlayerProfile(uid).catch(() => null);
         const avatar     = (profile as any)?.avatarId ?? '';
         handleLLSpectate(tid, uid, username, avatar, ws);
+        void recordMeaningfulActivity(authWs.authenticatedPlayerId);
         return;
       }
 
@@ -753,7 +762,9 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (!tid || !uid || !suit || amount == null) return;
         if (uid !== authWs.authenticatedPlayerId) return;
         if (spectatorTableId !== tid || spectatorUserId !== uid) return;
-        handleLLSpectatorSideBet(tid, uid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount, ws).catch(() => {});
+        handleLLSpectatorSideBet(tid, uid, suit as import('../shared/modes/ladyluck').LadyLuckSuit, amount, ws)
+          .then(() => { void recordMeaningfulActivity(authWs.authenticatedPlayerId); })
+          .catch(() => {});
         return;
       }
 

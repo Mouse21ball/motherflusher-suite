@@ -25,6 +25,8 @@ import { resolveAvatarSrc } from '@/lib/persistence';
 import { BUILD_COMMIT } from '@/lib/buildInfo';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import { setCelebrationMotion, useCelebrationMotion, type CelebrationMotion } from '@/lib/celebrationPreferences';
+import { NotificationSettings } from '@/components/settings/NotificationSettings';
+import { logoutPushInstallation, revokePushInstallation } from '@/lib/pushNotifications';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -118,17 +120,28 @@ export default function Profile() {
   // ── Auth modal ─────────────────────────────────────────────────────────────
   const [authOpen,    setAuthOpen]    = useState(false);
   const [authDefault, setAuthDefault] = useState<'login' | 'register'>('login');
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const openAuth = (t: 'login' | 'register') => { setAuthDefault(t); setAuthOpen(true); };
   const handleAuthSuccess = (displayName: string) => {
     setAuthOpen(false);
     window.location.reload();
     void displayName;
   };
-  const handleLogout = () => {
-    clearSessionToken();
-    queryClient.clear();
-    try { localStorage.setItem('just_logged_out', '1'); } catch {}
-    window.location.href = '/';
+  const handleLogout = async () => {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    setLogoutError(null);
+    try {
+      await logoutPushInstallation(serverProfile?.profileId ?? identity.id);
+      clearSessionToken();
+      queryClient.clear();
+      try { localStorage.setItem('just_logged_out', '1'); } catch {}
+      window.location.href = '/';
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : 'Could not log out or revoke this device. Try again.');
+      setLogoutBusy(false);
+    }
   };
 
   // ── Delete account ─────────────────────────────────────────────────────────
@@ -151,6 +164,7 @@ export default function Profile() {
     }
     setDeleteBusy(true);
     setDeleteError(null);
+    try { await revokePushInstallation(serverProfile?.profileId ?? identity.id); } catch {}
     const isGuest = !serverProfile?.hasAuth;
     if (isGuest) {
       try {
@@ -612,20 +626,24 @@ export default function Profile() {
 
           {/* Saved account bar */}
           {serverProfile?.hasAuth && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: 'rgba(15,10,25,0.45)', border: '1px solid rgba(34,197,94,0.18)' }}>
-              <div>
-                <div style={{ fontSize: 9, color: 'rgba(34,197,94,0.60)', fontFamily: 'monospace', letterSpacing: '0.12em' }}>SAVED ACCOUNT</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', fontFamily: 'monospace', marginTop: 2 }} data-testid="text-account-email">
-                  {serverProfile.email ?? 'Account linked'}
+            <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(15,10,25,0.45)', border: '1px solid rgba(34,197,94,0.18)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div style={{ fontSize: 9, color: 'rgba(34,197,94,0.60)', fontFamily: 'monospace', letterSpacing: '0.12em' }}>SAVED ACCOUNT</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', fontFamily: 'monospace', marginTop: 2 }} data-testid="text-account-email">
+                    {serverProfile.email ?? 'Account linked'}
+                  </div>
                 </div>
+                <button
+                  onClick={handleLogout}
+                  disabled={logoutBusy}
+                  data-testid="button-logout"
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.42)', fontSize: 11, fontFamily: 'monospace', cursor: logoutBusy ? 'wait' : 'pointer' }}
+                >
+                  {logoutBusy ? 'Logging out…' : 'Log Out'}
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                data-testid="button-logout"
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.22)', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer' }}
-              >
-                Log Out
-              </button>
+              {logoutError && <p role="alert" className="mt-2 text-[11px] text-red-300/90">{logoutError}</p>}
             </div>
           )}
 
@@ -975,6 +993,7 @@ export default function Profile() {
           )}
 
           <div className="flex flex-col gap-3 mt-2">
+            <NotificationSettings profileId={serverProfile?.profileId ?? identity.id} />
             <fieldset
               ref={celebrationSettingsRef}
               data-testid="settings-celebration-motion"

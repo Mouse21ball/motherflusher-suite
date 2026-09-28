@@ -86,6 +86,53 @@ import { registerLeaderboardRoute } from "./leaderboardRoutes";
 import { getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled } from "./rewardedAdConfig";
 import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
+import { notificationDevices, notificationPreferences, sessions } from "@shared/schema";
+import { and, eq, gt, or } from "drizzle-orm";
+import { recordMeaningfulActivity } from "./activity";
+import {
+  deleteOwnedDeviceBinding,
+  registerDeviceBinding,
+  revokeInstallationBinding,
+  type DeviceBindingRepository,
+} from "./notificationDeviceBindings";
+import { lockNotificationBindings, lockNotificationPlayers } from "./notificationLocks";
+
+function deviceBindingRepository(tx: any): DeviceBindingRepository {
+  return {
+    lockKeys: keys => lockNotificationBindings(tx, keys),
+    ownersFor: async (token, installationId) => {
+      const predicate = token
+        ? or(eq(notificationDevices.token, token), eq(notificationDevices.installationId, installationId))
+        : eq(notificationDevices.installationId, installationId);
+      const rows = await tx.select({ playerId: notificationDevices.playerId })
+        .from(notificationDevices).where(predicate);
+      return rows.map((row: { playerId: string }) => row.playerId);
+    },
+    lockPlayers: playerIds => lockNotificationPlayers(tx, playerIds),
+    removeTokenOrInstallation: async (token, installationId) => {
+      await tx.delete(notificationDevices).where(or(
+        eq(notificationDevices.token, token),
+        eq(notificationDevices.installationId, installationId),
+      ));
+    },
+    removeInstallation: async installationId => {
+      const removed = await tx.delete(notificationDevices)
+        .where(eq(notificationDevices.installationId, installationId))
+        .returning({ playerId: notificationDevices.playerId });
+      return removed.length > 0;
+    },
+    removeOwned: async (playerId, token, installationId) => {
+      await tx.delete(notificationDevices).where(and(
+        eq(notificationDevices.playerId, playerId),
+        eq(notificationDevices.token, token),
+        eq(notificationDevices.installationId, installationId),
+      ));
+    },
+    insert: async binding => {
+      await tx.insert(notificationDevices).values(binding);
+    },
+  };
+}
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY || process.env.Resend_key_secret;
@@ -181,6 +228,130 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   registerLeaderboardRoute(app);
+  const notificationPreferencePatch = z.object({
+    streakAtRisk: z.boolean().optional(),
+    hourlyReady: z.boolean().optional(),
+    winBack: z.boolean().optional(),
+  }).strict().refine(value => Object.keys(value).length > 0, "At least one preference must be provided");
+  const notificationDeviceInput = z.object({
+    token: z.string().min(1).max(4096).refine(value => value.trim() === value && value.length > 0),
+    platform: z.enum(["android", "ios"]),
+    installationId: z.string().uuid().transform(value => value.toLowerCase()),
+    enabled: z.boolean().optional(),
+  }).strict();
+
+  app.get("/api/notifications/preferences", requireAuth, async (req, res) => {
+    try {
+      const [saved] = await db.select().from(notificationPreferences)
+        .where(eq(notificationPreferences.playerId, req.sessionPlayerId!)).limit(1);
+      res.json({
+        preferences: {
+          streakAtRisk: saved?.streakAtRisk ?? true,
+          hourlyReady: saved?.hourlyReady ?? true,
+          winBack: saved?.winBack ?? true,
+        },
+      });
+    } catch {
+      res.status(500).json({ error: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.put("/api/notifications/preferences", requireAuth, async (req, res) => {
+    const parsed = notificationPreferencePatch.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid notification preference fields" });
+      return;
+    }
+    try {
+      await db.transaction(async tx => {
+        await lockNotificationPlayers(tx, [req.sessionPlayerId!]);
+        await tx.insert(notificationPreferences).values({
+          playerId: req.sessionPlayerId!,
+          ...parsed.data,
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: notificationPreferences.playerId,
+          set: { ...parsed.data, updatedAt: new Date() },
+        });
+      });
+      const [saved] = await db.select().from(notificationPreferences)
+        .where(eq(notificationPreferences.playerId, req.sessionPlayerId!)).limit(1);
+      res.json({
+        preferences: {
+          streakAtRisk: saved?.streakAtRisk ?? true,
+          hourlyReady: saved?.hourlyReady ?? true,
+          winBack: saved?.winBack ?? true,
+        },
+      });
+    } catch {
+      res.status(500).json({ error: "Failed to update notification preferences" });
+    }
+  });
+
+  app.post("/api/notifications/devices", requireAuth, async (req, res) => {
+    const parsed = notificationDeviceInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid notification device registration" });
+      return;
+    }
+    try {
+      const profile = await storage.getPlayerProfile(req.sessionPlayerId!);
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      const sessionHeader = req.headers["x-session-token"];
+      const sessionToken = Array.isArray(sessionHeader) ? sessionHeader[0] : sessionHeader;
+      const registration = await db.transaction(tx => registerDeviceBinding(
+        deviceBindingRepository(tx),
+        req.sessionPlayerId!,
+        {
+          token: parsed.data.token,
+          installationId: parsed.data.installationId,
+          platform: parsed.data.platform,
+          enabled: parsed.data.enabled,
+        },
+        async () => {
+          const [liveSession] = await tx.select({ token: sessions.token })
+            .from(sessions)
+            .where(and(eq(sessions.token, sessionToken!), gt(sessions.expiresAt, new Date())))
+            .limit(1);
+          return Boolean(liveSession);
+        },
+      ));
+      if (registration === "unauthorized") {
+        res.status(401).json({ error: "Session expired — please re-open the app" });
+        return;
+      }
+      res.status(204).end();
+    } catch {
+      // Device registration tokens and installation IDs are credentials: never log them.
+      res.status(500).json({ error: "Failed to register notification device" });
+    }
+  });
+
+  app.delete("/api/notifications/devices", requireAuth, async (req, res) => {
+    const parsed = z.object({
+      token: z.string().min(1).max(4096).refine(value => value.trim() === value && value.length > 0),
+      installationId: z.string().uuid().transform(value => value.toLowerCase()),
+    }).strict().safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid notification device registration" });
+      return;
+    }
+    try {
+      await db.transaction(async tx => deleteOwnedDeviceBinding(
+        deviceBindingRepository(tx),
+        req.sessionPlayerId!,
+        parsed.data.token,
+        parsed.data.installationId,
+      ));
+      res.status(204).end();
+    } catch {
+      res.status(500).json({ error: "Failed to remove notification device" });
+    }
+  });
+
   app.get("/api/friends", requireAuth, generalApiRateLimit, async (req, res) => {
     const actorId = req.sessionPlayerId!;
     try {
@@ -1373,7 +1544,9 @@ export async function registerRoutes(
   });
   app.post("/api/players/:id/rewards/hourly/claim", requireAuth, requireSelf, async (req, res) => {
     try {
-      res.json(await storage.claimHourlyReward(req.params.id as string));
+      const result = await storage.claimHourlyReward(req.params.id as string);
+      void recordMeaningfulActivity(req.sessionPlayerId!);
+      res.json(result);
     } catch (err: any) {
       res.status(err?.code === "ALREADY_CLAIMED" ? 409 : err?.code === "NOT_FOUND" ? 404 : 500)
         .json({ error: err?.code === "ALREADY_CLAIMED" ? "Reward not available yet" : "Claim failed" });
@@ -1438,6 +1611,7 @@ export async function registerRoutes(
       const profile = await storage.getPlayerProfile(id);
       if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
       const result = await storage.claimDailyBonus(id);
+      void recordMeaningfulActivity(id);
 
       // ── Subscription chip bonus (credited on top of base daily bonus) ──────
       const tier = profile.activeSubscriptionTier;
@@ -1513,10 +1687,28 @@ export async function registerRoutes(
 
   // POST /api/auth/logout — invalidate the current session token
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    const parsed = z.object({ installationId: z.string().uuid().transform(value => value.toLowerCase()).optional() })
+      .strict().safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid installation identifier" });
+      return;
+    }
     try {
-      const token = req.headers["x-session-token"] as string;
-      await storage.invalidateSession(token);
-      res.json({ loggedOut: true });
+      const rawToken = req.headers["x-session-token"];
+      const token = Array.isArray(rawToken) ? rawToken[0] : rawToken!;
+      const installationRevoked = await db.transaction(async tx => {
+        let revoked = false;
+        if (parsed.data.installationId) {
+          revoked = await revokeInstallationBinding(
+            deviceBindingRepository(tx),
+            req.sessionPlayerId!,
+            parsed.data.installationId,
+          );
+        }
+        await tx.delete(sessions).where(eq(sessions.token, token));
+        return revoked;
+      });
+      res.json({ loggedOut: true, installationRevoked });
     } catch (err) {
       console.error("[auth:logout] request failed");
       res.status(500).json({ error: "Logout failed" });
