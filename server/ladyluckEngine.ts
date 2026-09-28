@@ -780,7 +780,7 @@ function startRace(tableId: string) {
   }, 1500);
 }
 
-async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
+export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
   const meta = tables.get(tableId);
   if (!meta) return;
   const { state } = meta;
@@ -809,18 +809,30 @@ async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
       console.error('[LadyLuck] Failed to credit winner chips:', e);
     }
   }
+  let seatedGrossPayout = 0;
+  let seatedTotalRake = 0;
   for (const bet of state.sideBets) {
     if (bet.suit === winningSuit && bet.playerId) {
       const betPlayer = state.players.find(p => p.id === bet.playerId);
       if (betPlayer && betPlayer.presence === 'human') {
-        const payout = Math.floor(bet.amount * 2.5);
+        const gross = Math.floor(bet.amount * 2.5);
+        const { winnerPot: payout, rake: sideBetRake } = applyRake(gross);
         try {
           await storage.addChipsToPlayer(bet.playerId, payout, { reason: 'other', source: 'ladyluck_sidebet' });
+          seatedGrossPayout += gross;
+          seatedTotalRake += sideBetRake;
         } catch (e) {
           console.error('[LadyLuck] Failed to credit side bet:', e);
         }
       }
     }
+  }
+  if (seatedTotalRake > 0) {
+    storage.logHouseRake({
+      tableId, gameMode: 'ladyluck_sidebet', handOrRaceId: null,
+      grossPot: seatedGrossPayout, rakeAmount: seatedTotalRake,
+      netPot: seatedGrossPayout - seatedTotalRake,
+    }).catch(console.error);
   }
 
   // ── Spectator side bet payouts ──────────────────────────────────────────────
