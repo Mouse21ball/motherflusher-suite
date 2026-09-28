@@ -230,15 +230,16 @@ export const Fifteen35Mode: GameMode = {
       console.log(`[CGP][15/35][SHOWDOWN]   pot[${i}] $${sp.amount} eligible=[${sp.eligibleIds.join(',')}]`);
     });
 
+    // An uncontested survivor receives the actual net pot; side-pot eligibility
+    // only matters when there are competing hands at showdown.
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
-      const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[idx].chips += award;
+      finalPlayers[idx].chips += pot;
       finalPlayers[idx].isWinner = true;
-      console.log(`[CGP][15/35][SHOWDOWN] sole-survivor ${sole.id}(${sole.name}) wins $${award}`);
-      messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
-      return { players: finalPlayers, pot: totalAwardable - award, messages };
+      console.log(`[CGP][15/35][SHOWDOWN] sole-survivor ${sole.id}(${sole.name}) wins $${pot}`);
+      messages.push(`${finalPlayers[idx].name} wins $${pot} (last player standing)`);
+      return { players: finalPlayers, pot: 0, messages };
     }
     if (activePlayers.length === 0) {
       console.log(`[CGP][15/35][SHOWDOWN] no active players — $${totalAwardable} rolls over`);

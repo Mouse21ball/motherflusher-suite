@@ -4,6 +4,7 @@ import { storage } from '../server/storage';
 import { resetToAnte as resetGeneric } from '../server/genericEngine';
 import { resetToAnte as resetBadugi } from '../server/gameEngine';
 import { BadugiMode } from '../shared/modes/badugi';
+import { Fifteen35Mode } from '../shared/modes/fifteen35';
 
 function makeTable() {
   const players: Player[] = ['p1', 'p2'].map((id, index) => ({
@@ -97,4 +98,33 @@ it('pays a Badugi sole survivor the entire net pot and starts the next hand with
   await resetBadugi(table as never);
   expect(table.state.phase).toBe('ANTE');
   expect(table.state.pot).toBe(0);
+});
+
+it('pays a Fifteen-35 sole survivor the entire net pot and carries nothing into the next hand', async () => {
+  const table = makeTable();
+  table.modeId = 'fifteen35';
+  table.state.players[0].cards = [{ rank: '8', suit: 'clubs' }, { rank: '7', suit: 'diamonds' }];
+  table.state.players[0].chips = 950;
+  table.state.players[0].totalBet = 50;
+  table.state.players[1].cards = [{ rank: '9', suit: 'spades' }, { rank: '4', suit: 'hearts' }];
+  table.state.players[1].chips = 800;
+  table.state.players[1].totalBet = 200;
+  table.state.players[1].status = 'folded';
+  const netPot = 240; // Contributions total 250; showdown receives the post-rake amount.
+  const result = Fifteen35Mode.resolveShowdown!(table.state.players, netPot);
+  expect(result.players[0].chips).toBe(950 + netPot);
+  expect(result.players[0].isWinner).toBe(true);
+  expect(result.players[1].chips).toBe(800);
+  expect(result.players.reduce((sum, p) => sum + p.chips, 0)).toBe(2000 - 10);
+  expect(result.pot).toBe(0);
+
+  table.state = { ...table.state, players: result.players, pot: result.pot };
+  table.resolvedPot = netPot;
+  const sync = vi.spyOn(storage, 'syncPlayerChips').mockResolvedValue(undefined);
+  await resetGeneric(table as never);
+  expect(table.state.phase).toBe('ANTE');
+  expect(table.state.pot).toBe(0);
+  expect(sync).toHaveBeenCalledWith('id1', 190, expect.objectContaining({
+    won: true, gameId: 'settlement-test', handId: '1', potSize: netPot,
+  }));
 });
