@@ -117,7 +117,7 @@ function BonecrusherGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost } =
+  const { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -297,6 +297,7 @@ function BonecrusherGameUI() {
       />
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
+        {actionError && <div role="alert" style={{ color: '#fca5a5', textAlign: 'center', fontSize: 12, marginBottom: 8 }}>{actionError}</div>}
         <BonecrusherTable
           state={state}
           myId={myId}

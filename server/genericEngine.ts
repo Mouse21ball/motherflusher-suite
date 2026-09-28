@@ -14,6 +14,7 @@ import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/mode
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import { applyGenericDraw } from './utils/genericDraw';
+import { applyBonecrusherDiscard } from './utils/bonecrusherDiscard';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
 import {
@@ -2224,7 +2225,36 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
   scheduleGenericSave(tableKey(table.modeId, table.tableId), table.state, table.handId);
 }
 
-export function handleGenericAction(tableId: string, playerOrSessionId: string, action: string, payload: unknown): void {
+// Keep validation, state mutation, and lock release together for both accepted
+// and rejected Bonecrusher selections.
+export function applyBonecrusherDiscardAction(
+  table: Pick<GenericTable, 'state' | 'actionLock' | 'publicCardIndicesPerPlayer'>,
+  playerId: string,
+  payload: unknown,
+): string | void {
+  try {
+    const s = table.state;
+    const playerIdx = s.players.findIndex(p => p.id === playerId);
+    if (playerIdx < 0) return 'Player is not seated.';
+    const player = s.players[playerIdx];
+    const result = applyBonecrusherDiscard(
+      player.cards, s.discardPile || [], table.publicCardIndicesPerPlayer[playerId] ?? [], payload,
+    );
+    if (!result.ok) return result.message;
+    table.publicCardIndicesPerPlayer = {
+      ...table.publicCardIndicesPerPlayer, [playerId]: result.publicIndices,
+    };
+    table.state = addMsg({
+      ...s,
+      players: s.players.map(p => p.id === playerId ? { ...p, cards: result.cards, hasActed: true } : p),
+      discardPile: result.discardPile,
+    }, `${player.name} discarded 2 cards`);
+  } finally {
+    table.actionLock = false;
+  }
+}
+
+export function handleGenericAction(tableId: string, playerOrSessionId: string, action: string, payload: unknown): string | void {
   // Find which mode table this player belongs to.
   // `playerOrSessionId` is either:
   //   - A session UUID (used for join/leave via sessionToSeat map), OR
@@ -2524,36 +2554,11 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── discard (bonecrusher DISCARD_2 / SELECT_5) ───────────────────────────
     else if (action === 'discard' && (s.phase === 'DISCARD_2' || s.phase === 'SELECT_5')) {
-      const indices: number[] = Array.isArray(payload)
-        ? (payload as number[]).filter(i => typeof i === 'number').sort((a, b) => b - a)
-        : [];
-      if (indices.length !== 2) { table.actionLock = false; return; }
-      const player = newPlayers[playerIdx];
-      const newCards = [...player.cards];
-      const newDiscard = [...(s.discardPile || [])];
-      // Build new pub indices: after removing cards at indices, remaining indices shift
-      const oldPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
-      for (const idx of indices) {
-        if (idx < 0 || idx >= newCards.length) { table.actionLock = false; return; }
-        newDiscard.push(newCards[idx]);
-        newCards.splice(idx, 1);
+      const error = applyBonecrusherDiscardAction(table, playerId, payload);
+      if (error) {
+        engineLog('ACTION', `${table.modeId}:${table.tableId}`, { player: playerId, action: 'discard', accepted: false, reason: error });
+        return error;
       }
-      // Remap pub indices: shift down for removed positions
-      const removedSet = new Set(indices);
-      const newPub: number[] = [];
-      for (const pi of oldPub) {
-        if (removedSet.has(pi)) continue;
-        const shift = indices.filter(ri => ri < pi).length;
-        newPub.push(pi - shift);
-      }
-      table.publicCardIndicesPerPlayer = { ...table.publicCardIndicesPerPlayer, [playerId]: newPub };
-      newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
-      table.state = addMsg({
-        ...s,
-        players: newPlayers,
-        discardPile: newDiscard,
-      }, `${player.name} discarded ${indices.length} cards`);
-      table.actionLock = false;
       afterHumanAction(table, false);
       return;
     }

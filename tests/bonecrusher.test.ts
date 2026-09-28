@@ -103,6 +103,48 @@ describe('evaluateBonecrusher — hand evaluation', () => {
   });
 });
 
+function low(...ranks: string[]): number {
+  const suits = ['spades', 'hearts', 'diamonds', 'clubs', 'spades'];
+  return evaluateBonecrusher(ranks.map((rank, i) => card(rank, suits[i]))).lowValue;
+}
+
+describe('Bonecrusher ace-to-five low ranking', () => {
+  it('orders all six duplicate shapes without overlapping tiers', () => {
+    const tiers = [
+      low('A', '2', '3', '4', '5'),      // no pair
+      low('A', 'A', '2', '3', '4'),      // one pair
+      low('A', 'A', '2', '2', '3'),      // two pair
+      low('A', 'A', 'A', '2', '3'),      // trips
+      low('A', 'A', 'A', '2', '2'),      // full house
+      low('A', 'A', 'A', 'A', '2'),      // quads
+    ];
+    for (let i = 1; i < tiers.length; i++) {
+      expect(tiers[i - 1]).toBeLessThan(tiers[i]);
+    }
+    // Even the worst ranks in a tier must beat the best ranks in the next tier.
+    expect(low('9', '10', 'J', 'Q', 'K')).toBeLessThan(low('A', 'A', '2', '3', '4'));
+    expect(low('K', 'K', 'J', 'Q', '10')).toBeLessThan(low('A', 'A', '2', '2', '3'));
+    expect(low('K', 'K', 'Q', 'Q', 'J')).toBeLessThan(low('A', 'A', 'A', '2', '3'));
+    expect(low('K', 'K', 'K', 'Q', 'J')).toBeLessThan(low('A', 'A', 'A', '2', '2'));
+    expect(low('K', 'K', 'K', 'Q', 'Q')).toBeLessThan(low('A', 'A', 'A', 'A', '2'));
+  });
+
+  it.each([
+    [['A', '2', '3', '4', '5'], ['A', '2', '3', '4', '6']], // highest card
+    [['A', 'A', '9', '10', 'J'], ['2', '2', '3', '4', '5']], // pair rank before kickers
+    [['A', 'A', '2', '3', '4'], ['A', 'A', '2', '3', '5']], // one-pair kicker
+    [['A', 'A', '2', '2', 'K'], ['A', 'A', '3', '3', '4']], // higher pair
+    [['A', 'A', '2', '2', '3'], ['A', 'A', '2', '2', '4']], // two-pair kicker
+    [['A', 'A', 'A', '9', '10'], ['2', '2', '2', '3', '4']], // trip rank
+    [['A', 'A', 'A', '2', '3'], ['A', 'A', 'A', '2', '4']], // trip kicker
+    [['A', 'A', 'A', '2', '2'], ['A', 'A', 'A', '3', '3']], // full-house pair
+    [['A', 'A', 'A', 'A', '2'], ['2', '2', '2', '2', 'A']], // quad rank
+    [['A', 'A', 'A', 'A', '2'], ['A', 'A', 'A', 'A', '3']], // quad kicker
+  ])('ranks %j ahead of %j within its low tier', (better, worse) => {
+    expect(low(...better)).toBeLessThan(low(...worse));
+  });
+});
+
 // ─── BonecrusherMode.resolveShowdown ─────────────────────────────────────────
 
 describe('BonecrusherMode.resolveShowdown — no declarers (pot carryover)', () => {

@@ -610,7 +610,10 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
         console.log('[CGP][server] ← mode:action', { tableId, modeId: msg.modeId, playerId: pid, action, gateOn: SERVER_MODES_ON });
         if (!SERVER_MODES_ON) { console.warn('[CGP][server] mode:action DROPPED — gate off'); return; }
-        handleGenericAction(tableId, pid, action, payload);
+        const error = handleGenericAction(tableId, pid, action, payload);
+        if (error && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', message: error }));
+        }
         return;
       }
 

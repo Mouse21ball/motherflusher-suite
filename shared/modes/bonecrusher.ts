@@ -61,11 +61,21 @@ function scoreLow5(cards: CardType[]): { value: number; desc: string } {
   const ranks = cards.map(c => lv(c.rank)).sort((a, b) => a - b);
   const rc: Record<number, number> = {};
   for (const r of ranks) rc[r] = (rc[r] ?? 0) + 1;
-  const maxCount = Math.max(...Object.values(rc));
-  const penalty = maxCount >= 4 ? 30_000_000 : maxCount >= 3 ? 10_000_000 : maxCount >= 2 ? 3_000_000 : 0;
-  const unique = [...new Set(ranks)].sort((a, b) => a - b).slice(0, 5);
-  const encoded = unique.reduce((acc, r, i) => acc + r * Math.pow(15, i), 0);
-  return { value: penalty + encoded, desc: unique.map(rankLabel).join('-') };
+  const groups = Object.entries(rc).map(([rank, count]) => ({ rank: Number(rank), count }));
+  const counts = groups.map(g => g.count).sort((a, b) => b - a);
+  // Six non-overlapping lowball tiers: distinct, pair, two pair, trips, full house, quads.
+  const penalty = counts[0] === 4 ? 30_000_000
+    : counts[0] === 3 && counts[1] === 2 ? 20_000_000
+    : counts[0] === 3 ? 10_000_000
+    : counts[0] === 2 && counts[1] === 2 ? 6_000_000
+    : counts[0] === 2 ? 3_000_000 : 0;
+  // Compare duplicate groups first (pair/trip rank, then kickers); for two pair
+  // compare the higher pair first. Unpaired kickers compare highest to lowest.
+  const ordered = groups.sort((a, b) =>
+    b.count - a.count || b.rank - a.rank
+  ).flatMap(g => Array(g.count).fill(g.rank) as number[]);
+  const encoded = ordered.reduce((acc, r) => acc * 15 + r, 0); // < 15^5, below every tier gap
+  return { value: penalty + encoded, desc: ranks.map(rankLabel).join('-') };
 }
 
 function bestLowHand(cards: CardType[]): { value: number; desc: string } {

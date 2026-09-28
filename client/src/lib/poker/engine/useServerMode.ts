@@ -88,6 +88,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }));
   const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
   const [lastWsAt, setLastWsAt] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [lastWsType, setLastWsType] = useState<string | null>(null);
   // Client-side invariant: total chips + pot should not silently change
   // mid-hand. We log when it does so desync is visible immediately.
@@ -266,6 +267,10 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
+          if (msg.type === 'error') {
+            setActionError(String(msg.message ?? 'Action rejected.'));
+            return;
+          }
 
           // host_update: host identity or settings changed
           if (msg.type === 'host_update') {
@@ -356,6 +361,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       payload: payload ?? null,
     };
     console.log('[CGP][client] → mode:action', outgoing);
+    setActionError(null);
     ws.send(JSON.stringify(outgoing));
   }, []);
 
@@ -369,5 +375,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
+  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
 }
