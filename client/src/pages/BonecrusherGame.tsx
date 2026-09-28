@@ -19,6 +19,7 @@ import { BonecrusherTable } from '@/components/bonecrusher/BonecrusherTable';
 import { BonecrusherActionBar } from '@/components/bonecrusher/BonecrusherActionBar';
 import { BonecrusherShowdown } from '@/components/bonecrusher/BonecrusherShowdown';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 const MODE_ID   = 'bonecrusher';
 const ENGINE_ID = 'bonecrusher';
@@ -314,14 +315,16 @@ function BonecrusherGameUI() {
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
         {actionError && <div role="alert" style={{ color: '#fca5a5', textAlign: 'center', fontSize: 12, marginBottom: 8 }}>{actionError}</div>}
-        <BonecrusherTable
-          state={state}
-          myId={myId}
-          selectedCards={selectedCards}
-          onCardClick={handleCardClick}
-          phase={phase}
-          flippedByHero={flippedByHero}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <BonecrusherTable
+            state={state}
+            myId={myId}
+            selectedCards={selectedCards}
+            onCardClick={handleCardClick}
+            phase={phase}
+            flippedByHero={flippedByHero}
+          />
+        </FriendSeatActions>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 90, overflowY: 'auto', marginTop: 8 }}>
           {(state.messages ?? []).slice(-4).map(m => (

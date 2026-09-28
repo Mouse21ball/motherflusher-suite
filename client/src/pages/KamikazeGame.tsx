@@ -23,6 +23,7 @@ import { KamikazeTable } from '@/components/kamikaze/KamikazeTable';
 import { KamikazeActionBar } from '@/components/kamikaze/KamikazeActionBar';
 import { KamikazeShowdown } from '@/components/kamikaze/KamikazeShowdown';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 const MODE_ID   = 'kamikaze';
 const ENGINE_ID = 'kamikaze';
@@ -303,13 +304,15 @@ function KamikazeGameUI() {
       {import.meta.env.DEV && <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />}
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <KamikazeTable
-          state={state} myId={myId}
-          selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
-          onCardClick={handleCardClick}
-          isDrawPhase={!effectiveSpectator && isDrawPhase}
-          animState={{ dealingIndices, drawingIndices, discardingIndices }}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <KamikazeTable
+            state={state} myId={myId}
+            selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
+            onCardClick={handleCardClick}
+            isDrawPhase={!effectiveSpectator && isDrawPhase}
+            animState={{ dealingIndices, drawingIndices, discardingIndices }}
+          />
+        </FriendSeatActions>
       </main>
 
       {!effectiveSpectator && state.phase !== 'SHOWDOWN' && (

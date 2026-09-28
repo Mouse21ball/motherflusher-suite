@@ -316,6 +316,14 @@ export default function Profile() {
             <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, letterSpacing: '0.12em', fontFamily: 'monospace', fontWeight: 700 }}>CGP PROFILE</span>
           </div>
 
+          <button
+            onClick={() => navigate('/friends')}
+            aria-label="Open friends"
+            className="rounded-full border border-amber-300/40 bg-black/40 px-3 py-2 font-mono text-[10px] font-bold tracking-wider text-amber-200"
+          >
+            FRIENDS
+          </button>
+
           {/* Settings gear */}
           <button
             onClick={() => celebrationSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}

@@ -3,6 +3,7 @@ import { ChatMessage } from '@/lib/poker/types';
 import { Send, MessageSquare, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/session';
+import { apiUrl } from '@/lib/apiConfig';
 
 interface ChatBoxProps {
   messages: ChatMessage[];
@@ -40,6 +41,7 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [sendingFriendRequest, setSendingFriendRequest] = useState(false);
 
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
   const [blocking, setBlocking] = useState(false);
@@ -178,6 +180,30 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
     }
   }
 
+  async function sendFriendRequest() {
+    if (!menu || menu.profileId === myProfileId || sendingFriendRequest) return;
+    const target = menu;
+    setMenu(null);
+    setSendingFriendRequest(true);
+    try {
+      const res = await apiFetch(apiUrl('/api/friends/requests'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientId: target.profileId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: data.error ?? 'Could not send friend request.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: `Friend request sent to ${target.name}.` });
+    } catch {
+      toast({ title: 'Network error. Could not send friend request.', variant: 'destructive' });
+    } finally {
+      setSendingFriendRequest(false);
+    }
+  }
+
   const winW = typeof window !== 'undefined' ? window.innerWidth : 400;
 
   return (
@@ -190,6 +216,16 @@ export function ChatBox({ messages, myId, onSendMessage, open, onOpenChange, sea
           onClick={e => e.stopPropagation()}
           data-testid="chat-context-menu"
         >
+          {menu.profileId !== myProfileId && (
+            <button
+              className="w-full text-left px-4 py-2.5 text-sm font-mono text-amber-200 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors disabled:opacity-50"
+              onClick={() => void sendFriendRequest()}
+              disabled={sendingFriendRequest}
+              data-testid="chat-menu-add-friend"
+            >
+              Add {menu.name} as friend
+            </button>
+          )}
           <button
             className="w-full text-left px-4 py-2.5 text-sm font-mono text-red-400/80 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
             onClick={() => { setBlockTarget({ name: menu.name, profileId: menu.profileId }); setMenu(null); }}

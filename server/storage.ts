@@ -20,6 +20,8 @@ import {
   timeBankEvents,
   chipTransactions,
   personalChipGifts,
+  friendRequests,
+  recentCoSeatedPlayers,
   blockedPlayers,
   type BlockedPlayer,
   playerReports,
@@ -36,7 +38,7 @@ import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, ne, notLike, sql, and, or, gte, isNull, lt, lte, gt, desc, ilike, asc, inArray } from "drizzle-orm";
+import { eq, ne, notLike, sql, and, or, gte, isNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
 import { handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
@@ -274,6 +276,15 @@ export interface IStorage {
   unblockPlayer(blockerId: string, blockedId: string): Promise<boolean>;
   getBlockedPlayers(blockerId: string): Promise<Array<{ id: string; displayName: string }>>;
   isBlocked(blockerId: string, blockedId: string): Promise<boolean>;
+  sendFriendRequest(requesterId: string, recipientId: string): Promise<{ id: string; status: string }>;
+  respondToFriendRequest(actorId: string, requestId: string, action: "accepted" | "declined"): Promise<{ id: string; status: string }>;
+  getFriendRequests(playerId: string): Promise<{
+    friends: Array<{ id: string; displayName: string; avatarId: string | null }>;
+    received: Array<{ id: string; player: { id: string; displayName: string; avatarId: string | null } }>;
+    sent: Array<{ id: string; player: { id: string; displayName: string; avatarId: string | null } }>;
+    recent: Array<{ player: { id: string; displayName: string; avatarId: string | null }; lastPlayedAt: Date }>;
+  }>;
+  recordRecentCoSeatedPlayers(playerIds: string[]): Promise<void>;
   // ── Player Reports ──────────────────────────────────────────────────────────
   createReport(reporterId: string, reportedId: string, reason: string, context: string | null, contextType: string | null, notes: string | null): Promise<PlayerReport>;
   getReportsByReporter(reporterId: string, limit?: number): Promise<PlayerReport[]>;
@@ -3839,6 +3850,159 @@ export class MemStorage implements IStorage {
       ))
       .limit(1);
     return rows.length > 0;
+  }
+
+  private isReservedBotId(id: string): boolean {
+    return /^(?:bot[:_-]|__bot)/i.test(id);
+  }
+
+  async sendFriendRequest(requesterId: string, recipientId: string): Promise<{ id: string; status: string }> {
+    if (!requesterId || requesterId === recipientId) {
+      throw Object.assign(new Error("Cannot send a friend request to yourself"), { code: "invalid_recipient" });
+    }
+    if (this.isReservedBotId(recipientId)) {
+      throw Object.assign(new Error("Bots cannot be added as friends"), { code: "bot_recipient" });
+    }
+    const [recipient] = await db.select({ id: playerProfiles.id, isDeleted: playerProfiles.isDeleted })
+      .from(playerProfiles).where(eq(playerProfiles.id, recipientId)).limit(1);
+    if (!recipient || recipient.isDeleted) {
+      throw Object.assign(new Error("Player not found"), { code: "not_found" });
+    }
+    if (await this.isBlocked(requesterId, recipientId) || await this.isBlocked(recipientId, requesterId)) {
+      throw Object.assign(new Error("Friend requests are unavailable for blocked players"), { code: "blocked" });
+    }
+
+    const [existing] = await db.select().from(friendRequests).where(or(
+      and(eq(friendRequests.requesterId, requesterId), eq(friendRequests.recipientId, recipientId)),
+      and(eq(friendRequests.requesterId, recipientId), eq(friendRequests.recipientId, requesterId)),
+    )).limit(1);
+    if (existing?.status === "accepted") return { id: existing.id, status: existing.status };
+    if (existing?.status === "pending") {
+      if (existing.requesterId === requesterId) return { id: existing.id, status: existing.status };
+      throw Object.assign(new Error("A friend request from this player is already pending"), { code: "incoming_pending" });
+    }
+
+    if (existing) {
+      const [updated] = await db.update(friendRequests).set({
+        requesterId, recipientId, status: "pending", createdAt: new Date(), updatedAt: new Date(),
+      }).where(and(eq(friendRequests.id, existing.id), eq(friendRequests.status, "declined"))).returning();
+      if (updated) return { id: updated.id, status: updated.status };
+      const [raced] = await db.select().from(friendRequests).where(eq(friendRequests.id, existing.id)).limit(1);
+      if (raced?.status === "accepted" || raced?.status === "pending") return { id: raced.id, status: raced.status };
+    }
+    await db.insert(friendRequests).values({ requesterId, recipientId }).onConflictDoNothing();
+    const [result] = await db.select().from(friendRequests).where(or(
+      and(eq(friendRequests.requesterId, requesterId), eq(friendRequests.recipientId, recipientId)),
+      and(eq(friendRequests.requesterId, recipientId), eq(friendRequests.recipientId, requesterId)),
+    )).limit(1);
+    if (!result) throw new Error("Could not create friend request");
+    if (result.status === "pending" && result.requesterId !== requesterId) {
+      throw Object.assign(new Error("A friend request from this player is already pending"), { code: "incoming_pending" });
+    }
+    return { id: result.id, status: result.status };
+  }
+
+  async respondToFriendRequest(actorId: string, requestId: string, action: "accepted" | "declined"): Promise<{ id: string; status: string }> {
+    const [request] = await db.select().from(friendRequests).where(eq(friendRequests.id, requestId)).limit(1);
+    if (!request || request.recipientId !== actorId) {
+      throw Object.assign(new Error("Friend request not found"), { code: "not_found" });
+    }
+    if (request.status === action || (action === "accepted" && request.status === "accepted")) {
+      return { id: request.id, status: request.status };
+    }
+    if (request.status !== "pending") {
+      throw Object.assign(new Error("Friend request is no longer pending"), { code: "conflict" });
+    }
+    if (action === "accepted" && (await this.isBlocked(actorId, request.requesterId) || await this.isBlocked(request.requesterId, actorId))) {
+      throw Object.assign(new Error("Friend requests are unavailable for blocked players"), { code: "blocked" });
+    }
+    const [updated] = await db.update(friendRequests)
+      .set({ status: action, updatedAt: new Date() })
+      .where(and(eq(friendRequests.id, requestId), eq(friendRequests.recipientId, actorId), eq(friendRequests.status, "pending")))
+      .returning();
+    if (updated) return { id: updated.id, status: updated.status };
+    const [raced] = await db.select().from(friendRequests).where(eq(friendRequests.id, requestId)).limit(1);
+    if (raced?.recipientId === actorId && raced.status === action) return { id: raced.id, status: raced.status };
+    throw Object.assign(new Error("Friend request is no longer pending"), { code: "conflict" });
+  }
+
+  async getFriendRequests(playerId: string): Promise<{
+    friends: Array<{ id: string; displayName: string; avatarId: string | null }>;
+    received: Array<{ id: string; player: { id: string; displayName: string; avatarId: string | null } }>;
+    sent: Array<{ id: string; player: { id: string; displayName: string; avatarId: string | null } }>;
+    recent: Array<{ player: { id: string; displayName: string; avatarId: string | null }; lastPlayedAt: Date }>;
+  }> {
+    const [relationships, blockRows] = await Promise.all([
+      db.select().from(friendRequests).where(and(
+      or(eq(friendRequests.requesterId, playerId), eq(friendRequests.recipientId, playerId)),
+      or(eq(friendRequests.status, "accepted"),
+        and(eq(friendRequests.status, "pending"), or(eq(friendRequests.recipientId, playerId), eq(friendRequests.requesterId, playerId)))),
+      )),
+      db.select({ blockerId: blockedPlayers.blockerId, blockedId: blockedPlayers.blockedId })
+        .from(blockedPlayers)
+        .where(or(eq(blockedPlayers.blockerId, playerId), eq(blockedPlayers.blockedId, playerId))),
+    ]);
+    const blockedPlayerIds = new Set(blockRows.map(row =>
+      row.blockerId === playerId ? row.blockedId : row.blockerId,
+    ));
+    // A block in either direction suppresses every relationship and presence
+    // record. Keeping rows durable means unblocking restores the friendship.
+    const rows = relationships.filter(row => !blockedPlayerIds.has(
+      row.requesterId === playerId ? row.recipientId : row.requesterId,
+    ));
+    const accepted = rows.filter(row => row.status === "accepted");
+    const friends = await Promise.all(accepted.map(async row => {
+      const id = row.requesterId === playerId ? row.recipientId : row.requesterId;
+      const [p] = await db.select({ id: playerProfiles.id, displayName: playerProfiles.displayName, avatarId: playerProfiles.avatarId })
+        .from(playerProfiles).where(eq(playerProfiles.id, id)).limit(1);
+      return p;
+    }));
+    const received = await Promise.all(rows.filter(row => row.status === "pending" && row.recipientId === playerId).map(async row => ({
+      id: row.id,
+      player: (await db.select({ id: playerProfiles.id, displayName: playerProfiles.displayName, avatarId: playerProfiles.avatarId })
+        .from(playerProfiles).where(eq(playerProfiles.id, row.requesterId)).limit(1))[0],
+    })));
+    const sent = await Promise.all(rows.filter(row => row.status === "pending" && row.requesterId === playerId).map(async row => ({
+      id: row.id,
+      player: (await db.select({ id: playerProfiles.id, displayName: playerProfiles.displayName, avatarId: playerProfiles.avatarId })
+        .from(playerProfiles).where(eq(playerProfiles.id, row.recipientId)).limit(1))[0],
+    })));
+    const recentQuery = db.select({
+      id: playerProfiles.id, displayName: playerProfiles.displayName, avatarId: playerProfiles.avatarId,
+      lastPlayedAt: recentCoSeatedPlayers.lastPlayedAt,
+    }).from(recentCoSeatedPlayers)
+      .innerJoin(playerProfiles, eq(playerProfiles.id, recentCoSeatedPlayers.otherPlayerId))
+      .where(blockedPlayerIds.size > 0
+        ? and(
+          eq(recentCoSeatedPlayers.playerId, playerId),
+          notInArray(recentCoSeatedPlayers.otherPlayerId, [...blockedPlayerIds]),
+        )
+        : eq(recentCoSeatedPlayers.playerId, playerId));
+    const recentRows = await recentQuery
+      .orderBy(desc(recentCoSeatedPlayers.lastPlayedAt))
+      .limit(20);
+    const compact = (p: { id: string; displayName: string; avatarId: string | null } | undefined) =>
+      p && ({ id: p.id, displayName: p.displayName, avatarId: p.avatarId });
+    return {
+      friends: friends.map(compact).filter((p): p is { id: string; displayName: string; avatarId: string | null } => !!p),
+      received: received.filter(row => !!row.player).map(row => ({ id: row.id, player: compact(row.player)! })),
+      sent: sent.filter(row => !!row.player).map(row => ({ id: row.id, player: compact(row.player)! })),
+      recent: recentRows.map(row => ({ player: { id: row.id, displayName: row.displayName, avatarId: row.avatarId }, lastPlayedAt: row.lastPlayedAt })),
+    };
+  }
+
+  async recordRecentCoSeatedPlayers(playerIds: string[]): Promise<void> {
+    const ids = [...new Set(playerIds.filter(id => !!id && !this.isReservedBotId(id)))];
+    if (ids.length < 2) return;
+    const playedAt = new Date();
+    const values: Array<{ playerId: string; otherPlayerId: string; lastPlayedAt: Date }> = [];
+    for (const playerId of ids) for (const otherPlayerId of ids) {
+      if (playerId !== otherPlayerId) values.push({ playerId, otherPlayerId, lastPlayedAt: playedAt });
+    }
+    await db.insert(recentCoSeatedPlayers).values(values).onConflictDoUpdate({
+      target: [recentCoSeatedPlayers.playerId, recentCoSeatedPlayers.otherPlayerId],
+      set: { lastPlayedAt: playedAt },
+    });
   }
 
   // ── Player Reports ──────────────────────────────────────────────────────────

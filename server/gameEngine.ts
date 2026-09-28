@@ -1405,6 +1405,23 @@ export function getActiveBadugiTables(): { tableId: string; humanCount: number; 
   return result;
 }
 
+export function getConnectedBadugiPlayers(): Array<{ playerId: string; tableId: string }> {
+  const result: Array<{ playerId: string; tableId: string }> = [];
+  for (const [tableId, table] of tables) {
+    for (const seat of table.connections.keys()) {
+      const playerId = table.seatToIdentityId.get(seat);
+      if (playerId) result.push({ playerId, tableId });
+    }
+  }
+  return result;
+}
+
+export function getConnectedBadugiIdentityIds(tableId: string): string[] {
+  const table = tables.get(tableId);
+  if (!table) return [];
+  return [...table.connections.keys()].map(seat => table.seatToIdentityId.get(seat)).filter((id): id is string => !!id);
+}
+
 export function getOrCreateBadugiTable(
   tableId: string,
   isPrivate = false,

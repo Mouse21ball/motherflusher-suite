@@ -2785,6 +2785,23 @@ export function getActiveGenericTables(): { tableId: string; modeId: string; hum
   return result;
 }
 
+export function getConnectedGenericPlayers(): Array<{ playerId: string; tableId: string; modeId: string }> {
+  const result: Array<{ playerId: string; tableId: string; modeId: string }> = [];
+  for (const [, table] of tables) {
+    for (const seat of table.connections.keys()) {
+      const playerId = table.seatToIdentityId.get(seat);
+      if (playerId) result.push({ playerId, tableId: table.tableId, modeId: table.modeId });
+    }
+  }
+  return result;
+}
+
+export function getConnectedGenericIdentityIds(tableId: string, modeId: string): string[] {
+  const table = tables.get(tableKey(modeId, tableId));
+  if (!table) return [];
+  return [...table.connections.keys()].map(seat => table.seatToIdentityId.get(seat)).filter((id): id is string => !!id);
+}
+
 // ─── Ticket-7 Public Exports ──────────────────────────────────────────────────
 
 /** Returns the big-blind (= minBet) for the given generic table. */

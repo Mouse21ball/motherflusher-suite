@@ -22,6 +22,7 @@ import {
   removeBadugiConnection,
   handleBadugiAction,
   getBadugiTablePhase,
+  getConnectedBadugiIdentityIds,
   updateBadugiTableSettings,
 } from './gameEngine';
 import {
@@ -29,6 +30,7 @@ import {
   removeGenericConnection,
   handleGenericAction,
   getGenericTablePhase,
+  getConnectedGenericIdentityIds,
   updateGenericTableSettings,
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
@@ -393,7 +395,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // ── Club membership gate ───────────────────────────────────────────────
         const tableRec = getTableRecord(tableId);
         if (tableRec?.crewId) {
-          const isMember = await storage.isCrewMember(tableRec.crewId, pid);
+          const isMember = await storage.isCrewMember(tableRec.crewId, authWs.authenticatedPlayerId);
           if (!isMember) {
             ws.send(JSON.stringify({ type: 'error', message: 'This is a private club table. Members only.' }));
             ws.close();
@@ -468,6 +470,14 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (assignedSeat && assignedSeat !== '__spectator__') {
           engineSeatPid = assignedSeat;
           setSeatOwner(tableId, assignedSeat, authWs.authenticatedPlayerId);
+          if (authWs.authenticatedPlayerId) {
+            const seatedIds = room.isAuthoritative || modeId === 'badugi'
+              ? getConnectedBadugiIdentityIds(tableId)
+              : getConnectedGenericIdentityIds(tableId, modeId);
+            void storage.recordRecentCoSeatedPlayers(seatedIds).catch(err => {
+              console.error('[friends] Failed to record recent co-seated players:', err);
+            });
+          }
         }
 
         // Send host/settings context to the joining player after engine init

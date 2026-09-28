@@ -21,6 +21,7 @@ import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 const MODE_ID   = 'box_chevy';
 const ENGINE_ID = 'box_chevy';
@@ -335,12 +336,14 @@ function BoxChevyGameUI() {
       )}
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
-        <BoxChevyTable
-          state={state}
-          myId={myId}
-          phase={phase}
-          isDrawPhase={isDrawPhase}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <BoxChevyTable
+            state={state}
+            myId={myId}
+            phase={phase}
+            isDrawPhase={isDrawPhase}
+          />
+        </FriendSeatActions>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 90, overflowY: 'auto', marginTop: 8 }}>
           {(state.messages ?? []).slice(-4).map(m => (

@@ -28,6 +28,7 @@ import Privacy from "@/pages/Privacy";
 import DeleteAccount from "@/pages/DeleteAccount";
 import JoinTable from "@/pages/JoinTable";
 import Profile from "@/pages/Profile";
+import Friends from "@/pages/Friends";
 import Leaderboard from "@/pages/Leaderboard";
 import Shop from "@/pages/Shop";
 import BonusCenter from "@/pages/BonusCenter";
@@ -99,6 +100,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home}/>
         <Route path="/profile" component={Profile}/>
+        <Route path="/friends" component={Friends}/>
         <Route path="/leaderboard" component={Leaderboard}/>
         <Route path="/shop" component={Shop}/>
         <Route path="/cosmetics" component={CosmeticsStore}/>

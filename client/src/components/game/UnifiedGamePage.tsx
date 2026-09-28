@@ -37,6 +37,7 @@ import { evaluateDead7 } from '@shared/modes/dead7';
 import { BadugiFullPage } from '@/components/badugi/BadugiFullPage';
 import { Dead7FullPage } from '@/components/dead7/Dead7FullPage';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 // ── Unified game UI shell ─────────────────────────────────────────────────────
 
@@ -376,18 +377,20 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
       <main ref={dealRootRef} className="relative flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-visible">
 
         {/* Table 3D scene */}
-        <ThreeDTableScene
-          gameState={state}
-          myId={effectiveSpectator ? 'p1' : myId}
-          modeId={modeId}
-          selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
-          onCardClick={handleCardClick}
-          selectableCards={!effectiveSpectator && isDrawPhase}
-          heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px] md:w-24 md:h-[144px]"
-          onReact={!effectiveSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
-          incomingReactions={state.liveReactions}
-          isClubTable={isClubTable}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <ThreeDTableScene
+            gameState={state}
+            myId={effectiveSpectator ? 'p1' : myId}
+            modeId={modeId}
+            selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
+            onCardClick={handleCardClick}
+            selectableCards={!effectiveSpectator && isDrawPhase}
+            heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px] md:w-24 md:h-[144px]"
+            onReact={!effectiveSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
+            incomingReactions={state.liveReactions}
+            isClubTable={isClubTable}
+          />
+        </FriendSeatActions>
 
         {/* Hero hand panel — 3-column card/info/qualifier strip */}
         {!effectiveSpectator && me && me.cards.length > 0 && (

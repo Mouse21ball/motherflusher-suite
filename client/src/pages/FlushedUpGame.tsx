@@ -23,6 +23,7 @@ import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
 import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 const MODE_ID = 'flushed_up';
 const ENGINE_ID = 'flushed_up';
@@ -409,14 +410,16 @@ function FlushedUpGameUI() {
 
       {/* ── Main table area ───────────────────────────────────────── */}
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <FlushedUpTable
-          state={state}
-          myId={myId}
-          selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
-          onCardClick={handleCardClick}
-          isDrawPhase={!effectiveSpectator && isDrawPhase}
-          animState={{ dealingIndices, drawingIndices, discardingIndices }}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <FlushedUpTable
+            state={state}
+            myId={myId}
+            selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
+            onCardClick={handleCardClick}
+            isDrawPhase={!effectiveSpectator && isDrawPhase}
+            animState={{ dealingIndices, drawingIndices, discardingIndices }}
+          />
+        </FriendSeatActions>
       </main>
 
       {/* ── Bottom bar: action controls + stats ──────────────────── */}

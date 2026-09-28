@@ -452,6 +452,33 @@ export const personalChipGifts = pgTable("personal_chip_gifts", {
   index("personal_chip_gifts_cooldown_idx").on(table.tableId, table.senderId, table.recipientId, table.createdAt),
 ]);
 
+// A directional request represents a pending invitation or an accepted friendship.
+// The expression index prevents duplicate requests in either direction.
+export const friendRequests = pgTable("friend_requests", {
+  id:          text("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  requesterId: text("requester_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  recipientId: text("recipient_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  status:      text("status").notNull().default("pending"),
+  createdAt:   timestamp("created_at").notNull().defaultNow(),
+  updatedAt:   timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("friend_requests_pair_uniq").on(
+    sql`LEAST(${table.requesterId}, ${table.recipientId})`,
+    sql`GREATEST(${table.requesterId}, ${table.recipientId})`,
+  ),
+  index("friend_requests_requester_idx").on(table.requesterId, table.status),
+  index("friend_requests_recipient_idx").on(table.recipientId, table.status),
+]);
+
+export const recentCoSeatedPlayers = pgTable("recent_co_seated_players", {
+  playerId:       text("player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  otherPlayerId:  text("other_player_id").notNull().references(() => playerProfiles.id, { onDelete: "cascade" }),
+  lastPlayedAt:   timestamp("last_played_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("recent_co_seated_players_pair_uniq").on(table.playerId, table.otherPlayerId),
+  index("recent_co_seated_players_recent_idx").on(table.playerId, table.lastPlayedAt),
+]);
+
 // ─── Legacy auth users ────────────────────────────────────────────────────────
 // DEPRECATED: This table is a legacy leftover from an early authentication
 // approach and is not used by the current application. Authentication and

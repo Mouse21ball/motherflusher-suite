@@ -35,6 +35,7 @@ import { XPToast } from "@/components/XPToast";
 import { cn } from "@/lib/utils";
 import type { Player, Declaration } from "@/lib/poker/types";
 import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
+import { FriendSeatActions } from "@/components/game/FriendSeatActions";
 
 // ── Card-value helper (identical to Fifteen35TableScene) ──────────────────────
 // ACE=11 (soft; subtract 10 per ace while total > 35). J/Q/K = 0.5. Numeric = face.
@@ -1091,36 +1092,38 @@ export default function Fifteen35Game() {
           ))}
 
           {/* Opponent rows */}
-          <div
-            className="mx-3 rounded-lg overflow-hidden"
-            style={{ border: '1px solid rgba(212,168,58,0.22)', background: 'rgba(5,5,9,0.94)' }}
-          >
-            {opponents.length === 0 ? (
-              <div
-                className="flex items-center justify-center"
-                style={{ height: 56, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)' }}
-              >
-                Waiting for players…
-              </div>
-            ) : opponents.map((player, i) => (
-              <div
-                key={player.id}
-                data-deal-seat={player.id}
-                data-player-seat={player.id}
-                style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
-              >
-                <F35OpponentRow
-                  player={player}
-                  seatIndex={i + 1}
-                  isActive={player.id === state.activePlayerId}
-                  isShowdown={isShowdown}
-                  revealed={revealedSet.has(player.id)}
-                  phase={state.phase}
-                  lastAction={actionLabels[player.id]}
-                />
-              </div>
-            ))}
-          </div>
+          <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+            <div
+              className="mx-3 rounded-lg overflow-hidden"
+              style={{ border: '1px solid rgba(212,168,58,0.22)', background: 'rgba(5,5,9,0.94)' }}
+            >
+              {opponents.length === 0 ? (
+                <div
+                  className="flex items-center justify-center"
+                  style={{ height: 56, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)' }}
+                >
+                  Waiting for players…
+                </div>
+              ) : opponents.map((player, i) => (
+                <div
+                  key={player.id}
+                  data-deal-seat={player.id}
+                  data-player-seat={player.id}
+                  style={{ borderBottom: i < opponents.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                >
+                  <F35OpponentRow
+                    player={player}
+                    seatIndex={i + 1}
+                    isActive={player.id === state.activePlayerId}
+                    isShowdown={isShowdown}
+                    revealed={revealedSet.has(player.id)}
+                    phase={state.phase}
+                    lastAction={actionLabels[player.id]}
+                  />
+                </div>
+              ))}
+            </div>
+          </FriendSeatActions>
 
           {/* Spectator note */}
           {isSpectator && (

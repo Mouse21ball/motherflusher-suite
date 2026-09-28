@@ -30,6 +30,7 @@ import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
+import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 
 const MODE_ID = 'dead7';
 
@@ -265,13 +266,15 @@ export function Dead7FullPage({
       )}
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingTop: 52 }}>
-        <Dead7Table
-          state={state} myId={effectiveSpectator ? 'p1' : myId}
-          selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
-          onCardClick={handleCardClick}
-          isDrawPhase={!effectiveSpectator && isDrawPhase}
-          animState={{ dealingIndices, drawingIndices, discardingIndices }}
-        />
+        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
+          <Dead7Table
+            state={state} myId={effectiveSpectator ? 'p1' : myId}
+            selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
+            onCardClick={handleCardClick}
+            isDrawPhase={!effectiveSpectator && isDrawPhase}
+            animState={{ dealingIndices, drawingIndices, discardingIndices }}
+          />
+        </FriendSeatActions>
       </main>
 
       {!effectiveSpectator && state.phase !== 'SHOWDOWN' && (

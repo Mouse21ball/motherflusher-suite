@@ -18,6 +18,7 @@ import { Resend } from "resend";
 import { z } from "zod";
 import {
   getActiveBadugiTables,
+  getConnectedBadugiPlayers,
   getBadugiTableMinBet,
   resolveBadugiGiftRecipient,
   extendBadugiTurnTimer,
@@ -26,6 +27,7 @@ import {
 } from "./gameEngine";
 import {
   getActiveGenericTables,
+  getConnectedGenericPlayers,
   getGenericTableMinBet,
   resolveGenericGiftRecipient,
   extendGenericTurnTimer,
@@ -141,6 +143,16 @@ export function updateTableRecord(
   return true;
 }
 
+export function isFriendTableJoinable(
+  table: { isInviteOnly: boolean; maxPlayers: number; crewId?: string },
+  humanCount: number,
+  isClubMember: boolean,
+): boolean {
+  return !table.isInviteOnly
+    && humanCount < table.maxPlayers
+    && (!table.crewId || isClubMember);
+}
+
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const trackEventSchema = z.object({
@@ -169,6 +181,95 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   registerLeaderboardRoute(app);
+  app.get("/api/friends", requireAuth, generalApiRateLimit, async (req, res) => {
+    const actorId = req.sessionPlayerId!;
+    try {
+      const [lists, profile] = await Promise.all([
+        storage.getFriendRequests(actorId),
+        storage.getPlayerProfile(actorId),
+      ]);
+      const livePlayers = [
+        ...getConnectedBadugiPlayers().map(player => ({ ...player, modeId: "badugi" })),
+        ...getConnectedGenericPlayers(),
+      ];
+      const activeTables = [
+        ...getActiveBadugiTables().map(table => ({ ...table, modeId: "badugi" })),
+        ...getActiveGenericTables(),
+      ];
+      const friends = await Promise.all(lists.friends.map(async friend => {
+        const live = livePlayers.find(player => player.playerId === friend.id);
+        let joinTable: { tableId: string; modeId: string } | undefined;
+        if (live) {
+          const record = getTableRecord(live.tableId);
+          const active = activeTables.find(table => table.tableId === live.tableId && table.modeId === live.modeId);
+          if (record && active) {
+            const clubMember = record.crewId
+              ? await storage.isCrewMember(record.crewId, actorId)
+              : false;
+            if (isFriendTableJoinable(record, active.humanCount, clubMember)) {
+              joinTable = { tableId: record.tableId, modeId: record.modeId };
+            }
+          }
+        }
+        return {
+          ...friend,
+          online: !!live,
+          inTable: !!live,
+          ...(joinTable ? { joinTable } : {}),
+        };
+      }));
+      // Keep the variable used to validate that the authenticated identity exists;
+      // the lists themselves intentionally expose no other account fields.
+      if (!profile) {
+        res.status(404).json({ error: "Player profile not found" });
+        return;
+      }
+      res.json({ friends, received: lists.received, sent: lists.sent, recent: lists.recent });
+    } catch (err) {
+      console.error("[friends] Failed to load friend data:", err);
+      res.status(500).json({ error: "Failed to load friends" });
+    }
+  });
+
+  app.post("/api/friends/requests", requireAuth, generalApiRateLimit, async (req, res) => {
+    const parsed = z.object({ recipientId: z.string().min(1).max(128) }).safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid recipientId" });
+      return;
+    }
+    try {
+      const result = await storage.sendFriendRequest(req.sessionPlayerId!, parsed.data.recipientId);
+      res.status(result.status === "pending" ? 201 : 200).json(result);
+    } catch (err: any) {
+      const statuses: Record<string, number> = {
+        invalid_recipient: 400, bot_recipient: 400, not_found: 404, blocked: 403, incoming_pending: 409,
+      };
+      if (err?.code && statuses[err.code]) {
+        res.status(statuses[err.code]).json({ error: err.message });
+        return;
+      }
+      console.error("[friends] Failed to send friend request:", err);
+      res.status(500).json({ error: "Failed to send friend request" });
+    }
+  });
+
+  const respondToFriendRequest = (action: "accepted" | "declined") =>
+    async (req: any, res: any) => {
+      try {
+        res.json(await storage.respondToFriendRequest(req.sessionPlayerId!, req.params.id, action));
+      } catch (err: any) {
+        const statuses: Record<string, number> = { not_found: 404, blocked: 403, conflict: 409 };
+        if (err?.code && statuses[err.code]) {
+          res.status(statuses[err.code]).json({ error: err.message });
+          return;
+        }
+        console.error(`[friends] Failed to ${action === "accepted" ? "accept" : "decline"} friend request:`, err);
+        res.status(500).json({ error: "Failed to update friend request" });
+      }
+    };
+  app.post("/api/friends/requests/:id/accept", requireAuth, generalApiRateLimit, respondToFriendRequest("accepted"));
+  app.post("/api/friends/requests/:id/decline", requireAuth, generalApiRateLimit, respondToFriendRequest("declined"));
+
   // Public, read-only build provenance for the exact server artifact handling requests.
   app.get("/api/version", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
