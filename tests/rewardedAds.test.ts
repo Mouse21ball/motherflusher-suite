@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "../server/db";
 import { storage } from "../server/storage";
 import { verifyAdMobSsvQuery } from "../server/admobSsv";
-import { isRewardedAdTestModeEnabled } from "../server/rewardedAdConfig";
+import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "../server/rewardedAdConfig";
 import {
   REWARDED_AD_PLAYER_RATE_LIMIT,
   REWARDED_AD_PLAYER_RATE_WINDOW_MS,
@@ -16,6 +16,19 @@ import type { Request } from "express";
 const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const verifierKeys = [{ keyId: 123, pem: publicKey.export({ type: "spki", format: "pem" }).toString() }];
 const adUnitId = "ca-app-pub-1234567890123456/1234567890";
+
+describe("rewarded AdMob units", () => {
+  it("uses the supplied production units for both native platforms", () => {
+    expect(rewardedAdUnitId("android", false)).toBe("ca-app-pub-1122384597919929/4402812186");
+    expect(rewardedAdUnitId("ios", false)).toBe("ca-app-pub-1122384597919929/9990005770");
+  });
+
+  it("keeps sample units confined to non-production test sessions", () => {
+    expect(rewardedAdUnitId("android", true)).toBe("ca-app-pub-3940256099942544/5224354917");
+    expect(rewardedAdUnitId("ios", true)).toBe("ca-app-pub-3940256099942544/1712485313");
+    expect(isRewardedAdTestModeEnabled("production", "true")).toBe(false);
+  });
+});
 
 function signedCallback(fields: Record<string, string>, signatureFirst = false): string {
   const signedQuery = new URLSearchParams(fields).toString();

@@ -84,7 +84,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
 import { getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
-import { isRewardedAdTestModeEnabled } from "./rewardedAdConfig";
+import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "./rewardedAdConfig";
 import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
 import { notificationDevices, notificationPreferences, sessions } from "@shared/schema";
 import { and, eq, gt, or } from "drizzle-orm";
@@ -457,13 +457,8 @@ export async function registerRoutes(
   const rewardedAdSessionSchema = z.object({
     sessionId: z.string().uuid(),
   }).strict();
-  const ADMOB_TEST_AD_UNITS = {
-    android: "ca-app-pub-3940256099942544/5224354917",
-    ios: "ca-app-pub-3940256099942544/1712485313",
-  } as const;
-  // Google sample rewarded TEST unit IDs are the non-production default;
-  // ADMOB_TEST_REWARDS_ENABLED=false opts dev/staging out. Production always
-  // requires its platform-specific (or shared) configured real ad unit.
+  // Google sample units remain available only in explicit non-production test
+  // mode. All other sessions use the platform's production rewarded unit.
   const rewardedAdTestModeEnabled = isRewardedAdTestModeEnabled(
     process.env.NODE_ENV,
     process.env.ADMOB_TEST_REWARDS_ENABLED,
@@ -472,14 +467,7 @@ export async function registerRoutes(
   app.post("/api/ads/rewarded/start", requireAuth, ...rewardedAdRateLimit, async (req, res) => {
     try {
       const { platform } = rewardedAdStartSchema.parse(req.body);
-      const adUnitId = rewardedAdTestModeEnabled
-        ? ADMOB_TEST_AD_UNITS[platform]
-        : process.env[`ADMOB_${platform.toUpperCase()}_REWARDED_AD_UNIT_ID`]
-          ?? process.env.ADMOB_REWARDED_AD_UNIT_ID;
-      if (!adUnitId) {
-        res.status(503).json({ error: "Rewarded ads are not configured on this server." });
-        return;
-      }
+      const adUnitId = rewardedAdUnitId(platform, rewardedAdTestModeEnabled);
 
       const now = new Date();
       const sessionId = randomUUID();
