@@ -30,4 +30,24 @@ describe('Dead 7 draw indices', () => {
     expect(hand[0]).toEqual({ rank: 'A', suit: 'spades' });
     expect(deck).toHaveLength(3);
   });
+
+  it.each([
+    ['fractional slot after a valid slot', [0, 1.5]],
+    ['negative slot', [-1]],
+    ['slot beyond the hand', [hand.length]],
+    ['non-numeric slot', ['1']],
+    ['sparse slot', new Array(1)],
+  ])('rejects a malformed %s without consuming cards', (_description, payload) => {
+    const originalHand = structuredClone(hand);
+    const originalDeck = structuredClone(deck);
+    const originalDiscard: CardType[] = [{ rank: '8', suit: 'spades' }];
+    const discard = structuredClone(originalDiscard);
+
+    const result = applyGenericDraw(hand, deck, discard, payload, 3);
+
+    expect(result).toEqual({ ok: false });
+    expect(hand).toEqual(originalHand);
+    expect(deck).toEqual(originalDeck);
+    expect(discard).toEqual(originalDiscard);
+  });
 });
