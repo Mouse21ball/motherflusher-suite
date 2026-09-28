@@ -3,6 +3,20 @@ import { getNextActivePlayerIndex } from '../engine/core';
 import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
 import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
 
+export function suitsDeclarationError(phase: string, action: string, payload: unknown): string | undefined {
+  if (phase !== 'DECLARE_AND_BET') return;
+  if (['check', 'call', 'raise', 'bet'].includes(action)) {
+    return 'Declare POKER, SUITS, or SWING as part of your bet action.';
+  }
+  if (action === 'declare_and_bet') {
+    const declaration = payload && typeof payload === 'object' && 'declaration' in payload
+      ? (payload as { declaration: unknown }).declaration : undefined;
+    if (!['POKER', 'SUITS', 'SWING'].includes(declaration as string)) {
+      return 'Declare POKER, SUITS, or SWING as part of your bet action.';
+    }
+  }
+}
+
 function suitsCardValue(rank: string): number {
   if (rank === 'A') return 11;
   if (rank === 'J' || rank === 'Q' || rank === 'K') return 10;
@@ -276,7 +290,7 @@ export const SuitsPokerMode: GameMode = {
       const award = sidePots.filter(sp => sp.eligibleIds.includes(sole.id)).reduce((s, sp) => s + sp.amount, 0);
       sole.chips += award;
       sole.isWinner = true;
-      const ph = Math.floor(award / 2);
+      const ph = Math.ceil(award / 2);
       const sh = award - ph;
       messages.push(`SP_POKER|${sole.name}|—|${ph}`);
       messages.push(`SP_SUITS|${sole.name}|—|${sh}`);
@@ -330,7 +344,8 @@ export const SuitsPokerMode: GameMode = {
 
     for (const sp of sidePots) {
       const eligible = activePlayers.filter(p => sp.eligibleIds.includes(p.id));
-      const pokerHalf = Math.floor(sp.amount / 2);
+      // POKER is the HIGH side and receives the odd chip.
+      const pokerHalf = Math.ceil(sp.amount / 2);
       const suitsHalf = sp.amount - pokerHalf;
 
       // All declared contestants (SWING competes on both sides)

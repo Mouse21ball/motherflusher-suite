@@ -9,6 +9,7 @@ import {
   qualifiesForSuits,
   evaluateBestSuitsOnPath,
   SuitsPokerMode,
+  suitsDeclarationError,
   PATH_A_INDICES,
   PATH_B_INDICES,
 } from '../shared/modes/suitspoker';
@@ -259,6 +260,27 @@ const weakHole: CardType[] = [
 ];
 
 describe('SuitsPokerMode.resolveShowdown — basic POKER vs SUITS split', () => {
+  it('requires one atomic declaration and bet action', () => {
+    for (const action of ['check', 'call', 'raise', 'bet']) {
+      expect(suitsDeclarationError('DECLARE_AND_BET', action, null)).toMatch(/Declare POKER, SUITS, or SWING/);
+    }
+    expect(suitsDeclarationError('DECLARE_AND_BET', 'declare_and_bet', { action: 'call' })).toMatch(/Declare/);
+    expect(suitsDeclarationError('DECLARE_AND_BET', 'declare_and_bet', { action: 'check', declaration: 'BAD' })).toMatch(/Declare/);
+    expect(suitsDeclarationError('DECLARE_AND_BET', 'declare_and_bet', { action: 'call', declaration: 'SUITS' })).toBeUndefined();
+    expect(suitsDeclarationError('BET_1', 'call', null)).toBeUndefined();
+  });
+
+  it('awards the odd split chip to POKER (HIGH)', () => {
+    const players = [
+      player('A', pokerHole, { declaration: 'POKER', chips: 1000 }),
+      player('B', suitsHole, { declaration: 'SUITS', chips: 1000 }),
+    ];
+    const { players: out, pot } = SuitsPokerMode.resolveShowdown!(players, 201, 'A', sharedComm);
+    expect(pot).toBe(0);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1101);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1100);
+  });
+
   it('POKER declarer wins POKER pot; SUITS declarer wins SUITS pot', () => {
     const players = [
       player('A', pokerHole, { declaration: 'POKER', chips: 1000 }),

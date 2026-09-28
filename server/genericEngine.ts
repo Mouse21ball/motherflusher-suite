@@ -6,7 +6,7 @@ import type { WebSocket } from 'ws';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent, GameMode } from '../shared/gameTypes';
 import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
-import { SuitsPokerMode } from '../shared/modes/suitspoker';
+import { SuitsPokerMode, suitsDeclarationError } from '../shared/modes/suitspoker';
 import { FlushedUpMode } from '../shared/modes/flushedUp';
 import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
 import { BonecrusherMode } from '../shared/modes/bonecrusher';
@@ -2443,6 +2443,12 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       engineLog('ACTION', `${table.modeId}:${table.tableId}`, { player: playerId, action, accepted: false, reason: 'not-turn' });
       table.actionLock = false;
       return;
+    }
+
+    const declarationError = suitsDeclarationError(s.phase, action, payload);
+    if (declarationError) {
+      table.actionLock = false;
+      return declarationError;
     }
 
     const playerIdx = s.players.findIndex(p => p.id === playerId);
