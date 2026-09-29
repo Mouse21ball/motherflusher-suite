@@ -9,6 +9,33 @@ import {
 
 type Listener = (event: CelebrationEvent | null) => void;
 const listeners = new Set<Listener>();
+const completionListeners = new Set<(event: CelebrationEvent) => void>();
+export interface TableActivity { tableId: string; phase: string }
+const activityListeners = new Set<(activity: TableActivity | null) => void>();
+let latestActivity: TableActivity | null = null;
+
+export function subscribeCelebrationCompletions(listener: (event: CelebrationEvent) => void): () => void {
+  completionListeners.add(listener);
+  return () => { completionListeners.delete(listener); };
+}
+
+export function completeCelebration(event: CelebrationEvent): void {
+  for (const listener of completionListeners) listener(event);
+}
+
+export function currentTableActivity(): TableActivity | null {
+  return latestActivity;
+}
+
+export function subscribeTableActivity(listener: (activity: TableActivity | null) => void): () => void {
+  activityListeners.add(listener);
+  return () => { activityListeners.delete(listener); };
+}
+
+function publishTableActivity(activity: TableActivity | null): void {
+  latestActivity = activity;
+  for (const listener of activityListeners) listener(activity);
+}
 
 /** Presentation-only event channel; it does not write to or wait for game state. */
 export function playCelebration(event: CelebrationEvent): void {
@@ -29,6 +56,7 @@ export function useAuthoritativeCelebrations(state: GameState, modeId: string, m
   const previousRef = useRef<CelebrationSnapshot | null>(null);
 
   useEffect(() => {
+    publishTableActivity({ tableId: state.tableId, phase: state.phase });
     const previous = previousRef.current;
     // A changed seat order changes the geometry of an in-flight payout.
     const sameSeats = !previous || JSON.stringify(Object.keys(previous.players))
@@ -41,5 +69,8 @@ export function useAuthoritativeCelebrations(state: GameState, modeId: string, m
     if (event) playCelebration(event);
   }, [state, modeId, messageType]);
 
-  useEffect(() => () => dismissCelebration(), []);
+  useEffect(() => () => {
+    dismissCelebration();
+    publishTableActivity(null);
+  }, []);
 }

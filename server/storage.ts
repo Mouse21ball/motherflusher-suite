@@ -76,6 +76,9 @@ export interface IStorage {
   // ── Player Profiles ────────────────────────────────────────────────────────
   getOrCreatePlayer(id: string, displayName?: string): Promise<PlayerProfile>;
   getPlayerProfile(id: string): Promise<PlayerProfile | undefined>;
+  getReviewState(playerId: string): Promise<ReviewState | null>;
+  claimReviewPrompt(playerId: string): Promise<{ eligible: boolean; state: ReviewState | null }>;
+  markPlayerRated(playerId: string): Promise<ReviewState | null>;
   getLeaderboard(viewerId: string): Promise<LeaderboardResponse>;
   getPlayerByEmail(email: string): Promise<PlayerProfile | undefined>;
   setPlayerAuth(id: string, email: string, passwordHash: string): Promise<void>;
@@ -349,6 +352,13 @@ export interface IStorage {
     cards: Record<string, Record<string, number>>;
   }>;
 }
+
+export interface ReviewState {
+  hasRated: boolean;
+  lastReviewPromptAt: Date | null;
+}
+
+const REVIEW_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ─── Crew types ──────────────────────────────────────────────────────────────
 export interface CrewMemberRow {
@@ -1106,6 +1116,8 @@ export class MemStorage implements IStorage {
       xpBadugisWon: 0, xpModesPlayed: [], xpAchievements: [],
       lastHourlyRewardAt: null,
       lastActivityAt: null,
+      hasRated: false,
+      lastReviewPromptAt: null,
     };
 
     // Wrap creation + genesis ledger in one transaction so new players always
@@ -1133,6 +1145,55 @@ export class MemStorage implements IStorage {
       .where(eq(playerProfiles.id, id))
       .limit(1);
     return rows[0];
+  }
+
+  async getReviewState(playerId: string): Promise<ReviewState | null> {
+    const rows = await db
+      .select({
+        hasRated: playerProfiles.hasRated,
+        lastReviewPromptAt: playerProfiles.lastReviewPromptAt,
+      })
+      .from(playerProfiles)
+      .where(eq(playerProfiles.id, playerId))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  async claimReviewPrompt(playerId: string): Promise<{ eligible: boolean; state: ReviewState | null }> {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - REVIEW_PROMPT_COOLDOWN_MS);
+    // This conditional UPDATE is one atomic compare-and-set: competing requests
+    // cannot both consume a prompt inside the seven-day window.
+    const claimed = await db
+      .update(playerProfiles)
+      .set({ lastReviewPromptAt: now, updatedAt: now })
+      .where(and(
+        eq(playerProfiles.id, playerId),
+        eq(playerProfiles.hasRated, false),
+        or(
+          isNull(playerProfiles.lastReviewPromptAt),
+          lte(playerProfiles.lastReviewPromptAt, cutoff),
+        ),
+      ))
+      .returning({
+        hasRated: playerProfiles.hasRated,
+        lastReviewPromptAt: playerProfiles.lastReviewPromptAt,
+      });
+
+    if (claimed[0]) return { eligible: true, state: claimed[0] };
+    return { eligible: false, state: await this.getReviewState(playerId) };
+  }
+
+  async markPlayerRated(playerId: string): Promise<ReviewState | null> {
+    const rows = await db
+      .update(playerProfiles)
+      .set({ hasRated: true, updatedAt: new Date() })
+      .where(eq(playerProfiles.id, playerId))
+      .returning({
+        hasRated: playerProfiles.hasRated,
+        lastReviewPromptAt: playerProfiles.lastReviewPromptAt,
+      });
+    return rows[0] ?? null;
   }
 
   private async ensureHistoricalXP(id: string): Promise<void> {

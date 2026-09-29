@@ -1416,6 +1416,16 @@ export function getConnectedBadugiPlayers(): Array<{ playerId: string; tableId: 
   return result;
 }
 
+export function getPlayerBadugiTablePhases(playerId: string): Array<{ tableId: string; phase: string }> {
+  const result: Array<{ tableId: string; phase: string }> = [];
+  for (const [tableId, table] of tables) {
+    if ([...table.seatToIdentityId.values()].includes(playerId)) {
+      result.push({ tableId, phase: table.state.phase });
+    }
+  }
+  return result;
+}
+
 export function getConnectedBadugiIdentityIds(tableId: string): string[] {
   const table = tables.get(tableId);
   if (!table) return [];

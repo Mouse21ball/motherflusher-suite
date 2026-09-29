@@ -330,6 +330,13 @@ export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; 
   return out;
 }
 
+export function getPlayerLLTablePhase(playerId: string): string | null {
+  for (const meta of tables.values()) {
+    if (meta.state.players.some(player => player.id === playerId)) return meta.state.phase;
+  }
+  return null;
+}
+
 // ── ll:join ───────────────────────────────────────────────────────────────────
 
 export function handleLLJoin(

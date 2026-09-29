@@ -42,6 +42,7 @@ import LadyLuckHistory from "@/pages/LadyLuckHistory";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import { CelebrationHost } from "@/components/celebrations/CelebrationHost";
+import { RateTheChainManager } from "@/components/RateTheChainManager";
 import { activatePushForProfile, deactivatePushForProfile } from "@/lib/pushNotifications";
 
 // ── Combined profile-driven manager ──────────────────────────────────────────
@@ -213,6 +214,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <CelebrationHost />
+          <RateTheChainManager />
           <PushRegistrationManager />
           {/* Screen-edge vignette — always on top, no pointer events */}
           <div className="cgp-vignette" aria-hidden="true" />

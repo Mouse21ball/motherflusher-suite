@@ -18,6 +18,8 @@ import { Resend } from "resend";
 import { z } from "zod";
 import {
   getActiveBadugiTables,
+  getBadugiTablePhase,
+  getPlayerBadugiTablePhases,
   getConnectedBadugiPlayers,
   getBadugiTableMinBet,
   resolveBadugiGiftRecipient,
@@ -27,6 +29,8 @@ import {
 } from "./gameEngine";
 import {
   getActiveGenericTables,
+  getGenericTablePhase,
+  getPlayerGenericTablePhases,
   getConnectedGenericPlayers,
   getGenericTableMinBet,
   resolveGenericGiftRecipient,
@@ -45,7 +49,12 @@ const verifyPlayWebhook         = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_PLAY
 const verifyRefundWebhook       = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_REFUND");
 const verifySubscriptionWebhook = makePubSubAuthMiddleware("PUBSUB_AUDIENCE_SUBSCRIPTION");
 import { generateUniqueInviteCode, checkChatRateLimit, validateCrewName } from "./crews";
-import { createLLTable, getLLActiveTables, findOrCreateLLTable } from "./ladyluckEngine";
+import {
+  createLLTable,
+  getLLActiveTables,
+  findOrCreateLLTable,
+  getPlayerLLTablePhase,
+} from "./ladyluckEngine";
 import { issueWsTicket } from "./wsTickets";
 import { filterChatMessage } from "./chatFilter";
 import {
@@ -180,6 +189,26 @@ export function getTableRecord(tableId: string): TableRecord | null {
   return tables.get(tableId.toUpperCase()) ?? null;
 }
 
+function playerHasActiveGame(playerId: string, profile: { activeTableId: string | null; activeModeId: string | null }): boolean {
+  if (getPlayerBadugiTablePhases(playerId).some(table => table.phase !== "WAITING")) return true;
+  if (getPlayerGenericTablePhases(playerId).some(table => table.phase !== "WAITING")) return true;
+  const ladyLuckPhase = getPlayerLLTablePhase(playerId);
+  if (ladyLuckPhase && ladyLuckPhase !== "LOBBY") return true;
+
+  if (!profile.activeTableId) return false;
+  const modeId = profile.activeModeId?.toLowerCase() ?? "";
+  const phase = modeId === "badugi"
+    ? getBadugiTablePhase(profile.activeTableId)
+    : getGenericTablePhase(profile.activeModeId ?? "", profile.activeTableId);
+
+  if (phase !== null) return phase !== "WAITING";
+  // An active-table marker whose in-memory table has disappeared is stale
+  // (for example after a restart), so it does not represent an active hand.
+  // If the lobby record still exists but its phase cannot be resolved, fail
+  // closed rather than allowing a prompt while game state is unknown.
+  return getTableRecord(profile.activeTableId) !== null;
+}
+
 export function updateTableRecord(
   tableId: string,
   updates: Partial<Pick<TableRecord, 'maxPlayers' | 'botsEnabled' | 'isInviteOnly'>>
@@ -228,6 +257,71 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   registerLeaderboardRoute(app);
+  const emptyRequestBody = z.object({}).strict();
+  const reviewStateJson = (state: { hasRated: boolean; lastReviewPromptAt: Date | null }) => ({
+    hasRated: state.hasRated,
+    lastReviewPromptAt: state.lastReviewPromptAt?.toISOString() ?? null,
+  });
+
+  app.get("/api/review-state", requireAuth, async (req, res) => {
+    try {
+      const playerId = req.sessionPlayerId!;
+      const [profile, state] = await Promise.all([
+        storage.getPlayerProfile(playerId),
+        storage.getReviewState(playerId),
+      ]);
+      if (!profile || !state) {
+        res.status(404).json({ error: "Profile not found" });
+        return;
+      }
+      res.json({ ...reviewStateJson(state), isIdle: !playerHasActiveGame(playerId, profile) });
+    } catch {
+      res.status(500).json({ error: "Failed to get review state" });
+    }
+  });
+
+  app.post("/api/review-state/claim", requireAuth, async (req, res) => {
+    if (!emptyRequestBody.safeParse(req.body ?? {}).success) {
+      res.status(400).json({ error: "Request body must be empty" });
+      return;
+    }
+    try {
+      const profile = await storage.getPlayerProfile(req.sessionPlayerId!);
+      if (!profile) {
+        res.status(404).json({ error: "Profile not found" });
+        return;
+      }
+      const isIdle = !playerHasActiveGame(profile.id, profile);
+      const claim = !isIdle
+        ? { eligible: false, state: await storage.getReviewState(profile.id) }
+        : await storage.claimReviewPrompt(profile.id);
+      if (!claim.state) {
+        res.status(404).json({ error: "Profile not found" });
+        return;
+      }
+      res.json({ eligible: claim.eligible, ...reviewStateJson(claim.state), isIdle });
+    } catch {
+      res.status(500).json({ error: "Failed to claim review prompt" });
+    }
+  });
+
+  app.post("/api/review-state/rated", requireAuth, async (req, res) => {
+    if (!emptyRequestBody.safeParse(req.body ?? {}).success) {
+      res.status(400).json({ error: "Request body must be empty" });
+      return;
+    }
+    try {
+      const state = await storage.markPlayerRated(req.sessionPlayerId!);
+      if (!state) {
+        res.status(404).json({ error: "Profile not found" });
+        return;
+      }
+      res.json(reviewStateJson(state));
+    } catch {
+      res.status(500).json({ error: "Failed to update review state" });
+    }
+  });
+
   const notificationPreferencePatch = z.object({
     streakAtRisk: z.boolean().optional(),
     hourlyReady: z.boolean().optional(),

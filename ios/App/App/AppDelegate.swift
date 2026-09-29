@@ -1,5 +1,71 @@
 import UIKit
 import Capacitor
+import StoreKit
+
+@objc(RateTheChainReviewPlugin)
+public class RateTheChainReviewPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "RateTheChainReviewPlugin"
+    public let jsName = "RateTheChainReview"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openStoreListing", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) else {
+                call.resolve([
+                    "status": "unavailable",
+                    "reason": "no-foreground-scene"
+                ])
+                return
+            }
+
+            SKStoreReviewController.requestReview(in: scene)
+            call.resolve([
+                "status": "success",
+                "requestCompleted": true
+            ])
+        }
+    }
+
+    @objc func openStoreListing(_ call: CAPPluginCall) {
+        guard let url = URL(string: "itms-apps://itunes.apple.com/app/id6796398661?action=write-review") else {
+            call.resolve([
+                "status": "error",
+                "code": "INVALID_STORE_LISTING_URL",
+                "message": "The App Store listing URL is invalid."
+            ])
+            return
+        }
+
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened {
+                    call.resolve([
+                        "status": "success",
+                        "opened": true
+                    ])
+                } else {
+                    call.resolve([
+                        "status": "unavailable",
+                        "reason": "store-app-unavailable"
+                    ])
+                }
+            }
+        }
+    }
+}
+
+@objc(RateTheChainBridgeViewController)
+class RateTheChainBridgeViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        bridge?.registerPluginInstance(RateTheChainReviewPlugin())
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {

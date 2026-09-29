@@ -2796,6 +2796,16 @@ export function getConnectedGenericPlayers(): Array<{ playerId: string; tableId:
   return result;
 }
 
+export function getPlayerGenericTablePhases(playerId: string): Array<{ tableId: string; modeId: string; phase: string }> {
+  const result: Array<{ tableId: string; modeId: string; phase: string }> = [];
+  for (const table of tables.values()) {
+    if ([...table.seatToIdentityId.values()].includes(playerId)) {
+      result.push({ tableId: table.tableId, modeId: table.modeId, phase: table.state.phase });
+    }
+  }
+  return result;
+}
+
 export function getConnectedGenericIdentityIds(tableId: string, modeId: string): string[] {
   const table = tables.get(tableKey(modeId, tableId));
   if (!table) return [];

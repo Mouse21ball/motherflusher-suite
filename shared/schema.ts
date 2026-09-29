@@ -32,6 +32,8 @@ export const playerProfiles = pgTable("player_profiles", {
   xpAchievements:       jsonb("xp_achievements").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   lastHourlyRewardAt:   timestamp("last_hourly_reward_at"),
   lastActivityAt:       timestamp("last_activity_at"),
+  hasRated:             boolean("has_rated").notNull().default(false),
+  lastReviewPromptAt:   timestamp("last_review_prompt_at"),
   lifetimeProfit:       integer("lifetime_profit").notNull().default(0),
   email:                text("email").unique(),
   passwordHash:         text("password_hash"),
@@ -111,6 +113,8 @@ export const insertPlayerProfileSchema = createInsertSchema(playerProfiles).omit
   chipLoanGrantedAt:              true,
   passwordResetToken:             true,
   passwordResetExpires:           true,
+  hasRated:                       true,
+  lastReviewPromptAt:             true,
   createdAt:                      true,
   updatedAt:                      true,
 });

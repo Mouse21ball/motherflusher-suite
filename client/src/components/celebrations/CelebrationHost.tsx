@@ -7,7 +7,7 @@ import {
   type CelebrationEvent,
   type CelebrationPreset,
 } from './celebrationEvents';
-import { subscribeCelebrations } from './celebrationService';
+import { completeCelebration, subscribeCelebrations } from './celebrationService';
 import './celebrations.css';
 
 interface Point { x: number; y: number }
@@ -160,8 +160,11 @@ export function CelebrationHost() {
 
   useEffect(() => {
     if (!active) return;
-    const timer = window.setTimeout(() => setActive(current => current?.id === active.id ? null : current),
-      motion === 'reduced' ? 900 : active.preset.durationMs);
+    const timer = window.setTimeout(() => {
+      if (nextId.current !== active.id) return;
+      setActive(null);
+      completeCelebration(active.event);
+    }, motion === 'reduced' ? 900 : active.preset.durationMs);
     const cancel = () => setActive(null);
     window.addEventListener('resize', cancel);
     window.addEventListener('scroll', cancel, true);

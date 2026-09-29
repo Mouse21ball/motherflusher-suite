@@ -33,6 +33,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track } from '@/lib/analytics';
+import { startMenuReview } from '@/lib/reviewFlow';
 import { MusicButton } from '@/components/MusicButton';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
 
@@ -858,7 +859,7 @@ export default function Home() {
 
           {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
           <div style={{ padding: '14px 12px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
               <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
               <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
               <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }} data-testid="link-home-footer-privacy">Privacy</a>
@@ -867,6 +868,16 @@ export default function Home() {
                 style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }}
                 data-testid="link-home-footer-feedback"
                 onClick={() => track({ name: 'feedback_link_clicked', location: 'home_footer' })}>Feedback</a>
+              <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
+              <button type="button" data-testid="button-rate-chain-home"
+                onClick={() => { void startMenuReview(serverProfile?.profileId ?? identity.id).then(({ launched, saved }) => {
+                  if (!launched || !saved) window.alert(!launched
+                    ? 'The store could not be opened. Please try again later.'
+                    : 'Your rating preference could not be saved. Please check your connection.');
+                }); }}
+                style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#F0B829', letterSpacing: '0.02em', background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
+                Rate the Chain
+              </button>
             </div>
           </div>
 

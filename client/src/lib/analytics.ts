@@ -73,7 +73,10 @@ export type AnalyticsEvent =
   | { name: 'crew_private_created'; mode: string }
   | { name: 'bust_modal_shown';     mode: string }
   | { name: 'bonus_page_visited' }
-  | { name: 'feedback_link_clicked'; location: 'home_footer' | 'profile_menu' };
+  | { name: 'feedback_link_clicked'; location: 'home_footer' | 'profile_menu' }
+  | { name: 'review_prompt_shown'; location: 'big_win' }
+  | { name: 'review_prompt_dismissed'; location: 'big_win' }
+  | { name: 'review_flow_completed'; location: 'menu' | 'big_win' };
 
 export function track(event: AnalyticsEvent): void {
   if (isPracticeBadugiRoute()) return;

@@ -27,6 +27,7 @@ import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import { setCelebrationMotion, useCelebrationMotion, type CelebrationMotion } from '@/lib/celebrationPreferences';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { logoutPushInstallation, revokePushInstallation } from '@/lib/pushNotifications';
+import { startMenuReview } from '@/lib/reviewFlow';
 
 // ─── Avatar preset definitions ────────────────────────────────────────────────
 
@@ -1039,6 +1040,27 @@ export default function Profile() {
                 })}
               </div>
             </fieldset>
+
+            <button
+              type="button"
+              data-testid="button-rate-chain-profile"
+              onClick={() => { void startMenuReview(serverProfile?.profileId ?? identity.id).then(({ launched, saved }) => {
+                if (!launched || !saved) window.alert(!launched
+                  ? 'The store could not be opened. Please try again later.'
+                  : 'Your rating preference could not be saved. Please check your connection.');
+              }); }}
+              className="flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-colors"
+              style={{ background: 'rgba(15,10,25,0.40)', border: '1px solid rgba(255,215,0,0.20)' }}
+            >
+              <span className="flex items-center gap-3">
+                <span aria-hidden="true" className="text-amber-300">★</span>
+                <span>
+                  <span className="block text-[13px] text-white">Rate the Chain</span>
+                  <span className="block mt-0.5 font-mono text-[10px] text-white/50">Review us in the app store</span>
+                </span>
+              </span>
+              <span aria-hidden="true" className="text-white/40">›</span>
+            </button>
 
             {/* Feedback */}
             <a
