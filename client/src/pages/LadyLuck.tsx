@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
+import { LADY_LUCK_FLIP_DURATION_MS, LADY_LUCK_SUIT_PULSE_MS } from '../../../shared/ladyluckTiming';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
 import {
@@ -302,7 +303,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                 currentCard:  msg.card as { rank: string; suit: LadyLuckSuit },
                 flippedCards: [...(prev.flippedCards ?? []), msg.card as { rank: string; suit: LadyLuckSuit }],
               } : prev);
-              setTimeout(() => setFlipAnim(null), 700);
+              setTimeout(() => setFlipAnim(null), LADY_LUCK_SUIT_PULSE_MS);
             }
             if (msg.type === 'll:result') {
               setState(msg.state as LadyLuckState);
@@ -1393,7 +1394,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
         <div style={{ margin: '0 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, minHeight: 116, background: 'transparent', borderRadius: 12, padding: '8px 10px' }}>
           {state.currentCard ? (
             <div key={flipCount} style={{
-              animation: 'll-card-flip 1.6s ease-out forwards',
+              animation: `ll-card-flip ${LADY_LUCK_FLIP_DURATION_MS}ms ease-out forwards`,
               width: 84, height: 116, flexShrink: 0,
               background: 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)',
               borderRadius: 10, position: 'relative',

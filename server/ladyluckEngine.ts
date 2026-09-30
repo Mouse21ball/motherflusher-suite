@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { randomUUID } from 'crypto';
 import { storage, LADY_LUCK_HOUSE_ID } from './storage';
+import { LADY_LUCK_FLIP_INTERVAL_MS } from '../shared/ladyluckTiming';
 import { applyRake } from './utils/rake';
 import {
   LadyLuckState,
@@ -848,7 +849,7 @@ function startRace(tableId: string) {
       clearInterval(m.raceInterval);
       void resolveRace(tableId, card.suit).catch(err => console.error('[LadyLuck] Race settlement failed:', err));
     }
-  }, 1500);
+  }, LADY_LUCK_FLIP_INTERVAL_MS);
 }
 
 export async function resolveRace(tableId: string, winningSuit: LadyLuckSuit) {
