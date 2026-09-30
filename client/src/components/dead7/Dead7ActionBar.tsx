@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BettingControls } from '../game/BettingControls';
 
 const R = (a: number) => `rgba(185,28,28,${a})`;
 
@@ -17,6 +18,7 @@ interface Dead7ActionBarProps {
   currentBet: number;
   myBet: number;
   pot: number;
+  minBet: number;
   ante: number;
   humanCount: number;
   openSeatsCount: number;
@@ -63,12 +65,12 @@ function TutorialPanel() {
 
 export function Dead7ActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
-  chips, currentBet, myBet, pot,
+  chips, currentBet, myBet, pot, minBet,
   ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
   myDeclaration, myHasActed,
   onStandPat, onDraw, onAction, onRebuy,
 }: Dead7ActionBarProps) {
-  void pot; void openSeatsCount;
+  void openSeatsCount;
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   const autoAnteFired = useRef(false);
@@ -81,9 +83,6 @@ export function Dead7ActionBar({
   }, [phase, isMyTurn, locked, onAction]);
 
   const canAct      = isMyTurn && !locked;
-  const callAmount  = currentBet - myBet;
-  const canCheck    = callAmount === 0;
-  const raiseAmount = Math.max(callAmount > 0 ? callAmount * 2 : 50, 50);
   const isBetPhase  = phase.startsWith('BET_');
   const isWaiting   = phase === 'WAITING';
   const isDeclare   = phase === 'DECLARE';
@@ -105,22 +104,6 @@ export function Dead7ActionBar({
     color: canAct ? '#fff' : 'rgba(255,255,255,0.25)',
     boxShadow: canAct ? `0 0 18px ${R(0.45)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none',
   };
-  const foldBtn: React.CSSProperties = { ...base, flex: 0.7,
-    background: 'rgba(30,10,10,0.85)', color: canAct ? 'rgba(255,120,120,0.9)' : 'rgba(255,255,255,0.2)',
-    border: '1px solid rgba(200,50,50,0.25)', opacity: canAct ? 1 : 0.5,
-  };
-  const checkCallBtn: React.CSSProperties = { ...base,
-    background: canAct ? 'linear-gradient(135deg, #1c0000, #3a0808)' : 'rgba(20,5,5,0.5)',
-    color: canAct ? '#f87171' : 'rgba(255,255,255,0.2)',
-    border: `1px solid ${R(0.25)}`, boxShadow: canAct ? `0 0 10px ${R(0.2)}` : 'none', opacity: canAct ? 1 : 0.5,
-  };
-  const raiseBtn: React.CSSProperties = { ...base, flex: 0.9,
-    background: canAct ? 'linear-gradient(135deg, #7a1010, #dc2626)' : 'rgba(50,10,10,0.5)',
-    color: canAct ? '#fff' : 'rgba(255,255,255,0.2)',
-    boxShadow: canAct ? `0 0 14px ${R(0.35)}` : 'none',
-    opacity: canAct && chips > raiseAmount ? 1 : 0.4,
-  };
-
   return (
     <div style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
@@ -134,17 +117,16 @@ export function Dead7ActionBar({
         )}
 
         {isBetPhase && isMyTurn && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={foldBtn} disabled={!canAct} onClick={canAct ? () => onAction('fold') : undefined} data-testid="button-fold">FOLD</button>
-            <button style={checkCallBtn} disabled={!canAct}
-              onClick={canAct ? () => onAction(canCheck ? 'check' : 'call', canCheck ? 0 : callAmount) : undefined}
-              data-testid={canCheck ? 'button-check' : 'button-call'}>
-              {canCheck ? 'CHECK' : `CALL ${callAmount}`}
-            </button>
-            <button style={raiseBtn} disabled={!canAct || chips <= raiseAmount}
-              onClick={(canAct && chips > raiseAmount) ? () => onAction('raise', raiseAmount) : undefined}
-              data-testid="button-raise">RAISE</button>
-          </div>
+          <BettingControls
+            isMyTurn={isMyTurn}
+            locked={locked}
+            chips={chips}
+            currentBet={currentBet}
+            myBet={myBet}
+            pot={pot}
+            minBet={minBet}
+            onAction={onAction}
+          />
         )}
 
         {isWaiting && (

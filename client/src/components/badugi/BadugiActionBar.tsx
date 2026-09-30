@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BettingControls } from '../game/BettingControls';
 
 const G = (a: number) => `rgba(201,162,39,${a})`;
 
@@ -20,6 +21,7 @@ interface BadugiActionBarProps {
   currentBet: number;
   myBet: number;
   pot: number;
+  minBet: number;
   ante: number;
   humanCount: number;
   openSeatsCount: number;
@@ -66,12 +68,12 @@ function TutorialPanel() {
 
 export function BadugiActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
-  chips, currentBet, myBet, pot,
+  chips, currentBet, myBet, pot, minBet,
   ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
   myDeclaration, myHasActed,
   onStandPat, onDraw, onAction, onRebuy,
 }: BadugiActionBarProps) {
-  void pot; void openSeatsCount;
+  void openSeatsCount;
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   /* Auto-ante: fire once per ANTE phase when it's the player's turn */
@@ -85,9 +87,6 @@ export function BadugiActionBar({
   }, [phase, isMyTurn, locked, onAction]);
 
   const canAct      = isMyTurn && !locked;
-  const callAmount  = currentBet - myBet;
-  const canCheck    = callAmount === 0;
-  const raiseAmount = Math.max(callAmount > 0 ? callAmount * 2 : 50, 50);
   const isBetPhase  = phase.startsWith('BET_');
   const isWaiting   = phase === 'WAITING';
   const isDeclare   = phase === 'DECLARE';
@@ -111,26 +110,6 @@ export function BadugiActionBar({
     color: canAct ? '#fff' : 'rgba(255,255,255,0.25)',
     boxShadow: canAct ? `0 0 18px ${G(0.45)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none',
   };
-  const foldBtn: React.CSSProperties = {
-    ...base, flex: 0.7,
-    background: 'rgba(30,10,10,0.85)', color: canAct ? 'rgba(255,120,120,0.9)' : 'rgba(255,255,255,0.2)',
-    border: '1px solid rgba(200,50,50,0.25)', opacity: canAct ? 1 : 0.5,
-  };
-  const checkCallBtn: React.CSSProperties = {
-    ...base,
-    background: canAct ? 'linear-gradient(135deg, #1c1200, #3a2800)' : 'rgba(20,14,0,0.5)',
-    color: canAct ? '#D4B44A' : 'rgba(255,255,255,0.2)',
-    border: `1px solid ${G(0.25)}`, boxShadow: canAct ? `0 0 10px ${G(0.2)}` : 'none',
-    opacity: canAct ? 1 : 0.5,
-  };
-  const raiseBtn: React.CSSProperties = {
-    ...base, flex: 0.9,
-    background: canAct ? 'linear-gradient(135deg, #7a5500, #C9A227)' : 'rgba(50,36,0,0.5)',
-    color: canAct ? '#fff' : 'rgba(255,255,255,0.2)',
-    boxShadow: canAct ? `0 0 14px ${G(0.35)}` : 'none',
-    opacity: canAct && chips > raiseAmount ? 1 : 0.4,
-  };
-
   return (
     <div style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
@@ -148,17 +127,16 @@ export function BadugiActionBar({
 
         {/* Bet phase */}
         {isBetPhase && isMyTurn && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={foldBtn} disabled={!canAct} onClick={canAct ? () => onAction('fold') : undefined} data-testid="button-fold">FOLD</button>
-            <button style={checkCallBtn} disabled={!canAct}
-              onClick={canAct ? () => onAction(canCheck ? 'check' : 'call', canCheck ? 0 : callAmount) : undefined}
-              data-testid={canCheck ? 'button-check' : 'button-call'}>
-              {canCheck ? 'CHECK' : `CALL ${callAmount}`}
-            </button>
-            <button style={raiseBtn} disabled={!canAct || chips <= raiseAmount}
-              onClick={(canAct && chips > raiseAmount) ? () => onAction('raise', raiseAmount) : undefined}
-              data-testid="button-raise">RAISE</button>
-          </div>
+          <BettingControls
+            isMyTurn={isMyTurn}
+            locked={locked}
+            chips={chips}
+            currentBet={currentBet}
+            myBet={myBet}
+            pot={pot}
+            minBet={minBet}
+            onAction={onAction}
+          />
         )}
 
         {/* Waiting phase */}
