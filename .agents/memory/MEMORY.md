@@ -26,3 +26,4 @@
 - [Google Play product ID format](google-play-product-ids.md) — use underscores for new Play in-app product identifiers; hyphenated IDs were rejected.
 - [External CI npm mirrors](external-ci-npm-mirrors.md) — Replit-mirrored lockfile tarballs can silently break GitHub npm ci; verify local pinned tools before checks.
 - [Firebase console security status](firebase-console-security.md) — mobile API keys were restricted and unused Firebase databases/storage were confirmed disabled in the console.
+- [AGP 9 legacy Kotlin modules](agp9-legacy-kotlin-modules.md) — a plugin's explicit Kotlin apply can mask its valid compileSdk; check old DSL calls after fixing the first error.

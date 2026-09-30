@@ -4,6 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "postinstall": "patch-package",
     "dev:client": "vite dev --port 5000",
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "tsx script/build.ts",
@@ -16,7 +17,7 @@
     "test:browser:install": "playwright install chromium"
   },
   "dependencies": {
-    "@capacitor-community/admob": "^7.2.0",
+    "@capacitor-community/admob": "7.2.0",
     "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^7.6.2",
@@ -73,6 +74,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.545.0",
     "obscenity": "^0.4.6",
+    "patch-package": "8.0.1",
     "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-day-picker": "^9.11.1",
