@@ -117,10 +117,14 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   await expect(celebration).toBeVisible();
   await expect(celebration).toHaveAttribute('data-celebration', 'NORMAL_WIN');
   await expect(celebration.locator('.cgp-celebration-title')).toHaveText('WINNER');
+  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 3200ms/);
   await expect(celebration).not.toHaveClass(/cgp-celebration--reduced/);
   await expect(page.locator('[data-celebration-chip]')).toHaveCount(3);
   await expect(page.locator('[data-player-seat="celebration-test-player"] [data-celebration-card]'))
     .toHaveClass(/cgp-celebrating-card/);
+  await page.waitForTimeout(1600);
+  await expect.poll(() => celebration.locator('.cgp-celebration-title-group')
+    .evaluate(element => Number(getComputedStyle(element).opacity))).toBeGreaterThan(0.9);
   await expect(celebration).toHaveCount(0, { timeout: 3_000 });
   await expect(page.locator('[data-celebration-chip]')).toHaveCount(0);
   await expect(card).not.toHaveClass(/cgp-celebrating-card/);
@@ -132,6 +136,7 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   await publishCelebration(page, fakeEvent('BIG_POT', 750));
   await expect(celebration).toBeVisible();
   await expect(celebration).toHaveAttribute('data-celebration', 'BIG_POT');
+  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 3600ms/);
   await expect(celebration.locator('.cgp-celebration-title')).toHaveText('BIG POT');
   await expect(celebration.locator('.cgp-celebration-chip--big')).toHaveCount(3);
   await expect(resultCard).toHaveClass(/cgp-celebrating-card/);
@@ -147,7 +152,7 @@ test('renders celebration presets, cleans them up, and honors motion preferences
     };
   });
   expect(firstResultChip).toEqual({ left: '42px', top: '122px', dx: '68px', dy: '108px' });
-  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
+  await expect(celebration).toHaveCount(0, { timeout: 5_000 });
   await expect(page.locator('[data-celebration-chip]')).toHaveCount(0);
   await expect(resultCard).not.toHaveClass(/cgp-celebrating-card/);
   await unmountFakeResultGroup(page);
@@ -155,19 +160,22 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   await publishCelebration(page, fakeEvent('DEAD7_SPECIAL', 300));
   await expect(celebration).toBeVisible();
   await expect(celebration).toHaveAttribute('data-celebration', 'DEAD7_SPECIAL');
+  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 3800ms/);
   await expect(celebration.locator('.cgp-celebration-title')).toHaveText('DEAD 7');
   await expect(celebration.locator('.cgp-celebration-skull')).toBeVisible();
-  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
+  await expect(celebration).toHaveCount(0, { timeout: 5_000 });
 
   await publishCelebration(page, { ...fakeEvent('RARE_HAND', 225), handName: 'Royal Flush' });
   await expect(celebration).toHaveAttribute('data-celebration', 'RARE_HAND');
+  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 4000ms/);
   await expect(celebration.locator('.cgp-celebration-title')).toHaveText('RARE HAND');
   await expect(celebration.locator('.cgp-celebration-emblem svg')).toBeVisible();
   await expect(celebration).toContainText('Royal Flush');
-  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
+  await expect(celebration).toHaveCount(0, { timeout: 5_000 });
 
   await publishCelebration(page, { ...fakeEvent('WIN_STREAK', 300), streakCount: 3 });
   await expect(celebration).toHaveAttribute('data-celebration', 'WIN_STREAK');
+  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 3600ms/);
   await expect(celebration.locator('.cgp-celebration-title')).toHaveText('HOT STREAK');
   await expect(celebration).toContainText('3 WINS');
   await expect(celebration.locator('.cgp-celebration-emblem svg')).toBeVisible();
@@ -203,6 +211,6 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   );
   await expect(delayedResultCard).toHaveClass(/cgp-celebrating-card/);
   await expect(card).not.toHaveClass(/cgp-celebrating-card/);
-  await expect(celebration).toHaveCount(0, { timeout: 3_000 });
+  await expect(celebration).toHaveCount(0, { timeout: 4_000 });
   await expect(delayedResultCard).not.toHaveClass(/cgp-celebrating-card/);
 });

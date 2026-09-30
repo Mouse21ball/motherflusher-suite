@@ -62,7 +62,7 @@
   border: 3px solid currentColor;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  animation: cgp-celebration-emblem 1100ms ease-out both;
+  animation: cgp-celebration-emblem calc(var(--celebration-duration) * .5) ease-out both;
 }
 .cgp-celebration-emblem svg { width: 42%; height: 42%; }
 .cgp-celebration--rare-halo .cgp-celebration-emblem { color: #d9b8ff; box-shadow: 0 0 34px #a467de, inset 0 0 35px #9e67ca; }
@@ -87,13 +87,13 @@
   border-radius: 50%;
   background: radial-gradient(circle at 33% 28%, #fff8c7, #dca730 48%, #74500d 85%);
   box-shadow: 0 0 12px #dda328, inset 0 0 0 2px #9a671b;
-  animation: cgp-celebration-chip-fly 750ms cubic-bezier(.25,.7,.25,1) var(--chip-delay) both;
+  animation: cgp-celebration-chip-fly calc(var(--celebration-duration) * .55) cubic-bezier(.25,.7,.25,1) var(--chip-delay) both;
 }
 .cgp-celebration-chip--big {
   width: 32px;
   height: 32px;
   box-shadow: 0 0 24px #ffbc37, inset 0 0 0 3px #9a671b;
-  animation-duration: 900ms;
+  animation-duration: calc(var(--celebration-duration) * .55);
 }
 .cgp-celebration-impact {
   position: absolute;
@@ -102,7 +102,7 @@
   border: 4px solid rgba(255, 195, 60, .9);
   border-radius: 50%;
   box-shadow: 0 0 32px #d99020, inset 0 0 24px #f7ad22;
-  animation: cgp-celebration-impact 670ms ease-out 760ms both;
+  animation: cgp-celebration-impact calc(var(--celebration-duration) * .45) ease-out 760ms both;
 }
 
 .cgp-celebration-chain {
@@ -115,7 +115,7 @@
   justify-content: center;
   gap: 1px;
   transform: rotate(-9deg);
-  animation: cgp-celebration-chain-sweep 1050ms cubic-bezier(.25,.65,.35,1) both;
+  animation: cgp-celebration-chain-sweep calc(var(--celebration-duration) * .58) cubic-bezier(.25,.65,.35,1) both;
   filter: drop-shadow(0 5px 8px #110900) drop-shadow(0 0 14px rgba(255,191,51,.5));
 }
 .cgp-celebration-link {
@@ -135,7 +135,7 @@
   inset: 0;
   border: 15px solid rgba(255,190,61,.65);
   box-shadow: inset 0 0 80px rgba(255,154,25,.45);
-  animation: cgp-celebration-punch 380ms ease-out both;
+  animation: cgp-celebration-punch calc(var(--celebration-duration) * .25) ease-out both;
 }
 .cgp-celebration-vignette {
   position: absolute;
@@ -152,7 +152,7 @@
   height: clamp(74px, 17vh, 150px);
   color: #dcc39a;
   filter: drop-shadow(0 3px 1px #3b1613) drop-shadow(0 0 18px #b83926);
-  animation: cgp-celebration-skull-pulse 850ms ease-out both;
+  animation: cgp-celebration-skull-pulse calc(var(--celebration-duration) * .5) ease-out both;
 }
 .cgp-celebration-skull::before {
   content: '';
@@ -164,7 +164,7 @@
   border-right-color: rgba(187, 29, 26, .88);
   border-radius: 50%;
   box-shadow: 0 0 25px rgba(219, 42, 30, .7), inset 0 0 28px rgba(239, 176, 60, .55);
-  animation: cgp-celebration-impact 900ms ease-out 170ms both;
+  animation: cgp-celebration-impact calc(var(--celebration-duration) * .5) ease-out 170ms both;
 }
 .cgp-celebration-skull svg { width: clamp(72px, 15vh, 138px); height: 100%; }
 .cgp-celebration-skull span {
@@ -186,7 +186,7 @@
   border-radius: 50%;
   background: #ffdc73;
   box-shadow: 0 0 7px 3px #efa827;
-  animation: cgp-celebration-spark 750ms ease-out var(--delay) both;
+  animation: cgp-celebration-spark calc(var(--celebration-duration) * .55) ease-out var(--delay) both;
 }
 .cgp-celebration-particles--amber-burst .cgp-celebration-spark {
   width: 8px;
@@ -218,7 +218,7 @@
 
 @keyframes cgp-celebration-appear {
   0% { opacity: 0; transform: translate(-50%, -12px) scale(.86); }
-  15%, 72% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  15%, 82% { opacity: 1; transform: translate(-50%, 0) scale(1); }
   100% { opacity: 0; transform: translate(-50%, 0) scale(1); }
 }
 @keyframes cgp-celebration-chip-fly {

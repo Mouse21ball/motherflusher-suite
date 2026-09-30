@@ -44,26 +44,36 @@ export interface CelebrationPreset {
   characterAsset?: string;
 }
 
+/** Shared full-motion timings for authoritative and standalone hand-win overlays. */
+export const CELEBRATION_DURATIONS_MS = {
+  NORMAL_WIN: 3200,
+  BIG_POT: 3600,
+  DEAD7_SPECIAL: 3800,
+  RARE_HAND: 4000,
+  WIN_STREAK: 3600,
+  SWING_SCOOP: 3800,
+} as const;
+
 // New modes register a preset here and emit a CelebrationEvent. No table code changes.
 export const CELEBRATION_PRESETS: Partial<Record<CelebrationType, CelebrationPreset>> = {
   NORMAL_WIN: {
-    animation: 'chip-glow', durationMs: 1200, text: 'WINNER',
+    animation: 'chip-glow', durationMs: CELEBRATION_DURATIONS_MS.NORMAL_WIN, text: 'WINNER',
     sound: 'chipClink', particles: 'gold-sparks', screenEffect: 'none', intensity: 'normal',
   },
   BIG_POT: {
-    animation: 'chain-sweep', durationMs: 1900, text: 'BIG POT',
+    animation: 'chain-sweep', durationMs: CELEBRATION_DURATIONS_MS.BIG_POT, text: 'BIG POT',
     sound: 'bigWin', particles: 'amber-burst', screenEffect: 'punch', intensity: 'big',
   },
   DEAD7_SPECIAL: {
-    animation: 'dead7-skull', durationMs: 2100, text: 'DEAD 7',
+    animation: 'dead7-skull', durationMs: CELEBRATION_DURATIONS_MS.DEAD7_SPECIAL, text: 'DEAD 7',
     sound: 'bigWin', particles: 'red-gold-pulse', screenEffect: 'dim-pulse', intensity: 'premium',
   },
   RARE_HAND: {
-    animation: 'rare-halo', durationMs: 2300, text: 'RARE HAND',
+    animation: 'rare-halo', durationMs: CELEBRATION_DURATIONS_MS.RARE_HAND, text: 'RARE HAND',
     sound: 'bigWin', particles: 'violet-stars', screenEffect: 'dim-pulse', intensity: 'premium',
   },
   WIN_STREAK: {
-    animation: 'streak-flare', durationMs: 2000, text: 'HOT STREAK',
+    animation: 'streak-flare', durationMs: CELEBRATION_DURATIONS_MS.WIN_STREAK, text: 'HOT STREAK',
     sound: 'win', particles: 'flame-sparks', screenEffect: 'punch', intensity: 'big',
   },
 };
@@ -72,7 +82,8 @@ export function resolveCelebration(event: CelebrationEvent): CelebrationPreset {
   const preset = CELEBRATION_PRESETS[event.type];
   if (!preset) throw new Error(`No presentation preset registered for ${event.type}`);
   const intensity = event.intensity ?? preset.intensity;
-  const bounds = intensity === 'normal' ? [800, 1500] : intensity === 'big' ? [1500, 2200] : [800, 3000];
+  const bounds = intensity === 'normal' ? [2800, 3600]
+    : intensity === 'big' ? [3200, 4200] : [3500, 4500];
   return {
     ...preset,
     ...event,

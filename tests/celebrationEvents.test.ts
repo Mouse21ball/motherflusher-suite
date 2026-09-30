@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { GameState, Player } from '../shared/gameTypes';
 import {
   BIG_POT_MIN_CHIPS,
+  CELEBRATION_DURATIONS_MS,
+  CELEBRATION_PRESETS,
   deriveCelebration,
   resolveCelebration,
   snapshotForCelebrations,
@@ -357,6 +359,25 @@ describe('celebration event derivation', () => {
 });
 
 describe('celebration presentation presets', () => {
+  it('uses the shared readable durations for every authoritative hand-win preset', () => {
+    expect(CELEBRATION_DURATIONS_MS).toEqual({
+      NORMAL_WIN: 3200,
+      BIG_POT: 3600,
+      DEAD7_SPECIAL: 3800,
+      RARE_HAND: 4000,
+      WIN_STREAK: 3600,
+      SWING_SCOOP: 3800,
+    });
+    expect(Object.fromEntries(Object.entries(CELEBRATION_PRESETS)
+      .map(([type, preset]) => [type, preset?.durationMs]))).toEqual({
+      NORMAL_WIN: 3200,
+      BIG_POT: 3600,
+      DEAD7_SPECIAL: 3800,
+      RARE_HAND: 4000,
+      WIN_STREAK: 3600,
+    });
+  });
+
   it('clamps custom durations to the selected intensity bounds', () => {
     const event: CelebrationEvent = {
       type: 'NORMAL_WIN',
@@ -366,8 +387,8 @@ describe('celebration presentation presets', () => {
       amount: 100,
       durationMs: 1,
     };
-    expect(resolveCelebration(event).durationMs).toBe(800);
-    expect(resolveCelebration({ ...event, durationMs: 5000 }).durationMs).toBe(1500);
+    expect(resolveCelebration(event).durationMs).toBe(2800);
+    expect(resolveCelebration({ ...event, durationMs: 5000 }).durationMs).toBe(3600);
   });
 
   it('registers distinct bounded presets for rare hands and streaks', () => {
@@ -376,13 +397,13 @@ describe('celebration presentation presets', () => {
       targets: [{ playerId: 'p1', amount: 100 }], amount: 100,
     };
     expect(resolveCelebration(event)).toMatchObject({
-      animation: 'rare-halo', intensity: 'premium', durationMs: 2300,
+      animation: 'rare-halo', intensity: 'premium', durationMs: 4000,
     });
-    expect(resolveCelebration({ ...event, durationMs: 9999 }).durationMs).toBe(3000);
+    expect(resolveCelebration({ ...event, durationMs: 9999 }).durationMs).toBe(4500);
     expect(resolveCelebration({ ...event, type: 'WIN_STREAK' })).toMatchObject({
-      animation: 'streak-flare', intensity: 'big', durationMs: 2000,
+      animation: 'streak-flare', intensity: 'big', durationMs: 3600,
     });
-    expect(resolveCelebration({ ...event, type: 'WIN_STREAK', durationMs: 9999 }).durationMs).toBe(2200);
+    expect(resolveCelebration({ ...event, type: 'WIN_STREAK', durationMs: 9999 }).durationMs).toBe(4200);
   });
 
   it('fails explicitly when a celebration type has no registered preset', () => {
