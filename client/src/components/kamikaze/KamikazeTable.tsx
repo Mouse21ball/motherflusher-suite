@@ -216,7 +216,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
       </div>
 
       {/* Hero hand */}
-      <div data-deal-seat={myId} data-player-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+      <div data-deal-seat={myId} data-player-seat={myId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0 }}>
         {isDrawPhase && selectedCardIndices.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: rA(0.15), border: `1px solid ${rA(0.4)}`, fontSize: 11, fontFamily: 'monospace', color: RED, letterSpacing: '0.08em' }}>
@@ -224,7 +224,7 @@ export function KamikazeTable({ state, myId, selectedCardIndices, onCardClick, i
           </motion.div>
         )}
         {me && me.cards.length > 0 ? (
-          <div style={{ opacity: heroIsLoser ? 0.55 : 1, transition: 'opacity 0.4s ease' }}>
+          <div style={{ width: '100%', minWidth: 0, opacity: heroIsLoser ? 0.55 : 1, transition: 'opacity 0.4s ease' }}>
             <CardHand
               cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick}
               isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices}
