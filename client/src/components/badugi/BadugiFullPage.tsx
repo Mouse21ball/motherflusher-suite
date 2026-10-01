@@ -277,6 +277,7 @@ export function BadugiFullPage({
             selectedCount={selectedCardIndices.length} drawLimit={drawLimit}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
             chips={me?.chips ?? 0} currentBet={state.currentBet} myBet={me?.bet ?? 0}
+            minBet={state.minBet}
             pot={state.pot} ante={25} humanCount={humanCount}
             openSeatsCount={isClubTable ? 0 : openSeatsCount}
             activeCount={activeCount} isClubTable={isClubTable}
