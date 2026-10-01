@@ -9,11 +9,11 @@ Test the complete production entry separately from component fixtures. Classify 
 
 **How to apply:** Audit changed import paths, then run isolated production bootstrap checks with native-call timing recorded and all API traffic redirected to development. Do not claim that a speculative JavaScript guard fixes Android process death. Obtain the failing device's first AndroidRuntime FATAL EXCEPTION or native Fatal signal stack before attributing the crash to a particular SDK or call.
 
-Treat real-device bisection as evidence of commit-level causality even if desktop production checks pass. It does not identify the specific failing instruction or engine mechanism.
+Treat real-device bisection as evidence of a failing-build boundary even if desktop production checks pass. It does not prove that the changed source is the defect or identify the failing instruction.
 
-**Why:** Pure source and an acyclic import graph cannot exclude a device-engine-specific failure. A successful control build and a failing single-change build should narrow the investigation, not be dismissed because a bridge simulation succeeds.
+**Why:** Pure source and an acyclic import graph cannot exclude a native startup failure. In a device-side investigation, DEX inspection and dependency sources identified a reflection-required generated database constructor removed by R8, despite successful matching-Chromium production checks. The apparent JavaScript regression was not the defect.
 
-**How to apply:** Respect causes already excluded by the device controls. If crash logging is unavailable, obtain the active WebView provider/version and use matching-engine production probes or further controlled reductions before claiming a fix; do not repeatedly demand unavailable logs.
+**How to apply:** Respect device evidence but distinguish identical tracked native source from identical shrunk native output. Inspect release DEX and reflection requirements when native startup fails. If crash logging is unavailable, use matching-engine probes or controlled reductions without repeatedly demanding logs. Do not infer a web-asset-size threshold in R8 without native build evidence. Keep native initialization intact when a targeted constructor preservation rule addresses the confirmed failure; removing initialization can disable required background work.
 
 Verify an engine match from the launched browser itself, not the Playwright package version or a spoofed user agent. Matching the full Chromium version still does not match the Android embedder, CPU architecture, GPU, or V8 build flags.
 

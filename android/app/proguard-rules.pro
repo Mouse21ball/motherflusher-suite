@@ -35,6 +35,12 @@
 -keep class * extends org.apache.cordova.CordovaPlugin
 
 # ─── Reflection-based libraries ───────────────────────────────────────────────
+# Room 2.2.5 instantiates WorkManager's generated database via Class.newInstance().
+# Preserve its public no-arg constructor so R8 cannot break startup.
+-keepclassmembers class androidx.work.impl.WorkDatabase_Impl {
+    public <init>();
+}
+
 -keepattributes Signature
 -keepattributes Annotation
 -keepattributes Exceptions
