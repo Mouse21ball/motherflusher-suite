@@ -96,6 +96,7 @@ export function FlushedUpActionBar({
 
   const isBetPhase = phase.startsWith('BET_');
   const isWaiting = phase === 'WAITING';
+  const canStart = activeCount >= 2 && chips > 0;
 
   const btnBase: React.CSSProperties = {
     flex: 1,
@@ -222,8 +223,8 @@ export function FlushedUpActionBar({
         {isWaiting && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingTop: 4 }}>
             <button
-              disabled={activeCount < 2}
-              onClick={activeCount >= 2 ? () => onAction('start') : undefined}
+              disabled={!canStart}
+              onClick={canStart ? () => onAction('start') : undefined}
               data-testid="button-deal-me-in"
               style={{
                 width: '100%',
@@ -234,22 +235,22 @@ export function FlushedUpActionBar({
                 fontWeight: 700,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                cursor: activeCount >= 2 ? 'pointer' : 'not-allowed',
+                cursor: canStart ? 'pointer' : 'not-allowed',
                 border: 'none',
                 outline: 'none',
                 WebkitTapHighlightColor: 'transparent',
-                background: activeCount >= 2
+                background: canStart
                   ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
                   : 'rgba(50,20,80,0.45)',
-                color: activeCount >= 2 ? '#fff' : 'rgba(255,255,255,0.28)',
-                boxShadow: activeCount >= 2
+                color: canStart ? '#fff' : 'rgba(255,255,255,0.28)',
+                boxShadow: canStart
                   ? '0 0 24px rgba(124,58,237,0.6), 0 4px 16px rgba(0,0,0,0.4)'
                   : 'none',
-                opacity: activeCount >= 2 ? 1 : 0.65,
+                opacity: canStart ? 1 : 0.65,
                 transition: 'all 0.2s',
               }}
             >
-              {activeCount >= 2 ? 'DEAL ME IN' : 'NEED 1 MORE PLAYER'}
+              {chips <= 0 ? 'REBUY BEFORE STARTING' : canStart ? 'DEAL ME IN' : 'NEED 1 MORE PLAYER'}
             </button>
             <div style={{
               textAlign: 'center',

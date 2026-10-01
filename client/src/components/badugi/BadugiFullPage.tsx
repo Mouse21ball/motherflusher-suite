@@ -295,13 +295,15 @@ export function BadugiFullPage({
       {/* Crew buy-in gate */}
       {isPrebuyIn && (
         <div style={{ flexShrink: 0, padding: '8px 12px 12px' }}>
-          <button onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
+          <button disabled={(me?.chips ?? 0) <= 0}
+            onClick={() => { if ((me?.chips ?? 0) <= 0) return; setHasBoughtIn(true); handleAction('sit_down'); }}
             data-testid="button-crew-buyin"
             style={{ width: '100%', padding: '14px 0', borderRadius: 14, fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
-              letterSpacing: '0.18em', textTransform: 'uppercase', border: 'none', cursor: 'pointer',
+              letterSpacing: '0.18em', textTransform: 'uppercase', border: 'none', cursor: (me?.chips ?? 0) > 0 ? 'pointer' : 'not-allowed',
               background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D',
-              boxShadow: '0 0 20px rgba(201,162,39,0.4)' }}>
-            BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
+              boxShadow: '0 0 20px rgba(201,162,39,0.4)',
+              opacity: (me?.chips ?? 0) > 0 ? 1 : 0.55 }}>
+            {(me?.chips ?? 0) > 0 ? `BUY IN — ${(me?.chips ?? 0).toLocaleString()} chips` : 'REBUY BEFORE BUY-IN'}
           </button>
         </div>
       )}

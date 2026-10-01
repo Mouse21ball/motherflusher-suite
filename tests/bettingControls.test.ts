@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BadugiActionBar } from '../client/src/components/badugi/BadugiActionBar';
 import { Dead7ActionBar } from '../client/src/components/dead7/Dead7ActionBar';
+import { FlushedUpActionBar } from '../client/src/components/flushedUp/FlushedUpActionBar';
 import { KamikazeActionBar } from '../client/src/components/kamikaze/KamikazeActionBar';
 import {
   canRaiseTo,
@@ -148,5 +149,46 @@ describe.each(actionBars)('%s shared betting controls integration', (_mode, Acti
     expect(callHtml).toContain('data-testid="button-call"');
     expect(html).toContain('data-testid="button-raise"');
     expect(html).toContain('data-testid="button-all-in"');
+  });
+});
+
+describe.each([
+  ['Badugi', BadugiActionBar, { onStandPat: () => {}, onDraw: () => {} }],
+  ['Dead 7', Dead7ActionBar, { onStandPat: () => {}, onDraw: () => {} }],
+  ['Flushed Up', FlushedUpActionBar, { onStay: () => {}, onDraw: () => {} }],
+] as const)('%s waiting hand-start control', (_mode, ActionBar, modeActions) => {
+  it('disables Deal Me In at zero chips and enables it after the stack is funded', () => {
+    const props = {
+      phase: 'WAITING',
+      isDrawPhase: false,
+      selectedCount: 0,
+      drawLimit: 3,
+      isMyTurn: false,
+      chips: 0,
+      currentBet: 0,
+      myBet: 0,
+      pot: 0,
+      minBet: 250,
+      ante: 25,
+      humanCount: 2,
+      openSeatsCount: 0,
+      activeCount: 2,
+      isClubTable: false,
+      locked: false,
+      myDeclaration: null,
+      myHasActed: false,
+      onAction: () => {},
+      onRebuy: () => {},
+      ...modeActions,
+    };
+    const zeroStackMarkup = renderToStaticMarkup(createElement(ActionBar, props));
+    const fundedMarkup = renderToStaticMarkup(createElement(ActionBar, { ...props, chips: 1_000 }));
+    const zeroStackButton = zeroStackMarkup.match(/<button\b[^>]*data-testid="button-deal-me-in"[^>]*>/)?.[0] ?? '';
+    const fundedButton = fundedMarkup.match(/<button\b[^>]*data-testid="button-deal-me-in"[^>]*>/)?.[0] ?? '';
+
+    expect(zeroStackButton).toContain('disabled=""');
+    expect(zeroStackMarkup).toContain('REBUY BEFORE STARTING');
+    expect(fundedButton).not.toContain('disabled=""');
+    expect(fundedMarkup).toContain('DEAL ME IN');
   });
 });

@@ -29,6 +29,7 @@ function makeTable(cards: CardType[]) {
     makePlayer('sole', 'active', cards),
     makePlayer('folded', 'folded', [card('A', 'spades'), card('K', 'spades')]),
   ];
+  players[0].presence = 'human';
   const state: GameState = {
     tableId: 'flushed-fold-test',
     phase: 'BET_3',
@@ -56,11 +57,25 @@ function makeTable(cards: CardType[]) {
     connections: new Map(),
     spectators: new Map(),
     publicCardIndicesPerPlayer: {},
-    seatToIdentityId: new Map(),
-    chipsAtHandStart: new Map(),
+    seatToIdentityId: new Map([['sole', 'identity-sole']]),
+    chipsAtHandStart: new Map([['sole', 900]]),
     sessionStats: new Map(),
     humanSeats: new Set(),
+    actionLock: false,
+    leavePromises: new Map(),
+    leavingSeats: new Set(),
+    sessionToSeat: new Map(),
+    lastChipSyncHand: new Map(),
+    disconnectTimers: new Map(),
     settlementPromise: undefined,
+    showdownResolvePromise: undefined,
+    seatBankroll: new Map(),
+    seatLeaveIds: new Map(),
+    pendingFundingSeats: new Set(),
+    fundedSeats: new Set(['sole']),
+    fundingPromises: new Map(),
+    seatTimeBankSessionUsed: new Map(),
+    seatTimeBankLastTurnKey: new Map(),
   };
 }
 
@@ -77,6 +92,7 @@ describe('Flushed Up generic-engine fold resolution', () => {
       card('A', 'clubs'), card('K', 'clubs'), card('Q', 'clubs'), card('J', 'clubs'),
     ]);
     const rakeLog = vi.spyOn(storage, 'logHouseRake').mockResolvedValue(undefined);
+    vi.spyOn(storage, 'syncPlayerChips').mockResolvedValue(undefined);
 
     expect(resolveByFold(table as never)).toBe(true);
 
@@ -93,6 +109,11 @@ describe('Flushed Up generic-engine fold resolution', () => {
       netPot: 95,
     }));
 
+    // The prior hand's fold is resolved; this reset fixture has the funded
+    // human plus an active bot eligible for the next hand.
+    table.state.players = table.state.players.map(player => player.id === 'folded'
+      ? { ...player, status: 'active' }
+      : player);
     await resetToAnte(table as never);
     expect(table.state.phase).toBe('ANTE');
     expect(table.state.pot).toBe(95);

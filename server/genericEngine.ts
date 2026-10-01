@@ -18,6 +18,7 @@ import { applyGenericDraw } from './utils/genericDraw';
 import { applyBonecrusherDiscard } from './utils/bonecrusherDiscard';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
+import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import {
   scheduleGenericSave,
   loadPersistedGenericTables,
@@ -151,7 +152,7 @@ const FLUSHED_UP_BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 
 function makeInitialPlayers(isClubTable = false): Player[] {
   const empty = isClubTable ? 'open' as const : 'reserved' as const;
   return [
-    { id: 'p1', name: 'You',  presence: 'human', chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'active',      isDealer: false, declaration: null, hasActed: false },
+    { id: 'p1', name: 'Open', presence: empty,   chips: 0, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
     { id: 'p2', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
     { id: 'p3', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
     { id: 'p4', name: 'Open', presence: empty,   chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
@@ -303,10 +304,10 @@ function autoStartHand(table: GenericTable): void {
     }, 100);
     return;
   }
+  if (!hasFundedHuman(table.state.players, table.fundedSeats)) return;
   convertReservedToBots(table);
   const freshPlayers = table.state.players;
-  const activePlayers = freshPlayers.filter(p => p.status === 'active');
-  if (activePlayers.length < 2) return;
+  if (!canStartNextHand(freshPlayers, table.fundedSeats)) return;
   table.handId += 1;
   const dealerIdx   = getDealerIndex(freshPlayers);
   const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
@@ -1502,26 +1503,28 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
     }
   }
 
+  const canStartHand = canStartNextHand(nextPlayers, table.fundedSeats);
   table.state = {
     ...s,
-    phase: 'ANTE',
+    phase: canStartHand ? 'ANTE' : 'WAITING',
     currentBet: 0,
     raisesThisRound: 0,
     heroChipChange: undefined,
-    activePlayerId: nextPlayers[firstActIdx].id,
+    activePlayerId: canStartHand ? nextPlayers[firstActIdx].id : null,
     players: nextPlayers,
     deck: [],
     discardPile: [],
     communityCards: [],
+    turnDeadline: null,
     messages: [{
       id: makeId(),
-      text: 'New hand.',
+      text: canStartHand ? 'New hand.' : 'Hand settled. Rebuy before starting another hand.',
       time: Date.now(),
     }],
   };
 
-  engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: 'SHOWDOWN', to: 'ANTE' });
-  scheduleNextBot(table);
+  engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: 'SHOWDOWN', to: table.state.phase });
+  if (canStartHand) scheduleNextBot(table);
 }
 
 // ─── Bot scheduling ───────────────────────────────────────────────────────────
@@ -1874,6 +1877,9 @@ async function ensureGenericSeatFunded(
         if (!profile || !Number.isFinite(profile.chipBalance)) {
           throw new Error('Wallet profile is unavailable.');
         }
+        if (profile.chipBalance <= 0 && !isReconnect) {
+          throw new Error('A positive wallet balance is required to join a table.');
+        }
         if (tables.get(tableKey(table.modeId, table.tableId)) !== table ||
             table.seatToIdentityId.get(seat) !== identityId ||
             table.leavingSeats.has(seat)) return false;
@@ -1914,6 +1920,9 @@ async function ensureGenericSeatFunded(
         broadcastState(table);
         return true;
       } catch (error) {
+        const rejectionMessage = error instanceof Error && error.message === 'A positive wallet balance is required to join a table.'
+          ? error.message
+          : 'Unable to load your wallet. Please try again.';
         if (table.seatToIdentityId.get(seat) === identityId && !table.fundedSeats.has(seat)) {
           const currentWs = table.connections.get(seat);
           for (const [sid, heldSeat] of table.sessionToSeat) {
@@ -1930,7 +1939,7 @@ async function ensureGenericSeatFunded(
           table.fundedSeats.delete(seat);
           releaseSeat(table, seat);
           try {
-            currentWs?.send(JSON.stringify({ type: 'error', message: 'Unable to load your wallet. Please try again.' }));
+            currentWs?.send(JSON.stringify({ type: 'error', message: rejectionMessage }));
             currentWs?.close();
           } catch {}
         }
@@ -2498,14 +2507,21 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         table.actionLock = false;
         return;
       }
+      if (!hasFundedHuman(s.players, table.fundedSeats)) {
+        table.actionLock = false;
+        return 'Rebuy before starting a new hand.';
+      }
       // Cancel any pending Flushed Up bot-fill / auto-start timer
       if (table.botFillTimer) { clearTimeout(table.botFillTimer); table.botFillTimer = undefined; }
       // Close join window — fill any still-open seats with bots before the hand starts.
-      // Club tables: convertReservedToBots returns immediately (crewId guard), reserved seats
-      // stay as-is. Minimum 1 human is always present (the player pressing start), so we
-      // never need a bot-count check — the hand starts with however many humans are seated.
+      // Club tables keep reserved seats open; all starts still require a funded human
+      // and at least one additional active participant.
       convertReservedToBots(table);
       const freshPlayers = table.state.players;
+      if (!canStartNextHand(freshPlayers, table.fundedSeats)) {
+        table.actionLock = false;
+        return 'At least two active players are required to start.';
+      }
       table.handId += 1;
       const dealerIdx   = getDealerIndex(freshPlayers);
       const firstActIdx = getNextActivePlayerIndex(freshPlayers, dealerIdx);
@@ -2524,6 +2540,10 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── restart: SHOWDOWN → ANTE ─────────────────────────────────────────────
     if (action === 'restart' && s.phase === 'SHOWDOWN') {
+      if (!hasFundedHuman(s.players, table.fundedSeats)) {
+        table.actionLock = false;
+        return 'Rebuy before starting a new hand.';
+      }
       // Guard: if restart fires within the 650ms resolve window, resolveShowdown
       // hasn't run yet — resolve synchronously so resetToAnte sees the correct
       // winner/pot state and never shows a false rollover message.

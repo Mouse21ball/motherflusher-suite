@@ -481,11 +481,13 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
           <div className="pointer-events-auto w-full max-w-3xl mx-auto px-2 pb-2">
             <button
               data-testid="button-crew-buyin"
-              onClick={() => { setHasBoughtIn(true); handleAction('sit_down'); }}
+              disabled={(me?.chips ?? 0) <= 0}
+              onClick={() => { if ((me?.chips ?? 0) <= 0) return; setHasBoughtIn(true); handleAction('sit_down'); }}
               className="w-full py-3.5 rounded-xl font-mono font-bold text-sm tracking-widest uppercase"
-              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em' }}
+              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em',
+                cursor: (me?.chips ?? 0) > 0 ? 'pointer' : 'not-allowed', opacity: (me?.chips ?? 0) > 0 ? 1 : 0.55 }}
             >
-              BUY IN — {(me?.chips ?? 10000).toLocaleString()} chips
+              {(me?.chips ?? 0) > 0 ? `BUY IN — ${(me?.chips ?? 0).toLocaleString()} chips` : 'REBUY BEFORE BUY-IN'}
             </button>
           </div>
         </div>

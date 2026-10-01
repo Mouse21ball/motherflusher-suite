@@ -4,6 +4,11 @@ import { storage, LADY_LUCK_HOUSE_ID } from './storage';
 import { LADY_LUCK_FLIP_INTERVAL_MS } from '../shared/ladyluckTiming';
 import { applyRake } from './utils/rake';
 import {
+  canJoinLadyLuckTable,
+  isValidLadyLuckSideBetAmount,
+  validateLadyLuckWagerAmount,
+} from '../shared/ladyLuckJoinEligibility';
+import {
   LadyLuckState,
   LadyLuckPlayer,
   LadyLuckSuit,
@@ -358,10 +363,13 @@ export function handleLLJoin(
   }
   const { state } = meta;
 
-  meta.connections.set(playerId, ws);
-
   const t1 = Date.now();
   const existing = state.players.find(p => p.id === playerId);
+  if (!canJoinLadyLuckTable(state, playerId, chips)) {
+    try { ws.send(JSON.stringify({ type: 'll:error', message: 'insufficient_chips' })); } catch {}
+    return;
+  }
+  meta.connections.set(playerId, ws);
   if (!existing) {
     if (state.phase === 'LOBBY') {
       // First-time join in lobby — just append
@@ -538,10 +546,8 @@ export async function handleLLWager(
   if (state.phase === 'BET' && player.suit === null) return { ok: false, error: 'no_suit_selected' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
-  if (!Number.isSafeInteger(amount)) return { ok: false, error: 'invalid_amount' };
-  if (amount % 100 !== 0) return { ok: false, error: 'must_be_100_increment' };
-  if (amount < room.minWager) return { ok: false, error: 'below_min' };
-  if (amount > room.maxWager) return { ok: false, error: 'above_max' };
+  const amountError = validateLadyLuckWagerAmount(amount, room.minWager, room.maxWager);
+  if (amountError) return { ok: false, error: amountError };
 
   // Synchronous lock: set before any await so a second concurrent submission
   // sees it and is rejected immediately — no double-debit from rapid taps or two tabs.
@@ -651,7 +657,7 @@ export async function handleLLSideBet(
   if (!player) return { ok: false, error: 'not_in_table' };
 
   const room = LADY_LUCK_ROOMS[state.roomType];
-  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > room.maxSideBet) return { ok: false, error: 'invalid_amount' };
+  if (!isValidLadyLuckSideBetAmount(amount, room.maxSideBet)) return { ok: false, error: 'invalid_amount' };
 
   // Synchronous lock: prevents double-submission from rapid taps or two tabs
   // charging the same player twice for one side bet.
