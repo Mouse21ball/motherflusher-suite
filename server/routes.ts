@@ -3909,9 +3909,8 @@ export async function registerRoutes(
 
   // ── Ticket-7: Buy-in Slider ───────────────────────────────────────────────
 
-  // POST /api/tables/:table_id/join — validate buy-in range and debit chips.
-  // Called by client BEFORE opening the WebSocket join. WS join then uses the
-  // buyinChips value it already passed; DB balance is already deducted here.
+  // POST /api/tables/:table_id/join — validate a requested table allocation.
+  // The wallet remains a total balance; only gameplay deltas are persisted.
   app.post("/api/tables/:table_id/join", requireAuth, async (req, res) => {
     try {
       const tableId  = (req.params.table_id as string).toUpperCase();
@@ -3940,8 +3939,8 @@ export async function registerRoutes(
         return;
       }
 
-      const ok = await storage.debitChipsForBuyin(playerId, buyin_chips);
-      if (!ok) {
+      const profile = await storage.getPlayerProfile(playerId);
+      if (!profile || profile.chipBalance < buyin_chips) {
         res.status(402).json({ error: 'Insufficient chips for requested buy-in', min_buyin: minBuyin, max_buyin: maxBuyin });
         return;
       }

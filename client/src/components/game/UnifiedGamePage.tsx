@@ -22,7 +22,6 @@ import { useXPWatcher } from "@/lib/useXPWatcher";
 import { usePhaseSounds } from "@/lib/usePhaseSounds";
 import { getContextualHint } from "@/lib/phaseHints";
 import { useGameToasts } from "@/lib/useGameToasts";
-import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import { MusicButton } from "@/components/MusicButton";
 import { useServerProfile } from "@/lib/useServerProfile";
@@ -57,6 +56,7 @@ interface UnifiedGameUIProps {
   isClubTable?: boolean;
   sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
   kickedByHost?: boolean;
+  leaveAndSettle?: () => Promise<void>;
 }
 
 const SUITSPOKER_DECLARATION_OPTIONS = [
@@ -65,7 +65,7 @@ const SUITSPOKER_DECLARATION_OPTIONS = [
   { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
 ];
 
-function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, isClubTable = false, sendHostAction, kickedByHost = false }: UnifiedGameUIProps) {
+function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, isClubTable = false, sendHostAction, kickedByHost = false, leaveAndSettle }: UnifiedGameUIProps) {
   const isSpectator = role === 'spectator';
   // Pre-buy-in state: crew table players start as observers until they tap BUY IN.
   // Initialised to false; auto-resolved to true once the WS confirms it is NOT a
@@ -83,11 +83,22 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
   const effectiveSpectator = isSpectator || isPrebuyIn;
   const [, navigate] = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
+  const leaveToLobby = useCallback(async () => {
+    try {
+      if (!leaveAndSettle) throw new Error('Table connection is unavailable. Your balance was not confirmed.');
+      await leaveAndSettle();
+      const profile = await refetchProfile();
+      if (!profile) throw new Error('Your balance could not be refreshed. Please stay connected and try again.');
+      navigate('/');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
+    }
+  }, [leaveAndSettle, navigate, refetchProfile]);
 
   // Navigate home if host kicked this player
   useEffect(() => {
-    if (kickedByHost) navigate('/');
-  }, [kickedByHost, navigate]);
+    if (kickedByHost) void leaveToLobby();
+  }, [kickedByHost, leaveToLobby]);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const dealRootRef = useRef<HTMLElement>(null);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
@@ -296,7 +307,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         chips={me?.chips ?? 0}
         stripes={serverProfile?.stripes ?? 0}
         phase={state.phase}
-        onForfeit={() => { if (me) saveChips(modeId, me.chips); }}
+        onLeave={leaveToLobby}
         sessionStats={effectiveSpectator ? undefined : sessionStats}
         tableId={tableId}
         humanCount={humanCount}
@@ -501,7 +512,7 @@ function UnifiedGameUI({ state, handleAction, myId, modeId, tableId, role = 'pla
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
-        onLeaveTable={() => { if (me) saveChips(modeId, me.chips); navigate('/'); }}
+        onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}
@@ -539,8 +550,8 @@ function useTableId(modeId: string) {
 function BadugiServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerBadugi(tableId);
-  return <BadugiFullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle } = useServerBadugi(tableId);
+  return <BadugiFullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
 }
 
 // Server engine modeId mapping (UI modeId → server engine modeId)
@@ -554,11 +565,11 @@ function GenericServerGame({ modeId }: { modeId: string }) {
   const tableId = useTableId(modeId);
   useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
   const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost } = useServerMode(tableId, engineId);
+  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle } = useServerMode(tableId, engineId);
   if (modeId === 'dead7') {
-    return <Dead7FullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+    return <Dead7FullPage state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
   }
-  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} />;
+  return <UnifiedGameUI state={state} handleAction={handleAction} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────

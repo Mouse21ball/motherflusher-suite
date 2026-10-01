@@ -24,7 +24,6 @@ import { usePhaseSounds } from '@/lib/usePhaseSounds';
 import { useGameToasts } from '@/lib/useGameToasts';
 import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { saveChips } from '@/lib/persistence';
 import { evaluateDead7 } from '@shared/modes/dead7';
 import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
@@ -45,6 +44,7 @@ export interface Dead7FullPageProps {
   lastWsAt?: number | null;
   isClubTable?: boolean;
   kickedByHost?: boolean;
+  leaveAndSettle?: () => Promise<void>;
   tableSettings?: TableSettings;
   sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
   hostId?: string | null;
@@ -60,11 +60,22 @@ function getDrawLimit(phase: string): number {
 
 export function Dead7FullPage({
   state, handleAction, myId, modeId, tableId, role,
-  sessionStats, lastWsAt, isClubTable = false, kickedByHost,
+  sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
 }: Dead7FullPageProps) {
   void modeId;
   const [, navigate]   = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
+  const leaveToLobby = useCallback(async () => {
+    try {
+      if (!leaveAndSettle) throw new Error('Table connection is unavailable. Your balance was not confirmed.');
+      await leaveAndSettle();
+      const profile = await refetchProfile();
+      if (!profile) throw new Error('Your balance could not be refreshed. Please stay connected and try again.');
+      navigate('/');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
+    }
+  }, [leaveAndSettle, navigate, refetchProfile]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
   usePhaseSounds(state.phase);
@@ -241,7 +252,7 @@ export function Dead7FullPage({
       <GameStatusBar
         modeId={MODE_ID} gameState={state} chips={me?.chips ?? 0}
         stripes={serverProfile?.stripes ?? 0} phase={state.phase}
-        onForfeit={() => { if (me) saveChips(MODE_ID, me.chips); }}
+        onLeave={leaveToLobby}
         sessionStats={effectiveSpectator ? undefined : sessionStats}
         tableId={tableId} humanCount={humanCount}
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
@@ -341,7 +352,7 @@ export function Dead7FullPage({
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
-        onLeaveTable={() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }}
+        onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips} />

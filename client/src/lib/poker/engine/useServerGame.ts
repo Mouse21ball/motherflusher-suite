@@ -38,6 +38,10 @@ function getOrCreateSessionId(): string {
   }
 }
 
+function createLeaveRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
 // freshly generated). No myId parameter — the server assigns the seat.
 export interface BadugiSessionStats {
@@ -77,7 +81,7 @@ const DEFAULT_SESSION_STATS: BadugiSessionStats = {
   shouldLeaveSignal: false, shouldContinueSignal: false,
 };
 
-export function useServerBadugi(tableId: string) {
+export function useServerBadugi(tableId: string, buyinChips?: number) {
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
@@ -104,8 +108,13 @@ export function useServerBadugi(tableId: string) {
   const wsRef           = useRef<WebSocket | null>(null);
   const mountedRef      = useRef(true);
   const reconnectRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const sessionId       = useRef<string>(getOrCreateSessionId());
+  const leaveRequestId  = useRef<string>(createLeaveRequestId());
+  const buyinChipsRef   = useRef<number | undefined>(buyinChips);
+  buyinChipsRef.current = buyinChips;
   const sessionStatsRef = useRef<BadugiSessionStats>(DEFAULT_SESSION_STATS);
   const activeFlag   = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
@@ -197,12 +206,32 @@ export function useServerBadugi(tableId: string) {
           seatId: sessionId.current,
           ...(_quickPlay ? { quickPlay: true } : {}),
           ...(_isPrivate ? { isPrivate: true } : {}),
+           ...(buyinChipsRef.current != null ? { buyinChips: buyinChipsRef.current } : {}),
         }));
       };
 
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
+          if (msg.type === 'leave:complete') {
+            const pending = pendingLeaveRef.current;
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingLeaveRef.current = null;
+              leaveCompletedRef.current = true;
+              pending.resolve();
+            }
+            return;
+          }
+          if (msg.type === 'leave:failed') {
+            const pending = pendingLeaveRef.current;
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingLeaveRef.current = null;
+              pending.reject(new Error(msg.message || 'Could not save your table balance.'));
+            }
+            return;
+          }
 
           // ── WS IN audit (every message, regardless of payload shape) ──
           setLastWsAt(Date.now());
@@ -326,14 +355,48 @@ export function useServerBadugi(tableId: string) {
       }
       const ws = wsRef.current;
       if (ws) {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (!leaveCompletedRef.current && ws.readyState === WebSocket.OPEN) {
           try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: sessionId.current })); } catch { /* ignore */ }
         }
         ws.close();
         wsRef.current = null;
       }
+      if (pendingLeaveRef.current) {
+        clearTimeout(pendingLeaveRef.current.timeout);
+        pendingLeaveRef.current.reject(new Error('Table connection closed before the balance was confirmed.'));
+        pendingLeaveRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const leaveAndSettle = useCallback((): Promise<void> => {
+    if (pendingLeaveRef.current) return pendingLeaveRef.current.promise;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error('Table connection is unavailable. Your balance was not confirmed.'));
+    }
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+    const timeout = setTimeout(() => {
+      pendingLeaveRef.current = null;
+      reject(new Error('Timed out saving your table balance. Please try again.'));
+    }, 30000);
+    pendingLeaveRef.current = { promise, resolve, reject, timeout };
+    try {
+      ws.send(JSON.stringify({
+        type: 'leave',
+        tableId: tableIdRef.current,
+        playerId: sessionId.current,
+        leaveId: leaveRequestId.current,
+      }));
+    } catch {
+      clearTimeout(timeout);
+      pendingLeaveRef.current = null;
+      reject(new Error('Could not send the table-leave request. Your balance was not confirmed.'));
+    }
+    return promise;
   }, []);
 
   // handleAction uses a ref so it always sends the currently-assigned seat,
@@ -369,5 +432,5 @@ export function useServerBadugi(tableId: string) {
   }, []);
 
   useAuthoritativeCelebrations(state, 'badugi', lastWsType);
-  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
+  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle };
 }

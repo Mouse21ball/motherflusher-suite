@@ -3,6 +3,7 @@
 // Same seat/session model as the Badugi engine, parameterized by GameMode.
 
 import type { WebSocket } from 'ws';
+import { randomUUID } from 'node:crypto';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent, GameMode } from '../shared/gameTypes';
 import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
 import { Fifteen35Mode } from '../shared/modes/fifteen35';
@@ -295,6 +296,13 @@ function scheduleUniversalBotFill(key: string): void {
 // Internal helper: transitions a WAITING Flushed Up table straight into ANTE.
 function autoStartHand(table: GenericTable): void {
   if (table.state.phase !== 'WAITING') return;
+  if (table.pendingFundingSeats.size > 0) {
+    table.botFillTimer = setTimeout(() => {
+      table.botFillTimer = undefined;
+      autoStartHand(table);
+    }, 100);
+    return;
+  }
   convertReservedToBots(table);
   const freshPlayers = table.state.players;
   const activePlayers = freshPlayers.filter(p => p.status === 'active');
@@ -478,6 +486,9 @@ interface GenericTable {
   handId: number;
   actionLock: boolean;
   settlementPromise?: Promise<void>;
+  showdownResolvePromise?: Promise<void>;
+  leavePromises: Map<string, Promise<void>>;
+  leavingSeats: Set<string>;
   settlementRetryTimer?: ReturnType<typeof setTimeout>;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
   connections: Map<string, WebSocket>;
@@ -515,6 +526,10 @@ interface GenericTable {
   // in chip sync — syncPlayerChips now applies a relative per-hand delta so
   // out-of-band balance changes (admin grants, bonuses) are never overwritten.
   seatBankroll: Map<string, number>;
+  seatLeaveIds: Map<string, string>;
+  pendingFundingSeats: Set<string>;
+  fundedSeats: Set<string>;
+  fundingPromises: Map<string, Promise<boolean>>;
   // ── Time Bank ─────────────────────────────────────────────────────────────
   // Number of subscription time-bank uses consumed this session (gold_pro cap = 1).
   seatTimeBankSessionUsed: Map<string, number>;
@@ -1140,7 +1155,11 @@ function dealCards(table: GenericTable): void {
 
 function resolveShowdown(table: GenericTable): void {
   const fenced = table.handId;
+  let resolvePending!: () => void;
+  const pending = new Promise<void>(resolve => { resolvePending = resolve; });
+  table.showdownResolvePromise = pending;
   setTimeout(() => {
+    try {
     // A manual restart can resolve this hand while its settlement is pending.
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN' || table.resolvedPot !== undefined) return;
     const s = table.state;
@@ -1181,6 +1200,10 @@ function resolveShowdown(table: GenericTable): void {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
     }, 5500);
+    } finally {
+      resolvePending();
+      if (table.showdownResolvePromise === pending) table.showdownResolvePromise = undefined;
+    }
   }, 650);
 }
 
@@ -1427,7 +1450,7 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
 
   const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
   for (const p of nextPlayers) {
-    if (p.presence !== 'human') continue;
+    if (p.presence !== 'human' || table.leavingSeats.has(p.id)) continue;
     const identityId = table.seatToIdentityId.get(p.id);
     if (!identityId) continue;
 
@@ -1779,6 +1802,8 @@ export function getOrCreateTable(
       state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
       handId: 0,
       actionLock: false,
+      leavePromises: new Map(),
+      leavingSeats: new Set(),
       botTimers: new Map(),
       connections: new Map(),
       humanSeats: new Set(),
@@ -1797,6 +1822,10 @@ export function getOrCreateTable(
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
+      seatLeaveIds: new Map(),
+      pendingFundingSeats: new Set(),
+      fundedSeats: new Set(),
+      fundingPromises: new Map(),
       seatTimeBankSessionUsed: new Map(),
       seatTimeBankLastTurnKey: new Map(),
     });
@@ -1825,7 +1854,106 @@ export function getOrCreateTable(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function addGenericConnection(
+async function ensureGenericSeatFunded(
+  table: GenericTable,
+  seat: string,
+  identityId: string,
+  playerName: string | undefined,
+  buyinChips: number | undefined,
+  isReconnect: boolean,
+  hadSessionStats: boolean,
+): Promise<boolean> {
+  if (table.fundedSeats.has(seat)) return true;
+
+  let fundingPromise = table.fundingPromises.get(seat);
+  if (!fundingPromise) {
+    table.pendingFundingSeats.add(seat);
+    fundingPromise = (async (): Promise<boolean> => {
+      try {
+        const profile = await storage.getOrCreatePlayer(identityId, playerName);
+        if (!profile || !Number.isFinite(profile.chipBalance)) {
+          throw new Error('Wallet profile is unavailable.');
+        }
+        if (tables.get(tableKey(table.modeId, table.tableId)) !== table ||
+            table.seatToIdentityId.get(seat) !== identityId ||
+            table.leavingSeats.has(seat)) return false;
+
+        const player = table.state.players.find(p => p.id === seat);
+        if (!player || player.presence !== 'human') return false;
+        const isBetweenHands = table.state.phase === 'WAITING' || table.state.phase === 'ANTE';
+        const preserveRestoredStack = isReconnect && !hadSessionStats && !isBetweenHands;
+        if (!preserveRestoredStack) {
+          const requestedBuyin = !isReconnect ? buyinChips ?? profile.chipBalance : profile.chipBalance;
+          const effectiveStack = Math.min(clampBuyIn(requestedBuyin, table.state.minBet), profile.chipBalance);
+          table.state = {
+            ...table.state,
+            players: table.state.players.map(p =>
+              p.id === seat ? { ...p, chips: effectiveStack, subscriptionTier: profile.activeSubscriptionTier ?? null } : p
+            ),
+          };
+          table.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
+          table.chipsAtHandStart.set(seat, effectiveStack);
+          table.sessionStats.set(seat, {
+            startChips: effectiveStack,
+            handsPlayed: 0,
+            biggestPotWon: 0,
+            winStreak: table.state.winStreaks?.[seat] ?? 0,
+            lossStreak: 0,
+            sessionHighProfit: 0,
+            sessionLowProfit: 0,
+            recentDeltas: [],
+          });
+        }
+
+        try {
+          await storage.setPlayerActiveTable(identityId, table.tableId, seat, table.modeId);
+        } catch (error) {
+          console.error(`[genericEngine] Failed to persist player active table: ${table.modeId}:${table.tableId}`, error);
+        }
+        table.fundedSeats.add(seat);
+        broadcastState(table);
+        return true;
+      } catch (error) {
+        if (table.seatToIdentityId.get(seat) === identityId && !table.fundedSeats.has(seat)) {
+          const currentWs = table.connections.get(seat);
+          for (const [sid, heldSeat] of table.sessionToSeat) {
+            if (heldSeat === seat) table.sessionToSeat.delete(sid);
+          }
+          table.connections.delete(seat);
+          table.humanSeats.delete(seat);
+          table.seatToIdentityId.delete(seat);
+          table.seatLeaveIds.delete(seat);
+          table.sessionStats.delete(seat);
+          table.chipsAtHandStart.delete(seat);
+          table.lastChipSyncHand.delete(seat);
+          table.seatBankroll.delete(seat);
+          table.fundedSeats.delete(seat);
+          releaseSeat(table, seat);
+          try {
+            currentWs?.send(JSON.stringify({ type: 'error', message: 'Unable to load your wallet. Please try again.' }));
+            currentWs?.close();
+          } catch {}
+        }
+        console.error(`[genericEngine] Failed to load player wallet before seating: ${table.modeId}:${table.tableId}`, error);
+        return false;
+      }
+    })();
+    table.fundingPromises.set(seat, fundingPromise);
+  }
+
+  let funded = false;
+  try {
+    funded = await fundingPromise;
+  } finally {
+    if (table.fundingPromises.get(seat) === fundingPromise) {
+      table.fundingPromises.delete(seat);
+      table.pendingFundingSeats.delete(seat);
+    }
+  }
+  return funded && table.fundedSeats.has(seat);
+}
+
+export async function addGenericConnection(
   tableId: string,
   modeId: string,
   sessionId: string,
@@ -1836,7 +1964,7 @@ export function addGenericConnection(
   identityId?: string,
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
   buyinChips?: number
-): string | null {
+): Promise<string | null> {
   const key = tableKey(modeId, tableId);
   const isNew = !tables.has(key);
   const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay, options);
@@ -1864,6 +1992,17 @@ export function addGenericConnection(
     } catch {}
     broadcastState(table);
     return '__spectator__';
+  }
+  if (!identityId) {
+    try {
+      ws.send(JSON.stringify({ type: 'error', message: 'An authenticated player identity is required to join.' }));
+      ws.close();
+    } catch {}
+    return null;
+  }
+  if (table.leavingSeats.has(seat)) {
+    try { ws.send(JSON.stringify({ type: 'error', message: 'This seat is currently leaving.' })); } catch {}
+    return null;
   }
 
   // ── Multi-tab / duplicate identity guard ────────────────────────────────────
@@ -1912,9 +2051,13 @@ export function addGenericConnection(
 
   const sameSession = table.sessionToSeat.get(sessionId) === seat;
   const mappedIdentity = table.seatToIdentityId.get(seat);
-  const isReconnect = sameSession || !!(identityId && (
-    mappedIdentity === identityId || table.state.seatStreakOwners?.[seat] === identityId
-  ));
+  if (identityId && mappedIdentity && mappedIdentity !== identityId) {
+    try { ws.send(JSON.stringify({ type: 'error', message: 'This seat belongs to another account.' })); } catch {}
+    return null;
+  }
+  const isReconnect = identityId
+    ? mappedIdentity === identityId
+    : sameSession && !mappedIdentity;
   const streakClaim = claimSeatStreak(table.state, seat, identityId, sameSession, mappedIdentity);
   if (!isReconnect) {
     for (const [oldSession, heldSeat] of table.sessionToSeat) {
@@ -1970,14 +2113,9 @@ export function addGenericConnection(
   }
 
   // ── Persist identity and load chips ────────────────────────────────────────
-  // Load canonical chip balance from DB for:
-  //   (a) wasReserved — first time a player takes this seat
-  //   (b) server-restart reconnect — sessionStats absent (in-memory, not disk-persisted)
-  // For same-session reconnects (hadSessionStats=true): trust live table chips.
   if (identityId) {
     table.seatToIdentityId.set(seat, identityId);
 
-    // Capture BEFORE init so we can detect server-restart reconnects below.
     const hadSessionStats = table.sessionStats.has(seat);
     if (!hadSessionStats) {
       const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 1000;
@@ -1992,58 +2130,26 @@ export function addGenericConnection(
         recentDeltas: [],
       });
       table.chipsAtHandStart.set(seat, placeholder);
-      // FIX: Seed lastChipSyncHand so a pre-hand-end disconnect never overwrites
-      // the DB bankroll with the placeholder chip value (1000).
       table.lastChipSyncHand.set(seat, table.handId);
     }
 
-    // Reload DB chips on fresh join OR server-restart reconnect.
-    if (wasReserved || !hadSessionStats) {
-      storage.getOrCreatePlayer(identityId, playerName).then(profile => {
-        const t = tables.get(tableKey(modeId, tableId));
-        if (!t) return;
-        const player = t.state.players.find(pp => pp.id === seat);
-        if (!player || player.presence !== 'human') return;
-        // Mid-hand guard: on server-restart reconnects only overwrite chips
-        // between hands so live table chips are never clobbered mid-hand.
-        const isBetweenHands = t.state.phase === 'WAITING' || t.state.phase === 'ANTE';
-        if (wasReserved || isBetweenHands) {
-          // ── Buy-in Slider: determine effective table stack ──────────────
-          const minBet = t.state.minBet;
-          let effectiveStack: number;
-          if (wasReserved) {
-            // Clamp to the table's 20–200 BB range and available balance.
-            const requestedBuyin = buyinChips ?? profile.chipBalance;
-            const clamped = clampBuyIn(requestedBuyin, minBet);
-            effectiveStack = Math.min(clamped, profile.chipBalance);
-            t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
-          } else {
-            // No partial buy-in: full balance at table, bankroll = 0
-            effectiveStack = profile.chipBalance;
-            t.seatBankroll.set(seat, 0);
-          }
-          t.state = {
-            ...t.state,
-            players: t.state.players.map(pp =>
-              pp.id === seat ? { ...pp, chips: effectiveStack, subscriptionTier: profile.activeSubscriptionTier ?? null } : pp
-            ),
-          };
-          t.chipsAtHandStart.set(seat, effectiveStack);
-          t.sessionStats.set(seat, {
-            startChips: effectiveStack,
-            handsPlayed: 0,
-            biggestPotWon: 0,
-            winStreak: t.state.winStreaks?.[seat] ?? 0,
-            lossStreak: 0,
-            sessionHighProfit: 0,
-            sessionLowProfit: 0,
-            recentDeltas: [],
-          });
-        }
-        broadcastState(t);
-        storage.setPlayerActiveTable(identityId, tableId, seat, modeId).catch(() => {});
-      }).catch(() => {});
+    // Keep one idempotency key for this seat session and wait for canonical
+    // wallet funding before dispatching the initialized seat.
+    if (!isReconnect || !table.seatLeaveIds.has(seat)) {
+      table.seatLeaveIds.set(seat, randomUUID());
     }
+    if (!table.fundedSeats.has(seat) &&
+        !await ensureGenericSeatFunded(table, seat, identityId, playerName, buyinChips, isReconnect, hadSessionStats)) {
+      return null;
+    }
+  }
+
+  if (
+    !table.botFillTimer && table.state.phase === 'WAITING' &&
+    !table.crewId && table.botsEnabled && !isPrivate && !quickPlay
+  ) {
+    if (modeId === 'flushed_up') scheduleFlushedUpBotFill(key);
+    else scheduleUniversalBotFill(key);
   }
 
   // P4 (architect M-3): if this human is the active seat in an interactive
@@ -2060,6 +2166,13 @@ export function addGenericConnection(
     hasIdentity: !!identityId,
   });
 
+  if (
+    table.sessionToSeat.get(sessionId) !== seat ||
+    table.connections.get(seat) !== ws ||
+    table.seatToIdentityId.get(seat) !== identityId ||
+    !table.fundedSeats.has(seat)
+  ) return null;
+
   try {
     ws.send(JSON.stringify({
       type: 'mode:init',
@@ -2074,7 +2187,80 @@ export function addGenericConnection(
   return seat;
 }
 
-export function removeGenericConnection(tableId: string, sessionId: string, intentional = false): void {
+export function removeGenericConnection(tableId: string, sessionId: string, intentional = false): Promise<void> {
+  if (!intentional) return removeGenericDisconnect(tableId, sessionId, false);
+  for (const modeId of Object.keys(MODE_REGISTRY)) {
+    const table = tables.get(tableKey(modeId, tableId));
+    if (!table) continue;
+    if (table.spectators.has(sessionId)) return removeGenericDisconnect(tableId, sessionId, false);
+    const seat = table.sessionToSeat.get(sessionId);
+    if (!seat) continue;
+    const existing = table.leavePromises.get(seat);
+    if (existing) return existing;
+    table.leavingSeats.add(seat);
+    const pending = settleGenericLeave(table, modeId, sessionId, seat);
+    table.leavePromises.set(seat, pending);
+    void pending.finally(() => {
+      if (table.leavePromises.get(seat) === pending) table.leavePromises.delete(seat);
+    }).catch(() => {});
+    return pending;
+  }
+  return Promise.resolve();
+}
+
+async function settleGenericLeave(
+  table: GenericTable,
+  modeId: string,
+  sessionId: string,
+  seat: string,
+): Promise<void> {
+  while (table.actionLock) await new Promise(resolve => setTimeout(resolve, 5));
+  table.actionLock = true;
+  try {
+    while (table.pendingFundingSeats.has(seat)) await new Promise(resolve => setTimeout(resolve, 5));
+    if (table.showdownResolvePromise) await table.showdownResolvePromise;
+    if (table.settlementPromise) await table.settlementPromise;
+    if (table.state.phase === 'SHOWDOWN') await resetToAnte(table);
+    if (table.settlementPromise) await table.settlementPromise;
+
+    const identityId = table.seatToIdentityId.get(seat);
+    if (identityId) {
+      const player = table.state.players.find(p => p.id === seat);
+      const baseline = player ? table.chipsAtHandStart.get(seat) ?? player.chips : 0;
+      await storage.syncPlayerLeaveDelta(
+        identityId,
+        table.tableId,
+        table.seatLeaveIds.get(seat) ?? sessionId,
+        player ? player.chips - baseline : 0,
+      );
+      table.seatToIdentityId.delete(seat);
+      table.fundedSeats.delete(seat);
+      table.lastChipSyncHand.delete(seat);
+      table.sessionStats.delete(seat);
+      table.chipsAtHandStart.delete(seat);
+      table.seatBankroll.delete(seat);
+      table.seatLeaveIds.delete(seat);
+      table.seatTimeBankSessionUsed.delete(seat);
+      table.seatTimeBankLastTurnKey.delete(seat);
+    }
+
+    table.sessionToSeat.delete(sessionId);
+    table.connections.delete(seat);
+    table.humanSeats.delete(seat);
+    table.actionLock = false;
+    releaseSeat(table, seat);
+    table.leavingSeats.delete(seat);
+    engineLog('PLAYER_LEAVE', `${modeId}:${table.tableId}`, {
+      player: seat,
+      remaining: table.connections.size,
+      intentional: true,
+    });
+  } finally {
+    table.actionLock = false;
+  }
+}
+
+async function removeGenericDisconnect(tableId: string, sessionId: string, intentional = false): Promise<void> {
   // Try all registered modes to find the table
   for (const modeId of Object.keys(MODE_REGISTRY)) {
     const key = tableKey(modeId, tableId);
@@ -2092,6 +2278,10 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
     const seat = table.sessionToSeat.get(sessionId);
     if (!seat) continue;
 
+    // Complete any hand-end persistence before taking a final unsynced delta.
+    // resetToAnte is idempotent, so leaving during showdown can safely wait.
+    if (intentional && table.settlementPromise) await table.settlementPromise;
+
     table.connections.delete(seat);
     table.humanSeats.delete(seat);
 
@@ -2102,26 +2292,23 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
     }
 
     const identityId = table.seatToIdentityId.get(seat);
-    if (identityId) {
+    if (identityId && intentional) {
       const player = table.state.players.find(p => p.id === seat);
-      if (player) {
-        const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
-        if (intentional && lastSynced !== table.handId) {
-          const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
-          storage.syncPlayerChips(identityId, player.chips - prevChips).catch(console.error);
-        }
-      }
-
-      if (intentional) {
-        storage.clearPlayerActiveTable(identityId).catch(() => {});
-        table.seatToIdentityId.delete(seat);
-        table.lastChipSyncHand.delete(seat);
-        table.sessionStats.delete(seat);
-        table.chipsAtHandStart.delete(seat);
-        table.seatBankroll.delete(seat);
-        table.seatTimeBankSessionUsed.delete(seat);
-        table.seatTimeBankLastTurnKey.delete(seat);
-      }
+      const baseline = player ? table.chipsAtHandStart.get(seat) ?? player.chips : 0;
+      await storage.syncPlayerLeaveDelta(
+        identityId,
+        table.tableId,
+        table.seatLeaveIds.get(seat) ?? sessionId,
+        player ? player.chips - baseline : 0,
+      );
+      table.seatToIdentityId.delete(seat);
+      table.fundedSeats.delete(seat);
+      table.lastChipSyncHand.delete(seat);
+      table.sessionStats.delete(seat);
+      table.chipsAtHandStart.delete(seat);
+      table.seatBankroll.delete(seat);
+      table.seatTimeBankSessionUsed.delete(seat);
+      table.seatTimeBankLastTurnKey.delete(seat);
     }
 
     if (intentional) {
@@ -2154,6 +2341,7 @@ export function removeGenericConnection(tableId: string, sessionId: string, inte
         const id = t.seatToIdentityId.get(seat);
         if (id) {
           t.seatToIdentityId.delete(seat);
+          t.fundedSeats.delete(seat);
           t.lastChipSyncHand.delete(seat);
           t.sessionStats.delete(seat);
           t.chipsAtHandStart.delete(seat);
@@ -2285,6 +2473,9 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     console.warn('[CGP][server] handleGenericAction: NO TABLE FOUND', { tableId, action });
     return;
   }
+  const targetSeat = table.sessionToSeat.get(playerOrSessionId) || playerOrSessionId;
+  if (table.pendingFundingSeats.has(targetSeat)) return 'Wallet funding is still in progress.';
+  if (table.leavingSeats.has(targetSeat)) return;
   if (table.actionLock) {
     console.warn('[CGP][server] handleGenericAction: actionLock held — DROPPING', { tableId, action });
     return;
@@ -2303,6 +2494,10 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      if (table.pendingFundingSeats.size > 0) {
+        table.actionLock = false;
+        return;
+      }
       // Cancel any pending Flushed Up bot-fill / auto-start timer
       if (table.botFillTimer) { clearTimeout(table.botFillTimer); table.botFillTimer = undefined; }
       // Close join window — fill any still-open seats with bots before the hand starts.
@@ -2919,6 +3114,8 @@ export async function initGenericEngine(): Promise<void> {
       state,
       handId,
       actionLock: false,
+      leavePromises: new Map(),
+      leavingSeats: new Set(),
       botTimers: new Map(),
       connections: new Map(),
       humanSeats: new Set(),
@@ -2937,6 +3134,10 @@ export async function initGenericEngine(): Promise<void> {
       chipsAtHandStart: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
+      seatLeaveIds: new Map(),
+      pendingFundingSeats: new Set(),
+      fundedSeats: new Set(),
+      fundingPromises: new Map(),
       seatTimeBankSessionUsed: new Map(),
       seatTimeBankLastTurnKey: new Map(),
     });

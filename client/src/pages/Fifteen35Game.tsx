@@ -12,12 +12,11 @@
 //   /assets/ui/btn-plate-glow.png         — button plate texture (gold + red buttons)
 //   /assets/ui/chains.png                 — decorative top-edge accent
 
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import { useLocation } from "wouter";
 import { useServerMode } from "@/lib/poker/engine/useServerMode";
 import { useServerProfile } from "@/lib/useServerProfile";
 import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
-import { saveChips } from "@/lib/persistence";
 import { trackModePlay } from "@/lib/analytics";
 import { getAvatarForSeat, getHeroAvatar } from "@shared/engine/avatarMap";
 import { PersonalChipGiftPanel } from "@/components/game/PersonalChipGiftPanel";
@@ -873,8 +872,18 @@ export default function Fifteen35Game() {
     saveRecentTable(tableId);
   }, [tableId]);
 
-  const { state, handleAction, myId, role, sessionStats, isClubTable, lastWsAt } = useServerMode(tableId, 'fifteen35');
+  const { state, handleAction, myId, role, sessionStats, isClubTable, lastWsAt, leaveAndSettle } = useServerMode(tableId, 'fifteen35');
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
+  const leaveToLobby = useCallback(async () => {
+    try {
+      await leaveAndSettle();
+      const profile = await refetchProfile();
+      if (!profile) throw new Error('Your balance could not be refreshed. Please stay connected and try again.');
+      navigate('/');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
+    }
+  }, [leaveAndSettle, navigate, refetchProfile]);
 
   usePhaseSounds(state.phase);
   useGameToasts(state, myId, '15/35');
@@ -1034,7 +1043,7 @@ export default function Fifteen35Game() {
         pot={state.pot}
         stripes={serverProfile?.stripes ?? 0}
         onChat={() => setChatOpen(true)}
-        onLeave={() => { if (me) saveChips('fifteen35', me.chips); navigate('/'); }}
+        onLeave={() => { void leaveToLobby(); }}
       />
 
       {!effectiveSpectator && (
@@ -1223,7 +1232,7 @@ export default function Fifteen35Game() {
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
-        onLeaveTable={() => { if (me) saveChips('fifteen35', me.chips); navigate('/'); }}
+        onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
       />

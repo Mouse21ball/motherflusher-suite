@@ -14,6 +14,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -57,7 +58,7 @@ export interface ServerProfile {
 interface UseServerProfileResult {
   profile:  ServerProfile | null;
   loading:  boolean;
-  refetch:  () => void;
+  refetch:  () => Promise<ServerProfile | null>;
 }
 
 const ServerProfileContext = createContext<UseServerProfileResult | null>(null);
@@ -71,6 +72,7 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
   const [profile,  setProfile]  = useState<ServerProfile | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [tick,     setTick]     = useState(0);
+  const refetchResolvers = useRef<Array<(profile: ServerProfile | null) => void>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,10 +124,12 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
           if (data.sessionToken) setSessionToken(data.sessionToken);
           setProfile(data);
           if (data.hasAuth) setUserId(data.profileId);
+          refetchResolvers.current.splice(0).forEach(resolve => resolve(data));
         }
       })
       .catch(() => {
         // Silently fail — callers fall back to localStorage
+        if (!cancelled) refetchResolvers.current.splice(0).forEach(resolve => resolve(null));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -134,7 +138,10 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [tick]);
 
-  const refetch = useCallback(() => setTick(t => t + 1), []);
+  const refetch = useCallback(() => new Promise<ServerProfile | null>(resolve => {
+    refetchResolvers.current.push(resolve);
+    setTick(t => t + 1);
+  }), []);
   const value = useMemo(() => ({ profile, loading, refetch }), [profile, loading, refetch]);
 
   return createElement(ServerProfileContext.Provider, { value }, children);

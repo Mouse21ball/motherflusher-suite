@@ -182,9 +182,20 @@ function FlushedUpGameUI() {
     lastWsType,
     isClubTable,
     kickedByHost,
+    leaveAndSettle,
   } = useServerMode(tableId, ENGINE_ID);
 
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
+  const leaveToLobby = useCallback(async () => {
+    try {
+      await leaveAndSettle();
+      const profile = await refetchProfile();
+      if (!profile) throw new Error('Your balance could not be refreshed. Please stay connected and try again.');
+      navigate('/');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
+    }
+  }, [leaveAndSettle, navigate, refetchProfile]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
   const sounds = useFlushedUpSounds();
 
@@ -352,10 +363,7 @@ function FlushedUpGameUI() {
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID]
     ?? MODE_INTROS.swing;
 
-  const handleBack = useCallback(() => {
-    if (me) saveChips(MODE_ID, me.chips);
-    navigate('/');
-  }, [me, navigate]);
+  const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
 
   /* ── Render ─────────────────────────────────────────────────────────── */
   return (
@@ -527,7 +535,7 @@ function FlushedUpGameUI() {
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
         onSpectate={() => setBustDismissed(true)}
-        onLeaveTable={() => { if (me) saveChips(MODE_ID, me.chips); navigate('/'); }}
+        onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
         onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
         onBorrowChips={handleBorrowChips}

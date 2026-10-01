@@ -304,6 +304,7 @@ export default function Home() {
 
   const [progression, setProgression] = useState(() => getProgression());
   const { profile: serverProfile, refetch } = useServerProfile();
+  useEffect(() => { void refetch(); }, [refetch]);
   const levelInfo = getLevelInfo(serverProfile?.xp ?? 0);
 
 

@@ -8,6 +8,7 @@
 // BADUGI_ALPHA_ENABLED=true is set in the environment.
 
 import type { WebSocket } from 'ws';
+import { randomUUID } from 'node:crypto';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent } from '../shared/gameTypes';
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
@@ -202,6 +203,13 @@ function convertOneReservedToBot(table: AuthTable): boolean {
 // Called by the bot-fill timer after enough players are seated.
 function autoStartBadugiHand(table: AuthTable): void {
   if (table.state.phase !== 'WAITING') return;
+  if (table.pendingFundingSeats.size > 0) {
+    table.botFillTimer = setTimeout(() => {
+      table.botFillTimer = undefined;
+      autoStartBadugiHand(table);
+    }, 100);
+    return;
+  }
   convertReservedToBots(table);
   const freshPlayers = table.state.players;
   const active = freshPlayers.filter(p => p.status === 'active');
@@ -353,6 +361,9 @@ interface AuthTable {
   // Prevents re-entrant mutations.
   actionLock: boolean;
   settlementPromise?: Promise<void>;
+  showdownResolvePromise?: Promise<void>;
+  leavePromises: Map<string, Promise<void>>;
+  leavingSeats: Set<string>;
   settlementRetryTimer?: ReturnType<typeof setTimeout>;
   botTimers: Map<string, ReturnType<typeof setTimeout>>;
   // connections keyed by game seat id (p1/p2/p3/p4/p5)
@@ -398,6 +409,10 @@ interface AuthTable {
   botFillTimer?: ReturnType<typeof setTimeout>;
   // ── Buy-in Slider ─────────────────────────────────────────────────────────
   seatBankroll: Map<string, number>;
+  seatLeaveIds: Map<string, string>;
+  pendingFundingSeats: Set<string>;
+  fundedSeats: Set<string>;
+  fundingPromises: Map<string, Promise<boolean>>;
   // ── Time Bank ─────────────────────────────────────────────────────────────
   seatTimeBankSessionUsed: Map<string, number>;
   seatTimeBankLastTurnKey: Map<string, string>;
@@ -720,7 +735,11 @@ function dealCards(table: AuthTable): void {
 function resolveShowdown(table: AuthTable): void {
   const fenced = table.handId;
 
+  let resolvePending!: () => void;
+  const pending = new Promise<void>(resolve => { resolvePending = resolve; });
+  table.showdownResolvePromise = pending;
   setTimeout(() => {
+    try {
     // A manual restart can resolve this hand while its settlement is pending.
     if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN' || table.resolvedPot !== undefined) return;
 
@@ -770,6 +789,10 @@ function resolveShowdown(table: AuthTable): void {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
     }, 2500);
+    } finally {
+      resolvePending();
+      if (table.showdownResolvePromise === pending) table.showdownResolvePromise = undefined;
+    }
   }, 650);
 }
 
@@ -950,7 +973,7 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
 
   const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
   for (const p of nextPlayers) {
-    if (p.presence !== 'human') continue;
+    if (p.presence !== 'human' || table.leavingSeats.has(p.id)) continue;
     const identityId = table.seatToIdentityId.get(p.id);
     if (!identityId) continue;
 
@@ -1359,6 +1382,8 @@ export async function initEngine(): Promise<void> {
       state,
       handId,
       actionLock: false,
+      leavePromises: new Map(),
+      leavingSeats: new Set(),
       botTimers: new Map(),
       connections: new Map(),
       humanSeats: new Set(),
@@ -1378,6 +1403,10 @@ export async function initEngine(): Promise<void> {
       turnTimerGen: 0,
       turnTimer: null,
       seatBankroll: new Map(),
+      seatLeaveIds: new Map(),
+      pendingFundingSeats: new Set(),
+      fundedSeats: new Set(),
+      fundingPromises: new Map(),
       seatTimeBankSessionUsed: new Map(),
       seatTimeBankLastTurnKey: new Map(),
     });
@@ -1448,6 +1477,8 @@ export function getOrCreateBadugiTable(
       state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
       handId: 0,
       actionLock: false,
+      leavePromises: new Map(),
+      leavingSeats: new Set(),
       botTimers: new Map(),
       connections: new Map(),
       humanSeats: new Set(),
@@ -1467,6 +1498,10 @@ export function getOrCreateBadugiTable(
       turnTimerGen: 0,
       turnTimer: null,
       seatBankroll: new Map(),
+      seatLeaveIds: new Map(),
+      pendingFundingSeats: new Set(),
+      fundedSeats: new Set(),
+      fundingPromises: new Map(),
       seatTimeBankSessionUsed: new Map(),
       seatTimeBankLastTurnKey: new Map(),
     };
@@ -1490,11 +1525,106 @@ export function getOrCreateBadugiTable(
   return tables.get(tableId)!;
 }
 
+async function ensureBadugiSeatFunded(
+  table: AuthTable,
+  seat: string,
+  identityId: string,
+  playerName: string | undefined,
+  buyinChips: number | undefined,
+  isReconnect: boolean,
+  hadSessionStats: boolean,
+): Promise<boolean> {
+  if (table.fundedSeats.has(seat)) return true;
+
+  let fundingPromise = table.fundingPromises.get(seat);
+  if (!fundingPromise) {
+    table.pendingFundingSeats.add(seat);
+    fundingPromise = (async (): Promise<boolean> => {
+      try {
+        const profile = await storage.getOrCreatePlayer(identityId, playerName);
+        if (!profile || !Number.isFinite(profile.chipBalance) ||
+            tables.get(table.tableId) !== table ||
+            table.seatToIdentityId.get(seat) !== identityId ||
+            table.leavingSeats.has(seat)) return false;
+
+        const player = table.state.players.find(p => p.id === seat);
+        if (!player || player.presence !== 'human') return false;
+        const isBetweenHands = table.state.phase === 'WAITING' || table.state.phase === 'ANTE';
+        const preserveRestoredStack = isReconnect && !hadSessionStats && !isBetweenHands;
+        if (!preserveRestoredStack) {
+          const requestedBuyin = !isReconnect ? buyinChips ?? profile.chipBalance : profile.chipBalance;
+          const effectiveStack = Math.min(clampBuyIn(requestedBuyin, table.state.minBet), profile.chipBalance);
+          table.state = {
+            ...table.state,
+            players: table.state.players.map(p => p.id === seat ? { ...p, chips: effectiveStack } : p),
+          };
+          table.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
+          table.chipsAtHandStart.set(seat, effectiveStack);
+          table.sessionStats.set(seat, {
+            startChips: effectiveStack,
+            handsPlayed: 0,
+            biggestPotWon: 0,
+            winStreak: table.state.winStreaks?.[seat] ?? 0,
+            lossStreak: 0,
+            sessionHighProfit: 0,
+            sessionLowProfit: 0,
+            recentDeltas: [],
+          });
+        }
+
+        try {
+          await storage.setPlayerActiveTable(identityId, table.tableId, seat, 'badugi');
+        } catch (error) {
+          console.error('[gameEngine] Failed to persist player active table:', error);
+        }
+        table.fundedSeats.add(seat);
+        broadcastState(table);
+        return true;
+      } catch (error) {
+        if (table.seatToIdentityId.get(seat) === identityId && !table.fundedSeats.has(seat)) {
+          const currentWs = table.connections.get(seat);
+          for (const [sid, heldSeat] of table.sessionToSeat) {
+            if (heldSeat === seat) table.sessionToSeat.delete(sid);
+          }
+          table.connections.delete(seat);
+          table.humanSeats.delete(seat);
+          table.seatToIdentityId.delete(seat);
+          table.seatLeaveIds.delete(seat);
+          table.sessionStats.delete(seat);
+          table.chipsAtHandStart.delete(seat);
+          table.lastChipSyncHand.delete(seat);
+          table.seatBankroll.delete(seat);
+          table.fundedSeats.delete(seat);
+          releaseSeat(table, seat);
+          try {
+            currentWs?.send(JSON.stringify({ type: 'error', message: 'Unable to load your wallet. Please try again.' }));
+            currentWs?.close();
+          } catch {}
+        }
+        console.error('[gameEngine] Failed to load player wallet before seating:', error);
+        return false;
+      }
+    })();
+    table.fundingPromises.set(seat, fundingPromise);
+  }
+
+  let funded = false;
+  try {
+    funded = await fundingPromise;
+  } finally {
+    if (table.fundingPromises.get(seat) === fundingPromise) {
+      table.fundingPromises.delete(seat);
+      table.pendingFundingSeats.delete(seat);
+    }
+  }
+  return funded && table.fundedSeats.has(seat);
+}
+
 // Assigns a seat to the connecting browser session and sends an atomic
 // badugi:init message (seat + current state in one frame so the client
 // never processes a snapshot before it knows its own seat).
 // Returns the assigned seat id, or null if the table is full.
-export function addBadugiConnection(
+export async function addBadugiConnection(
   tableId: string,
   sessionId: string,
   ws: WebSocket,
@@ -1504,7 +1634,7 @@ export function addBadugiConnection(
   identityId?: string,
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
   buyinChips?: number
-): string | null {
+): Promise<string | null> {
   const isNew = !tables.has(tableId);
   const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay, options);
   if (isNew && quickPlay) {
@@ -1526,6 +1656,17 @@ export function addBadugiConnection(
     } catch {}
     broadcastState(table);
     return '__spectator__';
+  }
+  if (!identityId) {
+    try {
+      ws.send(JSON.stringify({ type: 'error', message: 'An authenticated player identity is required to join.' }));
+      ws.close();
+    } catch {}
+    return null;
+  }
+  if (table.leavingSeats.has(seat)) {
+    try { ws.send(JSON.stringify({ type: 'error', message: 'This seat is currently leaving.' })); } catch {}
+    return null;
   }
 
   // ── Multi-tab / duplicate identity guard ────────────────────────────────────
@@ -1582,9 +1723,13 @@ export function addBadugiConnection(
 
   const sameSession = table.sessionToSeat.get(sessionId) === seat;
   const mappedIdentity = table.seatToIdentityId.get(seat);
-  const isReconnect = sameSession || !!(identityId && (
-    mappedIdentity === identityId || table.state.seatStreakOwners?.[seat] === identityId
-  ));
+  if (identityId && mappedIdentity && mappedIdentity !== identityId) {
+    try { ws.send(JSON.stringify({ type: 'error', message: 'This seat belongs to another account.' })); } catch {}
+    return null;
+  }
+  const isReconnect = identityId
+    ? mappedIdentity === identityId
+    : sameSession && !mappedIdentity;
   const streakClaim = claimSeatStreak(table.state, seat, identityId, sameSession, mappedIdentity);
   if (!isReconnect) {
     for (const [oldSession, heldSeat] of table.sessionToSeat) {
@@ -1612,15 +1757,8 @@ export function addBadugiConnection(
   };
 
   // ── Persist identity and load chips ────────────────────────────────────────
-  // Load canonical chip balance from DB for:
-  //   (a) wasReserved — first time a player takes this seat
-  //   (b) server-restart reconnect — sessionStats absent (in-memory, not disk-persisted)
-  // For same-session reconnects (hadSessionStats=true): trust live table chips.
   if (identityId) {
     table.seatToIdentityId.set(seat, identityId);
-
-    // ── Synchronous sessionStats init ────────────────────────────────────────
-    // Capture BEFORE init so we can detect server-restart reconnects below.
     const hadSessionStats = table.sessionStats.has(seat);
     if (!hadSessionStats) {
       const placeholder = table.state.players.find(p => p.id === seat)?.chips ?? 10000;
@@ -1635,55 +1773,19 @@ export function addBadugiConnection(
         recentDeltas: [],
       });
       table.chipsAtHandStart.set(seat, placeholder);
-      // FIX: Seed lastChipSyncHand so a pre-hand-end disconnect never overwrites
-      // the DB bankroll with the placeholder chip value (1000).
       table.lastChipSyncHand.set(seat, table.handId);
     }
 
-    // Reload DB chips on fresh join OR server-restart reconnect.
-    if (wasReserved || !hadSessionStats) {
-      storage.getOrCreatePlayer(identityId, playerName).then(profile => {
-        const t = tables.get(tableId);
-        if (!t) return;
-        const player = t.state.players.find(pp => pp.id === seat);
-        if (!player || player.presence !== 'human') return;
-        // Mid-hand guard: on server-restart reconnects only overwrite chips
-        // between hands so live table chips are never clobbered mid-hand.
-        const isBetweenHands = t.state.phase === 'WAITING' || t.state.phase === 'ANTE';
-        if (wasReserved || isBetweenHands) {
-          // ── Buy-in Slider ───────────────────────────────────────────────
-          const minBet   = t.state.minBet;
-          let effectiveStack: number;
-          if (wasReserved) {
-            const requestedBuyin = buyinChips ?? profile.chipBalance;
-            const clamped = clampBuyIn(requestedBuyin, minBet);
-            effectiveStack = Math.min(clamped, profile.chipBalance);
-            t.seatBankroll.set(seat, Math.max(0, profile.chipBalance - effectiveStack));
-          } else {
-            effectiveStack = profile.chipBalance;
-            t.seatBankroll.set(seat, 0);
-          }
-          t.state = {
-            ...t.state,
-            players: t.state.players.map(pp =>
-              pp.id === seat ? { ...pp, chips: effectiveStack } : pp
-            ),
-          };
-          t.chipsAtHandStart.set(seat, effectiveStack);
-          t.sessionStats.set(seat, {
-            startChips: effectiveStack,
-            handsPlayed: 0,
-            biggestPotWon: 0,
-            winStreak: t.state.winStreaks?.[seat] ?? 0,
-            lossStreak: 0,
-            sessionHighProfit: 0,
-            sessionLowProfit: 0,
-            recentDeltas: [],
-          });
-        }
-        broadcastState(t);
-        storage.setPlayerActiveTable(identityId, tableId, seat, 'badugi').catch(() => {});
-      }).catch(() => {});
+    if (!isReconnect || !table.seatLeaveIds.has(seat)) {
+      table.seatLeaveIds.set(seat, randomUUID());
+    }
+
+    // A new seat always waits for the canonical wallet and applies its requested
+    // partial buy-in before init/action dispatch. Restart recovery also waits for
+    // the profile, but preserves live chips if the hand is already underway.
+    if (!table.fundedSeats.has(seat) &&
+        !await ensureBadugiSeatFunded(table, seat, identityId, playerName, buyinChips, isReconnect, hadSessionStats)) {
+      return null;
     }
   }
 
@@ -1699,6 +1801,12 @@ export function addBadugiConnection(
     console.log(`[botFill] re-scheduling badugi fill for ${tableId} isReconnect=${isReconnect}`);
     scheduleBadugiBotFill(tableId);
   }
+  if (
+    !table.botFillTimer && table.state.phase === 'WAITING' &&
+    !table.crewId && table.botsEnabled && !isPrivate && !quickPlay
+  ) {
+    scheduleBadugiBotFill(tableId);
+  }
 
   engineLog(isReconnect ? 'RECONNECT' : 'PLAYER_JOIN', tableId, {
     player: seat,
@@ -1707,6 +1815,13 @@ export function addBadugiConnection(
     wasReserved,
     hasIdentity: !!identityId,
   });
+
+  if (
+    table.sessionToSeat.get(sessionId) !== seat ||
+    table.connections.get(seat) !== ws ||
+    table.seatToIdentityId.get(seat) !== identityId ||
+    !table.fundedSeats.has(seat)
+  ) return null;
 
   // Atomic init: seat assignment + masked snapshot + sessionStats in one message.
   // Client must process seat before it can correctly display cards.
@@ -1723,7 +1838,72 @@ export function addBadugiConnection(
   return seat;
 }
 
-export function removeBadugiConnection(tableId: string, sessionId: string, intentional = false): void {
+export function removeBadugiConnection(tableId: string, sessionId: string, intentional = false): Promise<void> {
+  const table = tables.get(tableId);
+  if (!table || !intentional) return removeBadugiDisconnect(tableId, sessionId, intentional);
+  const seat = table.sessionToSeat.get(sessionId);
+  if (!seat) return Promise.resolve();
+  const existing = table.leavePromises.get(seat);
+  if (existing) return existing;
+
+  table.leavingSeats.add(seat);
+  const pending = settleBadugiLeave(table, sessionId, seat);
+  table.leavePromises.set(seat, pending);
+  void pending.finally(() => {
+    if (table.leavePromises.get(seat) === pending) table.leavePromises.delete(seat);
+  }).catch(() => {});
+  return pending;
+}
+
+async function settleBadugiLeave(table: AuthTable, sessionId: string, seat: string): Promise<void> {
+  while (table.actionLock) await new Promise(resolve => setTimeout(resolve, 5));
+  table.actionLock = true;
+  try {
+    while (table.pendingFundingSeats.has(seat)) await new Promise(resolve => setTimeout(resolve, 5));
+    if (table.showdownResolvePromise) await table.showdownResolvePromise;
+    if (table.settlementPromise) await table.settlementPromise;
+    if (table.state.phase === 'SHOWDOWN') await resetToAnte(table);
+    if (table.settlementPromise) await table.settlementPromise;
+
+    const identityId = table.seatToIdentityId.get(seat);
+    if (identityId) {
+      const player = table.state.players.find(p => p.id === seat);
+      const baseline = player ? table.chipsAtHandStart.get(seat) ?? player.chips : 0;
+      await storage.syncPlayerLeaveDelta(
+        identityId,
+        table.tableId,
+        table.seatLeaveIds.get(seat) ?? sessionId,
+        player ? player.chips - baseline : 0,
+      );
+      table.seatToIdentityId.delete(seat);
+      table.fundedSeats.delete(seat);
+      table.lastChipSyncHand.delete(seat);
+      table.sessionStats.delete(seat);
+      table.chipsAtHandStart.delete(seat);
+      table.seatBankroll.delete(seat);
+      table.seatLeaveIds.delete(seat);
+      table.seatTimeBankSessionUsed.delete(seat);
+      table.seatTimeBankLastTurnKey.delete(seat);
+    }
+
+    table.sessionToSeat.delete(sessionId);
+    table.connections.delete(seat);
+    table.humanSeats.delete(seat);
+    table.actionLock = false;
+    releaseSeat(table, seat);
+    table.leavingSeats.delete(seat);
+    engineLog('PLAYER_LEAVE', table.tableId, {
+      player: seat,
+      phase: table.state.phase,
+      remaining: table.connections.size,
+      intentional: true,
+    });
+  } finally {
+    table.actionLock = false;
+  }
+}
+
+async function removeBadugiDisconnect(tableId: string, sessionId: string, intentional = false): Promise<void> {
   const table = tables.get(tableId);
   if (!table) return;
 
@@ -1738,6 +1918,10 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
   const seat = table.sessionToSeat.get(sessionId);
   if (!seat) return;
 
+  // If the player leaves while a showdown is being settled, wait for the
+  // idempotent hand write before taking the final unsynced chip delta.
+  if (intentional && table.settlementPromise) await table.settlementPromise;
+
   table.connections.delete(seat);
   table.humanSeats.delete(seat);
 
@@ -1750,33 +1934,23 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
   }
 
   const identityId = table.seatToIdentityId.get(seat);
-  if (identityId) {
+  if (identityId && intentional) {
     const player = table.state.players.find(p => p.id === seat);
-    if (player) {
-      // ── Monotonic chip sync guard ─────────────────────────────────────────
-      // Only write chips if a hand-end sync (resetToAnte) has NOT already run
-      // for the current handId. This prevents a late connection-drop event from
-      // overwriting a fresh post-hand balance with stale mid-hand chips.
-      // lastChipSyncHand is set to table.handId inside resetToAnte (after the
-      // handId increment), so equality means hand-end already wrote for this hand.
-      const lastSynced = table.lastChipSyncHand.get(seat) ?? -1;
-      if (intentional && lastSynced !== table.handId) {
-        const prevChips = table.chipsAtHandStart.get(seat) ?? player.chips;
-        storage.syncPlayerChips(identityId, player.chips - prevChips).catch(console.error);
-      }
-    }
-
-    if (intentional) {
-      // ── Intentional leave: clear active-table record and release the seat ──
-      storage.clearPlayerActiveTable(identityId).catch(() => {});
-      table.seatToIdentityId.delete(seat);
-      table.lastChipSyncHand.delete(seat);
-      table.sessionStats.delete(seat);
-      table.chipsAtHandStart.delete(seat);
-      table.seatBankroll.delete(seat);
-      table.seatTimeBankSessionUsed.delete(seat);
-      table.seatTimeBankLastTurnKey.delete(seat);
-    }
+    const baseline = player ? table.chipsAtHandStart.get(seat) ?? player.chips : 0;
+    await storage.syncPlayerLeaveDelta(
+      identityId,
+      table.tableId,
+      table.seatLeaveIds.get(seat) ?? sessionId,
+      player ? player.chips - baseline : 0,
+    );
+    table.seatToIdentityId.delete(seat);
+    table.fundedSeats.delete(seat);
+    table.lastChipSyncHand.delete(seat);
+    table.sessionStats.delete(seat);
+    table.chipsAtHandStart.delete(seat);
+    table.seatBankroll.delete(seat);
+    table.seatTimeBankSessionUsed.delete(seat);
+    table.seatTimeBankLastTurnKey.delete(seat);
   }
 
   if (intentional) {
@@ -1807,6 +1981,7 @@ export function removeBadugiConnection(tableId: string, sessionId: string, inten
       const id = t.seatToIdentityId.get(seat);
       if (id) {
         t.seatToIdentityId.delete(seat);
+        t.fundedSeats.delete(seat);
         t.lastChipSyncHand.delete(seat);
         t.sessionStats.delete(seat);
         t.chipsAtHandStart.delete(seat);
@@ -1894,6 +2069,8 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     engineLog('ACTION', tableId, { action, accepted: false, reason: 'no-table' });
     return;
   }
+  if (table.pendingFundingSeats.has(playerId)) return 'Wallet funding is still in progress.';
+  if (table.leavingSeats.has(playerId)) return;
 
   if (table.actionLock) {
     console.warn('[CGP][server] handleBadugiAction: actionLock held — DROPPING', { tableId, action });
@@ -1909,6 +2086,10 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── start: WAITING → ANTE ────────────────────────────────────────────────
     if (action === 'start' && s.phase === 'WAITING') {
+      if (table.pendingFundingSeats.size > 0) {
+        table.actionLock = false;
+        return;
+      }
       // Cancel any pending bot-fill / auto-start timer so it doesn't fire later.
       if (table.botFillTimer) { clearTimeout(table.botFillTimer); table.botFillTimer = undefined; }
       // Close join window — fill any still-open seats with bots before the hand starts.

@@ -31,6 +31,10 @@ function getOrCreateSessionId(modeId: string): string {
   }
 }
 
+function createLeaveRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export interface SessionStats {
   startChips: number;
   currentChips: number;
@@ -108,9 +112,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const wsRef      = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
   const reconnRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const modeIdRef       = useRef<string>(modeId);
   const sessionId       = useRef<string>(getOrCreateSessionId(modeId));
+  const leaveRequestId  = useRef<string>(createLeaveRequestId());
   const sessionStatsRef = useRef<SessionStats>(DEFAULT_SESSION_STATS);
 
   useEffect(() => {
@@ -202,6 +209,25 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
+          if (msg.type === 'leave:complete') {
+            const pending = pendingLeaveRef.current;
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingLeaveRef.current = null;
+              leaveCompletedRef.current = true;
+              pending.resolve();
+            }
+            return;
+          }
+          if (msg.type === 'leave:failed') {
+            const pending = pendingLeaveRef.current;
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingLeaveRef.current = null;
+              pending.reject(new Error(msg.message || 'Could not save your table balance.'));
+            }
+            return;
+          }
           // ── WS IN audit (every message, regardless of payload shape) ──
           setLastWsAt(Date.now());
           setLastWsType(msg.type ?? '?');
@@ -336,14 +362,55 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       }
       const ws = wsRef.current;
       if (ws) {
-        if (ws.readyState === WebSocket.OPEN) {
-          try { ws.send(JSON.stringify({ type: 'leave', tableId: tableIdRef.current, playerId: sessionId.current })); } catch {}
+        if (!leaveCompletedRef.current && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({
+              type: 'leave',
+              tableId: tableIdRef.current,
+              playerId: sessionId.current,
+              leaveId: leaveRequestId.current,
+            }));
+          } catch {}
         }
         ws.close();
         wsRef.current = null;
       }
+      if (pendingLeaveRef.current) {
+        clearTimeout(pendingLeaveRef.current.timeout);
+        pendingLeaveRef.current.reject(new Error('Table connection closed before the balance was confirmed.'));
+        pendingLeaveRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const leaveAndSettle = useCallback((): Promise<void> => {
+    if (pendingLeaveRef.current) return pendingLeaveRef.current.promise;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error('Table connection is unavailable. Your balance was not confirmed.'));
+    }
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+    const timeout = setTimeout(() => {
+      pendingLeaveRef.current = null;
+      reject(new Error('Timed out saving your table balance. Please try again.'));
+    }, 30000);
+    pendingLeaveRef.current = { promise, resolve, reject, timeout };
+    try {
+      ws.send(JSON.stringify({
+        type: 'leave',
+        tableId: tableIdRef.current,
+        playerId: sessionId.current,
+        leaveId: leaveRequestId.current,
+      }));
+    } catch {
+      clearTimeout(timeout);
+      pendingLeaveRef.current = null;
+      reject(new Error('Could not send the table-leave request. Your balance was not confirmed.'));
+    }
+    return promise;
   }, []);
 
   const handleAction = useCallback((action: string, payload?: unknown) => {
@@ -375,5 +442,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost };
+  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle };
 }

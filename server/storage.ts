@@ -88,6 +88,7 @@ export interface IStorage {
   getPlayerByResetToken(token: string): Promise<PlayerProfile | undefined>;
   clearPasswordResetToken(id: string): Promise<void>;
   syncPlayerChips(id: string, sessionDelta: number, handResult?: { won: boolean; deltaChips?: number; gameId?: string | null; handId?: string | null; modeId: string; potSize: number }): Promise<void>;
+  syncPlayerLeaveDelta(id: string, gameId: string, leaveId: string, sessionDelta: number): Promise<void>;
   setPlayerActiveTable(id: string, tableId: string, seatId: string, modeId: string): Promise<void>;
   clearPlayerActiveTable(id: string): Promise<void>;
   getPlayerActiveTable(id: string): Promise<string | null>;
@@ -1336,6 +1337,55 @@ export class MemStorage implements IStorage {
     });
     chipSyncQueue.set(id, task);
     void task.finally(() => { if (chipSyncQueue.get(id) === task) chipSyncQueue.delete(id); }).catch(() => {});
+    return task;
+  }
+
+  async syncPlayerLeaveDelta(id: string, gameId: string, leaveId: string, sessionDelta: number): Promise<void> {
+    const handId = `leave:${leaveId}`;
+    const preceding = chipSyncQueue.get(id) ?? Promise.resolve();
+    const task = preceding.catch(() => {}).then(async () => {
+      await db.transaction(async (tx) => {
+        const [profile] = await tx.select().from(playerProfiles)
+          .where(eq(playerProfiles.id, id)).for("update");
+        if (!profile) throw new Error("Player not found");
+        const [inserted] = await tx.insert(handXpAwards).values({
+          playerId: id,
+          gameId,
+          handId,
+          xpGranted: 0,
+        }).onConflictDoNothing().returning();
+        const clearActiveTable = async () => {
+          await tx.update(playerProfiles)
+            .set({ activeTableId: null, activeSeatId: null, activeModeId: null, updatedAt: new Date() })
+            .where(and(eq(playerProfiles.id, id), eq(playerProfiles.activeTableId, gameId)));
+        };
+        if (!inserted) {
+          await clearActiveTable();
+          return;
+        }
+
+        const before = profile.chipBalance;
+        const after = before + sessionDelta;
+        await tx.update(playerProfiles)
+          .set({ chipBalance: sql`${playerProfiles.chipBalance} + ${sessionDelta}`, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, id));
+        await this._insertChipLedger(tx, {
+          playerId: id,
+          beforeBalance: before,
+          amountChange: sessionDelta,
+          afterBalance: after,
+          reason: 'other',
+          source: 'tableLeave',
+          gameId,
+          handId,
+        });
+        await clearActiveTable();
+      });
+    });
+    chipSyncQueue.set(id, task);
+    void task.finally(() => {
+      if (chipSyncQueue.get(id) === task) chipSyncQueue.delete(id);
+    }).catch(() => {});
     return task;
   }
 

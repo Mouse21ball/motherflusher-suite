@@ -96,7 +96,7 @@ interface Room {
 
 type ClientMessage =
   | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number }
-  | { type: 'leave';         tableId: string; playerId: string }
+  | { type: 'leave';         tableId: string; playerId: string; leaveId?: string }
   | { type: 'ping' }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
   | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown }
@@ -234,18 +234,28 @@ function migrateHost(room: Room): void {
   broadcastHostUpdate(room);
 }
 
-function releasePlayer(playerId: string, tableId: string, intentional = false): void {
+async function releasePlayer(playerId: string, tableId: string, intentional = false): Promise<void> {
   const room = rooms.get(tableId);
   if (!room) return;
 
   const wasHost = room.hostId === playerId;
 
+  if (intentional) {
+    if (room.isAuthoritative) {
+      await removeBadugiConnection(tableId, playerId, true);
+    } else if (SERVER_MODES_ON && room.modeId !== 'badugi') {
+      await removeGenericConnection(tableId, playerId, true);
+    }
+  }
+
   room.connections.delete(playerId);
 
-  if (room.isAuthoritative) {
-    removeBadugiConnection(tableId, playerId, intentional);
-  } else if (SERVER_MODES_ON && room.modeId !== 'badugi') {
-    removeGenericConnection(tableId, playerId, intentional);
+  if (!intentional) {
+    if (room.isAuthoritative) {
+      void removeBadugiConnection(tableId, playerId);
+    } else if (SERVER_MODES_ON && room.modeId !== 'badugi') {
+      void removeGenericConnection(tableId, playerId);
+    }
   }
 
   for (const [seatId, claim] of room.seats.entries()) {
@@ -284,6 +294,8 @@ interface AuthenticatedWs extends WebSocket {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initRooms(httpServer: Server): WebSocketServer {
+  const completedLeaveRequests = new Map<string, number>();
+  const completedLeaveRequestTtlMs = 10 * 60 * 1000;
   const wss = new WebSocketServer({
     server: httpServer,
     path: '/ws',
@@ -392,6 +404,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           ws.close();
           return;
         }
+        const authenticatedIdentityId = authWs.authenticatedPlayerId;
 
         // ── Club membership gate ───────────────────────────────────────────────
         const tableRec = getTableRecord(tableId);
@@ -404,7 +417,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           }
         }
 
-        if (roomId && playerId) releasePlayer(playerId, roomId);
+        if (roomId && playerId) await releasePlayer(playerId, roomId);
 
         roomId   = tableId;
         playerId = pid;
@@ -434,15 +447,15 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // NOTE: Lady Luck uses handleLLJoin (a separate path, not routed here)
         // and is intentionally excluded — its spectator-wager seat dynamics
         // require a different approach handled within ladyluckEngine.ts.
-        if (identityId && (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi'))) {
-          const activeTable = await storage.getPlayerActiveTable(identityId);
+        if (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi')) {
+          const activeTable = await storage.getPlayerActiveTable(authenticatedIdentityId);
           if (activeTable && activeTable !== tableId) {
             // After a server restart the in-memory rooms Map is wiped but the DB
             // still holds stale activeTableId records.  If the previously-active
             // table's room no longer exists in memory the record is stale — clear
             // it and let the player join instead of locking them out indefinitely.
             if (!rooms.has(activeTable)) {
-              storage.clearPlayerActiveTable(identityId).catch(() => {});
+              storage.clearPlayerActiveTable(authenticatedIdentityId).catch(() => {});
               // fall through and allow the join
             } else {
               try {
@@ -457,17 +470,23 @@ export function initRooms(httpServer: Server): WebSocketServer {
         }
 
         let assignedSeat: string | null = null;
+        setSeatOwner(tableId, pid, authWs.authenticatedPlayerId);
         if (room.isAuthoritative) {
-          assignedSeat = addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
+          assignedSeat = await addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, authenticatedIdentityId, engineOptions, msg.buyinChips);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          assignedSeat = addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, identityId, engineOptions, msg.buyinChips);
+          assignedSeat = await addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, authenticatedIdentityId, engineOptions, msg.buyinChips);
+        }
+        if (assignedSeat === null) {
+          clearSeatOwner(tableId, pid);
+          room.connections.delete(pid);
+          room.seats.delete(pid);
+          return;
         }
 
         // Register seat ownership so subsequent AUTHZ checks can resolve seat
         // labels (e.g. "p1") back to the verified authenticatedPlayerId.
         // We register both the join-time pid (used by leave/host messages) and
         // the engine-assigned seat label (used by badugi:action / mode:action).
-        setSeatOwner(tableId, pid, authWs.authenticatedPlayerId);
         if (assignedSeat && assignedSeat !== '__spectator__') {
           engineSeatPid = assignedSeat;
           setSeatOwner(tableId, assignedSeat, authWs.authenticatedPlayerId);
@@ -490,9 +509,29 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
       // ── leave ────────────────────────────────────────────────────────────────
       if (msg.type === 'leave') {
-        const { tableId, playerId: pid } = msg;
+        const { tableId, playerId: pid, leaveId } = msg;
+        const leaveRequestKey = leaveId
+          ? `${authWs.authenticatedPlayerId}:${tableId}:${leaveId}`
+          : null;
+        if (leaveRequestKey) {
+          const completedAt = completedLeaveRequests.get(leaveRequestKey);
+          if (completedAt && Date.now() - completedAt < completedLeaveRequestTtlMs) {
+            try { ws.send(JSON.stringify({ type: 'leave:complete', leaveId })); } catch {}
+            return;
+          }
+          if (completedAt) completedLeaveRequests.delete(leaveRequestKey);
+        }
         // Authorization: claimed pid must be owned by this authenticated connection
         if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
+          if (leaveId) {
+            try {
+              ws.send(JSON.stringify({
+                type: 'leave:failed',
+                leaveId,
+                message: 'Leave request is no longer authorized. Please reconnect and refresh your balance.',
+              }));
+            } catch {}
+          }
           console.warn(
             `[WS AUTHZ] ${new Date().toISOString()} authenticated=${authWs.authenticatedPlayerId} ` +
             `claimed_pid=${pid} seat_owner=${getSeatOwner(tableId, pid) ?? 'none'} ` +
@@ -500,9 +539,31 @@ export function initRooms(httpServer: Server): WebSocketServer {
           );
           return;
         }
-        if (tableId && pid) releasePlayer(pid, tableId, true);
-        roomId   = null;
-        playerId = null;
+        if (!tableId || !pid) return;
+        try {
+          await releasePlayer(pid, tableId, true);
+          clearSeatOwner(tableId, pid);
+          if (engineSeatPid) clearSeatOwner(tableId, engineSeatPid);
+          roomId   = null;
+          playerId = null;
+          if (leaveRequestKey) {
+            const now = Date.now();
+            for (const [key, completedAt] of completedLeaveRequests) {
+              if (now - completedAt >= completedLeaveRequestTtlMs) completedLeaveRequests.delete(key);
+            }
+            completedLeaveRequests.set(leaveRequestKey, now);
+          }
+          try { ws.send(JSON.stringify({ type: 'leave:complete', leaveId })); } catch { /* socket may have closed */ }
+        } catch (err) {
+          console.error('[rooms] Intentional leave settlement failed:', err);
+          try {
+            ws.send(JSON.stringify({
+              type: 'leave:failed',
+              leaveId,
+              message: 'Could not save your table balance. Please try leaving again.',
+            }));
+          } catch { /* socket may have closed */ }
+        }
         return;
       }
 
@@ -787,7 +848,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         handleLLSpectatorLeave(spectatorTableId, spectatorUserId);
       } else if (roomId && playerId) {
         handleLLDisconnect(roomId, playerId);
-        releasePlayer(playerId, roomId);
+        void releasePlayer(playerId, roomId);
         clearSeatOwner(roomId, playerId);
         if (engineSeatPid) clearSeatOwner(roomId, engineSeatPid);
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Menu, Camera, Home, BookOpen, MessageSquare } from "lucide-react";
 import { HowToPlay } from "@/components/ui/HowToPlay";
@@ -31,7 +31,8 @@ interface GameStatusBarProps {
   chips: number;
   stripes?: number;
   phase: GamePhase;
-  onForfeit?: () => void;
+  onForfeit?: () => void | Promise<void>;
+  onLeave?: () => Promise<void>;
   sessionStats?: GameSessionStats;
   tableId?: string;
   humanCount?: number;
@@ -54,13 +55,16 @@ const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flush
   bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
 };
 
-export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
+export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteError, setInviteError] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [myReferralCode, setMyReferralCode] = useState('');
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const leavingRef = useRef(false);
   const [, navigate] = useLocation();
   const htpModeId = HTP_MODE_ID[modeId];
 
@@ -80,15 +84,33 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
     return () => { active = false; };
   }, []);
 
-  const handleLobby = () => {
-    if (isMidHand) { setExitDialogOpen(true); setMenuOpen(false); }
-    else { navigate('/'); }
+  const leaveTable = async (forfeit: boolean) => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    setIsLeaving(true);
+    setLeaveError(null);
+    try {
+      if (forfeit) await onForfeit?.();
+      if (onLeave) await onLeave();
+      else navigate('/');
+      setExitDialogOpen(false);
+    } catch (error) {
+      setLeaveError(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
+    } finally {
+      leavingRef.current = false;
+      setIsLeaving(false);
+    }
   };
 
-  const handleConfirmExit = () => {
-    if (onForfeit) onForfeit();
-    setExitDialogOpen(false);
-    navigate('/');
+  const handleLobby = () => {
+    if (isLeaving) return;
+    if (isMidHand) { setExitDialogOpen(true); setMenuOpen(false); }
+    else { setMenuOpen(false); void leaveTable(false); }
+  };
+
+  const handleConfirmExit = (event: React.MouseEvent) => {
+    event.preventDefault();
+    void leaveTable(true);
   };
 
   const handleCopy = async () => {
@@ -188,6 +210,16 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
           )}
         </div>
       </header>
+      {isLeaving && (
+        <div role="status" aria-live="polite" data-testid="leave-pending" className="fixed top-14 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/90 px-4 py-2 text-xs font-mono text-white shadow-lg">
+          Saving your table stack…
+        </div>
+      )}
+      {leaveError && (
+        <div role="alert" className="fixed top-14 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-red-400/30 bg-black/95 px-4 py-2 text-xs font-mono text-red-300 shadow-lg" data-testid="leave-error">
+          {leaveError}
+        </div>
+      )}
       {showHelp && htpModeId && (
         <HowToPlay modeId={htpModeId} onClose={() => setShowHelp(false)} />
       )}
@@ -287,11 +319,12 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
               {/* Lobby button */}
               <button
                 onClick={handleLobby}
+                disabled={isLeaving}
                 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest px-3 py-2.5 rounded-lg border border-white/[0.06] text-white/60 hover:text-white/60 hover:border-white/[0.10] transition-all touch-manipulation"
                 data-testid="link-lobby-menu"
               >
                 <Home className="w-3.5 h-3.5" />
-                {isMidHand ? 'Leave Table (forfeit)' : 'Back to Lobby'}
+                {isLeaving ? 'Saving stack…' : isMidHand ? 'Leave Table (forfeit)' : 'Back to Lobby'}
               </button>
 
             </div>
@@ -310,8 +343,8 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="bg-white/[0.03] border-white/[0.06] text-white/60 mt-0">Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmExit} className="bg-red-600/80 hover:bg-red-600 text-white border-0" data-testid="button-confirm-leave">
-              Leave
+            <AlertDialogAction onClick={handleConfirmExit} disabled={isLeaving} className="bg-red-600/80 hover:bg-red-600 text-white border-0" data-testid="button-confirm-leave">
+              {isLeaving ? 'Saving stack…' : 'Leave'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
