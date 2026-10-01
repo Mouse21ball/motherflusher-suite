@@ -14,3 +14,9 @@ Treat real-device bisection as evidence of commit-level causality even if deskto
 **Why:** Pure source and an acyclic import graph cannot exclude a device-engine-specific failure. A successful control build and a failing single-change build should narrow the investigation, not be dismissed because a bridge simulation succeeds.
 
 **How to apply:** Respect causes already excluded by the device controls. If crash logging is unavailable, obtain the active WebView provider/version and use matching-engine production probes or further controlled reductions before claiming a fix; do not repeatedly demand unavailable logs.
+
+Verify an engine match from the launched browser itself, not the Playwright package version or a spoofed user agent. Matching the full Chromium version still does not match the Android embedder, CPU architecture, GPU, or V8 build flags.
+
+**Why:** A stock sandbox browser can be a different major release from the failing device. Conversely, an exact-version desktop browser can pass a bundle that still fails in Android WebView; the desktop result must not override real-device bisection.
+
+**How to apply:** Use an isolated official test binary when available, record the live browser version and CDP V8 version/revision, and test unchanged production boot before any instrumented component probe. Report the remaining platform gap explicitly rather than labeling a successful desktop run as a native fix.
