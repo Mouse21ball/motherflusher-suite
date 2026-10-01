@@ -872,7 +872,7 @@ export default function Fifteen35Game() {
     saveRecentTable(tableId);
   }, [tableId]);
 
-  const { state, handleAction, myId, role, sessionStats, isClubTable, lastWsAt, leaveAndSettle } = useServerMode(tableId, 'fifteen35');
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, isClubTable, lastWsAt, leaveAndSettle } = useServerMode(tableId, 'fifteen35');
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
   const leaveToLobby = useCallback(async () => {
     try {
@@ -1224,17 +1224,21 @@ export default function Fifteen35Game() {
         />
       )}
 
+      {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
       <BustOutModal
         open={showBustModal}
+        tableId={tableId}
+        modeId="fifteen35"
+        bankrollAvailable={serverProfile?.chipBalance ?? 0}
         bigBlind={state.minBet}
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
-        onRebuy={(amount) => { handleAction('rebuy', amount); setBustDismissed(true); }}
+        onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
-        onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
+        onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
       />
 
       <ChatBox

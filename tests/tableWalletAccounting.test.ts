@@ -6,21 +6,25 @@ import {
   addBadugiConnection,
   getOrCreateBadugiTable,
   handleBadugiAction,
+  rebuyBadugiSeat,
   removeBadugiConnection,
 } from '../server/gameEngine';
 import {
   addGenericConnection,
   getOrCreateTable,
   handleGenericAction,
+  rebuyGenericSeat,
   removeGenericConnection,
 } from '../server/genericEngine';
 
-type Mode = 'badugi' | 'dead7';
+type Mode = 'badugi' | 'dead7' | 'flushed_up';
 let wallet = 30_000;
 let appliedLeaves: Set<string>;
+let appliedFreeRebuys: Set<string>;
 
 function mockWalletStorage() {
   appliedLeaves = new Set();
+  appliedFreeRebuys = new Set();
   vi.spyOn(storage, 'getOrCreatePlayer').mockImplementation(async () => ({
     chipBalance: wallet,
     activeSubscriptionTier: null,
@@ -39,25 +43,64 @@ function mockWalletStorage() {
     appliedLeaves.add(leaveId);
     wallet += delta;
   });
+  vi.spyOn(storage, 'claimFreeTableRebuy').mockImplementation(async (_id, gameId, bustEventId) => {
+    const key = `${_id}:${gameId}:${bustEventId}`;
+    if (appliedFreeRebuys.has(key)) return { granted: false, chipBalance: wallet };
+    appliedFreeRebuys.add(key);
+    wallet += 1000;
+    return { granted: true, chipBalance: wallet };
+  });
 }
 
 function makeSocket() {
   return { readyState: 1, send: vi.fn(), close: vi.fn() } as unknown as WebSocket;
 }
 
-function getTable(mode: Mode, tableId: string): any {
+function getTable(
+  mode: Mode,
+  tableId: string,
+  stakeTier: 'low' | 'high' = 'low',
+  botsEnabled = false,
+  isPrivate = true,
+): any {
   return mode === 'badugi'
-    ? getOrCreateBadugiTable(tableId, true, false, { maxPlayers: 5, botsEnabled: false })
-    : getOrCreateTable('dead7', tableId, true, false, { maxPlayers: 5, botsEnabled: false });
+    ? getOrCreateBadugiTable(tableId, isPrivate, false, { maxPlayers: 5, botsEnabled, stakeTier })
+    : getOrCreateTable(mode, tableId, isPrivate, false, { maxPlayers: 5, botsEnabled, stakeTier });
 }
 
-async function join(mode: Mode, tableId: string, sessionId: string, buyinChips?: number) {
+async function join(
+  mode: Mode,
+  tableId: string,
+  sessionId: string,
+  buyinChips?: number,
+  stakeTier: 'low' | 'high' = 'low',
+  botsEnabled = false,
+  identityId = `identity-${tableId}`,
+  isPrivate = true,
+) {
   const ws = makeSocket();
-  const identityId = `identity-${tableId}`;
+  const settings = { maxPlayers: 5, botsEnabled, stakeTier };
   const seat = mode === 'badugi'
-    ? await addBadugiConnection(tableId, sessionId, ws, 'Tester', true, false, identityId, { maxPlayers: 5, botsEnabled: false }, buyinChips)
-    : await addGenericConnection(tableId, 'dead7', sessionId, ws, 'Tester', true, false, identityId, { maxPlayers: 5, botsEnabled: false }, buyinChips);
-  return { seat, ws, identityId, table: getTable(mode, tableId) };
+    ? await addBadugiConnection(tableId, sessionId, ws, 'Tester', isPrivate, false, identityId, settings, buyinChips)
+    : await addGenericConnection(tableId, mode, sessionId, ws, 'Tester', isPrivate, false, identityId, settings, buyinChips);
+  return { seat, ws, identityId, table: getTable(mode, tableId, stakeTier, botsEnabled, isPrivate) };
+}
+
+function markBusted(table: any, seat: string) {
+  table.state = {
+    ...table.state,
+    phase: 'WAITING',
+    activePlayerId: null,
+    players: table.state.players.map((player: any) => player.id === seat
+      ? { ...player, chips: 0, status: 'sitting_out' }
+      : player),
+  };
+}
+
+function requestRebuy(mode: Mode, tableId: string, seat: string, identityId: string, requestId: string, kind: 'free' | 'reserve', amount?: number) {
+  return mode === 'badugi'
+    ? rebuyBadugiSeat(tableId, seat, identityId, requestId, kind, amount)
+    : rebuyGenericSeat(mode, tableId, seat, identityId, requestId, kind, amount);
 }
 
 function leave(mode: Mode, tableId: string, sessionId: string) {
@@ -66,7 +109,10 @@ function leave(mode: Mode, tableId: string, sessionId: string) {
     : removeGenericConnection(tableId, sessionId, true);
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leave', mode => {
   it('allocates a partial p1 stack without debiting/refunding principal', async () => {
@@ -321,5 +367,114 @@ describe.each<Mode>(['badugi', 'dead7'])('%s showdown/leave ordering', mode => {
     await leavePromise;
     expect(complete).toBe(true);
     expect(storage.syncPlayerLeaveDelta).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
+  it('transfers only the latest persisted reserve and adds no phantom settlement profit', async () => {
+    wallet = 1_000;
+    mockWalletStorage();
+    const tableId = `${mode}-reserve-rebuy-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `session-${tableId}`;
+    const joined = await join(mode, tableId, sessionId, 1_000);
+    expect(joined.table.seatBankroll.get(joined.seat!)).toBe(0);
+
+    // This out-of-band credit happened after the seat's cached reserve snapshot.
+    wallet += 2_000;
+    markBusted(joined.table, joined.seat!);
+    const result = await requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'reserve-request-0001', 'reserve', 2_000);
+
+    expect(result.chips).toBe(2_000);
+    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(2_000);
+    expect(joined.table.chipsAtHandStart.get(joined.seat!)).toBe(3_000);
+    expect(joined.table.seatBankroll.get(joined.seat!)).toBe(0);
+    expect(wallet).toBe(3_000);
+    expect(await requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'reserve-request-0001', 'reserve', 2_000)).toEqual(result);
+    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(2_000);
+
+    await leave(mode, tableId, sessionId);
+    // The original 1,000-stack bust was a 1,000 loss; the 2,000 reserve transfer
+    // itself contributes zero profit when the 2,000 table stack settles.
+    expect(wallet).toBe(2_000);
+  });
+
+  it('grants a free 1,000 stack below the table minimum only once per hand event', async () => {
+    wallet = 30_000;
+    mockWalletStorage();
+    const tableId = `${mode}-free-rebuy-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `session-${tableId}`;
+    const minimum = getBuyInBounds(1_000).minBuyin;
+    const joined = await join(mode, tableId, sessionId, minimum, 'high');
+    expect(minimum).toBe(20_000);
+    markBusted(joined.table, joined.seat!);
+
+    const result = await requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0001', 'free');
+    expect(result.chips).toBe(1_000);
+    expect(result.chips).toBeLessThan(minimum);
+    expect(joined.table.chipsAtHandStart.get(joined.seat!)).toBe(minimum + 1_000);
+    expect(wallet).toBe(31_000);
+    expect(await requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0001', 'free')).toEqual(result);
+    expect(storage.claimFreeTableRebuy).toHaveBeenCalledTimes(1);
+
+    // A distinct request ID cannot mint a second grant for the same table/hand/seat.
+    markBusted(joined.table, joined.seat!);
+    await expect(requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0002', 'free'))
+      .rejects.toThrow('already been used');
+    expect(wallet).toBe(31_000);
+    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(0);
+  });
+});
+
+describe.each([
+  { mode: 'badugi' as const, autoStartAfterMs: 10_000 },
+  { mode: 'flushed_up' as const, autoStartAfterMs: 13_000 },
+])('$mode free rebuy and queued auto-start ordering', ({ mode, autoStartAfterMs }) => {
+  it('defers auto-start during a durable free grant and credits exactly one stack', async () => {
+    wallet = 30_000;
+    mockWalletStorage();
+    vi.useFakeTimers();
+    const tableId = `${mode}-delayed-free-${Math.random().toString(36).slice(2, 8)}`;
+    const first = await join(mode, tableId, `first-${tableId}`, undefined, 'low', true, `identity-${tableId}`, false);
+    const second = await join(mode, tableId, `second-${tableId}`, undefined, 'low', true, `identity-${tableId}-second`, false);
+    expect(first.seat).toBe('p1');
+    expect(second.seat).toBe('p2');
+    markBusted(first.table, first.seat!);
+
+    let resolveGrant!: (result: { granted: boolean; chipBalance: number }) => void;
+    let signalGrantStarted!: () => void;
+    const grantStarted = new Promise<void>(resolve => { signalGrantStarted = resolve; });
+    const delayedGrant = new Promise<{ granted: boolean; chipBalance: number }>(resolve => {
+      resolveGrant = resolve;
+    });
+    let grantCalls = 0;
+    vi.mocked(storage.claimFreeTableRebuy).mockImplementation(async () => {
+      grantCalls++;
+      signalGrantStarted();
+      return delayedGrant;
+    });
+
+    const rebuyPromise = requestRebuy(
+      mode, tableId, first.seat!, first.identityId, 'delayed-free-request-0001', 'free',
+    );
+    await grantStarted;
+    expect(first.table.actionLock).toBe(true);
+
+    // Fire the already-queued auto-start while the durable wallet grant is pending.
+    await vi.advanceTimersByTimeAsync(autoStartAfterMs);
+    expect(first.table.handId).toBe(0);
+    expect(first.table.state.phase).toBe('WAITING');
+
+    wallet += 1_000;
+    resolveGrant({ granted: true, chipBalance: wallet });
+    await expect(rebuyPromise).resolves.toMatchObject({ chips: 1_000, walletBalance: 31_000 });
+    expect(grantCalls).toBe(1);
+    expect(wallet).toBe(31_000);
+
+    // The bounded rearm starts the queued hand after the grant/stack transaction releases its lock.
+    await vi.advanceTimersByTimeAsync(100);
+    expect(first.table.handId).toBe(1);
+    expect(first.table.state.players.find((player: any) => player.id === first.seat)?.chips).toBe(1_000);
+    expect(grantCalls).toBe(1);
+    expect(wallet).toBe(31_000);
   });
 });

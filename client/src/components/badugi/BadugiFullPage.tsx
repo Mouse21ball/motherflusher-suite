@@ -31,12 +31,16 @@ import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
+import { apiFetch } from '@/lib/session';
+import { apiUrl } from '@/lib/apiConfig';
 
 const MODE_ID = 'badugi';
 
 export interface BadugiFullPageProps {
   state: GameState;
   handleAction: (action: string, payload?: unknown) => void;
+  actionError?: string | null;
+  requestRebuy: (kind: 'free' | 'reserve', amount?: number) => Promise<void>;
   myId: string;
   modeId: string;
   tableId?: string;
@@ -53,7 +57,7 @@ export interface BadugiFullPageProps {
 }
 
 export function BadugiFullPage({
-  state, handleAction, myId, modeId, tableId, role,
+  state, handleAction, actionError, requestRebuy, myId, modeId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
 }: BadugiFullPageProps) {
   void modeId;
@@ -173,10 +177,16 @@ export function BadugiFullPage({
     const pid = serverProfile?.profileId;
     if (!pid) return;
     try {
-      const res  = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
+      const res  = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
       const data = await res.json();
-      if (res.ok && data.success) { handleAction('rebuy', 1000); setBustDismissed(true); refetchProfile(); }
-    } catch { /* silent */ }
+      if (res.ok && data.success) {
+        await requestRebuy('reserve', 1000);
+        setBustDismissed(true);
+        void refetchProfile();
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
+    }
   };
 
   /* ShowdownReveal data */
@@ -330,13 +340,16 @@ export function BadugiFullPage({
         seatToPlayerId={Object.fromEntries(state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!]))}
         myProfileId={serverProfile?.profileId} />
 
-      <BustOutModal open={showBustModal} bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
+      {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
+
+      <BustOutModal open={showBustModal} tableId={tableId} modeId={MODE_ID} bankrollAvailable={serverProfile?.chipBalance ?? 0}
+        bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
-        onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
+        onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
-        onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
+        onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
         onBorrowChips={handleBorrowChips} />
     </div>
   );

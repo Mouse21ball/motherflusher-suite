@@ -2,13 +2,16 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { apiUrl } from "@/lib/apiConfig";
+import { apiFetch } from "@/lib/session";
 
 interface BuyInSliderProps {
   tableId: string;
   modeId: string;
   chipBalance: number;
-  onConfirm: (buyinChips: number) => void;
+  onConfirm: (buyinChips: number) => void | Promise<void>;
   onCancel?: () => void;
+  /** Rebuys use the authenticated table socket; joins use the HTTP buy-in endpoint. */
+  purpose?: "join" | "rebuy";
   /** If set, this is a rebuy: currentStack is added to the validation. */
   currentStack?: number;
   /** Big blind amount (minBet from engine). Defaults to 50. */
@@ -27,6 +30,7 @@ export function BuyInSlider({
   chipBalance,
   onConfirm,
   onCancel,
+  purpose = "join",
   currentStack = 0,
   bigBlind = 50,
 }: BuyInSliderProps) {
@@ -60,17 +64,15 @@ export function BuyInSlider({
     setLoading(true);
     setError(null);
     try {
-      const endpoint = currentStack > 0
-        ? `/api/tables/${tableId}/rebuy`
-        : `/api/tables/${tableId}/join`;
-      const body = currentStack > 0
-        ? { rebuy_chips: amount, current_stack: currentStack, mode_id: modeId }
-        : { buyin_chips: amount, mode_id: modeId };
-      const res = await fetch(apiUrl(endpoint), {
+      if (purpose === "rebuy") {
+        await onConfirm(amount);
+        return;
+      }
+
+      const res = await apiFetch(apiUrl(`/api/tables/${tableId}/join`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        credentials: 'include',
+        body: JSON.stringify({ buyin_chips: amount, mode_id: modeId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -78,12 +80,12 @@ export function BuyInSlider({
         setLoading(false);
         return;
       }
-      onConfirm(amount);
+      await onConfirm(amount);
     } catch {
       setError('Network error — please try again');
       setLoading(false);
     }
-  }, [amount, currentStack, tableId, modeId, onConfirm, effectiveMin, effectiveMax]);
+  }, [amount, purpose, tableId, modeId, onConfirm, effectiveMin, effectiveMax]);
 
   const canConfirm = amount >= effectiveMin && amount <= effectiveMax && !loading;
 
@@ -144,7 +146,8 @@ export function BuyInSlider({
           className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono"
           data-testid="buyin-confirm"
         >
-          {loading ? 'Joining…' : currentStack > 0 ? `Rebuy ${formatChips(amount)}` : `Join for ${formatChips(amount)}`}
+          {loading ? (purpose === "rebuy" ? "Rebuying…" : "Joining…")
+            : purpose === "rebuy" ? `Rebuy ${formatChips(amount)}` : `Join for ${formatChips(amount)}`}
         </Button>
       </div>
     </div>

@@ -24,6 +24,8 @@ import { KamikazeActionBar } from '@/components/kamikaze/KamikazeActionBar';
 import { KamikazeShowdown } from '@/components/kamikaze/KamikazeShowdown';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
+import { apiFetch } from '@/lib/session';
+import { apiUrl } from '@/lib/apiConfig';
 
 const MODE_ID   = 'kamikaze';
 const ENGINE_ID = 'kamikaze';
@@ -134,7 +136,7 @@ function KamikazeGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats;
@@ -267,10 +269,16 @@ function KamikazeGameUI() {
     const pid = serverProfile?.profileId;
     if (!pid) return;
     try {
-      const res = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
+      const res = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
       const data = await res.json();
-      if (res.ok && data.success) { handleAction('rebuy', 1000); setBustDismissed(true); refetchProfile(); }
-    } catch { /* silent */ }
+      if (res.ok && data.success) {
+        await requestRebuy('reserve', 1000);
+        setBustDismissed(true);
+        void refetchProfile();
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
+    }
   };
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -371,13 +379,15 @@ function KamikazeGameUI() {
 
       {showHowToPlay && <HowToPlay modeId="kamikaze" onClose={() => setShowHowToPlay(false)} />}
 
-      <BustOutModal open={showBustModal} bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
+      {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
+      <BustOutModal open={showBustModal} tableId={tableId} modeId={ENGINE_ID} bankrollAvailable={serverProfile?.chipBalance ?? 0}
+        bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
-        onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
+        onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
-        onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
+        onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
         onBorrowChips={handleBorrowChips}
       />
     </div>

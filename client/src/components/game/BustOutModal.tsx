@@ -11,11 +11,11 @@ interface BustOutModalProps {
   lifetimeBusts: number;
   sessionBusts: number;
   hasNeverPurchased: boolean;
-  onRebuy: (amount?: number) => void;
+  onRebuy: (amount?: number) => void | Promise<void>;
   onLeaveTable: () => void;
   onSpectate: () => void;
   onWatchAd?: () => void;
-  onStarterPack?: () => void;
+  onStarterPack?: () => void | Promise<void>;
   onBorrowChips?: () => void;
   /** Ticket-7: buy-in slider for rebuy. If provided, shows slider instead of fixed rebuy. */
   tableId?: string;
@@ -60,6 +60,31 @@ export function BustOutModal({
   const [adBusy, setAdBusy] = useState(false);
   const [adMessage, setAdMessage] = useState("");
   const [adTestMode, setAdTestMode] = useState(false);
+  const [rebuyBusy, setRebuyBusy] = useState(false);
+  const [rebuyError, setRebuyError] = useState("");
+
+  const handleRebuy = async (
+    path: "free" | "reserve",
+    amount?: number,
+    rethrowError = false,
+  ) => {
+    if (rebuyBusy) return;
+    setRebuyBusy(true);
+    setRebuyError("");
+    try {
+      const callback = path === "free" ? onStarterPack : onRebuy;
+      if (!callback) throw new Error("Rebuy is unavailable. Your chips were not credited.");
+      await callback(...(path === "free" ? [] : [amount]));
+      if (amount !== undefined) setShowRebuySlider(false);
+    } catch (error) {
+      setRebuyError(error instanceof Error
+        ? error.message
+        : "Rebuy failed. Your chips were not credited. Please try again.");
+      if (rethrowError) throw error;
+    } finally {
+      setRebuyBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -196,8 +221,8 @@ export function BustOutModal({
     disabled?: boolean;
   }) => (
     <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
+      onClick={disabled || rebuyBusy ? undefined : onClick}
+      disabled={disabled || rebuyBusy}
       data-testid={testId}
       className={`w-full py-2.5 rounded-xl font-mono text-[11px] uppercase tracking-widest border transition-all
         ${disabled
@@ -218,9 +243,10 @@ export function BustOutModal({
             tableId={tableId!}
             modeId={modeId!}
             chipBalance={bankrollAvailable!}
+            purpose="rebuy"
             currentStack={0}
             bigBlind={bigBlind ?? 50}
-            onConfirm={(amount) => { setShowRebuySlider(false); onRebuy(amount); }}
+            onConfirm={(amount) => handleRebuy("reserve", amount, true)}
             onCancel={() => setShowRebuySlider(false)}
           />
         </div>
@@ -229,7 +255,7 @@ export function BustOutModal({
     return (
       <SecBtn
         label={hasSlider ? "Rebuy (choose amount)" : "Free Rebuy ($5,000)"}
-        onClick={() => hasSlider ? setShowRebuySlider(true) : onRebuy()}
+        onClick={() => hasSlider ? setShowRebuySlider(true) : void handleRebuy("reserve")}
         testId={testId}
       />
     );
@@ -278,11 +304,13 @@ export function BustOutModal({
         {tier === 1 && (
           <>
             <button
-              onClick={() => onStarterPack?.()}
+              onClick={() => { void handleRebuy("free"); }}
+              disabled={rebuyBusy || !onStarterPack}
+              aria-busy={rebuyBusy || undefined}
               data-testid="button-bust-starter-pack"
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
             >
-              <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
+              <span>{rebuyBusy ? "CREDITING CHIPS…" : "🎁 FREE REBUY — GET 1,000 CHIPS"}</span>
               <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
             <p className="text-center text-[12px] text-white/60 font-mono mb-3">Keep rolling — chips on us</p>
@@ -311,7 +339,12 @@ export function BustOutModal({
             {adTestMode && <p className="mb-2 text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
             {adMessage && <p className="mb-3 text-center text-xs text-white/75" role="status">{adMessage}</p>}
             <div className="space-y-2">
-              <SecBtn label="Free Rebuy — Get 1,000 Chips" onClick={() => onStarterPack?.()} testId="button-bust-free-rebuy" />
+              <SecBtn
+                label={rebuyBusy ? "Crediting chips…" : "Free Rebuy — Get 1,000 Chips"}
+                onClick={() => { void handleRebuy("free"); }}
+                testId="button-bust-free-rebuy"
+                disabled={!onStarterPack}
+              />
               <LoanBtn />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
@@ -323,11 +356,13 @@ export function BustOutModal({
         {tier === 3 && (
           <>
             <button
-              onClick={() => onStarterPack?.()}
+              onClick={() => { void handleRebuy("free"); }}
+              disabled={rebuyBusy || !onStarterPack}
+              aria-busy={rebuyBusy || undefined}
               data-testid="button-bust-starter-pack"
               className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
             >
-              <span>🎁 FREE REBUY — GET 1,000 CHIPS</span>
+              <span>{rebuyBusy ? "CREDITING CHIPS…" : "🎁 FREE REBUY — GET 1,000 CHIPS"}</span>
               <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
             </button>
             <p className="text-center text-[12px] text-white/60 font-mono mb-3">
@@ -358,19 +393,22 @@ export function BustOutModal({
                   tableId={tableId}
                   modeId={modeId}
                   chipBalance={bankrollAvailable}
+                  purpose="rebuy"
                   currentStack={0}
                   bigBlind={bigBlind ?? 50}
-                  onConfirm={(amount) => { setShowRebuySlider(false); onRebuy(amount); }}
+                  onConfirm={(amount) => handleRebuy("reserve", amount, true)}
                   onCancel={() => setShowRebuySlider(false)}
                 />
               </div>
             ) : (
               <button
-                onClick={() => tableId && modeId && bankrollAvailable != null ? setShowRebuySlider(true) : onRebuy()}
+                onClick={() => tableId && modeId && bankrollAvailable != null ? setShowRebuySlider(true) : void handleRebuy("reserve")}
+                disabled={rebuyBusy}
+                aria-busy={rebuyBusy || undefined}
                 data-testid="button-bust-rebuy"
                 className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-3 active:scale-[0.98]"
               >
-                {tableId && modeId ? 'REBUY (CHOOSE AMOUNT)' : 'REBUY $5,000'}
+                {rebuyBusy ? 'CREDITING CHIPS…' : tableId && modeId ? 'REBUY (CHOOSE AMOUNT)' : 'REBUY $5,000'}
               </button>
             )}
             <div className="space-y-2">
@@ -379,6 +417,17 @@ export function BustOutModal({
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>
           </>
+        )}
+
+        {rebuyBusy && (
+          <p className="text-center text-xs text-white/75" role="status" data-testid="bust-rebuy-pending">
+            Waiting for the table to confirm your chip balance…
+          </p>
+        )}
+        {rebuyError && (
+          <p className="mt-2 text-center text-xs text-red-300" role="alert" data-testid="bust-rebuy-error">
+            {rebuyError}
+          </p>
         )}
 
         {/* Paid offer supplements all free triage choices; it never replaces them. */}

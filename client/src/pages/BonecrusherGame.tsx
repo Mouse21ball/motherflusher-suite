@@ -20,6 +20,8 @@ import { BonecrusherActionBar } from '@/components/bonecrusher/BonecrusherAction
 import { BonecrusherShowdown } from '@/components/bonecrusher/BonecrusherShowdown';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
+import { apiFetch } from '@/lib/session';
+import { apiUrl } from '@/lib/apiConfig';
 
 const MODE_ID   = 'bonecrusher';
 const ENGINE_ID = 'bonecrusher';
@@ -129,7 +131,7 @@ function BonecrusherGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -270,10 +272,16 @@ function BonecrusherGameUI() {
     const pid = serverProfile?.profileId;
     if (!pid) return;
     try {
-      const res  = await fetch(`/api/players/${pid}/chip-loan`, { method: 'POST' });
+      const res  = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
       const data = await res.json();
-      if (res.ok && data.success) { handleAction('rebuy', 1000); setBustDismissed(true); refetchProfile(); }
-    } catch { /* silent */ }
+      if (res.ok && data.success) {
+        await requestRebuy('reserve', 1000);
+        setBustDismissed(true);
+        void refetchProfile();
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
+    }
   };
 
   /* ── Chat ────────────────────────────────────────────────────────────────── */
@@ -426,15 +434,18 @@ function BonecrusherGameUI() {
 
       <BustOutModal
         open={showBustModal}
+        tableId={tableId}
+        modeId={ENGINE_ID}
+        bankrollAvailable={serverProfile?.chipBalance ?? 0}
         bigBlind={state.minBet}
         lifetimeBusts={lifetimeBusts}
         sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
-        onRebuy={amount => { handleAction('rebuy', amount); setBustDismissed(true); }}
+        onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { void leaveToLobby(); }}
         onWatchAd={undefined}
-        onStarterPack={() => { handleAction('rebuy', 1000); setBustDismissed(true); }}
+        onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
         onBorrowChips={handleBorrowChips}
       />
     </div>

@@ -42,6 +42,38 @@ function createLeaveRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+type RebuyKind = 'free' | 'reserve';
+interface PendingRebuy {
+  tableId: string;
+  playerId: string;
+  requestId: string;
+  kind: RebuyKind;
+  amount?: number;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+function sendPendingRebuy(ws: WebSocket, pending: PendingRebuy): void {
+  ws.send(JSON.stringify({
+    type: 'table:rebuy',
+    tableId: pending.tableId,
+    modeId: 'badugi',
+    playerId: pending.playerId,
+    requestId: pending.requestId,
+    kind: pending.kind,
+    ...(pending.amount == null ? {} : { amount: pending.amount }),
+  }));
+}
+
+function rejectPendingRebuys(pendingRebuys: Map<string, PendingRebuy>, message: string): void {
+  for (const pending of pendingRebuys.values()) {
+    clearTimeout(pending.timeout);
+    pending.reject(new Error(message));
+  }
+  pendingRebuys.clear();
+}
+
 // tableId is the 6-char code determined by the caller (from URL ?t= param or
 // freshly generated). No myId parameter — the server assigns the seat.
 export interface BadugiSessionStats {
@@ -89,6 +121,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   const [sessionStats, setSessionStats] = useState<BadugiSessionStats>(DEFAULT_SESSION_STATS);
   const [lastWsAt, setLastWsAt] = useState<number | null>(null);
   const [lastWsType, setLastWsType] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const lastTotalRef = useRef<number | null>(null);
   const lastPhaseRef = useRef<string | null>(null);
 
@@ -109,6 +142,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   const mountedRef      = useRef(true);
   const reconnectRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  const pendingRebuysRef = useRef<Map<string, PendingRebuy>>(new Map());
   const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const sessionId       = useRef<string>(getOrCreateSessionId());
@@ -232,6 +266,19 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
             }
             return;
           }
+          if (msg.type === 'rebuy:complete' || msg.type === 'rebuy:failed') {
+            const pending = pendingRebuysRef.current.get(msg.requestId as string);
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingRebuysRef.current.delete(pending.requestId);
+              if (msg.type === 'rebuy:complete') {
+                setActionError(null);
+                pending.resolve();
+              }
+              else pending.reject(new Error((msg.error as string) || 'The rebuy was not completed.'));
+            }
+            return;
+          }
 
           // ── WS IN audit (every message, regardless of payload shape) ──
           setLastWsAt(Date.now());
@@ -266,6 +313,11 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
           if (msg.type === 'badugi:init') {
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
+            for (const pending of pendingRebuysRef.current.values()) {
+              if (pending.tableId === tableIdRef.current && pending.playerId === myIdRef.current && ws.readyState === WebSocket.OPEN) {
+                try { sendPendingRebuy(ws, pending); } catch {}
+              }
+            }
             // FULL replace — no merge.
             setState(msg.state as GameState);
             if (msg.sessionStats) {
@@ -323,11 +375,15 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
       };
 
       ws.onclose = () => {
+        rejectPendingRebuys(pendingRebuysRef.current, 'Table connection closed before the rebuy was confirmed.');
         if (!mountedRef.current) return;
         reconnectRef.current = setTimeout(connect, Math.min(3000 + Math.random() * 1000, 8000));
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        rejectPendingRebuys(pendingRebuysRef.current, 'Table connection failed before the rebuy was confirmed.');
+        ws.close();
+      };
     }
 
     // iOS Safari kills WebSocket connections when the tab is backgrounded.
@@ -366,6 +422,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
         pendingLeaveRef.current.reject(new Error('Table connection closed before the balance was confirmed.'));
         pendingLeaveRef.current = null;
       }
+      rejectPendingRebuys(pendingRebuysRef.current, 'Table connection closed before the rebuy was confirmed.');
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -399,9 +456,50 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
     return promise;
   }, []);
 
+  const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
+      return Promise.reject(new Error('Table connection is unavailable. Your rebuy was not confirmed.'));
+    }
+    const requestId = createLeaveRequestId();
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingRebuysRef.current.delete(requestId);
+        reject(new Error('Timed out waiting for the server to confirm your rebuy. Please check your stack before retrying.'));
+      }, 30_000);
+      const pending: PendingRebuy = {
+        tableId: tableIdRef.current,
+        playerId: myIdRef.current,
+        requestId,
+        kind,
+        amount,
+        resolve,
+        reject,
+        timeout,
+      };
+      pendingRebuysRef.current.set(requestId, pending);
+      try {
+        sendPendingRebuy(ws, pending);
+      } catch {
+        clearTimeout(timeout);
+        pendingRebuysRef.current.delete(requestId);
+        reject(new Error('Could not send the rebuy request. Your stack was not confirmed.'));
+      }
+    });
+  }, []);
+
   // handleAction uses a ref so it always sends the currently-assigned seat,
   // even if React hasn't re-rendered yet after receiving badugi:init.
   const handleAction = useCallback((action: string, payload?: unknown) => {
+    if (action === 'rebuy') {
+      const amount = typeof payload === 'number' ? payload :
+        payload && typeof payload === 'object' && 'amount' in payload && typeof payload.amount === 'number'
+          ? payload.amount : undefined;
+      setActionError(null);
+      return requestRebuy('reserve', amount).catch(error => {
+        setActionError(error instanceof Error ? error.message : 'The rebuy was not completed.');
+      });
+    }
     if (!activeFlag) {
       console.warn('[CGP][client] badugi:action DROPPED — activeFlag off', { action });
       return;
@@ -420,7 +518,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
     };
     console.log('[CGP][client] → badugi:action', outgoing);
     ws.send(JSON.stringify(outgoing));
-  }, [activeFlag]);
+  }, [activeFlag, requestRebuy]);
 
   const sendHostAction = useCallback((
     type: 'host:kick' | 'host:settings',
@@ -432,5 +530,5 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   }, []);
 
   useAuthoritativeCelebrations(state, 'badugi', lastWsType);
-  return { state, handleAction, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle };
+  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }

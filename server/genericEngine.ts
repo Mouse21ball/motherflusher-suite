@@ -32,6 +32,7 @@ import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
 import { clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
 import { resolveGiftSeats } from './personalChipGifts';
+import { runIdempotentTableRebuyRequest } from './tableRebuyRequests';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -297,7 +298,7 @@ function scheduleUniversalBotFill(key: string): void {
 // Internal helper: transitions a WAITING Flushed Up table straight into ANTE.
 function autoStartHand(table: GenericTable): void {
   if (table.state.phase !== 'WAITING') return;
-  if (table.pendingFundingSeats.size > 0) {
+  if (table.actionLock || table.pendingFundingSeats.size > 0) {
     table.botFillTimer = setTimeout(() => {
       table.botFillTimer = undefined;
       autoStartHand(table);
@@ -2461,6 +2462,114 @@ export function applyBonecrusherDiscardAction(
   }
 }
 
+export async function rebuyGenericSeat(
+  modeId: string,
+  tableId: string,
+  seat: string,
+  identityId: string,
+  requestId: string,
+  kind: 'free' | 'reserve',
+  amount?: number,
+): Promise<{ chips: number; walletBalance: number }> {
+  const requestKey = `${modeId}:${identityId}:${tableId}:${seat}:${requestId}`;
+  return runIdempotentTableRebuyRequest(requestKey, async () => {
+    const table = tables.get(tableKey(modeId, tableId));
+    if (!table || table.modeId !== modeId) throw new Error('This table is no longer available.');
+
+    let acquiredLock = false;
+    for (let attempt = 0; attempt < 400; attempt++) {
+      if (table.leavingSeats.has(seat)) throw new Error('You are leaving this table.');
+      const funding = table.fundingPromises.get(seat);
+      if (funding) {
+        if (!await funding) throw new Error('Your table buy-in could not be confirmed.');
+        continue;
+      }
+      if (table.pendingFundingSeats.has(seat) || !table.fundedSeats.has(seat)) {
+        throw new Error('Your table buy-in is not confirmed. Please reconnect.');
+      }
+      if (table.showdownResolvePromise) {
+        await table.showdownResolvePromise;
+        continue;
+      }
+      if (table.settlementPromise) {
+        await table.settlementPromise;
+        continue;
+      }
+      if (table.state.phase === 'SHOWDOWN') {
+        await resetToAnte(table);
+        continue;
+      }
+      if (table.actionLock) {
+        await new Promise(resolve => setTimeout(resolve, 5));
+        continue;
+      }
+      table.actionLock = true;
+      acquiredLock = true;
+      break;
+    }
+    if (!acquiredLock) throw new Error('The table is busy. Please try again.');
+    try {
+      if (table.leavingSeats.has(seat) || table.connections.get(seat)?.readyState !== 1 ||
+          table.seatToIdentityId.get(seat) !== identityId || !table.fundedSeats.has(seat)) {
+        throw new Error('Your player seat is no longer available.');
+      }
+      if (table.state.phase !== 'WAITING' && table.state.phase !== 'ANTE') {
+        throw new Error('Wait until the current hand finishes before rebuying.');
+      }
+      const player = table.state.players.find(p => p.id === seat);
+      if (!player || player.presence !== 'human' || player.status === 'active' || player.chips !== 0) {
+        throw new Error('A rebuy is only available to your busted table seat.');
+      }
+
+      const handId = table.handId;
+      const eventId = `${handId}:${seat}:${identityId}`;
+      const baseline = table.chipsAtHandStart.get(seat) ?? 0;
+      const { minBuyin, maxBuyin } = getBuyInBounds(table.state.minBet);
+      const profile = await storage.getPlayerProfile(identityId);
+      if (!profile) throw new Error('Your chip balance could not be loaded.');
+
+      let creditAmount: number;
+      let walletBalance = profile.chipBalance;
+      if (kind === 'free') {
+        creditAmount = 1000;
+        if (creditAmount > maxBuyin) throw new Error('This free rebuy exceeds the table stack limit.');
+        const grant = await storage.claimFreeTableRebuy(identityId, `${modeId}:${tableId}`, eventId);
+        if (!grant.granted) throw new Error('The free rebuy for this hand has already been used.');
+        walletBalance = grant.chipBalance;
+      } else {
+        const availableReserve = Math.max(0, profile.chipBalance - baseline);
+        const maxTransfer = Math.min(maxBuyin - player.chips, availableReserve);
+        creditAmount = amount == null
+          ? Math.min(Math.max(minBuyin, table.state.minBet * 100), maxTransfer)
+          : amount;
+        if (!Number.isSafeInteger(creditAmount) || creditAmount < minBuyin) {
+          throw new Error(`Choose at least ${minBuyin.toLocaleString()} available chips to rebuy.`);
+        }
+        if (creditAmount > maxTransfer) throw new Error('That rebuy exceeds your available wallet reserve or table stack limit.');
+      }
+
+      if (table.handId !== handId) throw new Error('The hand changed before your rebuy completed.');
+      const startChips = table.chipsAtHandStart.get(seat) ?? player.chips;
+      const newChips = player.chips + creditAmount;
+      table.chipsAtHandStart.set(seat, startChips + creditAmount);
+      table.seatBankroll.set(seat, Math.max(0, walletBalance - (startChips + creditAmount)));
+      table.state = addMsg({
+        ...table.state,
+        players: table.state.players.map(p => p.id === seat ? {
+          ...p, chips: newChips, status: table.state.phase === 'WAITING' ? 'active' : p.status, hasActed: false,
+        } : p),
+      }, `${player.name} rebuys ${creditAmount.toLocaleString()} chips`);
+      const result = { chips: newChips, walletBalance };
+      broadcastState(table);
+      return result;
+    } finally {
+      table.actionLock = false;
+      scheduleNextBot(table);
+      armTurnTimer(table);
+    }
+  });
+}
+
 export function handleGenericAction(tableId: string, playerOrSessionId: string, action: string, payload: unknown): string | void {
   // Find which mode table this player belongs to.
   // `playerOrSessionId` is either:
@@ -2565,47 +2674,10 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       return;
     }
 
-    // ── rebuy: pull chips from seatBankroll to table stack ───────────────────
+    // Rebuys must arrive through the authenticated, confirmed rebuy request path.
     if (action === 'rebuy') {
-      const playerIdx = s.players.findIndex(p => p.id === playerId);
-      if (playerIdx === -1) { table.actionLock = false; return; }
-      const player = s.players[playerIdx];
-      const minBet  = s.minBet;
-      const { minBuyin, maxBuyin } = getBuyInBounds(minBet);
-      const bankroll = table.seatBankroll.get(playerId) ?? 0;
-
-      // Determine requested amount from payload (slider-based rebuy).
-      const requestedAmount =
-        typeof payload === 'number' ? Math.floor(payload) :
-        (payload && typeof payload === 'object' && 'amount' in payload && typeof (payload as { amount: unknown }).amount === 'number')
-          ? Math.floor((payload as { amount: number }).amount) : null;
-
-      if (requestedAmount != null) {
-        // New slider-based rebuy: can rebuy whenever stack < 200BB
-        if (!Number.isFinite(requestedAmount) || requestedAmount < minBuyin) { table.actionLock = false; return; }
-        if (player.chips + requestedAmount > maxBuyin) { table.actionLock = false; return; }
-        if (bankroll < requestedAmount) { table.actionLock = false; return; }
-        table.seatBankroll.set(playerId, bankroll - requestedAmount);
-        table.state = addMsg({
-          ...s,
-          players: s.players.map(p => p.id === playerId ? { ...p, chips: p.chips + requestedAmount } : p),
-        }, `${player.name} rebuys ${requestedAmount.toLocaleString()} chips`);
-        table.actionLock = false;
-        broadcastState(table);
-        return;
-      }
-
-      // Legacy rebuy (no amount): only when broke, restore from bankroll or fallback 1000
-      if (player.chips > 0) { table.actionLock = false; return; }
-      const legacyAmt = bankroll > 0 ? Math.min(minBet * 100, bankroll) : 1000;
-      if (bankroll > 0) table.seatBankroll.set(playerId, bankroll - legacyAmt);
-      table.state = addMsg({
-        ...s,
-        players: s.players.map(p => p.id === playerId ? { ...p, chips: legacyAmt } : p),
-      }, `${player.name} rebuys ${legacyAmt.toLocaleString()} chips`);
       table.actionLock = false;
-      broadcastState(table);
-      return;
+      return 'Use the confirmed table rebuy request.';
     }
 
     // ── chat ─────────────────────────────────────────────────────────────────

@@ -95,6 +95,7 @@ export interface IStorage {
   deletePlayer(id: string): Promise<void>;
   getPlayerIsAdmin(id: string): Promise<boolean>;
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
+  claimFreeTableRebuy(playerId: string, gameId: string, bustEventId: string): Promise<{ granted: boolean; chipBalance: number }>;
   fundLadyLuckBot(botId: string, tableId: string): Promise<number>;
   rebalanceLadyLuckBot(botId: string, tableId: string): Promise<number>;
   releaseLadyLuckBot(botId: string, tableId: string): Promise<void>;
@@ -1593,6 +1594,62 @@ export class MemStorage implements IStorage {
         handId:        opts?.handId   ?? null,
         metadata:      opts?.metadata ?? null,
       });
+    });
+  }
+
+  /**
+   * Grant the advertised free table rebuy exactly once per authoritative bust
+   * event. The engine supplies a stable game ID and server-generated event ID;
+   * the locked player row serializes concurrent retries without a schema change.
+   */
+  async claimFreeTableRebuy(
+    playerId: string,
+    gameId: string,
+    bustEventId: string,
+  ): Promise<{ granted: boolean; chipBalance: number }> {
+    if (!playerId.trim() || !gameId.trim() || !bustEventId.trim()) {
+      throw Object.assign(new Error('A player and authoritative bust event are required.'), { code: 'INVALID_EVENT' });
+    }
+
+    return db.transaction(async tx => {
+      const [player] = await tx
+        .select({ chipBalance: playerProfiles.chipBalance })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .for('update');
+      if (!player) throw Object.assign(new Error('Player not found'), { code: 'NOT_FOUND' });
+
+      const [existingClaim] = await tx
+        .select({ id: chipTransactions.id })
+        .from(chipTransactions)
+        .where(and(
+          eq(chipTransactions.playerId, playerId),
+          eq(chipTransactions.source, 'freeTableRebuy'),
+          eq(chipTransactions.gameId, gameId),
+          eq(chipTransactions.handId, bustEventId),
+        ))
+        .limit(1);
+      if (existingClaim) {
+        return { granted: false, chipBalance: player.chipBalance };
+      }
+
+      const chipBalance = player.chipBalance + 1000;
+      await tx
+        .update(playerProfiles)
+        .set({ chipBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, playerId));
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance: player.chipBalance,
+        amountChange: 1000,
+        afterBalance: chipBalance,
+        reason: 'other',
+        source: 'freeTableRebuy',
+        gameId,
+        handId: bustEventId,
+        metadata: { grant: 'free_table_rebuy', bustEventId },
+      });
+      return { granted: true, chipBalance };
     });
   }
 

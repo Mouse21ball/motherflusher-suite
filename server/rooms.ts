@@ -24,6 +24,7 @@ import {
   handleBadugiAction,
   getBadugiTablePhase,
   getConnectedBadugiIdentityIds,
+  rebuyBadugiSeat,
   updateBadugiTableSettings,
 } from './gameEngine';
 import {
@@ -32,6 +33,7 @@ import {
   handleGenericAction,
   getGenericTablePhase,
   getConnectedGenericIdentityIds,
+  rebuyGenericSeat,
   updateGenericTableSettings,
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
@@ -98,6 +100,7 @@ type ClientMessage =
   | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number }
   | { type: 'leave';         tableId: string; playerId: string; leaveId?: string }
   | { type: 'ping' }
+  | { type: 'table:rebuy'; tableId: string; modeId: string; playerId: string; requestId: string; kind: 'free' | 'reserve'; amount?: number }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
   | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown }
   | { type: 'host:kick';     tableId: string; playerId: string; targetPlayerId: string }
@@ -648,6 +651,46 @@ export function initRooms(httpServer: Server): WebSocketServer {
 
         // Broadcast updated settings to all players
         broadcastHostUpdate(room);
+        return;
+      }
+
+      if (msg.type === 'table:rebuy') {
+        const { tableId, modeId, playerId: pid, requestId, kind, amount } = msg;
+        const authenticatedPlayerId = authWs.authenticatedPlayerId;
+        const fail = (error: string) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'rebuy:failed', tableId, requestId, error }));
+          }
+        };
+        if (!authenticatedPlayerId) {
+          fail('Sign in to rebuy at this table.');
+          return;
+        }
+        if (!tableId || !modeId || !pid || !requestId || !/^[A-Za-z0-9_-]{8,100}$/.test(requestId) ||
+            (kind !== 'free' && kind !== 'reserve') ||
+            (amount !== undefined && (!Number.isSafeInteger(amount) || amount <= 0))) {
+          fail('Invalid rebuy request.');
+          return;
+        }
+        if (getSeatOwner(tableId, pid) !== authenticatedPlayerId) {
+          fail('This player seat does not belong to your account.');
+          return;
+        }
+        if (modeId === 'badugi' ? !SERVER_BADUGI_ON : !SERVER_MODES_ON) {
+          fail('Server-authoritative play is not enabled for this table.');
+          return;
+        }
+        try {
+          const result = modeId === 'badugi'
+            ? await rebuyBadugiSeat(tableId, pid, authenticatedPlayerId, requestId, kind, amount)
+            : await rebuyGenericSeat(modeId, tableId, pid, authenticatedPlayerId, requestId, kind, amount);
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'rebuy:complete', tableId, requestId, ...result }));
+          }
+          void recordMeaningfulActivity(authenticatedPlayerId);
+        } catch (error) {
+          fail(error instanceof Error ? error.message : 'The rebuy could not be completed.');
+        }
         return;
       }
 

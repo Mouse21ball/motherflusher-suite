@@ -35,6 +35,39 @@ function createLeaveRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+type RebuyKind = 'free' | 'reserve';
+interface PendingRebuy {
+  tableId: string;
+  modeId: string;
+  playerId: string;
+  requestId: string;
+  kind: RebuyKind;
+  amount?: number;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+function sendPendingRebuy(ws: WebSocket, pending: PendingRebuy): void {
+  ws.send(JSON.stringify({
+    type: 'table:rebuy',
+    tableId: pending.tableId,
+    modeId: pending.modeId,
+    playerId: pending.playerId,
+    requestId: pending.requestId,
+    kind: pending.kind,
+    ...(pending.amount == null ? {} : { amount: pending.amount }),
+  }));
+}
+
+function rejectPendingRebuys(pendingRebuys: Map<string, PendingRebuy>, message: string): void {
+  for (const pending of pendingRebuys.values()) {
+    clearTimeout(pending.timeout);
+    pending.reject(new Error(message));
+  }
+  pendingRebuys.clear();
+}
+
 export interface SessionStats {
   startChips: number;
   currentChips: number;
@@ -113,6 +146,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const mountedRef = useRef(true);
   const reconnRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  const pendingRebuysRef = useRef<Map<string, PendingRebuy>>(new Map());
   const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const modeIdRef       = useRef<string>(modeId);
@@ -228,6 +262,19 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             }
             return;
           }
+          if (msg.type === 'rebuy:complete' || msg.type === 'rebuy:failed') {
+            const pending = pendingRebuysRef.current.get(msg.requestId as string);
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingRebuysRef.current.delete(pending.requestId);
+              if (msg.type === 'rebuy:complete') {
+                setActionError(null);
+                pending.resolve();
+              }
+              else pending.reject(new Error((msg.error as string) || 'The rebuy was not completed.'));
+            }
+            return;
+          }
           // ── WS IN audit (every message, regardless of payload shape) ──
           setLastWsAt(Date.now());
           setLastWsType(msg.type ?? '?');
@@ -264,6 +311,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             const pid = msg.playerId as string;
             myIdRef.current = pid;
             setMyId(pid);
+            for (const pending of pendingRebuysRef.current.values()) {
+              if (pending.tableId === tableIdRef.current && pending.modeId === modeIdRef.current &&
+                  pending.playerId === pid && ws.readyState === WebSocket.OPEN) {
+                try { sendPendingRebuy(ws, pending); } catch {}
+              }
+            }
             if (msg.role === 'spectator' || pid === '__spectator__') {
               setRole('spectator');
             } else {
@@ -330,11 +383,15 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       };
 
       ws.onclose = () => {
+        rejectPendingRebuys(pendingRebuysRef.current, 'Table connection closed before the rebuy was confirmed.');
         if (!mountedRef.current) return;
         reconnRef.current = setTimeout(connect, Math.min(3000 + Math.random() * 1000, 8000));
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        rejectPendingRebuys(pendingRebuysRef.current, 'Table connection failed before the rebuy was confirmed.');
+        ws.close();
+      };
     }
 
     // iOS Safari kills WebSocket connections when the tab is backgrounded.
@@ -380,6 +437,11 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
         pendingLeaveRef.current.reject(new Error('Table connection closed before the balance was confirmed.'));
         pendingLeaveRef.current = null;
       }
+      for (const pending of pendingRebuysRef.current.values()) {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error('Table connection closed before the rebuy was confirmed.'));
+      }
+      pendingRebuysRef.current.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -413,7 +475,49 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     return promise;
   }, []);
 
+  const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
+      return Promise.reject(new Error('Table connection is unavailable. Your rebuy was not confirmed.'));
+    }
+    const requestId = createLeaveRequestId();
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingRebuysRef.current.delete(requestId);
+        reject(new Error('Timed out waiting for the server to confirm your rebuy. Please check your stack before retrying.'));
+      }, 30_000);
+      const pending: PendingRebuy = {
+        tableId: tableIdRef.current,
+        modeId: modeIdRef.current,
+        playerId: myIdRef.current,
+        requestId,
+        kind,
+        amount,
+        resolve,
+        reject,
+        timeout,
+      };
+      pendingRebuysRef.current.set(requestId, pending);
+      try {
+        sendPendingRebuy(ws, pending);
+      } catch {
+        clearTimeout(timeout);
+        pendingRebuysRef.current.delete(requestId);
+        reject(new Error('Could not send the rebuy request. Your stack was not confirmed.'));
+      }
+    });
+  }, []);
+
   const handleAction = useCallback((action: string, payload?: unknown) => {
+    if (action === 'rebuy') {
+      const amount = typeof payload === 'number' ? payload :
+        payload && typeof payload === 'object' && 'amount' in payload && typeof payload.amount === 'number'
+          ? payload.amount : undefined;
+      setActionError(null);
+      return requestRebuy('reserve', amount).catch(error => {
+        setActionError(error instanceof Error ? error.message : 'The rebuy was not completed.');
+      });
+    }
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       console.warn('[CGP][client] mode:action DROPPED — ws not open', { action, readyState: ws?.readyState });
@@ -430,7 +534,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     console.log('[CGP][client] → mode:action', outgoing);
     setActionError(null);
     ws.send(JSON.stringify(outgoing));
-  }, []);
+  }, [requestRebuy]);
 
   const sendHostAction = useCallback((
     type: 'host:kick' | 'host:settings',
@@ -442,5 +546,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle };
+  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }
