@@ -163,7 +163,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         </>
       )}
       hero={(
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         {/* Selection badge */}
         {isDrawPhase && selectedCardIndices.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -176,11 +176,11 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
         {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
-            <div style={{ width: '100%', boxSizing: 'border-box', padding: '12px 10px 4px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
+            <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '12px 10px 4px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
               <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices}
                 drawingIndices={animState.drawingIndices} discardingIndices={animState.discardingIndices}
-                isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} />
+                isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
             </div>
 
             {isShowdown && heroHandEval && (

@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { BadugiTable } from './BadugiTable';
 import { BadugiActionBar } from './BadugiActionBar';
+import { getBadugiDrawLimit, toggleBadugiDrawSelection } from './badugiDrawSelection';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { BustOutModal } from '@/components/game/BustOutModal';
@@ -51,13 +52,6 @@ export interface BadugiFullPageProps {
   lastWsType?: string | null;
 }
 
-function getDrawLimit(phase: string): number {
-  if (phase === 'DRAW_1') return 3;
-  if (phase === 'DRAW_2') return 2;
-  if (phase === 'DRAW_3') return 1;
-  return 0;
-}
-
 export function BadugiFullPage({
   state, handleAction, myId, modeId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost,
@@ -90,18 +84,14 @@ export function BadugiFullPage({
   const activeCount  = state.players.filter(p => p.presence === 'bot' || p.presence === 'human').length;
 
   const isDrawPhase  = state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
-  const drawLimit    = getDrawLimit(state.phase);
+  const drawLimit    = getBadugiDrawLimit(state.phase);
 
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
 
   const handleCardClick = useCallback((index: number) => {
     if (effectiveSpectator || !isDrawPhase) return;
-    setSelectedCardIndices(prev => {
-      if (prev.includes(index)) return prev.filter(i => i !== index);
-      if (prev.length < drawLimit) return [...prev, index];
-      return prev;
-    });
+    setSelectedCardIndices(prev => toggleBadugiDrawSelection(prev, index, drawLimit));
   }, [effectiveSpectator, isDrawPhase, drawLimit]);
 
   const heroCards = me?.cards ?? [];
@@ -277,6 +267,7 @@ export function BadugiFullPage({
             selectedCount={selectedCardIndices.length} drawLimit={drawLimit}
             isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
             chips={me?.chips ?? 0} currentBet={state.currentBet} myBet={me?.bet ?? 0}
+            minBet={state.minBet}
             pot={state.pot} ante={25} humanCount={humanCount}
             openSeatsCount={isClubTable ? 0 : openSeatsCount}
             activeCount={activeCount} isClubTable={isClubTable}

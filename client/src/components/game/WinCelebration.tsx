@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef } from 'react';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
+import { CELEBRATION_DURATIONS_MS } from '@/components/celebrations/celebrationEvents';
 
 interface Particle {
   id: number;
@@ -51,14 +52,17 @@ export function WinCelebration({
   showSignatureTrace = false,
   onDone,
 }: WinCelebrationProps) {
+  const durationMs = isScoop
+    ? CELEBRATION_DURATIONS_MS.SWING_SCOOP
+    : CELEBRATION_DURATIONS_MS.NORMAL_WIN;
   const particles = useMemo(() => generateParticles(isScoop ? 48 : 32), [isScoop]);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
 
   useEffect(() => {
-    const t = setTimeout(() => doneRef.current(), isScoop ? 2000 : 1600);
+    const t = setTimeout(() => doneRef.current(), durationMs);
     return () => clearTimeout(t);
-  }, [isScoop]);
+  }, [durationMs]);
 
   const winContent = (
     <div
@@ -71,7 +75,7 @@ export function WinCelebration({
         color: '#C9A227',
         letterSpacing: '0.2em',
         textShadow: '0 0 24px rgba(201,162,39,0.90), 0 0 48px rgba(201,162,39,0.50)',
-        animation: 'win-text-flash 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        animation: `win-text-flash ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1) forwards`,
       }}
     >
       <div>{isScoop ? 'SCOOP!' : 'YOU WIN!'}</div>
@@ -91,7 +95,7 @@ export function WinCelebration({
         style={{
           width: 24, height: 24,
           border: '3px solid rgba(201,162,39,0.90)',
-          animation: 'win-ring-expand 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+          animation: `win-ring-expand ${Math.round(durationMs * 0.66)}ms cubic-bezier(0.22, 1, 0.36, 1) forwards`,
         }}
       />
       {isScoop && (
@@ -100,7 +104,7 @@ export function WinCelebration({
           style={{
             width: 24, height: 24,
             border: '2px solid rgba(255,255,255,0.55)',
-            animation: 'win-ring-expand 800ms 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
+            animation: `win-ring-expand ${Math.round(durationMs * 0.72)}ms 120ms cubic-bezier(0.22, 1, 0.36, 1) forwards`,
           }}
         />
       )}
@@ -110,7 +114,7 @@ export function WinCelebration({
         <SignatureTraceGlow
           variant={isScoop ? 'scoop' : 'trace'}
           className="absolute z-10 select-none"
-          durationMs={isScoop ? 2000 : 1600}
+          durationMs={durationMs}
         >
           {winContent}
         </SignatureTraceGlow>
@@ -137,7 +141,7 @@ export function WinCelebration({
             ['--dx' as string]: `${p.dx}px`,
             ['--dy' as string]: `${p.dy}px`,
             ['--rot' as string]: `${p.rotate}deg`,
-            animation: `particle-burst-v2 ${900 + Math.random() * 400}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${p.delay}ms forwards`,
+            animation: `particle-burst-v2 ${Math.round(durationMs * (0.72 + Math.random() * 0.04))}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${p.delay}ms forwards`,
             willChange: 'transform, opacity',
           }}
         />

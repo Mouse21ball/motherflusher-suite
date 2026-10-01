@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BettingControls } from '../game/BettingControls';
 
 const Y = (a: number) => `rgba(250,204,21,${a})`;
 const B = (a: number) => `rgba(59,130,246,${a})`;
@@ -15,6 +16,7 @@ interface KamikazeActionBarProps {
   currentBet: number;
   myBet: number;
   pot: number;
+  minBet: number;
   ante: number;
   humanCount: number;
   openSeatsCount: number;
@@ -60,12 +62,12 @@ function TutorialPanel() {
 
 export function KamikazeActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
-  chips, currentBet, myBet, pot,
+  chips, currentBet, myBet, pot, minBet,
   ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
   myDeclaration, myHasActed,
   onStay, onDraw, onAction, onRebuy,
 }: KamikazeActionBarProps) {
-  void pot; void openSeatsCount;
+  void openSeatsCount;
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   const autoAnteFired = useRef(false);
@@ -75,9 +77,6 @@ export function KamikazeActionBar({
   }, [phase, isMyTurn, locked, onAction]);
 
   const canAct     = isMyTurn && !locked;
-  const callAmount = currentBet - myBet;
-  const canCheck   = callAmount === 0;
-  const raiseAmount = Math.max(callAmount > 0 ? callAmount * 2 : 50, 50);
   const isBetPhase = phase.startsWith('BET_');
   const isWaiting  = phase === 'WAITING';
   const isDeclare  = phase === 'DECLARE';
@@ -92,10 +91,6 @@ export function KamikazeActionBar({
 
   const stayBtn: React.CSSProperties = { ...base, background: 'rgba(8,8,8,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: `1px solid ${R(0.35)}`, opacity: canAct ? 1 : 0.5 };
   const drawBtn: React.CSSProperties = { ...base, background: canAct ? 'linear-gradient(135deg, #b91c1c, #ef4444)' : R(0.25), color: canAct ? '#fff' : 'rgba(255,255,255,0.25)', boxShadow: canAct ? `0 0 18px ${R(0.5)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none' };
-  const foldBtn: React.CSSProperties = { ...base, flex: 0.7, background: 'rgba(12,12,12,0.9)', color: canAct ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.2)', border: `1px solid ${R(0.2)}`, opacity: canAct ? 1 : 0.5 };
-  const checkCallBtn: React.CSSProperties = { ...base, background: canAct ? 'linear-gradient(135deg, #1e3a5f, #1d4ed8)' : B(0.2), color: canAct ? '#93c5fd' : 'rgba(255,255,255,0.2)', border: `1px solid ${B(0.3)}`, boxShadow: canAct ? `0 0 10px ${B(0.25)}` : 'none', opacity: canAct ? 1 : 0.5 };
-  const raiseBtn: React.CSSProperties = { ...base, flex: 0.9, background: canAct ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : B(0.2), color: canAct ? '#fff' : 'rgba(255,255,255,0.2)', boxShadow: canAct ? `0 0 14px ${B(0.4)}` : 'none', opacity: canAct && chips > raiseAmount ? 1 : 0.4 };
-
   return (
     <div style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
@@ -112,13 +107,16 @@ export function KamikazeActionBar({
 
         {/* Bet phase */}
         {isBetPhase && isMyTurn && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={foldBtn} disabled={!canAct} onClick={canAct ? () => onAction('fold') : undefined} data-testid="button-fold">FOLD</button>
-            <button style={checkCallBtn} disabled={!canAct} onClick={canAct ? () => onAction(canCheck ? 'check' : 'call', canCheck ? 0 : callAmount) : undefined} data-testid={canCheck ? 'button-check' : 'button-call'}>
-              {canCheck ? 'CHECK' : `CALL ${callAmount}`}
-            </button>
-            <button style={raiseBtn} disabled={!canAct || chips <= raiseAmount} onClick={(canAct && chips > raiseAmount) ? () => onAction('raise', raiseAmount) : undefined} data-testid="button-raise">RAISE</button>
-          </div>
+          <BettingControls
+            isMyTurn={isMyTurn}
+            locked={locked}
+            chips={chips}
+            currentBet={currentBet}
+            myBet={myBet}
+            pot={pot}
+            minBet={minBet}
+            onAction={onAction}
+          />
         )}
 
         {/* Declare phase */}
