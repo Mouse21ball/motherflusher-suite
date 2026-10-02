@@ -30,6 +30,7 @@ import {
   getTableRebuyBustEvent,
   markTableRebuyEventClaimed,
   markTableRebuyEventFunded,
+  resolveLegacyTableRebuy,
   runIdempotentTableRebuyRequest,
   type TableRebuyBustEvent,
 } from './tableRebuyRequests';
@@ -595,7 +596,7 @@ export async function rebuyBadugiSeat(
   seat: string,
   identityId: string,
   requestId: string,
-  kind: 'free' | 'reserve' | 'borrow',
+  kind: 'free' | 'reserve' | 'borrow' | 'legacy',
   amount?: number,
 ): Promise<{ chips: number; walletBalance: number }> {
   const requestKey = `badugi:${identityId}:${tableId}:${seat}:${requestId}`;
@@ -659,17 +660,34 @@ export async function rebuyBadugiSeat(
       const profile = await storage.getPlayerProfile(identityId);
       if (!profile) throw new Error('Your chip balance could not be loaded.');
 
+      const availableReserve = Math.max(0, profile.chipBalance - baseline);
+      const maxTransfer = Math.min(maxBuyin - player.chips, availableReserve);
+      let rebuyKind = kind;
+      let rebuyAmount = amount;
+      if (kind === 'legacy') {
+        const resolved = resolveLegacyTableRebuy(
+          amount,
+          availableReserve,
+          maxTransfer,
+          minBuyin,
+          table.state.minBet * 100,
+          (profile.chipLoanBalance ?? 0) > 0,
+        );
+        rebuyKind = resolved.kind;
+        rebuyAmount = resolved.amount;
+      }
+
       let creditAmount: number;
       let walletBalance = profile.chipBalance;
-      if (kind === 'free') {
+      if (rebuyKind === 'free') {
         creditAmount = 1000;
         if (creditAmount > maxBuyin) throw new Error('This free rebuy exceeds the table stack limit.');
         const grant = await storage.claimFreeTableRebuy(identityId, tableId, eventId);
         if (!grant.granted) throw new Error('The free rebuy for this hand has already been used.');
         markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.chipBalance;
-      } else if (kind === 'borrow') {
-        if (amount !== undefined && amount !== 1000) throw new Error('Borrowing always adds exactly 1,000 chips.');
+      } else if (rebuyKind === 'borrow') {
+        if (rebuyAmount !== undefined && rebuyAmount !== 1000) throw new Error('Borrowing always adds exactly 1,000 chips.');
         creditAmount = 1000;
         if (creditAmount > maxBuyin) throw new Error('This borrowed rebuy exceeds the table stack limit.');
         const grant = await storage.grantTableChipLoan(identityId, `badugi:${tableId}`, eventId);
@@ -684,11 +702,9 @@ export async function rebuyBadugiSeat(
         markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.newBalance;
       } else {
-        const availableReserve = Math.max(0, profile.chipBalance - baseline);
-        const maxTransfer = Math.min(maxBuyin - player.chips, availableReserve);
-        creditAmount = amount == null
+        creditAmount = rebuyAmount == null
           ? Math.min(Math.max(minBuyin, table.state.minBet * 100), maxTransfer)
-          : amount;
+          : rebuyAmount;
         if (!Number.isSafeInteger(creditAmount) || creditAmount < minBuyin) {
           throw new Error(`Choose at least ${minBuyin.toLocaleString()} available chips to rebuy.`);
         }

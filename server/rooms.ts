@@ -11,6 +11,7 @@
 //     first join and enforced for that table's lifetime.
 
 import { WebSocketServer, WebSocket } from 'ws';
+import { randomUUID } from 'node:crypto';
 import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { FEATURES } from '../shared/featureFlags';
@@ -37,6 +38,7 @@ import {
   updateGenericTableSettings,
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
+import { parseLegacyRebuyAmount } from './tableRebuyRequests';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, type StakeTierId } from '../shared/stakeTiers';
 import {
   handleLLJoin,
@@ -146,6 +148,32 @@ function getSeatOwner(tableId: string, seatPid: string): string | undefined {
 }
 function clearSeatOwner(tableId: string, seatPid: string): void {
   seatOwners.delete(`${tableId}:${seatPid}`);
+}
+
+type RebuyKind = 'free' | 'reserve' | 'borrow' | 'legacy';
+
+async function executeTableRebuy(
+  modeId: string,
+  tableId: string,
+  playerId: string,
+  identityId: string,
+  requestId: string,
+  kind: RebuyKind,
+  amount: number | undefined,
+  legacy: boolean,
+  send: (message: Record<string, unknown>) => void,
+): Promise<void> {
+  try {
+    const result = modeId === 'badugi'
+      ? await rebuyBadugiSeat(tableId, playerId, identityId, requestId, kind, amount)
+      : await rebuyGenericSeat(modeId, tableId, playerId, identityId, requestId, kind, amount);
+    if (!legacy) send({ type: 'rebuy:complete', tableId, requestId, ...result });
+    void recordMeaningfulActivity(identityId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The rebuy could not be completed.';
+    if (legacy) send({ type: 'error', message });
+    else send({ type: 'rebuy:failed', tableId, requestId, error: message });
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -658,9 +686,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const { tableId, modeId, playerId: pid, requestId, kind, amount } = msg;
         const authenticatedPlayerId = authWs.authenticatedPlayerId;
         const fail = (error: string) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'rebuy:failed', tableId, requestId, error }));
-          }
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rebuy:failed', tableId, requestId, error }));
         };
         if (!authenticatedPlayerId) {
           fail('Sign in to rebuy at this table.');
@@ -681,17 +707,17 @@ export function initRooms(httpServer: Server): WebSocketServer {
           fail('Server-authoritative play is not enabled for this table.');
           return;
         }
-        try {
-          const result = modeId === 'badugi'
-            ? await rebuyBadugiSeat(tableId, pid, authenticatedPlayerId, requestId, kind, amount)
-            : await rebuyGenericSeat(modeId, tableId, pid, authenticatedPlayerId, requestId, kind, amount);
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'rebuy:complete', tableId, requestId, ...result }));
-          }
-          void recordMeaningfulActivity(authenticatedPlayerId);
-        } catch (error) {
-          fail(error instanceof Error ? error.message : 'The rebuy could not be completed.');
-        }
+        await executeTableRebuy(
+          modeId,
+          tableId,
+          pid,
+          authenticatedPlayerId,
+          requestId,
+          kind,
+          amount,
+          false,
+          response => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(response)); },
+        );
         return;
       }
 
@@ -700,6 +726,39 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const { tableId, playerId: pid, action, payload } = msg;
         if (!tableId || !pid || !action) {
           console.warn('[CGP][server] badugi:action DROPPED — missing field', { tableId, pid, action });
+          return;
+        }
+        if (action === 'rebuy') {
+          const reply = (message: Record<string, unknown>) => {
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+          };
+          if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
+            reply({ type: 'error', message: 'This player seat does not belong to your account.' });
+            return;
+          }
+          let amount: number | undefined;
+          try {
+            amount = parseLegacyRebuyAmount(payload);
+          } catch (error) {
+            reply({ type: 'error', message: error instanceof Error ? error.message : 'Invalid legacy rebuy amount.' });
+            return;
+          }
+          const room = rooms.get(tableId);
+          if (!room || !room.isAuthoritative || room.modeId !== 'badugi') {
+            reply({ type: 'error', message: 'This Badugi table is not available for server-authoritative rebuy.' });
+            return;
+          }
+          await executeTableRebuy(
+            room.modeId,
+            tableId,
+            pid,
+            authWs.authenticatedPlayerId,
+            randomUUID(),
+            'legacy',
+            amount,
+            true,
+            reply,
+          );
           return;
         }
         // Authorization: claimed pid must be owned by this authenticated connection
@@ -736,6 +795,39 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const { tableId, playerId: pid, action, payload } = msg;
         if (!tableId || !pid || !action) {
           console.warn('[CGP][server] mode:action DROPPED — missing field', { tableId, pid, action });
+          return;
+        }
+        if (action === 'rebuy') {
+          const reply = (message: Record<string, unknown>) => {
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+          };
+          if (getSeatOwner(tableId, pid) !== authWs.authenticatedPlayerId) {
+            reply({ type: 'error', message: 'This player seat does not belong to your account.' });
+            return;
+          }
+          let amount: number | undefined;
+          try {
+            amount = parseLegacyRebuyAmount(payload);
+          } catch (error) {
+            reply({ type: 'error', message: error instanceof Error ? error.message : 'Invalid legacy rebuy amount.' });
+            return;
+          }
+          const room = rooms.get(tableId);
+          if (!room || room.isAuthoritative || room.modeId === 'badugi' || !SERVER_MODES_ON) {
+            reply({ type: 'error', message: 'This game table is not available for server-authoritative rebuy.' });
+            return;
+          }
+          await executeTableRebuy(
+            room.modeId,
+            tableId,
+            pid,
+            authWs.authenticatedPlayerId,
+            randomUUID(),
+            'legacy',
+            amount,
+            true,
+            reply,
+          );
           return;
         }
         // Authorization: claimed pid must be owned by this authenticated connection

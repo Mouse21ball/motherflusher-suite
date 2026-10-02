@@ -14,3 +14,9 @@ Backend publishing must preserve compatibility with production mobile clients st
 **Why:** The user confirmed that real players are using production 1.3 and made publishing approval conditional on backward compatibility. New-client capability checks do not protect old clients from a server that stops accepting their existing messages.
 
 **How to apply:** Compare all shipped-client HTTP and WebSocket contracts against the proposed backend. Treat rejection of a formerly supported game action as a breaking change even if endpoint names and JSON envelopes are unchanged. Check legacy join, rebuy, leave, authentication, and wallet behavior rather than relying on tests of the new client alone.
+
+Trace what the old client actually consumes before declaring an accounting correction a protocol break.
+
+**Why:** A review initially classified removing the HTTP buy-in debit as incompatible, but the old slider only checks success and forwards its selected amount to the socket join; it neither decrements its own balance nor requires a debit response. Restoring the debit would reintroduce the confirmed total-wallet accounting defect. Likewise, preventing a one-player poker hand is an intentional eligibility correction, not a removed message contract.
+
+**How to apply:** Preserve valid old-client request sequences and response fields while retaining the financial and eligibility fixes. Legacy rebuys do not identify their funding kind, so never interpret their ambiguous amount as permission to mint another loan or award when existing wallet chips can fund the stack.

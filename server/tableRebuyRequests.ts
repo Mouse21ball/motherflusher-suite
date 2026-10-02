@@ -10,11 +10,64 @@ const REQUEST_TTL_MS = 2 * 60_000;
 const MAX_CACHED_REQUESTS = 512;
 const requests = new Map<string, CachedRequest<unknown>>();
 
+export function parseLegacyRebuyAmount(payload: unknown): number | undefined {
+  if (payload === null || payload === undefined) return undefined;
+  const amount = typeof payload === 'number'
+    ? payload
+    : typeof payload === 'object' && !Array.isArray(payload) && 'amount' in payload
+      ? (payload as { amount?: unknown }).amount
+      : undefined;
+  if (!Number.isSafeInteger(amount) || (amount as number) <= 0) {
+    throw new Error('Invalid legacy rebuy amount.');
+  }
+  return amount as number;
+}
+
 export interface TableRebuyBustEvent {
   identityId: string;
   eventId: string;
   claimed: boolean;
   fundedSinceBust: boolean;
+}
+
+/**
+ * The Android 1.3 rebuy message predates the explicit free/reserve/borrow kind.
+ * Prefer wallet chips whenever the old request can be satisfied from its
+ * authoritative reserve. A legacy 1,000-chip request with less than 1,000 in
+ * reserve is the old starter-rebuy shape; route that through the same free
+ * grant as the new protocol, unless an outstanding loan shows that this is
+ * already-funded loan money.
+ *
+ * This must be called only while the engine holds the authoritative seat lock.
+ */
+export function resolveLegacyTableRebuy(
+  amount: number | undefined,
+  availableReserve: number,
+  maxTransfer: number,
+  minBuyin: number,
+  defaultAmount: number,
+  hasOutstandingLoan: boolean,
+): { kind: 'free' | 'reserve'; amount?: number } {
+  if (amount === undefined) {
+    if (maxTransfer >= minBuyin) {
+      return {
+        kind: 'reserve',
+        amount: Math.min(Math.max(minBuyin, defaultAmount), maxTransfer),
+      };
+    }
+    if (hasOutstandingLoan) {
+      throw new Error('Your existing chip loan does not have enough wallet chips to fund this rebuy.');
+    }
+    return { kind: 'free' };
+  }
+
+  if (amount === 1_000 && availableReserve < amount) {
+    if (hasOutstandingLoan) {
+      throw new Error('Your existing chip loan does not have enough wallet chips to fund this rebuy.');
+    }
+    return { kind: 'free' };
+  }
+  return { kind: 'reserve', amount };
 }
 
 /**

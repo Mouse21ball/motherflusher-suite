@@ -4898,7 +4898,8 @@ export class MemStorage implements IStorage {
         .select({ chipBalance: playerProfiles.chipBalance, chipLoanBalance: playerProfiles.chipLoanBalance })
         .from(playerProfiles)
         .where(eq(playerProfiles.id, playerId))
-        .limit(1);
+        .limit(1)
+        .for('update');
       if (!profile) return { success: false, error: 'player_not_found' };
       if (profile.chipLoanBalance > 0) return { success: false, error: 'existing_loan' };
       if (profile.chipBalance > 500) return { success: false, error: 'not_broke' };

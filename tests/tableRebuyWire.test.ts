@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import WebSocket, { type RawData } from 'ws';
 import { storage } from '../server/storage';
 import { issueWsTicket } from '../server/wsTickets';
@@ -13,6 +13,7 @@ interface ServerMessage {
   playerId?: string;
   requestId?: string;
   error?: string;
+  message?: string;
   chips?: number;
   walletBalance?: number;
   state?: GameState;
@@ -22,6 +23,8 @@ let httpServer: Server;
 let websocketServer: Awaited<ReturnType<typeof startRooms>>['websocketServer'];
 let port: number;
 let walletBalance = 30_000;
+let loanBalance = 0;
+let activeTableId: string | null = null;
 const freeGrants = new Set<string>();
 const loanGrants = new Set<string>();
 
@@ -55,7 +58,7 @@ function waitForMessage(
   });
 }
 
-async function connectPlayer(tableId: string, requestedBuyIn?: number) {
+async function connectPlayer(tableId: string, requestedBuyIn?: number, modeId = 'badugi') {
   const sessionId = `wire-session-${tableId}`;
   const socket = new WebSocket(
     `ws://127.0.0.1:${port}/ws?ticket=${issueWsTicket(authenticatedPlayerId)}`,
@@ -65,11 +68,11 @@ async function connectPlayer(tableId: string, requestedBuyIn?: number) {
     socket.once('error', reject);
   });
 
-  const initPromise = waitForMessage(socket, message => message.type === 'badugi:init');
+  const initPromise = waitForMessage(socket, message => message.type === (modeId === 'badugi' ? 'badugi:init' : 'mode:init'));
   socket.send(JSON.stringify({
     type: 'join',
     tableId,
-    modeId: 'badugi',
+    modeId,
     playerId: sessionId,
     identityId: authenticatedPlayerId,
     name: 'Wire Test',
@@ -91,9 +94,11 @@ function closeSocket(socket: WebSocket): Promise<void> {
   });
 }
 
-async function setSeatBusted(tableId: string, seat: string) {
-  const { getOrCreateBadugiTable } = await import('../server/gameEngine');
-  const table = getOrCreateBadugiTable(tableId, true, false, { maxPlayers: 5, botsEnabled: false });
+async function setSeatBusted(tableId: string, seat: string, modeId = 'badugi') {
+  const table = modeId === 'badugi'
+    ? (await import('../server/gameEngine')).getOrCreateBadugiTable(tableId, true, false, { maxPlayers: 5, botsEnabled: false })
+    : (await import('../server/genericEngine')).getOrCreateTable(modeId, tableId, true, false, { maxPlayers: 5, botsEnabled: false });
+  if (!table) throw new Error(`Could not load ${modeId} table for wire rebuy test.`);
   table.state = {
     ...table.state,
     phase: 'WAITING',
@@ -104,6 +109,57 @@ async function setSeatBusted(tableId: string, seat: string) {
       : player),
   };
   return table;
+}
+
+function sendLegacyRebuy(
+  socket: WebSocket,
+  tableId: string,
+  playerId: string,
+  payload: unknown,
+  modeId = 'badugi',
+  claimedModeId = modeId,
+): Promise<ServerMessage> {
+  const responseType = modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot';
+  const responsePromise = waitForMessage(socket, message =>
+    message.type === 'error' ||
+    (message.type === responseType &&
+      (message.state?.players.find(player => player.id === playerId)?.chips ?? 0) > 0),
+  );
+  socket.send(JSON.stringify({
+    type: modeId === 'badugi' ? 'badugi:action' : 'mode:action',
+    tableId,
+    modeId: claimedModeId,
+    playerId,
+    action: 'rebuy',
+    payload,
+  }));
+  return responsePromise;
+}
+
+function collectRebuyResponses(
+  socket: WebSocket,
+  count: number,
+  modeId: string,
+): Promise<ServerMessage[]> {
+  const snapshotType = modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot';
+  return new Promise((resolve, reject) => {
+    const messages: ServerMessage[] = [];
+    const timeout = setTimeout(() => {
+      socket.off('message', onMessage);
+      reject(new Error('Timed out waiting for both legacy rebuy responses.'));
+    }, 4_000);
+    const onMessage = (raw: RawData) => {
+      const message = messageFrom(raw);
+      if (message.type !== 'error' && message.type !== snapshotType) return;
+      messages.push(message);
+      if (messages.length === count) {
+        clearTimeout(timeout);
+        socket.off('message', onMessage);
+        resolve(messages);
+      }
+    };
+    socket.on('message', onMessage);
+  });
 }
 
 async function sendRebuy(
@@ -147,9 +203,16 @@ describe('table rebuys over the real server WebSocket handler', () => {
     if (!address || typeof address === 'string') throw new Error('Could not start the loopback WebSocket server.');
     port = address.port;
 
-    vi.spyOn(storage, 'getPlayerActiveTable').mockResolvedValue(null);
-    vi.spyOn(storage, 'setPlayerActiveTable').mockResolvedValue();
-    vi.spyOn(storage, 'clearPlayerActiveTable').mockResolvedValue();
+    vi.spyOn(storage, 'getPlayerActiveTable').mockImplementation(async () => activeTableId);
+    vi.spyOn(storage, 'setPlayerActiveTable').mockImplementation(async (_playerId, tableId) => {
+      activeTableId = tableId;
+    });
+    vi.spyOn(storage, 'clearPlayerActiveTable').mockImplementation(async (_playerId) => {
+      activeTableId = null;
+    });
+    vi.spyOn(storage, 'syncPlayerLeaveDelta').mockImplementation(async (_playerId, gameId) => {
+      if (activeTableId === gameId) activeTableId = null;
+    });
     vi.spyOn(storage, 'recordRecentCoSeatedPlayers').mockResolvedValue();
     vi.spyOn(storage, 'getOrCreatePlayer').mockImplementation(async () => ({
       chipBalance: walletBalance,
@@ -157,6 +220,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     } as never));
     vi.spyOn(storage, 'getPlayerProfile').mockImplementation(async () => ({
       chipBalance: walletBalance,
+      chipLoanBalance: loanBalance,
       activeSubscriptionTier: null,
     } as never));
     vi.spyOn(storage, 'claimFreeTableRebuy').mockImplementation(async (_playerId, gameId, eventId) => {
@@ -172,6 +236,43 @@ describe('table rebuys over the real server WebSocket handler', () => {
       if (walletBalance > 500) return { success: false, error: 'not_broke' };
       loanGrants.add(key);
       walletBalance += 1_000;
+      loanBalance = 1_000;
+      return { success: true, newBalance: walletBalance };
+    });
+    vi.spyOn(storage, 'grantChipLoan').mockImplementation(async () => {
+      if (loanBalance > 0) return { success: false, error: 'existing_loan' };
+      if (walletBalance > 500) return { success: false, error: 'not_broke' };
+      walletBalance += 1_000;
+      loanBalance = 1_000;
+      return { success: true, newBalance: walletBalance };
+    });
+  });
+
+  beforeEach(() => {
+    walletBalance = 30_000;
+    loanBalance = 0;
+    activeTableId = null;
+    vi.mocked(storage.claimFreeTableRebuy).mockClear().mockImplementation(async (_playerId, gameId, eventId) => {
+      const key = `${_playerId}:${gameId}:${eventId}`;
+      if (freeGrants.has(key)) return { granted: false, chipBalance: walletBalance };
+      freeGrants.add(key);
+      walletBalance += 1_000;
+      return { granted: true, chipBalance: walletBalance };
+    });
+    vi.mocked(storage.grantTableChipLoan).mockClear().mockImplementation(async (_playerId, gameId, requestId) => {
+      const key = `${_playerId}:${gameId}:${requestId}`;
+      if (loanGrants.has(key)) return { success: true, newBalance: walletBalance };
+      if (walletBalance > 500) return { success: false, error: 'not_broke' };
+      loanGrants.add(key);
+      walletBalance += 1_000;
+      loanBalance = 1_000;
+      return { success: true, newBalance: walletBalance };
+    });
+    vi.mocked(storage.grantChipLoan).mockClear().mockImplementation(async () => {
+      if (loanBalance > 0) return { success: false, error: 'existing_loan' };
+      if (walletBalance > 500) return { success: false, error: 'not_broke' };
+      walletBalance += 1_000;
+      loanBalance = 1_000;
       return { success: true, newBalance: walletBalance };
     });
   });
@@ -182,6 +283,286 @@ describe('table rebuys over the real server WebSocket handler', () => {
     await new Promise<void>(resolve => httpServer.close(() => resolve()));
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+  });
+
+  it.each(['badugi', 'dead7'])('routes Android 1.3 legacy starter rebuy through the same free-grant path in %s', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-starter-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 0;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      const result = await sendLegacyRebuy(socket, tableId, seat, 1_000, modeId);
+
+      expect(result.type).toBe(modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot');
+      expect(result.state?.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(walletBalance).toBe(1_000);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length - beforeFreeGrants).toBe(1);
+      expect(vi.mocked(storage.grantTableChipLoan)).not.toHaveBeenCalled();
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('routes the legacy %s selected amount from reserve and ignores an injected modeId', async modeId => {
+    walletBalance = 6_000;
+    const tableId = `legacy-reserve-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 5_000;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      const beforeLoans = vi.mocked(storage.grantTableChipLoan).mock.calls.length;
+      const result = await sendLegacyRebuy(socket, tableId, seat, 2_000, modeId, 'badugi');
+
+      expect(result.type).toBe(modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot');
+      expect(result.state?.players.find(player => player.id === seat)?.chips).toBe(2_000);
+      expect(walletBalance).toBe(5_000);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length).toBe(beforeFreeGrants);
+      expect(vi.mocked(storage.grantTableChipLoan).mock.calls.length).toBe(beforeLoans);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('uses the old default reserve rebuy amount in %s when the payload is null', async modeId => {
+    walletBalance = 8_000;
+    const tableId = `legacy-default-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 7_000;
+      const result = await sendLegacyRebuy(socket, tableId, seat, null, modeId);
+
+      expect(result.state?.players.find(player => player.id === seat)?.chips).toBe(5_000);
+      expect(walletBalance).toBe(7_000);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('allocates an already granted legacy HTTP chip loan in %s without another grant', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-loan-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 0;
+      const priorLoanCalls = vi.mocked(storage.grantChipLoan).mock.calls.length;
+      const priorTableLoanCalls = vi.mocked(storage.grantTableChipLoan).mock.calls.length;
+      const priorFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      await expect(storage.grantChipLoan(authenticatedPlayerId)).resolves.toMatchObject({
+        success: true,
+        newBalance: 1_000,
+      });
+
+      const result = await sendLegacyRebuy(socket, tableId, seat, 1_000, modeId);
+      expect(result.state?.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(walletBalance).toBe(1_000);
+      expect(loanBalance).toBe(1_000);
+      expect(vi.mocked(storage.grantChipLoan).mock.calls.length - priorLoanCalls).toBe(1);
+      expect(vi.mocked(storage.grantTableChipLoan).mock.calls.length).toBe(priorTableLoanCalls);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length).toBe(priorFreeGrants);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('deduplicates distinct legacy and new rebuy requests in the same %s bust event', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-mixed-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 0;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      let releaseGrant!: () => void;
+      let signalGrantStarted!: () => void;
+      const grantGate = new Promise<void>(resolve => { releaseGrant = resolve; });
+      const grantStarted = new Promise<void>(resolve => { signalGrantStarted = resolve; });
+      const originalClaim = vi.mocked(storage.claimFreeTableRebuy).getMockImplementation()!;
+      vi.mocked(storage.claimFreeTableRebuy).mockImplementation(async (...args) => {
+        signalGrantStarted();
+        await grantGate;
+        return originalClaim(...args);
+      });
+      const legacyFailure = waitForMessage(socket, response => response.type === 'error');
+      const modernResponse = sendRebuy(socket, {
+        tableId,
+        modeId,
+        playerId: seat,
+        kind: 'free',
+      }, `mixed-request-${modeId}-01`);
+      await grantStarted;
+      socket.send(JSON.stringify({
+        type: modeId === 'badugi' ? 'badugi:action' : 'mode:action',
+        tableId,
+        modeId,
+        playerId: seat,
+        action: 'rebuy',
+        payload: 1_000,
+      }));
+      await new Promise(resolve => setTimeout(resolve, 15));
+      releaseGrant();
+
+      const [legacyResult, modernResult] = await Promise.all([legacyFailure, modernResponse]);
+      expect(legacyResult.type).toBe('error');
+      expect(modernResult.type).toBe('rebuy:complete');
+      expect(walletBalance).toBe(1_000);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length - beforeFreeGrants).toBe(1);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('deduplicates a new rebuy queued behind an in-flight legacy grant in %s', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-first-mixed-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 0;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      let releaseGrant!: () => void;
+      let signalGrantStarted!: () => void;
+      const grantGate = new Promise<void>(resolve => { releaseGrant = resolve; });
+      const grantStarted = new Promise<void>(resolve => { signalGrantStarted = resolve; });
+      const originalClaim = vi.mocked(storage.claimFreeTableRebuy).getMockImplementation()!;
+      vi.mocked(storage.claimFreeTableRebuy).mockImplementation(async (...args) => {
+        signalGrantStarted();
+        await grantGate;
+        return originalClaim(...args);
+      });
+      const legacySnapshot = waitForMessage(socket, message =>
+        message.type === (modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot') &&
+        message.state?.players.find(player => player.id === seat)?.chips === 1_000,
+      );
+      socket.send(JSON.stringify({
+        type: modeId === 'badugi' ? 'badugi:action' : 'mode:action',
+        tableId,
+        modeId,
+        playerId: seat,
+        action: 'rebuy',
+        payload: 1_000,
+      }));
+      await grantStarted;
+      const modernResponse = sendRebuy(socket, {
+        tableId,
+        modeId,
+        playerId: seat,
+        kind: 'free',
+      }, `legacy-first-modern-${modeId}`);
+      await new Promise(resolve => setTimeout(resolve, 15));
+      releaseGrant();
+
+      const [legacyResult, modernResult] = await Promise.all([legacySnapshot, modernResponse]);
+      expect(legacyResult.type).toBe(modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot');
+      expect(modernResult.type).toBe('rebuy:failed');
+      expect(walletBalance).toBe(1_000);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length - beforeFreeGrants).toBe(1);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('rejects malformed and cross-seat legacy rebuys in %s without granting chips', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-reject-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      await setSeatBusted(tableId, seat, modeId);
+      walletBalance = 0;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      const malformed = await sendLegacyRebuy(socket, tableId, seat, '1000', modeId);
+      const spoofed = await sendLegacyRebuy(socket, tableId, 'another-users-seat', 1_000, modeId);
+
+      expect(malformed.type).toBe('error');
+      expect((malformed as ServerMessage & { message?: string }).message).toMatch(/invalid/i);
+      expect((spoofed as ServerMessage & { message?: string }).message).toMatch(/does not belong/i);
+      expect(walletBalance).toBe(0);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length).toBe(beforeFreeGrants);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it.each(['badugi', 'dead7'])('serializes duplicate legacy messages with different server IDs in %s', async modeId => {
+    walletBalance = 1_000;
+    const tableId = `legacy-duplicate-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
+    try {
+      const table = await setSeatBusted(tableId, seat, modeId);
+      table.chipsAtHandStart.set(seat, 0);
+      walletBalance = 0;
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      const responses = collectRebuyResponses(socket, 2, modeId);
+      const message = {
+        type: modeId === 'badugi' ? 'badugi:action' : 'mode:action',
+        tableId,
+        modeId,
+        playerId: seat,
+        action: 'rebuy',
+        payload: 1_000,
+      };
+      socket.send(JSON.stringify(message));
+      socket.send(JSON.stringify(message));
+
+      const results = await responses;
+      expect(results.filter(result => result.type === 'error')).toHaveLength(1);
+      expect(results.filter(result => result.type === (modeId === 'badugi' ? 'badugi:snapshot' : 'mode:snapshot'))).toHaveLength(1);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(walletBalance).toBe(1_000);
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length - beforeFreeGrants).toBe(1);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it('settles and releases an Android 1.3 leave sent with the session id before the socket closes', async () => {
+    walletBalance = 1_000;
+    const tableId = `legacy-leave-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, sessionId } = await connectPlayer(tableId, 1_000);
+    try {
+      const { getConnectedBadugiIdentityIds } = await import('../server/gameEngine');
+      const syncLeave = vi.mocked(storage.syncPlayerLeaveDelta);
+      let releaseSettlement!: () => void;
+      let signalSettlementStarted!: () => void;
+      const settlementGate = new Promise<void>(resolve => { releaseSettlement = resolve; });
+      const settlementStarted = new Promise<void>(resolve => { signalSettlementStarted = resolve; });
+      syncLeave.mockImplementation(async (_playerId, gameId) => {
+        signalSettlementStarted();
+        await settlementGate;
+        if (activeTableId === gameId) activeTableId = null;
+      });
+      // Android 1.3 sends playerId=sessionId (not the engine-assigned p1 seat),
+      // omits leaveId, and closes immediately without waiting for an ack.
+      socket.send(JSON.stringify({ type: 'leave', tableId, playerId: sessionId }));
+      const closed = closeSocket(socket);
+      await settlementStarted;
+      expect(syncLeave).toHaveBeenCalledTimes(1);
+      releaseSettlement();
+      await closed;
+
+      for (let attempt = 0; attempt < 100 && getConnectedBadugiIdentityIds(tableId).length > 0; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      expect(syncLeave).toHaveBeenCalledTimes(1);
+      expect(syncLeave.mock.calls[0]?.slice(0, 2)).toEqual([authenticatedPlayerId, tableId]);
+      expect(getConnectedBadugiIdentityIds(tableId)).toEqual([]);
+      expect(activeTableId).toBeNull();
+    } finally {
+      await closeSocket(socket);
+    }
   });
 
   it.each([
