@@ -15,6 +15,7 @@ import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import { applyBadugiDraw } from './utils/badugiDraw';
 import { takeAnte } from '../shared/engine/botUtils';
+import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
@@ -1203,6 +1204,7 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
 // ─── Bot scheduling ───────────────────────────────────────────────────────────
 
 function scheduleNextBot(table: AuthTable): void {
+  if (ensureBettingActorBadugi(table)) return;
   const { state, handId } = table;
   if (!state.activePlayerId) return;
 
@@ -1346,6 +1348,11 @@ function executeBotAction(table: AuthTable, botId: string): void {
 
     // Terminal-state guard (post-bot-action): same as afterHumanAction.
     if (resolveByFoldBadugi(table)) return;
+    if (table.state.phase.startsWith('BET') &&
+        !table.state.players.some(p => p.status === 'active' && p.chips > 0)) {
+      ensureBettingActorBadugi(table);
+      return;
+    }
 
     if (roundOver) {
       const capturedHandId = table.handId;
@@ -1382,13 +1389,34 @@ function clearTurnTimerBadugi(table: AuthTable): void {
   }
 }
 
+// Returns true when an empty betting round was advanced synchronously.
+// Do not apply this to draws/declarations: all-in players still must act there.
+function ensureBettingActorBadugi(table: AuthTable): boolean {
+  const s = table.state;
+  if (!s.phase.startsWith('BET')) return false;
+  const next = actionableBettingPlayerId(s.players, s.currentBet, s.activePlayerId);
+  if (next) {
+    if (next !== s.activePlayerId) {
+      clearTurnTimerBadugi(table);
+      table.state = { ...table.state, activePlayerId: next };
+    }
+    return false;
+  }
+  clearTurnTimerBadugi(table);
+  advanceToNextPhase(table);
+  broadcastState(table);
+  scheduleNextBot(table);
+  return true;
+}
+
 function armTurnTimerBadugi(table: AuthTable): void {
   clearTurnTimerBadugi(table); // bumps gen, clears existing handle
+  if (ensureBettingActorBadugi(table)) return;
   const s = table.state;
   const activeSeat = s.activePlayerId ? s.players.find(p => p.id === s.activePlayerId) : null;
 
   // Only arm for human seats in interactive phases
-  if (!activeSeat || activeSeat.presence !== 'human' || !BADUGI_INTERACTIVE_PHASES.has(s.phase)) {
+  if (!activeSeat || activeSeat.status !== 'active' || activeSeat.presence !== 'human' || !BADUGI_INTERACTIVE_PHASES.has(s.phase)) {
     if (s.turnDeadline != null) table.state = { ...s, turnDeadline: null };
     return;
   }
@@ -1495,6 +1523,11 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
   if (resolveByFoldBadugi(table)) return;
 
   if (isRoundOver(table.state)) {
+    if (table.state.phase.startsWith('BET') &&
+        !table.state.players.some(p => p.status === 'active' && p.chips > 0)) {
+      ensureBettingActorBadugi(table);
+      return;
+    }
     const capturedHandId = table.handId;
     const capturedPhase  = table.state.phase;
     setTimeout(() => {
@@ -2020,6 +2053,12 @@ export async function addBadugiConnection(
     }));
   } catch { /* ws may have already closed */ }
 
+  // Repair legacy/restored betting cursors without extending a live turn timer.
+  ensureBettingActorBadugi(table);
+  if (!table.turnTimer &&
+      table.state.players.find(p => p.id === table.state.activePlayerId)?.presence === 'human') {
+    armTurnTimerBadugi(table);
+  }
   return seat;
 }
 

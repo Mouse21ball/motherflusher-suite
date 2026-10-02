@@ -32,3 +32,4 @@
 - [Mobile/server protocol compatibility](mobile-server-protocol.md) — mobile uploads do not update the backend; check live capabilities before diagnosing missing acknowledgements.
 - [Mobile QA release boundaries](mobile-qa-release-boundaries.md) — owner publishes backend; Watch Ad work stays on hold until AdMob approval.
 - [Zero-wallet viewing](zero-wallet-viewing.md) — zero-chip PLAY is real viewing, never automatic seating, grants, loans, or game funding.
+- [All-in turn policy](all-in-turn-policy.md) — skip betting without any idle timer; preserve required non-betting actions and pot eligibility.

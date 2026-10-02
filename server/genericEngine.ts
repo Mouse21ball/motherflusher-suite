@@ -18,6 +18,7 @@ import { applyGenericDraw } from './utils/genericDraw';
 import { applyBonecrusherDiscard } from './utils/bonecrusherDiscard';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
+import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import {
   scheduleGenericSave,
@@ -709,7 +710,27 @@ function clearTurnTimer(table: GenericTable): void {
   }
 }
 
+// Plain betting rounds only: combined DECLARE_AND_BET still requires declarations.
+function ensureBettingActor(table: GenericTable): boolean {
+  const s = table.state;
+  if (!s.phase.startsWith('BET')) return false;
+  const next = actionableBettingPlayerId(s.players, s.currentBet, s.activePlayerId);
+  if (next) {
+    if (next !== s.activePlayerId) {
+      clearTurnTimer(table);
+      table.state = { ...table.state, activePlayerId: next };
+    }
+    return false;
+  }
+  clearTurnTimer(table);
+  advanceToNextPhase(table);
+  broadcastState(table);
+  scheduleNextBot(table);
+  return true;
+}
+
 function armTurnTimer(table: GenericTable): void {
+  if (ensureBettingActor(table)) return;
   // Always clear (and bump gen) before re-arming.
   if (table.turnTimer) { clearTimeout(table.turnTimer); table.turnTimer = null; }
   table.turnTimerGen = (table.turnTimerGen ?? 0) + 1;
@@ -738,7 +759,8 @@ function armTurnTimer(table: GenericTable): void {
     if (table.state.phase !== phaseAtArm) return;
     if (table.state.activePlayerId !== seatAtArm) return;
     const cur = table.state.players.find(p => p.id === seatAtArm);
-    if (!cur || cur.status !== 'active' || cur.hasActed) return;
+    if (!cur || cur.status !== 'active') return;
+    if (cur.hasActed && (!phaseAtArm.startsWith('BET') || cur.bet >= table.state.currentBet)) return;
     if (table.actionLock) {
       // Architect H-1: another action is being processed. Re-queue the firing
       // briefly so the timeout is never silently consumed mid-action.
@@ -1540,6 +1562,7 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
 // ─── Bot scheduling ───────────────────────────────────────────────────────────
 
 function scheduleNextBot(table: GenericTable): void {
+  if (ensureBettingActor(table)) return;
   const { state, handId } = table;
   if (!state.activePlayerId) return;
 
@@ -1707,6 +1730,11 @@ function executeBotAction(table: GenericTable, botId: string): void {
 
     // Terminal-state guard (post-bot-action): same as afterHumanAction.
     if (resolveByFold(table)) return;
+    if (table.state.phase.startsWith('BET') &&
+        !table.state.players.some(p => p.status === 'active' && p.chips > 0)) {
+      ensureBettingActor(table);
+      return;
+    }
 
     if (roundOver) {
       const capturedHandId = table.handId;
@@ -1742,6 +1770,11 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
   if (resolveByFold(table)) return;
 
   if (isPhaseRoundOver(table.state)) {
+    if (table.state.phase.startsWith('BET') &&
+        !table.state.players.some(p => p.status === 'active' && p.chips > 0)) {
+      ensureBettingActor(table);
+      return;
+    }
     const capturedHandId = table.handId;
     const capturedPhase  = table.state.phase;
     setTimeout(() => {

@@ -113,3 +113,49 @@ test('zero-chip Lady Luck watchers see live cards but cannot make side bets', as
   await page.getByTestId('button-emergency-lobby').click();
   await expect(page).toHaveURL(/\/\?tableExit=local$/);
 });
+
+test('a paid all-in Badugi player retains draw and declare controls after betting is skipped', async ({ page }) => {
+  const messages: Record<string, any>[] = [];
+  let socket: Parameters<Parameters<Page['routeWebSocket']>[1]>[0] | undefined;
+  let state: Record<string, any>;
+  await page.routeWebSocket('**/ws*', ws => {
+    socket = ws;
+    ws.onMessage(raw => {
+      const message = JSON.parse(String(raw));
+      messages.push(message);
+      if (message.type === 'join') ws.send(JSON.stringify({
+        type: 'badugi:init', role: 'player', playerId: 'p1', state,
+      }));
+    });
+  });
+  await openHome(page, 1000); // committed table chips are not a zero-wallet spectator
+  state = await page.evaluate(async () => {
+    const { createInitialState } = await import('/src/lib/poker/engine/useGameEngine.ts');
+    const initial = createInitialState();
+    return { ...initial, phase: 'BET_1', activePlayerId: 'p2', pot: 100,
+      players: initial.players.map((player: any, index: number) => ({
+        ...player, chips: index === 1 ? 1000 : 0,
+        presence: index < 2 ? 'human' : 'open', status: index < 2 ? 'active' : 'sitting_out',
+        cards: index === 0 ? [
+          { rank: 'A', suit: 'spades', isHidden: false }, { rank: '2', suit: 'hearts', isHidden: false },
+          { rank: '3', suit: 'clubs', isHidden: false }, { rank: '4', suit: 'diamonds', isHidden: false },
+        ] : [],
+      })) };
+  });
+  await page.getByTestId('button-play-badugi').click();
+  await expect(page.getByText('FIRST BET', { exact: true })).toBeVisible();
+  await page.getByRole('dialog').filter({
+    has: page.getByRole('heading', { name: 'Badugi', exact: true }),
+  }).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByTestId('button-all-in')).toHaveCount(0);
+  state = { ...state, phase: 'DRAW_2', activePlayerId: 'p1', turnDeadline: Date.now() + 30_000 };
+  socket!.send(JSON.stringify({ type: 'badugi:snapshot', state }));
+  await expect(page.getByTestId('button-stand-pat')).toBeEnabled();
+  await page.getByTestId('button-stand-pat').evaluate(element => (element as HTMLButtonElement).click());
+  await expect.poll(() => messages.filter(message => message.type === 'badugi:action' && message.action === 'draw').length).toBe(1);
+  state = { ...state, phase: 'DECLARE' };
+  socket!.send(JSON.stringify({ type: 'badugi:snapshot', state }));
+  await expect(page.getByTestId('button-declare-high')).toBeEnabled();
+  await page.getByTestId('button-declare-high').evaluate(element => (element as HTMLButtonElement).click());
+  await expect.poll(() => messages.filter(message => message.type === 'badugi:action' && message.action === 'declare').length).toBe(1);
+});
