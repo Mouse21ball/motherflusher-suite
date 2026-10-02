@@ -18,6 +18,8 @@ import { FEATURES } from '../../featureFlags';
 import { apiUrl, wsUrl } from '../../apiConfig';
 import { apiFetch } from '../../session';
 import { assertTableProtocolCapability } from './tableProtocol';
+import { applyRebuyStack, readRebuyConfirmation } from './rebuyConfirmation';
+import { useServerProfile } from '../../useServerProfile';
 import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
@@ -115,6 +117,7 @@ const DEFAULT_SESSION_STATS: BadugiSessionStats = {
 };
 
 export function useServerBadugi(tableId: string, buyinChips?: number) {
+  const { applyWalletBalance } = useServerProfile();
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
@@ -274,8 +277,15 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
               clearTimeout(pending.timeout);
               pendingRebuysRef.current.delete(pending.requestId);
               if (msg.type === 'rebuy:complete') {
-                setActionError(null);
-                pending.resolve();
+                try {
+                  const balances = readRebuyConfirmation(msg, pending.tableId);
+                  setState(current => applyRebuyStack(current, pending.playerId, balances.chips));
+                  applyWalletBalance(balances.walletBalance);
+                  setActionError(null);
+                  pending.resolve();
+                } catch (error) {
+                  pending.reject(error instanceof Error ? error : new Error('Your updated balance was not confirmed.'));
+                }
               }
               else pending.reject(new Error((msg.error as string) || 'The rebuy was not completed.'));
             }

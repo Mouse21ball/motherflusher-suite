@@ -59,6 +59,7 @@ interface UseServerProfileResult {
   profile:  ServerProfile | null;
   loading:  boolean;
   refetch:  () => Promise<ServerProfile | null>;
+  applyWalletBalance: (balance: number) => void;
 }
 
 const ServerProfileContext = createContext<UseServerProfileResult | null>(null);
@@ -142,7 +143,11 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
     refetchResolvers.current.push(resolve);
     setTick(t => t + 1);
   }), []);
-  const value = useMemo(() => ({ profile, loading, refetch }), [profile, loading, refetch]);
+  const applyWalletBalance = useCallback((balance: number) => {
+    if (!Number.isSafeInteger(balance) || balance < 0) return;
+    setProfile(current => current ? { ...current, chipBalance: balance } : current);
+  }, []);
+  const value = useMemo(() => ({ profile, loading, refetch, applyWalletBalance }), [profile, loading, refetch, applyWalletBalance]);
 
   return createElement(ServerProfileContext.Provider, { value }, children);
 }

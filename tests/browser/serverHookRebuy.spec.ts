@@ -103,7 +103,7 @@ async function mockHttpApis(page: Page) {
   });
 }
 
-async function mockTableSocket(page: Page, outcome: 'accept' | 'reject' | 'disconnect') {
+async function mockTableSocket(page: Page, outcome: 'accept' | 'ack-only' | 'reject' | 'disconnect') {
   const messages: WireMessage[] = [];
   let activeSocket: WebSocketRoute | null = null;
   let disconnected = false;
@@ -154,7 +154,9 @@ async function mockTableSocket(page: Page, outcome: 'accept' | 'reject' | 'disco
 
       // Exercise the protocol ordering relied on by the modal: the authoritative
       // stack snapshot reaches the hook before the correlated success ack.
-      socket.send(JSON.stringify({ type: snapshotType, modeId, state: acceptedState }));
+      if (outcome !== 'ack-only') {
+        socket.send(JSON.stringify({ type: snapshotType, modeId, state: acceptedState }));
+      }
       setTimeout(() => {
         socket.send(JSON.stringify({
           type: 'rebuy:complete',
@@ -162,6 +164,8 @@ async function mockTableSocket(page: Page, outcome: 'accept' | 'reject' | 'disco
           requestId: message.requestId,
           kind: message.kind,
           amount: acceptedState.players[0].chips,
+          chips: acceptedState.players[0].chips,
+          walletBalance: message.kind === 'reserve' ? 30_000 : 31_000,
         }));
       }, 180);
     });
@@ -176,7 +180,7 @@ async function mockTableSocket(page: Page, outcome: 'accept' | 'reject' | 'disco
 async function openBustModal(
   page: Page,
   mode: 'badugi' | 'dead7',
-  outcome: 'accept' | 'reject' | 'disconnect',
+  outcome: 'accept' | 'ack-only' | 'reject' | 'disconnect',
 ) {
   await mockHttpApis(page);
   const mock = await mockTableSocket(page, outcome);
@@ -204,6 +208,24 @@ function expectCorrelatedRebuy(
 }
 
 test.describe('production WebSocket hook rebuy wiring', () => {
+  for (const modeId of ['badugi', 'dead7']) {
+    for (const kind of ['free', 'reserve', 'borrow'] as const) {
+      test(`${modeId} ${kind} updates stack and wallet from the acknowledgement without a snapshot`, async ({ page }) => {
+        const mock = await openBustModal(page, modeId, 'ack-only');
+        if (kind === 'reserve') {
+          await page.getByTestId('button-bust-rebuy').tap();
+          await page.getByTestId('buyin-confirm').tap();
+        } else {
+          await page.getByTestId(kind === 'free' ? 'button-bust-starter-pack' : 'button-bust-borrow-chips').tap();
+        }
+        await expect(page.getByTestId('hook-stack')).toHaveText(kind === 'reserve' ? '5000' : '1000');
+        await expect(page.getByTestId('hook-wallet')).toHaveText(kind === 'reserve' ? '30000' : '31000');
+        await expect(page.getByTestId('bust-out-modal')).toHaveCount(0);
+        expect(mock.messages.filter(message => message.type === 'table:rebuy')).toHaveLength(1);
+      });
+    }
+  }
+
   for (const modeId of ['badugi', 'dead7']) {
     test(`${modeId} borrow credits the table using one authenticated confirmed request`, async ({ page }) => {
       const mock = await openBustModal(page, modeId, 'accept');

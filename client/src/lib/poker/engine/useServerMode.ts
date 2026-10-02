@@ -15,6 +15,8 @@ import { registerTable, saveSessionResult } from '../../tableSession';
 import { apiUrl, wsUrl } from '../../apiConfig';
 import { apiFetch } from '../../session';
 import { assertTableProtocolCapability } from './tableProtocol';
+import { applyRebuyStack, readRebuyConfirmation } from './rebuyConfirmation';
+import { useServerProfile } from '../../useServerProfile';
 import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
@@ -120,6 +122,7 @@ const DEFAULT_SESSION_STATS: SessionStats = {
 };
 
 export function useServerMode(tableId: string, modeId: string, buyinChips?: number) {
+  const { applyWalletBalance } = useServerProfile();
   const [state, setState] = useState<GameState>(() => ({
     ...createInitialState(),
     tableId,
@@ -270,8 +273,15 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
               clearTimeout(pending.timeout);
               pendingRebuysRef.current.delete(pending.requestId);
               if (msg.type === 'rebuy:complete') {
-                setActionError(null);
-                pending.resolve();
+                try {
+                  const balances = readRebuyConfirmation(msg, pending.tableId);
+                  setState(current => applyRebuyStack(current, pending.playerId, balances.chips));
+                  applyWalletBalance(balances.walletBalance);
+                  setActionError(null);
+                  pending.resolve();
+                } catch (error) {
+                  pending.reject(error instanceof Error ? error : new Error('Your updated balance was not confirmed.'));
+                }
               }
               else pending.reject(new Error((msg.error as string) || 'The rebuy was not completed.'));
             }
