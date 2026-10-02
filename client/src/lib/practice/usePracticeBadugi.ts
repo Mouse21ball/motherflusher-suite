@@ -2,6 +2,8 @@ import { useReducer } from "react";
 import type { CardType, Declaration, GamePhase, GameState, Player } from "@shared/gameTypes";
 import { BadugiMode, evaluateBadugi } from "@shared/modes/badugi";
 import { takeAnte } from "@shared/engine/botUtils";
+import { createDeck } from "@shared/engine/core";
+import { applyBadugiDraw } from "@shared/badugiDraw";
 
 export const PRACTICE_PHASES: GamePhase[] = [
   "WAITING", "ANTE", "DEAL", "DRAW_1", "BET_1", "DRAW_2", "BET_2",
@@ -10,28 +12,6 @@ export const PRACTICE_PHASES: GamePhase[] = [
 
 const HUMAN_ID = "p1";
 const CHIP_STACK = 10_000;
-const suits: CardType["suit"][] = ["hearts", "diamonds", "clubs", "spades"];
-const ranks: CardType["rank"][] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-
-function practiceDeck(): CardType[] {
-  // Every seat starts with a real four-card Badugi. Guided replacement draws
-  // are also restricted to cards that retain the hero's qualifying hand.
-  const opening: CardType[] = [
-    { rank: "A", suit: "hearts" }, { rank: "2", suit: "diamonds" },
-    { rank: "3", suit: "clubs" }, { rank: "4", suit: "spades" },
-    { rank: "5", suit: "hearts" }, { rank: "6", suit: "diamonds" },
-    { rank: "7", suit: "clubs" }, { rank: "8", suit: "spades" },
-    { rank: "9", suit: "hearts" }, { rank: "10", suit: "diamonds" },
-    { rank: "J", suit: "clubs" }, { rank: "Q", suit: "spades" },
-    { rank: "K", suit: "hearts" }, { rank: "A", suit: "diamonds" },
-    { rank: "2", suit: "clubs" }, { rank: "3", suit: "spades" },
-  ];
-  const used = new Set(opening.map(card => `${card.rank}:${card.suit}`));
-  const remainder = suits.flatMap(suit => ranks
-    .filter(rank => !used.has(`${rank}:${suit}`))
-    .map(rank => ({ rank, suit })));
-  return [...opening, ...remainder];
-}
 
 function player(id: string, name: string, presence: Player["presence"], isDealer = false): Player {
   return {
@@ -53,6 +33,7 @@ export type PracticeBadugiAction =
   | { type: "DEAL" }
   | { type: "SELECT_CARD"; index: number }
   | { type: "DRAW" }
+  | { type: "FOLD" }
   | { type: "BET"; amount: number }
   | { type: "DECLARE"; declaration: Exclude<Declaration, null | "FOLD" | "SWING" | "STAY" | "BUST" | "POKER" | "SUITS"> }
   | { type: "RESTART" };
@@ -68,7 +49,7 @@ export function createInitialPracticeBadugiState(): PracticeBadugiState {
     game: {
       tableId: "practice-badugi", phase: "WAITING", pot: 0, currentBet: 0, minBet: 25,
       activePlayerId: null, players, communityCards: [], messages: [], chatMessages: [],
-      deck: [], discardPile: [], raisesThisRound: 0,
+      deck: createDeck(), discardPile: [], raisesThisRound: 0,
     },
     selectedCardIndices: [], error: null, handComplete: false,
   };
@@ -81,7 +62,7 @@ const appendMessage = (game: GameState, text: string): GameState => ({
 
 function resetRound(game: GameState, phase: GamePhase): GameState {
   return {
-    ...game, phase, activePlayerId: HUMAN_ID, currentBet: 0, raisesThisRound: 0,
+    ...game, phase, activePlayerId: game.players.find(p => p.status === "active")?.id ?? null, currentBet: 0, raisesThisRound: 0,
     players: game.players.map(p => ({ ...p, bet: 0, hasActed: false })),
   };
 }
@@ -92,7 +73,7 @@ function nextPhase(phase: GamePhase): GamePhase {
 }
 
 function dealCards(game: GameState): GameState {
-  const dealt = BadugiMode.deal(practiceDeck(), game.players, HUMAN_ID);
+  const dealt = BadugiMode.deal(game.deck, game.players, HUMAN_ID);
   return {
     ...game, phase: "DRAW_1", deck: dealt.deck,
     communityCards: dealt.communityCards, discardPile: [], activePlayerId: HUMAN_ID,
@@ -280,43 +261,25 @@ export function practiceBadugiReducer(state: PracticeBadugiState, action: Practi
   }
   if (action.type === "DRAW") {
     if (!state.game.phase.startsWith("DRAW")) return state;
-    const drawMax = state.game.phase === "DRAW_1" ? 3 : state.game.phase === "DRAW_2" ? 2 : 1;
-    const unique = new Set(state.selectedCardIndices);
-    if (unique.size !== state.selectedCardIndices.length || state.selectedCardIndices.some(i => !Number.isInteger(i) || i < 0 || i > 3) || unique.size > drawMax) {
-      return { ...state, error: `Choose no more than ${drawMax} distinct cards.` };
-    }
-    let game = { ...state.game };
-    const deck = [...game.deck];
-    const discards = [...game.discardPile];
-    const hero = game.players.find(p => p.id === HUMAN_ID)!;
-    const cards = [...hero.cards];
-    for (const index of state.selectedCardIndices) {
-      const keptCards = cards.filter((_, cardIndex) => cardIndex !== index);
-      let replacementIndex = deck.findIndex(candidate =>
-        keptCards.every(kept => kept.rank !== candidate.rank && kept.suit !== candidate.suit),
-      );
-      if (replacementIndex < 0 && discards.length) {
-        deck.push(...discards.splice(0));
-        replacementIndex = deck.findIndex(candidate =>
-          keptCards.every(kept => kept.rank !== candidate.rank && kept.suit !== candidate.suit),
-        );
-      }
-      if (replacementIndex < 0) return { ...state, error: "No qualifying replacement remains in the practice deck." };
-      discards.push(cards[index]);
-      const [replacement] = deck.splice(replacementIndex, 1);
-      cards[index] = { ...replacement, isHidden: false };
-      if (!evaluateBadugi(cards)?.isValidBadugi) {
-        return { ...state, error: "That draw would break the qualifying Badugi; choose another card." };
-      }
-    }
-    game = {
-      ...game, deck, discardPile: discards,
-      players: game.players.map(p => p.id === HUMAN_ID ? { ...p, cards, hasActed: true } : p),
+    const drawn = applyBadugiDraw(state.game, HUMAN_ID, state.selectedCardIndices);
+    if (!drawn.ok) return { ...state, error: drawn.message };
+    let game: GameState = {
+      ...state.game, deck: drawn.deck, discardPile: drawn.discardPile, players: drawn.players,
       activePlayerId: null,
     };
     game = appendMessage(game, state.selectedCardIndices.length ? `You draw ${state.selectedCardIndices.length} card${state.selectedCardIndices.length === 1 ? "" : "s"}.` : "You stand pat.");
     game = runBotsAndTransitions(game);
     return { ...state, game, selectedCardIndices: [], error: null, handComplete: game.phase === "SHOWDOWN" };
+  }
+  if (action.type === "FOLD") {
+    if (state.game.phase !== "DECLARE") return state;
+    const game = runBotsAndTransitions(appendMessage({
+      ...state.game, activePlayerId: null,
+      players: state.game.players.map(p => p.id === HUMAN_ID
+        ? { ...p, status: "folded", declaration: null, hasActed: true }
+        : p),
+    }, "You fold at declaration."));
+    return { ...state, game, error: null, handComplete: game.phase === "SHOWDOWN" };
   }
   if (action.type === "BET") {
     if (!state.game.phase.startsWith("BET")) return state;

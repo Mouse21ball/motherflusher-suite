@@ -119,10 +119,17 @@ describe('Badugi practice guidance', () => {
   });
 
   it('explains declaration qualification and reports showdown winner and qualification', () => {
-    const declare = getBadugiPracticeGuide(state({ phase: 'DECLARE' }), 'hero', 0);
+    const cards: Player['cards'] = [
+      { rank: 'A', suit: 'hearts' }, { rank: '2', suit: 'diamonds' },
+      { rank: '3', suit: 'clubs' }, { rank: '4', suit: 'spades' },
+    ];
+    const declare = getBadugiPracticeGuide(state({ phase: 'DECLARE', players: [player({ cards })] }), 'hero', 0);
     expect(declare.detail).toContain('four-card Badugi');
     expect(declare.actions.join(' ')).toMatch(/Declare High/i);
     expect(declare.actions.join(' ')).toMatch(/Declare Low/i);
+    const invalid = getBadugiPracticeGuide(state({ phase: 'DECLARE' }), 'hero', 0);
+    expect(invalid.instruction).toContain('does not qualify');
+    expect(invalid.actions.join(' ')).toContain('Fold non-qualifying hand');
 
     const showdown = getBadugiPracticeGuide(
       state({

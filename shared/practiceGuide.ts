@@ -1,4 +1,5 @@
 import type { GameState } from './gameTypes';
+import { evaluateBadugi } from './modes/badugi';
 
 export type PracticeGuideStatus = 'your-turn' | 'waiting' | 'complete';
 
@@ -100,9 +101,13 @@ export function getBadugiPracticeGuide(
     }
     case 'DECLARE':
       guide.title = 'Declare HIGH or LOW';
-      guide.instruction = 'Choose the side your Badugi will compete on.';
+      guide.instruction = me && evaluateBadugi(me.cards)?.isValidBadugi
+        ? 'Choose the side your Badugi will compete on.'
+        : 'Your hand does not qualify. Fold the non-qualifying hand to see the result.';
       guide.detail = 'Only a complete four-card Badugi—four distinct ranks and four distinct suits—qualifies. HIGH wants the strongest/highest Badugi; LOW wants the weakest/lowest.';
-      guide.actions = ['Tap Declare High to compete for the High half.', 'Tap Declare Low to compete for the Low half.'];
+      guide.actions = me && evaluateBadugi(me.cards)?.isValidBadugi
+        ? ['Tap Declare High to compete for the High half.', 'Tap Declare Low to compete for the Low half.']
+        : ['Tap Fold non-qualifying hand to continue. Only a four-card Badugi can declare HIGH or LOW.'];
       break;
     case 'SHOWDOWN': {
       const winners = state.players.filter(player => player.isWinner);

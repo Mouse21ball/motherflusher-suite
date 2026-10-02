@@ -81,11 +81,39 @@ test('direct Badugi practice walkthrough stays usable under expanded guidance on
 
   await clickVisibleControl(page, page.getByRole('button', { name: 'Stand pat', exact: true }));
   await expectGuide(page, 'Declare HIGH or LOW', 'Your turn');
-  await clickVisibleControl(page, page.getByRole('button', { name: 'Declare Low' }));
-  await expectGuide(page, 'Final bet after declaration', 'Your turn');
-  await finishBettingRound(page, 'Showdown', true);
+  const declareLow = page.getByRole('button', { name: 'Declare Low', exact: true });
+  if (await declareLow.isVisible()) {
+    await clickVisibleControl(page, declareLow);
+    await expectGuide(page, 'Final bet after declaration', 'Your turn');
+    await finishBettingRound(page, 'Showdown', true);
+  } else {
+    await expect(page.getByTestId('practice-guide')).toContainText('Your hand does not qualify');
+    await clickVisibleControl(page, page.getByRole('button', { name: 'Fold non-qualifying hand' }));
+  }
   await expectGuide(page, 'Showdown', 'Hand complete');
   await expect(page.getByRole('button', { name: 'Practice another hand' })).toBeVisible();
 
   expect(apiRequests, 'direct practice should not fetch API resources').toEqual([]);
+});
+
+test('practice deals new hands on repeated visits without account or network activity', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  const hands = new Set<string>();
+  for (let visit = 0; visit < 6; visit++) {
+    await page.goto('/practice/badugi');
+    await page.getByRole('button', { name: /I am 17 or older/ }).click();
+    await page.getByRole('button', { name: 'Start one-hand practice' }).click();
+    await page.getByRole('button', { name: 'Post 25 practice-chip ante' }).click();
+    await page.getByRole('button', { name: 'Deal four cards' }).click();
+    const cards = page.getByRole('button', { name: /^(A|[2-9]|10|J|Q|K) of (hearts|diamonds|clubs|spades)$/ });
+    await expect(cards).toHaveCount(4);
+    const labels = await cards.evaluateAll(elements => elements.map(e => e.getAttribute('aria-label')));
+    hands.add(labels.join(','));
+    await expect(page.getByText(/fresh shuffled deck/)).toBeVisible();
+  }
+  expect(hands.size).toBeGreaterThanOrEqual(5);
+  expect(apiRequests).toEqual([]);
 });

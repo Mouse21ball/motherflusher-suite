@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import type { CardType } from "@shared/gameTypes";
+import { evaluateBadugi } from "@shared/modes/badugi";
 import PracticeGuide from "@/components/practice/PracticeGuide";
 import { usePracticeBadugi } from "@/lib/practice/usePracticeBadugi";
 
@@ -126,7 +127,7 @@ export default function PracticeBadugiPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold">{atShowdown ? "Showdown" : "Your hand"}</div>
-                {isDraw && <div className="text-xs text-white/55">Select up to {game.phase === "DRAW_1" ? 3 : game.phase === "DRAW_2" ? 2 : 1} cards to replace, or stand pat. This guided deck preserves a qualifying Badugi.</div>}
+                {isDraw && <div className="text-xs text-white/55">Select up to {game.phase === "DRAW_1" ? 3 : game.phase === "DRAW_2" ? 2 : 1} cards to replace, or stand pat. Cards come from a fresh shuffled deck; draws can improve or weaken your hand.</div>}
               </div>
               {atShowdown && <span className="text-xs font-bold text-amber-200">{winnerNames.length ? `${winnerNames.join(" & ")} win${winnerNames.length === 1 ? "s" : ""}` : "Pot unresolved"}</span>}
             </div>
@@ -164,11 +165,17 @@ export default function PracticeBadugiPage() {
                 {selectedCardIndices.length ? `Draw ${selectedCardIndices.length}` : "Stand pat"}
               </button>
             )}
-            {game.phase === "DECLARE" && isPlayerTurn && (
+            {game.phase === "DECLARE" && isPlayerTurn && evaluateBadugi(hero.cards)?.isValidBadugi && (
               <>
                 <button className="rounded-xl bg-sky-300 px-5 py-3 font-bold text-slate-950 hover:bg-sky-200" onClick={() => dispatch({ type: "DECLARE", declaration: "LOW" })}>Declare Low</button>
                 <button className="rounded-xl bg-orange-300 px-5 py-3 font-bold text-slate-950 hover:bg-orange-200" onClick={() => dispatch({ type: "DECLARE", declaration: "HIGH" })}>Declare High</button>
               </>
+            )}
+            {game.phase === "DECLARE" && isPlayerTurn && !evaluateBadugi(hero.cards)?.isValidBadugi && (
+              <div className="w-full rounded-xl border border-amber-200/20 p-3">
+                <p className="mb-3 text-sm text-amber-100">Your hand has repeated ranks or suits and does not qualify as a four-card Badugi. Fold to continue to the result.</p>
+                <button className="rounded-xl bg-emerald-300 px-5 py-3 font-bold text-emerald-950 hover:bg-emerald-200" onClick={() => dispatch({ type: "FOLD" })}>Fold non-qualifying hand</button>
+              </div>
             )}
             {isBet && isPlayerTurn && (
               <>
