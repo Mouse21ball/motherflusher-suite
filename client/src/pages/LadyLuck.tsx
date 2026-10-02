@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
+import { reportTableConnection, returnToLobby } from '@/lib/tableConnectionHealth';
 import { LADY_LUCK_FLIP_DURATION_MS, LADY_LUCK_SUIT_PULSE_MS } from '../../../shared/ladyluckTiming';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
@@ -288,6 +289,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
             if (msg.type === 'll:state') {
               console.log(`[LL-TIMING] ll:state received at ${Date.now()} (+${Date.now() - wsCreatedAt}ms after new WebSocket())`);
               if (!stateReceived) { clearTimeout(timeoutId); stateReceived = true; }
+              reportTableConnection('ready');
               setState(msg.state as LadyLuckState);
               setWagerAmt(v => v || LADY_LUCK_ROOMS[(msg.state as LadyLuckState).roomType].minWager);
             }
@@ -323,6 +325,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
         };
 
         ws.onclose = (ev) => {
+          if (alive) reportTableConnection('connecting');
           if (!alive) return;
           setConnected(false);
           console.warn('[ladyluck] WS closed — code:', ev.code, 'reason:', ev.reason, 'stateReceived:', stateReceived);
@@ -393,6 +396,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
     const llStart = Date.now();
     console.log(`[LL-TIMING] JOIN tapped at ${llStart} (+0ms)`);
     setJoining(true); setJoinError(null);
+    reportTableConnection('connecting');
     try {
       const res = await apiFetch(apiUrl('/api/ladyluck/tables'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -409,6 +413,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       navigate(`/ladyluck?t=${tid}`, { replace: true });
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : String(err));
+      returnToLobby('unavailable');
     }
     setJoining(false);
   };

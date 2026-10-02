@@ -8,6 +8,7 @@
 //   handleAction → send 'mode:action' → server processes
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { reportTableConnection } from '../../tableConnectionHealth';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
@@ -198,9 +199,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
 
   useEffect(() => {
     mountedRef.current = true;
+    let lifecycleActive = true;
+    let initialized = false;
+    reportTableConnection('connecting');
 
     async function connect() {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !lifecycleActive) return;
       const identity = ensurePlayerIdentity();
       // Fetch a short-lived WS ticket — session token stays out of the upgrade URL.
       let ticket: string | null = null;
@@ -208,13 +212,14 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
         const ticketRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
         if (ticketRes.ok) { const j = await ticketRes.json(); ticket = j.ticket ?? null; }
       } catch {}
+      if (!mountedRef.current || !lifecycleActive) return;
       const url = wsUrl(ticket);
       let ws: WebSocket;
-      try { ws = new WebSocket(url); } catch { return; }
+      try { ws = new WebSocket(url); } catch { reportTableConnection('failed'); return; }
       wsRef.current = ws;
 
       ws.onopen = async () => {
-        if (!mountedRef.current) { ws.close(); return; }
+        if (!mountedRef.current || !lifecycleActive) { ws.close(); return; }
         const _params = new URLSearchParams(window.location.search);
         const _quickPlay = _params.get('qp') === '1';
         const _isPrivate = _params.get('private') === '1';
@@ -233,6 +238,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
           } catch {}
         }
 
+        if (!mountedRef.current || !lifecycleActive || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({
           type: 'join',
           tableId: tableIdRef.current,
@@ -322,6 +328,11 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
           }
 
           if (msg.type === 'mode:init') {
+            if (!msg.state || !Array.isArray((msg.state as GameState).players)) {
+              reportTableConnection('failed'); ws.close(); return;
+            }
+            initialized = true;
+            reportTableConnection('ready');
             const pid = msg.playerId as string;
             myIdRef.current = pid;
             setMyId(pid);
@@ -357,10 +368,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             return;
           }
           if (msg.type === 'mode:error') {
+            if (!initialized) reportTableConnection('failed');
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
           if (msg.type === 'error') {
+            if (!initialized) { reportTableConnection('failed'); ws.close(); return; }
             setActionError(String(msg.message ?? 'Action rejected.'));
             return;
           }
@@ -384,6 +397,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
           // session_expired: server closed the connection because the session token expired.
           // Stop reconnecting — the user must re-authenticate.
           if (msg.type === 'session_expired') {
+            reportTableConnection('failed');
             mountedRef.current = false;
             ws.close();
             return;
@@ -399,6 +413,8 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       ws.onclose = () => {
         rejectPendingRebuys(pendingRebuysRef.current, 'Table connection closed before the rebuy was confirmed.');
         if (!mountedRef.current) return;
+        if (!lifecycleActive) return;
+        reportTableConnection('connecting');
         reconnRef.current = setTimeout(connect, Math.min(3000 + Math.random() * 1000, 8000));
       };
 
@@ -424,6 +440,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     connect();
 
     return () => {
+      lifecycleActive = false;
       mountedRef.current = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnRef.current) { clearTimeout(reconnRef.current); reconnRef.current = null; }

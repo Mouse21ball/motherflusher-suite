@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WelcomeGate } from "@/components/WelcomeGate";
 import { ColdStartSplash } from "@/components/ColdStartSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { TableEscapeGuard } from "@/components/game/TableEscapeGuard";
 import { ServerProfileProvider, useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { isPracticeBadugiPath } from "@/lib/practiceRoute";
@@ -226,6 +227,7 @@ function App() {
               </WelcomeGate>
             </ColdStartSplash>
           </ErrorBoundary>
+          <TableEscapeGuard />
         </TooltipProvider>
       </ServerProfileProvider>
     </QueryClientProvider>

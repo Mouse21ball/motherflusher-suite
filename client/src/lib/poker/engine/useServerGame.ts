@@ -10,6 +10,7 @@
 //   handleAction → send 'badugi:action' with assigned seat id → server processes
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { reportTableConnection } from '../../tableConnectionHealth';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
@@ -201,9 +202,12 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   useEffect(() => {
     if (!activeFlag) return;
     mountedRef.current = true;
+    let lifecycleActive = true;
+    let initialized = false;
+    reportTableConnection('connecting');
 
     async function connect() {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !lifecycleActive) return;
       const identity = ensurePlayerIdentity();
       // Fetch a short-lived WS ticket — session token stays out of the upgrade URL.
       let ticket: string | null = null;
@@ -211,13 +215,14 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
         const ticketRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
         if (ticketRes.ok) { const j = await ticketRes.json(); ticket = j.ticket ?? null; }
       } catch {}
+      if (!mountedRef.current || !lifecycleActive) return;
       const url = wsUrl(ticket);
       let ws: WebSocket;
-      try { ws = new WebSocket(url); } catch { return; }
+      try { ws = new WebSocket(url); } catch { reportTableConnection('failed'); return; }
       wsRef.current = ws;
 
       ws.onopen = async () => {
-        if (!mountedRef.current) { ws.close(); return; }
+        if (!mountedRef.current || !lifecycleActive) { ws.close(); return; }
         // Read table intent flags from URL params, set by the Home screen when
         // creating a Quick Play table (?qp=1) or a private table (?private=1).
         const _params = new URLSearchParams(window.location.search);
@@ -239,6 +244,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
 
         // Send the opaque session UUID as playerId.
         // The server maps it to a game seat (p1/p2/p3/p4) and responds with badugi:init.
+        if (!mountedRef.current || !lifecycleActive || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
           playerId: sessionId.current,
@@ -325,6 +331,11 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
           // badugi:init: first message after join — carries seat, state, and sessionStats.
           // Must be processed before any snapshot so masking uses the correct seat.
           if (msg.type === 'badugi:init') {
+            if (!msg.state || !Array.isArray((msg.state as GameState).players)) {
+              reportTableConnection('failed'); ws.close(); return;
+            }
+            initialized = true;
+            reportTableConnection('ready');
             myIdRef.current = msg.playerId as string;
             setMyId(msg.playerId as string);
             for (const pending of pendingRebuysRef.current.values()) {
@@ -376,12 +387,18 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
           // session_expired: server closed the connection because the session token expired.
           // Stop reconnecting — the user must re-authenticate.
           if (msg.type === 'session_expired') {
+            reportTableConnection('failed');
             mountedRef.current = false;
             ws.close();
             return;
           }
 
           // Unhandled types — log to spot missing handlers.
+          if (msg.type === 'error' && !initialized) {
+            reportTableConnection('failed');
+            ws.close();
+            return;
+          }
           console.warn('[WS IN] unhandled message type', msg.type);
         } catch (err) {
           console.error('[WS IN] parse failed', err);
@@ -391,6 +408,8 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
       ws.onclose = () => {
         rejectPendingRebuys(pendingRebuysRef.current, 'Table connection closed before the rebuy was confirmed.');
         if (!mountedRef.current) return;
+        if (!lifecycleActive) return;
+        reportTableConnection('connecting');
         reconnectRef.current = setTimeout(connect, Math.min(3000 + Math.random() * 1000, 8000));
       };
 
@@ -416,6 +435,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
     connect();
 
     return () => {
+      lifecycleActive = false;
       mountedRef.current = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnectRef.current) { clearTimeout(reconnectRef.current); reconnectRef.current = null; }

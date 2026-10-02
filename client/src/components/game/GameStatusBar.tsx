@@ -32,7 +32,7 @@ interface GameStatusBarProps {
   stripes?: number;
   phase: GamePhase;
   onForfeit?: () => void | Promise<void>;
-  onLeave?: () => Promise<void>;
+  onLeave?: () => void | Promise<void>;
   sessionStats?: GameSessionStats;
   tableId?: string;
   humanCount?: number;
@@ -65,14 +65,23 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
   const [isLeaving, setIsLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const leavingRef = useRef(false);
+  const leaveAttemptRef = useRef(0);
+  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, navigate] = useLocation();
   const htpModeId = HTP_MODE_ID[modeId];
 
   const modeInfo = MODE_INFO[modeId];
   const isMidHand = MID_HAND.has(phase);
-  const activePlayers = gameState.players.filter(p => p.presence !== 'reserved').length;
-  const pot = gameState.pot;
-  const ante = gameState.minBet;
+  const activePlayers = Array.isArray(gameState?.players)
+    ? gameState.players.filter(p => p?.presence !== 'reserved').length
+    : 0;
+  const pot = gameState?.pot ?? 0;
+  const ante = gameState?.minBet ?? 0;
+
+  useEffect(() => () => {
+    if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    leaveAttemptRef.current += 1;
+  }, []);
 
   useEffect(() => {
     const playerId = ensurePlayerIdentity().id;
@@ -87,19 +96,47 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
   const leaveTable = async (forfeit: boolean) => {
     if (leavingRef.current) return;
     leavingRef.current = true;
+    const attempt = ++leaveAttemptRef.current;
     setIsLeaving(true);
     setLeaveError(null);
+    const returnHome = () => {
+      if (attempt !== leaveAttemptRef.current) return;
+      leaveAttemptRef.current += 1;
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+      leavingRef.current = false;
+      setIsLeaving(false);
+      setExitDialogOpen(false);
+      navigate('/');
+    };
+    // Settlement can be stalled by a disconnected table. Never let it trap the player.
+    leaveTimeoutRef.current = setTimeout(() => {
+      setLeaveError('Could not confirm the table settlement. Returning to the lobby.');
+      returnHome();
+    }, 8000);
     try {
       if (forfeit) await onForfeit?.();
       if (onLeave) await onLeave();
-      else navigate('/');
-      setExitDialogOpen(false);
+      // The status bar owns the final navigation, even if the callback only settles data.
+      returnHome();
     } catch (error) {
-      setLeaveError(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
-    } finally {
-      leavingRef.current = false;
-      setIsLeaving(false);
+      if (attempt !== leaveAttemptRef.current) return;
+      setLeaveError(error instanceof Error ? error.message : 'Could not confirm the table settlement.');
+      // Failed settlement is not reported as success; the player still gets out.
+      returnHome();
     }
+  };
+
+  const escapePendingLeave = () => {
+    if (!leavingRef.current) return;
+    // Invalidate late callback completions so only this escape can navigate.
+    leaveAttemptRef.current += 1;
+    if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    leaveTimeoutRef.current = null;
+    leavingRef.current = false;
+    setIsLeaving(false);
+    setExitDialogOpen(false);
+    navigate('/');
   };
 
   const handleLobby = () => {
@@ -213,8 +250,11 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
         </div>
       </header>
       {isLeaving && (
-        <div role="status" aria-live="polite" data-testid="leave-pending" className="fixed top-14 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/90 px-4 py-2 text-xs font-mono text-white shadow-lg">
-          Saving your table stack…
+        <div role="status" aria-live="polite" data-testid="leave-pending" className="fixed top-14 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/90 px-4 py-2 text-xs font-mono text-white shadow-lg flex items-center gap-3">
+          <span>Saving your table stack…</span>
+          <button type="button" onClick={escapePendingLeave} className="underline underline-offset-2 text-[#E9C75A] touch-manipulation" data-testid="button-return-anyway">
+            Return to lobby anyway
+          </button>
         </div>
       )}
       {leaveError && (
@@ -348,6 +388,11 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
             <AlertDialogAction onClick={handleConfirmExit} disabled={isLeaving} className="bg-red-600/80 hover:bg-red-600 text-white border-0" data-testid="button-confirm-leave">
               {isLeaving ? 'Saving stack…' : 'Leave'}
             </AlertDialogAction>
+            {isLeaving && (
+              <button type="button" onClick={escapePendingLeave} className="px-3 py-2 rounded-md text-xs font-mono text-[#E9C75A] underline underline-offset-2 touch-manipulation" data-testid="button-return-anyway-dialog">
+                Return to lobby anyway
+              </button>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

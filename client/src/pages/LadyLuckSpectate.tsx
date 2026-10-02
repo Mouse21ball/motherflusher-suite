@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
+import { reportTableConnection } from '@/lib/tableConnectionHealth';
 import { LADY_LUCK_ROOMS, type LadyLuckState, type LadyLuckSuit } from '../../../shared/modes/ladyluck';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ export default function LadyLuckSpectate() {
       setSideBetSuit(null);
       setSideBetAmt(state ? LADY_LUCK_ROOMS[state.roomType].minWager : 100);
       setError(null);
+      reportTableConnection('connecting');
     }
     setPrevPhase(phase);
   }, [state?.phase]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -207,12 +209,12 @@ export default function LadyLuckSpectate() {
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data as string);
-            if (msg.type === 'll:state')  setState(msg.state as LadyLuckState);
+            if (msg.type === 'll:state') { reportTableConnection('ready'); setState(msg.state as LadyLuckState); }
             if (msg.type === 'll:spectator_count') {
               setState(prev => prev ? { ...prev, spectatorCount: msg.count as number } : prev);
             }
             if (msg.type === 'll:error')  {
-              if (msg.message === 'table_not_found') setNotFound(true);
+              if (msg.message === 'table_not_found') { setNotFound(true); reportTableConnection('failed'); }
               else setError(msg.message);
             }
           } catch {}

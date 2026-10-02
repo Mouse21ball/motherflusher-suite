@@ -31,7 +31,15 @@ const LEGAL_PATHS = ['/terms', '/privacy'];
 export function WelcomeGate({ children }: WelcomeGateProps) {
   const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
   const [name,  setName]    = useState(getInitialPlayerName);
-  const [welcomeBackOpen, setWelcomeBackOpen] = useState(() => Boolean(getInitialPlayerName()));
+  const [welcomeBackOpen, setWelcomeBackOpen] = useState(() => {
+    try {
+      if (sessionStorage.getItem('cgp_skip_welcome_back_once') === '1') {
+        sessionStorage.removeItem('cgp_skip_welcome_back_once');
+        return false;
+      }
+    } catch {}
+    return Boolean(getInitialPlayerName());
+  });
 
   // Clear the just_logged_out flag once the welcome/login screen is showing.
   // DiamondBackground's useServerProfile effect fires first (sibling order) and

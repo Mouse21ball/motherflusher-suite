@@ -644,6 +644,11 @@ export default function Home() {
           )}
 
           {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
+          {new URLSearchParams(window.location.search).has('tableExit') && (
+            <p role="status" className="mx-4 mb-3 rounded-xl border border-amber-200/30 bg-black/40 p-3 text-sm text-amber-100">
+              You’re back in the lobby. Your table balance remains server-controlled and may still be awaiting confirmation.
+            </p>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {MODE_CARD_CONFIGS.map(card => {
               const mode       = MODES.find(m => m.id === card.id)!;

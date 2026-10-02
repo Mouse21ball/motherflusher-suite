@@ -11,4 +11,8 @@ Serialize asynchronous financial updates with automatic hand starts as well as p
 
 A durable free grant can succeed while a timer changes the hand, causing a later state check to reject its stack credit. The player then has wallet chips but no usable table stack, and retrying the grant cannot safely mint another award.
 
-**How to apply:** Preserve additive wallet credits while settling gameplay; account for current-hand losses on intentional leave even if a prior hand was synced. A table-leave acknowledgement must follow successful, retry-safe persistence, and navigation/home refresh must follow that acknowledgement. Treat Lady Luck's separately implemented escrow accounting as a different boundary rather than changing it incidentally.
+**How to apply:** Preserve additive wallet credits while settling gameplay; account for current-hand losses on intentional leave even if a prior hand was synced. A table-leave acknowledgement must follow successful, retry-safe persistence. Normal online exits should await that acknowledgement, but failed or unavailable settlement must never prevent local lobby navigation. Never fabricate wallet credits or describe the fallback as confirmed settlement. Treat Lady Luck's separately implemented escrow accounting as a different boundary rather than changing it incidentally.
+
+The user treats “player cannot get back to the lobby” as a severity-critical bug class. Every joining, playing, watching, disconnected, rejected, timed-out, and broken-render state needs an independent, network-free lobby escape; reconnect retries must not postpone the deadline indefinitely.
+
+**Why:** A player was stranded on a dead table after connection failure and had to force-close the app.
