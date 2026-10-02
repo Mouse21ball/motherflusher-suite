@@ -132,7 +132,12 @@ export function BonecrusherActionBar({
         )}
 
         {/* BET phase */}
-        {isBetPhase && isMyTurn && (
+        {isBetPhase && isMyTurn && chips <= 0 && (
+          <div data-testid="all-in-waiting" role="status" style={{ padding: '16px 12px', color: '#d97706', fontFamily: 'monospace', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center' }}>
+            ALL IN · WAITING FOR THE HAND TO FINISH
+          </div>
+        )}
+        {isBetPhase && isMyTurn && chips > 0 && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={foldBtn} disabled={!canAct} onClick={canAct ? () => onAction('fold') : undefined} data-testid="button-fold">FOLD</button>
             <button style={checkCallBtn} disabled={!canAct} onClick={canAct ? () => onAction(canCheck ? 'check' : 'call', canCheck ? 0 : callAmount) : undefined} data-testid={canCheck ? 'button-check' : 'button-call'}>

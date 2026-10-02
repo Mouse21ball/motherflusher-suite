@@ -2754,6 +2754,28 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     const playerIdx = s.players.findIndex(p => p.id === playerId);
     if (playerIdx === -1) { table.actionLock = false; return; }
 
+    const player = s.players[playerIdx];
+    const bettingPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
+    const isBettingAction =
+      action === 'fold' || action === 'check' || action === 'call' ||
+      action === 'raise' || action === 'declare_and_bet';
+    if (bettingPhase && isBettingAction && player.chips <= 0) {
+      // Suits Poker auto-declares all-ins as POKER on entry to this phase, so
+      // the combined declare-and-bet request is no longer a required declaration.
+      engineLog('ACTION', `${table.modeId}:${table.tableId}`, {
+        player: playerId, action, accepted: false, reason: 'all-in-cannot-act', phase: s.phase,
+      });
+      // All-ins remain active for showdown/side-pot eligibility but never get
+      // another betting action. Mark the stale turn complete and advance it.
+      table.state = {
+        ...s,
+        players: s.players.map(p => p.id === playerId ? { ...p, hasActed: true } : p),
+      };
+      table.actionLock = false;
+      afterHumanAction(table);
+      return;
+    }
+
     let newPlayers = [...s.players];
     let newPot = s.pot;
     let newCurrentBet = s.currentBet;

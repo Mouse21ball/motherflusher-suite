@@ -209,7 +209,12 @@ export function BoxChevyActionBar({
         )}
 
         {/* BET phases */}
-        {isBetPhase && isMyTurn && (
+        {isBetPhase && isMyTurn && heroChips <= 0 && (
+          <div data-testid="all-in-waiting" role="status" style={{ padding: '16px 12px', color: '#d97706', fontFamily: 'monospace', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center' }}>
+            ALL IN · WAITING FOR THE HAND TO FINISH
+          </div>
+        )}
+        {isBetPhase && isMyTurn && heroChips > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.1em', textAlign: 'center', paddingTop: 2 }}>
               {phase.replace('_', ' ')} · RAISES {raisesThisRound}/{maxRaises}

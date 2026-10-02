@@ -2361,6 +2361,22 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       return;
     }
 
+    const bettingPhase = s.phase.startsWith('BET');
+    const player = s.players.find(p => p.id === playerId);
+    if (bettingPhase && player && player.chips <= 0 &&
+        (action === 'fold' || action === 'check' || action === 'call' || action === 'raise')) {
+      engineLog('ACTION', tableId, { player: playerId, action, accepted: false, reason: 'all-in-cannot-act', phase: s.phase });
+      // Keep the all-in player in the hand and move the turn on. In particular,
+      // never turn a zero-stack check into a fold or let a stale prompt stall play.
+      table.state = {
+        ...s,
+        players: s.players.map(p => p.id === playerId ? { ...p, hasActed: true } : p),
+      };
+      table.actionLock = false;
+      afterHumanAction(table);
+      return;
+    }
+
     // ── ante ─────────────────────────────────────────────────────────────────
     if (action === 'ante' && s.phase === 'ANTE') {
       const player = s.players.find(p => p.id === playerId);

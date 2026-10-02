@@ -44,27 +44,200 @@ describe('funded table hand-start eligibility', () => {
     )).toBe(false);
   });
 
-  it('allows funded humans with active opponents and leaves in-hand all-ins eligible for actions', () => {
-    const allIn = {
-      id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50,
-      totalBet: 50, cards: [], hasActed: false, isDealer: false, declaration: null,
-    } as Player;
-    const opponent = { ...allIn, id: 'p2', presence: 'bot', chips: 1_000, bet: 0, totalBet: 0 } as Player;
-    expect(canStartNextHand([allIn, opponent], new Set(['p1']))).toBe(false);
+  it.each(['fold', 'check', 'call', 'raise'] as const)(
+    'rejects a zero-stack Badugi betting action (%s) while keeping the all-in in the hand',
+    (action) => {
+      const allIn = {
+        id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50,
+        totalBet: 50, cards: [], hasActed: false, isDealer: false, declaration: null,
+      } as Player;
+      const opponent = {
+        ...allIn, id: 'p2', presence: 'human', chips: 1_000, bet: 50, totalBet: 50, hasActed: false,
+      } as Player;
+      expect(canStartNextHand([allIn, opponent], new Set(['p1']))).toBe(false);
 
-    const tableId = id('all-in-action');
+      const tableId = id(`badugi-all-in-${action}`);
+      const table = getOrCreateBadugiTable(tableId, true, false, { botsEnabled: false });
+      table.fundedSeats.add('p1');
+      table.state = {
+        ...table.state,
+        phase: 'BET_1',
+        activePlayerId: 'p1',
+        currentBet: 50,
+        players: [allIn, opponent],
+      };
+      const messageCount = table.state.messages.length;
+
+      handleBadugiAction(tableId, 'p1', action, action === 'raise' ? 100 : null);
+
+      expect(table.state.messages).toHaveLength(messageCount);
+      expect(table.state.players.find(player => player.id === 'p1')).toMatchObject({
+        chips: 0,
+        status: 'active',
+        hasActed: true,
+        bet: 50,
+      });
+      expect(table.state.activePlayerId).toBe('p2');
+    },
+  );
+
+  it.each(['fold', 'check', 'call', 'raise'] as const)(
+    'rejects a zero-stack Dead 7 betting action (%s) while keeping the all-in in the hand',
+    (action) => {
+      const allIn = {
+        id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50,
+        totalBet: 50, cards: [], hasActed: false, isDealer: false, declaration: null,
+      } as Player;
+      const opponent = {
+        ...allIn, id: 'p2', chips: 1_000, bet: 50, totalBet: 50, hasActed: false,
+      } as Player;
+      const tableId = id(`dead7-all-in-${action}`);
+      const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+      table.connections.set('p1', socket());
+      table.state = {
+        ...table.state,
+        phase: 'BET_1',
+        activePlayerId: 'p1',
+        currentBet: 50,
+        players: [allIn, opponent],
+      };
+      const messageCount = table.state.messages.length;
+
+      handleGenericAction(tableId, 'p1', action, action === 'raise' ? 100 : null);
+
+      expect(table.state.messages).toHaveLength(messageCount);
+      expect(table.state.players.find(player => player.id === 'p1')).toMatchObject({
+        chips: 0,
+        status: 'active',
+        hasActed: true,
+        bet: 50,
+      });
+      expect(table.state.activePlayerId).toBe('p2');
+    },
+  );
+
+  it('does not let an out-of-turn zero-stack Badugi action advance the turn', () => {
+    const tableId = id('badugi-out-of-turn-all-in');
     const table = getOrCreateBadugiTable(tableId, true, false, { botsEnabled: false });
-    table.fundedSeats.add('p1');
     table.state = {
       ...table.state,
       phase: 'BET_1',
+      activePlayerId: 'p2',
+      currentBet: 50,
+      players: [
+        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50, hasActed: false },
+        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, bet: 50, hasActed: false },
+      ],
+    };
+    const before = table.state;
+
+    handleBadugiAction(tableId, 'p1', 'check', null);
+
+    expect(table.state).toBe(before);
+    expect(table.state.activePlayerId).toBe('p2');
+  });
+
+  it('does not let an out-of-turn zero-stack generic action advance the turn', () => {
+    const tableId = id('dead7-out-of-turn-all-in');
+    const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+    table.connections.set('p1', socket());
+    table.state = {
+      ...table.state,
+      phase: 'BET_1',
+      activePlayerId: 'p2',
+      currentBet: 50,
+      players: [
+        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50, hasActed: false },
+        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, bet: 50, hasActed: false },
+      ],
+    };
+    const before = table.state;
+
+    handleGenericAction(tableId, 'p1', 'check', null);
+
+    expect(table.state).toBe(before);
+    expect(table.state.activePlayerId).toBe('p2');
+  });
+
+  it('keeps a zero-stack Badugi player eligible to complete a non-betting declaration', () => {
+    const tableId = id('badugi-all-in-declare');
+    const table = getOrCreateBadugiTable(tableId, true, false, { botsEnabled: false });
+    table.state = {
+      ...table.state,
+      phase: 'DECLARE',
+      activePlayerId: 'p2',
+      players: [
+        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, hasActed: false },
+        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, hasActed: false },
+      ],
+    };
+
+    handleBadugiAction(tableId, 'p1', 'declare', { declaration: 'LOW' });
+
+    expect(table.state.players[0]).toMatchObject({
+      chips: 0,
+      status: 'active',
+      declaration: 'LOW',
+      hasActed: true,
+    });
+  });
+
+  it('keeps a zero-stack Fifteen35 player eligible to draw and declare to stand', () => {
+    const tableId = id('fifteen35-all-in-hit');
+    const table = getOrCreateTable('fifteen35', tableId, true, false, { botsEnabled: false })!;
+    table.connections.set('p1', socket());
+    table.state = {
+      ...table.state,
+      phase: 'HIT_1',
+      activePlayerId: 'p1',
+      deck: [{ rank: '5', suit: 'hearts', isHidden: false }],
+      players: [
+        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, cards: [], declaration: null, hasActed: false },
+        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, hasActed: false },
+      ],
+    };
+
+    handleGenericAction(tableId, 'p1', 'hit', null);
+
+    expect(table.state.players[0]).toMatchObject({
+      chips: 0,
+      status: 'active',
+      hasActed: true,
+      cards: [{ rank: '5', suit: 'hearts' }],
+    });
+  });
+
+  it('keeps the automatic Suits Poker declaration for an all-in without checking or folding', () => {
+    const tableId = id('suits-all-in-declaration');
+    const table = getOrCreateTable('suits_poker', tableId, true, false, { botsEnabled: false })!;
+    table.connections.set('p1', socket());
+    table.state = {
+      ...table.state,
+      phase: 'DECLARE_AND_BET',
       activePlayerId: 'p1',
       currentBet: 50,
-      players: [allIn, opponent],
+      players: [
+        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50, declaration: 'POKER', hasActed: true },
+        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, bet: 50, declaration: null, hasActed: false },
+      ],
     };
-    handleBadugiAction(tableId, 'p1', 'check', null);
-    expect(table.state.messages.at(-1)?.text).toBe('You checked');
-    expect(table.state.players.find(player => player.id === 'p1')?.status).toBe('active');
+    const messageCount = table.state.messages.length;
+
+    handleGenericAction(tableId, 'p1', 'declare_and_bet', {
+      declaration: 'SUITS',
+      action: 'check',
+      amount: 0,
+    });
+
+    expect(table.state.messages).toHaveLength(messageCount);
+    expect(table.state.players[0]).toMatchObject({
+      chips: 0,
+      status: 'active',
+      bet: 50,
+      declaration: 'POKER',
+      hasActed: true,
+    });
+    expect(table.state.activePlayerId).toBe('p2');
   });
 
   it.each([
