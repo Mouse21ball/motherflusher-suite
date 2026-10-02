@@ -36,6 +36,7 @@ import { track } from '@/lib/analytics';
 import { startMenuReview } from '@/lib/reviewFlow';
 import { MusicButton } from '@/components/MusicButton';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
+import { shouldShowHomeChipRecovery } from './homeChipRecovery';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
 
@@ -303,7 +304,7 @@ export default function Home() {
   useEffect(() => { syncXPFromHistory(); }, []);
 
   const [progression, setProgression] = useState(() => getProgression());
-  const { profile: serverProfile, refetch } = useServerProfile();
+  const { profile: serverProfile, loading: profileLoading, refetch } = useServerProfile();
   useEffect(() => { void refetch(); }, [refetch]);
   const levelInfo = getLevelInfo(serverProfile?.xp ?? 0);
 
@@ -324,6 +325,7 @@ export default function Home() {
   const totalChips = Object.values(chipMap).reduce((a, b) => a + b, 0);
 
   const displayChips = Math.max(0, serverProfile?.chipBalance ?? totalChips);
+  const hasAuthoritativeZeroBalance = shouldShowHomeChipRecovery(serverProfile, profileLoading);
   const serverLevel  = serverProfile?.level ?? levelInfo.level;
 
   const rank        = getRankForLevel(serverLevel);
@@ -613,8 +615,8 @@ export default function Home() {
               <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.55)', fontFamily: 'monospace' }}>Welcome back, {identity.name.split(' ')[0]}.</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: '#22c55e', textShadow: '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1 }}>
-                ${displayChips.toLocaleString()}
+              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: hasAuthoritativeZeroBalance ? 11 : 18, color: hasAuthoritativeZeroBalance ? '#F2C66D' : '#22c55e', textShadow: hasAuthoritativeZeroBalance ? 'none' : '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1, textAlign: 'right', maxWidth: 132 }}>
+                {hasAuthoritativeZeroBalance ? "You're out of chips" : `$${displayChips.toLocaleString()}`}
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(34,197,94,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>CHIPS</div>
               <div data-testid="text-stripes-lobby" style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: '#a855f7', textShadow: '0 0 12px rgba(168,85,247,0.45)', lineHeight: 1 }}>
@@ -629,6 +631,17 @@ export default function Home() {
               </div>
             </div>
           </button>
+
+          {hasAuthoritativeZeroBalance && (
+            <button
+              type="button"
+              onClick={() => navigate('/shop')}
+              data-testid="button-home-get-chips"
+              style={{ margin: '0 16px 12px 98px', alignSelf: 'stretch', padding: '11px 16px', border: '1px solid rgba(201,162,39,0.55)', borderRadius: 12, background: 'linear-gradient(135deg, rgba(201,162,39,0.20), rgba(201,162,39,0.08))', color: '#F2C66D', fontFamily: 'monospace', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
+            >
+              GET CHIPS
+            </button>
+          )}
 
           {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
