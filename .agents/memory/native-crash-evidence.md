@@ -11,7 +11,7 @@ Test the complete production entry separately from component fixtures. Classify 
 
 Treat real-device bisection as evidence of a failing-build boundary even if desktop production checks pass. It does not prove that the changed source is the defect or identify the failing instruction.
 
-**Why:** Pure source and an acyclic import graph cannot exclude a native startup failure. In a device-side investigation, DEX inspection and dependency sources identified a reflection-required generated database constructor removed by R8, despite successful matching-Chromium production checks. The apparent JavaScript regression was not the defect.
+**Why:** Pure source and an acyclic import graph cannot exclude a native startup failure. In a device-side investigation, DEX inspection and dependency sources identified a reflection-required generated database constructor removed by R8, despite successful matching-Chromium production checks. The apparent JavaScript regression was not the defect. The constructor-only preservation was subsequently confirmed to open and play on the real Galaxy A15 without removing WorkManager initialization.
 
 **How to apply:** Respect device evidence but distinguish identical tracked native source from identical shrunk native output. Inspect release DEX and reflection requirements when native startup fails. If crash logging is unavailable, use matching-engine probes or controlled reductions without repeatedly demanding logs. Do not infer a web-asset-size threshold in R8 without native build evidence. Keep native initialization intact when a targeted constructor preservation rule addresses the confirmed failure; removing initialization can disable required background work.
 

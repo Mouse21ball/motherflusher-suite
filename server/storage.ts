@@ -97,6 +97,7 @@ export interface IStorage {
   getPlayerIsAdmin(id: string): Promise<boolean>;
   addChipsToPlayer(id: string, chips: number, opts?: { reason?: ChipTxReason; source?: string; gameId?: string | null; handId?: string | null; metadata?: Record<string, any> | null }): Promise<void>;
   claimFreeTableRebuy(playerId: string, gameId: string, bustEventId: string): Promise<{ granted: boolean; chipBalance: number }>;
+  grantTableChipLoan(playerId: string, gameId: string, requestId: string): Promise<{ success: boolean; error?: string; newBalance?: number }>;
   fundLadyLuckBot(botId: string, tableId: string): Promise<number>;
   rebalanceLadyLuckBot(botId: string, tableId: string): Promise<number>;
   releaseLadyLuckBot(botId: string, tableId: string): Promise<void>;
@@ -4821,6 +4822,71 @@ export class MemStorage implements IStorage {
     });
 
     return { awarded: 1, dailyTotal: newTotal };
+  }
+
+  /**
+   * Atomically grant the broke-player loan for an authoritative table rebuy.
+   * The game/request key is recorded on the ledger entry so reconnect retries
+   * can safely resume the same loan without issuing a second grant.
+   */
+  async grantTableChipLoan(
+    playerId: string,
+    gameId: string,
+    requestId: string,
+  ): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+    if (!playerId.trim() || !gameId.trim() || !requestId.trim()) {
+      return { success: false, error: 'invalid_request' };
+    }
+
+    return db.transaction(async tx => {
+      const [profile] = await tx
+        .select({
+          chipBalance: playerProfiles.chipBalance,
+          chipLoanBalance: playerProfiles.chipLoanBalance,
+        })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.id, playerId))
+        .for('update');
+      if (!profile) return { success: false, error: 'player_not_found' };
+
+      const [existingGrant] = await tx
+        .select({ id: chipTransactions.id })
+        .from(chipTransactions)
+        .where(and(
+          eq(chipTransactions.playerId, playerId),
+          eq(chipTransactions.source, 'chip_loan_grant'),
+          eq(chipTransactions.gameId, gameId),
+          eq(chipTransactions.handId, requestId),
+        ))
+        .limit(1);
+      if (existingGrant) return { success: true, newBalance: profile.chipBalance };
+      if (profile.chipLoanBalance > 0) return { success: false, error: 'existing_loan' };
+      if (profile.chipBalance > 500) return { success: false, error: 'not_broke' };
+
+      const loanAmount = 1000;
+      const newBalance = profile.chipBalance + loanAmount;
+      const now = new Date();
+      await tx.update(playerProfiles)
+        .set({
+          chipBalance: sql`${playerProfiles.chipBalance} + ${loanAmount}`,
+          chipLoanBalance: loanAmount,
+          chipLoanGrantedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(playerProfiles.id, playerId));
+
+      await this._insertChipLedger(tx, {
+        playerId,
+        beforeBalance: profile.chipBalance,
+        amountChange: loanAmount,
+        afterBalance: newBalance,
+        reason: 'other',
+        source: 'chip_loan_grant',
+        gameId,
+        handId: requestId,
+      });
+      return { success: true, newBalance };
+    });
   }
 
   async grantChipLoan(playerId: string): Promise<{ success: boolean; error?: string; newBalance?: number }> {

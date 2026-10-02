@@ -40,7 +40,7 @@ export interface BadugiFullPageProps {
   state: GameState;
   handleAction: (action: string, payload?: unknown) => void;
   actionError?: string | null;
-  requestRebuy: (kind: 'free' | 'reserve', amount?: number) => Promise<void>;
+  requestRebuy: (kind: 'free' | 'reserve' | 'borrow', amount?: number) => Promise<void>;
   myId: string;
   modeId: string;
   tableId?: string;
@@ -174,19 +174,9 @@ export function BadugiFullPage({
   const hasNeverPurchased  = !localStorage.getItem('cgp_first_purchase_complete');
 
   const handleBorrowChips = async () => {
-    const pid = serverProfile?.profileId;
-    if (!pid) return;
-    try {
-      const res  = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        await requestRebuy('reserve', 1000);
-        setBustDismissed(true);
-        void refetchProfile();
-      }
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
-    }
+    await requestRebuy('borrow', 1000);
+    setBustDismissed(true);
+    void refetchProfile();
   };
 
   /* ShowdownReveal data */

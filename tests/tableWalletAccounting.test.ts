@@ -21,10 +21,12 @@ type Mode = 'badugi' | 'dead7' | 'flushed_up';
 let wallet = 30_000;
 let appliedLeaves: Set<string>;
 let appliedFreeRebuys: Set<string>;
+let appliedTableLoans: Set<string>;
 
 function mockWalletStorage() {
   appliedLeaves = new Set();
   appliedFreeRebuys = new Set();
+  appliedTableLoans = new Set();
   vi.spyOn(storage, 'getOrCreatePlayer').mockImplementation(async () => ({
     chipBalance: wallet,
     activeSubscriptionTier: null,
@@ -49,6 +51,14 @@ function mockWalletStorage() {
     appliedFreeRebuys.add(key);
     wallet += 1000;
     return { granted: true, chipBalance: wallet };
+  });
+  vi.spyOn(storage, 'grantTableChipLoan').mockImplementation(async (_id, gameId, requestId) => {
+    const key = `${_id}:${gameId}:${requestId}`;
+    if (appliedTableLoans.has(key)) return { success: true, newBalance: wallet };
+    if (wallet > 500) return { success: false, error: 'not_broke' };
+    appliedTableLoans.add(key);
+    wallet += 1000;
+    return { success: true, newBalance: wallet };
   });
 }
 
@@ -97,7 +107,7 @@ function markBusted(table: any, seat: string) {
   };
 }
 
-function requestRebuy(mode: Mode, tableId: string, seat: string, identityId: string, requestId: string, kind: 'free' | 'reserve', amount?: number) {
+function requestRebuy(mode: Mode, tableId: string, seat: string, identityId: string, requestId: string, kind: 'free' | 'reserve' | 'borrow', amount?: number) {
   return mode === 'badugi'
     ? rebuyBadugiSeat(tableId, seat, identityId, requestId, kind, amount)
     : rebuyGenericSeat(mode, tableId, seat, identityId, requestId, kind, amount);
@@ -421,6 +431,44 @@ describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
     await expect(requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0002', 'free'))
       .rejects.toThrow('already been used');
     expect(wallet).toBe(31_000);
+    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(0);
+  });
+});
+
+describe.each<Mode>(['badugi', 'dead7'])('%s atomic table loan', mode => {
+  it('credits the exact borrowed 1,000 chips to high-stakes tables below the buy-in minimum', async () => {
+    wallet = 400;
+    mockWalletStorage();
+    const tableId = `${mode}-borrow-high-${Math.random().toString(36).slice(2, 8)}`;
+    const joined = await join(mode, tableId, `session-${tableId}`, undefined, 'high');
+    expect(joined.table.state.minBet).toBe(1_000);
+    markBusted(joined.table, joined.seat!);
+
+    const result = await requestRebuy(
+      mode, tableId, joined.seat!, joined.identityId, 'borrow-request-0001', 'borrow', 1_000,
+    );
+
+    expect(result).toEqual({ chips: 1_000, walletBalance: 1_400 });
+    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(1_000);
+    expect(joined.table.chipsAtHandStart.get(joined.seat!)).toBe(1_400);
+    expect(joined.table.seatBankroll.get(joined.seat!)).toBe(0);
+    expect(wallet).toBe(1_400);
+    expect(storage.grantTableChipLoan).toHaveBeenCalledOnce();
+  });
+
+  it('rejects arbitrary borrow amounts without requesting a loan or changing the stack', async () => {
+    wallet = 400;
+    mockWalletStorage();
+    const tableId = `${mode}-borrow-fixed-${Math.random().toString(36).slice(2, 8)}`;
+    const joined = await join(mode, tableId, `session-${tableId}`);
+    markBusted(joined.table, joined.seat!);
+
+    await expect(requestRebuy(
+      mode, tableId, joined.seat!, joined.identityId, 'borrow-request-0002', 'borrow', 2_000,
+    )).rejects.toThrow('Borrowing always adds exactly 1,000 chips.');
+
+    expect(storage.grantTableChipLoan).not.toHaveBeenCalled();
+    expect(wallet).toBe(400);
     expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(0);
   });
 });

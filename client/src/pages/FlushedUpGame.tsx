@@ -332,19 +332,9 @@ function FlushedUpGameUI() {
   const activeCount = state.players.filter(p => p.presence === 'bot' || p.presence === 'human').length;
 
   const handleBorrowChips = async () => {
-    const pid = serverProfile?.profileId;
-    if (!pid) return;
-    try {
-      const res = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        await requestRebuy('reserve', 1000);
-        setBustDismissed(true);
-        void refetchProfile();
-      }
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
-    }
+    await requestRebuy('borrow', 1000);
+    setBustDismissed(true);
+    void refetchProfile();
   };
 
   const [chatOpen, setChatOpen] = useState(false);

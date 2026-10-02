@@ -36,7 +36,7 @@ function createLeaveRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-type RebuyKind = 'free' | 'reserve';
+type RebuyKind = 'free' | 'reserve' | 'borrow';
 interface PendingRebuy {
   tableId: string;
   modeId: string;
@@ -495,7 +495,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   const requestRebuy = useCallback(async (kind: RebuyKind, amount?: number): Promise<void> => {
-    await assertTableProtocolCapability('rebuy');
+    await assertTableProtocolCapability(kind === 'borrow' ? 'borrow' : 'rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
       return Promise.reject(new Error('Table connection is unavailable. Your rebuy was not confirmed.'));

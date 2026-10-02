@@ -60,7 +60,7 @@ interface UnifiedGameUIProps {
   sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
   kickedByHost?: boolean;
   leaveAndSettle?: () => Promise<void>;
-  requestRebuy: (kind: 'free' | 'reserve', amount?: number) => Promise<void>;
+  requestRebuy: (kind: 'free' | 'reserve' | 'borrow', amount?: number) => Promise<void>;
 }
 
 const SUITSPOKER_DECLARATION_OPTIONS = [
@@ -216,19 +216,9 @@ function UnifiedGameUI({ state, handleAction, actionError, myId, modeId, tableId
   const handleSendMessage = (text: string) => handleAction('chat', text);
 
   const handleBorrowChips = async () => {
-    const pid = serverProfile?.profileId;
-    if (!pid) return;
-    try {
-      const res = await apiFetch(apiUrl(`/api/players/${pid}/chip-loan`), { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        await requestRebuy('reserve', 1000);
-        setBustDismissed(true);
-        void refetchProfile();
-      }
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'The borrowed chips could not be added to your table stack.');
-    }
+    await requestRebuy('borrow', 1000);
+    setBustDismissed(true);
+    void refetchProfile();
   };
 
   // Chat drawer external control

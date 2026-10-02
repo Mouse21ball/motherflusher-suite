@@ -1,6 +1,6 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 
-type RebuyKind = 'free' | 'reserve';
+type RebuyKind = 'free' | 'reserve' | 'borrow';
 interface WireMessage {
   type: string;
   tableId?: string;
@@ -204,6 +204,33 @@ function expectCorrelatedRebuy(
 }
 
 test.describe('production WebSocket hook rebuy wiring', () => {
+  for (const modeId of ['badugi', 'dead7']) {
+    test(`${modeId} borrow credits the table using one authenticated confirmed request`, async ({ page }) => {
+      const mock = await openBustModal(page, modeId, 'accept');
+      const loanHttpRequests: string[] = [];
+      page.on('request', request => {
+        if (new URL(request.url()).pathname.endsWith('/chip-loan')) loanHttpRequests.push(request.method());
+      });
+      await page.getByTestId('button-bust-borrow-chips').tap();
+      await expect(page.getByTestId('bust-rebuy-pending')).toBeVisible();
+      await expect(page.getByTestId('hook-stack')).toHaveText('1000');
+      await expect(page.getByTestId('bust-out-modal')).toHaveCount(0);
+      const rebuy = mock.messages.find(message => message.type === 'table:rebuy');
+      expectCorrelatedRebuy(rebuy, modeId, 'borrow');
+      expect(rebuy?.amount).toBe(1000);
+      expect(loanHttpRequests).toEqual([]);
+    });
+  }
+
+  test('borrow rejection keeps the modal open and exposes the server error', async ({ page }) => {
+    const mock = await openBustModal(page, 'badugi', 'reject');
+    await page.getByTestId('button-bust-borrow-chips').tap();
+    await expect(page.getByTestId('bust-rebuy-error')).toContainText('rejected');
+    await expect(page.getByTestId('hook-stack')).toHaveText('0');
+    await expect(page.getByTestId('bust-out-modal')).toBeVisible();
+    expectCorrelatedRebuy(mock.messages.find(message => message.type === 'table:rebuy'), 'badugi', 'borrow');
+  });
+
   test('an older live backend fails promptly without sending an unhandled rebuy', async ({ page }) => {
     const mock = await openBustModal(page, 'badugi', 'accept');
     await page.route('**/api/version', route => route.fulfill({

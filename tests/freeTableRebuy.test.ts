@@ -8,7 +8,10 @@ vi.mock('../server/db', () => ({ db: mockDb }));
 
 import { storage } from '../server/storage';
 
-function createTransactionMock(options?: { player?: { chipBalance: number }; existingClaim?: { id: number } }) {
+function createTransactionMock(options?: {
+  player?: { chipBalance: number; chipLoanBalance?: number };
+  existingClaim?: { id: number };
+}) {
   let selectIndex = 0;
   const selectRows = [options?.player ? [options.player] : [], options?.existingClaim ? [options.existingClaim] : []];
   const selectBuilder = (rows: unknown[]) => {
@@ -89,5 +92,62 @@ describe('claimFreeTableRebuy', () => {
 
     expect(tx.select).toHaveBeenCalledOnce();
     expect(tx.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('grantTableChipLoan', () => {
+  it('records an eligible table loan under the retriable table request key', async () => {
+    const { tx, updateBuilder, insertBuilder } = createTransactionMock({
+      player: { chipBalance: 400, chipLoanBalance: 0 },
+    });
+
+    await expect(storage.grantTableChipLoan('player-1', 'dead7:table-1', 'request-12345678'))
+      .resolves.toEqual({ success: true, newBalance: 1_400 });
+
+    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(updateBuilder.set).toHaveBeenCalledWith(expect.objectContaining({
+      chipBalance: expect.anything(),
+      chipLoanBalance: 1_000,
+    }));
+    expect(insertBuilder.values).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      beforeBalance: 400,
+      amountChange: 1_000,
+      afterBalance: 1_400,
+      source: 'chip_loan_grant',
+      gameId: 'dead7:table-1',
+      handId: 'request-12345678',
+    }));
+  });
+
+  it('treats a retried request as the original successful loan without granting again', async () => {
+    const { tx, updateBuilder, insertBuilder } = createTransactionMock({
+      player: { chipBalance: 1_400, chipLoanBalance: 1_000 },
+      existingClaim: { id: 42 },
+    });
+
+    await expect(storage.grantTableChipLoan('player-1', 'dead7:table-1', 'request-12345678'))
+      .resolves.toEqual({ success: true, newBalance: 1_400 });
+
+    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(updateBuilder.set).not.toHaveBeenCalled();
+    expect(insertBuilder.values).not.toHaveBeenCalled();
+  });
+
+  it('rejects an existing unrelated loan and wallet balances over 500', async () => {
+    createTransactionMock({ player: { chipBalance: 400, chipLoanBalance: 1_000 } });
+    await expect(storage.grantTableChipLoan('player-1', 'table-1', 'request-12345678'))
+      .resolves.toMatchObject({ success: false, error: 'existing_loan' });
+
+    createTransactionMock({ player: { chipBalance: 501, chipLoanBalance: 0 } });
+    await expect(storage.grantTableChipLoan('player-1', 'table-1', 'request-87654321'))
+      .resolves.toMatchObject({ success: false, error: 'not_broke' });
+  });
+
+  it('does not open a transaction without a player, table, and request key', async () => {
+    mockDb.transaction.mockClear();
+    await expect(storage.grantTableChipLoan('player-1', '', 'request-12345678'))
+      .resolves.toMatchObject({ success: false, error: 'invalid_request' });
+    expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 });

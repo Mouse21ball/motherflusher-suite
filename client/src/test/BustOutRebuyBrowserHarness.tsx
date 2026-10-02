@@ -7,7 +7,7 @@ function BustOutRebuyBrowserHarness() {
   const [result, setResult] = useState('');
   const outcome = new URLSearchParams(window.location.search).get('outcome') ?? 'success';
 
-  const completeRebuy = async (kind: 'free' | 'reserve', amount?: number) => {
+  const completeRebuy = async (kind: 'free' | 'reserve' | 'borrow', amount?: number) => {
     await new Promise(resolve => window.setTimeout(resolve, 450));
     if (outcome === 'fail') throw new Error(`${kind} rebuy was rejected; no chips were credited.`);
     setResult(`${kind}:${amount ?? 1000}`);
@@ -24,6 +24,7 @@ function BustOutRebuyBrowserHarness() {
         hasNeverPurchased
         onStarterPack={() => completeRebuy('free')}
         onRebuy={amount => completeRebuy('reserve', amount)}
+        onBorrowChips={() => completeRebuy('borrow', 1000)}
         onLeaveTable={() => {}}
         onSpectate={() => {}}
         tableId="QA"

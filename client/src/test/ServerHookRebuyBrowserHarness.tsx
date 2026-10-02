@@ -6,7 +6,7 @@ import { useServerBadugi } from '@/lib/poker/engine/useServerGame';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
 import { useServerProfile, ServerProfileProvider } from '@/lib/useServerProfile';
 
-type RebuyKind = 'free' | 'reserve';
+type RebuyKind = 'free' | 'reserve' | 'borrow';
 interface HookApi {
   state: GameState;
   myId: string;
@@ -41,6 +41,7 @@ function RebuyModalHarness({ modeId, hook }: { modeId: string; hook: HookApi }) 
         hasNeverPurchased
         onStarterPack={() => requestRebuy('free')}
         onRebuy={amount => requestRebuy('reserve', amount)}
+        onBorrowChips={() => requestRebuy('borrow', 1000)}
         onLeaveTable={() => {}}
         onSpectate={() => {}}
         tableId="QA"

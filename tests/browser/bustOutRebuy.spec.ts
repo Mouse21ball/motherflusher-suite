@@ -1,6 +1,26 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('bust-out rebuy confirmation and errors', () => {
+  test('borrow is disabled while pending and dismisses only after its credit succeeds', async ({ page }) => {
+    await page.goto('/bust-out-rebuy-test.html');
+    const borrow = page.getByTestId('button-bust-borrow-chips');
+    await borrow.tap();
+    await expect(borrow).toBeDisabled();
+    await expect(page.getByTestId('bust-rebuy-pending')).toBeVisible();
+    await expect(page.getByTestId('rebuy-result')).toHaveText('borrow:1000');
+    await expect(page.getByTestId('bust-out-modal')).toHaveCount(0);
+  });
+
+  test('borrow failure appears in the modal and permits a retry without crediting chips', async ({ page }) => {
+    await page.goto('/bust-out-rebuy-test.html?outcome=fail');
+    const borrow = page.getByTestId('button-bust-borrow-chips');
+    await borrow.tap();
+    await expect(page.getByTestId('bust-rebuy-error')).toContainText('borrow rebuy was rejected');
+    await expect(borrow).toBeEnabled();
+    await expect(page.getByTestId('rebuy-result')).toHaveText('');
+    await expect(page.getByTestId('bust-out-modal')).toBeVisible();
+  });
+
   test.use({ isMobile: true, hasTouch: true, viewport: { width: 360, height: 740 } });
 
   test.beforeEach(async ({ page }) => {

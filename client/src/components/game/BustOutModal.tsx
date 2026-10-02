@@ -16,7 +16,7 @@ interface BustOutModalProps {
   onSpectate: () => void;
   onWatchAd?: () => void;
   onStarterPack?: () => void | Promise<void>;
-  onBorrowChips?: () => void;
+  onBorrowChips?: () => void | Promise<void>;
   /** Ticket-7: buy-in slider for rebuy. If provided, shows slider instead of fixed rebuy. */
   tableId?: string;
   modeId?: string;
@@ -64,7 +64,7 @@ export function BustOutModal({
   const [rebuyError, setRebuyError] = useState("");
 
   const handleRebuy = async (
-    path: "free" | "reserve",
+    path: "free" | "reserve" | "borrow",
     amount?: number,
     rethrowError = false,
   ) => {
@@ -72,9 +72,10 @@ export function BustOutModal({
     setRebuyBusy(true);
     setRebuyError("");
     try {
-      const callback = path === "free" ? onStarterPack : onRebuy;
+      const callback = path === "free" ? onStarterPack : path === "borrow" ? onBorrowChips : onRebuy;
       if (!callback) throw new Error("Rebuy is unavailable. Your chips were not credited.");
-      await callback(...(path === "free" ? [] : [amount]));
+      if (path === "reserve") await onRebuy(amount);
+      else await callback();
       if (amount !== undefined) setShowRebuySlider(false);
     } catch (error) {
       setRebuyError(error instanceof Error
@@ -264,7 +265,9 @@ export function BustOutModal({
   // ── Loan button (shown on every tier when onBorrowChips is provided) ────────
   const LoanBtn = () => onBorrowChips ? (
     <button
-      onClick={onBorrowChips}
+      onClick={() => { void handleRebuy("borrow"); }}
+      disabled={rebuyBusy}
+      aria-busy={rebuyBusy || undefined}
       data-testid="button-bust-borrow-chips"
       style={{
         width: '100%', padding: '10px 20px', borderRadius: 20,

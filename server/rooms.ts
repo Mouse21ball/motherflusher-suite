@@ -100,7 +100,7 @@ type ClientMessage =
   | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number }
   | { type: 'leave';         tableId: string; playerId: string; leaveId?: string }
   | { type: 'ping' }
-  | { type: 'table:rebuy'; tableId: string; modeId: string; playerId: string; requestId: string; kind: 'free' | 'reserve'; amount?: number }
+  | { type: 'table:rebuy'; tableId: string; modeId: string; playerId: string; requestId: string; kind: 'free' | 'reserve' | 'borrow'; amount?: number }
   | { type: 'badugi:action'; tableId: string; playerId: string; action: string; payload: unknown }
   | { type: 'mode:action';   tableId: string; modeId: string; playerId: string; action: string; payload: unknown }
   | { type: 'host:kick';     tableId: string; playerId: string; targetPlayerId: string }
@@ -667,7 +667,8 @@ export function initRooms(httpServer: Server): WebSocketServer {
           return;
         }
         if (!tableId || !modeId || !pid || !requestId || !/^[A-Za-z0-9_-]{8,100}$/.test(requestId) ||
-            (kind !== 'free' && kind !== 'reserve') ||
+            (kind !== 'free' && kind !== 'reserve' && kind !== 'borrow') ||
+            (kind === 'borrow' && amount !== undefined && amount !== 1000) ||
             (amount !== undefined && (!Number.isSafeInteger(amount) || amount <= 0))) {
           fail('Invalid rebuy request.');
           return;

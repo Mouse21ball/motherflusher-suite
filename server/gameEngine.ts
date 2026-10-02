@@ -587,7 +587,7 @@ export async function rebuyBadugiSeat(
   seat: string,
   identityId: string,
   requestId: string,
-  kind: 'free' | 'reserve',
+  kind: 'free' | 'reserve' | 'borrow',
   amount?: number,
 ): Promise<{ chips: number; walletBalance: number }> {
   const requestKey = `badugi:${identityId}:${tableId}:${seat}:${requestId}`;
@@ -655,6 +655,20 @@ export async function rebuyBadugiSeat(
         const grant = await storage.claimFreeTableRebuy(identityId, tableId, eventId);
         if (!grant.granted) throw new Error('The free rebuy for this hand has already been used.');
         walletBalance = grant.chipBalance;
+      } else if (kind === 'borrow') {
+        if (amount !== undefined && amount !== 1000) throw new Error('Borrowing always adds exactly 1,000 chips.');
+        creditAmount = 1000;
+        if (creditAmount > maxBuyin) throw new Error('This borrowed rebuy exceeds the table stack limit.');
+        const grant = await storage.grantTableChipLoan(identityId, `badugi:${tableId}`, requestId);
+        if (!grant.success || grant.newBalance === undefined) {
+          const messages: Record<string, string> = {
+            existing_loan: 'Repay your current chip loan before borrowing again.',
+            not_broke: 'Borrowing is only available when your wallet has 500 chips or less.',
+            player_not_found: 'Your chip balance could not be loaded.',
+          };
+          throw new Error(messages[grant.error ?? ''] ?? 'The chip loan could not be granted.');
+        }
+        walletBalance = grant.newBalance;
       } else {
         const availableReserve = Math.max(0, profile.chipBalance - baseline);
         const maxTransfer = Math.min(maxBuyin - player.chips, availableReserve);

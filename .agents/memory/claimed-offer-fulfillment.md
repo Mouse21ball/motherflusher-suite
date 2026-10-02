@@ -8,3 +8,9 @@ A first-purchase bundle requires no prior settled purchase when the player claim
 **Why:** Native store checkout is asynchronous. Revoking eligibility after the store has charged the player creates an unfulfilled purchase that cannot safely be retried.
 
 **How to apply:** Enforce eligibility before launching checkout, bind the receipt to the account, use the verified store purchase timestamp for the fixed expiration window, and keep idempotent grant/refund processing. Do not add post-payment account-history checks that downgrade a valid receipt.
+
+Keep the $0.99 first-purchase flow unchanged during table recovery and betting fixes.
+
+**Why:** The user confirmed that this offer registered correctly with Google Play on a real device and explicitly asked not to break it while fixing table QA issues.
+
+**How to apply:** Keep table exit, all-in, rebuy, loan, and invite-code fixes out of paid-offer registration and receipt fulfillment.
