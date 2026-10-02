@@ -35,6 +35,59 @@ function getTier(lifetimeBusts: number, sessionBusts: number, hasNeverPurchased:
   return 4;
 }
 
+function FreeChipsButton({
+  testId,
+  onClick,
+  disabled,
+  busy,
+}: {
+  testId: string;
+  onClick: () => void;
+  disabled: boolean;
+  busy: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-busy={busy || undefined}
+      data-testid={testId}
+      className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      GET 1,000 FREE CHIPS
+    </button>
+  );
+}
+
+function BorrowChipsButton({
+  onClick,
+  busy,
+}: {
+  onClick: () => void;
+  busy: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      aria-busy={busy || undefined}
+      data-testid="button-bust-borrow-chips"
+      style={{
+        width: '100%', padding: '10px 20px', borderRadius: 20,
+        border: '1px solid rgba(201,162,39,0.4)',
+        background: 'rgba(201,162,39,0.1)',
+        color: '#C9A227', fontFamily: 'monospace', fontSize: 11,
+        fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        cursor: busy ? 'not-allowed' : 'pointer', transition: 'background 0.15s',
+      }}
+    >
+      Borrow 1,000 Chips — repaid from next earnings
+    </button>
+  );
+}
+
 export function BustOutModal({
   open,
   lifetimeBusts,
@@ -258,6 +311,7 @@ export function BustOutModal({
   // ── Reserve rebuy: the slider is only for choosing a bankroll-backed amount. ──
   const RebuyBtn = ({ testId }: { testId: string }) => {
     const hasSlider = !!(tableId && modeId && bankrollAvailable != null);
+    if (bankrollAvailable != null && bankrollAvailable <= 0) return null;
     if (hasSlider && showRebuySlider) {
       return (
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-2">
@@ -283,25 +337,9 @@ export function BustOutModal({
       />
     );
   };
-
   // ── Loan button (shown on every tier when onBorrowChips is provided) ────────
   const LoanBtn = () => onBorrowChips ? (
-    <button
-      onClick={() => { void handleRebuy("borrow"); }}
-      disabled={rebuyBusy}
-      aria-busy={rebuyBusy || undefined}
-      data-testid="button-bust-borrow-chips"
-      style={{
-        width: '100%', padding: '10px 20px', borderRadius: 20,
-        border: '1px solid rgba(201,162,39,0.4)',
-        background: 'rgba(201,162,39,0.1)',
-        color: '#C9A227', fontFamily: 'monospace', fontSize: 11,
-        fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-        cursor: 'pointer', transition: 'background 0.15s',
-      }}
-    >
-      Borrow 1,000 Chips — repaid from next earnings
-    </button>
+    <BorrowChipsButton onClick={() => { void handleRebuy("borrow"); }} busy={rebuyBusy} />
   ) : null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -328,16 +366,7 @@ export function BustOutModal({
         {/* ── TIER 1: First bust + never purchased → Free Rebuy ── */}
         {tier === 1 && (
           <>
-            <button
-              onClick={() => { void handleRebuy("free"); }}
-              disabled={rebuyBusy || !onStarterPack}
-              aria-busy={rebuyBusy || undefined}
-              data-testid="button-bust-starter-pack"
-              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
-            >
-              <span>{rebuyBusy ? "CREDITING CHIPS…" : "🎁 FREE REBUY — GET 1,000 CHIPS"}</span>
-              <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
-            </button>
+            <FreeChipsButton testId="button-bust-starter-pack" disabled={rebuyBusy || !onStarterPack} busy={rebuyBusy} onClick={() => { void handleRebuy("free"); }} />
             <p className="text-center text-[12px] text-white/60 font-mono mb-3">Keep rolling — chips on us</p>
             <div className="space-y-2">
               <RebuyBtn testId="button-bust-rebuy" />
@@ -364,12 +393,7 @@ export function BustOutModal({
             {adTestMode && <p className="mb-2 text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
             {adMessage && <p className="mb-3 text-center text-xs text-white/75" role="status">{adMessage}</p>}
             <div className="space-y-2">
-              <SecBtn
-                label={rebuyBusy ? "Crediting chips…" : "Free Rebuy — Get 1,000 Chips"}
-                onClick={() => { void handleRebuy("free"); }}
-                testId="button-bust-free-rebuy"
-                disabled={!onStarterPack}
-              />
+              <FreeChipsButton testId="button-bust-free-rebuy" disabled={rebuyBusy || !onStarterPack} busy={rebuyBusy} onClick={() => { void handleRebuy("free"); }} />
               <LoanBtn />
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
@@ -380,16 +404,7 @@ export function BustOutModal({
         {/* ── TIER 3: 2+ session busts, never purchased → Free Rebuy push ── */}
         {tier === 3 && (
           <>
-            <button
-              onClick={() => { void handleRebuy("free"); }}
-              disabled={rebuyBusy || !onStarterPack}
-              aria-busy={rebuyBusy || undefined}
-              data-testid="button-bust-starter-pack"
-              className="w-full bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] py-4 rounded-xl font-black text-lg tracking-wider shadow-[0_0_20px_rgba(201,162,39,0.4)] mb-1 active:scale-[0.98] flex flex-col items-center gap-0.5"
-            >
-              <span>{rebuyBusy ? "CREDITING CHIPS…" : "🎁 FREE REBUY — GET 1,000 CHIPS"}</span>
-              <span className="text-[11px] font-bold opacity-70 tracking-wide">Back in the game instantly</span>
-            </button>
+            <FreeChipsButton testId="button-bust-starter-pack" disabled={rebuyBusy || !onStarterPack} busy={rebuyBusy} onClick={() => { void handleRebuy("free"); }} />
             <p className="text-center text-[12px] text-white/60 font-mono mb-3">
               Busted {sessionBusts}× this session — chips on us, keep rolling
             </p>
@@ -412,7 +427,9 @@ export function BustOutModal({
         {/* ── TIER 4: Default — plain rebuy ── */}
         {tier === 4 && (
           <>
-            {showRebuySlider && tableId && modeId && bankrollAvailable != null ? (
+            {bankrollAvailable === 0 ? (
+              <FreeChipsButton testId="button-bust-starter-pack" disabled={rebuyBusy || !onStarterPack} busy={rebuyBusy} onClick={() => { void handleRebuy("free"); }} />
+            ) : showRebuySlider && tableId && modeId && bankrollAvailable != null ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-3">
                 <BuyInSlider
                   tableId={tableId}
