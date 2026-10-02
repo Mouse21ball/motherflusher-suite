@@ -1868,6 +1868,15 @@ export function getOrCreateTable(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+function registerWalletSpectator(table: GenericTable, sessionId: string, ws: WebSocket, name?: string) {
+  table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
+  try {
+    ws.send(JSON.stringify({ type: 'mode:init', modeId: table.modeId, playerId: '__spectator__', role: 'spectator',
+      state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer) }));
+  } catch {}
+  broadcastState(table);
+}
+
 async function ensureGenericSeatFunded(
   table: GenericTable,
   seat: string,
@@ -1936,6 +1945,7 @@ async function ensureGenericSeatFunded(
           : 'Unable to load your wallet. Please try again.';
         if (table.seatToIdentityId.get(seat) === identityId && !table.fundedSeats.has(seat)) {
           const currentWs = table.connections.get(seat);
+          const currentSession = Array.from(table.sessionToSeat.entries()).find(([, heldSeat]) => heldSeat === seat)?.[0];
           for (const [sid, heldSeat] of table.sessionToSeat) {
             if (heldSeat === seat) table.sessionToSeat.delete(sid);
           }
@@ -1949,6 +1959,10 @@ async function ensureGenericSeatFunded(
           table.seatBankroll.delete(seat);
           table.fundedSeats.delete(seat);
           releaseSeat(table, seat);
+          if (rejectionMessage === 'A positive wallet balance is required to join a table.' && currentWs && currentSession) {
+            registerWalletSpectator(table, currentSession, currentWs, playerName);
+            return false;
+          }
           try {
             currentWs?.send(JSON.stringify({ type: 'error', message: rejectionMessage }));
             currentWs?.close();
@@ -1982,7 +1996,7 @@ export async function addGenericConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId; spectateOnly?: boolean } = {},
   buyinChips?: number
 ): Promise<string | null> {
   const key = tableKey(modeId, tableId);
@@ -1992,11 +2006,12 @@ export async function addGenericConnection(
     try { ws.send(JSON.stringify({ type: 'mode:error', reason: 'unknown-mode' })); } catch {}
     return null;
   }
-  if (isNew && quickPlay) {
+  if (isNew && quickPlay && !options.spectateOnly) {
     quickFillBots(table);
   }
 
-  let seat = assignSeat(table, sessionId, identityId);
+  const watchOnly = options.spectateOnly === true;
+  let seat = watchOnly ? null : assignSeat(table, sessionId, identityId);
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
@@ -2160,6 +2175,9 @@ export async function addGenericConnection(
     }
     if (!table.fundedSeats.has(seat) &&
         !await ensureGenericSeatFunded(table, seat, identityId, playerName, buyinChips, isReconnect, hadSessionStats)) {
+      if (table.spectators.has(sessionId)) {
+        return '__spectator__';
+      }
       return null;
     }
   }

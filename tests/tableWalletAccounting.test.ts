@@ -17,7 +17,7 @@ import {
   removeGenericConnection,
 } from '../server/genericEngine';
 
-type Mode = 'badugi' | 'dead7' | 'flushed_up';
+type Mode = 'badugi' | 'dead7' | 'flushed_up' | 'fifteen35' | 'suits_poker' | 'kamikaze' | 'bonecrusher' | 'box_chevy';
 let wallet = 30_000;
 let appliedLeaves: Set<string>;
 let appliedFreeRebuys: Set<string>;
@@ -122,6 +122,51 @@ function leave(mode: Mode, tableId: string, sessionId: string) {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe.each<Mode>(['badugi', 'dead7', 'flushed_up', 'fifteen35', 'suits_poker', 'kamikaze', 'bonecrusher', 'box_chevy'])('%s zero-wallet spectators', mode => {
+  it('streams real table updates and stays out of seats after chips become available', async () => {
+    wallet = 0;
+    mockWalletStorage();
+    const tableId = `${mode}-live-watch-${Math.random().toString(36).slice(2, 8)}`;
+    const observerId = `observer-${tableId}`;
+    const observer = await join(mode, tableId, observerId);
+    wallet = 1000;
+    await join(mode, tableId, `player-${tableId}`, undefined, 'rookie', false, `player-identity-${tableId}`);
+    const messages = vi.mocked(observer.ws.send).mock.calls.map(([raw]) => JSON.parse(String(raw)));
+    expect(messages.some(message => message.type.endsWith(':snapshot') && message.state.players.some((player: any) => player.presence === 'human'))).toBe(true);
+    expect(observer.table.spectators.has(observerId)).toBe(true);
+    expect(observer.table.sessionToSeat.has(observerId)).toBe(false);
+    const pot = observer.table.state.pot;
+    if (mode === 'badugi') handleBadugiAction(tableId, '__spectator__', 'bet', 1000);
+    else handleGenericAction(tableId, '__spectator__', 'bet', 1000);
+    expect(observer.table.state.pot).toBe(pot);
+    expect(wallet).toBe(1000);
+  });
+
+  it('watches without any seat/funding, cannot rebuy, and leaves without changing the wallet', async () => {
+    wallet = 0;
+    mockWalletStorage();
+    const tableId = `${mode}-watch-${Math.random().toString(36).slice(2, 8)}`;
+    const table = getTable(mode, tableId);
+    const sessionId = `watch-${tableId}`;
+    const joined = await join(mode, tableId, sessionId);
+    expect(joined.seat).toBe('__spectator__');
+    expect(table.humanSeats.size).toBe(0);
+    expect(table.fundedSeats.size).toBe(0);
+    expect(table.connections.size).toBe(0);
+    expect(table.spectators.size).toBe(1);
+    expect(table.sessionToSeat.has(sessionId)).toBe(false);
+    expect(table.seatBankroll.size).toBe(0);
+    expect(wallet).toBe(0);
+    await expect(requestRebuy(mode, tableId, '__spectator__', `identity-${tableId}`, 'watch-rebuy', 'free')).rejects.toThrow();
+    expect(wallet).toBe(0);
+    expect(storage.claimFreeTableRebuy).not.toHaveBeenCalled();
+    await leave(mode, tableId, sessionId);
+    expect(table.spectators.size).toBe(0);
+    expect(wallet).toBe(0);
+    expect(storage.syncPlayerLeaveDelta).not.toHaveBeenCalled();
+  });
 });
 
 describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leave', mode => {

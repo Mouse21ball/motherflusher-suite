@@ -135,7 +135,10 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   // Will be replaced by the server-assigned seat when badugi:init arrives.
   const [myId, setMyId] = useState<string>('p1');
   const myIdRef = useRef<string>('p1');
-  const [role, setRole] = useState<'player' | 'spectator'>('player');
+  const watchRequested = new URLSearchParams(window.location.search).get('watch') === '1';
+  const [role, setRole] = useState<'player' | 'spectator'>(watchRequested ? 'spectator' : 'player');
+  const roleRef = useRef(role);
+  roleRef.current = role;
 
   // Host authority state
   const [hostId, setHostId] = useState<string | null>(null);
@@ -247,6 +250,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
         if (!mountedRef.current || !lifecycleActive || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({
           type: 'join', tableId: tableIdRef.current, modeId: 'badugi',
+          ...((watchRequested || roleRef.current === 'spectator') ? { spectateOnly: true } : {}),
           playerId: sessionId.current,
           identityId: identity.id,
           name: identity.name,
@@ -351,6 +355,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
               setSessionStats(ss);
             }
             if (msg.role === 'spectator' || msg.playerId === '__spectator__') {
+              roleRef.current = 'spectator';
               setRole('spectator');
             }
             if (msg.crewId) { isClubTableRef.current = true; setIsClubTable(true); }
@@ -509,6 +514,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
 
   const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> =>
     runSingleRebuyFlight(rebuyFlightRef, async () => {
+    if (roleRef.current === 'spectator') throw new Error('Watching only — get chips and rejoin to play.');
     await assertTableProtocolCapability(kind === 'borrow' ? 'borrow' : 'rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
@@ -544,6 +550,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   // handleAction uses a ref so it always sends the currently-assigned seat,
   // even if React hasn't re-rendered yet after receiving badugi:init.
   const handleAction = useCallback((action: string, payload?: unknown) => {
+    if (roleRef.current === 'spectator') return;
     if (action === 'rebuy') {
       const amount = typeof payload === 'number' ? payload :
         payload && typeof payload === 'object' && 'amount' in payload && typeof payload.amount === 'number'

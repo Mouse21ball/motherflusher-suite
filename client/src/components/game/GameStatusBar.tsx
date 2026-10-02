@@ -16,6 +16,7 @@ import type { GameSessionStats } from "./GameHeader";
 import type { GameState, GamePhase } from "@/lib/poker/types";
 import { apiUrl, shareOrigin } from "@/lib/apiConfig";
 import { ensurePlayerIdentity } from "@/lib/persistence";
+import { isForfeitConfirmationRequired } from "./spectatorExit";
 
 const MID_HAND: Set<string> = new Set([
   'ANTE','DEAL','DRAW','DRAW_1','DRAW_2','DRAW_3',
@@ -38,6 +39,7 @@ interface GameStatusBarProps {
   humanCount?: number;
   onOpenChat?: () => void;
   chatUnread?: number;
+  spectating?: boolean;
 }
 
 function PillGroup({ label, value, valueClass = '' }: { label: string; value: string; valueClass?: string }) {
@@ -55,7 +57,7 @@ const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flush
   bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
 };
 
-export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0 }: GameStatusBarProps) {
+export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0, spectating = false }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -141,7 +143,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
 
   const handleLobby = () => {
     if (isLeaving) return;
-    if (isMidHand) { setExitDialogOpen(true); setMenuOpen(false); }
+    if (isForfeitConfirmationRequired(isMidHand, spectating)) { setExitDialogOpen(true); setMenuOpen(false); }
     else { setMenuOpen(false); void leaveTable(false); }
   };
 
@@ -366,7 +368,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
                 data-testid="link-lobby-menu"
               >
                 <Home className="w-3.5 h-3.5" />
-                {isLeaving ? 'Saving stack…' : isMidHand ? 'Leave Table (forfeit)' : 'Back to Lobby'}
+                {isLeaving ? 'Saving stack…' : isForfeitConfirmationRequired(isMidHand, spectating) ? 'Leave Table (forfeit)' : 'Back to Lobby'}
               </button>
 
             </div>

@@ -4,6 +4,7 @@ test.describe('bust-out rebuy confirmation and errors', () => {
   for (const kind of ['free', 'reserve', 'borrow'] as const) {
     test(`${kind} same-tick double tap submits only once and stays disabled until resolution`, async ({ page }) => {
       await page.goto('/bust-out-rebuy-test.html');
+      await page.clock.install();
       if (kind === 'reserve') await page.getByTestId('button-bust-rebuy').tap();
       const testId = kind === 'free' ? 'button-bust-starter-pack'
         : kind === 'borrow' ? 'button-bust-borrow-chips' : 'buyin-confirm';
@@ -13,6 +14,7 @@ test.describe('bust-out rebuy confirmation and errors', () => {
       });
       await expect(page.getByTestId(testId)).toBeDisabled();
       await expect(page.getByTestId('rebuy-submissions')).toHaveText('1');
+      await page.clock.runFor(451);
       await expect(page.getByTestId('rebuy-result')).toHaveText(`${kind}:${kind === 'reserve' ? 5000 : 1000}`);
       await expect(page.getByTestId('bust-out-modal')).toHaveCount(0);
     });

@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { wsUrl } from '@/lib/apiConfig';
+import { Link, useLocation } from 'wouter';
+import { Eye } from 'lucide-react';
+import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { reportTableConnection } from '@/lib/tableConnectionHealth';
+import { useServerProfile } from '@/lib/useServerProfile';
+import { isResolvedZeroChipBalance } from './ladyLuckSpectatorBalance';
 import { LADY_LUCK_ROOMS, type LadyLuckState, type LadyLuckSuit } from '../../../shared/modes/ladyluck';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -142,6 +145,9 @@ function RaceTrack({
 
 export default function LadyLuckSpectate() {
   const [, navigate] = useLocation();
+  const { profile, loading: profileLoading } = useServerProfile();
+  const watchOnly = isResolvedZeroChipBalance(profileLoading, profile?.chipBalance);
+  const canFundSideBet = !profileLoading && Number.isFinite(profile?.chipBalance) && (profile?.chipBalance ?? 0) > 0;
   const tableId = new URLSearchParams(window.location.search).get('t') ?? '';
 
   const [state, setState]           = useState<LadyLuckState | null>(null);
@@ -172,7 +178,6 @@ export default function LadyLuckSpectate() {
       setSideBetSuit(null);
       setSideBetAmt(state ? LADY_LUCK_ROOMS[state.roomType].minWager : 100);
       setError(null);
-      reportTableConnection('connecting');
     }
     setPrevPhase(phase);
   }, [state?.phase]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -185,12 +190,14 @@ export default function LadyLuckSpectate() {
   useEffect(() => {
     if (!tableId) { setNotFound(true); return; }
     let alive = true;
+    reportTableConnection('connecting');
 
     const connect = async () => {
       try {
-        const tokenRes = await apiFetch('/api/auth/ws-ticket');
+        const tokenRes = await apiFetch(apiUrl('/api/auth/ws-ticket'));
         let token: string | null = null;
         if (tokenRes.ok) { const j = await tokenRes.json(); token = j.ticket ?? null; }
+        if (!alive) return;
 
         const ws = new WebSocket(wsUrl(token));
         wsRef.current = ws;
@@ -220,8 +227,8 @@ export default function LadyLuckSpectate() {
           } catch {}
         };
 
-        ws.onclose = () => { if (alive) setConnected(false); };
-      } catch {}
+        ws.onclose = () => { if (alive) { setConnected(false); reportTableConnection('connecting'); } };
+      } catch { if (alive) reportTableConnection('failed'); }
     };
 
     connect();
@@ -245,7 +252,7 @@ export default function LadyLuckSpectate() {
   };
 
   const handleLockBet = () => {
-    if (!sideBetSuit || sideBetAmt < sideBetMin || sideBetAmt > sideBetMax || betLocked) return;
+    if (!canFundSideBet || !sideBetSuit || sideBetAmt < sideBetMin || sideBetAmt > sideBetMax || betLocked) return;
     setError(null);
     send({ type: 'll:spectator_sidebet', tableId, userId: identity.id, suit: sideBetSuit, amount: sideBetAmt });
     setMyBet({ suit: sideBetSuit, amount: sideBetAmt });
@@ -306,8 +313,8 @@ export default function LadyLuckSpectate() {
         </span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span data-testid="text-spectator-count" style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)' }}>
-          👁 {spectators} watching
+        <span data-testid="text-spectator-count" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)' }}>
+          <Eye size={13} aria-hidden="true" /> {spectators} watching
         </span>
         <button data-testid="button-spectate-leave" onClick={handleLeave} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.70)', cursor: 'pointer', letterSpacing: 0.5 }}>
           LEAVE
@@ -316,11 +323,36 @@ export default function LadyLuckSpectate() {
     </div>
   );
 
+  const watchOnlyBanner = watchOnly ? (
+    <div data-testid="spectator-watch-only" role="status" style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      margin: '12px 16px 0', padding: '11px 13px', borderRadius: 10,
+      background: 'rgba(25,35,32,0.96)', border: '1px solid rgba(182,227,200,0.28)',
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 800, color: '#b6e3c8', letterSpacing: 1 }}>
+          WATCHING ONLY
+        </div>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 3 }}>
+          Watching only — get chips to play.
+        </div>
+      </div>
+      <Link href="/shop" data-testid="button-get-chips" style={{
+        flexShrink: 0, background: 'rgba(182,227,200,0.12)', border: '1px solid rgba(182,227,200,0.38)',
+        borderRadius: 7, padding: '7px 10px', fontFamily: 'monospace', fontSize: 10,
+        fontWeight: 800, letterSpacing: 0.6, color: '#b6e3c8', cursor: 'pointer', textDecoration: 'none',
+      }}>
+        GET CHIPS
+      </Link>
+    </div>
+  ) : null;
+
   // ── RESULTS phase ──────────────────────────────────────────────────────────
   if (phase === 'RESULTS') {
     return (
       <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {header}
+        {watchOnlyBanner}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 16px 24px' }}>
 
           {/* Winner card */}
@@ -396,6 +428,7 @@ export default function LadyLuckSpectate() {
     return (
       <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {header}
+        {watchOnlyBanner}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 16px 24px' }}>
 
           {/* Race tracker */}
@@ -439,10 +472,11 @@ export default function LadyLuckSpectate() {
 
   // ── BET / WAGER phase — show side bet panel ────────────────────────────────
   if (phase === 'BET' || phase === 'WAGER') {
-    const canBet = !betLocked;
+    const canBet = !betLocked && canFundSideBet;
     return (
       <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {header}
+        {watchOnlyBanner}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 16px 24px' }}>
 
           {/* Phase status */}
@@ -526,7 +560,7 @@ export default function LadyLuckSpectate() {
                   </div>
                 )}
               </>
-            ) : (
+            ) : myBet ? (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 28, color: SUIT_COLS[myBet!.suit], marginBottom: 6 }}>{SUIT_SYMS[myBet!.suit]}</div>
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>
@@ -535,6 +569,10 @@ export default function LadyLuckSpectate() {
                 <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 4 }}>
                   {myBet!.amount.toLocaleString()} chips · pays {Math.floor(myBet!.amount * 2.5).toLocaleString()} on win
                 </div>
+              </div>
+            ) : (
+              <div data-testid="spectate-sidebet-unavailable" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>
+                {watchOnly ? 'Get chips to place a side bet. You can keep watching this race.' : 'Your side bet is locked for this race.'}
               </div>
             )}
 
@@ -561,6 +599,7 @@ export default function LadyLuckSpectate() {
   return (
     <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', gap: 0 }}>
       {header}
+      {watchOnlyBanner}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 16px 24px' }}>
         <div style={{ ...GLASS_CARD, padding: '28px 20px', textAlign: 'center' }}>
           <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 16, color: '#C9A227', letterSpacing: 1, marginBottom: 8 }}>

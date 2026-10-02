@@ -309,6 +309,7 @@ function UnifiedGameUI({ state, handleAction, actionError, myId, modeId, tableId
         humanCount={humanCount}
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
+        spectating={effectiveSpectator}
       />
 
       {!effectiveSpectator && (

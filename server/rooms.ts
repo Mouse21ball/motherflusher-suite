@@ -99,7 +99,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number; spectateOnly?: boolean }
   | { type: 'leave';         tableId: string; playerId: string; leaveId?: string }
   | { type: 'ping' }
   | { type: 'table:rebuy'; tableId: string; modeId: string; playerId: string; requestId: string; kind: 'free' | 'reserve' | 'borrow'; amount?: number }
@@ -471,6 +471,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
           botsEnabled: room.botsEnabled,
           crewId: room.crewId,
           stakeTier: room.stakeTier,
+          spectateOnly: msg.spectateOnly === true,
         };
 
         // ── Cross-table seat guard ───────────────────────────────────────────
@@ -478,7 +479,25 @@ export function initRooms(httpServer: Server): WebSocketServer {
         // NOTE: Lady Luck uses handleLLJoin (a separate path, not routed here)
         // and is intentionally excluded — its spectator-wager seat dynamics
         // require a different approach handled within ladyluckEngine.ts.
-        if (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi')) {
+        let watchIntent = msg.spectateOnly === true;
+        try {
+          if (!watchIntent) {
+            const wallet = await storage.getOrCreatePlayer(authenticatedIdentityId, name || undefined);
+            if (wallet.chipBalance === 0) {
+              // An existing seat may reconnect to finish its already committed
+              // hand. A new zero-wallet entry must not displace even a bot seat.
+              watchIntent = await storage.getPlayerActiveTable(authenticatedIdentityId) !== tableId;
+            }
+          }
+        } catch {
+          room.connections.delete(pid);
+          room.seats.delete(seatId);
+          if (room.hostId === pid) room.hostId = Array.from(room.seats.values())[0]?.playerId ?? '';
+          try { ws.send(JSON.stringify({ type: 'error', message: 'Unable to load your wallet.' })); } catch {}
+          return;
+        }
+        engineOptions.spectateOnly = watchIntent;
+        if (!watchIntent && (room.isAuthoritative || (SERVER_MODES_ON && modeId !== 'badugi'))) {
           const activeTable = await storage.getPlayerActiveTable(authenticatedIdentityId);
           if (activeTable && activeTable !== tableId) {
             // After a server restart the in-memory rooms Map is wiped but the DB
@@ -514,6 +533,11 @@ export function initRooms(httpServer: Server): WebSocketServer {
           return;
         }
 
+        if (assignedSeat === '__spectator__') {
+          // Observers never occupy a room seat or acquire host authority.
+          room.seats.delete(seatId);
+          if (room.hostId === pid) room.hostId = Array.from(room.seats.values())[0]?.playerId ?? '';
+        }
         // Register seat ownership so subsequent AUTHZ checks can resolve seat
         // labels (e.g. "p1") back to the verified authenticatedPlayerId.
         // We register both the join-time pid (used by leave/host messages) and

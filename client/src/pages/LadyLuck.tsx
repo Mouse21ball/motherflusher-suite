@@ -4,6 +4,7 @@ import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { reportTableConnection, returnToLobby } from '@/lib/tableConnectionHealth';
+import { useServerProfile } from '@/lib/useServerProfile';
 import { LADY_LUCK_FLIP_DURATION_MS, LADY_LUCK_SUIT_PULSE_MS } from '../../../shared/ladyluckTiming';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
@@ -209,6 +210,7 @@ interface LadyLuckPageProps {
 }
 
 function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) {
+  const { profile: serverProfile, loading: profileLoading } = useServerProfile();
   const [, navigate]          = useLocation();
   const [tableId, setTableId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('t'));
   const [state, setState]     = useState<LadyLuckState | null>(null);
@@ -398,6 +400,16 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
     setJoining(true); setJoinError(null);
     reportTableConnection('connecting');
     try {
+      if (profileLoading || !serverProfile) throw new Error('Your profile is not available yet.');
+      if (serverProfile.chipBalance === 0) {
+        const response = await apiFetch(apiUrl('/api/ladyluck/tables'));
+        if (!response.ok) throw new Error('Live tables are unavailable.');
+        const tables = await response.json() as { tableId: string; roomType: LadyLuckRoom; playerCount: number }[];
+        const table = tables.filter(t => t.roomType === roomType && t.playerCount > 0).sort((a, b) => b.playerCount - a.playerCount)[0];
+        if (!table) throw new Error('No live table is available to watch in this room yet.');
+        navigate(`/ladyluck/spectate?t=${encodeURIComponent(table.tableId)}`);
+        return;
+      }
       const res = await apiFetch(apiUrl('/api/ladyluck/tables'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomType }),

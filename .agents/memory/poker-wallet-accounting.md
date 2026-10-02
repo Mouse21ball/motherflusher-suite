@@ -16,3 +16,9 @@ A durable free grant can succeed while a timer changes the hand, causing a later
 The user treats “player cannot get back to the lobby” as a severity-critical bug class. Every joining, playing, watching, disconnected, rejected, timed-out, and broken-render state needs an independent, network-free lobby escape; reconnect retries must not postpone the deadline indefinitely.
 
 **Why:** A player was stranded on a dead table after connection failure and had to force-close the app.
+
+Keep the seating engines' pending-funding reservation and shared funding operation intact when classifying zero-wallet entries. At the authenticated room boundary, classify a new zero-wallet entrant before granting an engine seat; do not let an observer displace a bot in an existing hand.
+
+**Why:** An asynchronous balance check before the canonical engine reservation broke pending-action protection and duplicated funding lookups during connection takeovers.
+
+**How to apply:** Preserve the reservation's action blocking and takeover coalescing. Zero-wallet fallback must remove provisional unfunded ownership without emitting a funded-player init or granting chips.

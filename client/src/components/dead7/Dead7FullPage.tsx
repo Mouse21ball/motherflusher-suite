@@ -257,6 +257,7 @@ export function Dead7FullPage({
         tableId={tableId} humanCount={humanCount}
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
+        spectating={effectiveSpectator}
       />
 
       {!effectiveSpectator && (

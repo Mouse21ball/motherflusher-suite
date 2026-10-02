@@ -304,7 +304,7 @@ describe('funded table hand-start eligibility', () => {
     }
   });
 
-  it('rejects fresh zero-balance joins before they obtain an active human seat', async () => {
+  it('routes fresh zero-balance joins to spectators without an active human seat', async () => {
     vi.spyOn(storage, 'getOrCreatePlayer').mockResolvedValue({ chipBalance: 0 } as any);
 
     const badugiId = id('badugi-zero-join');
@@ -313,9 +313,11 @@ describe('funded table hand-start eligibility', () => {
     await expect(addBadugiConnection(
       badugiId, id('badugi-session'), badugiSocket, 'Zero', true, false,
       id('badugi-identity'), { botsEnabled: false },
-    )).resolves.toBeNull();
+    )).resolves.toBe('__spectator__');
     expect(badugi.state.players.some(player => player.presence === 'human')).toBe(false);
     expect(badugi.fundedSeats.size).toBe(0);
+    expect(badugiSocket.close).not.toHaveBeenCalled();
+    expect(badugiSocket.send).toHaveBeenCalledWith(expect.stringContaining('"role":"spectator"'));
 
     const genericId = id('dead7-zero-join');
     const generic = getOrCreateTable('dead7', genericId, true, false, { botsEnabled: false })!;
@@ -323,8 +325,10 @@ describe('funded table hand-start eligibility', () => {
     await expect(addGenericConnection(
       genericId, 'dead7', id('dead7-session'), genericSocket, 'Zero', true, false,
       id('dead7-identity'), { botsEnabled: false },
-    )).resolves.toBeNull();
+    )).resolves.toBe('__spectator__');
     expect(generic.state.players.some(player => player.presence === 'human')).toBe(false);
     expect(generic.fundedSeats.size).toBe(0);
+    expect(genericSocket.close).not.toHaveBeenCalled();
+    expect(genericSocket.send).toHaveBeenCalledWith(expect.stringContaining('"role":"spectator"'));
   });
 });

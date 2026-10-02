@@ -139,7 +139,10 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const lastPhaseRef = useRef<string | null>(null);
 
   const [myId, setMyId] = useState<string>('p1');
-  const [role, setRole] = useState<'player' | 'spectator'>('player');
+  const watchRequested = new URLSearchParams(window.location.search).get('watch') === '1';
+  const [role, setRole] = useState<'player' | 'spectator'>(watchRequested ? 'spectator' : 'player');
+  const roleRef = useRef(role);
+  roleRef.current = role;
   const myIdRef    = useRef<string>('p1');
 
   // Host authority state
@@ -241,6 +244,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
         if (!mountedRef.current || !lifecycleActive || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({
           type: 'join',
+          ...((watchRequested || roleRef.current === 'spectator') ? { spectateOnly: true } : {}),
           tableId: tableIdRef.current,
           modeId: modeIdRef.current,
           playerId: sessionId.current,
@@ -343,8 +347,10 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
               }
             }
             if (msg.role === 'spectator' || pid === '__spectator__') {
+              roleRef.current = 'spectator';
               setRole('spectator');
             } else {
+              roleRef.current = 'player';
               setRole('player');
             }
             // FULL replace — no merge.
@@ -525,6 +531,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
 
   const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> =>
     runSingleRebuyFlight(rebuyFlightRef, async () => {
+    if (roleRef.current === 'spectator') throw new Error('Watching only — get chips and rejoin to play.');
     await assertTableProtocolCapability(kind === 'borrow' ? 'borrow' : 'rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
@@ -559,6 +566,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }), []);
 
   const handleAction = useCallback((action: string, payload?: unknown) => {
+    if (roleRef.current === 'spectator') return;
     if (action === 'rebuy') {
       const amount = typeof payload === 'number' ? payload :
         payload && typeof payload === 'object' && 'amount' in payload && typeof payload.amount === 'number'

@@ -460,8 +460,8 @@ export default function Home() {
   const handleJoinTable = useCallback((modeId: string, tableId: string) => {
     const info = LIVE_MODE_INFO[modeId];
     if (!info) return;
-    navigate(`${info.path}?t=${tableId}`);
-  }, [navigate]);
+    navigate(`${info.path}?t=${tableId}${hasAuthoritativeZeroBalance ? '&watch=1' : ''}`);
+  }, [navigate, hasAuthoritativeZeroBalance]);
 
   const MODE_ENGINE_ID: Record<string, string> = {
     badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
@@ -469,6 +469,8 @@ export default function Home() {
   };
 
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
+    const watching = hasAuthoritativeZeroBalance;
+    const watchQuery = watching ? '&watch=1' : '';
     const modeMap: Record<string, 'badugi' | 'dead7' | 'fifteen35' | 'suits'> = {
       badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35', suitspoker: 'suits',
     };
@@ -479,14 +481,14 @@ export default function Home() {
       if (res.ok) {
         const all: LiveTableEntry[] = await res.json();
         const joinable = all
-          .filter(t => t.modeId === engineModeId && t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < (t.maxPlayers ?? 5) && !t.isInviteOnly)
+          .filter(t => t.modeId === engineModeId && (watching || t.phase === 'WAITING') && t.humanCount > 0 && (watching || t.humanCount < (t.maxPlayers ?? 5)) && !t.isInviteOnly)
           .sort((a, b) => b.humanCount - a.humanCount)[0];
-        if (joinable) { navigate(`${path}?t=${joinable.tableId}`); return; }
+        if (joinable) { navigate(`${path}?t=${joinable.tableId}${watchQuery}`); return; }
       }
     } catch {}
     const newCode = generateTableCode();
-    navigate(`${path}?t=${newCode}&qp=1`);
-  }, [navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+    navigate(`${path}?t=${newCode}&qp=1${watchQuery}`);
+  }, [navigate, hasAuthoritativeZeroBalance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismissAchievement = useCallback((id: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== id));

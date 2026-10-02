@@ -320,7 +320,7 @@ export function getLLActiveTables(): { tableId: string; roomType: LadyLuckRoom; 
   const out: { tableId: string; roomType: LadyLuckRoom; playerCount: number; isFull: boolean; spectatorCount: number }[] = [];
   for (const [tableId, meta] of tables.entries()) {
     const { phase } = meta.state;
-    if (phase === 'LOBBY' || phase === 'SELECT' || phase === 'WAGER' || phase === 'RESULTS' || phase === 'BET') {
+    if (phase === 'LOBBY' || phase === 'SELECT' || phase === 'WAGER' || phase === 'RACE' || phase === 'RESULTS' || phase === 'BET') {
       const activePlayers = meta.state.players.filter(p => p.presence !== 'open').length;
       const openSlots     = meta.state.players.filter(p => p.presence === 'open').length;
       const isFull        = activePlayers >= 4 && openSlots === 0 && phase !== 'LOBBY';

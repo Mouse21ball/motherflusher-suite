@@ -1686,6 +1686,15 @@ export function getOrCreateBadugiTable(
   return tables.get(tableId)!;
 }
 
+function registerWalletSpectator(table: AuthTable, sessionId: string, ws: WebSocket, name?: string) {
+  table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
+  try {
+    ws.send(JSON.stringify({ type: 'badugi:init', playerId: '__spectator__', role: 'spectator',
+      state: maskStateForPlayer(table.state, '__spectator__') }));
+  } catch {}
+  broadcastState(table);
+}
+
 async function ensureBadugiSeatFunded(
   table: AuthTable,
   seat: string,
@@ -1750,6 +1759,7 @@ async function ensureBadugiSeatFunded(
           : 'Unable to load your wallet. Please try again.';
         if (table.seatToIdentityId.get(seat) === identityId && !table.fundedSeats.has(seat)) {
           const currentWs = table.connections.get(seat);
+          const currentSession = Array.from(table.sessionToSeat.entries()).find(([, heldSeat]) => heldSeat === seat)?.[0];
           for (const [sid, heldSeat] of table.sessionToSeat) {
             if (heldSeat === seat) table.sessionToSeat.delete(sid);
           }
@@ -1763,6 +1773,10 @@ async function ensureBadugiSeatFunded(
           table.seatBankroll.delete(seat);
           table.fundedSeats.delete(seat);
           releaseSeat(table, seat);
+          if (rejectionMessage === 'A positive wallet balance is required to join a table.' && currentWs && currentSession) {
+            registerWalletSpectator(table, currentSession, currentWs, playerName);
+            return false;
+          }
           try {
             currentWs?.send(JSON.stringify({ type: 'error', message: rejectionMessage }));
             currentWs?.close();
@@ -1799,16 +1813,17 @@ export async function addBadugiConnection(
   isPrivate = false,
   quickPlay = false,
   identityId?: string,
-  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {},
+  options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId; spectateOnly?: boolean } = {},
   buyinChips?: number
 ): Promise<string | null> {
   const isNew = !tables.has(tableId);
   const table = getOrCreateBadugiTable(tableId, isPrivate, quickPlay, options);
-  if (isNew && quickPlay) {
+  if (isNew && quickPlay && !options.spectateOnly) {
     quickFillBots(table);
   }
 
-  let seat = assignSeat(table, sessionId, identityId);
+  const watchOnly = options.spectateOnly === true;
+  let seat = watchOnly ? null : assignSeat(table, sessionId, identityId);
   if (!seat) {
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
@@ -1952,6 +1967,9 @@ export async function addBadugiConnection(
     // the profile, but preserves live chips if the hand is already underway.
     if (!table.fundedSeats.has(seat) &&
         !await ensureBadugiSeatFunded(table, seat, identityId, playerName, buyinChips, isReconnect, hadSessionStats)) {
+      if (table.spectators.has(sessionId)) {
+        return '__spectator__';
+      }
       return null;
     }
   }
@@ -2008,6 +2026,7 @@ export async function addBadugiConnection(
 export function removeBadugiConnection(tableId: string, sessionId: string, intentional = false): Promise<void> {
   const table = tables.get(tableId);
   if (!table || !intentional) return removeBadugiDisconnect(tableId, sessionId, intentional);
+  if (table.spectators.has(sessionId)) return removeBadugiDisconnect(tableId, sessionId, true);
   const seat = table.sessionToSeat.get(sessionId);
   if (!seat) return Promise.resolve();
   const existing = table.leavePromises.get(seat);
