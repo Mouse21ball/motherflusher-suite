@@ -20,7 +20,7 @@ const adUnitId = "ca-app-pub-1234567890123456/1234567890";
 describe("rewarded AdMob units", () => {
   it("uses the supplied production units for both native platforms", () => {
     expect(rewardedAdUnitId("android", false)).toBe("ca-app-pub-1122384597919929/4402812186");
-    expect(rewardedAdUnitId("ios", false)).toBe("ca-app-pub-1122384597919929/4402812186");
+    expect(rewardedAdUnitId("ios", false)).toBe("ca-app-pub-1122384597919929/9990005770");
   });
 
   it("keeps sample units confined to non-production test sessions", () => {

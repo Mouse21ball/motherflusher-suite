@@ -13,7 +13,7 @@ export function isRewardedAdTestModeEnabled(
 const REWARDED_AD_UNITS = {
   production: {
     android: "ca-app-pub-1122384597919929/4402812186",
-    ios: "ca-app-pub-1122384597919929/4402812186",
+    ios: "ca-app-pub-1122384597919929/9990005770",
   },
   test: {
     android: "ca-app-pub-3940256099942544/5224354917",

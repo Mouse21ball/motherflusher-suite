@@ -14,3 +14,9 @@ The owner confirmed AdMob review approval on 2026-10-02 and authorized wiring Wa
 **Why:** The user explicitly lifted the earlier review hold.
 
 **How to apply:** Reward exactly 500 chips per completed, eligible ad, at most once per authoritative bust event. No amount slider; lock playback and verification against duplicate taps. Keep commits separate, push main, and do not publish.
+
+Use separate platform-specific production rewarded ad units; never reuse the Android rewarded unit for iOS.
+
+**Why:** The owner explicitly corrected the shared-unit assumption.
+
+**How to apply:** Preserve each platform's own production unit when changing rewarded-ad configuration or QA fixtures.
