@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BustOutModal } from '@/components/game/BustOutModal';
+import { BuyInSlider } from '@/components/game/BuyInSlider';
 
 function BustOutRebuyBrowserHarness() {
   const [open, setOpen] = useState(true);
   const [result, setResult] = useState('');
   const [submissions, setSubmissions] = useState(0);
-  const outcome = new URLSearchParams(window.location.search).get('outcome') ?? 'success';
+  const params = new URLSearchParams(window.location.search);
+  const outcome = params.get('outcome') ?? 'success';
+  const tier = Number(params.get('tier') ?? 1);
+  const sliderOnly = params.get('slider') === '1';
+  const [bankroll, setBankroll] = useState(Number(params.get('balance') ?? 10000));
+  const [bigBlind, setBigBlind] = useState(Number(params.get('blind') ?? 50));
 
   const completeRebuy = async (kind: 'free' | 'reserve' | 'borrow', amount?: number) => {
     setSubmissions(count => count + 1);
@@ -20,21 +26,36 @@ function BustOutRebuyBrowserHarness() {
     <div>
       <output data-testid="rebuy-result">{result}</output>
       <output data-testid="rebuy-submissions">{submissions}</output>
-      <BustOutModal
-        open={open}
-        lifetimeBusts={1}
-        sessionBusts={0}
-        hasNeverPurchased
-        onStarterPack={() => completeRebuy('free')}
-        onRebuy={amount => completeRebuy('reserve', amount)}
-        onBorrowChips={() => completeRebuy('borrow', 1000)}
-        onLeaveTable={() => {}}
-        onSpectate={() => {}}
-        tableId="QA"
-        modeId="badugi"
-        bankrollAvailable={30000}
-        bigBlind={50}
-      />
+      <button type="button" data-testid="harness-bankroll-decrease" onClick={() => setBankroll(2000)}>Set bankroll to 2,000</button>
+      <button type="button" data-testid="harness-stakes-change" onClick={() => setBigBlind(250)}>Change blind to 250</button>
+      {sliderOnly ? (
+        <BuyInSlider
+          tableId="QA"
+          modeId="badugi"
+          chipBalance={bankroll}
+          currentStack={Number(params.get('stack') ?? 0)}
+          bigBlind={bigBlind}
+          purpose="rebuy"
+          onConfirm={amount => completeRebuy('reserve', amount)}
+          onCancel={() => {}}
+        />
+      ) : (
+        <BustOutModal
+          open={open}
+          lifetimeBusts={tier === 1 ? 1 : 0}
+          sessionBusts={tier === 2 || tier === 3 ? 2 : 0}
+          hasNeverPurchased={tier === 1 || tier === 3}
+          onStarterPack={() => completeRebuy('free')}
+          onRebuy={amount => completeRebuy('reserve', amount)}
+          onBorrowChips={() => completeRebuy('borrow', 1000)}
+          onLeaveTable={() => {}}
+          onSpectate={() => {}}
+          tableId="QA"
+          modeId="badugi"
+          bankrollAvailable={bankroll}
+          bigBlind={bigBlind}
+        />
+      )}
     </div>
   );
 }

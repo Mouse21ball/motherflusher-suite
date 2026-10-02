@@ -3,6 +3,7 @@ import { track, getModeFromPath } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
 import { apiFetch } from "@/lib/session";
 import { apiUrl } from "@/lib/apiConfig";
+import { lookupTable } from "@/lib/tableSession";
 import { watchRewardedAd } from "@/lib/rewardedAds";
 import { BuyInSlider } from "./BuyInSlider";
 
@@ -62,7 +63,23 @@ export function BustOutModal({
   const [adTestMode, setAdTestMode] = useState(false);
   const [rebuyBusy, setRebuyBusy] = useState(false);
   const [rebuyError, setRebuyError] = useState("");
+  const [tableBigBlind, setTableBigBlind] = useState<number | null>(null);
   const rebuyBusyRef = useRef(false);
+
+  useEffect(() => {
+    if (!open || !tableId) {
+      setTableBigBlind(null);
+      return;
+    }
+    let cancelled = false;
+    setTableBigBlind(null);
+    void lookupTable(tableId).then(table => {
+      if (!cancelled && table?.minBet != null && Number.isFinite(table.minBet) && table.minBet > 0) {
+        setTableBigBlind(table.minBet);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [open, tableId]);
 
   const handleRebuy = async (
     path: "free" | "reserve" | "borrow",
@@ -211,6 +228,7 @@ export function BustOutModal({
     ? Math.max(0, Math.ceil((rescueOffer.expiresAt - rescueNow) / 1000))
     : 0;
   const rescueAvailable = !!rescueOffer?.available && !rescueOffer.claimed && rescueSecondsLeft > 0;
+  const effectiveBigBlind = tableBigBlind ?? bigBlind ?? 50;
 
   // ── Secondary button helper ────────────────────────────────────────────────
   const SecBtn = ({
@@ -237,7 +255,7 @@ export function BustOutModal({
     </button>
   );
 
-  // ── Rebuy section: slider when table context available, fallback button ────
+  // ── Reserve rebuy: the slider is only for choosing a bankroll-backed amount. ──
   const RebuyBtn = ({ testId }: { testId: string }) => {
     const hasSlider = !!(tableId && modeId && bankrollAvailable != null);
     if (hasSlider && showRebuySlider) {
@@ -250,7 +268,7 @@ export function BustOutModal({
             purpose="rebuy"
             pending={rebuyBusy}
             currentStack={0}
-            bigBlind={bigBlind ?? 50}
+            bigBlind={effectiveBigBlind}
             onConfirm={(amount) => handleRebuy("reserve", amount, true)}
             onCancel={() => setShowRebuySlider(false)}
           />
@@ -403,7 +421,7 @@ export function BustOutModal({
                   purpose="rebuy"
                   pending={rebuyBusy}
                   currentStack={0}
-                  bigBlind={bigBlind ?? 50}
+                  bigBlind={effectiveBigBlind}
                   onConfirm={(amount) => handleRebuy("reserve", amount, true)}
                   onCancel={() => setShowRebuySlider(false)}
                 />

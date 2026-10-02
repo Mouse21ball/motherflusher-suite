@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { apiUrl } from "@/lib/apiConfig";
 import { apiFetch } from "@/lib/session";
+import { formatBuyInBigBlinds, getBuyInBigBlinds, reconcileBuyInAmount } from "./buyInMath";
 
 interface BuyInSliderProps {
   tableId: string;
@@ -36,8 +37,9 @@ export function BuyInSlider({
   currentStack = 0,
   bigBlind = 50,
 }: BuyInSliderProps) {
-  const minBuyin  = bigBlind * 20;
-  const maxBuyin  = bigBlind * 200;
+  const blind = Number.isFinite(bigBlind) && bigBlind > 0 ? bigBlind : 50;
+  const minBuyin  = blind * 20;
+  const maxBuyin  = blind * 200;
 
   // For rebuy: max is limited so current_stack + rebuy ≤ 200BB
   const maxRebuy  = Math.max(0, maxBuyin - currentStack);
@@ -46,21 +48,30 @@ export function BuyInSlider({
     : Math.min(maxBuyin, chipBalance);
   const effectiveMin = minBuyin;
 
-  const defaultAmount = Math.min(Math.floor(effectiveMax * 0.5 / bigBlind) * bigBlind, effectiveMax);
+  const defaultAmount = Math.min(Math.floor(effectiveMax * 0.5 / blind) * blind, effectiveMax);
   const safeDefault   = Math.max(effectiveMin, Math.min(defaultAmount, effectiveMax));
 
   const [amount, setAmount]     = useState(safeDefault);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const submittingRef = useRef(false);
+  const previousBigBlind = useRef(blind);
 
-  const bbAmount = Math.round(amount / bigBlind);
+  useEffect(() => {
+    const previous = previousBigBlind.current;
+    previousBigBlind.current = blind;
+    setAmount(current => reconcileBuyInAmount(
+      current, previous, blind, effectiveMin, effectiveMax, safeDefault,
+    ));
+  }, [blind, effectiveMin, effectiveMax, safeDefault]);
+
+  const bbAmount = getBuyInBigBlinds(amount, blind);
 
   const handleSlider = useCallback((val: number[]) => {
-    const snapped = Math.round((val[0] ?? effectiveMin) / bigBlind) * bigBlind;
+    const snapped = Math.round((val[0] ?? effectiveMin) / blind) * blind;
     setAmount(Math.max(effectiveMin, Math.min(effectiveMax, snapped)));
     setError(null);
-  }, [effectiveMin, effectiveMax, bigBlind]);
+  }, [effectiveMin, effectiveMax, blind]);
 
   const handleConfirm = useCallback(async () => {
     if (pending || submittingRef.current || amount < effectiveMin || amount > effectiveMax) return;
@@ -112,7 +123,7 @@ export function BuyInSlider({
         disabled={loading || pending}
         min={effectiveMin}
         max={effectiveMax}
-        step={bigBlind}
+        step={blind}
         value={[amount]}
         onValueChange={handleSlider}
         className="w-full"
@@ -120,8 +131,8 @@ export function BuyInSlider({
       />
 
       <div className="flex justify-between text-xs text-white/60 font-mono">
-        <span>{formatChips(effectiveMin)} (20BB)</span>
-        <span>{formatChips(effectiveMax)} (200BB)</span>
+        <span data-testid="buyin-min-range">{formatChips(effectiveMin)} ({formatBuyInBigBlinds(effectiveMin, blind)} BB)</span>
+        <span data-testid="buyin-max-range">{formatChips(effectiveMax)} ({formatBuyInBigBlinds(effectiveMax, blind)} BB)</span>
       </div>
 
       {chipBalance < effectiveMin && (
