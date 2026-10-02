@@ -26,7 +26,13 @@ import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
 import { DEFAULT_STAKE_TIER_ID, clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
 import { resolveGiftSeats } from './personalChipGifts';
-import { runIdempotentTableRebuyRequest } from './tableRebuyRequests';
+import {
+  getTableRebuyBustEvent,
+  markTableRebuyEventClaimed,
+  markTableRebuyEventFunded,
+  runIdempotentTableRebuyRequest,
+  type TableRebuyBustEvent,
+} from './tableRebuyRequests';
 
 // ─── Pure helpers (no browser APIs, ported from client/engine/core.ts) ────────
 
@@ -385,6 +391,8 @@ interface AuthTable {
   lastChipSyncHand: Map<string, number>;
   // Chip balance at the start of the current hand — used to compute deltaChips.
   chipsAtHandStart: Map<string, number>;
+  /** One stable, server-owned rebuy claim per zero-stack bust episode. */
+  rebuyBustEvents: Map<string, TableRebuyBustEvent>;
   // Per-seat in-session stats (init on join, updated at each hand end).
   sessionStats: Map<string, SessionStat>;
   // Spectators: sessions watching but not seated (table full).
@@ -641,7 +649,11 @@ export async function rebuyBadugiSeat(
       }
 
       const handId = table.handId;
-      const eventId = `${handId}:${seat}:${identityId}`;
+      const bustEvent = getTableRebuyBustEvent(table.rebuyBustEvents, seat, identityId);
+      if (bustEvent.claimed) {
+        throw new Error('A rebuy has already been used for this bust event.');
+      }
+      const eventId = bustEvent.eventId;
       const baseline = table.chipsAtHandStart.get(seat) ?? 0;
       const { minBuyin, maxBuyin } = getBuyInBounds(table.state.minBet);
       const profile = await storage.getPlayerProfile(identityId);
@@ -654,12 +666,13 @@ export async function rebuyBadugiSeat(
         if (creditAmount > maxBuyin) throw new Error('This free rebuy exceeds the table stack limit.');
         const grant = await storage.claimFreeTableRebuy(identityId, tableId, eventId);
         if (!grant.granted) throw new Error('The free rebuy for this hand has already been used.');
+        markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.chipBalance;
       } else if (kind === 'borrow') {
         if (amount !== undefined && amount !== 1000) throw new Error('Borrowing always adds exactly 1,000 chips.');
         creditAmount = 1000;
         if (creditAmount > maxBuyin) throw new Error('This borrowed rebuy exceeds the table stack limit.');
-        const grant = await storage.grantTableChipLoan(identityId, `badugi:${tableId}`, requestId);
+        const grant = await storage.grantTableChipLoan(identityId, `badugi:${tableId}`, eventId);
         if (!grant.success || grant.newBalance === undefined) {
           const messages: Record<string, string> = {
             existing_loan: 'Repay your current chip loan before borrowing again.',
@@ -668,6 +681,7 @@ export async function rebuyBadugiSeat(
           };
           throw new Error(messages[grant.error ?? ''] ?? 'The chip loan could not be granted.');
         }
+        markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.newBalance;
       } else {
         const availableReserve = Math.max(0, profile.chipBalance - baseline);
@@ -687,6 +701,7 @@ export async function rebuyBadugiSeat(
       // Moves/credits a wallet allocation, not table profit.
       table.chipsAtHandStart.set(seat, startChips + creditAmount);
       table.seatBankroll.set(seat, Math.max(0, walletBalance - (startChips + creditAmount)));
+      markTableRebuyEventFunded(bustEvent);
       table.state = addMsg({
         ...table.state,
         players: table.state.players.map(p => p.id === seat ? {
@@ -1519,6 +1534,7 @@ export async function initEngine(): Promise<void> {
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
       chipsAtHandStart: new Map(),
+      rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       spectators: new Map(),
       disconnectTimers: new Map(),
@@ -1614,6 +1630,7 @@ export function getOrCreateBadugiTable(
       seatToIdentityId: new Map(),
       lastChipSyncHand: new Map(),
       chipsAtHandStart: new Map(),
+      rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       spectators: new Map(),
       disconnectTimers: new Map(),

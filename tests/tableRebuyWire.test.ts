@@ -218,6 +218,110 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
+  it.each([
+    { kind: 'free', amount: undefined, startWallet: 30_000 },
+    { kind: 'reserve', amount: 1_000, startWallet: 5_000 },
+    { kind: 'borrow', amount: 1_000, startWallet: 400 },
+  ])('rejects a second independent $kind request during the same bust event', async ({
+    kind, amount, startWallet,
+  }) => {
+    walletBalance = startWallet;
+    const tableId = `wire-duplicate-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId, kind === 'reserve' ? 1_000 : undefined);
+    try {
+      const table = await setSeatBusted(tableId, seat);
+      const beforeFreeGrants = vi.mocked(storage.claimFreeTableRebuy).mock.calls.length;
+      const beforeLoans = vi.mocked(storage.grantTableChipLoan).mock.calls.length;
+      const request = {
+        tableId,
+        modeId: 'badugi',
+        playerId: seat,
+        kind,
+        ...(amount == null ? {} : { amount }),
+      };
+
+      const first = sendRebuy(socket, request, `wire-first-${kind}-001`);
+      const second = sendRebuy(socket, request, `wire-second-${kind}-01`);
+      const results = await Promise.all([first, second]);
+
+      expect(results.filter(result => result.type === 'rebuy:complete')).toHaveLength(1);
+      expect(results.filter(result => result.type === 'rebuy:failed')).toHaveLength(1);
+      expect(results.find(result => result.type === 'rebuy:failed')?.error).toMatch(/already|busted/i);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(walletBalance).toBe(startWallet + (kind === 'reserve' ? 0 : 1_000));
+      expect(vi.mocked(storage.claimFreeTableRebuy).mock.calls.length - beforeFreeGrants).toBe(kind === 'free' ? 1 : 0);
+      expect(vi.mocked(storage.grantTableChipLoan).mock.calls.length - beforeLoans).toBe(kind === 'borrow' ? 1 : 0);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it('keeps two different free-rebuy requests in flight on one bust event behind the seat lock', async () => {
+    walletBalance = 30_000;
+    const tableId = `wire-delayed-duplicate-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId);
+    try {
+      const table = await setSeatBusted(tableId, seat);
+      let releaseGrant!: () => void;
+      let signalGrantStarted!: () => void;
+      const grantGate = new Promise<void>(resolve => { releaseGrant = resolve; });
+      const grantStarted = new Promise<void>(resolve => { signalGrantStarted = resolve; });
+      const originalClaim = vi.mocked(storage.claimFreeTableRebuy).getMockImplementation()!;
+      let grantCalls = 0;
+      vi.mocked(storage.claimFreeTableRebuy).mockImplementation(async (...args) => {
+        grantCalls++;
+        signalGrantStarted();
+        await grantGate;
+        return originalClaim(...args);
+      });
+
+      const first = sendRebuy(socket, {
+        tableId, modeId: 'badugi', playerId: seat, kind: 'free',
+      }, 'wire-delayed-first');
+      await grantStarted;
+      const second = sendRebuy(socket, {
+        tableId, modeId: 'badugi', playerId: seat, kind: 'free',
+      }, 'wire-delayed-second');
+
+      await new Promise(resolve => setTimeout(resolve, 15));
+      expect(grantCalls).toBe(1);
+      expect(table.actionLock).toBe(true);
+      releaseGrant();
+
+      const results = await Promise.all([first, second]);
+      expect(results.filter(result => result.type === 'rebuy:complete')).toHaveLength(1);
+      expect(results.filter(result => result.type === 'rebuy:failed')).toHaveLength(1);
+      expect(grantCalls).toBe(1);
+      expect(walletBalance).toBe(31_000);
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
+  it('permits a genuinely new bust event after the prior free rebuy funded the seat', async () => {
+    walletBalance = 30_000;
+    const tableId = `wire-new-bust-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const { socket, seat } = await connectPlayer(tableId);
+    try {
+      const table = await setSeatBusted(tableId, seat);
+      const first = await sendRebuy(socket, {
+        tableId, modeId: 'badugi', playerId: seat, kind: 'free',
+      }, 'wire-new-bust-first');
+      expect(first.type).toBe('rebuy:complete');
+
+      await setSeatBusted(tableId, seat);
+      const second = await sendRebuy(socket, {
+        tableId, modeId: 'badugi', playerId: seat, kind: 'free',
+      }, 'wire-new-bust-second');
+      expect(second.type).toBe('rebuy:complete');
+      expect(table.state.players.find(player => player.id === seat)?.chips).toBe(1_000);
+      expect(walletBalance).toBe(32_000);
+    } finally {
+      await closeSocket(socket);
+    }
+  });
+
   it('correlates invalid kinds to an explicit rebuy:failed response', async () => {
     walletBalance = 30_000;
     const tableId = `wire-invalid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

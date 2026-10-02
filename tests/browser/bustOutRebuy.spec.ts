@@ -1,6 +1,23 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('bust-out rebuy confirmation and errors', () => {
+  for (const kind of ['free', 'reserve', 'borrow'] as const) {
+    test(`${kind} same-tick double tap submits only once and stays disabled until resolution`, async ({ page }) => {
+      await page.goto('/bust-out-rebuy-test.html');
+      if (kind === 'reserve') await page.getByTestId('button-bust-rebuy').tap();
+      const testId = kind === 'free' ? 'button-bust-starter-pack'
+        : kind === 'borrow' ? 'button-bust-borrow-chips' : 'buyin-confirm';
+      await page.getByTestId(testId).evaluate(element => {
+        (element as HTMLButtonElement).click();
+        (element as HTMLButtonElement).click();
+      });
+      await expect(page.getByTestId(testId)).toBeDisabled();
+      await expect(page.getByTestId('rebuy-submissions')).toHaveText('1');
+      await expect(page.getByTestId('rebuy-result')).toHaveText(`${kind}:${kind === 'reserve' ? 5000 : 1000}`);
+      await expect(page.getByTestId('bust-out-modal')).toHaveCount(0);
+    });
+  }
+
   test('borrow is disabled while pending and dismisses only after its credit succeeds', async ({ page }) => {
     await page.goto('/bust-out-rebuy-test.html');
     const borrow = page.getByTestId('button-bust-borrow-chips');

@@ -20,6 +20,7 @@ import { apiFetch } from '../../session';
 import { assertTableProtocolCapability } from './tableProtocol';
 import { applyRebuyStack, readRebuyConfirmation } from './rebuyConfirmation';
 import { useServerProfile } from '../../useServerProfile';
+import { runSingleRebuyFlight } from './singleRebuyFlight';
 import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 // ─── Session UUID ─────────────────────────────────────────────────────────────
@@ -148,6 +149,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
   const leaveStartRef = useRef<Promise<void> | null>(null);
   const pendingRebuysRef = useRef<Map<string, PendingRebuy>>(new Map());
+  const rebuyFlightRef = useRef<Promise<void> | null>(null);
   const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const sessionId       = useRef<string>(getOrCreateSessionId());
@@ -485,7 +487,8 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
     return starting;
   }, []);
 
-  const requestRebuy = useCallback(async (kind: RebuyKind, amount?: number): Promise<void> => {
+  const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> =>
+    runSingleRebuyFlight(rebuyFlightRef, async () => {
     await assertTableProtocolCapability(kind === 'borrow' ? 'borrow' : 'rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
@@ -516,7 +519,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
         reject(new Error('Could not send the rebuy request. Your stack was not confirmed.'));
       }
     });
-  }, []);
+  }), []);
 
   // handleAction uses a ref so it always sends the currently-assigned seat,
   // even if React hasn't re-rendered yet after receiving badugi:init.

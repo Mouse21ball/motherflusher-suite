@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 interface CachedRequest<T> {
   expiresAt: number;
   completed: boolean;
@@ -7,6 +9,50 @@ interface CachedRequest<T> {
 const REQUEST_TTL_MS = 2 * 60_000;
 const MAX_CACHED_REQUESTS = 512;
 const requests = new Map<string, CachedRequest<unknown>>();
+
+export interface TableRebuyBustEvent {
+  identityId: string;
+  eventId: string;
+  claimed: boolean;
+  fundedSinceBust: boolean;
+}
+
+/**
+ * Keep a server-owned rebuy id for the entire zero-stack episode, not just
+ * whichever hand happens to be current when a button is tapped. A new event is
+ * opened only after this event funded the seat and it later busted again.
+ */
+export function getTableRebuyBustEvent(
+  events: Map<string, TableRebuyBustEvent>,
+  seat: string,
+  identityId: string,
+): TableRebuyBustEvent {
+  const previous = events.get(seat);
+  if (previous && previous.identityId === identityId && previous.claimed && !previous.fundedSinceBust) {
+    throw new Error('A rebuy has already been used for this bust event.');
+  }
+  if (previous && previous.identityId === identityId && !(previous.claimed && previous.fundedSinceBust)) {
+    return previous;
+  }
+
+  const event = {
+    identityId,
+    eventId: `${identityId}:${seat}:${randomUUID()}`,
+    claimed: false,
+    fundedSinceBust: false,
+  };
+  events.set(seat, event);
+  return event;
+}
+
+export function markTableRebuyEventClaimed(event: TableRebuyBustEvent): void {
+  event.claimed = true;
+}
+
+export function markTableRebuyEventFunded(event: TableRebuyBustEvent): void {
+  event.claimed = true;
+  event.fundedSinceBust = true;
+}
 
 /**
  * Deduplicate an authenticated table request across socket retries/reconnects.

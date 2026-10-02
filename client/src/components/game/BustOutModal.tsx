@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { track, getModeFromPath } from "@/lib/analytics";
 import { billing } from "@/lib/billing";
 import { apiFetch } from "@/lib/session";
@@ -62,13 +62,15 @@ export function BustOutModal({
   const [adTestMode, setAdTestMode] = useState(false);
   const [rebuyBusy, setRebuyBusy] = useState(false);
   const [rebuyError, setRebuyError] = useState("");
+  const rebuyBusyRef = useRef(false);
 
   const handleRebuy = async (
     path: "free" | "reserve" | "borrow",
     amount?: number,
     rethrowError = false,
   ) => {
-    if (rebuyBusy) return;
+    if (rebuyBusyRef.current) return;
+    rebuyBusyRef.current = true;
     setRebuyBusy(true);
     setRebuyError("");
     try {
@@ -83,6 +85,7 @@ export function BustOutModal({
         : "Rebuy failed. Your chips were not credited. Please try again.");
       if (rethrowError) throw error;
     } finally {
+      rebuyBusyRef.current = false;
       setRebuyBusy(false);
     }
   };
@@ -245,6 +248,7 @@ export function BustOutModal({
             modeId={modeId!}
             chipBalance={bankrollAvailable!}
             purpose="rebuy"
+            pending={rebuyBusy}
             currentStack={0}
             bigBlind={bigBlind ?? 50}
             onConfirm={(amount) => handleRebuy("reserve", amount, true)}
@@ -397,6 +401,7 @@ export function BustOutModal({
                   modeId={modeId}
                   chipBalance={bankrollAvailable}
                   purpose="rebuy"
+                  pending={rebuyBusy}
                   currentStack={0}
                   bigBlind={bigBlind ?? 50}
                   onConfirm={(amount) => handleRebuy("reserve", amount, true)}

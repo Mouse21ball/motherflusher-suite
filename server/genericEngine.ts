@@ -32,7 +32,13 @@ import { makeBotPlayer } from './utils/botPlayer';
 import { scheduleBotBanter } from './utils/botBanter';
 import { clampBuyIn, getBuyInBounds, getStakeTier, getStakeTierId, meetsMinimumBet, type StakeTierId } from '../shared/stakeTiers';
 import { resolveGiftSeats } from './personalChipGifts';
-import { runIdempotentTableRebuyRequest } from './tableRebuyRequests';
+import {
+  getTableRebuyBustEvent,
+  markTableRebuyEventClaimed,
+  markTableRebuyEventFunded,
+  runIdempotentTableRebuyRequest,
+  type TableRebuyBustEvent,
+} from './tableRebuyRequests';
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
@@ -520,6 +526,8 @@ interface GenericTable {
   // Per-seat chip balance at the START of the current hand (for profit delta calculation).
   // Initialized when player first loads chips from DB; updated after each hand sync.
   chipsAtHandStart: Map<string, number>;
+  /** One stable, server-owned rebuy claim per zero-stack bust episode. */
+  rebuyBustEvents: Map<string, TableRebuyBustEvent>;
   // Per-seat session stats (in-memory, this table session only).
   sessionStats: Map<string, SessionStat>;
   // ── Buy-in Slider ─────────────────────────────────────────────────────────
@@ -1824,6 +1832,7 @@ export function getOrCreateTable(
       crewId: options.crewId,
       stakeTier,
       chipsAtHandStart: new Map(),
+      rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
       seatLeaveIds: new Map(),
@@ -2522,7 +2531,11 @@ export async function rebuyGenericSeat(
       }
 
       const handId = table.handId;
-      const eventId = `${handId}:${seat}:${identityId}`;
+      const bustEvent = getTableRebuyBustEvent(table.rebuyBustEvents, seat, identityId);
+      if (bustEvent.claimed) {
+        throw new Error('A rebuy has already been used for this bust event.');
+      }
+      const eventId = bustEvent.eventId;
       const baseline = table.chipsAtHandStart.get(seat) ?? 0;
       const { minBuyin, maxBuyin } = getBuyInBounds(table.state.minBet);
       const profile = await storage.getPlayerProfile(identityId);
@@ -2535,6 +2548,7 @@ export async function rebuyGenericSeat(
         if (creditAmount > maxBuyin) throw new Error('This free rebuy exceeds the table stack limit.');
         const grant = await storage.claimFreeTableRebuy(identityId, `${modeId}:${tableId}`, eventId);
         if (!grant.granted) throw new Error('The free rebuy for this hand has already been used.');
+        markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.chipBalance;
       } else if (kind === 'borrow') {
         if (amount !== undefined && amount !== 1000) throw new Error('Borrowing always adds exactly 1,000 chips.');
@@ -2543,7 +2557,7 @@ export async function rebuyGenericSeat(
         const grant = await storage.grantTableChipLoan(
           identityId,
           `${modeId}:${tableId}`,
-          requestId,
+          eventId,
         );
         if (!grant.success || grant.newBalance === undefined) {
           const messages: Record<string, string> = {
@@ -2553,6 +2567,7 @@ export async function rebuyGenericSeat(
           };
           throw new Error(messages[grant.error ?? ''] ?? 'The chip loan could not be granted.');
         }
+        markTableRebuyEventClaimed(bustEvent);
         walletBalance = grant.newBalance;
       } else {
         const availableReserve = Math.max(0, profile.chipBalance - baseline);
@@ -2571,6 +2586,7 @@ export async function rebuyGenericSeat(
       const newChips = player.chips + creditAmount;
       table.chipsAtHandStart.set(seat, startChips + creditAmount);
       table.seatBankroll.set(seat, Math.max(0, walletBalance - (startChips + creditAmount)));
+      markTableRebuyEventFunded(bustEvent);
       table.state = addMsg({
         ...table.state,
         players: table.state.players.map(p => p.id === seat ? {
@@ -3264,6 +3280,7 @@ export async function initGenericEngine(): Promise<void> {
       crewId: undefined,
       stakeTier: getStakeTierId(undefined),
       chipsAtHandStart: new Map(),
+      rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       seatBankroll: new Map(),
       seatLeaveIds: new Map(),

@@ -1,4 +1,4 @@
-- [ProfileManager singleton](profile-manager-singleton.md) — only ONE top-level component may call useServerProfile(); duplicate calls race on guest-init → 500.
+- [Profile bootstrap ownership](profile-manager-singleton.md) — share one bootstrap owner; multiple context consumers are safe, independent guest-init requests can race.
 - [drizzle-kit push non-interactive](db-push-noninteractive.md) — db:push hangs in non-TTY; use tsx + raw SQL for agent/CI migrations.
 - [Unit test design gotchas](test-design-gotchas.md) — Kamikaze Ace=1 for low; Bonecrusher sole-LOW wins full pot; center suit diversity for PATH isolation; community RF pollution; rollover reachability.
 - [Spectator mode — Lady Luck](spectator-ladyluck.md) — spectators use a separate Map in LLTableMeta (not connections); ll:spectate/ll:spectator_sidebet/ll:spectator_leave WS prefix; broadcastState sends to both maps.

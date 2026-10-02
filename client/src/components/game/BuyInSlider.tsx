@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { apiUrl } from "@/lib/apiConfig";
@@ -12,6 +12,7 @@ interface BuyInSliderProps {
   onCancel?: () => void;
   /** Rebuys use the authenticated table socket; joins use the HTTP buy-in endpoint. */
   purpose?: "join" | "rebuy";
+  pending?: boolean;
   /** If set, this is a rebuy: currentStack is added to the validation. */
   currentStack?: number;
   /** Big blind amount (minBet from engine). Defaults to 50. */
@@ -31,6 +32,7 @@ export function BuyInSlider({
   onConfirm,
   onCancel,
   purpose = "join",
+  pending = false,
   currentStack = 0,
   bigBlind = 50,
 }: BuyInSliderProps) {
@@ -50,6 +52,7 @@ export function BuyInSlider({
   const [amount, setAmount]     = useState(safeDefault);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const bbAmount = Math.round(amount / bigBlind);
 
@@ -60,7 +63,8 @@ export function BuyInSlider({
   }, [effectiveMin, effectiveMax, bigBlind]);
 
   const handleConfirm = useCallback(async () => {
-    if (amount < effectiveMin || amount > effectiveMax) return;
+    if (pending || submittingRef.current || amount < effectiveMin || amount > effectiveMax) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -84,10 +88,13 @@ export function BuyInSlider({
     } catch {
       setError('Network error — please try again');
       setLoading(false);
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
     }
-  }, [amount, purpose, tableId, modeId, onConfirm, effectiveMin, effectiveMax]);
+  }, [amount, purpose, tableId, modeId, onConfirm, effectiveMin, effectiveMax, pending]);
 
-  const canConfirm = amount >= effectiveMin && amount <= effectiveMax && !loading;
+  const canConfirm = amount >= effectiveMin && amount <= effectiveMax && !loading && !pending;
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-xs mx-auto" data-testid="buyin-slider-panel">
@@ -102,6 +109,7 @@ export function BuyInSlider({
       </div>
 
       <Slider
+        disabled={loading || pending}
         min={effectiveMin}
         max={effectiveMax}
         step={bigBlind}
@@ -132,7 +140,7 @@ export function BuyInSlider({
             variant="outline"
             size="sm"
             onClick={onCancel}
-            disabled={loading}
+            disabled={loading || pending}
             className="flex-1 text-white/60 border-white/10"
             data-testid="buyin-cancel"
           >
@@ -146,7 +154,7 @@ export function BuyInSlider({
           className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono"
           data-testid="buyin-confirm"
         >
-          {loading ? (purpose === "rebuy" ? "Rebuying…" : "Joining…")
+          {loading || pending ? (purpose === "rebuy" ? "Rebuying…" : "Joining…")
             : purpose === "rebuy" ? `Rebuy ${formatChips(amount)}` : `Join for ${formatChips(amount)}`}
         </Button>
       </div>

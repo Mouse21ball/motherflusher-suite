@@ -209,6 +209,25 @@ function expectCorrelatedRebuy(
 
 test.describe('production WebSocket hook rebuy wiring', () => {
   for (const modeId of ['badugi', 'dead7']) {
+    test(`${modeId} coalesces direct same-tick rebuy calls before the capability check`, async ({ page }) => {
+      const mock = await openBustModal(page, modeId, 'ack-only');
+      let capabilityChecks = 0;
+      await page.route('**/api/version', async route => {
+        capabilityChecks++;
+        await new Promise(resolve => setTimeout(resolve, 200));
+        await route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ tableProtocol: { version: 1, leave: true, rebuy: true, borrow: true } }),
+        });
+      });
+      await page.getByTestId('hook-double-submit').tap();
+      await expect(page.getByTestId('hook-stack')).toHaveText('1000');
+      expect(capabilityChecks).toBe(1);
+      expect(mock.messages.filter(message => message.type === 'table:rebuy')).toHaveLength(1);
+    });
+  }
+
+  for (const modeId of ['badugi', 'dead7']) {
     for (const kind of ['free', 'reserve', 'borrow'] as const) {
       test(`${modeId} ${kind} updates stack and wallet from the acknowledgement without a snapshot`, async ({ page }) => {
         const mock = await openBustModal(page, modeId, 'ack-only');

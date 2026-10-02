@@ -408,7 +408,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
     expect(wallet).toBe(2_000);
   });
 
-  it('grants a free 1,000 stack below the table minimum only once per hand event', async () => {
+  it('uses a stable free-rebuy event until its funded stack busts again', async () => {
     wallet = 30_000;
     mockWalletStorage();
     const tableId = `${mode}-free-rebuy-${Math.random().toString(36).slice(2, 8)}`;
@@ -426,12 +426,20 @@ describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
     expect(await requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0001', 'free')).toEqual(result);
     expect(storage.claimFreeTableRebuy).toHaveBeenCalledTimes(1);
 
-    // A distinct request ID cannot mint a second grant for the same table/hand/seat.
-    markBusted(joined.table, joined.seat!);
+    // An independent request cannot bypass a funded seat's existing chips.
     await expect(requestRebuy(mode, tableId, joined.seat!, joined.identityId, 'free-request-0002', 'free'))
-      .rejects.toThrow('already been used');
+      .rejects.toThrow('busted table seat');
     expect(wallet).toBe(31_000);
-    expect(joined.table.state.players.find((player: any) => player.id === joined.seat)?.chips).toBe(0);
+
+    // Once that credited stack is consumed and the seat genuinely busts again,
+    // a new event ID permits its next advertised free grant.
+    markBusted(joined.table, joined.seat!);
+    const secondEvent = await requestRebuy(
+      mode, tableId, joined.seat!, joined.identityId, 'free-request-0003', 'free',
+    );
+    expect(secondEvent.chips).toBe(1_000);
+    expect(wallet).toBe(32_000);
+    expect(storage.claimFreeTableRebuy).toHaveBeenCalledTimes(2);
   });
 });
 

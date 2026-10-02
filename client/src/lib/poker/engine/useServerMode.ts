@@ -17,6 +17,7 @@ import { apiFetch } from '../../session';
 import { assertTableProtocolCapability } from './tableProtocol';
 import { applyRebuyStack, readRebuyConfirmation } from './rebuyConfirmation';
 import { useServerProfile } from '../../useServerProfile';
+import { runSingleRebuyFlight } from './singleRebuyFlight';
 import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
@@ -152,6 +153,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
   const leaveStartRef = useRef<Promise<void> | null>(null);
   const pendingRebuysRef = useRef<Map<string, PendingRebuy>>(new Map());
+  const rebuyFlightRef = useRef<Promise<void> | null>(null);
   const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
   const modeIdRef       = useRef<string>(modeId);
@@ -504,7 +506,8 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     return starting;
   }, []);
 
-  const requestRebuy = useCallback(async (kind: RebuyKind, amount?: number): Promise<void> => {
+  const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> =>
+    runSingleRebuyFlight(rebuyFlightRef, async () => {
     await assertTableProtocolCapability(kind === 'borrow' ? 'borrow' : 'rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
@@ -536,7 +539,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
         reject(new Error('Could not send the rebuy request. Your stack was not confirmed.'));
       }
     });
-  }, []);
+  }), []);
 
   const handleAction = useCallback((action: string, payload?: unknown) => {
     if (action === 'rebuy') {

@@ -35,6 +35,10 @@ function RebuyModalHarness({ modeId, hook }: { modeId: string; hook: HookApi }) 
       <output data-testid="hook-seat">{hook.myId}</output>
       <output data-testid="hook-stack">{player?.chips ?? 'waiting'}</output>
       <output data-testid="hook-wallet">{profile?.chipBalance ?? 'waiting'}</output>
+      <button data-testid="hook-double-submit" onClick={() => {
+        void hook.requestRebuy('free').catch(() => {});
+        void hook.requestRebuy('free').catch(() => {});
+      }}>Submit twice in one tick</button>
       <BustOutModal
         open={!dismissed && !!player && (player.chips === 0 || requesting)}
         lifetimeBusts={1}
