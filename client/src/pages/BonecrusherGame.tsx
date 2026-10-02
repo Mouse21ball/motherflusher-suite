@@ -57,14 +57,14 @@ function BonecrusherHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, hu
       backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
       borderBottom: '1px solid rgba(217,119,6,0.25)',
     }}>
-      <button onClick={onBack} data-testid="button-back" style={{
+      <button onClick={onBack} aria-label="Return to lobby" title="Return to lobby" data-testid="button-back" style={{
         display: 'flex', alignItems: 'center', gap: 5,
         background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.35)',
         borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.8)',
         fontSize: 11, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.1em',
         cursor: 'pointer',
       }}>
-        ← BACK
+        ← LOBBY
       </button>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>

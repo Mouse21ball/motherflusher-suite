@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { Menu, Camera, Home, BookOpen, MessageSquare } from "lucide-react";
+import { Menu, Home, BookOpen, MessageSquare } from "lucide-react";
 import { HowToPlay } from "@/components/ui/HowToPlay";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -184,12 +184,14 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
             </button>
           )}
           <button
-            onClick={() => console.log('TODO: snapshot feature')}
-            aria-label="Snapshot"
-            className="w-9 h-9 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-all touch-manipulation"
-            data-testid="button-snapshot"
+            onClick={handleLobby}
+            aria-label="Return to lobby"
+            title="Return to lobby"
+            disabled={isLeaving}
+            className="w-9 h-9 rounded-lg bg-[#C9A227]/15 border border-[#C9A227]/30 flex items-center justify-center text-[#E9C75A] hover:text-white active:scale-95 transition-all touch-manipulation disabled:opacity-50"
+            data-testid="button-exit-lobby"
           >
-            <Camera className="w-4 h-4" />
+            <Home className="w-4 h-4" />
           </button>
           {htpModeId && (
             <button

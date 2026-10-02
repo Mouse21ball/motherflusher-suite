@@ -52,6 +52,33 @@ test.describe('Game status bar waits for persisted leave settlement', () => {
     await expect(page.getByTestId('route')).toHaveText('/');
   });
 
+  test('the lobby exit is directly available without opening the menu', async ({ page }) => {
+    const exitToLobby = page.getByTestId('button-exit-lobby');
+    await expect(exitToLobby).toBeVisible();
+    await exitToLobby.tap();
+
+    await expect(page.getByTestId('leave-pending')).toHaveText('Saving your table stack…');
+    await expect(page.getByTestId('route')).toHaveText('/table');
+    await expect(page.getByTestId('leave-calls')).toHaveText('1');
+
+    await page.evaluate(() => window.dispatchEvent(new Event('qa:complete-leave')));
+    await expect(page.getByTestId('route')).toHaveText('/');
+  });
+
+  test('a direct mid-hand lobby exit still requires forfeit confirmation', async ({ page }) => {
+    await page.getByTestId('use-betting-phase').tap();
+    await page.getByTestId('button-exit-lobby').tap();
+
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await expect(page.getByTestId('leave-calls')).toHaveText('0');
+    await page.getByTestId('button-confirm-leave').tap();
+    await expect(page.getByTestId('leave-pending')).toHaveText('Saving your table stack…');
+    await expect(page.getByTestId('route')).toHaveText('/table');
+
+    await page.evaluate(() => window.dispatchEvent(new Event('qa:complete-leave')));
+    await expect(page.getByTestId('route')).toHaveText('/');
+  });
+
   test('a failed regular exit stays at the table and exposes the error', async ({ page }) => {
     await page.getByTestId('button-menu').tap();
     await page.getByTestId('link-lobby-menu').tap();

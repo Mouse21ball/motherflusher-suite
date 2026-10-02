@@ -68,14 +68,14 @@ function KamikazeHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, human
       backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
       borderBottom: '1px solid rgba(239,68,68,0.2)',
     }}>
-      <button onClick={onBack} data-testid="button-back" style={{
+      <button onClick={onBack} aria-label="Return to lobby" title="Return to lobby" data-testid="button-back" style={{
         display: 'flex', alignItems: 'center', gap: 5,
         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
         borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.8)',
         fontSize: 11, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.1em',
         cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
       }}>
-        ← BACK
+        ← LOBBY
       </button>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>

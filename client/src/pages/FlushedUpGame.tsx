@@ -76,6 +76,8 @@ function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, huma
       {/* Left: back button */}
       <button
         onClick={onBack}
+        aria-label="Return to lobby"
+        title="Return to lobby"
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'rgba(124,58,237,0.12)',
@@ -87,7 +89,7 @@ function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, huma
         }}
         data-testid="button-back"
       >
-        ← BACK
+        ← LOBBY
       </button>
 
       {/* Center: title */}

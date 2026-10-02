@@ -143,6 +143,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
   const mountedRef      = useRef(true);
   const reconnectRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLeaveRef = useRef<{ promise: Promise<void>; resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> } | null>(null);
+  const leaveStartRef = useRef<Promise<void> | null>(null);
   const pendingRebuysRef = useRef<Map<string, PendingRebuy>>(new Map());
   const leaveCompletedRef = useRef(false);
   const tableIdRef      = useRef<string>(tableId);
@@ -430,31 +431,48 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
 
   const leaveAndSettle = useCallback((): Promise<void> => {
     if (pendingLeaveRef.current) return pendingLeaveRef.current.promise;
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      return Promise.reject(new Error('Table connection is unavailable. Your balance was not confirmed.'));
-    }
-    let resolve!: () => void;
-    let reject!: (error: Error) => void;
-    const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
-    const timeout = setTimeout(() => {
-      pendingLeaveRef.current = null;
-      reject(new Error('Timed out saving your table balance. Please try again.'));
-    }, 30000);
-    pendingLeaveRef.current = { promise, resolve, reject, timeout };
-    try {
-      ws.send(JSON.stringify({
-        type: 'leave',
-        tableId: tableIdRef.current,
-        playerId: sessionId.current,
-        leaveId: leaveRequestId.current,
-      }));
-    } catch {
-      clearTimeout(timeout);
-      pendingLeaveRef.current = null;
-      reject(new Error('Could not send the table-leave request. Your balance was not confirmed.'));
-    }
-    return promise;
+    if (leaveCompletedRef.current) return Promise.resolve();
+    if (leaveStartRef.current) return leaveStartRef.current;
+
+    let starting!: Promise<void>;
+    starting = (async () => {
+      try {
+        await assertTableProtocolCapability('leave');
+        if (pendingLeaveRef.current) return await pendingLeaveRef.current.promise;
+        if (leaveCompletedRef.current) return;
+
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          throw new Error('Table connection is unavailable. Your balance was not confirmed.');
+        }
+
+        let resolve!: () => void;
+        let reject!: (error: Error) => void;
+        const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+        const timeout = setTimeout(() => {
+          pendingLeaveRef.current = null;
+          reject(new Error('Timed out saving your table balance. Please try again.'));
+        }, 30000);
+        pendingLeaveRef.current = { promise, resolve, reject, timeout };
+        try {
+          ws.send(JSON.stringify({
+            type: 'leave',
+            tableId: tableIdRef.current,
+            playerId: sessionId.current,
+            leaveId: leaveRequestId.current,
+          }));
+        } catch {
+          clearTimeout(timeout);
+          pendingLeaveRef.current = null;
+          reject(new Error('Could not send the table-leave request. Your balance was not confirmed.'));
+        }
+        await promise;
+      } finally {
+        if (leaveStartRef.current === starting) leaveStartRef.current = null;
+      }
+    })();
+    leaveStartRef.current = starting;
+    return starting;
   }, []);
 
   const requestRebuy = useCallback(async (kind: RebuyKind, amount?: number): Promise<void> => {
