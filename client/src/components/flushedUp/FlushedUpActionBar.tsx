@@ -190,7 +190,12 @@ export function FlushedUpActionBar({
         )}
 
         {/* Bet phase */}
-        {isBetPhase && isMyTurn && (
+        {isBetPhase && chips <= 0 && isMyTurn && (
+          <div data-testid="all-in-waiting" role="status" style={{ padding: '16px 12px', color: '#c084fc', fontFamily: 'monospace', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center' }}>
+            ALL IN · WAITING FOR THE HAND TO FINISH
+          </div>
+        )}
+        {isBetPhase && chips > 0 && isMyTurn && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               style={foldBtn}

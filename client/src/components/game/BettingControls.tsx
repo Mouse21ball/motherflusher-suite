@@ -82,6 +82,29 @@ export function BettingControls({
     opacity: canAct ? 1 : 0.45,
   };
 
+  if (context.chips <= 0) {
+    return (
+      <section
+        data-testid="all-in-waiting"
+        role="status"
+        aria-label="All in"
+        style={{
+          width: '100%',
+          padding: '16px 12px',
+          boxSizing: 'border-box',
+          color: '#C9A227',
+          fontFamily: 'monospace',
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: '0.12em',
+          textAlign: 'center',
+        }}
+      >
+        ALL IN · WAITING FOR THE HAND TO FINISH
+      </section>
+    );
+  }
+
   return (
     <section
       data-testid="betting-controls"

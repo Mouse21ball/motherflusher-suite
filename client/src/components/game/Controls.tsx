@@ -550,13 +550,11 @@ export function ActionControls({ phase, currentBet, myBet, pot, chips, onAction,
   const isBetPhaseForAllIn = (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') && !phase.startsWith('HIT_');
   if (chips <= 0 && isBetPhaseForAllIn) {
     return (
-      <div className={`${panelClass} flex flex-col items-center gap-3`}>
+      <div className={`${panelClass} flex flex-col items-center gap-3`} data-testid="all-in-waiting" role="status">
         <Badge variant="secondary" className="bg-[#C9A227]/10 text-[#C9A227]/70 border-[#C9A227]/15 font-mono text-xs tracking-widest">
           ALL IN
         </Badge>
-        <Button variant="secondary" className="w-full sm:w-auto bg-[#1C1C20] text-white/60 hover:bg-[#242428]" onClick={() => handleBetAction('check')} data-testid="button-check-allin">
-          Check (All-In)
-        </Button>
+        <span className="text-xs font-mono text-white/60">Waiting for the hand to finish</span>
       </div>
     );
   }

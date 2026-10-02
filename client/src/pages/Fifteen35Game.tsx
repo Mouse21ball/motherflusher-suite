@@ -764,11 +764,11 @@ function F35ActionZone({
   // BET phase — all-in guard
   if (chips <= 0 && phase.startsWith('BET_')) {
     return (
-      <div className="flex flex-col items-center gap-2 py-1">
+      <div className="flex flex-col items-center gap-2 py-1" data-testid="all-in-waiting" role="status">
         <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.70)', background: 'rgba(201,162,39,0.06)', border: '1px solid rgba(201,162,39,0.18)', borderRadius: 5, padding: '4px 14px' }}>
           ALL IN
         </div>
-        <MetalBtn variant="neutral" onClick={() => onAction('check')} testId="button-check-allin">CHECK (ALL IN)</MetalBtn>
+        <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>WAITING FOR THE HAND TO FINISH</span>
       </div>
     );
   }

@@ -14,6 +14,7 @@ const modes: Array<{ id: Mode; label: string }> = [
 export default function BettingControlsBrowserHarness() {
   const [mode, setMode] = useState<Mode>('dead7');
   const [currentBet, setCurrentBet] = useState(500);
+  const [chips, setChips] = useState(1000);
   const [lastAction, setLastAction] = useState('');
 
   const onAction = (action: string, amount?: number | unknown) => {
@@ -26,7 +27,7 @@ export default function BettingControlsBrowserHarness() {
     selectedCount: 0,
     drawLimit: 3,
     isMyTurn: true,
-    chips: 1000,
+    chips,
     currentBet,
     myBet: 500,
     pot: 1000,
@@ -56,6 +57,8 @@ export default function BettingControlsBrowserHarness() {
         ))}
         <button type="button" data-testid="set-call-state" onClick={() => setCurrentBet(600)}>Call state</button>
         <button type="button" data-testid="set-check-state" onClick={() => setCurrentBet(500)}>Check state</button>
+        <button type="button" data-testid="set-zero-chips" onClick={() => setChips(0)}>All-in state</button>
+        <button type="button" data-testid="set-funded-chips" onClick={() => setChips(1000)}>Funded state</button>
       </nav>
       <output data-testid="last-action" aria-live="polite">{lastAction}</output>
       <div style={{ width: '100%' }} data-mode={mode}>

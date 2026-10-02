@@ -55,4 +55,21 @@ test.describe('shared Badugi, Dead 7 and Kamikaze betting controls', () => {
     }));
     expect(dimensions.pageWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
   });
+
+  test('all-in players see no further bet sizing or check prompt', async ({ page }) => {
+    await page.goto('/betting-controls-test.html');
+
+    for (const mode of ['dead7', 'badugi', 'kamikaze'] as const) {
+      await page.getByTestId(`select-mode-${mode}`).tap();
+      await page.getByTestId('set-zero-chips').tap();
+
+      await expect(page.getByTestId('all-in-waiting')).toBeVisible();
+      await expect(page.getByTestId('input-bet-amount')).toHaveCount(0);
+      await expect(page.getByTestId('button-check')).toHaveCount(0);
+      await expect(page.getByTestId('button-fold')).toHaveCount(0);
+
+      await page.getByTestId('set-funded-chips').tap();
+      await expect(page.getByTestId('input-bet-amount')).toBeVisible();
+    }
+  });
 });
