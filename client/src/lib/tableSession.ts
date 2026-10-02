@@ -3,6 +3,8 @@
 // Generates and stores a table session scoped to the current browser tab.
 // The server validates codes via /api/tables — this module owns the client half.
 
+import { generateSafeInviteCode } from '../../../shared/inviteCodeSafety';
+
 const SESSION_KEY = 'poker_table_session';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
@@ -20,10 +22,12 @@ export interface TableSession {
 
 // ─── Code generation ──────────────────────────────────────────────────────────
 
-export function generateTableCode(): string {
-  return Array.from({ length: 6 }, () =>
-    ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
-  ).join('');
+export function generateTableCode(random: () => number = Math.random): string {
+  return generateSafeInviteCode(
+    ALPHABET,
+    6,
+    upperBound => Math.floor(random() * upperBound),
+  );
 }
 
 // ─── Session CRUD ─────────────────────────────────────────────────────────────

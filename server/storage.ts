@@ -36,6 +36,7 @@ import { GOOGLE_SUBSCRIPTION_PRODUCT_IDS } from "@shared/billingProducts";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
 import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { generateReferralCode } from "./referralCodes";
 import { promisify } from "util";
 import { db } from "./db";
 import { eq, ne, notLike, sql, and, or, gte, isNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
@@ -1064,7 +1065,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const profile: PlayerProfile = {
       id,
-      referralCode: randomBytes(8).toString("hex").toUpperCase(),
+      referralCode: generateReferralCode(),
       referredByPlayerId: null,
       displayName: displayName ?? "Guest",
       chipBalance: 25000,

@@ -5,17 +5,18 @@
 
 import { storage } from "./storage";
 import { filterChatMessage } from './chatFilter';
+import { generateSafeInviteCode } from '../shared/inviteCodeSafety';
 
 // ─── Invite-code generation ───────────────────────────────────────────────────
 // 6 uppercase alphanumeric chars from an unambiguous alphabet (no 0/1/I/O).
 const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-export function generateInviteCode(): string {
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += INVITE_ALPHABET[Math.floor(Math.random() * INVITE_ALPHABET.length)];
-  }
-  return code;
+export function generateInviteCode(random: () => number = Math.random): string {
+  return generateSafeInviteCode(
+    INVITE_ALPHABET,
+    6,
+    upperBound => Math.floor(random() * upperBound),
+  );
 }
 
 // Guarantee uniqueness — try up to 10 times (collision probability ≈ 0).
