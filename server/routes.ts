@@ -541,6 +541,7 @@ export async function registerRoutes(
     res.json({
       commit: BUILD_COMMIT,
       buildTimestamp: BUILD_TIMESTAMP,
+      tableProtocol: { version: 1, leave: true, rebuy: true },
     });
   });
 

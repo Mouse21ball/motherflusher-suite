@@ -40,6 +40,15 @@ async function mockHttpApis(page: Page) {
       return;
     }
 
+    if (url.pathname === '/api/version') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ tableProtocol: { version: 1, leave: true, rebuy: true, borrow: true } }),
+      });
+      return;
+    }
+
     if (url.pathname === '/api/auth/guest-init') {
       await route.fulfill({
         status: 200,
@@ -195,6 +204,20 @@ function expectCorrelatedRebuy(
 }
 
 test.describe('production WebSocket hook rebuy wiring', () => {
+  test('an older live backend fails promptly without sending an unhandled rebuy', async ({ page }) => {
+    const mock = await openBustModal(page, 'badugi', 'accept');
+    await page.route('**/api/version', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ commit: 'legacy-backend-without-rebuy-acknowledgements' }),
+    }));
+    await page.getByTestId('button-bust-starter-pack').tap();
+    await expect(page.getByTestId('bust-rebuy-error')).toContainText('server needs an update');
+    expect(mock.messages.filter(message => message.type === 'table:rebuy')).toHaveLength(0);
+    await expect(page.getByTestId('hook-stack')).toHaveText('0');
+    await expect(page.getByTestId('bust-out-modal')).toBeVisible();
+  });
+
   test.use({ isMobile: true, hasTouch: true, viewport: { width: 360, height: 740 } });
   test.setTimeout(30_000);
 

@@ -14,6 +14,7 @@ import { ensurePlayerIdentity } from '../../persistence';
 import { registerTable, saveSessionResult } from '../../tableSession';
 import { apiUrl, wsUrl } from '../../apiConfig';
 import { apiFetch } from '../../session';
+import { assertTableProtocolCapability } from './tableProtocol';
 import { useAuthoritativeCelebrations } from '@/components/celebrations/celebrationService';
 
 const SESSION_KEY_PREFIX = 'cgp_session_';
@@ -475,7 +476,8 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
     return promise;
   }, []);
 
-  const requestRebuy = useCallback((kind: RebuyKind, amount?: number): Promise<void> => {
+  const requestRebuy = useCallback(async (kind: RebuyKind, amount?: number): Promise<void> => {
+    await assertTableProtocolCapability('rebuy');
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !myIdRef.current) {
       return Promise.reject(new Error('Table connection is unavailable. Your rebuy was not confirmed.'));
