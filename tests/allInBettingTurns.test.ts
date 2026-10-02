@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import type { Player } from '../shared/gameTypes';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
-import { addBadugiConnection, getOrCreateBadugiTable, handleBadugiAction } from '../server/gameEngine';
-import { addGenericConnection, getOrCreateTable, handleGenericAction } from '../server/genericEngine';
+import { addBadugiConnection, getOrCreateBadugiTable, handleBadugiAction, hasBadugiRewardedAdBust } from '../server/gameEngine';
+import { addGenericConnection, getOrCreateTable, handleGenericAction, hasGenericRewardedAdBust } from '../server/genericEngine';
 import { storage } from '../server/storage';
 import { db } from '../server/db';
 
@@ -66,6 +66,25 @@ describe('actionable betting cursor', () => {
 });
 
 describe.each(modes)('%s instant all-in betting skip', mode => {
+  it('allows rewarded ads only for a connected, funded, settled bust, never for all-ins or spectators', () => {
+    const { tableId, table } = tableFor(mode);
+    const eligible = () => mode === 'badugi'
+      ? hasBadugiRewardedAdBust(tableId, 'identity')
+      : hasGenericRewardedAdBust(mode, tableId, 'identity');
+    expect(eligible()).toBe(false); // zero-chip all-in is still an active hand
+    table.state.phase = 'WAITING';
+    table.state.players[0].status = 'sitting_out';
+    expect(eligible()).toBe(true);
+    table.fundedSeats.delete('p1');
+    expect(eligible()).toBe(false);
+    table.fundedSeats.add('p1');
+    table.pendingFundingSeats.add('p1');
+    expect(eligible()).toBe(false);
+    table.pendingFundingSeats.delete('p1');
+    table.connections.delete('p1');
+    expect(eligible()).toBe(false);
+  });
+
   it('reconnects an all-in betting cursor directly into the next phase without advancing the clock', async () => {
     const { tableId, table } = tableFor(mode);
     const before = Date.now();

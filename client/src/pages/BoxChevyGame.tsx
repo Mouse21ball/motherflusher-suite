@@ -326,7 +326,6 @@ function BoxChevyGameUI() {
         onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
         onSpectate={() => setBustDismissed(true)}
         onLeaveTable={() => { void leaveToLobby(); }}
-        onWatchAd={undefined}
         onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
         onBorrowChips={handleBorrowChips}
       />

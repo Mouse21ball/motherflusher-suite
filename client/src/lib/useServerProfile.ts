@@ -74,10 +74,14 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
   const [loading,  setLoading]  = useState(true);
   const [tick,     setTick]     = useState(0);
   const refetchResolvers = useRef<Array<(profile: ServerProfile | null) => void>>([]);
+  const walletRevision = useRef(0);
+  const confirmedWallet = useRef<number | undefined>(undefined);
+  const profileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const identity = ensurePlayerIdentity();
+    const revisionAtFetch = walletRevision.current;
 
     setLoading(true);
 
@@ -122,6 +126,14 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
     fetchProfile()
       .then(data => {
         if (!cancelled) {
+          // A refresh started before a confirmed credit must not overwrite it
+          // with its older wallet snapshot. Other profile fields still refresh.
+          if (revisionAtFetch !== walletRevision.current &&
+              data.profileId === (profileIdRef.current ?? identity.id) &&
+              confirmedWallet.current !== undefined) {
+            data = { ...data, chipBalance: confirmedWallet.current };
+          }
+          profileIdRef.current = data.profileId;
           if (data.sessionToken) setSessionToken(data.sessionToken);
           setProfile(data);
           if (data.hasAuth) setUserId(data.profileId);
@@ -145,11 +157,18 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
   }), []);
   const applyWalletBalance = useCallback((balance: number) => {
     if (!Number.isSafeInteger(balance) || balance < 0) return;
+    walletRevision.current++;
+    confirmedWallet.current = balance;
     setProfile(current => current ? { ...current, chipBalance: balance } : current);
   }, []);
   const value = useMemo(() => ({ profile, loading, refetch, applyWalletBalance }), [profile, loading, refetch, applyWalletBalance]);
 
   return createElement(ServerProfileContext.Provider, { value }, children);
+}
+
+/** Optional for shared dialogs that also render in isolated UI harnesses. */
+export function useOptionalServerProfile(): UseServerProfileResult | null {
+  return useContext(ServerProfileContext);
 }
 
 export function useServerProfile(): UseServerProfileResult {

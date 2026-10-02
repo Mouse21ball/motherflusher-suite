@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { BuyInSlider } from '@/components/game/BuyInSlider';
+import { ServerProfileProvider, useServerProfile } from '@/lib/useServerProfile';
+
+function RewardWallet() {
+  const { profile, refetch } = useServerProfile();
+  return <>
+    <output data-testid="ad-wallet-balance" data-profile-ready={!!profile} data-profile-name={profile?.displayName}>{profile?.chipBalance ?? 0}</output>
+    <button data-testid="ad-refresh-profile" onClick={() => { void refetch(); }}>Refresh profile</button>
+  </>;
+}
 
 function BustOutRebuyBrowserHarness() {
   const [open, setOpen] = useState(true);
@@ -24,6 +33,7 @@ function BustOutRebuyBrowserHarness() {
 
   return (
     <div>
+      {params.get('ad') === '1' && <RewardWallet />}
       <output data-testid="rebuy-result">{result}</output>
       <output data-testid="rebuy-submissions">{submissions}</output>
       <button type="button" data-testid="harness-bankroll-decrease" onClick={() => setBankroll(2000)}>Set bankroll to 2,000</button>
@@ -60,4 +70,8 @@ function BustOutRebuyBrowserHarness() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<BustOutRebuyBrowserHarness />);
+createRoot(document.getElementById('root')!).render(
+  new URLSearchParams(window.location.search).get('ad') === '1'
+    ? <ServerProfileProvider><BustOutRebuyBrowserHarness /></ServerProfileProvider>
+    : <BustOutRebuyBrowserHarness />,
+);

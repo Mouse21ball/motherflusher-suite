@@ -18,6 +18,7 @@ import { Resend } from "resend";
 import { z } from "zod";
 import {
   getActiveBadugiTables,
+  hasBadugiRewardedAdBust,
   getBadugiTablePhase,
   getPlayerBadugiTablePhases,
   getConnectedBadugiPlayers,
@@ -29,6 +30,7 @@ import {
 } from "./gameEngine";
 import {
   getActiveGenericTables,
+  hasGenericRewardedAdBust,
   getGenericTablePhase,
   getPlayerGenericTablePhases,
   getConnectedGenericPlayers,
@@ -92,7 +94,7 @@ import {
 import { randomBytes, randomUUID } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
-import { getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
+import { adMobAdUnitMatches, getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "./rewardedAdConfig";
 import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
 import { notificationDevices, notificationPreferences, sessions } from "@shared/schema";
@@ -548,6 +550,8 @@ export async function registerRoutes(
   // ── AdMob rewarded video ────────────────────────────────────────────────────
   const rewardedAdStartSchema = z.object({
     platform: z.enum(["android", "ios"]),
+    tableId: z.string().min(1).max(128),
+    modeId: z.string().min(1).max(40),
   }).strict();
   const rewardedAdSessionSchema = z.object({
     sessionId: z.string().uuid(),
@@ -561,14 +565,28 @@ export async function registerRoutes(
 
   app.post("/api/ads/rewarded/start", requireAuth, ...rewardedAdRateLimit, async (req, res) => {
     try {
-      const { platform } = rewardedAdStartSchema.parse(req.body);
+      const { platform, tableId, modeId } = rewardedAdStartSchema.parse(req.body);
+      const playerId = req.sessionPlayerId!;
+      const eligible = modeId === "badugi"
+        ? hasBadugiRewardedAdBust(tableId, playerId)
+        : hasGenericRewardedAdBust(modeId, tableId, playerId);
+      if (!eligible) {
+        res.status(409).json({ error: "A settled bust-out at your own table seat is required." });
+        return;
+      }
+      const bustEventId = await storage.getRewardedAdBustEvent(playerId, tableId);
+      if (!bustEventId) {
+        res.status(409).json({ error: "Your bust-out is not settled yet. Please try again shortly." });
+        return;
+      }
       const adUnitId = rewardedAdUnitId(platform, rewardedAdTestModeEnabled);
 
       const now = new Date();
       const sessionId = randomUUID();
-      await storage.createRewardedAdSession({
+      const session = await storage.createRewardedAdSession({
         id: sessionId,
-        playerId: req.sessionPlayerId!,
+        playerId,
+        bustEventId,
         adUnitId,
         testMode: rewardedAdTestModeEnabled,
         createdAt: now,
@@ -576,10 +594,13 @@ export async function registerRoutes(
       });
       res.setHeader("Cache-Control", "no-store");
       res.json({
-        sessionId,
-        adUnitId,
-        testMode: rewardedAdTestModeEnabled,
+        sessionId: session.id,
+        adUnitId: session.adUnitId,
+        testMode: session.testMode,
         rewardChips: 500,
+        completed: !!session.completedAt,
+        awaitingVerification: !!session.rewardRequestedAt && !session.completedAt,
+        chipBalance: session.completedAt ? (await storage.getPlayerProfile(playerId))?.chipBalance : undefined,
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -591,11 +612,28 @@ export async function registerRoutes(
     }
   });
 
+  // An SDK reward notification locks further playback for this bust. It cannot
+  // mint chips: production completion still requires Google's verified SSV.
+  app.post("/api/ads/rewarded/confirm", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const { sessionId } = rewardedAdSessionSchema.parse(req.body);
+      const session = await storage.getRewardedAdSession(sessionId, req.sessionPlayerId!);
+      if (!session || (!session.completedAt && session.expiresAt <= new Date())) {
+        res.status(404).json({ error: "Rewarded-ad session is unavailable." });
+        return;
+      }
+      await storage.confirmRewardedAdSession(sessionId, req.sessionPlayerId!);
+      res.json({ awaitingVerification: !session.completedAt });
+    } catch (err) {
+      res.status(err instanceof z.ZodError ? 400 : 500).json({ error: "Unable to confirm ad playback." });
+    }
+  });
+
   // Deliberately unavailable in production. In this non-production test mode only, the
   // client SDK's test-ad reward event is accepted to exercise the local flow.
   // Real rewards are never credited from a client completion claim; production
   // credits exclusively from the cryptographically verified AdMob SSV callback.
-  app.post("/api/ads/rewarded/complete-test", requireAuth, ...rewardedAdRateLimit, async (req, res) => {
+  app.post("/api/ads/rewarded/complete-test", requireAuth, generalApiRateLimit, async (req, res) => {
     if (process.env.NODE_ENV === "production" || !rewardedAdTestModeEnabled) {
       res.status(404).json({ error: "Test rewarded ads are disabled." });
       return;
@@ -669,7 +707,7 @@ export async function registerRoutes(
         return;
       }
       const session = await storage.getRewardedAdSessionForSsv(verified.watchSessionId);
-      if (!session || session.adUnitId !== verified.adUnitId) {
+      if (!session || !adMobAdUnitMatches(session.adUnitId, verified.adUnitId)) {
         res.status(400).send("Unknown or mismatched AdMob watch session");
         return;
       }

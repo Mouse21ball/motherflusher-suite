@@ -201,7 +201,11 @@ export const rewardedAdSessions = pgTable("rewarded_ad_sessions", {
   expiresAt:     timestamp("expires_at").notNull(),
   completedAt:   timestamp("completed_at"),
   transactionId: text("transaction_id").unique(),
-});
+  bustEventId:   text("bust_event_id"),
+  rewardRequestedAt: timestamp("reward_requested_at"),
+}, (table) => [
+  uniqueIndex("rewarded_ad_player_bust_idx").on(table.playerId, table.bustEventId),
+]);
 
 // First-purchase bundle exposure is durable and account-level, never browser-local.
 export const firstPurchaseOffers = pgTable("first_purchase_offers", {

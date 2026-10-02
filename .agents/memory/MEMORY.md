@@ -30,6 +30,7 @@
 - [Poker wallet accounting](poker-wallet-accounting.md) — poker stacks allocate the total wallet; do not mix buy-in escrow debits with hand-delta settlement.
 - [Native crash evidence](native-crash-evidence.md) — test the complete production bootstrap; a bridge shim cannot verify Java/SDK startup or explain process death.
 - [Mobile/server protocol compatibility](mobile-server-protocol.md) — mobile uploads do not update the backend; check live capabilities before diagnosing missing acknowledgements.
-- [Mobile QA release boundaries](mobile-qa-release-boundaries.md) — owner publishes backend; Watch Ad work stays on hold until AdMob approval.
+- [Mobile QA release boundaries](mobile-qa-release-boundaries.md) — owner publishes backend; AdMob approval lifted the Watch Ad hold; fixed rewards remain bust-bound.
+- [AdMob SSV compatibility](admob-ssv-compatibility.md) — signed callbacks may use numeric slots and configurable rewards; never use provider amounts as chip grants.
 - [Zero-wallet viewing](zero-wallet-viewing.md) — zero-chip PLAY is real viewing, never automatic seating, grants, loans, or game funding.
 - [All-in turn policy](all-in-turn-policy.md) — skip betting without any idle timer; preserve required non-betting actions and pot eligibility.

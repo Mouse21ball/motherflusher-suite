@@ -39,7 +39,7 @@ import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { generateReferralCode } from "./referralCodes";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, ne, notLike, sql, and, or, gte, isNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
+import { eq, ne, notLike, sql, and, or, gte, isNull, isNotNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
 import { handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
@@ -206,8 +206,10 @@ export interface IStorage {
     issuedAt: Date; expiresAt: Date; claimedAt: Date | null;
   } | null>;
   createRewardedAdSession(params: {
-    id: string; playerId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
-  }): Promise<void>;
+    id: string; playerId: string; bustEventId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
+  }): Promise<typeof rewardedAdSessions.$inferSelect>;
+  getRewardedAdBustEvent(playerId: string, tableId: string): Promise<string | null>;
+  confirmRewardedAdSession(id: string, playerId: string): Promise<void>;
   getRewardedAdSessionForSsv(id: string): Promise<{ id: string; adUnitId: string; testMode: boolean } | null>;
   getRewardedAdSession(id: string, playerId: string): Promise<{
     id: string; testMode: boolean; expiresAt: Date; completedAt: Date | null;
@@ -2307,16 +2309,41 @@ export class MemStorage implements IStorage {
   }
 
   async createRewardedAdSession(params: {
-    id: string; playerId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
-  }): Promise<void> {
-    await db.insert(rewardedAdSessions).values({
-      id: params.id,
-      playerId: params.playerId,
-      adUnitId: params.adUnitId,
-      testMode: params.testMode,
-      createdAt: params.createdAt,
-      expiresAt: params.expiresAt,
+    id: string; playerId: string; bustEventId: string; adUnitId: string; testMode: boolean; createdAt: Date; expiresAt: Date;
+  }): Promise<typeof rewardedAdSessions.$inferSelect> {
+    return db.transaction(async tx => {
+      // Serialize session issuance and completion for the same player.
+      await tx.select({ id: playerProfiles.id }).from(playerProfiles)
+        .where(eq(playerProfiles.id, params.playerId)).for("update");
+      await tx.insert(rewardedAdSessions).values(params).onConflictDoNothing();
+      const [session] = await tx.select().from(rewardedAdSessions).where(and(
+        eq(rewardedAdSessions.playerId, params.playerId),
+        eq(rewardedAdSessions.bustEventId, params.bustEventId),
+      )).limit(1);
+      if (!session) throw new Error("Unable to issue the bust-out reward session");
+      if (!session.completedAt && !session.rewardRequestedAt && session.expiresAt <= params.createdAt) {
+        const [renewed] = await tx.update(rewardedAdSessions).set(params)
+          .where(eq(rewardedAdSessions.id, session.id)).returning();
+        return renewed;
+      }
+      return session;
     });
+  }
+
+  async getRewardedAdBustEvent(playerId: string, tableId: string): Promise<string | null> {
+    const [loss] = await db.select({ id: chipTransactions.id }).from(chipTransactions).where(and(
+      eq(chipTransactions.playerId, playerId), eq(chipTransactions.gameId, tableId),
+      eq(chipTransactions.source, "gameEngine"), lt(chipTransactions.amountChange, 0),
+    )).orderBy(desc(chipTransactions.id)).limit(1);
+    return loss ? `settled-loss:${loss.id}` : null;
+  }
+
+  async confirmRewardedAdSession(id: string, playerId: string): Promise<void> {
+    // This is only a playback lock; it NEVER authorizes chip credit.
+    await db.update(rewardedAdSessions).set({ rewardRequestedAt: new Date() }).where(and(
+      eq(rewardedAdSessions.id, id), eq(rewardedAdSessions.playerId, playerId),
+      isNull(rewardedAdSessions.rewardRequestedAt),
+    ));
   }
 
   async getRewardedAdSessionForSsv(id: string) {
@@ -2345,15 +2372,22 @@ export class MemStorage implements IStorage {
     id: string; transactionId: string; completedAt: Date;
   }): Promise<{ completed: boolean; idempotent: boolean; playerId?: string; newBalance?: number }> {
     return db.transaction(async tx => {
+      const [owner] = await tx.select({ playerId: rewardedAdSessions.playerId })
+        .from(rewardedAdSessions).where(eq(rewardedAdSessions.id, params.id)).limit(1);
+      if (!owner) return { completed: false, idempotent: false };
+      // Issuance and completion use the same lock order.
+      await tx.select({ id: playerProfiles.id }).from(playerProfiles)
+        .where(eq(playerProfiles.id, owner.playerId)).for("update");
       const [session] = await tx.update(rewardedAdSessions).set({
         completedAt: params.completedAt,
         transactionId: params.transactionId,
       }).where(and(
         eq(rewardedAdSessions.id, params.id),
+        isNotNull(rewardedAdSessions.bustEventId),
         isNull(rewardedAdSessions.completedAt),
         lte(rewardedAdSessions.createdAt, params.completedAt),
         gt(rewardedAdSessions.expiresAt, params.completedAt),
-      )).returning({ playerId: rewardedAdSessions.playerId });
+      )).returning({ playerId: rewardedAdSessions.playerId, bustEventId: rewardedAdSessions.bustEventId });
 
       if (!session) {
         const [existing] = await tx.select({
@@ -2380,7 +2414,7 @@ export class MemStorage implements IStorage {
         reason: 'rewarded_ad',
         source: 'admob_rewarded_video',
         handId: params.id,
-        metadata: { watchSessionId: params.id, transactionId: params.transactionId },
+        metadata: { watchSessionId: params.id, transactionId: params.transactionId, bustEventId: session.bustEventId },
       });
       return { completed: true, idempotent: false, playerId: session.playerId, newBalance: updated.chipBalance };
     });

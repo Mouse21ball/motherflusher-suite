@@ -691,6 +691,16 @@ function buildSessionStats(table: GenericTable, seatId: string): {
 // ─── Broadcast ────────────────────────────────────────────────────────────────
 
 // ─── P4: Turn timer (server-authoritative auto-action on expiry) ─────────────
+export function hasGenericRewardedAdBust(modeId: string, tableId: string, identityId: string): boolean {
+  const table = tables.get(tableKey(modeId, tableId));
+  if (!table || table.actionLock || table.settlementPromise ||
+      !['WAITING', 'ANTE'].includes(table.state.phase)) return false;
+  return table.state.players.some(p => p.presence === 'human' && p.chips === 0 &&
+    p.status !== 'active' && table.seatToIdentityId.get(p.id) === identityId &&
+    table.fundedSeats.has(p.id) && !table.leavingSeats.has(p.id) &&
+    !table.pendingFundingSeats.has(p.id) && table.connections.get(p.id)?.readyState === 1);
+}
+
 const TURN_TIMEOUT_MS = 30_000;
 
 const INTERACTIVE_PHASES = new Set<GamePhase>([

@@ -20,6 +20,13 @@ export interface VerifiedAdMobReward {
 let verifierKeys: AdMobVerifierKey[] = [];
 let verifierKeysLoadedAt = 0;
 
+/** Google's SSV examples send the numeric slot, not always the SDK's full ID. */
+export function adMobAdUnitMatches(expected: string, received: string): boolean {
+  if (expected === received) return true;
+  const slot = /^ca-app-pub-\d+\/(\d+)$/.exec(expected)?.[1];
+  return !!slot && /^\d+$/.test(received) && slot === received;
+}
+
 export function verifyAdMobSsvQuery(
   rawQuery: string,
   keys: AdMobVerifierKey[],
@@ -73,9 +80,11 @@ export function verifyAdMobSsvQuery(
   const timestamp = Number(signedParams.get("timestamp"));
   if (
     !/^[0-9a-f-]{36}$/i.test(watchSessionId)
-    || (expectedAdUnitId != null && adUnitId !== expectedAdUnitId)
-    || rewardAmount !== 500
-    || rewardItem !== "chips"
+    || (expectedAdUnitId != null && !adMobAdUnitMatches(expectedAdUnitId, adUnitId))
+    // Eligibility is Google's assertion. The grant remains exactly 500 in
+    // storage; never copy the provider's configurable reward amount.
+    || !Number.isSafeInteger(rewardAmount) || rewardAmount <= 0
+    || !rewardItem || rewardItem.length > 128
     || !transactionId
     || transactionId.length > 256
     || !Number.isSafeInteger(timestamp)

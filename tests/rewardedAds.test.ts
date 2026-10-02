@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { sql } from "drizzle-orm";
 import { db } from "../server/db";
 import { storage } from "../server/storage";
-import { verifyAdMobSsvQuery } from "../server/admobSsv";
+import { adMobAdUnitMatches, verifyAdMobSsvQuery } from "../server/admobSsv";
 import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "../server/rewardedAdConfig";
 import {
   REWARDED_AD_PLAYER_RATE_LIMIT,
@@ -20,7 +20,7 @@ const adUnitId = "ca-app-pub-1234567890123456/1234567890";
 describe("rewarded AdMob units", () => {
   it("uses the supplied production units for both native platforms", () => {
     expect(rewardedAdUnitId("android", false)).toBe("ca-app-pub-1122384597919929/4402812186");
-    expect(rewardedAdUnitId("ios", false)).toBe("ca-app-pub-1122384597919929/9990005770");
+    expect(rewardedAdUnitId("ios", false)).toBe("ca-app-pub-1122384597919929/4402812186");
   });
 
   it("keeps sample units confined to non-production test sessions", () => {
@@ -89,13 +89,29 @@ describe("AdMob rewarded-ad SSV", () => {
     expect(verifyAdMobSsvQuery("custom_data=46a3c61e-0407-41dc-80b5-862d85105cc1", verifierKeys, adUnitId)).toBeNull();
   });
 
+  it("accepts Google's signed numeric-slot format without using its configured amount as the chip grant", () => {
+    const query = signedCallback({
+      ad_unit: "1234567890", custom_data: "46a3c61e-0407-41dc-80b5-862d85105cc1",
+      reward_amount: "1", reward_item: "Reward", timestamp: "1780000000000",
+      transaction_id: "google-default-reward-configuration",
+    });
+    expect(verifyAdMobSsvQuery(query, verifierKeys, adUnitId, 1_780_000_000_000))
+      .toMatchObject({ rewardAmount: 1, rewardItem: "Reward" });
+    expect(adMobAdUnitMatches(adUnitId, "9999999999")).toBe(false);
+    expect(adMobAdUnitMatches(adUnitId, "ca-app-pub-9999999999999999/1234567890")).toBe(false);
+    expect(verifyAdMobSsvQuery(signedCallback({
+      ad_unit: "1234567890", custom_data: "46a3c61e-0407-41dc-80b5-862d85105cc1",
+      reward_amount: "0", reward_item: "Reward", timestamp: "1780000000000", transaction_id: "zero",
+    }), verifierKeys, adUnitId, 1_780_000_000_000)).toBeNull();
+  });
+
   it("keeps production completion on SSV and labels test completion as non-production-only", () => {
     const routes = readFileSync(new URL("../server/routes.ts", import.meta.url), "utf8");
     const client = readFileSync(new URL("../client/src/lib/rewardedAds.ts", import.meta.url), "utf8");
     expect(routes).toContain("isRewardedAdTestModeEnabled(");
     expect(routes).toContain("verifyAdMobSsvQuery(rawQuery, keys)");
     expect(routes).toContain('if (process.env.NODE_ENV === "production" || !rewardedAdTestModeEnabled)');
-    expect(client).toContain("Production ignores this client callback entirely.");
+    expect(client).toContain("Production credit remains exclusively SSV-verified.");
     expect(client).toContain("ssv: { customData: session.sessionId }");
   });
 
@@ -137,6 +153,7 @@ describe.skipIf(!hasRewardedAdTable)("rewarded-ad chip credit ledger", () => {
     const player = await storage.getOrCreatePlayer(playerId);
     await storage.createRewardedAdSession({
       id: sessionId,
+      bustEventId: `test-bust:${sessionId}`,
       playerId,
       adUnitId,
       testMode: false,
@@ -165,6 +182,7 @@ describe.skipIf(!hasRewardedAdTable)("rewarded-ad chip credit ledger", () => {
     const player = await storage.getOrCreatePlayer(playerId);
     await storage.createRewardedAdSession({
       id: sessionId,
+      bustEventId: `test-bust:${sessionId}`,
       playerId,
       adUnitId,
       testMode: false,
@@ -179,5 +197,80 @@ describe.skipIf(!hasRewardedAdTable)("rewarded-ad chip credit ledger", () => {
 
     expect(result.completed).toBe(false);
     expect((await storage.getPlayerProfile(playerId))?.chipBalance).toBe(player.chipBalance);
+  });
+
+  it("deduplicates concurrent session starts and distinct reward callbacks for the same bust", async () => {
+    const player = await storage.getOrCreatePlayer(playerId);
+    const bustEventId = `bust:${randomUUID()}`;
+    const sessions = await Promise.all(Array.from({ length: 8 }, () => storage.createRewardedAdSession({
+      id: randomUUID(), playerId, bustEventId, adUnitId, testMode: false,
+      createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+    })));
+    expect(new Set(sessions.map(session => session.id)).size).toBe(1);
+    // A forged client notification only locks playback; it never changes money.
+    await storage.confirmRewardedAdSession(sessions[0].id, playerId);
+    expect((await storage.getPlayerProfile(playerId))?.chipBalance).toBe(player.chipBalance);
+    const completions = await Promise.all(Array.from({ length: 8 }, () => storage.completeRewardedAdSession({
+      id: sessions[0].id, transactionId: randomUUID(), completedAt: new Date(),
+    })));
+    expect(completions.filter(result => result.completed && !result.idempotent)).toHaveLength(1);
+    expect((await storage.getPlayerProfile(playerId))?.chipBalance).toBe(player.chipBalance + 500);
+    const reopened = await storage.createRewardedAdSession({
+      id: randomUUID(), playerId, bustEventId, adUnitId, testMode: false,
+      createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+    });
+    expect(reopened.id).toBe(sessions[0].id);
+    expect(reopened.completedAt).not.toBeNull();
+  });
+
+  it("keeps one bust identity across zero-delta spectator hands and rewards, but permits a genuinely new loss", async () => {
+    await storage.getOrCreatePlayer(playerId);
+    const gameId = `ad-bust-${randomUUID()}`;
+    const settle = (deltaChips: number, handId: string) => storage.syncPlayerChips(playerId, deltaChips, {
+      won: false, deltaChips, gameId, handId, modeId: "badugi", potSize: 25,
+    });
+    expect(await storage.getRewardedAdBustEvent(playerId, gameId)).toBeNull();
+    await settle(-25, "first-loss");
+    const first = await storage.getRewardedAdBustEvent(playerId, gameId);
+    expect(first).not.toBeNull();
+    await settle(0, "watching-later-hand");
+    expect(await storage.getRewardedAdBustEvent(playerId, gameId)).toBe(first);
+    await settle(-25, "new-loss-after-funding");
+    expect(await storage.getRewardedAdBustEvent(playerId, gameId)).not.toBe(first);
+  });
+
+  it("renews an unconfirmed expired session, rejects legacy and foreign sessions, and grants again only for a new bust", async () => {
+    const player = await storage.getOrCreatePlayer(playerId);
+    const bustEventId = `renewable:${randomUUID()}`;
+    const expiredId = randomUUID();
+    await storage.createRewardedAdSession({
+      id: expiredId, playerId, bustEventId, adUnitId, testMode: false,
+      createdAt: new Date(Date.now() - 120_000), expiresAt: new Date(Date.now() - 60_000),
+    });
+    const renewedId = randomUUID();
+    const renewed = await storage.createRewardedAdSession({
+      id: renewedId, playerId, bustEventId, adUnitId, testMode: false,
+      createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+    });
+    expect(renewed.id).toBe(renewedId);
+    expect(await storage.getRewardedAdSession(renewedId, "not-the-owner")).toBeNull();
+    expect((await storage.completeRewardedAdSession({
+      id: expiredId, transactionId: randomUUID(), completedAt: new Date(),
+    })).completed).toBe(false);
+
+    const legacyId = randomUUID();
+    await db.execute(sql`INSERT INTO rewarded_ad_sessions
+      (id, player_id, ad_unit_id, test_mode, created_at, expires_at)
+      VALUES (${legacyId}, ${playerId}, ${adUnitId}, false, NOW(), NOW() + interval '1 minute')`);
+    expect((await storage.completeRewardedAdSession({
+      id: legacyId, transactionId: randomUUID(), completedAt: new Date(),
+    })).completed).toBe(false);
+    await storage.completeRewardedAdSession({ id: renewedId, transactionId: randomUUID(), completedAt: new Date() });
+    const newBust = await storage.createRewardedAdSession({
+      id: randomUUID(), playerId, bustEventId: `new-bust:${randomUUID()}`, adUnitId, testMode: false,
+      createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000),
+    });
+    await storage.completeRewardedAdSession({ id: newBust.id, transactionId: randomUUID(), completedAt: new Date() });
+    expect((await storage.getPlayerProfile(playerId))?.chipBalance).toBe(player.chipBalance + 1_000);
   });
 });

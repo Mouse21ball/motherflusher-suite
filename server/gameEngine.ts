@@ -1377,6 +1377,16 @@ function executeBotAction(table: AuthTable, botId: string): void {
 }
 
 // ─── Turn timer (Badugi engine) ───────────────────────────────────────────────
+/** An all-in or spectator seat is not a settled bust-out. */
+export function hasBadugiRewardedAdBust(tableId: string, identityId: string): boolean {
+  const table = tables.get(tableId);
+  if (!table || table.actionLock || table.settlementPromise || table.showdownResolvePromise ||
+      !['WAITING', 'ANTE'].includes(table.state.phase)) return false;
+  return table.state.players.some(p => p.presence === 'human' && p.chips === 0 &&
+    p.status !== 'active' && table.seatToIdentityId.get(p.id) === identityId &&
+    table.fundedSeats.has(p.id) && !table.leavingSeats.has(p.id) &&
+    !table.pendingFundingSeats.has(p.id) && table.connections.get(p.id)?.readyState === 1);
+}
 
 function clearTurnTimerBadugi(table: AuthTable): void {
   table.turnTimerGen += 1;

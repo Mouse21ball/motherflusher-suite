@@ -4,7 +4,8 @@ import { billing } from "@/lib/billing";
 import { apiFetch } from "@/lib/session";
 import { apiUrl } from "@/lib/apiConfig";
 import { lookupTable } from "@/lib/tableSession";
-import { watchRewardedAd } from "@/lib/rewardedAds";
+import { watchRewardedAd, checkRewardedAdSession } from "@/lib/rewardedAds";
+import { useOptionalServerProfile } from "@/lib/useServerProfile";
 import { BuyInSlider } from "./BuyInSlider";
 
 interface BustOutModalProps {
@@ -15,7 +16,6 @@ interface BustOutModalProps {
   onRebuy: (amount?: number) => void | Promise<void>;
   onLeaveTable: () => void;
   onSpectate: () => void;
-  onWatchAd?: () => void;
   onStarterPack?: () => void | Promise<void>;
   onBorrowChips?: () => void | Promise<void>;
   /** Ticket-7: buy-in slider for rebuy. If provided, shows slider instead of fixed rebuy. */
@@ -96,7 +96,6 @@ export function BustOutModal({
   onRebuy,
   onLeaveTable,
   onSpectate,
-  onWatchAd,
   onStarterPack,
   onBorrowChips,
   tableId,
@@ -118,6 +117,37 @@ export function BustOutModal({
   const [rebuyError, setRebuyError] = useState("");
   const [tableBigBlind, setTableBigBlind] = useState<number | null>(null);
   const rebuyBusyRef = useRef(false);
+  const adBusyRef = useRef(false);
+  const [adUsed, setAdUsed] = useState(false);
+  const [adPendingSession, setAdPendingSession] = useState<string | null>(null);
+  const serverProfile = useOptionalServerProfile();
+  const bustKey = `${modeId}:${tableId}:${lifetimeBusts}:${sessionBusts}`;
+
+  useEffect(() => {
+    setAdUsed(false);
+    setAdPendingSession(null);
+    setAdMessage("");
+  }, [bustKey]);
+
+  useEffect(() => {
+    if (!open || !adPendingSession) return;
+    let cancelled = false;
+    let checking = false;
+    const timer = window.setInterval(async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const status = await checkRewardedAdSession(adPendingSession);
+        if (!cancelled && status.completed && Number.isSafeInteger(status.chipBalance)) {
+          serverProfile?.applyWalletBalance(status.chipBalance!);
+          setAdPendingSession(null);
+          setAdMessage("500 chips credited to your personal balance.");
+        }
+      } catch { /* Keep the earned reward locked; verification can be retried on reopen. */ }
+      finally { checking = false; }
+    }, 5_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [open, adPendingSession, serverProfile?.applyWalletBalance]);
 
   useEffect(() => {
     if (!open || !tableId) {
@@ -139,7 +169,7 @@ export function BustOutModal({
     amount?: number,
     rethrowError = false,
   ) => {
-    if (rebuyBusyRef.current) return;
+    if (rebuyBusyRef.current || adBusyRef.current) return;
     rebuyBusyRef.current = true;
     setRebuyBusy(true);
     setRebuyError("");
@@ -214,24 +244,25 @@ export function BustOutModal({
   }
 
   async function handleWatchReward() {
-    if (adBusy) return;
+    if (adBusyRef.current || rebuyBusyRef.current || adUsed || !tableId || !modeId) return;
+    adBusyRef.current = true;
     setAdBusy(true);
     setAdMessage("");
     setAdTestMode(false);
     try {
-      if (onWatchAd) {
-        await onWatchAd();
-        setAdMessage("Reward flow completed.");
-      } else {
-        const result = await watchRewardedAd(setAdTestMode);
+        const result = await watchRewardedAd({ tableId, modeId, bustKey }, setAdTestMode);
         setAdTestMode(result.testMode);
+        setAdUsed(true);
+        if (result.pendingVerification) setAdPendingSession(result.sessionId);
+        else if (Number.isSafeInteger(result.chipBalance)) serverProfile?.applyWalletBalance(result.chipBalance!);
+        else throw new Error("The reward was verified, but its balance is unavailable. Please refresh your profile.");
         setAdMessage(result.pendingVerification
           ? "Ad watched. Your 500-chip reward is awaiting secure server verification."
           : "✓ 500 chips credited to your personal balance.");
-      }
     } catch (error) {
       setAdMessage(error instanceof Error ? error.message : "Unable to show a rewarded video.");
     } finally {
+      adBusyRef.current = false;
       setAdBusy(false);
     }
   }
@@ -379,19 +410,6 @@ export function BustOutModal({
         {/* ── TIER 2: 2+ session busts, paid before → ad CTA ── */}
         {tier === 2 && (
           <>
-            <button
-              onClick={handleWatchReward}
-              disabled={adBusy}
-              data-testid="button-bust-watch-ad"
-              className={`w-full py-4 rounded-xl font-black text-lg tracking-wider mb-3 active:scale-[0.98] flex flex-col items-center gap-0.5 transition-all
-                ${!adBusy
-                  ? "bg-gradient-to-b from-[#D4B44A] to-[#9c7e1c] text-[#0B0B0D] shadow-[0_0_20px_rgba(201,162,39,0.4)]"
-                  : "bg-white/[0.06] border border-white/[0.10] text-white/60 cursor-not-allowed"}`}
-            >
-              <span>{adBusy ? "LOADING REWARDED VIDEO…" : "🎬 WATCH AD FOR 500 CHIPS"}</span>
-            </button>
-            {adTestMode && <p className="mb-2 text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
-            {adMessage && <p className="mb-3 text-center text-xs text-white/75" role="status">{adMessage}</p>}
             <div className="space-y-2">
               <FreeChipsButton testId="button-bust-free-rebuy" disabled={rebuyBusy || !onStarterPack} busy={rebuyBusy} onClick={() => { void handleRebuy("free"); }} />
               <LoanBtn />
@@ -410,14 +428,6 @@ export function BustOutModal({
             </p>
             <div className="space-y-2">
               <LoanBtn />
-              <SecBtn
-                label={adBusy ? "Preparing rewarded video…" : "Watch Ad for 500 Chips"}
-                onClick={handleWatchReward}
-                testId="button-bust-watch-ad"
-                disabled={adBusy}
-              />
-              {adTestMode && <p className="text-center text-[10px] font-mono font-bold text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
-              {adMessage && <p className="text-center text-xs text-white/75" role="status">{adMessage}</p>}
               <SecBtn label="Watch This Table" onClick={onSpectate} testId="button-bust-spectate" />
               <SecBtn label="Back to Lobby" onClick={onLeaveTable} testId="button-bust-leave" />
             </div>
@@ -461,6 +471,16 @@ export function BustOutModal({
             </div>
           </>
         )}
+
+        <button type="button" onClick={handleWatchReward}
+          disabled={adBusy || adUsed || rebuyBusy || !tableId || !modeId}
+          aria-busy={adBusy || !!adPendingSession || undefined}
+          data-testid="button-bust-watch-ad"
+          className="w-full my-3 py-3 rounded-xl border border-[#C9A227]/40 bg-[#C9A227]/10 text-[#C9A227] font-bold disabled:opacity-50 disabled:cursor-not-allowed">
+          {adBusy || adPendingSession ? "VERIFYING REWARDED VIDEO…" : adUsed ? "500-CHIP AD REWARD USED" : "WATCH AD — GET 500 CHIPS"}
+        </button>
+        {adTestMode && <p className="text-center text-xs text-amber-300">TEST REWARD — DEVELOPMENT ONLY</p>}
+        {adMessage && <p className="text-center text-xs text-white/75" role="status" data-testid="bust-ad-status">{adMessage}</p>}
 
         {rebuyBusy && (
           <p className="text-center text-xs text-white/75" role="status" data-testid="bust-rebuy-pending">
