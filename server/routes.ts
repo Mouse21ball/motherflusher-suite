@@ -711,7 +711,8 @@ export async function registerRoutes(
 
   // Configure this endpoint as the AdMob rewarded-ad SSV callback URL. Google
   // signs the raw query string; the server verifies it against Google's
-  // published verifier keys before trusting any reward fields.
+  // published verifier keys before trusting any reward fields. HTTP 200 only
+  // acknowledges receipt (including console test payloads); it never proves credit.
   app.get("/api/ads/admob/ssv", admobSsvRateLimit, async (req, res) => {
     // Never log the signed URL, transaction ID, custom payload, or error object.
     console.info("[rewarded-ad] ssv_received");
@@ -728,13 +729,13 @@ export async function registerRoutes(
       const verified = verifyAdMobSsvQuery(rawQuery, keys, undefined, Date.now(),
         reason => console.warn(`[rewarded-ad] ssv_rejected ${reason}`));
       if (!verified) {
-        res.status(400).send("Invalid AdMob SSV callback");
+        res.status(200).send("OK");
         return;
       }
       const session = await storage.getRewardedAdSessionForSsv(verified.watchSessionId);
       if (!session || !adMobAdUnitMatches(session.adUnitId, verified.adUnitId)) {
         console.warn(`[rewarded-ad] ssv_rejected ${session ? "ad_unit_mismatch" : "unknown_session"}`);
-        res.status(400).send("Unknown or mismatched AdMob watch session");
+        res.status(200).send("OK");
         return;
       }
       const result = await storage.completeRewardedAdSession({
@@ -744,7 +745,7 @@ export async function registerRoutes(
       });
       if (!result.completed) {
         console.warn("[rewarded-ad] ssv_rejected expired_or_consumed_session");
-        res.status(400).send("Unknown, expired, or already consumed AdMob session");
+        res.status(200).send("OK");
         return;
       }
       console.info("[rewarded-ad] ssv_credited", JSON.stringify({
@@ -754,10 +755,11 @@ export async function registerRoutes(
     } catch (err: any) {
       if (err?.code === "23505") {
         // A Google transaction ID can credit only one watch session.
+        console.warn("[rewarded-ad] ssv_rejected duplicate_transaction");
         res.status(200).send("OK");
       } else {
         console.error("[rewarded-ad] ssv_failed verifier_keys_or_storage_unavailable");
-        res.status(500).send("AdMob SSV verification temporarily unavailable");
+        res.status(200).send("OK");
       }
     }
   });

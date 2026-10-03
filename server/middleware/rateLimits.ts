@@ -161,7 +161,11 @@ export const admobSsvRateLimit = rateLimit({
   limit:           120,
   standardHeaders: true,
   legacyHeaders:   false,
-  handler:         makeHandler('Too many AdMob verification callbacks.'),
+  handler:         (_req, res) => {
+    // Stop processing excess callbacks without blocking AdMob URL verification.
+    console.warn("[rewarded-ad] ssv_rejected rate_limited");
+    res.status(200).send("OK");
+  },
 });
 
 // ─── e) General API safety net ────────────────────────────────────────────────

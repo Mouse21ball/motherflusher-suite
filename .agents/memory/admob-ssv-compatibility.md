@@ -15,13 +15,15 @@ Passing SDK SSV custom data does not register the server callback URL with AdMob
 
 **How to apply:** Distinguish absent callbacks from rejected callbacks using production evidence. Verify both unit settings before attributing missing credits to signature logic; never substitute client claims for signed completion.
 
-AdMob console callback-URL verification needs a successful no-op response when
-the request has no signature or reward fields. Any presence of those fields,
-even empty or malformed, must retain strict reward verification.
+AdMob callbacks must be acknowledged with HTTP 200 even when rejected, including
+console placeholder payloads, rate limits, and operational errors. HTTP success
+does not mean credit: signature, session, unit, and settlement checks stay strict.
 
-**Why:** The owner reported that our bare-request HTTP 400 blocked saving SSV
-configuration on both rewarded units.
+**Why:** The owner confirmed bare pings work but console verification includes
+placeholder SSV fields; rejecting them at the HTTP layer still blocks saving
+both rewarded units. They explicitly requested acknowledgement for every path.
 
-**How to apply:** Keep setup acknowledgement separate from reward completion:
-no key retrieval, session lookup, balance access, or chip grant. Do not describe
-a successful URL check as a verified reward payout.
+**How to apply:** Log rejection reasons without signed payloads and never weaken
+the grant checks. Bare pings skip keys/storage. Acknowledging operational errors
+does not signal HTTP-based provider retries; do not mistake acknowledgement for
+a verified reward payout.
