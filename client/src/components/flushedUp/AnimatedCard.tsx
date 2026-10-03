@@ -101,7 +101,9 @@ export function AnimatedCard({
    * resolvedCard: pass a real card to PlayingCard to show the face;
    * pass undefined to show the card back.
    */
-  const resolvedCard: CardType | undefined = isHidden ? undefined : card;
+  // Never render a face in a deal/draw flight, including the hero's authorized
+  // card. Reveal the authoritative face only after the animation flag clears.
+  const resolvedCard: CardType | undefined = isHidden || isFlying ? undefined : card;
 
   const selectableButton = (content: React.ReactNode, applyFanTransform = false) => {
     if (!isSelectable || !onSelect) return content;

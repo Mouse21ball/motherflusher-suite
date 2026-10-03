@@ -20,3 +20,9 @@ Flights measured from DOM anchors should cancel on viewport or table geometry ch
 **Why:** A flight with stale coordinates can visually land over another seat, while the destination cards are already authoritative and safe to show immediately.
 
 **How to apply:** Restore hidden destination cards when canceling, and detach geometry watchers along with the flight timer; do not replay the same deal solely because the layout changed.
+
+No card face may appear in a deal or draw flight, including the owner's legitimately known cards. Reveal authorized faces only at their destinations after flight completion.
+
+**Why:** The user reported a red-suited face flashing during physical-device dealing and stated that even a cosmetic face flash undermines trust. An authorized hero face traveling over the deck can look like an opponent-hole-card leak.
+
+**How to apply:** Treat flight visuals as identity-free card backs, apply animation hiding before paint, and verify wire masking separately from visual masking. Do not describe an authorized owner's card as an unauthorized server leak.

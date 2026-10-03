@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { Player } from '@/lib/poker/types';
 import { PlayingCard } from '@/components/game/Card';
@@ -42,7 +42,7 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
     hiddenSeatsRef.current.clear();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (cleanupRef.current) clearTimeout(cleanupRef.current);
     restoreSeats();
     if (reduced || !tableRoot || !deal.events.length) {
@@ -161,7 +161,7 @@ export function TableDealAnimator({ players, phase, myId, tableRoot }: TableDeal
             transition={{ duration: TRAVEL_MS / 1000, delay: delay / 1000, ease: ['easeOut', 'easeInOut'] }}
             style={{ position: 'absolute', left: event.sx - CARD_W / 2, top: event.sy - CARD_H / 2, width: CARD_W, height: CARD_H, willChange: 'transform, opacity' }}
           >
-            <PlayingCard card={event.playerId === myId ? event.card : undefined} className="!w-full !h-full !rounded-[5px]" />
+            <PlayingCard className="!w-full !h-full !rounded-[5px]" />
           </motion.div>
         );
       })}

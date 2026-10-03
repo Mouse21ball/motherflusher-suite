@@ -28,7 +28,7 @@ function player(id: string, cards: Player['cards'], presence: Player['presence']
 }
 
 describe('table deal snapshot animation', () => {
-  it('deals in stable round-robin order and never carries opponent card data', () => {
+  it('deals in stable round-robin order and never carries any card identity, including the hero', () => {
     const events = deriveTableDealEvents(
       [{ id: 'hero', count: 0 }, { id: 'villain', count: 0 }],
       [player('hero', [card('A'), card('K')]), player('villain', [card('A', true), card('K', true)])],
@@ -40,10 +40,7 @@ describe('table deal snapshot animation', () => {
     expect(events.map(event => `${event.playerId}:${event.slot}`)).toEqual([
       'hero:0', 'villain:0', 'hero:1', 'villain:1',
     ]);
-    expect(events[0].card?.rank).toBe('A');
-    expect(events[1]).not.toHaveProperty('card');
-    expect(events[3]).not.toHaveProperty('card');
-    expect(events.filter(event => event.playerId !== 'hero').every(event => event.faceDown)).toBe(true);
+    expect(events.every(event => !('card' in event) && event.faceDown)).toBe(true);
   });
 
   it('skips the first snapshot so reconnects and refreshes do not replay a deal', () => {

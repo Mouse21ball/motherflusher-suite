@@ -34,6 +34,23 @@ const engines = [
 ];
 
 describe.each(engines)('$name hole-card snapshots', ({ mask }) => {
+  it.each(['ANTE', 'DEAL', 'BET_1'] as const)('redacts serialized red-suited opponent cards during %s', phase => {
+    const state = dealtState(phase);
+    state.deck = [{ rank: 'Q', suit: 'hearts', isHidden: false }];
+    for (const recipient of ['p1', 'p2', '__spectator__']) {
+      const view = onWire(mask(state, recipient));
+      expect(view.deck).toEqual([]);
+      for (const player of view.players) {
+        if (player.id === recipient) continue;
+        expect(player.cards).toEqual([{ isHidden: true }, { isHidden: true }]);
+        expect(JSON.stringify(player.cards)).not.toMatch(/rank|suit|hearts|diamonds/);
+      }
+    }
+    // Masking must not corrupt the authoritative cards used for evaluation.
+    expect(state.players[0].cards).toEqual(aCards);
+    expect(state.players[1].cards).toEqual(bCards);
+  });
+
   it('sends no real opponent or spectator hole-card values before showdown, but shows the owner their own cards', () => {
     const state = dealtState();
     const forA = onWire(mask(state, 'p1'));

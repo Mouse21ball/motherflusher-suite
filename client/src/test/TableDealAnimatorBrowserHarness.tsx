@@ -8,7 +8,7 @@ import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/Fiv
 import { BadugiTableEffects } from '@/components/badugi/BadugiTableEffects';
 import { Dead7TableEffects } from '@/components/dead7/Dead7TableEffects';
 
-const heroCard: CardType = { rank: 'A', suit: 'spades' };
+const heroCard: CardType = { rank: 'A', suit: 'hearts' };
 const opponentCard: CardType = { rank: 'K', suit: 'hearts', isHidden: true };
 
 function makePlayer(id: string, cards: CardType[] = []): Player {
@@ -109,6 +109,7 @@ function TableDealAnimatorBrowserHarness() {
   const [visibleSeats, setVisibleSeats] = useState<Record<string, boolean>>({});
   const [fullDealRequested, setFullDealRequested] = useState(false);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [cardFlight, setCardFlight] = useState<'deal' | 'draw' | 'idle'>('deal');
   const [effectState, setEffectState] = useState<GameState>(() => effectGameState());
 
   useLayoutEffect(() => {
@@ -211,6 +212,8 @@ function TableDealAnimatorBrowserHarness() {
         }))}>Animate fold</button>
       </div>
       <div data-testid="interactive-hand" style={{ width: 240 }}>
+        <button data-testid="finish-card-flight" onClick={() => setCardFlight('idle')}>Finish card flight</button>
+        <button data-testid="draw-card-flight" onClick={() => setCardFlight('draw')}>Draw card flight</button>
         <CardHand
           cards={[heroCard]}
           selectedIndices={selectedCards}
@@ -218,7 +221,8 @@ function TableDealAnimatorBrowserHarness() {
             current.includes(index) ? current.filter(selected => selected !== index) : [...current, index]
           )}
           isSelectable
-          dealingIndices={[0]}
+          dealingIndices={cardFlight === 'deal' ? [0] : []}
+          drawingIndices={cardFlight === 'draw' ? [0] : []}
           testIdPrefix="interactive-card"
         />
         <output data-testid="selected-cards">{selectedCards.join(',')}</output>

@@ -10,6 +10,56 @@ async function openFixture(page: Parameters<typeof test>[0]['page']) {
 }
 
 test.describe('table deal animation in a narrow browser viewport', () => {
+  test('shows no card face on any painted flight frame, then reveals the authorized hero destination', async ({ page }) => {
+    await openFixture(page);
+    await page.evaluate(() => {
+      const samples = { frames: 0, violations: 0 };
+      (window as any).dealFaceSamples = samples;
+      const sample = () => {
+        const flights = document.querySelectorAll('[data-deal-flight]');
+        if (flights.length) {
+          samples.frames++;
+          if ([...flights].some(flight => flight.querySelector('.playing-card-front') || flight.textContent)) {
+            samples.violations++;
+          }
+          const visibleFace = [...document.querySelectorAll<HTMLElement>('[data-testid="table"] [data-deal-seat] .playing-card-front')]
+            .some(face => getComputedStyle(face).visibility !== 'hidden');
+          if (visibleFace) samples.violations++;
+        }
+        (window as any).dealFaceFrame = requestAnimationFrame(sample);
+      };
+      (window as any).dealFaceFrame = requestAnimationFrame(sample);
+    });
+    await page.getByTestId('deal').click();
+    await expect(page.locator(flightSelector)).toHaveCount(3);
+    await expect(page.locator(flightSelector)).toHaveCount(0);
+    const samples = await page.evaluate(() => {
+      cancelAnimationFrame((window as any).dealFaceFrame);
+      return (window as any).dealFaceSamples;
+    });
+    expect(samples.frames).toBeGreaterThan(0);
+    expect(samples.violations).toBe(0);
+    const table = page.getByTestId('table');
+    await expect(table.locator('[data-deal-seat="hero"] .playing-card-front')).toHaveCount(1);
+    await expect(table.locator('[data-deal-seat="hero"]')).toContainText('A');
+    await expect(table.locator('[data-deal-seat^="opponent-"] .playing-card-front')).toHaveCount(0);
+  });
+
+  test('shared hero deal and draw flights stay face-down until their flags clear', async ({ page }) => {
+    await openFixture(page);
+    const card = page.getByTestId('interactive-card-0');
+    await expect(card.locator('.playing-card-front')).toHaveCount(0);
+    await expect(card.locator('.playing-card-back')).toHaveCount(1);
+    await page.getByTestId('finish-card-flight').click();
+    await expect(card.locator('.playing-card-front')).toHaveCount(1);
+    await expect(card).toContainText('A');
+    await page.getByTestId('draw-card-flight').click();
+    await expect(card.locator('.playing-card-front')).toHaveCount(0);
+    await expect(card.locator('.playing-card-back')).toHaveCount(1);
+    await page.getByTestId('finish-card-flight').click();
+    await expect(card.locator('.playing-card-front')).toHaveCount(1);
+  });
+
   test('measures the deck and seats, preserves privacy, and restores destinations', async ({ page }) => {
     await openFixture(page);
 
@@ -56,13 +106,12 @@ test.describe('table deal animation in a narrow browser viewport', () => {
         text: flight.textContent ?? '',
       })),
     );
-    expect(flightKinds.filter((flight) => flight.hasFront)).toHaveLength(1);
-    expect(flightKinds.filter((flight) => flight.hasBack)).toHaveLength(2);
-    expect(flightKinds.find((flight) => flight.hasFront)?.text).toContain('A');
+    expect(flightKinds.filter((flight) => flight.hasFront)).toHaveLength(0);
+    expect(flightKinds.filter((flight) => flight.hasBack)).toHaveLength(3);
     expect(flightKinds.filter((flight) => flight.hasBack).every((flight) => flight.text === '')).toBe(true);
 
     await page.waitForTimeout(380);
-    const heroFlightBox = await page.locator(flightSelector).filter({ has: page.locator('.playing-card-front') }).boundingBox();
+    const heroFlightBox = await page.locator(flightSelector).first().boundingBox();
     const tableBox = await page.getByTestId('table').boundingBox();
     expect(heroFlightBox).not.toBeNull();
     expect(tableBox).not.toBeNull();
@@ -89,6 +138,8 @@ test.describe('table deal animation in a narrow browser viewport', () => {
 
   test('keeps shared CardHand cards selectable while their deal animation flag is active', async ({ page }) => {
     await openFixture(page);
+    await expect(page.getByTestId('interactive-card-0').locator('.playing-card-front')).toHaveCount(0);
+    await expect(page.getByTestId('interactive-card-0').locator('.playing-card-back')).toHaveCount(1);
     await page.getByTestId('interactive-card-0').locator('button').click();
     await expect(page.getByTestId('selected-cards')).toHaveText('0');
     await page.getByTestId('interactive-card-0').locator('button').click();
@@ -113,7 +164,7 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
     await expect(destination).toHaveCSS('visibility', 'hidden');
-    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    const opponentFlights = page.locator(`${flightSelector}:nth-child(n+2)`);
     await expect(opponentFlights).toHaveCount(2);
     const markup = await opponentFlights.evaluateAll(flights =>
       flights.map(flight => flight.outerHTML.toLowerCase()),
@@ -160,7 +211,7 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
 
-    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    const opponentFlights = page.locator(`${flightSelector}:nth-child(n+2)`);
     await expect(opponentFlights).toHaveCount(2);
     const opponentMarkup = await opponentFlights.evaluateAll((flights) =>
       flights.map((flight) => ({
@@ -194,7 +245,7 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
 
-    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    const opponentFlights = page.locator(`${flightSelector}:nth-child(n+2)`);
     await expect(opponentFlights).toHaveCount(2);
     const opponentMarkup = await opponentFlights.evaluateAll((flights) =>
       flights.map((flight) => ({
@@ -236,7 +287,7 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
     await expect(shiftedSeat).toHaveCSS('visibility', 'hidden');
-    const opponentFlights = page.locator(`${flightSelector}:has(.playing-card-back)`);
+    const opponentFlights = page.locator(`${flightSelector}:nth-child(n+2)`);
     await expect(opponentFlights).toHaveCount(2);
     const opponentMarkup = await opponentFlights.evaluateAll(flights =>
       flights.map(flight => ({ html: flight.outerHTML.toLowerCase(), text: flight.textContent })),

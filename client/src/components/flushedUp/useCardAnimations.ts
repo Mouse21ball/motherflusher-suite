@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import type { CardType, Player } from '@/lib/poker/types';
 
 function cardsEqual(a: CardType, b: CardType): boolean {
@@ -20,9 +20,7 @@ export interface CardAnimState {
 export interface TableDealEvent {
   playerId: string;
   slot: number;
-  faceDown: boolean;
-  /** Only populated for the hero; opponents intentionally carry no card data. */
-  card?: CardType;
+  faceDown: true;
 }
 
 export interface TableDealSnapshot {
@@ -59,10 +57,8 @@ export function deriveTableDealEvents(
   for (let slot = 0; slot < max; slot++) {
     for (const player of active) {
       if (!fresh.includes(player) || slot >= player.cards.length) continue;
-      const hero = player.id === myId;
-      events.push(hero
-        ? { playerId: player.id, slot, faceDown: !!player.cards[slot].isHidden, card: player.cards[slot] }
-        : { playerId: player.id, slot, faceDown: true });
+      // Flights carry geometry only, never even the hero's card identity.
+      events.push({ playerId: player.id, slot, faceDown: true });
     }
   }
   return events;
@@ -112,7 +108,7 @@ export function useTableDealAnimations(players: Player[], phase: string, myId: s
   const tokenRef = useRef(0);
   const activeSequenceRef = useRef(false);
   const [snapshot, setSnapshot] = useState<TableDealSnapshot>({ events: [], generation: 0 });
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previous = previousRef.current;
     const next = advanceTableDealTracker(previous, players, phase, myId);
     previousRef.current = next.tracker;
@@ -150,7 +146,9 @@ export function useCardAnimations(heroCards: CardType[], phase: string) {
   const [drawingIndices, setDrawingIndices] = useState<number[]>([]);
   const [discardingIndices, setDiscardingIndices] = useState<number[]>([]);
 
-  useEffect(() => {
+  // Set flags before paint: a passive effect can expose the new card's face
+  // for one frame before switching it to the flight/back visual.
+  useLayoutEffect(() => {
     const prev = prevCardsRef.current;
     const prevPhase = prevPhaseRef.current;
 
