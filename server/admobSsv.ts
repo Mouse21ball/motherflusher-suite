@@ -32,13 +32,15 @@ export function verifyAdMobSsvQuery(
   keys: AdMobVerifierKey[],
   expectedAdUnitId?: string,
   nowMs = Date.now(),
+  onRejected?: (reason: string) => void,
 ): VerifiedAdMobReward | null {
-  if (!rawQuery || rawQuery.length > 8_192) return null;
+  const reject = (reason: string): null => { onRejected?.(reason); return null; };
+  if (!rawQuery || rawQuery.length > 8_192) return reject("missing_or_oversized_query");
   const signatureMarkers = ["&signature=", "&key_id="]
     .map(marker => ({ marker, index: rawQuery.indexOf(marker) }))
     .filter(entry => entry.index >= 0)
     .sort((a, b) => a.index - b.index);
-  if (!signatureMarkers.length || signatureMarkers[0].index < 1) return null;
+  if (!signatureMarkers.length || signatureMarkers[0].index < 1) return reject("missing_signature_fields");
 
   // AdMob signs the exact URL-encoded query prefix before its trailing
   // signature/key_id fields. Preserve the raw bytes here; reserializing decoded
@@ -50,27 +52,28 @@ export function verifyAdMobSsvQuery(
     || callbackSuffix.getAll("signature").length !== 1
     || callbackSuffix.getAll("key_id").length !== 1
   ) {
-    return null;
+    return reject("malformed_signature_suffix");
   }
   const signedParams = new URLSearchParams(signedQuery);
   const signatureText = callbackSuffix.get("signature");
   const keyId = Number(callbackSuffix.get("key_id"));
   const publicKey = keys.find(key => key.keyId === keyId)?.pem;
-  if (!signatureText || !Number.isSafeInteger(keyId) || !publicKey) return null;
+  if (!signatureText || !Number.isSafeInteger(keyId)) return reject("malformed_signature_fields");
+  if (!publicKey) return reject("unknown_verifier_key");
 
   let signature: Buffer;
   try {
     signature = Buffer.from(signatureText.replace(/-/g, "+").replace(/_/g, "/"), "base64");
   } catch {
-    return null;
+    return reject("malformed_signature");
   }
   let signatureValid = false;
   try {
     signatureValid = verifySignature("sha256", Buffer.from(signedQuery, "utf8"), publicKey, signature);
   } catch {
-    return null;
+    return reject("signature_verification_error");
   }
-  if (!signatureValid) return null;
+  if (!signatureValid) return reject("signature_mismatch");
 
   const watchSessionId = signedParams.get("custom_data") ?? "";
   const adUnitId = signedParams.get("ad_unit") ?? "";
@@ -78,20 +81,20 @@ export function verifyAdMobSsvQuery(
   const rewardItem = signedParams.get("reward_item") ?? "";
   const transactionId = signedParams.get("transaction_id") ?? "";
   const timestamp = Number(signedParams.get("timestamp"));
+  if (!/^[0-9a-f-]{36}$/i.test(watchSessionId)) return reject("invalid_custom_data");
+  if (expectedAdUnitId != null && !adMobAdUnitMatches(expectedAdUnitId, adUnitId)) return reject("ad_unit_mismatch");
   if (
-    !/^[0-9a-f-]{36}$/i.test(watchSessionId)
-    || (expectedAdUnitId != null && !adMobAdUnitMatches(expectedAdUnitId, adUnitId))
     // Eligibility is Google's assertion. The grant remains exactly 500 in
     // storage; never copy the provider's configurable reward amount.
-    || !Number.isSafeInteger(rewardAmount) || rewardAmount <= 0
+    !Number.isSafeInteger(rewardAmount) || rewardAmount <= 0
     || !rewardItem || rewardItem.length > 128
     || !transactionId
     || transactionId.length > 256
-    || !Number.isSafeInteger(timestamp)
-    || timestamp <= 0
-    || timestamp > nowMs + 5 * 60 * 1000
   ) {
-    return null;
+    return reject("invalid_reward_payload");
+  }
+  if (!Number.isSafeInteger(timestamp) || timestamp <= 0 || timestamp > nowMs + 5 * 60 * 1000) {
+    return reject("invalid_timestamp");
   }
 
   return { watchSessionId, adUnitId, rewardAmount, rewardItem, transactionId, timestamp };

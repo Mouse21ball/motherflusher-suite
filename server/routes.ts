@@ -670,6 +670,21 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/ads/rewarded/trace", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const { sessionId, step } = rewardedAdSessionSchema.extend({
+        step: z.enum(["initializing", "loading", "loaded", "showing", "sdk_reward", "dismissed",
+          "sdk_failed", "confirm_failed", "poll_failed", "verification_pending", "credited"]),
+      }).parse(req.body);
+      const session = await storage.getRewardedAdSession(sessionId, req.sessionPlayerId!);
+      if (!session) { res.sendStatus(404); return; }
+      console.info("[rewarded-ad] client", JSON.stringify({ sessionId, step }));
+      res.sendStatus(204);
+    } catch (err) {
+      res.sendStatus(err instanceof z.ZodError ? 400 : 500);
+    }
+  });
+
   app.get("/api/ads/rewarded/:sessionId", requireAuth, generalApiRateLimit, async (req, res) => {
     try {
       const { sessionId } = rewardedAdSessionSchema.parse({ sessionId: req.params.sessionId });
@@ -698,16 +713,20 @@ export async function registerRoutes(
   // signs the raw query string; the server verifies it against Google's
   // published verifier keys before trusting any reward fields.
   app.get("/api/ads/admob/ssv", admobSsvRateLimit, async (req, res) => {
+    // Never log the signed URL, transaction ID, custom payload, or error object.
+    console.info("[rewarded-ad] ssv_received");
     try {
       const rawQuery = req.originalUrl.split("?", 2)[1] ?? "";
       const keys = await getAdMobVerifierKeys();
-      const verified = verifyAdMobSsvQuery(rawQuery, keys);
+      const verified = verifyAdMobSsvQuery(rawQuery, keys, undefined, Date.now(),
+        reason => console.warn(`[rewarded-ad] ssv_rejected ${reason}`));
       if (!verified) {
         res.status(400).send("Invalid AdMob SSV callback");
         return;
       }
       const session = await storage.getRewardedAdSessionForSsv(verified.watchSessionId);
       if (!session || !adMobAdUnitMatches(session.adUnitId, verified.adUnitId)) {
+        console.warn(`[rewarded-ad] ssv_rejected ${session ? "ad_unit_mismatch" : "unknown_session"}`);
         res.status(400).send("Unknown or mismatched AdMob watch session");
         return;
       }
@@ -717,16 +736,20 @@ export async function registerRoutes(
         completedAt: new Date(verified.timestamp),
       });
       if (!result.completed) {
+        console.warn("[rewarded-ad] ssv_rejected expired_or_consumed_session");
         res.status(400).send("Unknown, expired, or already consumed AdMob session");
         return;
       }
+      console.info("[rewarded-ad] ssv_credited", JSON.stringify({
+        sessionId: verified.watchSessionId, idempotent: result.idempotent,
+      }));
       res.status(200).send("OK");
     } catch (err: any) {
       if (err?.code === "23505") {
         // A Google transaction ID can credit only one watch session.
         res.status(200).send("OK");
       } else {
-        console.error("[rewarded-ad] SSV verification failed:", err);
+        console.error("[rewarded-ad] ssv_failed verifier_keys_or_storage_unavailable");
         res.status(500).send("AdMob SSV verification temporarily unavailable");
       }
     }

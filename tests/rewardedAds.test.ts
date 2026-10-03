@@ -40,6 +40,39 @@ function signedCallback(fields: Record<string, string>, signatureFirst = false):
 }
 
 describe("AdMob rewarded-ad SSV", () => {
+  it("identifies rejection stages without logging signed query data", () => {
+    const rejected: string[] = [];
+    const diagnose = (query: string) => verifyAdMobSsvQuery(query, verifierKeys, undefined,
+      1_780_000_000_000, reason => rejected.push(reason));
+    expect(diagnose("")).toBeNull();
+    const query = signedCallback({
+      ad_unit: adUnitId, custom_data: "46a3c61e-0407-41dc-80b5-862d85105cc1",
+      reward_amount: "1", reward_item: "coins", timestamp: "1780000000000",
+      transaction_id: "private-transaction",
+    });
+    expect(diagnose(query.replace("reward_amount=1", "reward_amount=2"))).toBeNull();
+    expect(diagnose(query.replace("key_id=123", "key_id=456"))).toBeNull();
+    expect(diagnose(signedCallback({
+      ad_unit: adUnitId, custom_data: "missing-session", reward_amount: "1",
+      reward_item: "coins", timestamp: "1780000000000", transaction_id: "private-transaction",
+    }))).toBeNull();
+    expect(rejected).toEqual(["missing_or_oversized_query", "signature_mismatch",
+      "unknown_verifier_key", "invalid_custom_data"]);
+    expect(JSON.stringify(rejected)).not.toContain("private-transaction");
+  });
+
+  it.each(["android", "ios"] as const)("accepts signed numeric slots for %s but rejects the other platform", platform => {
+    const unit = rewardedAdUnitId(platform, false);
+    const other = rewardedAdUnitId(platform === "android" ? "ios" : "android", false);
+    const query = signedCallback({
+      ad_unit: unit.split("/")[1], custom_data: "46a3c61e-0407-41dc-80b5-862d85105cc1",
+      reward_amount: "1", reward_item: "coins", timestamp: "1780000000000",
+      transaction_id: "split-unit-reward",
+    });
+    expect(verifyAdMobSsvQuery(query, verifierKeys, unit, 1_780_000_000_000)).not.toBeNull();
+    expect(verifyAdMobSsvQuery(query, verifierKeys, other, 1_780_000_000_000)).toBeNull();
+  });
+
   it("accepts a correctly signed 500-chip event for the configured ad unit", () => {
     const query = signedCallback({
       ad_unit: adUnitId,
@@ -109,7 +142,7 @@ describe("AdMob rewarded-ad SSV", () => {
     const routes = readFileSync(new URL("../server/routes.ts", import.meta.url), "utf8");
     const client = readFileSync(new URL("../client/src/lib/rewardedAds.ts", import.meta.url), "utf8");
     expect(routes).toContain("isRewardedAdTestModeEnabled(");
-    expect(routes).toContain("verifyAdMobSsvQuery(rawQuery, keys)");
+    expect(routes).toContain("verifyAdMobSsvQuery(rawQuery, keys,");
     expect(routes).toContain('if (process.env.NODE_ENV === "production" || !rewardedAdTestModeEnabled)');
     expect(client).toContain("Production credit remains exclusively SSV-verified.");
     expect(client).toContain("ssv: { customData: session.sessionId }");

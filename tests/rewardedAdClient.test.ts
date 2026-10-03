@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mock = vi.hoisted(() => ({
   api: vi.fn(), initialize: vi.fn(), prepare: vi.fn(), show: vi.fn(),
-  listeners: new Map<string, () => void>(), remove: vi.fn(),
+  listeners: new Map<string, (reward?: { amount: number; type: string }) => void>(), remove: vi.fn(),
 }));
 vi.mock("@capacitor/core", () => ({ Capacitor: { getPlatform: () => "android" } }));
 vi.mock("@capacitor-community/admob", () => ({
   AdMob: {
     initialize: mock.initialize, prepareRewardVideoAd: mock.prepare, showRewardVideoAd: mock.show,
-    addListener: async (event: string, callback: () => void) => {
+    addListener: async (event: string, callback: (reward?: { amount: number; type: string }) => void) => {
       mock.listeners.set(event, callback);
       return { remove: mock.remove };
     },
   },
-  RewardAdPluginEvents: { Dismissed: "dismissed", FailedToShow: "failed" },
+  RewardAdPluginEvents: { Dismissed: "dismissed", FailedToShow: "failed", Rewarded: "rewarded" },
 }));
 vi.mock("../client/src/lib/session", () => ({ apiFetch: mock.api }));
 vi.mock("../client/src/lib/apiConfig", () => ({ apiUrl: (url: string) => url }));
@@ -73,8 +73,8 @@ describe("rewarded ad SDK eligibility and locks", () => {
     await playback.earn();
     playback.dismiss();
     await rejection;
-    expect(mock.api).toHaveBeenCalledTimes(1);
-    expect(mock.remove).toHaveBeenCalledTimes(2);
+    expect(mock.api.mock.calls.filter(([url]) => !url.endsWith("/trace"))).toHaveLength(1);
+    expect(mock.remove).toHaveBeenCalledTimes(3);
   });
 
   it("does not play a second ad for a server-confirmed, already rewarded bust", async () => {
@@ -98,7 +98,7 @@ describe("rewarded ad SDK eligibility and locks", () => {
   it("retains the lock while the signed server callback is delayed", async () => {
     let checks = 0;
     mock.api.mockImplementation(async (url: string) => new Response(JSON.stringify(
-      url.endsWith("/start") ? session : url.endsWith("/confirm") ? {} :
+      url.endsWith("/start") ? session : url.endsWith("/confirm") || url.endsWith("/trace") ? {} :
         ++checks === 1 ? { completed: false, expired: false } :
           { completed: true, expired: false, chipBalance: 500 },
     )));
@@ -107,6 +107,58 @@ describe("rewarded ad SDK eligibility and locks", () => {
     playback.dismiss();
     await vi.waitFor(() => expect(checks).toBe(1));
     await expect(playback.api.watchRewardedAd(context)).rejects.toThrow("already in progress");
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(playback.result).resolves.toMatchObject({ chipBalance: 500 });
+  });
+
+  it("accepts a late SDK reward after dismissal without trusting dismissal itself", async () => {
+    const playback = await moduleAndPlayback({ type: "coins", amount: 1 });
+    playback.dismiss();
+    expect(mock.api.mock.calls.some(([url]) => url.includes("/confirm"))).toBe(false);
+    await vi.advanceTimersByTimeAsync(100);
+    await playback.earn();
+    await expect(playback.result).resolves.toMatchObject({ chipBalance: 500 });
+  });
+
+  it("handles the Rewarded event even when the native show promise never resolves", async () => {
+    const playback = await moduleAndPlayback(undefined);
+    mock.listeners.get("rewarded")!({ type: "coins", amount: 1 });
+    playback.dismiss();
+    await expect(playback.result).resolves.toMatchObject({ chipBalance: 500 });
+  });
+
+  it("rejects dismissal without an earned reward after the bounded bridge grace period", async () => {
+    const playback = await moduleAndPlayback(undefined);
+    const rejection = expect(playback.result).rejects.toThrow("not completed");
+    playback.dismiss();
+    await vi.advanceTimersByTimeAsync(2_000);
+    await rejection;
+    expect(mock.api.mock.calls.some(([url]) => url.includes("/confirm"))).toBe(false);
+  });
+
+  it("still reads signed server credit when confirmation and telemetry fail", async () => {
+    const original = mock.api.getMockImplementation()!;
+    mock.api.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (url.endsWith("/confirm") || url.endsWith("/trace")) throw new Error("offline");
+      return original(url, options);
+    });
+    const playback = await moduleAndPlayback({ type: "coins", amount: 1 });
+    await playback.earn();
+    playback.dismiss();
+    await expect(playback.result).resolves.toMatchObject({ chipBalance: 500 });
+  });
+
+  it("recovers a transient status failure instead of losing the earned session", async () => {
+    let checks = 0;
+    mock.api.mockImplementation(async (url: string) => {
+      if (url.includes("/rewarded/watch-session") && ++checks === 1) throw new Error("offline");
+      return new Response(JSON.stringify(url.endsWith("/start") ? session :
+        url.includes("/rewarded/watch-session") ? { completed: true, expired: false, chipBalance: 500 } : {}));
+    });
+    const playback = await moduleAndPlayback({ type: "coins", amount: 1 });
+    await playback.earn();
+    playback.dismiss();
+    await vi.waitFor(() => expect(checks).toBe(1));
     await vi.advanceTimersByTimeAsync(1_000);
     await expect(playback.result).resolves.toMatchObject({ chipBalance: 500 });
   });
