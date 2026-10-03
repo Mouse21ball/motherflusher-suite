@@ -20,6 +20,21 @@ export interface VerifiedAdMobReward {
 let verifierKeys: AdMobVerifierKey[] = [];
 let verifierKeysLoadedAt = 0;
 
+const ADMOB_CALLBACK_FIELDS = new Set([
+  "ad_network", "ad_unit", "custom_data", "key_id", "reward_amount",
+  "reward_item", "signature", "timestamp", "transaction_id", "user_id",
+]);
+
+/** A console URL-check carries no signature or reward claim, even empty fields. */
+export function isAdMobSsvSetupPing(rawQuery: string): boolean {
+  if (rawQuery.length > 8_192) return false;
+  for (const name of new URLSearchParams(rawQuery).keys()) {
+    // Encoded names and malformed array/object forms must not bypass verification.
+    if (ADMOB_CALLBACK_FIELDS.has(name.split("[", 1)[0])) return false;
+  }
+  return true;
+}
+
 /** Google's SSV examples send the numeric slot, not always the SDK's full ID. */
 export function adMobAdUnitMatches(expected: string, received: string): boolean {
   if (expected === received) return true;

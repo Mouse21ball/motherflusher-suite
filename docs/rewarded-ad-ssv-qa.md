@@ -17,11 +17,15 @@ Configure both units separately:
 - Android: `ca-app-pub-1122384597919929/4402812186`
 - iOS: `ca-app-pub-1122384597919929/9990005770`
 
-Console tests must supply a valid issued session UUID as custom data. An
-unsigned request or an arbitrary/missing session must fail; HTTP 400 does not
-mean the endpoint is unreachable. Never bypass signature checks to make a
-console test pass. The console configuration cannot be inspected or changed
-from this repository.
+AdMob's callback-URL setup ping has no signature or reward fields. The endpoint
+acknowledges that ping with HTTP 200 as a no-op: no verifier-key fetch, session
+lookup, completion, or chip credit. Empty signature/reward fields still count
+as a reward attempt and go through the existing strict verification.
+
+Reward callback tests must supply a valid issued session UUID as custom data.
+Unsigned reward attempts, invalid signatures, or arbitrary/missing sessions
+still fail. Never bypass reward signature checks to make a console test pass.
+The console configuration cannot be inspected or changed from this repository.
 
 ## Evidence from the reported Android watch on 2026-10-03
 
@@ -33,12 +37,17 @@ from this repository.
   transaction, and a 30-minute validity window (11:26–11:56 UTC). Expiry did
   not explain this watch failing within its first minute.
 - A direct unsigned GET to the callback returned the expected HTTP 400:
-  the public callback route is reachable.
+  the public callback route is reachable. This was the behavior before the
+  setup-ping fix; a bare URL check now receives HTTP 200 without granting chips.
 
 Conclusion: the SDK→client→server confirmation chain ran, but the available
 evidence shows no Google→server callback. Incorrect/missing AdMob-console SSV
 configuration is a configuration check to perform, **not a verified cause**.
 No production chip credit or console setting was changed during diagnosis.
+
+The owner subsequently reported that AdMob's bare URL-check received HTTP 400
+and prevented saving the callback on both units. After the setup-ping fix is
+published, the owner must re-run URL verification and save both unit settings.
 
 ## Instrumentation
 
@@ -48,6 +57,7 @@ After the backend and native client changes are released, correlate logs:
    Loading and loaded timestamps expose slow SDK loads.
 2. Confirmation and polling failures are traced, not silently treated as skips.
 3. `ssv_received` records callback entry.
+   `ssv_setup_ping` identifies a no-op console URL check, never a credited ad.
 4. `ssv_rejected` states the rejection stage: malformed query, unknown key,
    signature mismatch, invalid custom data/reward/timestamp, unit mismatch,
    unknown session, or expired/consumed session.

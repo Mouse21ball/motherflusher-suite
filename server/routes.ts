@@ -94,7 +94,7 @@ import {
 import { randomBytes, randomUUID } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
-import { adMobAdUnitMatches, getAdMobVerifierKeys, verifyAdMobSsvQuery } from "./admobSsv";
+import { adMobAdUnitMatches, getAdMobVerifierKeys, isAdMobSsvSetupPing, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "./rewardedAdConfig";
 import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
 import { notificationDevices, notificationPreferences, sessions } from "@shared/schema";
@@ -717,6 +717,13 @@ export async function registerRoutes(
     console.info("[rewarded-ad] ssv_received");
     try {
       const rawQuery = req.originalUrl.split("?", 2)[1] ?? "";
+      if (isAdMobSsvSetupPing(rawQuery)) {
+        // AdMob's console checks the callback URL before saving it. This is
+        // not reward completion: do not fetch keys, look up sessions, or credit.
+        console.info("[rewarded-ad] ssv_setup_ping");
+        res.status(200).send("OK");
+        return;
+      }
       const keys = await getAdMobVerifierKeys();
       const verified = verifyAdMobSsvQuery(rawQuery, keys, undefined, Date.now(),
         reason => console.warn(`[rewarded-ad] ssv_rejected ${reason}`));
