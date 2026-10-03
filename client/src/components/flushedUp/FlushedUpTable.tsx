@@ -460,18 +460,6 @@ export function FlushedUpTable({
           </div>
         )}
 
-        {/* Debug indicator (draw phases only, remove after on-device testing) */}
-        {isDrawPhase && (
-          <div style={{
-            marginTop: 3,
-            fontSize: 11, fontFamily: 'monospace',
-            color: 'rgba(255,80,80,0.8)', letterSpacing: '0.08em',
-            background: 'rgba(0,0,0,0.4)', padding: '2px 8px',
-            borderRadius: 4, border: '1px solid rgba(255,80,80,0.25)',
-          }}>
-            PHASE: {state.phase} · SELECTED: {selectedCardIndices.length}
-          </div>
-        )}
       </div>
 
       <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />

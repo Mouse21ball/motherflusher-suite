@@ -6,7 +6,7 @@ import { getTableConnectionHealth, isTablePath, returnToLobby, TABLE_CONNECTION_
  * needed to escape. A hard local navigation also resets a crashed router. */
 export function TableEscapeGuard() {
   const [path] = useLocation();
-  const [connecting, setConnecting] = useState(false);
+  const [, setConnecting] = useState(false);
   const active = isTablePath(path);
   useEffect(() => {
     if (!active) return;
@@ -29,14 +29,5 @@ export function TableEscapeGuard() {
     accept(getTableConnectionHealth());
     return () => { if (timer) clearTimeout(timer); window.removeEventListener(TABLE_CONNECTION_EVENT, listener); };
   }, [active, path]);
-  if (!active) return null;
-  return (
-    <aside style={{ position: 'fixed', left: 8, bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))', zIndex: 2147483647, pointerEvents: 'auto' }}>
-      <button type="button" data-testid="button-emergency-lobby" onClick={() => returnToLobby('local')}
-        className="min-h-11 rounded-xl border border-amber-200/60 bg-black px-3 py-2 text-xs font-bold text-amber-100 shadow-lg"
-        title="Leave locally without waiting for the connection. The server remains responsible for your balance.">
-        {connecting ? 'Connecting… Return to lobby' : 'Emergency lobby exit'}
-      </button>
-    </aside>
-  );
+  return null;
 }
