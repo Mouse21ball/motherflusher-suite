@@ -29,6 +29,7 @@
 - [AGP 9 legacy Kotlin modules](agp9-legacy-kotlin-modules.md) — a plugin's explicit Kotlin apply can mask its valid compileSdk; check old DSL calls after fixing the first error.
 - [Poker wallet accounting](poker-wallet-accounting.md) — poker stacks allocate the total wallet; do not mix buy-in escrow debits with hand-delta settlement.
 - [Native crash evidence](native-crash-evidence.md) — test the complete production bootstrap; a bridge shim cannot verify Java/SDK startup or explain process death.
+- [Artwork hit targets](artwork-hit-targets.md) — tap painted action coordinates; transparent locator clicks can conceal iPad poster/hitbox misalignment.
 - [Mobile/server protocol compatibility](mobile-server-protocol.md) — mobile uploads do not update the backend; check live capabilities before diagnosing missing acknowledgements.
 - [Mobile QA release boundaries](mobile-qa-release-boundaries.md) — owner publishes backend; AdMob approval lifted the Watch Ad hold; fixed rewards remain bust-bound.
 - [AdMob SSV compatibility](admob-ssv-compatibility.md) — signed callbacks may use numeric slots and configurable rewards; never use provider amounts as chip grants.

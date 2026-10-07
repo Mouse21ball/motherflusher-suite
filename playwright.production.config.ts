@@ -4,7 +4,7 @@ import { findChromiumExecutable } from './browser-discovery';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: '**/productionColdStart.spec.ts',
+  testMatch: ['**/productionColdStart.spec.ts', '**/welcomeBack.spec.ts'],
   timeout: 60_000,
   workers: 1,
   reporter: 'list',

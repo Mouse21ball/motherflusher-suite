@@ -210,26 +210,34 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
 // ── Welcome Back ──────────────────────────────────────────────────────────────
 function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
   return (
-    <div className="relative w-full h-[100dvh] overflow-hidden bg-black">
-      <img
-        src="/welcome-back-chain-gang.png"
-        alt="Chain Gang Poker — Welcome Back"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ objectPosition: 'center' }}
-      />
-      <button
-        type="button"
-        onClick={onPlay}
-        aria-label="Play now"
-        className="absolute appearance-none border-0 bg-transparent p-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F0B829]"
-        style={{
-          left: '15.8%',
-          top: '71.9%',
-          width: '68.3%',
-          height: '9.8%',
-        }}
-        data-testid="button-welcome-back-play"
-      />
+    <div className="w-full h-[100dvh] overflow-hidden bg-black grid place-items-center">
+      {/* The poster is 941×1672. Keep the art and its hit target in the SAME
+          uncropped frame. Screen-relative percentages over object-cover miss
+          the painted button on iPad and can crop it out in landscape. */}
+      <div
+        className="relative"
+        style={{ width: 'min(100%, calc(100dvh * 941 / 1672))', aspectRatio: '941 / 1672' }}
+      >
+        <img
+          src="/welcome-back-chain-gang.png"
+          alt="Chain Gang Poker — Welcome Back"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          draggable={false}
+        />
+        <button
+          type="button"
+          onClick={onPlay}
+          aria-label="Play now"
+          className="absolute z-10 appearance-none border-0 bg-transparent p-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F0B829]"
+          style={{
+            left: '15.8%',
+            top: '71.9%',
+            width: '68.3%',
+            height: '9.8%',
+          }}
+          data-testid="button-welcome-back-play"
+        />
+      </div>
     </div>
   );
 }
