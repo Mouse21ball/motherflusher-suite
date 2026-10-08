@@ -73,46 +73,11 @@ interface GameHeaderProps {
 const MID_HAND_PHASES = new Set<GamePhase>([
   'ANTE', 'DEAL',
   'DRAW', 'DRAW_1', 'DRAW_2', 'DRAW_3',
-  'BET_1', 'BET_2', 'BET_3', 'BET_4', 'BET_5', 'BET_6', 'BET_7', 'BET_8',
-  'HIT_1', 'HIT_2', 'HIT_3', 'HIT_4', 'HIT_5', 'HIT_6', 'HIT_7', 'HIT_8',
-  'DECLARE', 'DECLARE_AND_BET',
-  'REVEAL_TOP_ROW', 'REVEAL_SECOND_ROW', 'REVEAL_LOWER_CENTER', 'REVEAL_FACTOR_CARD',
+  'BET_1', 'BET_2', 'BET_3', 'BET_4',
+  'DECLARE',
 ]);
 
 export const MODE_INFO: Record<string, ModeInfo> = {
-  swing: {
-    abbrev: "SW",
-    name: "Swing Poker",
-    accentClass: "text-blue-400",
-    borderClass: "border-blue-500/20",
-    rules: [
-      {
-        heading: "Setup",
-        items: [
-          "5 hole cards dealt to each player",
-          "15-card community board: 5 pairs across two sides + 5 center cards revealed in stages",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "Draw phase: discard up to 2 cards and replace them",
-          "Community cards reveal in stages with a betting round after each",
-          "After final reveal, declare HIGH, LOW, or SWING",
-        ],
-      },
-      {
-        heading: "Showdown",
-        items: [
-          "HIGH wins with the best 5-card poker hand",
-          "LOW wins with the best low suits score (highest same-suit total)",
-          "SWING must win BOTH sides to scoop the entire pot; failure forfeits",
-          "If both HIGH and LOW qualify, pot splits (odd chip to HIGH)",
-          "If no qualifiers on a side, that share rolls over",
-        ],
-      },
-    ],
-  },
   badugi: {
     abbrev: "B",
     name: "Badugi",
@@ -147,109 +112,6 @@ export const MODE_INFO: Record<string, ModeInfo> = {
       },
     ],
   },
-  dead7: {
-    abbrev: "D7",
-    name: "Dead 7",
-    accentClass: "text-red-400",
-    borderClass: "border-red-500/20",
-    rules: [
-      {
-        heading: "The Twist",
-        items: [
-          "Any 7 in your hand kills it instantly (\"dead\")",
-          "You MUST discard all 7s when you can",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "4 cards dealt face-down",
-          "3 draw rounds: discard up to 3 / 2 / 1 cards",
-          "After draws, declare HIGH, LOW, or FOLD",
-          "HIGH needs all 4 cards valued 8 or higher (best: K-Q-J-10)",
-          "LOW needs all 4 cards valued 6 or lower (best: A-2-3-4)",
-        ],
-      },
-      {
-        heading: "Scoops",
-        items: [
-          "A flush (all same suit) scoops the entire pot",
-          "If no flush, a badugi (all different suits) scoops",
-          "If neither, normal hi-lo split",
-          "No qualifier on either side means pot rolls over",
-        ],
-      },
-    ],
-  },
-  fifteen35: {
-    abbrev: "15",
-    name: "15 / 35",
-    accentClass: "text-amber-400",
-    borderClass: "border-amber-500/20",
-    rules: [
-      {
-        heading: "Card Values",
-        items: [
-          "J, Q, K = 0.5 each",
-          "Ace = 1 or 11 (whichever is best for you)",
-          "2 through 10 = face value",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "2 cards dealt: 1 face-up, 1 face-down",
-          "Each round: Hit (get another face-up card), Stay, or Fold",
-          "Over 35 = BUST (you're out)",
-          "Betting rounds between each hit round",
-        ],
-      },
-      {
-        heading: "Qualifying & Payout",
-        items: [
-          "LOW qualifies at 13-15 (15 is best)",
-          "HIGH qualifies at 33-35 (35 is best)",
-          "No declaration needed — hand auto-reads at showdown",
-          "Both sides qualify: pot splits. One side only: that side wins all",
-          "No qualifiers on either side: pot rolls over",
-        ],
-      },
-    ],
-  },
-  suitspoker: {
-    abbrev: "SP",
-    name: "Suits & Poker",
-    accentClass: "text-cyan-400",
-    borderClass: "border-cyan-500/20",
-    rules: [
-      {
-        heading: "Board Layout",
-        items: [
-          "5 hole cards dealt to each player",
-          "12-card community board: Side A (3 cards), Side B (3 cards), Center column (3 + 2 + 1)",
-          "Legal paths: Side A + Center, or Side B + Center (never A + B together)",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "Board reveals in stages (top row, center, lower, final) with betting after each",
-          "Draw phase: discard up to 2 hole cards and replace",
-          "Declare POKER (best 5-card hand), SUITS (highest same-suit total), or SWING",
-        ],
-      },
-      {
-        heading: "Showdown",
-        items: [
-          "POKER wins with the best 5-card poker hand on your path",
-          "SUITS wins with the highest same-suit card total (top 5 cards of one suit on your path)",
-          "SWING must win BOTH poker AND suits on the SAME legal path to scoop",
-          "Failed SWING forfeits everything",
-          "Pot splits between POKER and SUITS winners; odd chip to POKER",
-        ],
-      },
-    ],
-  },
   box_chevy: {
     abbrev: "BX",
     name: "Box Chevy",
@@ -279,75 +141,6 @@ export const MODE_INFO: Record<string, ModeInfo> = {
           "No pair across all 10 cards required — invalid hands are auto-folded",
           "HIGH and LOW split the pot; SWING must win BOTH or forfeits",
           "Best 5-card hand chosen from all 10 for HIGH; best lowball for LOW",
-          "5% house rake on every pot",
-        ],
-      },
-    ],
-  },
-  bonecrusher: {
-    abbrev: "BC",
-    name: "Bonecrusher",
-    accentClass: "text-amber-400",
-    borderClass: "border-amber-500/20",
-    rules: [
-      {
-        heading: "Goal",
-        items: [
-          "Build the best 5-card hand from 6 dealt cards",
-          "Declare HIGH (best standard poker hand) or LOW (best A-to-5 lowball hand)",
-          "SWING = compete for BOTH halves — must win both or get nothing",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "Dealt 6 face-down cards — discard 2, then reveal 1",
-          "3 street cards dealt face-up (one per round with betting)",
-          "7 cards → select best 5, then flip 4 face-up one per round (1 stays hidden)",
-          "Declare HIGH / LOW / SWING",
-        ],
-      },
-      {
-        heading: "Showdown",
-        items: [
-          "Pot splits — HIGH half to best standard poker hand, LOW half to best lowball",
-          "SWING winners who take both halves scoop the whole pot",
-          "SWING losers (miss one side) forfeit their half to the other declared winners",
-          "5% house rake on every pot",
-        ],
-      },
-    ],
-  },
-  kamikaze: {
-    abbrev: "KZ",
-    name: "Kamikaze",
-    accentClass: "text-red-400",
-    borderClass: "border-red-500/20",
-    rules: [
-      {
-        heading: "Goal",
-        items: [
-          "Build a 6-card hand with exactly 3+2+1 suit distribution",
-          "All 6 card ranks must be unique — no pairs allowed",
-          "The 3-card suit determines your HIGH and LOW values",
-        ],
-      },
-      {
-        heading: "Play",
-        items: [
-          "6 cards dealt face-down",
-          "3 draw rounds: discard up to 3 / 2 / 1 cards",
-          "After draws, one final betting round",
-          "Declare HIGH (highest rank in 3-card suit) or LOW (lowest rank, Ace = 1)",
-        ],
-      },
-      {
-        heading: "Showdown",
-        items: [
-          "Only valid 3+2+1 hands with no pairs qualify",
-          "Invalid hands are auto-folded before the declare phase",
-          "HIGH vs LOW: pot splits between each side's winner",
-          "Same side only: best hand wins everything",
           "5% house rake on every pot",
         ],
       },

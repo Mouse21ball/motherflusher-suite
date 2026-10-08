@@ -37,6 +37,7 @@ import { startMenuReview } from '@/lib/reviewFlow';
 import { MusicButton } from '@/components/MusicButton';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
 import { shouldShowHomeChipRecovery } from './homeChipRecovery';
+import { MODE_PLACEHOLDER_ASSETS } from '@/lib/modePlaceholders';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
 
@@ -44,17 +45,17 @@ interface QuestData {
   claimed:           string[];
   handsPlayed:       number;
   handsPlayedBadugi: number;
-  handsPlayedDead7:  number;
-  handsPlayed1535:   number;
-  handsPlayedSuits:  number;
+  handsPlayedFlushedUp: number;
+  handsPlayedLadyLuck: number;
+  handsPlayedBoxChevy: number;
 }
 
 function questHandsForMode(d: QuestData, modeId: string | null): number {
   if (!modeId)             return d.handsPlayed;
   if (modeId === 'badugi') return d.handsPlayedBadugi;
-  if (modeId === 'dead7')  return d.handsPlayedDead7;
-  if (modeId === '1535')   return d.handsPlayed1535;
-  if (modeId === 'suits')  return d.handsPlayedSuits;
+  if (modeId === 'flushed_up') return d.handsPlayedFlushedUp;
+  if (modeId === 'lady_luck') return d.handsPlayedLadyLuck;
+  if (modeId === 'box_chevy') return d.handsPlayedBoxChevy;
   return d.handsPlayed;
 }
 
@@ -62,9 +63,9 @@ function questHandsForMode(d: QuestData, modeId: string | null): number {
 
 const HOME_DAILY_QUESTS: Record<number, { questId: string; description: string; modeId: string | null; requiredHands: number; stripes: number }> = {
   1: { questId: 'daily_monday',    description: 'Play 10 hands in Badugi',              modeId: 'badugi', requiredHands: 10, stripes: 5 },
-  2: { questId: 'daily_tuesday',   description: 'Play 10 hands in Dead 7',              modeId: 'dead7',  requiredHands: 10, stripes: 5 },
-  3: { questId: 'daily_wednesday', description: 'Play 10 hands in 15/35',               modeId: '1535',   requiredHands: 10, stripes: 5 },
-  4: { questId: 'daily_thursday',  description: 'Play 10 hands in Suits & Poker',       modeId: 'suits',  requiredHands: 10, stripes: 5 },
+  2: { questId: 'daily_tuesday',   description: 'Play 10 hands in Flushed Up',          modeId: 'flushed_up', requiredHands: 10, stripes: 5 },
+  3: { questId: 'daily_wednesday', description: 'Play 10 hands in Lady Luck',           modeId: 'lady_luck', requiredHands: 10, stripes: 5 },
+  4: { questId: 'daily_thursday',  description: 'Play 10 hands in Box Chevy',           modeId: 'box_chevy', requiredHands: 10, stripes: 5 },
   5: { questId: 'daily_friday',    description: 'Play 15 hands in any mode',            modeId: null,     requiredHands: 15, stripes: 5 },
   6: { questId: 'daily_saturday',  description: 'Win 15 hands in any mode',             modeId: null,     requiredHands: 15, stripes: 5 },
   0: { questId: 'daily_sunday',    description: 'Play 10 hands in two different modes', modeId: null,     requiredHands: 10, stripes: 5 },
@@ -77,6 +78,9 @@ const HOME_MILESTONES = [
   { questId: 'milestone_500',  label: '500',  required: 500,  stripes: 50  },
   { questId: 'milestone_1000', label: '1K',   required: 1000, stripes: 100 },
   { questId: 'milestone_2500', label: '2.5K', required: 2500, stripes: 150 },
+  { questId: 'milestone_flushed_up_100', label: 'FLUSH 100', required: 100, stripes: 25, modeId: 'flushed_up' },
+  { questId: 'milestone_lady_luck_100', label: 'LADY 100', required: 100, stripes: 25, modeId: 'lady_luck' },
+  { questId: 'milestone_box_chevy_100', label: 'CHEVY 100', required: 100, stripes: 25, modeId: 'box_chevy' },
 ];
 
 // ── Tier badge asset map ──────────────────────────────────────────────────────
@@ -110,26 +114,16 @@ function getTimeUntilMidnight(): string {
 
 const MODES = [
   { id: 'badugi',     name: 'BADUGI',       tagline: 'The OG draw game',      path: '/badugi',     color: '#10b981', icon: '/mode-icon-badugi.png'    },
-  { id: 'dead7',      name: 'DEAD 7',        tagline: 'Snitches get stitches', path: '/dead7',      color: '#ef4444', icon: '/mode-icon-dead7.png'     },
-  { id: 'fifteen35',  name: '15 / 35',       tagline: 'Hit or go home',        path: '/fifteen35',  color: '#f59e0b', icon: '/mode-icon-fifteen35.png' },
-  { id: 'suitspoker', name: 'SUITS & POKER', tagline: 'Two paths, one winner', path: '/suitspoker', color: '#3b82f6', icon: '/mode-icon-suits.png'     },
-  { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: '/mode-icon-suits.png'     },
-  { id: 'kamikaze',   name: 'KAMIKAZE',      tagline: '3+2+1. High or Low.',   path: '/kamikaze',   color: '#ef4444', icon: '/mode-icon-dead7.png'     },
-  { id: 'bonecrusher', name: 'BONECRUSHER', tagline: '6 cards. High/Low/Swing.', path: '/bonecrusher', color: '#d97706', icon: '/mode-icon-dead7.png'     },
-  { id: 'box_chevy',  name: 'BOX CHEVY',   tagline: '10 cards. No pairs. Swing.', path: '/box-chevy',  color: '#3b82f6', icon: '/mode-icon-dead7.png'     },
-  { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your suit. Run the race.', path: '/ladyluck', color: '#e53935', icon: '/mode-icon-suits.png' },
+  { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: MODE_PLACEHOLDER_ASSETS.flushedUpIcon },
+  { id: 'box_chevy',  name: 'BOX CHEVY',   tagline: '10 cards. No pairs. Swing.', path: '/box-chevy',  color: '#3b82f6', icon: MODE_PLACEHOLDER_ASSETS.boxChevyIcon },
+  { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your suit. Run the race.', path: '/ladyluck', color: '#e53935', icon: MODE_PLACEHOLDER_ASSETS.ladyLuckIcon },
 ] as const;
 
 // Card-specific background images and copy (per spec)
 const MODE_CARD_CONFIGS = [
   { id: 'badugi',     bg: '/modes/bg-badugi.png',               color: '#4CAF50', btnText: 'white', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
-  { id: 'dead7',      bg: '/assets/backgrounds/dead7board.png', color: '#f44336', btnText: 'white', title: 'DEAD 7',        subtitle: 'PICK A SIDE.'          },
-  { id: 'fifteen35',  bg: '/modes/bg-1535.png',                 color: '#C9A227', btnText: 'black', title: '15 / 35',       subtitle: 'HIT OR GO HOME'        },
-  { id: 'suitspoker', bg: '/modes/bg-suits.png',                color: '#2196F3', btnText: 'white', title: 'SUITS & POKER', subtitle: 'COUNT OR POKER.'       },
-  { id: 'flushedup',  bg: '/modes/bg-suits.png',                color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP',    subtitle: 'CHASE THE FLUSH.'      },
-  { id: 'kamikaze',   bg: '/modes/bg-kamikaze.png',             color: '#ef4444', btnText: 'white', title: 'KAMIKAZE',      subtitle: '3+2+1. HIGH OR LOW.'   },
-  { id: 'bonecrusher', bg: '/modes/bg-kamikaze.png',           color: '#d97706', btnText: 'white', title: 'BONECRUSHER',   subtitle: '6 CARDS. HIGH / LOW / SWING.' },
-  { id: 'box_chevy',  bg: '/modes/bg-kamikaze.png',           color: '#3b82f6', btnText: 'white', title: 'BOX CHEVY',     subtitle: '10 CARDS. NO PAIRS. SWING.' },
+  { id: 'flushedup',  bg: MODE_PLACEHOLDER_ASSETS.retainedModeBackground, color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP', subtitle: 'CHASE THE FLUSH.' },
+  { id: 'box_chevy',  bg: MODE_PLACEHOLDER_ASSETS.boxChevyBackground, color: '#3b82f6', btnText: 'white', title: 'BOX CHEVY', subtitle: '10 CARDS. NO PAIRS. SWING.' },
   { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR SUIT. RUN THE RACE.', directNav: true },
 ];
 
@@ -147,13 +141,8 @@ interface LiveTableEntry {
 
 const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string; icon: string; stakes: string }> = {
   badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi',     icon: '/mode-icon-badugi.png',    stakes: '$25 ante' },
-  dead7:       { name: 'Dead 7',        abbrev: 'D7', color: '#ef4444', path: '/dead7',      icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
-  fifteen35:   { name: '15/35',         abbrev: '15', color: '#f59e0b', path: '/fifteen35',  icon: '/mode-icon-fifteen35.png', stakes: '$50 ante' },
-  suits_poker: { name: 'Suits & Poker', abbrev: 'SP', color: '#3b82f6', path: '/suitspoker', icon: '/mode-icon-suits.png',     stakes: '$50 ante' },
-  flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: '/mode-icon-suits.png',     stakes: '$25 ante' },
-  kamikaze:    { name: 'Kamikaze',      abbrev: 'KZ', color: '#ef4444', path: '/kamikaze',   icon: '/mode-icon-dead7.png',     stakes: '$25 ante' },
-  bonecrusher: { name: 'Bonecrusher',   abbrev: 'BC', color: '#d97706', path: '/bonecrusher', icon: '/mode-icon-dead7.png',    stakes: '$25 ante' },
-  box_chevy:   { name: 'Box Chevy',     abbrev: 'BX', color: '#3b82f6', path: '/box-chevy',   icon: '/mode-icon-dead7.png',    stakes: '$25 ante' },
+  flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: MODE_PLACEHOLDER_ASSETS.flushedUpIcon, stakes: '$25 ante' },
+  box_chevy:   { name: 'Box Chevy',     abbrev: 'BX', color: '#3b82f6', path: '/box-chevy',  icon: MODE_PLACEHOLDER_ASSETS.boxChevyIcon, stakes: '$25 ante' },
 };
 
 function phaseLabel(phase: string): string {
@@ -162,7 +151,7 @@ function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW')) return 'Draw';
   if (phase.startsWith('BET')) return 'Betting';
   if (phase.startsWith('HIT')) return 'In Play';
-  if (phase === 'DECLARE' || phase === 'DECLARE_AND_BET') return 'Declare';
+  if (phase === 'DECLARE') return 'Declare';
   if (phase === 'SHOWDOWN') return 'Showdown';
   return 'In Play';
 }
@@ -170,12 +159,7 @@ function phaseLabel(phase: string): string {
 const LIVE_TABS = [
   { id: 'all',         label: 'All'    },
   { id: 'badugi',      label: 'Badugi' },
-  { id: 'dead7',       label: 'Dead 7' },
-  { id: 'fifteen35',   label: '15/35'  },
-  { id: 'suits_poker', label: 'Suits'  },
   { id: 'flushed_up',  label: 'Flush'  },
-  { id: 'kamikaze',    label: 'Kamikaze' },
-  { id: 'bonecrusher', label: 'Bonecrusher' },
   { id: 'box_chevy',   label: 'Box Chevy'   },
 ] as const;
 
@@ -289,12 +273,10 @@ export default function Home() {
   const [, navigate] = useLocation();
   const [showPrivateSetup,   setShowPrivateSetup]   = useState(false);
   const [showOpenTableModal, setShowOpenTableModal] = useState(false);
-  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy' | 'ladyluck' | null>(null);
+  const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'flushedup' | 'box_chevy' | 'ladyluck' | null>(null);
 
-  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy' | 'ladyluck'> = {
-    badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
-    flushedup: 'flushedup', kamikaze: 'kamikaze', bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
-    ladyluck: 'ladyluck',
+  const HOW_TO_PLAY_ID: Record<string, 'badugi' | 'flushedup' | 'box_chevy' | 'ladyluck'> = {
+    badugi: 'badugi', flushedup: 'flushedup', box_chevy: 'box_chevy', ladyluck: 'ladyluck',
   };
 
   const identity    = ensurePlayerIdentity();
@@ -439,7 +421,7 @@ export default function Home() {
     (_chips: number, _stripes: number, newChipBalance: number, newStripesBalance: number) => {
       setServerBonusCanClaim(false);
       refetch();
-      const modes = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
+      const modes = ['badugi', 'flushed_up', 'box_chevy'];
       for (const modeId of modes) {
         try { localStorage.setItem(`pt_chips_${modeId}`, String(newChipBalance)); } catch {}
       }
@@ -464,15 +446,14 @@ export default function Home() {
   }, [navigate, hasAuthoritativeZeroBalance]);
 
   const MODE_ENGINE_ID: Record<string, string> = {
-    badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35',
-    suitspoker: 'suits_poker', flushedup: 'flushed_up',
+    badugi: 'badugi', flushedup: 'flushed_up',
   };
 
   const navigateToMode = useCallback(async (modeId: string, path: string) => {
     const watching = hasAuthoritativeZeroBalance;
     const watchQuery = watching ? '&watch=1' : '';
-    const modeMap: Record<string, 'badugi' | 'dead7' | 'fifteen35' | 'suits'> = {
-      badugi: 'badugi', dead7: 'dead7', fifteen35: 'fifteen35', suitspoker: 'suits',
+    const modeMap: Record<string, 'badugi'> = {
+      badugi: 'badugi',
     };
     if (modeMap[modeId]) track({ name: 'mode_started', mode: modeMap[modeId] });
     try {
@@ -776,7 +757,9 @@ export default function Home() {
             <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>MILESTONES</div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
               {HOME_MILESTONES.map(m => {
-                const totalHands = questData?.handsPlayed ?? 0;
+                const totalHands = questData
+                  ? questHandsForMode(questData, m.modeId ?? null)
+                  : 0;
                 const eligible   = totalHands >= m.required;
                 const claimed    = questData?.claimed.includes(m.questId) ?? false;
                 const isClaiming = questClaiming === m.questId;

@@ -19,7 +19,7 @@ export function usePhaseSounds(phase: GamePhase, isWinner?: boolean, isLoser?: b
       sfx.drawCards();
     }
 
-    if (phase.startsWith('REVEAL') || phase === 'REVEAL_LOWER_CENTER') {
+    if (phase.startsWith('REVEAL')) {
       sfx.reveal();
     }
 
@@ -38,8 +38,7 @@ export function usePhaseSounds(phase: GamePhase, isWinner?: boolean, isLoser?: b
 
     if (
       phase === 'BET_1' || phase === 'BET_2' || phase === 'BET_3' ||
-      phase === 'BET_4' || phase === 'BET_5' || phase === 'BET_6' ||
-      phase === 'BET_7' || phase === 'BET_8' || phase === 'DECLARE_AND_BET'
+      phase === 'BET_4'
     ) {
       setTimeout(() => sfx.betPlace(), 80);
     }

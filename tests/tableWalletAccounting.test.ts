@@ -17,7 +17,7 @@ import {
   removeGenericConnection,
 } from '../server/genericEngine';
 
-type Mode = 'badugi' | 'dead7' | 'flushed_up' | 'fifteen35' | 'suits_poker' | 'kamikaze' | 'bonecrusher' | 'box_chevy';
+type Mode = 'badugi' | 'flushed_up' | 'box_chevy';
 let wallet = 30_000;
 let appliedLeaves: Set<string>;
 let appliedFreeRebuys: Set<string>;
@@ -124,7 +124,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe.each<Mode>(['badugi', 'dead7', 'flushed_up', 'fifteen35', 'suits_poker', 'kamikaze', 'bonecrusher', 'box_chevy'])('%s zero-wallet spectators', mode => {
+describe.each<Mode>(['badugi', 'flushed_up', 'box_chevy'])('%s zero-wallet spectators', mode => {
   it('streams real table updates and stays out of seats after chips become available', async () => {
     wallet = 0;
     mockWalletStorage();
@@ -169,7 +169,7 @@ describe.each<Mode>(['badugi', 'dead7', 'flushed_up', 'fifteen35', 'suits_poker'
   });
 });
 
-describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leave', mode => {
+describe.each<Mode>(['badugi', 'box_chevy'])('%s wallet funding and intentional leave', mode => {
   it('allocates a partial p1 stack without debiting/refunding principal', async () => {
     wallet = 30_000;
     mockWalletStorage();
@@ -307,7 +307,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leav
     const sessionId = `session-${tableId}`;
     const joinPromise = mode === 'badugi'
       ? addBadugiConnection(tableId, sessionId, ws, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000)
-      : addGenericConnection(tableId, 'dead7', sessionId, ws, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
+      : addGenericConnection(tableId, 'box_chevy', sessionId, ws, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
 
     expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining(':init'));
     const actionResult = mode === 'badugi'
@@ -328,7 +328,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leav
     const ws = makeSocket();
     const seat = mode === 'badugi'
       ? await addBadugiConnection(tableId, 'unauthenticated-session', ws, 'Tester', true, false, undefined, { botsEnabled: false })
-      : await addGenericConnection(tableId, 'dead7', 'unauthenticated-session', ws, 'Tester', true, false, undefined, { botsEnabled: false });
+      : await addGenericConnection(tableId, 'box_chevy', 'unauthenticated-session', ws, 'Tester', true, false, undefined, { botsEnabled: false });
 
     expect(seat).toBeNull();
     expect(storage.getOrCreatePlayer).not.toHaveBeenCalled();
@@ -350,10 +350,10 @@ describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leav
     const secondWs = makeSocket();
     const firstJoin = mode === 'badugi'
       ? addBadugiConnection(tableId, 'first-session', firstWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000)
-      : addGenericConnection(tableId, 'dead7', 'first-session', firstWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
+      : addGenericConnection(tableId, 'box_chevy', 'first-session', firstWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
     const secondJoin = mode === 'badugi'
       ? addBadugiConnection(tableId, 'takeover-session', secondWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000)
-      : addGenericConnection(tableId, 'dead7', 'takeover-session', secondWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
+      : addGenericConnection(tableId, 'box_chevy', 'takeover-session', secondWs, 'Tester', true, false, identityId, { botsEnabled: false }, 2_000);
 
     expect(storage.getOrCreatePlayer).toHaveBeenCalledTimes(1);
     expect(table.pendingFundingSeats.has('p1')).toBe(true);
@@ -400,7 +400,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s wallet funding and intentional leav
   });
 });
 
-describe.each<Mode>(['badugi', 'dead7'])('%s showdown/leave ordering', mode => {
+describe.each<Mode>(['badugi', 'box_chevy'])('%s showdown/leave ordering', mode => {
   it('waits for showdown resolution before persisting or acknowledging leave', async () => {
     wallet = 30_000;
     mockWalletStorage();
@@ -425,7 +425,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s showdown/leave ordering', mode => {
   });
 });
 
-describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
+describe.each<Mode>(['badugi', 'box_chevy'])('%s confirmed bust rebuys', mode => {
   it('transfers only the latest persisted reserve and adds no phantom settlement profit', async () => {
     wallet = 1_000;
     mockWalletStorage();
@@ -488,7 +488,7 @@ describe.each<Mode>(['badugi', 'dead7'])('%s confirmed bust rebuys', mode => {
   });
 });
 
-describe.each<Mode>(['badugi', 'dead7'])('%s atomic table loan', mode => {
+describe.each<Mode>(['badugi', 'box_chevy'])('%s atomic table loan', mode => {
   it('credits the exact borrowed 1,000 chips to high-stakes tables below the buy-in minimum', async () => {
     wallet = 400;
     mockWalletStorage();

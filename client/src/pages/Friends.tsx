@@ -20,17 +20,12 @@ type FriendsResponse = {
 
 const MODE_ROUTES: Record<string, string> = {
   badugi: '/badugi',
-  dead7: '/dead7',
-  fifteen35: '/fifteen35',
-  suitspoker: '/suitspoker',
-  suits_poker: '/suitspoker',
   flushedup: '/flushedup',
   flushed_up: '/flushedup',
-  kamikaze: '/kamikaze',
-  bonecrusher: '/bonecrusher',
   'box-chevy': '/box-chevy',
   box_chevy: '/box-chevy',
   boxchevy: '/box-chevy',
+  ladyluck: '/ladyluck',
 };
 
 function Avatar({ player }: { player: PlayerSummary }) {

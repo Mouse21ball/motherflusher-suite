@@ -21,8 +21,7 @@ import { isForfeitConfirmationRequired } from "./spectatorExit";
 const MID_HAND: Set<string> = new Set([
   'ANTE','DEAL','DRAW','DRAW_1','DRAW_2','DRAW_3',
   'BET_1','BET_2','BET_3','BET_4','BET_5','BET_6','BET_7','BET_8',
-  'HIT_1','HIT_2','HIT_3','HIT_4','HIT_5','HIT_6','HIT_7','HIT_8',
-  'DECLARE','DECLARE_AND_BET',
+  'DECLARE',
   'REVEAL_TOP_ROW','REVEAL_SECOND_ROW','REVEAL_LOWER_CENTER','REVEAL_FACTOR_CARD',
 ]);
 
@@ -51,10 +50,11 @@ function PillGroup({ label, value, valueClass = '' }: { label: string; value: st
   );
 }
 
-const HTP_MODE_ID: Record<string, 'badugi' | 'dead7' | '1535' | 'suits' | 'flushedup' | 'kamikaze' | 'bonecrusher' | 'box_chevy'> = {
-  badugi: 'badugi', dead7: 'dead7', fifteen35: '1535', suitspoker: 'suits',
-  flushedup: 'flushedup', flushed_up: 'flushedup', kamikaze: 'kamikaze',
-  bonecrusher: 'bonecrusher', box_chevy: 'box_chevy',
+const HTP_MODE_ID: Record<string, 'badugi' | 'flushedup' | 'box_chevy'> = {
+  badugi: 'badugi',
+  flushedup: 'flushedup',
+  flushed_up: 'flushedup',
+  box_chevy: 'box_chevy',
 };
 
 export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0, spectating = false }: GameStatusBarProps) {

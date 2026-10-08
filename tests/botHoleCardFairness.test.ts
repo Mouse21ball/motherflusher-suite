@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CardType, GameMode, GameState, Player, Rank, Suit } from '../shared/gameTypes';
 import { BadugiMode } from '../shared/modes/badugi';
-import { Dead7Mode } from '../shared/modes/dead7';
+
 import { FlushedUpMode } from '../shared/modes/flushedUp';
-import { KamikazeMode } from '../shared/modes/kamikaze';
+
 
 const cards = (...values: Array<[Rank, Suit]>): CardType[] =>
   values.map(([rank, suit]) => ({ rank, suit, isHidden: true }));
@@ -15,13 +15,7 @@ const cases: Array<{
   strongHumanCards: CardType[];
   weakHumanCards: CardType[];
 }> = [
-  {
-    name: 'Dead 7',
-    mode: Dead7Mode,
-    botCards: cards(['8', 'spades'], ['9', 'hearts'], ['10', 'clubs'], ['J', 'diamonds']),
-    strongHumanCards: cards(['8', 'spades'], ['9', 'hearts'], ['10', 'clubs'], ['J', 'diamonds']),
-    weakHumanCards: cards(['7', 'spades'], ['2', 'hearts'], ['3', 'clubs'], ['4', 'diamonds']),
-  },
+
   {
     name: 'Flushed Up',
     mode: FlushedUpMode,
@@ -29,13 +23,7 @@ const cases: Array<{
     strongHumanCards: cards(['2', 'spades'], ['3', 'spades'], ['4', 'spades'], ['5', 'spades'], ['6', 'spades']),
     weakHumanCards: cards(['2', 'spades'], ['3', 'spades'], ['4', 'hearts'], ['5', 'clubs'], ['6', 'diamonds']),
   },
-  {
-    name: 'Kamikaze',
-    mode: KamikazeMode,
-    botCards: cards(['2', 'spades'], ['3', 'spades'], ['4', 'spades'], ['5', 'hearts'], ['6', 'hearts'], ['8', 'clubs']),
-    strongHumanCards: cards(['2', 'spades'], ['3', 'spades'], ['4', 'spades'], ['5', 'hearts'], ['6', 'hearts'], ['8', 'clubs']),
-    weakHumanCards: cards(['2', 'spades'], ['3', 'spades'], ['4', 'spades'], ['5', 'spades'], ['6', 'spades'], ['8', 'spades']),
-  },
+
   {
     name: 'Badugi',
     mode: BadugiMode,

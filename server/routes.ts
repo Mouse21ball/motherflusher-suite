@@ -1979,9 +1979,9 @@ export async function registerRoutes(
   // ── Quest definitions ──────────────────────────────────────────────────────
   const DAILY_QUESTS: Record<number, { questId: string; description: string; modeId: string | null; requiredHands: number; stripes: number }> = {
     1: { questId: 'daily_monday',    description: 'Play 10 hands in Badugi',              modeId: 'badugi', requiredHands: 10, stripes: 5 },
-    2: { questId: 'daily_tuesday',   description: 'Play 10 hands in Dead 7',              modeId: 'dead7',  requiredHands: 10, stripes: 5 },
-    3: { questId: 'daily_wednesday', description: 'Play 10 hands in 15/35',               modeId: '1535',   requiredHands: 10, stripes: 5 },
-    4: { questId: 'daily_thursday',  description: 'Play 10 hands in Suits & Poker',       modeId: 'suits',  requiredHands: 10, stripes: 5 },
+    2: { questId: 'daily_tuesday',   description: 'Play 10 hands in Flushed Up',          modeId: 'flushed_up',  requiredHands: 10, stripes: 5 },
+    3: { questId: 'daily_wednesday', description: 'Play 10 races in Lady Luck',          modeId: 'lady_luck',   requiredHands: 10, stripes: 5 },
+    4: { questId: 'daily_thursday',  description: 'Play 10 hands in Box Chevy',           modeId: 'box_chevy',  requiredHands: 10, stripes: 5 },
     5: { questId: 'daily_friday',    description: 'Play 15 hands in any mode',            modeId: null,     requiredHands: 15, stripes: 5 },
     6: { questId: 'daily_saturday',  description: 'Win 15 hands in any mode',             modeId: null,     requiredHands: 15, stripes: 5 },
     0: { questId: 'daily_sunday',    description: 'Play 10 hands in two different modes', modeId: null,     requiredHands: 10, stripes: 5 },
@@ -1994,9 +1994,9 @@ export async function registerRoutes(
     milestone_1000:       { requiredHands: 1000, modeId: null,     stripes: 100 },
     milestone_2500:       { requiredHands: 2500, modeId: null,     stripes: 150 },
     milestone_badugi_100: { requiredHands: 100,  modeId: 'badugi', stripes: 15  },
-    milestone_dead7_100:  { requiredHands: 100,  modeId: 'dead7',  stripes: 15  },
-    milestone_1535_100:   { requiredHands: 100,  modeId: '1535',   stripes: 15  },
-    milestone_suits_100:  { requiredHands: 100,  modeId: 'suits',  stripes: 15  },
+    milestone_flushed_up_100: { requiredHands: 100, modeId: 'flushed_up',  stripes: 15  },
+    milestone_lady_luck_100: { requiredHands: 100, modeId: 'lady_luck',   stripes: 15  },
+    milestone_box_chevy_100: { requiredHands: 100, modeId: 'box_chevy',  stripes: 15  },
   };
 
   // GET /api/players/:id/quests
@@ -2012,9 +2012,9 @@ export async function registerRoutes(
         claimed,
         handsPlayed:       profile.handsPlayed,
         handsPlayedBadugi: profile.handsPlayedBadugi,
-        handsPlayedDead7:  profile.handsPlayedDead7,
-        handsPlayed1535:   profile.handsPlayed1535,
-        handsPlayedSuits:  profile.handsPlayedSuits,
+        handsPlayedFlushedUp: profile.handsPlayedFlushedUp,
+        handsPlayedLadyLuck: profile.handsPlayedLadyLuck,
+        handsPlayedBoxChevy: profile.handsPlayedBoxChevy,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -2039,9 +2039,9 @@ export async function registerRoutes(
       // Check eligibility
       if (dailyDef) {
         const hands = dailyDef.modeId === 'badugi' ? profile.handsPlayedBadugi
-                    : dailyDef.modeId === 'dead7'  ? profile.handsPlayedDead7
-                    : dailyDef.modeId === '1535'   ? profile.handsPlayed1535
-                    : dailyDef.modeId === 'suits'  ? profile.handsPlayedSuits
+                    : dailyDef.modeId === 'flushed_up' ? profile.handsPlayedFlushedUp
+                    : dailyDef.modeId === 'lady_luck' ? profile.handsPlayedLadyLuck
+                    : dailyDef.modeId === 'box_chevy' ? profile.handsPlayedBoxChevy
                     : profile.handsPlayed;
         if (hands < dailyDef.requiredHands) {
           res.status(400).json({ error: "Not enough hands played", required: dailyDef.requiredHands, current: hands }); return;
@@ -2055,9 +2055,9 @@ export async function registerRoutes(
         res.json({ stripesGranted: dailyDef.stripes, newTotal: newStripes });
       } else if (milestoneDef) {
         const hands = milestoneDef.modeId === 'badugi' ? profile.handsPlayedBadugi
-                    : milestoneDef.modeId === 'dead7'  ? profile.handsPlayedDead7
-                    : milestoneDef.modeId === '1535'   ? profile.handsPlayed1535
-                    : milestoneDef.modeId === 'suits'  ? profile.handsPlayedSuits
+                    : milestoneDef.modeId === 'flushed_up' ? profile.handsPlayedFlushedUp
+                    : milestoneDef.modeId === 'lady_luck' ? profile.handsPlayedLadyLuck
+                    : milestoneDef.modeId === 'box_chevy' ? profile.handsPlayedBoxChevy
                     : profile.handsPlayed;
         if (hands < milestoneDef.requiredHands) {
           res.status(400).json({ error: "Not enough hands played", required: milestoneDef.requiredHands, current: hands }); return;

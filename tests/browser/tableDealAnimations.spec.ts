@@ -338,25 +338,6 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     await expect(page.locator('[data-badugi-fold-flight="opponent-1"]')).toBeVisible();
   });
 
-  test('renders Dead 7 chip, payout, fold, and turn-timer effects', async ({ page }) => {
-    await openFixture(page);
-    const table = page.getByTestId('dead7-effects-table');
-    await expect(table.getByTestId('badugi-turn-timer')).toBeVisible();
-
-    await page.getByTestId('effect-bet').click();
-    await expect(table.locator('[data-dead7-chip-flight="bet"]')).toHaveCount(1);
-
-    await page.waitForTimeout(900);
-    await page.getByTestId('effect-payout').click();
-    await expect(table.locator('[data-dead7-chip-flight="payout"]')).toHaveCount(2);
-  });
-
-  test('moves folded Dead 7 cards toward the muck', async ({ page }) => {
-    await openFixture(page);
-    await page.getByTestId('effect-fold').click();
-    await expect(page.getByTestId('dead7-effects-table').locator('[data-dead7-fold-flight="opponent-1"]')).toBeVisible();
-  });
-
   test('snaps to authoritative cards when an anchor is missing', async ({ page }) => {
     await openFixture(page);
     await page.getByTestId('missing-deck').click();

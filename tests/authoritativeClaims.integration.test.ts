@@ -31,7 +31,7 @@ describe.skipIf(!process.env.DATABASE_URL)('authoritative claims (development da
       status: 'active', expiresAt: new Date(Date.now() + 86400000),
     });
     await storage.syncPlayerChips(id, -20, {
-      won: false, deltaChips: -20, gameId: 'test-game', handId: '2', modeId: 'dead7', potSize: 0,
+      won: false, deltaChips: -20, gameId: 'test-game', handId: '2', modeId: 'box_chevy', potSize: 0,
     });
     expect((await storage.getPlayerProfile(id))?.xp).toBe(260); // (10 base + 30 discovery) doubled
 

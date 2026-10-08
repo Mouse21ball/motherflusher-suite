@@ -260,8 +260,8 @@ section('R6 — mid-hand guard: server-restart reconnect skips chip reload mid-h
     'R6: BET_2, wasReserved=false → no chip reload (protect live mid-hand chips)',
   );
   assert(
-    shouldReloadChipsOnReconnect('HIT_1', false) === false,
-    'R6: HIT_1, wasReserved=false → no chip reload',
+    shouldReloadChipsOnReconnect('DRAW_1', false) === false,
+    'R6: DRAW_1, wasReserved=false → no chip reload',
   );
   assert(
     shouldReloadChipsOnReconnect('SHOWDOWN', false) === false,

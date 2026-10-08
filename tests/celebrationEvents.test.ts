@@ -140,16 +140,7 @@ describe('celebration event derivation', () => {
     expect(deriveCelebration(previous, showdown, 'badugi')?.amount).toBe(BIG_POT_MIN_CHIPS);
   });
 
-  it('gives the Dead7 signature precedence over the big-pot classification', () => {
-    const previous = snapshotForCelebrations(state('BET_4', [
-      player('winner', { chips: 100 }),
-    ]));
-    const showdown = state('SHOWDOWN', [
-      player('winner', { chips: 100 + BIG_POT_MIN_CHIPS, isWinner: true }),
-    ]);
 
-    expect(deriveCelebration(previous, showdown, 'dead7')?.type).toBe('DEAD7_SPECIAL');
-  });
 
   it('preserves split payout targets and selects the largest award as primary', () => {
     const previous = snapshotForCelebrations(state('BET_4', [
@@ -258,14 +249,14 @@ describe('celebration event derivation', () => {
     const royal = state('SHOWDOWN', [player('winner', {
       chips: 900, isWinner: true, score: { highEval: { description: 'Royal Flush', usedHoleCardIndices: [], usedCommunityCardIndices: [] } },
     })]);
-    expect(deriveCelebration(before, royal, 'suitspoker')).toMatchObject({
+    expect(deriveCelebration(before, royal, 'box_chevy')).toMatchObject({
       type: 'RARE_HAND', handName: 'Royal Flush', amount: 200,
     });
     expect(deriveCelebration(before, state('SHOWDOWN', [
       { ...royal.players[0], isWinner: false },
-    ]), 'suitspoker')).toBeNull();
-    expect(deriveCelebration(null, royal, 'suitspoker')).toBeNull();
-    expect(deriveCelebration(before, royal, 'suitspoker', 'init')).toBeNull();
+    ]), 'box_chevy')).toBeNull();
+    expect(deriveCelebration(null, royal, 'box_chevy')).toBeNull();
+    expect(deriveCelebration(before, royal, 'box_chevy', 'init')).toBeNull();
     const perfect = state('SHOWDOWN', [player('winner', {
       chips: 900, isWinner: true,
       score: { description: '4-High Badugi', isValidBadugi: true, badugiRankValues: [4, 3, 2, 1] },
@@ -363,7 +354,6 @@ describe('celebration presentation presets', () => {
     expect(CELEBRATION_DURATIONS_MS).toEqual({
       NORMAL_WIN: 3200,
       BIG_POT: 3600,
-      DEAD7_SPECIAL: 3800,
       RARE_HAND: 4000,
       WIN_STREAK: 3600,
       SWING_SCOOP: 3800,
@@ -372,7 +362,6 @@ describe('celebration presentation presets', () => {
       .map(([type, preset]) => [type, preset?.durationMs]))).toEqual({
       NORMAL_WIN: 3200,
       BIG_POT: 3600,
-      DEAD7_SPECIAL: 3800,
       RARE_HAND: 4000,
       WIN_STREAK: 3600,
     });

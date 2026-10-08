@@ -18,12 +18,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
 import PracticeBadugiPage from "@/pages/PracticeBadugiPage";
-import Dead7Game from "@/pages/Dead7Game";
-import Fifteen35Game from "@/pages/Fifteen35Game";
-import SuitsPokerGame from "@/pages/SuitsPokerGame";
 import FlushedUpGame from "@/pages/FlushedUpGame";
-import KamikazeGame from "@/pages/KamikazeGame";
-import BonecrusherGame from "@/pages/BonecrusherGame";
 import BoxChevyGame from "@/pages/BoxChevyGame";
 import Admin from "@/pages/Admin";
 import Terms from "@/pages/Terms";
@@ -51,8 +46,7 @@ import { activatePushForProfile, deactivatePushForProfile } from "@/lib/pushNoti
 // page-level profile consumers without issuing parallel guest-init requests.
 const LADY_LUCK_PREFIX = '/ladyluck';
 const GAME_ROUTE_PREFIXES = [
-  '/badugi', '/dead7', '/fifteen35', '/suitspoker',
-  '/flushedup', '/kamikaze', '/bonecrusher', '/box-chevy', '/ladyluck',
+  '/badugi', '/flushedup', '/box-chevy', '/ladyluck',
 ];
 
 function ProfileManager() {
@@ -127,12 +121,7 @@ function Router() {
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/practice/badugi" component={PracticeBadugiPage}/>
-        <Route path="/dead7" component={Dead7Game}/>
-        <Route path="/fifteen35" component={Fifteen35Game}/>
-        <Route path="/suitspoker" component={SuitsPokerGame}/>
         <Route path="/flushedup" component={FlushedUpGame}/>
-        <Route path="/kamikaze" component={KamikazeGame}/>
-        <Route path="/bonecrusher" component={BonecrusherGame}/>
         <Route path="/box-chevy" component={BoxChevyGame}/>
         <Route path="/ladyluck/history" component={LadyLuckHistory}/>
         <Route path="/ladyluck/spectate" component={LadyLuckSpectate}/>

@@ -1,6 +1,6 @@
 /**
  * ShowdownReveal — premium showdown card-reveal overlay shared by
- * Badugi, Dead 7, and Suits Poker.
+ * the retained poker games.
  *
  * Caller supplies pre-computed winner data and hero data so this
  * component has zero knowledge of the mode-specific evaluators.

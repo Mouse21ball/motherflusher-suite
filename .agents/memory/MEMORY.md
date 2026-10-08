@@ -1,11 +1,10 @@
 - [Profile bootstrap ownership](profile-manager-singleton.md) — share one bootstrap owner; multiple context consumers are safe, independent guest-init requests can race.
 - [drizzle-kit push non-interactive](db-push-noninteractive.md) — db:push hangs in non-TTY; use tsx + raw SQL for agent/CI migrations.
-- [Unit test design gotchas](test-design-gotchas.md) — Kamikaze Ace=1 for low; Bonecrusher sole-LOW wins full pot; center suit diversity for PATH isolation; community RF pollution; rollover reachability.
+- [Box Chevy lowball fixtures](test-design-gotchas.md) — use five-card snapshots for paired category comparisons; best-five selection can discard extra paired ranks.
 - [Spectator mode — Lady Luck](spectator-ladyluck.md) — spectators use a separate Map in LLTableMeta (not connections); ll:spectate/ll:spectator_sidebet/ll:spectator_leave WS prefix; broadcastState sends to both maps.
 - [House rake implementation](rake-impl.md) — 5% rake via applyRake() in server/utils/rake.ts; logHouseRake() in storage; all engines patched; spectator_sidebet raked separately.
 - [DECLARE phase bot scheduling](declare-bot-scheduling.md) — bot actions for DECLARE must return a computed nextPlayerId or multi-bot declare stalls after first bot.
-- [Bonecrusher mode architecture](bonecrusher-arch.md) — 6-card game: DISCARD_2→REVEAL_1→BET_1→STREET_1/2/3→BET_2-4→SELECT_5→FLIP_1-4→BET_5-8→DECLARE→SHOWDOWN; REVEAL_1 type narrowing needs (phase as string) cast; BotPersonalityTraits needs all fields (use botPersonality(botId)).
-- [Dead 7 mode gotchas](dead7-gotchas.md) — phases array order IS the round order (genericEngine steps through it linearly); Dead 7 has no SWING declare, only HIGH/LOW; sole-survivor showdown must award the FULL pot, not just side-pot-eligible slices.
+- [Retained game lineup](game-lineup.md) — only four games; independent mechanics, generic plumbing, and preserved historical database columns.
 - [Game typography sweeps](game-typography-sweeps.md) — audit every phase-specific render branch; shared labels recur in separate lobby, race, wager, spectator, and result layouts.
 - [Browser animation timing](browser-animation-timing.md) — time rendered-flight cleanup from visible-flight start and allow bounded browser polling overhead over the calculated path.
 - [Splash trace geometry](splash-trace-geometry.md) — poster-based electricity must use the supplied emblem geometry as its mask, never an independent decorative path.

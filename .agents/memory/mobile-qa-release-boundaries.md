@@ -3,6 +3,12 @@ name: Mobile QA release boundaries
 description: Owner-controlled backend publishing and approval for rewarded-ad implementation.
 ---
 
+Do not ship iOS until build 13 clears App Store review. The four-game refactor can continue for web, Android, and the repository without being bundled into an iOS release before that approval.
+
+**Why:** The owner explicitly separated the build 13 review fix from the larger game-lineup refactor after iOS 1.4 build 12 was rejected.
+
+**How to apply:** Do not sync the refactored web bundle into iOS or start an iOS release while this review hold is in force. Ask for the approval status before resuming iOS release work.
+
 The owner publishes the backend himself from the Replit website. A rebuy network error while the matching backend remains unpublished is expected; do not make network-error or publishing changes just to address that observation.
 
 **Why:** The user explicitly stated this release process and said no action was needed on that network error.

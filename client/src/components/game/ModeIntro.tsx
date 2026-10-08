@@ -207,18 +207,6 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
 // ── Mode intro content ────────────────────────────────────────────────────────
 
 export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
-  swing: {
-    title: "Swing Poker",
-    objective: "Declare High for the best poker hand, Low for the best suit total, or Swing to try winning both. A 15-card community board reveals in stages.",
-    steps: [
-      "Pay the $1 ante, then receive 5 hole cards",
-      "Discard up to 2 cards in the draw round",
-      "The board reveals in stages — bet after each reveal",
-      "Declare High, Low, or Swing, then one final bet",
-    ],
-    proTip: "Swing is powerful but risky — you must win BOTH halves or you lose everything. Only swing when you hold a strong poker hand AND a flush run simultaneously.",
-    accentColor: "from-blue-800/60 to-[#141417]",
-  },
   badugi: {
     title: "Badugi",
     objective: "Build a valid Badugi: four cards that all have different ranks AND different suits. Lowest valid Badugi wins the Low pot, highest wins High.",
@@ -230,42 +218,6 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
     ],
     proTip: "A-2-3-4 with all different suits is the perfect Low Badugi. Even a 3-card Badugi beats any 2-card hand — partial Badugi still qualifies.",
     accentColor: "from-emerald-800/60 to-[#141417]",
-  },
-  dead7: {
-    title: "Dead 7",
-    objective: "Build a 4-card hand where every card qualifies High (8 and above) or Low (6 or below). Any 7 in your hand kills it — it's dead.",
-    steps: [
-      "Receive 4 cards — any 7s must be discarded immediately",
-      "3 draw rounds to shape your hand High or Low",
-      "Declare High, Low, or Fold (dead hands must fold)",
-      "A flush or Badugi (all different suits) scoops the whole pot",
-    ],
-    proTip: "Getting all 4 cards in the same suit (a flush) wins BOTH the High and Low halves — a full scoop. Always prioritize building toward one suit when you can.",
-    accentColor: "from-red-800/60 to-[#141417]",
-  },
-  fifteen35: {
-    title: "15 / 35",
-    objective: "Hit cards toward two targets: 13–15 qualifies Low, 33–35 qualifies High. Face cards count as ½ point. Go over 35 and you bust.",
-    steps: [
-      "Start with 2 cards (one face-up, one hidden)",
-      "Each round: Hit for another card, Stay to lock in, or Fold",
-      "There's a betting round between each hit round",
-      "At showdown, qualifying hands (13–15 or 33–35) split the pot",
-    ],
-    proTip: "J/Q/K each count as only ½ point — incredibly useful for fine-tuning your total near 15 or 35. Face cards add up slowly, so combine them with higher-value cards to approach either target.",
-    accentColor: "from-amber-800/60 to-[#141417]",
-  },
-  suitspoker: {
-    title: "Suits & Poker",
-    objective: "A 15-card board splits into Side A, Center, and Side B. The game automatically evaluates your best five-card Poker hand and best qualifying Suits score across both legal paths; declare Poker, Suits, or Swing.",
-    steps: [
-      "Receive 5 hole cards, then the board reveals in stages",
-      "Draw phase: swap up to 2 of your hole cards",
-      "Both legal paths (Side A+Center and Side B+Center) are checked automatically",
-      "Declare Poker, Suits, or Swing with your final bet",
-    ],
-    proTip: "The evaluator chooses the best five cards available from your hole cards and one legal path; you do not select a path or exactly three board cards. Suits requires at least five visible cards of one suit on a legal path.",
-    accentColor: "from-cyan-800/60 to-[#141417]",
   },
   flushed_up: {
     title: "Flushed Up",
@@ -302,29 +254,5 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
     ],
     proTip: "The community cards are visible from the start — use them to decide which hole cards to keep. If a hole card shares a rank with any community card, discard it immediately. Without a made hand (unique ranks across all 10), you're auto-folded.",
     accentColor: "from-blue-900/60 to-[#0a1628]",
-  },
-  bonecrusher: {
-    title: "Bonecrusher",
-    objective: "6 cards dealt face-down. Discard 2 permanently, reveal 1, then receive 3 player-specific street cards one at a time. Choose your best 5, then flip 4 face-up. Declare HIGH (best standard hand), LOW (best A-5 lowball), or SWING.",
-    steps: [
-      "Receive 6 face-down cards — discard 2, reveal 1",
-      "Bet after the initial reveal, each of 3 streets, and each of 4 flips — 8 betting rounds total",
-      "Select your best 5 cards (discard 2), then flip 4 face-up over 4 rounds",
-      "Declare HIGH, LOW, or SWING — pot splits between each side's winner",
-    ],
-    proTip: "A SWING must be the sole winner of both HIGH and LOW to scoop. If it fails and any eligible player chose HIGH or LOW, SWING players are excluded; if everyone chose SWING and none scoops, ordinary side outcomes among them can still tie or split.",
-    accentColor: "from-amber-900/60 to-[#0a0702]",
-  },
-  kamikaze: {
-    title: "Kamikaze",
-    objective: "Build a 6-card hand with exactly 3+2+1 suit distribution and no paired ranks. Then declare HIGH (compare all 3 ranks in your 3-suit, highest-first; the other two break ties) or LOW (compare all 3 lowest-first, with Ace = 1). Pot splits between the two sides.",
-    steps: [
-      "Receive 6 face-down cards",
-      "3 draw rounds: swap up to 3 / 2 / 1 cards",
-      "One final betting round after draws",
-      "Declare HIGH or LOW — each side picks a winner",
-    ],
-    proTip: "All three ranks in your 3-card suit count: compare them highest-first for HIGH or lowest-first for LOW (Ace counts as 1); the remaining ranks break ties. Hands without 3+2+1 distribution are auto-folded before the declare.",
-    accentColor: "from-red-900/60 to-[#000000]",
   },
 };

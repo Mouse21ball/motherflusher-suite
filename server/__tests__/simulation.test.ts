@@ -5,12 +5,12 @@
 // correctness.  Uses each mode's own botAction / resolveShowdown / deal to
 // simulate complete hands, then checks hard invariants after every mutation.
 //
-// Scenarios tested per mode (200 hands each, 4 modes = 5 600 hands total):
+// Scenarios tested per mode (200 hands each, 1 mode = 1 400 hands total):
 //   1. normal          — all-bot normal play
 //   2. all_fold        — every player but one folds in first BET round
 //   3. uneven_stacks   — players start with [10, 50, 100, 500, 2 000] chips
 //   4. hero_fold       — p1 folds on every BET / DECLARE round
-//   5. timer_expiry    — p1 auto-acts (stay/stand-pat/fold) on every turn
+//   5. timer_expiry    — p1 auto-acts (stand-pat/fold) on every turn
 //   6. bots_only       — explicit all-bot table (same as normal, isolated)
 //   7. reconnect       — p1 "reconnects" mid-hand and uses bot logic thereafter
 //
@@ -28,9 +28,9 @@ import type {
   Player, GameState, CardType, GamePhase, Declaration, GameMode,
 } from '../../shared/gameTypes';
 import { BadugiMode    } from '../../shared/modes/badugi';
-import { Dead7Mode     } from '../../shared/modes/dead7';
-import { Fifteen35Mode } from '../../shared/modes/fifteen35';
-import { SuitsPokerMode} from '../../shared/modes/suitspoker';
+
+
+
 import { computeSidePots, totalSidePotAmount } from '../../shared/engine/sidePots';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -98,15 +98,10 @@ function isRoundOver(state: GameState): boolean {
   if (phase === 'ANTE')
     return players.filter(p => p.status === 'active').every(p => p.hasActed);
 
-  if (phase.startsWith('HIT_')) {
-    const active = players.filter(p => p.status === 'active');
-    return active.every(p => p.hasActed || p.declaration === 'STAY' || p.declaration === 'BUST');
-  }
-
   if (phase.startsWith('DRAW') || phase === 'DECLARE')
     return players.filter(p => p.status === 'active').every(p => p.hasActed);
 
-  if (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') {
+  if (phase.startsWith('BET')) {
     const active = players.filter(p => p.status === 'active' && p.chips > 0);
     // All-in only → vacuously true
     if (active.length === 0) return true;
@@ -144,8 +139,8 @@ function advancePhase(mode: GameMode, state: GameState): GameState {
     if (override) nextPhase = override;
   }
 
-  const isBetRound  = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
-  const isDrawRound = nextPhase.startsWith('DRAW') || nextPhase.startsWith('HIT_');
+  const isBetRound  = nextPhase.startsWith('BET');
+  const isDrawRound = nextPhase.startsWith('DRAW');
   const isDeclare   = nextPhase === 'DECLARE';
   const skipAllIn   = !isDeclare && !isDrawRound;
 
@@ -157,15 +152,6 @@ function advancePhase(mode: GameMode, state: GameState): GameState {
     hasActed: false,
     bet: (isBetRound || isDrawRound) ? 0 : p.bet,
   }));
-
-  // Auto-declare all-in players as POKER in DECLARE_AND_BET (mirrors genericEngine.ts:679)
-  if (nextPhase === 'DECLARE_AND_BET') {
-    newPlayers = newPlayers.map(p =>
-      p.status === 'active' && p.chips === 0 && !p.declaration
-        ? { ...p, declaration: 'POKER' as Declaration, hasActed: true }
-        : p
-    );
-  }
 
   return {
     ...state,
@@ -214,11 +200,9 @@ function heroAutoAct(state: GameState, heroId: string): GameState {
   const { phase, currentBet } = state;
   let updatedHero = { ...hero };
 
-  if (phase.startsWith('HIT_')) {
-    updatedHero = { ...hero, declaration: 'STAY' as Declaration, hasActed: true };
-  } else if (phase.startsWith('DRAW')) {
+  if (phase.startsWith('DRAW')) {
     updatedHero = { ...hero, hasActed: true }; // stand pat
-  } else if (phase === 'DECLARE' || phase === 'DECLARE_AND_BET') {
+  } else if (phase === 'DECLARE') {
     updatedHero = { ...hero, status: 'folded' as const, declaration: null, hasActed: true };
   } else if (phase.startsWith('BET') || phase === 'ANTE') {
     const callAmt = currentBet - hero.bet;
@@ -349,7 +333,7 @@ function simulateHand(
     }
 
     // ── Apply scenario overrides at phase entry ─────────────────────────────
-    if (scenario === 'all_fold' && !allFoldFlag.done && (phase.startsWith('BET') || phase === 'DECLARE_AND_BET')) {
+    if (scenario === 'all_fold' && !allFoldFlag.done && (phase.startsWith('BET'))) {
       state = applyAllFold(state, allFoldFlag);
       checkInvariants('ALL_FOLD_OVERRIDE');
     }
@@ -370,7 +354,7 @@ function simulateHand(
       if (activeId === 'p1') {
         if (scenario === 'hero_fold') {
           // Hero always folds in BET / DECLARE rounds
-          if (phase.startsWith('BET') || phase === 'DECLARE' || phase === 'DECLARE_AND_BET') {
+          if (phase.startsWith('BET') || phase === 'DECLARE') {
             state = heroAutoAct({ ...state, currentBet: state.currentBet + 1 }, 'p1'); // force fold branch
             overridden = true;
           }
@@ -411,7 +395,7 @@ function simulateHand(
         if (isRoundOver(state)) break;
         // Find next player to act
         const curIdx = state.players.findIndex(pl => pl.id === state.activePlayerId);
-        const isBetPhase = phase.startsWith('BET') || phase === 'DECLARE_AND_BET';
+        const isBetPhase = phase.startsWith('BET');
         const skipAI = isBetPhase;
         const nextIdx = nextActiveIdx(state.players, curIdx, false);
         const nextP = state.players[nextIdx];
@@ -425,7 +409,7 @@ function simulateHand(
       addViolation('I6_STUCK', `Phase ${phase} did not resolve after ${MAX_ACTIONS_PER_PHASE} actions`);
 
     // Track first BET round
-    if (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') inFirstBetRound = false;
+    if (phase.startsWith('BET')) inFirstBetRound = false;
 
     // Advance to next phase
     state = advancePhase(mode, state);
@@ -508,7 +492,7 @@ function runScenario(
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
-const MODES: GameMode[] = [BadugiMode, Dead7Mode, Fifteen35Mode, SuitsPokerMode];
+const MODES: GameMode[] = [BadugiMode];
 const SCENARIOS: Scenario[] = ['normal','all_fold','uneven_stacks','hero_fold','timer_expiry','bots_only','reconnect'];
 
 const violations: Violation[] = [];

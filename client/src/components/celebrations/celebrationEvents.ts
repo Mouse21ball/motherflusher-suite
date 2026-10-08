@@ -2,9 +2,9 @@ import type { GameState } from '@shared/gameTypes';
 
 export type CelebrationType =
   | 'NORMAL_WIN' | 'BIG_POT' | 'RARE_HAND' | 'WIN_STREAK' | 'BLUFF_WIN'
-  | 'PLAYER_BUST' | 'BADUGI_SPECIAL' | 'DEAD7_SPECIAL' | '1535_SPECIAL';
+  | 'PLAYER_BUST' | 'BADUGI_SPECIAL';
 export type CelebrationIntensity = 'normal' | 'big' | 'premium';
-export type CelebrationAnimation = 'chip-glow' | 'chain-sweep' | 'dead7-skull' | 'rare-halo' | 'streak-flare';
+export type CelebrationAnimation = 'chip-glow' | 'chain-sweep' | 'rare-halo' | 'streak-flare';
 export type CelebrationParticles = 'gold-sparks' | 'amber-burst' | 'red-gold-pulse' | 'violet-stars' | 'flame-sparks' | 'none';
 export type CelebrationScreenEffect = 'none' | 'punch' | 'dim-pulse';
 export type CelebrationSound = 'chipClink' | 'win' | 'bigWin' | 'none';
@@ -48,7 +48,6 @@ export interface CelebrationPreset {
 export const CELEBRATION_DURATIONS_MS = {
   NORMAL_WIN: 3200,
   BIG_POT: 3600,
-  DEAD7_SPECIAL: 3800,
   RARE_HAND: 4000,
   WIN_STREAK: 3600,
   SWING_SCOOP: 3800,
@@ -63,10 +62,6 @@ export const CELEBRATION_PRESETS: Partial<Record<CelebrationType, CelebrationPre
   BIG_POT: {
     animation: 'chain-sweep', durationMs: CELEBRATION_DURATIONS_MS.BIG_POT, text: 'BIG POT',
     sound: 'bigWin', particles: 'amber-burst', screenEffect: 'punch', intensity: 'big',
-  },
-  DEAD7_SPECIAL: {
-    animation: 'dead7-skull', durationMs: CELEBRATION_DURATIONS_MS.DEAD7_SPECIAL, text: 'DEAD 7',
-    sound: 'bigWin', particles: 'red-gold-pulse', screenEffect: 'dim-pulse', intensity: 'premium',
   },
   RARE_HAND: {
     animation: 'rare-halo', durationMs: CELEBRATION_DURATIONS_MS.RARE_HAND, text: 'RARE HAND',
@@ -150,16 +145,14 @@ export function deriveCelebration(
 
   const byAward = [...paid].sort((a, b) => b.amount - a.amount);
   // A single presentation slot: signature mode > rare evaluated hand > streak > big pot.
-  const rare = modeId === 'dead7' ? undefined : byAward
+  const rare = byAward
     .map(award => ({ award, handName: rareHandName(state.players.find(p => p.id === award.playerId)!, modeId) }))
     .find(result => result.handName);
-  const streak = modeId === 'dead7' ? undefined : byAward
+  const streak = byAward
     .find(award => (state.winStreaks?.[award.playerId] ?? 0) >= WIN_STREAK_MIN_HANDS);
   const primary = rare?.award ?? streak ?? byAward[0];
   const amount = paid.reduce((sum, award) => sum + award.amount, 0);
-  const type: CelebrationType = modeId === 'dead7'
-    ? 'DEAD7_SPECIAL'
-    : rare ? 'RARE_HAND'
+  const type: CelebrationType = rare ? 'RARE_HAND'
     : streak ? 'WIN_STREAK'
     : amount >= BIG_POT_MIN_CHIPS ? 'BIG_POT' : 'NORMAL_WIN';
   return {

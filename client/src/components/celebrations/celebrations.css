@@ -18,7 +18,6 @@
   animation: cgp-celebration-appear var(--celebration-duration) ease-out both;
 }
 
-.cgp-celebration--dead7-skull .cgp-celebration-title-group { top: 4%; }
 .cgp-celebration--chip-glow .cgp-celebration-title-group { top: 15%; }
 .cgp-celebration--rare-halo .cgp-celebration-title-group,
 .cgp-celebration--streak-flare .cgp-celebration-title-group { top: 18%; }
@@ -39,10 +38,6 @@
 }
 
 .cgp-celebration--chip-glow .cgp-celebration-title { font-size: clamp(30px, 6vw, 54px); }
-.cgp-celebration--dead7-skull .cgp-celebration-title {
-  font-size: clamp(28px, 6vw, 54px);
-  background-image: linear-gradient(180deg, #fdf5da, #bf9a52 45%, #751d17 74%, #f6d27c);
-}
 .cgp-celebration--rare-halo .cgp-celebration-title {
   background-image: linear-gradient(180deg, #fff, #e6caff 38%, #a966ef 70%, #fff2cf);
   filter: drop-shadow(0 0 22px #aa6df5);

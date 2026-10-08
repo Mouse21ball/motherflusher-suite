@@ -20,7 +20,6 @@ type Event =
   | 'RECONNECT'
   | 'PERSIST'
   | 'TURN_TIMEOUT'
-  | 'REJECT_HIT_AFTER_STAY'
   | 'ERROR';
 
 type Detail = Record<string, string | number | boolean | undefined>;

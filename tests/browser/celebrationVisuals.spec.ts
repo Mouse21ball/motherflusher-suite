@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const preferenceKey = 'cgp_celebration_motion';
 
 interface FakeCelebration {
-  type: 'NORMAL_WIN' | 'BIG_POT' | 'DEAD7_SPECIAL' | 'RARE_HAND' | 'WIN_STREAK';
+  type: 'NORMAL_WIN' | 'BIG_POT' | 'RARE_HAND' | 'WIN_STREAK';
   playerId: string;
   playerName: string;
   targets: { playerId: string; amount: number }[];
@@ -156,14 +156,6 @@ test('renders celebration presets, cleans them up, and honors motion preferences
   await expect(page.locator('[data-celebration-chip]')).toHaveCount(0);
   await expect(resultCard).not.toHaveClass(/cgp-celebrating-card/);
   await unmountFakeResultGroup(page);
-
-  await publishCelebration(page, fakeEvent('DEAD7_SPECIAL', 300));
-  await expect(celebration).toBeVisible();
-  await expect(celebration).toHaveAttribute('data-celebration', 'DEAD7_SPECIAL');
-  await expect(celebration).toHaveAttribute('style', /--celebration-duration: 3800ms/);
-  await expect(celebration.locator('.cgp-celebration-title')).toHaveText('DEAD 7');
-  await expect(celebration.locator('.cgp-celebration-skull')).toBeVisible();
-  await expect(celebration).toHaveCount(0, { timeout: 5_000 });
 
   await publishCelebration(page, { ...fakeEvent('RARE_HAND', 225), handName: 'Royal Flush' });
   await expect(celebration).toHaveAttribute('data-celebration', 'RARE_HAND');

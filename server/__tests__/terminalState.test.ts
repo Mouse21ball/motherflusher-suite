@@ -155,7 +155,7 @@ console.log('\n─── Test 6: Skips ANTE / SHOWDOWN / WAITING / DEAL phases �
   }
 }
 
-console.log('\n─── Test 7: DECLARE phase (Dead7 / SuitsPoker) terminal-state ───');
+console.log('\n─── Test 7: DECLARE phase (Box Chevy) terminal-state ───');
 {
   const players = [
     makePlayer('hero', 'active', 500, 'human'),
@@ -166,21 +166,6 @@ console.log('\n─── Test 7: DECLARE phase (Dead7 / SuitsPoker) terminal-sta
   const { resolved, next } = applyResolveByFold(s);
   assert(resolved === 'win-by-fold', 'win-by-fold from DECLARE');
   assert(next.phase === 'SHOWDOWN', 'transitions DECLARE → SHOWDOWN');
-}
-
-console.log('\n─── Test 8: DECLARE_AND_BET (SuitsPoker) terminal-state ───');
-{
-  const players = [
-    makePlayer('hero', 'active', 500, 'human'),
-    makePlayer('alice', 'folded', 0),
-    makePlayer('bob', 'folded', 0),
-    makePlayer('charlie', 'folded', 0),
-  ];
-  const s = makeState('DECLARE_AND_BET' as GamePhase, players, 1200);
-  const { resolved, next } = applyResolveByFold(s);
-  assert(resolved === 'win-by-fold', 'win-by-fold from DECLARE_AND_BET');
-  assert(next.phase === 'SHOWDOWN', 'transitions DECLARE_AND_BET → SHOWDOWN');
-  assert(next.players.find(p => p.id === 'hero')!.chips === 1700, 'hero collects $1200 pot');
 }
 
 // ─── Test 9: Reset semantics — no-actors rollover must reactivate seats ─────

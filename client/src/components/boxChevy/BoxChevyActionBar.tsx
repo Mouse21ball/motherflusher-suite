@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CardType } from '@/lib/poker/types';
-import { hasMadeHand } from '../../../../shared/modes/boxchevy';
+import { getHeroHandValidity } from '../../../../shared/modes/heroHandValidity';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const B  = (a: number) => `rgba(59,130,246,${a})`;
@@ -98,9 +98,16 @@ export function BoxChevyActionBar({
   const isWaiting   = phase === 'WAITING';
   const isDeclare   = phase === 'DECLARE';
 
-  const heroC  = heroCards.map(c => ({ ...c, isHidden: false }));
-  const commC  = communityCards.map(c => ({ ...c, isHidden: false }));
-  const isMade = heroC.length > 0 && commC.length > 0 && hasMadeHand(heroC, commC);
+  const cardsKnown = heroCards.length === 5
+    && communityCards.length === 5
+    && heroCards.every(card => !card.isHidden)
+    && communityCards.every(card => !card.isHidden);
+  const beforeOrAtDeclare = isDrawPhase || isBetPhase || isDeclare;
+  const validity = getHeroHandValidity('boxchevy', phase, heroCards, communityCards);
+  const isMade = validity?.isValid === true;
+  const isValidityPending = validity?.status === 'pending';
+  const validityColor = isMade ? '#86efac' : isValidityPending ? '#fbbf24' : '#fca5a5';
+  const validityAccent = isMade ? G : isValidityPending ? Am : R;
 
   const canAct = isMyTurn && !actionLocked;
 
@@ -138,6 +145,29 @@ export function BoxChevyActionBar({
   return (
     <div style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
+
+        {beforeOrAtDeclare && validity && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="box-chevy-made-hand-validity"
+            style={{
+              margin: '0 0 8px',
+              padding: '8px 10px',
+              borderRadius: 9,
+              border: `1px solid ${validityAccent(0.35)}`,
+              background: validityAccent(0.08),
+              color: validityColor,
+              fontSize: 11,
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              textAlign: 'center',
+            }}
+          >
+            {validity.label}
+          </div>
+        )}
 
         {/* WAITING — Deal Me In */}
         {isWaiting && isMyTurn && (
@@ -273,9 +303,9 @@ export function BoxChevyActionBar({
               </div>
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>Waiting for others…</div>
             </div>
-          ) : !isMade ? (
-            <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', letterSpacing: '0.06em' }}>
-              ✗ NO MADE HAND — YOU WILL BE AUTO-FOLDED
+          ) : !cardsKnown || !isMade ? (
+            <div role="alert" data-testid="box-chevy-declare-invalid" style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', letterSpacing: '0.06em' }}>
+              {!cardsKnown ? 'HAND VALIDITY UNAVAILABLE — WAIT FOR ALL CARDS' : 'NO MADE HAND — YOU WILL BE AUTO-FOLDED'}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

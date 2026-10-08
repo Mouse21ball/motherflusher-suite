@@ -987,6 +987,12 @@ export class MemStorage implements IStorage {
       if (recipients.some(id => !rows.some(row => row.id === id))
         || referralRows.some(referral => !rows.some(row => row.id === referral.referrerId)))
         throw new Error('Lady Luck payout account missing');
+      if (params.seatedPlayers.length) {
+        await tx.update(playerProfiles).set({
+          handsPlayedLadyLuck: sql`${playerProfiles.handsPlayedLadyLuck} + 1`,
+        }).where(and(inArray(playerProfiles.id, [...new Set(params.seatedPlayers)]),
+          ne(playerProfiles.id, LADY_LUCK_HOUSE_ID)));
+      }
       const balances = new Map(rows.map(row => [row.id, row.balance]));
       const post = async (id: string, amount: number, source: string, metadata?: Record<string, any>) => {
         const before = balances.get(id);
@@ -1066,7 +1072,7 @@ export class MemStorage implements IStorage {
     }
 
     const now = new Date();
-    const profile: PlayerProfile = {
+    const profile: typeof playerProfiles.$inferInsert = {
       id,
       referralCode: generateReferralCode(),
       referredByPlayerId: null,
@@ -1078,9 +1084,9 @@ export class MemStorage implements IStorage {
       activeModeId: null,
       handsPlayed: 0,
       handsPlayedBadugi: 0,
-      handsPlayedDead7: 0,
-      handsPlayed1535: 0,
-      handsPlayedSuits: 0,
+      handsPlayedFlushedUp: 0,
+      handsPlayedLadyLuck: 0,
+      handsPlayedBoxChevy: 0,
       handsWon: 0,
       lifetimeProfit: 0,
       email: null,
@@ -1129,8 +1135,8 @@ export class MemStorage implements IStorage {
     // Wrap creation + genesis ledger in one transaction so new players always
     // have a starting ledger entry.  The consistency checker can then compute
     // a correct balance for all players created after this deployment.
-    await db.transaction(async (tx) => {
-      await tx.insert(playerProfiles).values(profile);
+    const created = await db.transaction(async (tx) => {
+      const [createdProfile] = await tx.insert(playerProfiles).values(profile).returning();
       await this._insertChipLedger(tx, {
         playerId:      id,
         beforeBalance: 0,
@@ -1139,8 +1145,9 @@ export class MemStorage implements IStorage {
         reason:        'other',
         source:        'genesis',
       });
+      return createdProfile;
     });
-    return profile;
+    return created;
   }
 
   async getPlayerProfile(id: string): Promise<PlayerProfile | undefined> {
@@ -1437,9 +1444,8 @@ export class MemStorage implements IStorage {
         ));
         const modeCounter =
           handResult.modeId === "badugi" ? { handsPlayedBadugi: sql`${playerProfiles.handsPlayedBadugi} + 1` } :
-          handResult.modeId === "dead7" ? { handsPlayedDead7: sql`${playerProfiles.handsPlayedDead7} + 1` } :
-          (handResult.modeId === "1535" || handResult.modeId === "fifteen35") ? { handsPlayed1535: sql`${playerProfiles.handsPlayed1535} + 1` } :
-          (handResult.modeId === "suits" || handResult.modeId === "suitspoker") ? { handsPlayedSuits: sql`${playerProfiles.handsPlayedSuits} + 1` } : {};
+          handResult.modeId === "flushed_up" ? { handsPlayedFlushedUp: sql`${playerProfiles.handsPlayedFlushedUp} + 1` } :
+          handResult.modeId === "box_chevy" ? { handsPlayedBoxChevy: sql`${playerProfiles.handsPlayedBoxChevy} + 1` } : {};
         await tx
           .update(playerProfiles)
           .set({
@@ -4782,10 +4788,9 @@ export class MemStorage implements IStorage {
   async incrementHandsPlayed(playerId: string, modeId: string): Promise<void> {
     const update =
       modeId === 'badugi' ? { handsPlayedBadugi: sql`${playerProfiles.handsPlayedBadugi} + 1` } :
-      modeId === 'dead7'  ? { handsPlayedDead7:  sql`${playerProfiles.handsPlayedDead7}  + 1` } :
-      modeId === '1535'   ? { handsPlayed1535:   sql`${playerProfiles.handsPlayed1535}   + 1` } :
-      modeId === 'suits'  ? { handsPlayedSuits:  sql`${playerProfiles.handsPlayedSuits}  + 1` } :
-      null;
+      modeId === 'flushed_up' ? { handsPlayedFlushedUp: sql`${playerProfiles.handsPlayedFlushedUp} + 1` } :
+      modeId === 'lady_luck' ? { handsPlayedLadyLuck: sql`${playerProfiles.handsPlayedLadyLuck} + 1` } :
+      modeId === 'box_chevy' ? { handsPlayedBoxChevy: sql`${playerProfiles.handsPlayedBoxChevy} + 1` } : null;
     if (!update) return;
     await db.update(playerProfiles).set(update).where(eq(playerProfiles.id, playerId));
   }

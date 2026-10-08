@@ -1,6 +1,6 @@
 // ─── useServerMode ────────────────────────────────────────────────────────────
 // Generic client-side hook for any server-authoritative game mode.
-// Works with Dead7, Fifteen35, SwingPoker, SuitsPoker.
+// Generic server mode hook for retained games other than Badugi.
 // Protocol:
 //   mount → WebSocket connect → send 'join' with session UUID + modeId
 //   server → 'mode:init' { playerId, modeId, state, sessionStats } → hook stores assigned seat

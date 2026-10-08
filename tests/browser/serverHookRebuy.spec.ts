@@ -179,7 +179,7 @@ async function mockTableSocket(page: Page, outcome: 'accept' | 'ack-only' | 'rej
 
 async function openBustModal(
   page: Page,
-  mode: 'badugi' | 'dead7',
+  mode: 'badugi' | 'box_chevy',
   outcome: 'accept' | 'ack-only' | 'reject' | 'disconnect',
 ) {
   await mockHttpApis(page);
@@ -194,7 +194,7 @@ async function openBustModal(
 
 function expectCorrelatedRebuy(
   message: WireMessage | undefined,
-  modeId: 'badugi' | 'dead7',
+  modeId: 'badugi' | 'box_chevy',
   kind: RebuyKind,
 ) {
   expect(message).toMatchObject({
@@ -208,7 +208,7 @@ function expectCorrelatedRebuy(
 }
 
 test.describe('production WebSocket hook rebuy wiring', () => {
-  for (const modeId of ['badugi', 'dead7']) {
+  for (const modeId of ['badugi', 'box_chevy']) {
     test(`${modeId} coalesces direct same-tick rebuy calls before the capability check`, async ({ page }) => {
       const mock = await openBustModal(page, modeId, 'ack-only');
       let capabilityChecks = 0;
@@ -227,7 +227,7 @@ test.describe('production WebSocket hook rebuy wiring', () => {
     });
   }
 
-  for (const modeId of ['badugi', 'dead7']) {
+  for (const modeId of ['badugi', 'box_chevy']) {
     for (const kind of ['free', 'reserve', 'borrow'] as const) {
       test(`${modeId} ${kind} updates stack and wallet from the acknowledgement without a snapshot`, async ({ page }) => {
         const mock = await openBustModal(page, modeId, 'ack-only');
@@ -245,7 +245,7 @@ test.describe('production WebSocket hook rebuy wiring', () => {
     }
   }
 
-  for (const modeId of ['badugi', 'dead7']) {
+  for (const modeId of ['badugi', 'box_chevy']) {
     test(`${modeId} borrow credits the table using one authenticated confirmed request`, async ({ page }) => {
       const mock = await openBustModal(page, modeId, 'accept');
       const loanHttpRequests: string[] = [];
@@ -303,13 +303,13 @@ test.describe('production WebSocket hook rebuy wiring', () => {
     await expect(page.getByTestId('bust-out-modal')).toBeHidden({ timeout: 3_000 });
   });
 
-  test('Dead 7 reserve rebuy uses the generic mode hook without HTTP join prevalidation', async ({ page }) => {
+  test('Box Chevy reserve rebuy uses the generic mode hook without HTTP join prevalidation', async ({ page }) => {
     const joinPrevalidationRequests: string[] = [];
     page.on('request', request => {
       const url = new URL(request.url());
       if (url.pathname === `/api/tables/${tableId}/join`) joinPrevalidationRequests.push(url.pathname);
     });
-    const { messages } = await openBustModal(page, 'dead7', 'accept');
+    const { messages } = await openBustModal(page, 'box_chevy', 'accept');
 
     await page.getByTestId('button-bust-rebuy').tap();
     await expect(page.getByTestId('buyin-slider-panel')).toBeVisible();
@@ -319,7 +319,7 @@ test.describe('production WebSocket hook rebuy wiring', () => {
     expect(joinPrevalidationRequests).toHaveLength(0);
     await expect.poll(() => messages.find(message => message.type === 'table:rebuy')).toBeDefined();
     const request = messages.find(message => message.type === 'table:rebuy');
-    expectCorrelatedRebuy(request, 'dead7', 'reserve');
+    expectCorrelatedRebuy(request, 'box_chevy', 'reserve');
     expect(request?.amount).toBe(5_000);
     await expect(page.getByTestId('hook-stack')).toHaveText('5000');
     await expect(page.getByTestId('bust-out-modal')).toBeVisible();
@@ -339,11 +339,11 @@ test.describe('production WebSocket hook rebuy wiring', () => {
   });
 
   test('a disconnected generic-mode rebuy rejects pending work without closing the modal', async ({ page }) => {
-    const mock = await openBustModal(page, 'dead7', 'disconnect');
+    const mock = await openBustModal(page, 'box_chevy', 'disconnect');
 
     await page.getByTestId('button-bust-starter-pack').tap();
     await expect.poll(() => mock.messages.find(message => message.type === 'table:rebuy')).toBeDefined();
-    expectCorrelatedRebuy(mock.messages.find(message => message.type === 'table:rebuy'), 'dead7', 'free');
+    expectCorrelatedRebuy(mock.messages.find(message => message.type === 'table:rebuy'), 'box_chevy', 'free');
     await expect(page.getByTestId('bust-rebuy-error'))
       .toHaveText(/connection closed|connection unavailable|not confirmed/i, { timeout: 5_000 });
     await expect(page.getByTestId('hook-stack')).toHaveText('0');

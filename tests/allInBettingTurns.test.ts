@@ -7,7 +7,7 @@ import { addGenericConnection, getOrCreateTable, handleGenericAction, hasGeneric
 import { storage } from '../server/storage';
 import { db } from '../server/db';
 
-const modes = ['badugi', 'dead7', 'flushed_up', 'fifteen35', 'suits_poker', 'kamikaze', 'bonecrusher', 'box_chevy'] as const;
+const modes = ['badugi', 'flushed_up', 'box_chevy'] as const;
 const cards = [
   { rank: 'A', suit: 'spades', isHidden: false },
   { rank: '2', suit: 'hearts', isHidden: false },
@@ -161,8 +161,7 @@ describe('Badugi mandatory all-in actions', () => {
 });
 
 it.each([
-  ['dead7', 'DECLARE'], ['fifteen35', 'HIT_1'],
-  ['flushed_up', 'DECLARE_AND_BET'], ['bonecrusher', 'REVEAL_1'],
+  ['box_chevy', 'DECLARE'], ['flushed_up', 'DRAW_1'],
 ] as const)('%s retains the all-in player in mandatory %s rather than skipping the phase', async (mode, phase) => {
   const { tableId, table } = tableFor(mode);
   table.state.phase = phase;
@@ -170,5 +169,5 @@ it.each([
   expect(table.state.phase).toBe(phase);
   expect(table.state.activePlayerId).toBe('p1');
   expect(table.state.players[0].hasActed).toBe(false);
-  if (phase !== 'REVEAL_1') expect(table.state.turnDeadline).toBe(Date.now() + 30_000);
+  expect(table.state.turnDeadline).toBe(Date.now() + 30_000);
 });

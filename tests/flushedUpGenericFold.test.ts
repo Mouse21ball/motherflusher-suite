@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CardType, GameState, Player } from '../shared/gameTypes';
 import { FlushedUpMode } from '../shared/modes/flushedUp';
+import { FlushedUpEngine } from '../server/flushedUpEngine';
 import { resolveByFold, resetToAnte } from '../server/genericEngine';
 import { storage } from '../server/storage';
 
@@ -50,6 +51,7 @@ function makeTable(cards: CardType[]) {
     tableId: state.tableId,
     modeId: 'flushed_up',
     mode: FlushedUpMode,
+    engine: FlushedUpEngine,
     state,
     handId: 7,
     resolvedPot: undefined,

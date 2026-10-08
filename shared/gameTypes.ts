@@ -14,7 +14,7 @@ export interface CardType {
 }
 
 export type PlayerStatus = 'active' | 'folded' | 'sitting_out';
-export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | 'STAY' | 'BUST' | 'POKER' | 'SUITS' | null;
+export type Declaration = 'HIGH' | 'LOW' | 'SWING' | 'FOLD' | null;
 
 // Distinguishes a real human seat from a bot seat.
 // 'reserved' = open seat held for a human during the join window; excluded
@@ -55,10 +55,6 @@ export interface Player {
     isValidBadugi?: boolean;
     badugiRankValues?: number[];
     pokerValue?: number;
-    suitsScore?: number;
-    suitsValid?: boolean;
-    swingPokerValue?: number;
-    swingSuitsScore?: number;
   };
 }
 
@@ -81,43 +77,16 @@ export type GamePhase =
   | 'WAITING'
   | 'ANTE'
   | 'DEAL'
-  | 'REVEAL_TOP_ROW'
   | 'DRAW'
   | 'BET_1'
-  | 'REVEAL_SECOND_ROW'
   | 'BET_2'
-  | 'REVEAL_FACTOR_CARD'
-  | 'DECLARE_AND_BET'
   | 'SHOWDOWN'
   | 'DRAW_1'
   | 'DRAW_2'
   | 'DRAW_3'
   | 'DECLARE'
   | 'BET_3'
-  | 'HIT_1'
-  | 'HIT_2'
-  | 'HIT_3'
-  | 'HIT_4'
-  | 'HIT_5'
-  | 'HIT_6'
-  | 'HIT_7'
-  | 'HIT_8'
   | 'BET_4'
-  | 'BET_5'
-  | 'BET_6'
-  | 'BET_7'
-  | 'BET_8'
-  | 'REVEAL_LOWER_CENTER'
-  | 'DISCARD_2'
-  | 'REVEAL_1'
-  | 'STREET_1'
-  | 'STREET_2'
-  | 'STREET_3'
-  | 'SELECT_5'
-  | 'FLIP_1'
-  | 'FLIP_2'
-  | 'FLIP_3'
-  | 'FLIP_4';
 
 export interface ChatMessage {
   id: string;

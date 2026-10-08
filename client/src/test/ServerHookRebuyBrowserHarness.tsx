@@ -64,13 +64,13 @@ function BadugiHookHarness() {
 }
 
 function GenericModeHookHarness() {
-  const hook = useServerMode('QA', 'dead7');
-  return <RebuyModalHarness modeId="dead7" hook={hook} />;
+  const hook = useServerMode('QA', 'box_chevy');
+  return <RebuyModalHarness modeId="box_chevy" hook={hook} />;
 }
 
 function ServerHookRebuyBrowserHarness() {
   const modeId = new URLSearchParams(window.location.search).get('mode') ?? 'badugi';
-  return modeId === 'dead7' ? <GenericModeHookHarness /> : <BadugiHookHarness />;
+  return modeId === 'box_chevy' ? <GenericModeHookHarness /> : <BadugiHookHarness />;
 }
 
 createRoot(document.getElementById('root')!).render(

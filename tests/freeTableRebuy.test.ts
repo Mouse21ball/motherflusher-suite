@@ -101,7 +101,7 @@ describe('grantTableChipLoan', () => {
       player: { chipBalance: 400, chipLoanBalance: 0 },
     });
 
-    await expect(storage.grantTableChipLoan('player-1', 'dead7:table-1', 'request-12345678'))
+    await expect(storage.grantTableChipLoan('player-1', 'box_chevy:table-1', 'request-12345678'))
       .resolves.toEqual({ success: true, newBalance: 1_400 });
 
     expect(tx.select).toHaveBeenCalledTimes(2);
@@ -115,7 +115,7 @@ describe('grantTableChipLoan', () => {
       amountChange: 1_000,
       afterBalance: 1_400,
       source: 'chip_loan_grant',
-      gameId: 'dead7:table-1',
+      gameId: 'box_chevy:table-1',
       handId: 'request-12345678',
     }));
   });
@@ -126,7 +126,7 @@ describe('grantTableChipLoan', () => {
       existingClaim: { id: 42 },
     });
 
-    await expect(storage.grantTableChipLoan('player-1', 'dead7:table-1', 'request-12345678'))
+    await expect(storage.grantTableChipLoan('player-1', 'box_chevy:table-1', 'request-12345678'))
       .resolves.toEqual({ success: true, newBalance: 1_400 });
 
     expect(tx.select).toHaveBeenCalledTimes(2);

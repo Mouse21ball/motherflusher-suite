@@ -119,11 +119,10 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
   const avatar = getAvatarForSeat(opponent.seatNum);
   const avatarBg = getAvatarColor(opponent.name);
   const active = opponent.isActive && !folded;
-  const isDead7 = modeLabel === 'dead7';
   const panelBackground = folded
-    ? (isDead7 ? 'rgba(5,0,0,0.6)' : 'rgba(5,3,10,0.6)')
+    ? 'rgba(5,3,10,0.6)'
     : opponent.isWinner
-      ? (isDead7 ? 'rgba(25,5,5,0.85)' : 'rgba(15,10,0,0.82)')
+      ? 'rgba(15,10,0,0.82)'
       : 'rgba(0,0,0,0.45)';
 
   return (

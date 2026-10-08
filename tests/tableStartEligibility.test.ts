@@ -82,7 +82,7 @@ describe('funded table hand-start eligibility', () => {
   );
 
   it.each(['fold', 'check', 'call', 'raise'] as const)(
-    'rejects a zero-stack Dead 7 betting action (%s) while keeping the all-in in the hand',
+    'rejects a zero-stack Box Chevy betting action (%s) while keeping the all-in in the hand',
     (action) => {
       const allIn = {
         id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50,
@@ -91,8 +91,8 @@ describe('funded table hand-start eligibility', () => {
       const opponent = {
         ...allIn, id: 'p2', chips: 1_000, bet: 50, totalBet: 50, hasActed: false,
       } as Player;
-      const tableId = id(`dead7-all-in-${action}`);
-      const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+      const tableId = id(`box_chevy-all-in-${action}`);
+      const table = getOrCreateTable('box_chevy', tableId, true, false, { botsEnabled: false })!;
       table.connections.set('p1', socket());
       table.state = {
         ...table.state,
@@ -138,8 +138,8 @@ describe('funded table hand-start eligibility', () => {
   });
 
   it('does not let an out-of-turn zero-stack generic action advance the turn', () => {
-    const tableId = id('dead7-out-of-turn-all-in');
-    const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+    const tableId = id('box_chevy-out-of-turn-all-in');
+    const table = getOrCreateTable('box_chevy', tableId, true, false, { botsEnabled: false })!;
     table.connections.set('p1', socket());
     table.state = {
       ...table.state,
@@ -182,67 +182,13 @@ describe('funded table hand-start eligibility', () => {
     });
   });
 
-  it('keeps a zero-stack Fifteen35 player eligible to draw and declare to stand', () => {
-    const tableId = id('fifteen35-all-in-hit');
-    const table = getOrCreateTable('fifteen35', tableId, true, false, { botsEnabled: false })!;
-    table.connections.set('p1', socket());
-    table.state = {
-      ...table.state,
-      phase: 'HIT_1',
-      activePlayerId: 'p1',
-      deck: [{ rank: '5', suit: 'hearts', isHidden: false }],
-      players: [
-        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, cards: [], declaration: null, hasActed: false },
-        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, hasActed: false },
-      ],
-    };
 
-    handleGenericAction(tableId, 'p1', 'hit', null);
 
-    expect(table.state.players[0]).toMatchObject({
-      chips: 0,
-      status: 'active',
-      hasActed: true,
-      cards: [{ rank: '5', suit: 'hearts' }],
-    });
-  });
 
-  it('keeps the automatic Suits Poker declaration for an all-in without checking or folding', () => {
-    const tableId = id('suits-all-in-declaration');
-    const table = getOrCreateTable('suits_poker', tableId, true, false, { botsEnabled: false })!;
-    table.connections.set('p1', socket());
-    table.state = {
-      ...table.state,
-      phase: 'DECLARE_AND_BET',
-      activePlayerId: 'p1',
-      currentBet: 50,
-      players: [
-        { ...table.state.players[0], id: 'p1', presence: 'human', status: 'active', chips: 0, bet: 50, declaration: 'POKER', hasActed: true },
-        { ...table.state.players[1], id: 'p2', presence: 'human', status: 'active', chips: 1_000, bet: 50, declaration: null, hasActed: false },
-      ],
-    };
-    const messageCount = table.state.messages.length;
-
-    handleGenericAction(tableId, 'p1', 'declare_and_bet', {
-      declaration: 'SUITS',
-      action: 'check',
-      amount: 0,
-    });
-
-    expect(table.state.messages).toHaveLength(messageCount);
-    expect(table.state.players[0]).toMatchObject({
-      chips: 0,
-      status: 'active',
-      bet: 50,
-      declaration: 'POKER',
-      hasActed: true,
-    });
-    expect(table.state.activePlayerId).toBe('p2');
-  });
 
   it.each([
     ['Badugi', id('badugi-start')],
-    ['Dead 7', id('dead7-start')],
+    ['Box Chevy', id('box_chevy-start')],
   ])('does not start a fresh table without a funded human (%s)', (mode, tableId) => {
     if (mode === 'Badugi') {
       const table = getOrCreateBadugiTable(tableId, true, false, { botsEnabled: false });
@@ -255,7 +201,7 @@ describe('funded table hand-start eligibility', () => {
       expect(table.state.phase).toBe('WAITING');
       expect(table.handId).toBe(0);
     } else {
-      const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+      const table = getOrCreateTable('box_chevy', tableId, true, false, { botsEnabled: false })!;
       table.connections.set('p1', socket());
       expect(table.state.players.find(player => player.id === 'p1')).toMatchObject({
         presence: 'reserved',
@@ -270,7 +216,7 @@ describe('funded table hand-start eligibility', () => {
 
   it.each([
     ['Badugi', id('funded-badugi-start')],
-    ['Dead 7', id('funded-dead7-start')],
+    ['Box Chevy', id('funded-box_chevy-start')],
   ])('starts when a funded human and a second eligible player are present (%s)', (mode, tableId) => {
     if (mode === 'Badugi') {
       const table = getOrCreateBadugiTable(tableId, true, false, { botsEnabled: false });
@@ -287,7 +233,7 @@ describe('funded table hand-start eligibility', () => {
       expect(table.state.phase).toBe('ANTE');
       expect(table.handId).toBe(1);
     } else {
-      const table = getOrCreateTable('dead7', tableId, true, false, { botsEnabled: false })!;
+      const table = getOrCreateTable('box_chevy', tableId, true, false, { botsEnabled: false })!;
       table.connections.set('p1', socket());
       table.state = {
         ...table.state,
@@ -319,12 +265,12 @@ describe('funded table hand-start eligibility', () => {
     expect(badugiSocket.close).not.toHaveBeenCalled();
     expect(badugiSocket.send).toHaveBeenCalledWith(expect.stringContaining('"role":"spectator"'));
 
-    const genericId = id('dead7-zero-join');
-    const generic = getOrCreateTable('dead7', genericId, true, false, { botsEnabled: false })!;
+    const genericId = id('box_chevy-zero-join');
+    const generic = getOrCreateTable('box_chevy', genericId, true, false, { botsEnabled: false })!;
     const genericSocket = socket();
     await expect(addGenericConnection(
-      genericId, 'dead7', id('dead7-session'), genericSocket, 'Zero', true, false,
-      id('dead7-identity'), { botsEnabled: false },
+      genericId, 'box_chevy', id('box_chevy-session'), genericSocket, 'Zero', true, false,
+      id('box_chevy-identity'), { botsEnabled: false },
     )).resolves.toBe('__spectator__');
     expect(generic.state.players.some(player => player.presence === 'human')).toBe(false);
     expect(generic.fundedSeats.size).toBe(0);

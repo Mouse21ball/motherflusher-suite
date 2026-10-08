@@ -505,9 +505,8 @@ function InviteBar({ crew, isOwner, onReload }: { crew: CrewDetail; isOwner: boo
 // ─── Club mode map ────────────────────────────────────────────────────────────
 const CLUB_MODES = [
   { id: 'badugi',     label: 'BADUGI',       path: '/badugi',     color: '#10b981' },
-  { id: 'dead7',      label: 'DEAD 7',        path: '/dead7',      color: '#ef4444' },
-  { id: 'fifteen35',  label: '15 / 35',       path: '/fifteen35',  color: '#f59e0b' },
-  { id: 'suits_poker',label: 'SUITS & POKER', path: '/suitspoker', color: '#3b82f6' },
+  { id: 'flushed_up', label: 'FLUSHED UP', path: '/flushedup', color: '#8b5cf6' },
+  { id: 'box_chevy', label: 'BOX CHEVY', path: '/box-chevy', color: '#3b82f6' },
 ] as const;
 
 type ClubModeId = typeof CLUB_MODES[number]['id'];

@@ -3,9 +3,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BadugiActionBar } from '../client/src/components/badugi/BadugiActionBar';
-import { Dead7ActionBar } from '../client/src/components/dead7/Dead7ActionBar';
+
 import { FlushedUpActionBar } from '../client/src/components/flushedUp/FlushedUpActionBar';
-import { KamikazeActionBar } from '../client/src/components/kamikaze/KamikazeActionBar';
+
 import {
   canRaiseTo,
   createBettingContext,
@@ -104,9 +104,9 @@ describe('shared betting math', () => {
 });
 
 const actionBars = [
-  ['Dead 7', Dead7ActionBar, { onStandPat: () => {}, onDraw: () => {} }],
+
   ['Badugi', BadugiActionBar, { onStandPat: () => {}, onDraw: () => {} }],
-  ['Kamikaze', KamikazeActionBar, { onStay: () => {}, onDraw: () => {} }],
+
 ] as const;
 
 describe.each(actionBars)('%s shared betting controls integration', (_mode, ActionBar, modeActions) => {
@@ -154,7 +154,7 @@ describe.each(actionBars)('%s shared betting controls integration', (_mode, Acti
 
 describe.each([
   ['Badugi', BadugiActionBar, { onStandPat: () => {}, onDraw: () => {} }],
-  ['Dead 7', Dead7ActionBar, { onStandPat: () => {}, onDraw: () => {} }],
+
   ['Flushed Up', FlushedUpActionBar, { onStay: () => {}, onDraw: () => {} }],
 ] as const)('%s waiting hand-start control', (_mode, ActionBar, modeActions) => {
   it('disables Deal Me In at zero chips and enables it after the stack is funded', () => {

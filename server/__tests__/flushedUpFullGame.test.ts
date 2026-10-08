@@ -224,7 +224,8 @@ let handsCompleted     = 0;
 let handsFailed        = 0;
 let totalDuplicates    = 0;
 let totalChipLeak      = 0;
-let totalRebuys        = 0; // chips injected by hero rebuys
+let totalRebuys        = 0; // explicitly injected simulation rebuys, across all seats
+let carriedPot        = 0;
 
 for (let handNum = 1; handNum <= 100; handNum++) {
   handFailures = 0;
@@ -232,13 +233,12 @@ for (let handNum = 1; handNum <= 100; handNum++) {
   // Rotate dealer button
   dealerIndex = (dealerIndex + 1) % NUM_PLAYERS;
 
-  // Hero rebuy if busted (maintains simulation continuity)
-  if (globalPlayers.find(p => p.id === HUMAN_ID)!.chips <= 0) {
-    totalRebuys += STARTING_CHIPS; // track injected chips
-    globalPlayers = globalPlayers.map(p =>
-      p.id === HUMAN_ID ? { ...p, chips: STARTING_CHIPS } : p,
-    );
-  }
+  // Keep all 100 hands funded, recording every injected chip in conservation.
+  globalPlayers = globalPlayers.map(p => {
+    if (p.chips > 0) return p;
+    totalRebuys += STARTING_CHIPS;
+    return { ...p, chips: STARTING_CHIPS };
+  });
 
   const activePlayers = globalPlayers.filter(p => p.chips > 0);
   if (activePlayers.length < 2) continue;
@@ -257,10 +257,10 @@ for (let handNum = 1; handNum <= 100; handNum++) {
   }));
 
   // Chips before antes — used for conservation check
-  const chipsBeforeHand = handPlayers.reduce((s, p) => s + p.chips, 0);
+  const chipsBeforeHand = handPlayers.reduce((s, p) => s + p.chips, 0) + carriedPot;
 
   // ── ANTE ────────────────────────────────────────────────────────────────────
-  let pot = 0;
+  let pot = carriedPot;
   handPlayers = handPlayers.map(p => {
     const before = p.chips;
     const r = contribute(p, ANTE, pot);
@@ -270,9 +270,9 @@ for (let handNum = 1; handNum <= 100; handNum++) {
       `Hand ${handNum}: ${p.name} ante $${expected} correctly debited`);
     return { ...r.player, hasActed: true };
   });
-  assert(pot === handPlayers.reduce((s, p) => s + Math.min(ANTE,
+  assert(pot === carriedPot + handPlayers.reduce((s, p) => s + Math.min(ANTE,
     activePlayers.find(a => a.id === p.id)!.chips), 0),
-    `Hand ${handNum}: pot (${pot}) = sum of antes`);
+    `Hand ${handNum}: pot (${pot}) = carried pot plus antes`);
 
   // ── DEAL ────────────────────────────────────────────────────────────────────
   const deck0 = shuffle(makeDeck());
@@ -456,7 +456,9 @@ for (let handNum = 1; handNum <= 100; handNum++) {
 
   // Winner declared
   const winners = finalPlayers.filter(p => p.isWinner);
-  assert(winners.length >= 1, `Hand ${handNum}: at least one winner declared`);
+  assert(winners.length >= 1 || sdResult.pot > 0,
+    `Hand ${handNum}: pot is paid to a qualifying flush or explicitly rolled over`);
+  carriedPot = sdResult.pot;
 
   // Winner has highest (or tied) flush score
   if (winners.length === 1) {
@@ -474,7 +476,7 @@ for (let handNum = 1; handNum <= 100; handNum++) {
   //                            + winnerPot  (distributed by resolveShowdown)
   //          = chipsBeforeHand − pot + (pot − rake)
   //          = chipsBeforeHand − rake
-  const chipsAfterShowdown = finalPlayers.reduce((s, p) => s + p.chips, 0);
+  const chipsAfterShowdown = finalPlayers.reduce((s, p) => s + p.chips, 0) + carriedPot;
   const expectedAfter      = chipsBeforeHand - rake;
   const diff               = Math.abs(chipsAfterShowdown - expectedAfter);
   if (diff > 1) {
@@ -504,7 +506,7 @@ for (let handNum = 1; handNum <= 100; handNum++) {
 section('Summary');
 
 const totalStart  = NUM_PLAYERS * STARTING_CHIPS;
-const totalEnd    = globalPlayers.reduce((s, p) => s + p.chips, 0);
+const totalEnd    = globalPlayers.reduce((s, p) => s + p.chips, 0) + carriedPot;
 // Adjusted pool = starting chips + any chips injected by rebuys
 const adjustedStart = totalStart + totalRebuys;
 

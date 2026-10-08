@@ -144,6 +144,7 @@ describe.skipIf(!process.env.DATABASE_URL)('player referral rewards (development
     });
     const after = await storage.getPlayerProfile(ladyLuckRefereeId);
     expect(after?.handsPlayed).toBe(1);
+    expect(after?.handsPlayedLadyLuck).toBe(1);
     expect(after?.chipBalance).toBe(before!.chipBalance + 2500);
     expect(after?.stripes).toBe(before!.stripes + 100);
   });

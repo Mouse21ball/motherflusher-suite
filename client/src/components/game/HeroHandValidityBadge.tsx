@@ -16,6 +16,8 @@ export function HeroHandValidityBadge({ validity, phase }: {
       className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-[13px] font-mono font-bold tracking-wide border text-center"
       data-testid="text-hero-made-status"
       data-validity={validity.status}
+      role="status"
+      aria-live="polite"
       style={{
         backgroundColor: colors.background,
         borderColor: colors.border,
@@ -24,7 +26,7 @@ export function HeroHandValidityBadge({ validity, phase }: {
       }}
     >
       {validity.label}
-      {validity.status === 'invalid' && phase === 'DECLARE' && ' · AUTO-FOLD AT DECLARE'}
+      {validity.status === 'invalid' && ' · WILL AUTO-FOLD AT DECLARE'}
     </div>
   );
 }

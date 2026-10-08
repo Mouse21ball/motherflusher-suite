@@ -6,7 +6,6 @@ import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
 import { BadugiTableEffects } from '@/components/badugi/BadugiTableEffects';
-import { Dead7TableEffects } from '@/components/dead7/Dead7TableEffects';
 
 const heroCard: CardType = { rank: 'A', suit: 'hearts' };
 const opponentCard: CardType = { rank: 'K', suit: 'hearts', isHidden: true };
@@ -292,31 +291,7 @@ function TableDealAnimatorBrowserHarness() {
           effects={root => <BadugiTableEffects state={effectState} tableRoot={root} />}
         />
       </div>
-      <div data-testid="dead7-effects-table" style={{ width: 375, height: 500 }}>
-        <FiveSeatPokerTable
-          players={effectState.players}
-          phase={effectState.phase}
-          myId="hero"
-          opponents={effectState.players.filter(player => player.id !== 'hero').map((player): FiveSeatOpponent => ({
-            id: player.id,
-            name: player.name,
-            chips: player.chips,
-            cardCount: player.cards.length,
-            status: player.status,
-            isActive: effectState.activePlayerId === player.id,
-            isWinner: !!player.isWinner,
-            isDealer: player.isDealer,
-            seatNum: 2,
-          }))}
-          hero={<div style={{ width: 180, height: 70 }}>Hero</div>}
-          center={<div>Pot {effectState.pot}</div>}
-          accent="#ef4444"
-          modeLabel="dead7"
-          activePlayerId={effectState.activePlayerId}
-          turnDeadline={effectState.turnDeadline}
-          effects={root => <Dead7TableEffects state={effectState} tableRoot={root} />}
-        />
-      </div>
+
     </>
   );
 }

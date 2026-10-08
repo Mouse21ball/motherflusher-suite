@@ -39,7 +39,7 @@ async function openReturningGuest(page: Page, legacyNameOnly = false) {
       await route.fulfill({ status: 204, body: '' });
     }
   });
-  await page.routeWebSocket(() => true, socket => socket.close());
+  await page.routeWebSocket(url => url.pathname === '/ws', socket => socket.close());
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Skip Chain Gang Poker introduction' }).click();
   await expect(page.getByRole('button', { name: 'Skip Chain Gang Poker introduction' })).toHaveCount(0);
@@ -98,6 +98,10 @@ for (const viewport of [
         await expect(page.getByTestId('button-welcome-back-play')).toHaveCount(0);
         await expect(page.getByTestId('text-bankroll')).toHaveText('$25,000');
         await expect(page.getByTestId('button-play-badugi')).toBeVisible();
+        await expect(page.getByTestId(/^button-play-/)).toHaveCount(4);
+        for (const id of ['badugi', 'flushedup', 'ladyluck', 'box_chevy']) {
+          await expect(page.getByTestId(`button-play-${id}`)).toHaveCount(1);
+        }
         expect(errors).toEqual([]);
       });
     }

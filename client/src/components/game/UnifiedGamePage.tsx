@@ -1,595 +1,76 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useServerBadugi } from "@/lib/poker/engine/useServerGame";
-import { useServerMode } from "@/lib/poker/engine/useServerMode";
-import { FEATURES } from "@/lib/featureFlags";
-import { generateTableCode, saveRecentTable } from "@/lib/tableSession";
-import { HostControls } from "@/components/HostControls";
-import type { TableSettings } from "@/components/HostControls";
-import { ThreeDTableScene } from "@/components/game/ThreeDTableScene";
-import { ActionControls } from "@/components/game/Controls";
-import { ChatBox } from "@/components/game/ChatBox";
-import { GameStatusBar } from "@/components/game/GameStatusBar";
-import { HeroHandPanel } from "@/components/game/HeroHandPanel";
-import { ChatEmoteRow } from "@/components/game/ChatEmoteRow";
-import { MODE_INFO } from "@/components/game/GameHeader";
-import { ModeIntro, MODE_INTROS } from "@/components/game/ModeIntro";
-import { SpectatorBanner, SpectatorWatchingBadge } from "@/components/game/SpectatorBanner";
-import { BustOutModal } from "@/components/game/BustOutModal";
-import { useLocation } from "wouter";
-import { DebugOverlay } from "@/components/game/DebugOverlay";
-import { XPToast } from "@/components/XPToast";
-import { useXPWatcher } from "@/lib/useXPWatcher";
-import { usePhaseSounds } from "@/lib/usePhaseSounds";
-import { getContextualHint } from "@/lib/phaseHints";
-import { useGameToasts } from "@/lib/useGameToasts";
-import { trackModePlay } from "@/lib/analytics";
-import { MusicButton } from "@/components/MusicButton";
-import { useServerProfile } from "@/lib/useServerProfile";
-import type { GameState } from "@/lib/poker/types";
-import type { GameSessionStats } from "@/components/game/GameHeader";
-import { qualifiesForSuits } from '@shared/modes/suitspoker';
-import { ShowdownReveal } from '@/components/game/ShowdownReveal';
-import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
-import type { WinnerData, HeroRevealData } from '@/components/game/ShowdownReveal';
-import { evaluateBadugi } from '@shared/modes/badugi';
-import { evaluateDead7 } from '@shared/modes/dead7';
+import { useEffect, useState } from 'react';
+import { useServerBadugi } from '@/lib/poker/engine/useServerGame';
+import { FEATURES } from '@/lib/featureFlags';
+import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
+import { trackModePlay } from '@/lib/analytics';
 import { BadugiFullPage } from '@/components/badugi/BadugiFullPage';
-import { Dead7FullPage } from '@/components/dead7/Dead7FullPage';
-import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
-import { FriendSeatActions } from '@/components/game/FriendSeatActions';
-import { apiFetch } from '@/lib/session';
-import { apiUrl } from '@/lib/apiConfig';
 
-// ── Unified game UI shell ─────────────────────────────────────────────────────
-
-interface UnifiedGameUIProps {
-  state: GameState;
-  handleAction: (action: string, payload?: unknown) => void;
-  actionError?: string | null;
-  myId: string;
-  modeId: string;
-  tableId?: string;
-  role?: 'player' | 'spectator';
-  sessionStats?: GameSessionStats;
-  lastWsAt?: number | null;
-  lastWsType?: string | null;
-  // Host authority
-  hostId?: string | null;
-  tableSettings?: TableSettings;
-  isClubTable?: boolean;
-  sendHostAction?: (type: 'host:kick' | 'host:settings', payload: Record<string, unknown>) => void;
-  kickedByHost?: boolean;
-  leaveAndSettle?: () => Promise<void>;
-  requestRebuy: (kind: 'free' | 'reserve' | 'borrow', amount?: number) => Promise<void>;
-}
-
-const SUITSPOKER_DECLARATION_OPTIONS = [
-  { label: 'POKER', value: 'POKER' as const, className: 'border-red-500/25 hover:bg-red-500/10 text-red-300/80 hover:text-red-200' },
-  { label: 'SWING', value: 'SWING' as const, className: 'border-purple-500/25 hover:bg-purple-500/10 text-purple-300/80 hover:text-purple-200' },
-  { label: 'SUITS', value: 'SUITS' as const, className: 'border-blue-500/25 hover:bg-blue-500/10 text-blue-300/80 hover:text-blue-200' },
-];
-
-function UnifiedGameUI({ state, handleAction, actionError, myId, modeId, tableId, role = 'player', sessionStats, lastWsAt, lastWsType, hostId = null, tableSettings, isClubTable = false, sendHostAction, kickedByHost = false, leaveAndSettle, requestRebuy }: UnifiedGameUIProps) {
-  const isSpectator = role === 'spectator';
-  // Pre-buy-in state: crew table players start as observers until they tap BUY IN.
-  // Initialised to false; auto-resolved to true once the WS confirms it is NOT a
-  // crew table (lastWsAt becomes non-null). This avoids a flash on first render
-  // when isClubTable is still the default false before the socket handshake.
-  const [hasBoughtIn, setHasBoughtIn] = useState(false);
-  const boughtInInitRef = useRef(false);
-  useEffect(() => {
-    if (boughtInInitRef.current) return;
-    if (lastWsAt == null) return; // wait until WS has connected and isClubTable is stable
-    boughtInInitRef.current = true;
-    if (!isClubTable) setHasBoughtIn(true); // regular table: skip buy-in gate
-  }, [lastWsAt, isClubTable]);
-  const isPrebuyIn = isClubTable && !hasBoughtIn;
-  const effectiveSpectator = isSpectator || isPrebuyIn;
-  const [, navigate] = useLocation();
-  const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
-  const leaveToLobby = useCallback(async () => {
-    try {
-      if (!leaveAndSettle) throw new Error('Table connection is unavailable. Your balance was not confirmed.');
-      await leaveAndSettle();
-      const profile = await refetchProfile();
-      if (!profile) throw new Error('Your balance could not be refreshed. Please stay connected and try again.');
-      navigate('/');
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Could not save your table balance. Please try again.');
-    }
-  }, [leaveAndSettle, navigate, refetchProfile]);
-
-  // Navigate home if host kicked this player
-  useEffect(() => {
-    if (kickedByHost) void leaveToLobby();
-  }, [kickedByHost, leaveToLobby]);
-  const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
-  const dealRootRef = useRef<HTMLElement>(null);
-  const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
-  const me = state.players.find(p => p.id === myId);
-
-  /* P2 — Bust-out modal: shown when hero stack is 0 outside of a hand
-   *      (waiting/showdown). Suppressed during active play so it doesn't
-   *      interrupt resolution animations or all-in showdowns. The user
-   *      can rebuy, spectate the rest of the table, or leave.
-   *
-   *      IMPORTANT: an all-in player has chips=0 but status='active' — they
-   *      are still contesting the pot and must NOT be flagged as busted.
-   *      Only flag bust when the player is no longer actively playing
-   *      (sitting_out, folded, or absent). */
-  const [bustDismissed, setBustDismissed] = useState(false);
-  const heroBust = !!me && me.chips <= 0 && !effectiveSpectator && me.status !== 'active';
-  const bustEligiblePhase = me?.status === 'sitting_out' || state.phase === 'WAITING' || state.phase === 'SHOWDOWN';
-  const showBustModal = heroBust && bustEligiblePhase && !bustDismissed;
-  // Reset dismissal once chips return.
-  useEffect(() => { if (me && me.chips > 0) setBustDismissed(false); }, [me?.chips]);
-
-  // Bust counters — increment exactly once per bust event.
-  const bustCountedRef = useRef(false);
-  useEffect(() => {
-    if (heroBust && bustEligiblePhase && !bustCountedRef.current) {
-      bustCountedRef.current = true;
-      const lifetime = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
-      localStorage.setItem('cgp_lifetime_busts', (lifetime + 1).toString());
-      const session = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
-      sessionStorage.setItem('cgp_session_busts', (session + 1).toString());
-    }
-    if (!heroBust) bustCountedRef.current = false;
-  }, [heroBust, bustEligiblePhase]);
-
-  // State vars read once when bust modal opens.
-  const lifetimeBusts = parseInt(localStorage.getItem('cgp_lifetime_busts') || '0', 10);
-  const sessionBusts = parseInt(sessionStorage.getItem('cgp_session_busts') || '0', 10);
-  const hasNeverPurchased = !localStorage.getItem('cgp_first_purchase_complete');
-  const openSeatsCount = state.players.filter(p => p.presence === 'reserved').length;
-  const humanCount = state.players.filter(p => p.presence === 'human').length;
-
-  const modeName = MODE_INFO[modeId]?.name ?? modeId;
-  usePhaseSounds(state.phase);
-  useGameToasts(state, myId, modeName);
-
-  // Mount confirmation
-  const [showJoinConfirm, setShowJoinConfirm] = useState(!!tableId && !isSpectator);
-  useEffect(() => {
-    if (!showJoinConfirm) return;
-    const t = setTimeout(() => setShowJoinConfirm(false), 900);
-    return () => clearTimeout(t);
-  }, []); // mount-only
-
-  // Live join flash
-  const [joinFlashName, setJoinFlashName] = useState<string | null>(null);
-  const joinFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const humanIdsRef = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    const humans = state.players.filter(p => p.presence === 'human');
-    if (humanIdsRef.current === null) { humanIdsRef.current = new Set(humans.map(p => p.id)); return; }
-    if (state.phase === 'WAITING') {
-      const newcomers = humans.filter(p => p.id !== myId && !humanIdsRef.current!.has(p.id));
-      if (newcomers.length > 0) {
-        if (joinFlashTimer.current) clearTimeout(joinFlashTimer.current);
-        setJoinFlashName(newcomers[0].name);
-        joinFlashTimer.current = setTimeout(() => setJoinFlashName(null), 3500);
-      }
-    }
-    humanIdsRef.current = new Set(humans.map(p => p.id));
-  }, [state.players, state.phase, myId]);
-
-  // Clear card selection on phase change
-  useEffect(() => { setSelectedCardIndices([]); }, [state.phase]);
-
-  // ── SERVER-AUTHORITATIVE: no client-derived state. heroChipChange comes
-  //    from the server snapshot or is undefined. Do not merge fallbacks.
-
-  // 'DRAW' = Suits & Poker single draw phase; DRAW_1/2/3 = Badugi/Dead7 multi-draw phases
-  const isDrawPhase = state.phase === 'DRAW' || state.phase === 'DRAW_1' || state.phase === 'DRAW_2' || state.phase === 'DRAW_3';
-
-  const handleCardClick = (index: number) => {
-    if (effectiveSpectator || !isDrawPhase) return;
-    setSelectedCardIndices(prev => {
-      if (prev.includes(index)) return prev.filter(i => i !== index);
-      let maxCards = 1;
-      if (state.phase === 'DRAW_1') maxCards = 3;
-      if (state.phase === 'DRAW_2') maxCards = 2;
-      if (state.phase === 'DRAW') maxCards = 2; // Suits & Poker: discard up to 2 hole cards
-      if (prev.length < maxCards) return [...prev, index];
-      return prev;
-    });
-  };
-
-  /* ── Post-action lock: brief 280ms pause after hero acts so the "bet
-   *    impact" lands before the next player's controls appear.            */
-  const [actionLocked, setActionLocked] = useState(false);
-  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleControlAction = (action: string, amount?: number | unknown) => {
-    if (action === 'draw') handleAction(action, selectedCardIndices);
-    else handleAction(action, amount);
-    // Lock controls briefly — skip for passive events (restart, rebuy, chat, reaction)
-    const PASSIVE = ['restart', 'rebuy', 'chat', 'reaction', 'ante'];
-    if (!PASSIVE.includes(action)) {
-      setActionLocked(true);
-      if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
-      lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
-    }
-  };
-
-  const handleSendMessage = (text: string) => handleAction('chat', text);
-
-  const handleBorrowChips = async () => {
-    await requestRebuy('borrow', 1000);
-    setBustDismissed(true);
-    void refetchProfile();
-  };
-
-  // Chat drawer external control
-  const [chatOpen, setChatOpen] = useState(false);
-
-  // Unread count — tracked here so ChatEmoteRow can show the badge
-  const [chatUnread, setChatUnread] = useState(0);
-  const prevChatLenRef = useRef(state.chatMessages.length);
-  useEffect(() => {
-    const newLen = state.chatMessages.length;
-    if (newLen > prevChatLenRef.current && !chatOpen) {
-      setChatUnread(prev => prev + newLen - prevChatLenRef.current);
-    }
-    prevChatLenRef.current = newLen;
-  }, [state.chatMessages.length, chatOpen]);
-  useEffect(() => { if (chatOpen) setChatUnread(0); }, [chatOpen]);
-
-  const modeInfo = MODE_INFO[modeId];
-  const modeIntro = (MODE_INTROS as Record<string, typeof MODE_INTROS[keyof typeof MODE_INTROS]>)[modeId];
-
-  const phaseHint = getContextualHint(modeId, state.phase, me, { currentBet: state.currentBet, pot: state.pot });
-
-  // ── Premium ShowdownReveal: Badugi, Dead 7, Suits Poker ──────────────────
-  const REVEAL_MODES = ['badugi', 'dead7', 'suitspoker'];
-  const showReveal = state.phase === 'SHOWDOWN' && REVEAL_MODES.includes(modeId);
-
-  /** Compute a human-readable hand rank label per mode. */
-  function handLabelForMode(player: typeof me, mode: string): string {
-    if (!player?.cards?.length) return '';
-    const cards = player.cards.map(c => ({ ...c, isHidden: false }));
-    if (mode === 'badugi') {
-      return evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
-    }
-    if (mode === 'dead7') {
-      return evaluateDead7(cards as Parameters<typeof evaluateDead7>[0])?.description ?? '';
-    }
-    if (mode === 'suitspoker') {
-      const decl = player.declaration;
-      if (decl === 'SUITS') return player.score?.lowEval?.description ?? player.score?.description ?? '';
-      return player.score?.highEval?.description ?? player.score?.description ?? '';
-    }
-    return '';
-  }
-
-  const revealWinners: WinnerData[] = showReveal
-    ? state.players
-        .filter(p => (p as unknown as { isWinner?: boolean }).isWinner)
-        .map(p => ({
-          id: p.id,
-          name: p.name,
-          cards: (p.cards ?? []).map(c => ({ ...c, isHidden: false })),
-          handRankLabel: handLabelForMode(p, modeId),
-          potShare: 0,
-        }))
-    : [];
-
-  const revealHeroData: HeroRevealData = showReveal && me
-    ? {
-        id: me.id,
-        cards: (me.cards ?? []).map(c => ({ ...c, isHidden: false })),
-        handRankLabel: handLabelForMode(me, modeId),
-      }
-    : { id: myId, cards: [], handRankLabel: '' };
-
-  const heroWonReveal = revealWinners.some(w => w.id === myId);
-
-  // Parse pot amount from resolution message ("Name wins $1234 with …")
-  const resMsg = state.messages.find(m => (m as unknown as { isResolution?: boolean }).isResolution);
-  const potMatch = resMsg?.text?.match(/\$(\d+)/);
-  const revealPotAmount = potMatch ? parseInt(potMatch[1], 10) : Math.abs(state.heroChipChange ?? 0);
-
-  const cardsPerHandForMode = modeId === 'suitspoker' ? 5 : 4;
-
-  return (
-    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/30 game-page-root overflow-x-hidden" data-mode={modeId}>
-      {modeIntro && <ModeIntro modeId={modeId} {...modeIntro} />}
-
-      {/* Fixed top status bar */}
-      <GameStatusBar
-        modeId={modeId}
-        gameState={state}
-        chips={me?.chips ?? 0}
-        stripes={serverProfile?.stripes ?? 0}
-        phase={state.phase}
-        onLeave={leaveToLobby}
-        sessionStats={effectiveSpectator ? undefined : sessionStats}
-        tableId={tableId}
-        humanCount={humanCount}
-        onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
-        chatUnread={chatUnread}
-        spectating={effectiveSpectator}
-      />
-
-      {!effectiveSpectator && (
-        <PersonalChipGiftPanel
-          tableId={tableId}
-          modeId={SERVER_ENGINE_ID[modeId] ?? modeId}
-          myId={myId}
-          players={state.players}
-          onGiftSuccess={refetchProfile}
-        />
-      )}
-
-      {/* Spectator banner */}
-      {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} />}
-
-      {/* Join/presence notifications */}
-      {showJoinConfirm && (
-        <div className="w-full px-3 flex justify-center pt-14" aria-live="polite">
-          <span className="text-xs font-mono anim-action-label" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-joined-confirm">
-            ✓ Joined table
-          </span>
-        </div>
-      )}
-
-      {joinFlashName && state.phase === 'WAITING' && (
-        <div className="w-full px-3 pt-14" aria-live="polite">
-          <div className="max-w-2xl mx-auto flex items-center justify-center gap-1.5">
-            <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: 'rgba(0,200,150,0.75)' }} />
-            <span className="text-xs font-mono" style={{ color: 'rgba(0,200,150,0.65)' }} data-testid="text-join-notification">
-              {joinFlashName} just joined the table
-            </span>
-          </div>
-        </div>
-      )}
-
-      {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
-        <div className="flex justify-center pt-1">
-          <SpectatorWatchingBadge count={state.spectatorCount} />
-        </div>
-      )}
-
-      {import.meta.env.DEV && (
-        <DebugOverlay state={state} myId={myId} lastWsAt={lastWsAt ?? null} lastWsType={lastWsType ?? null} />
-      )}
-
-      {/* Music toggle — fixed top-left corner */}
-      <div className="fixed top-12 sm:top-14 left-3 z-30">
-        <MusicButton size={32} />
-      </div>
-
-      {/* Host controls — shown when there is a known host (private or any table with host set) */}
-      {hostId && tableId && tableSettings && sendHostAction && (
-        <div className="fixed top-12 sm:top-14 right-3 z-30">
-          <HostControls
-            myId={myId}
-            hostId={hostId}
-            tableCode={tableId}
-            tableSettings={tableSettings}
-            players={state.players
-              .filter(p => p.presence === 'human')
-              .map(p => ({ id: p.id, name: p.name }))}
-            onKick={targetPlayerId =>
-              sendHostAction('host:kick', { targetPlayerId })
-            }
-            onSettings={settings =>
-              sendHostAction('host:settings', settings as Record<string, unknown>)
-            }
-          />
-        </div>
-      )}
-
-      {/* ── Main content column ───────────────────────────────────────────── */}
-      <main ref={dealRootRef} className="relative flex-1 flex flex-col pt-12 sm:pt-14 pb-64 sm:pb-72 game-main-area overflow-visible">
-
-        {/* Table 3D scene */}
-        <FriendSeatActions state={state} myId={myId} myProfileId={serverProfile?.profileId} disabled={effectiveSpectator}>
-          <ThreeDTableScene
-            gameState={state}
-            myId={effectiveSpectator ? 'p1' : myId}
-            modeId={modeId}
-            selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
-            onCardClick={handleCardClick}
-            selectableCards={!effectiveSpectator && isDrawPhase}
-            heroCardClassName="w-[60px] h-20 sm:w-20 sm:h-[120px] md:w-24 md:h-[144px]"
-            onReact={!effectiveSpectator ? (emoji) => handleAction('reaction', emoji) : undefined}
-            incomingReactions={state.liveReactions}
-            isClubTable={isClubTable}
-          />
-        </FriendSeatActions>
-
-        {/* Hero hand panel — 3-column card/info/qualifier strip */}
-        {!effectiveSpectator && me && me.cards.length > 0 && (
-          <div className="mt-2 px-2">
-            <HeroHandPanel
-              player={me}
-              modeId={modeId}
-              phase={state.phase}
-              selectedCardIndices={selectedCardIndices}
-              onCardClick={handleCardClick}
-              selectableCards={isDrawPhase}
-              sessionNetProfit={sessionStats?.netProfit ?? 0}
-              isShowdown={state.phase === 'SHOWDOWN'}
-              communityCards={state.communityCards}
-            />
-          </div>
-        )}
-
-        {modeId === 'suitspoker' && !effectiveSpectator && (
-          <TableDealAnimator
-            players={state.players}
-            phase={state.phase}
-            myId={myId}
-            tableRoot={dealRootRef.current}
-          />
-        )}
-
-      </main>
-
-      {xpToast && xpToast.xpGained > 0 && (
-        <XPToast
-          key={xpToast.id}
-          xpGained={xpToast.xpGained}
-          leveledUp={xpToast.leveledUp}
-          newLevel={xpToast.newLevel}
-          newAchievementName={xpToast.achievementName}
-          onDone={dismissXP}
-        />
-      )}
-
-      {/* ── Fixed action zone ─────────────────────────────────────────────── */}
-      {!effectiveSpectator && (
-        <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
-          <div className="pointer-events-auto w-full max-w-3xl mx-auto px-2 pb-2">
-            {actionError && <div role="alert" className="mb-2 rounded-lg border border-red-500/30 bg-black/90 px-3 py-2 text-center text-xs text-red-200">{actionError}</div>}
-            <ActionControls
-              phase={state.phase}
-              currentBet={state.currentBet}
-              myBet={me?.bet ?? 0}
-              pot={state.pot}
-              chips={me?.chips ?? 0}
-              onAction={handleControlAction}
-              isMyTurn={state.activePlayerId === myId || state.phase === 'WAITING'}
-              locked={actionLocked}
-              selectedCardsCount={selectedCardIndices.length}
-              openSeatsCount={isClubTable ? 0 : openSeatsCount}
-              humanCount={humanCount}
-              isClubTable={isClubTable}
-              declarationOptions={modeId === 'suitspoker' ? (() => {
-                const heroSuitsQualifies = me ? qualifiesForSuits(me.cards) : false;
-                return SUITSPOKER_DECLARATION_OPTIONS.map(opt => ({
-                  ...opt,
-                  disabled: (opt.value === 'SUITS' || opt.value === 'SWING') && !heroSuitsQualifies,
-                }));
-              })() : undefined}
-              myDeclaration={me?.declaration ?? null}
-              turnDeadline={state.turnDeadline ?? null}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── Crew table buy-in gate ─────────────────────────────────────────── */}
-      {isPrebuyIn && (
-        <div className="fixed bottom-3 sm:bottom-4 left-0 w-full z-40 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0.92) 85%, transparent 100%)' }}>
-          <div className="pointer-events-auto w-full max-w-3xl mx-auto px-2 pb-2">
-            <button
-              data-testid="button-crew-buyin"
-              disabled={(me?.chips ?? 0) <= 0}
-              onClick={() => { if ((me?.chips ?? 0) <= 0) return; setHasBoughtIn(true); handleAction('sit_down'); }}
-              className="w-full py-3.5 rounded-xl font-mono font-bold text-sm tracking-widest uppercase"
-              style={{ background: 'linear-gradient(135deg, #C9A227, #D4B44A)', color: '#0B0B0D', letterSpacing: '0.18em',
-                cursor: (me?.chips ?? 0) > 0 ? 'pointer' : 'not-allowed', opacity: (me?.chips ?? 0) > 0 ? 1 : 0.55 }}
-            >
-              {(me?.chips ?? 0) > 0 ? `BUY IN — ${(me?.chips ?? 0).toLocaleString()} chips` : 'REBUY BEFORE BUY-IN'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Chat drawer — externally controlled via chatOpen */}
-      <ChatBox
-        messages={state.chatMessages}
-        myId={myId}
-        onSendMessage={handleSendMessage}
-        open={chatOpen}
-        onOpenChange={setChatOpen}
-        seatToPlayerId={Object.fromEntries(
-          state.players.filter(p => p.identityId).map(p => [p.id, p.identityId!])
-        )}
-        myProfileId={serverProfile?.profileId}
-      />
-
-      <BustOutModal
-        open={showBustModal}
-        tableId={tableId}
-        modeId={SERVER_ENGINE_ID[modeId] ?? modeId}
-        bankrollAvailable={serverProfile?.chipBalance ?? 0}
-        bigBlind={state.minBet}
-        lifetimeBusts={lifetimeBusts}
-        sessionBusts={sessionBusts}
-        hasNeverPurchased={hasNeverPurchased}
-        onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}
-        onSpectate={() => setBustDismissed(true)}
-        onLeaveTable={() => { void leaveToLobby(); }}
-        onStarterPack={async () => { await requestRebuy('free'); setBustDismissed(true); void refetchProfile(); }}
-        onBorrowChips={handleBorrowChips}
-      />
-
-      {/* Premium showdown reveal — Badugi, Dead 7, Suits Poker */}
-      {showReveal && (
-        <ShowdownReveal
-          cardsPerHand={cardsPerHandForMode}
-          winners={revealWinners}
-          heroData={revealHeroData}
-          heroWon={heroWonReveal}
-          potAmount={revealPotAmount}
-          onComplete={() => {}}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Server-authoritative wrapper for each mode ────────────────────────────────
-
-function useTableId(modeId: string) {
-  const [tableId] = useState<string>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromUrl = params.get('t')?.toUpperCase() ?? '';
+function useBadugiTableId() {
+  const [tableId] = useState(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('t')?.toUpperCase() ?? '';
     if (/^[A-Z0-9]{6}$/.test(fromUrl)) return fromUrl;
-    const newCode = generateTableCode();
-    window.history.replaceState(null, '', `/${modeId}?t=${newCode}`);
-    return newCode;
+    const code = generateTableCode();
+    window.history.replaceState(null, '', `/badugi?t=${code}`);
+    return code;
   });
   return tableId;
 }
 
-function BadugiServerGame({ modeId }: { modeId: string }) {
-  const tableId = useTableId(modeId);
-  useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const { state, handleAction, actionError, requestRebuy, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle } = useServerBadugi(tableId);
-  return <BadugiFullPage state={state} handleAction={handleAction} actionError={actionError} requestRebuy={requestRebuy} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
+function BadugiServerGame() {
+  const tableId = useBadugiTableId();
+  useEffect(() => {
+    trackModePlay('badugi');
+    saveRecentTable(tableId);
+  }, [tableId]);
+
+  const {
+    state,
+    handleAction,
+    actionError,
+    requestRebuy,
+    myId,
+    role,
+    sessionStats,
+    lastWsAt,
+    lastWsType,
+    hostId,
+    tableSettings,
+    isClubTable,
+    sendHostAction,
+    kickedByHost,
+    leaveAndSettle,
+  } = useServerBadugi(tableId);
+
+  return (
+    <BadugiFullPage
+      state={state}
+      handleAction={handleAction}
+      actionError={actionError}
+      requestRebuy={requestRebuy}
+      myId={myId}
+      modeId="badugi"
+      tableId={tableId}
+      role={role}
+      sessionStats={sessionStats}
+      lastWsAt={lastWsAt}
+      lastWsType={lastWsType}
+      hostId={hostId}
+      tableSettings={tableSettings}
+      isClubTable={isClubTable}
+      sendHostAction={sendHostAction}
+      kickedByHost={kickedByHost}
+      leaveAndSettle={leaveAndSettle}
+    />
+  );
 }
 
-// Server engine modeId mapping (UI modeId → server engine modeId)
-const SERVER_ENGINE_ID: Record<string, string> = {
-  dead7: 'dead7',
-  fifteen35: 'fifteen35',
-  suitspoker: 'suits_poker',
-};
-
-function GenericServerGame({ modeId }: { modeId: string }) {
-  const tableId = useTableId(modeId);
-  useEffect(() => { trackModePlay(modeId); saveRecentTable(tableId); }, [modeId, tableId]);
-  const engineId = SERVER_ENGINE_ID[modeId] ?? modeId;
-  const { state, handleAction, actionError, requestRebuy, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle } = useServerMode(tableId, engineId);
-  if (modeId === 'dead7') {
-    return <Dead7FullPage state={state} handleAction={handleAction} actionError={actionError} requestRebuy={requestRebuy} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
-  }
-  return <UnifiedGameUI state={state} handleAction={handleAction} actionError={actionError} requestRebuy={requestRebuy} myId={myId} modeId={modeId} tableId={tableId} role={role} sessionStats={sessionStats} lastWsAt={lastWsAt} lastWsType={lastWsType} hostId={hostId} tableSettings={tableSettings} isClubTable={isClubTable} sendHostAction={sendHostAction} kickedByHost={kickedByHost} leaveAndSettle={leaveAndSettle} />;
-}
-
-// ── Public entry point ────────────────────────────────────────────────────────
-
-interface UnifiedGamePageProps {
-  modeId: string;
-}
-
-const serverEnabled = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
-
-export function UnifiedGamePage({ modeId }: UnifiedGamePageProps) {
-  if (!serverEnabled) {
+export function UnifiedGamePage() {
+  if (!FEATURES.SERVER_AUTHORITATIVE_BADUGI && import.meta.env.VITE_BADUGI_ALPHA !== 'true') {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
         <p className="text-white/60 font-mono text-sm">Server mode required. Set VITE_BADUGI_ALPHA=true</p>
       </div>
     );
   }
-  if (modeId === 'badugi') return <BadugiServerGame modeId={modeId} />;
-  return <GenericServerGame modeId={modeId} />;
+  return <BadugiServerGame />;
 }

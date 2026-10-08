@@ -15,9 +15,9 @@ import type { Player, GameState, CardType, GamePhase } from '../../shared/gameTy
 import { computeSidePots, totalSidePotAmount } from '../../shared/engine/sidePots';
 import { decideBet, applyBetDecision } from '../../shared/engine/botUtils';
 import { BadugiMode } from '../../shared/modes/badugi';
-import { Dead7Mode } from '../../shared/modes/dead7';
-import { Fifteen35Mode } from '../../shared/modes/fifteen35';
-import { SuitsPokerMode } from '../../shared/modes/suitspoker';
+
+
+
 import { FlushedUpMode, evaluateFlushedUpHand, compareFlushedUpHands } from '../../shared/modes/flushedUp';
 
 let failures = 0;
@@ -213,68 +213,20 @@ section('Badugi resolveShowdown — unequal all-in (side pot)');
   assert(totalAwarded + result.pot === totalCommitted, `total awarded = ${totalCommitted}`);
 }
 
-section('Fifteen35 resolveShowdown — chip conservation');
-{
-  // Two players with totalBet contributions.
-  const players: Player[] = [
-    makePlayer('A', { chips: 900, totalBet: 100, cards: [makeCard('A', 'spades'), makeCard('5', 'hearts')] }),
-    makePlayer('B', { chips: 900, totalBet: 100, cards: [makeCard('K', 'diamonds'), makeCard('Q', 'clubs'), makeCard('10', 'hearts')] }),
-  ];
-  const before = totalChipsAndPot(players, 200);
-  const result = Fifteen35Mode.resolveShowdown!(players, 200, 'A');
-  const after = totalChipsAndPot(result.players, result.pot);
-  assert(before === after, `Fifteen35 chips conserved: before=${before} after=${after}`);
-}
 
-section('Dead7 resolveShowdown — chip conservation');
-{
-  const players: Player[] = [
-    makePlayer('A', {
-      chips: 900, totalBet: 100, declaration: 'HIGH',
-      cards: [makeCard('A', 'spades'), makeCard('2', 'hearts'), makeCard('3', 'diamonds'), makeCard('4', 'clubs')],
-    }),
-    makePlayer('B', {
-      chips: 900, totalBet: 100, declaration: 'LOW',
-      cards: [makeCard('5', 'spades'), makeCard('6', 'hearts'), makeCard('7', 'diamonds'), makeCard('8', 'clubs')],
-    }),
-  ];
-  const before = totalChipsAndPot(players, 200);
-  const result = Dead7Mode.resolveShowdown!(players, 200, 'A');
-  const after = totalChipsAndPot(result.players, result.pot);
-  assert(before === after, `Dead7 chips conserved: before=${before} after=${after}`);
-}
 
-section('SuitsPoker resolveShowdown — chip conservation');
-{
-  const players: Player[] = [
-    makePlayer('A', {
-      chips: 900, totalBet: 100, declaration: 'POKER',
-      cards: [
-        makeCard('A', 'spades'), makeCard('A', 'hearts'),
-        makeCard('K', 'diamonds'), makeCard('K', 'clubs'),
-        makeCard('Q', 'spades'),
-      ],
-    }),
-    makePlayer('B', {
-      chips: 900, totalBet: 100, declaration: 'SUITS',
-      cards: [
-        makeCard('A', 'hearts'), makeCard('2', 'hearts'),
-        makeCard('3', 'hearts'), makeCard('4', 'hearts'),
-        makeCard('5', 'hearts'),
-      ],
-    }),
-  ];
-  const before = totalChipsAndPot(players, 200);
-  const result = SuitsPokerMode.resolveShowdown!(players, 200, 'A', []);
-  const after = totalChipsAndPot(result.players, result.pot);
-  assert(before === after, `SuitsPoker chips conserved: before=${before} after=${after}`);
-}
+
+
+
+
+
+
 
 // ─── 4. All-fold → win-by-fold ──────────────────────────────────────────────
 section('All-fold (sole-survivor) — every mode');
 for (const [name, mode] of [
-  ['Badugi', BadugiMode], ['Dead7', Dead7Mode],
-  ['Fifteen35', Fifteen35Mode], ['SuitsPoker', SuitsPokerMode],
+  ['Badugi', BadugiMode],
+
 ] as const) {
   const players: Player[] = [
     makePlayer('Win', { chips: 800, totalBet: 200, cards: [makeCard('A','spades'),makeCard('2','hearts'),makeCard('3','diamonds'),makeCard('4','clubs')] }),
@@ -341,7 +293,10 @@ await (async () => {
 
     // Hand 2: player won +100 chips. sessionDelta and deltaChips are both 100.
     // Expected new balance: (initial + 7777) + 100.
-    await storage.syncPlayerChips(testId, 100, { won: true, deltaChips: 100 });
+    await storage.syncPlayerChips(testId, 100, {
+      won: true, deltaChips: 100, modeId: 'badugi', potSize: 100,
+      gameId: `standalone-${testId}`, handId: '1',
+    });
     const profile2 = await storage.getPlayerProfile(testId);
     assert(profile2?.chipBalance === initial + 7777 + 100,
       `round-trip with handResult: applied +100 delta, expected ${initial + 7777 + 100}, got ${profile2?.chipBalance}`);
@@ -393,73 +348,20 @@ section('P11 bet sizing presets — clamp & ordering');
   assert(c.twoP === 120,                       `open-bet 2× pot = 120 (got ${c.twoP})`);
 }
 
-// ─── 8. P6 — 15/35 hit-after-stay reject (pure-logic mirror) ────────────────
-section('P6 — fifteen35 hit rejected after STAY/BUST');
-{
-  // The server rejects with REJECT_HIT_AFTER_STAY when:
-  //   player.declaration === 'STAY' OR player.declaration === 'BUST'
-  // Mirrors the guard at server/genericEngine.ts (~line 1771).
-  function shouldRejectHit(decl: Player['declaration']): boolean {
-    return decl === 'STAY' || decl === 'BUST';
-  }
-  assert(shouldRejectHit('STAY')           === true,  'STAY → reject hit');
-  assert(shouldRejectHit('BUST')           === true,  'BUST → reject hit');
-  assert(shouldRejectHit(null)             === false, 'no declaration → allow hit');
-  assert(shouldRejectHit('HIGH' as any)    === false, 'HIGH (high/low decl) → allow hit (different phase)');
-}
-
 // ─── 9. P4 — Turn timer auto-action selection ───────────────────────────────
 section('P4 — turn timeout selects safest action');
 {
   // Mirrors autoActOnTimeout phase→action mapping in genericEngine.ts.
   function autoActFor(phase: GamePhase, callAmt: number): 'stay' | 'stand-pat' | 'fold' | 'check' {
-    if (phase.startsWith('HIT_'))            return 'stay';
     if (phase.startsWith('DRAW'))            return 'stand-pat';
     if (phase === 'DECLARE')                 return 'fold';
-    if (phase === 'DECLARE_AND_BET')         return 'fold';
     if (callAmt <= 0)                        return 'check';
     return 'fold';
   }
-  assert(autoActFor('HIT_3' as GamePhase, 0)             === 'stay',      'HIT phase → auto-stay');
   assert(autoActFor('DRAW_2' as GamePhase, 0)            === 'stand-pat', 'DRAW phase → stand pat');
   assert(autoActFor('DECLARE' as GamePhase, 0)           === 'fold',      'DECLARE → auto-fold (no chips lost — already in pot)');
-  assert(autoActFor('DECLARE_AND_BET' as GamePhase, 50)  === 'fold',      'DECLARE_AND_BET → auto-fold');
   assert(autoActFor('BET_1' as GamePhase, 0)             === 'check',     'BET with no call → auto-check');
   assert(autoActFor('BET_2' as GamePhase, 50)            === 'fold',      'BET owing chips → auto-fold');
-}
-
-// ─── 10. P7 — DECLARE_AND_BET: isPhaseRoundOver with all-in players ──────────
-section('P7 — DECLARE_AND_BET round-over with all-in players');
-{
-  // Mirrors isPhaseRoundOver in server/genericEngine.ts (~line 108).
-  // For DECLARE_AND_BET the active set is filtered to chips > 0 only, so
-  // all-in players (chips=0) never block round advancement.
-  function dAndBRoundOver(players: ReturnType<typeof makePlayer>[], currentBet: number): boolean {
-    const active = players.filter(p => p.status === 'active' && p.chips > 0);
-    return active.every(p => p.hasActed) && active.every(p => p.bet === currentBet);
-  }
-
-  const allIn  = { ...makePlayer('p1', { chips: 0, bet: 5 }), hasActed: true };
-  const acted  = { ...makePlayer('p2', { chips: 50, bet: 10 }), hasActed: true };
-  const waiting = { ...makePlayer('p3', { chips: 50, bet: 5 }), hasActed: false };
-
-  // All-in only — empty active set, every() vacuously true
-  assert(dAndBRoundOver([allIn], 5)  === true,  'DECLARE_AND_BET: only all-in player → round over (vacuous)');
-
-  // All-in + acted player both at currentBet
-  assert(dAndBRoundOver([allIn, acted], 10) === true,  'DECLARE_AND_BET: all-in + acted chip player → round over');
-
-  // All-in + unacted chip player
-  assert(dAndBRoundOver([allIn, waiting], 10) === false, 'DECLARE_AND_BET: all-in + unacted chip player → not over');
-
-  // Two chip players, both acted, same bet
-  const p1 = { ...makePlayer('p4', { chips: 40, bet: 10 }), hasActed: true };
-  const p2 = { ...makePlayer('p5', { chips: 30, bet: 10 }), hasActed: true };
-  assert(dAndBRoundOver([p1, p2], 10) === true,  'DECLARE_AND_BET: two acted players same bet → round over');
-
-  // Two chip players, one not at currentBet (needs to call)
-  const p3 = { ...makePlayer('p6', { chips: 40, bet: 5 }), hasActed: true };
-  assert(dAndBRoundOver([p1, p3], 10) === false, 'DECLARE_AND_BET: player not at currentBet → not over');
 }
 
 // ─── 11. P9 — Emote unlock: starter pack tracks emotes separately ─────────────
@@ -577,7 +479,10 @@ await (async () => {
     await storage.syncPlayerChips(playerId, 1000);
     // Session 2: player won 7500 chips in a hand. Delta = +7500. sessionDelta === deltaChips.
     // Expected balance: initial + 1000 + 7500.
-    await storage.syncPlayerChips(playerId, 7500, { won: true, deltaChips: 7500 });
+    await storage.syncPlayerChips(playerId, 7500, {
+      won: true, deltaChips: 7500, modeId: 'badugi', potSize: 7500,
+      gameId: `standalone-${playerId}`, handId: '1',
+    });
     const expected = initial + 1000 + 7500;
 
     // Simulate server restart: getOrCreatePlayer returns EXISTING row (no reset)

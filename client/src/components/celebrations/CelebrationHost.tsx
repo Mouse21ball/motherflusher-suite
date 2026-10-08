@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Skull, Sparkles, Flame } from 'lucide-react';
+import { Sparkles, Flame } from 'lucide-react';
 import { sfx } from '@/lib/sounds';
 import { useCelebrationMotion } from '@/lib/celebrationPreferences';
 import {
@@ -64,7 +64,6 @@ function particleStyle(index: number, count: number, intensity: CelebrationPrese
 
 function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; reduced: boolean }) {
   const { event, preset, paths } = active;
-  const isDead7 = preset.animation === 'dead7-skull';
   const isBig = preset.animation === 'chain-sweep';
   const isRare = preset.animation === 'rare-halo';
   const isStreak = preset.animation === 'streak-flare';
@@ -117,12 +116,6 @@ function CelebrationVisual({ active, reduced }: { active: ActiveCelebration; red
       )}
 
       <div className="cgp-celebration-title-group">
-        {isDead7 && (
-          <div className="cgp-celebration-skull" aria-hidden="true">
-            <Skull strokeWidth={1.3} />
-            <span>7</span>
-          </div>
-        )}
         {preset.characterAsset && <img className="cgp-celebration-character" src={preset.characterAsset} alt="" />}
         <div className="cgp-celebration-title">{preset.text}</div>
         <div className="cgp-celebration-subtitle">

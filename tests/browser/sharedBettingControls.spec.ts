@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('shared Badugi, Dead 7 and Kamikaze betting controls', () => {
+test.describe('Badugi betting controls', () => {
   test.use({ isMobile: true, hasTouch: true, viewport: { width: 320, height: 640 } });
   test.setTimeout(30_000);
 
   test('each mode has the same usable custom, quick-bet, check/call/fold and all-in controls on a narrow touch screen', async ({ page }) => {
     await page.goto('/betting-controls-test.html');
 
-    for (const mode of ['dead7', 'badugi', 'kamikaze'] as const) {
+    for (const mode of ['badugi'] as const) {
       await page.getByTestId(`select-mode-${mode}`).tap();
       const controls = page.getByTestId('betting-controls');
       await expect(controls).toBeVisible();
@@ -59,7 +59,7 @@ test.describe('shared Badugi, Dead 7 and Kamikaze betting controls', () => {
   test('all-in players see no further bet sizing or check prompt', async ({ page }) => {
     await page.goto('/betting-controls-test.html');
 
-    for (const mode of ['dead7', 'badugi', 'kamikaze'] as const) {
+    for (const mode of ['badugi'] as const) {
       await page.getByTestId(`select-mode-${mode}`).tap();
       await page.getByTestId('set-zero-chips').tap();
 

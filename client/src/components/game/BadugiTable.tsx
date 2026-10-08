@@ -8,9 +8,6 @@ import { cn } from "@/lib/utils";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 import { evaluateBadugi } from "@/lib/poker/modes/badugi";
-import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
-import { getHeroHandValidity } from "@shared/modes/heroHandValidity";
-import { HeroHandValidityBadge } from "./HeroHandValidityBadge";
 
 interface BadugiTableProps {
   gameState: GameState;
@@ -27,7 +24,7 @@ interface BadugiTableProps {
 
 // Scale per seat position — back/top seats are smaller (farther), side seats larger (closer).
 // Hero is full-scale (front row).
-// Badugi/Dead7: pods use the `enlarged` prop (avatar 38px) so scale is bumped ~+0.06
+// Badugi pods use the `enlarged` prop (avatar 38px) so scale is bumped ~+0.06
 // relative to old values to reach 30-35% total visual size increase vs the old baseline.
 function getOpponentDepth(index: number, total: number): string {
   if (total === 1) return "scale-[0.90] sm:scale-[1.00]";
@@ -83,10 +80,6 @@ export function BadugiTable({
 
   const opponents = orderedPlayers.slice(1);
   const me = orderedPlayers[0];
-  const dead7Validity = modeId === 'dead7'
-    ? getHeroHandValidity('dead7', gameState.phase, me?.cards ?? [])
-    : null;
-
   // ── Hero made-hand status ─────────────────────────────────────────────────
   // Only shown hero-side, only when cards are held, only outside showdown.
   const showMadeStatus =
@@ -104,14 +97,6 @@ export function BadugiTable({
       const ev = evaluateBadugi(me.cards);
       heroIsMade = !!ev?.isValidBadugi;
       heroMadeLabel = heroIsMade ? `✓ ${ev!.description}` : '✗ No Badugi yet';
-    } else if (modeId === 'fifteen35') {
-      const ev = Fifteen35Mode.evaluateHand?.(me, []);
-      heroIsMade = !!ev?.isValidBadugi;
-      heroMadeLabel = heroIsMade
-        ? `✓ ${ev!.description}`
-        : ev?.description?.includes('BUST')
-          ? '✗ Bust'
-          : '✗ No qualifier yet';
     }
   }
 
@@ -187,7 +172,7 @@ export function BadugiTable({
 
   useEffect(() => {
     const phase = gameState.phase;
-    const isBetPhase = phase.startsWith('BET') || phase.startsWith('HIT_');
+    const isBetPhase = phase.startsWith('BET');
 
     /* On every phase change, reset the baseline so old diffs don't retrigger */
     if (phase !== actionPhaseRef.current) {
@@ -460,9 +445,7 @@ export function BadugiTable({
             />
             {/* Hero made-hand status badge — below the chip so it stays
                 outside the felt area and doesn't block center table content */}
-            {modeId === 'dead7' ? (
-              <HeroHandValidityBadge validity={dead7Validity} phase={gameState.phase} />
-            ) : showMadeStatus && heroMadeLabel ? (
+            {showMadeStatus && heroMadeLabel ? (
               <div
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-mono font-bold tracking-wide border transition-all duration-300"
                 data-testid="text-hero-made-status"

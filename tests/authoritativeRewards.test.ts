@@ -28,7 +28,7 @@ describe('authoritative XP rules', () => {
 
   it('recognizes a comeback only after at least three losses', () => {
     const afterLosses = { ...base(), handsPlayed: 3, lossStreak: 3, achievements: ['first_win'] };
-    const result = handXP(afterLosses, { won: true, modeId: 'dead7', potSize: 0 }, null);
+    const result = handXP(afterLosses, { won: true, modeId: 'box_chevy', potSize: 0 }, null);
     expect(result.next.achievements).toContain('comeback');
   });
 });

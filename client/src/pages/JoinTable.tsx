@@ -5,10 +5,9 @@ import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } 
 
 const MODE_ROUTES: Record<string, string> = {
   badugi:      "/badugi",
-  dead7:       "/dead7",
-  fifteen35:   "/fifteen35",
-  suitspoker:  "/suitspoker",
-  suits_poker: "/suitspoker",
+  flushed_up:  "/flushedup",
+  flushedup:   "/flushedup",
+  box_chevy:   "/box-chevy",
 };
 
 export default function JoinTable() {

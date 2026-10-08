@@ -38,7 +38,7 @@ describe('stake tiers', () => {
     const badugiId = `stake-badugi-${Date.now()}`;
     const genericId = `stake-generic-${Date.now()}`;
     const badugi = getOrCreateBadugiTable(badugiId, true, false, { stakeTier: 'high' });
-    const generic = getOrCreateTable('dead7', genericId, true, false, { stakeTier: 'mid' });
+    const generic = getOrCreateTable('box_chevy', genericId, true, false, { stakeTier: 'mid' });
 
     expect(badugi.stakeTier).toBe('high');
     expect(badugi.state.minBet).toBe(1000);

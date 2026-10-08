@@ -49,7 +49,7 @@ Chain Gang Poker is a premium poker platform offering five exclusive multiplayer
 
 ## Product
 
-Chain Gang Poker offers four distinct poker game modes: Badugi, Dead 7, 15 / 35, and Suits & Poker. It includes a comprehensive retention system with daily rewards, hourly bonuses, a starter pack, and a VIP tier system, all utilizing virtual chips. Players can track their progress, achievements, and statistics, and interact via chat and reactions. The game also features a cosmetic merch shop (without payment integration) and comprehensive App Store compliance.
+Chain Gang Poker offers four distinct poker game modes: Badugi, Flushed Up, Lady Luck, and Box Chevy. It includes a comprehensive retention system with daily rewards, hourly bonuses, a starter pack, and a VIP tier system, all utilizing virtual chips. Players can track their progress, achievements, and statistics, and interact via chat and reactions. The game also features a cosmetic merch shop (without payment integration) and comprehensive App Store compliance.
 
 ## User preferences
 

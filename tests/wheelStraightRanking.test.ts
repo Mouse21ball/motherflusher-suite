@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CardType, Player } from '../shared/gameTypes';
-import { SuitsPokerMode } from '../shared/modes/suitspoker';
-import { evaluateBonecrusher } from '../shared/modes/bonecrusher';
+
+
 import { evaluateBoxChevy } from '../shared/modes/boxchevy';
 
 function cards(ranks: CardType['rank'][], flush = false): CardType[] {
@@ -18,24 +18,8 @@ const sixHighFlush = cards(['2', '3', '4', '5', '6'], true);
 const kingHighFlush = cards(['9', '10', 'J', 'Q', 'K'], true);
 
 const evaluators = [
-  {
-    name: 'Suits Poker',
-    evaluate: (hand: CardType[]) => {
-      const player: Player = {
-        id: 'test', name: 'test', chips: 0, bet: 0, cards: hand,
-        status: 'active', isDealer: false, declaration: 'POKER',
-      };
-      const result = SuitsPokerMode.evaluateHand!(player, []);
-      return { value: result!.pokerValue!, name: result!.high! };
-    },
-  },
-  {
-    name: 'Bonecrusher',
-    evaluate: (hand: CardType[]) => {
-      const result = evaluateBonecrusher(hand);
-      return { value: result.highValue, name: result.highName };
-    },
-  },
+
+
   {
     name: 'Box Chevy',
     evaluate: (hand: CardType[]) => {

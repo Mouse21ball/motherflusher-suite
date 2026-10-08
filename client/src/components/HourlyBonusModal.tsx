@@ -19,7 +19,7 @@ function formatCountdown(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-const MODES = ['badugi', 'dead7', 'fifteen35', 'suitspoker'];
+const MODES = ['badugi', 'flushed_up', 'box_chevy'];
 
 export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
   const { profile, refetch } = useServerProfile();

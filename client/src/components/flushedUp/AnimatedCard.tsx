@@ -55,7 +55,7 @@ export interface AnimatedCardProps {
 /*                                                                              */
 /*  FIX 2 — Card face/back uses the shared <PlayingCard> component from        */
 /*  client/src/components/game/Card.tsx — identical look to all other CGP      */
-/*  game modes (Badugi, Suits & Poker, 15/35, Dead 7).                         */
+/*  game modes (Badugi, Flushed Up, Lady Luck, Box Chevy).                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 export function AnimatedCard({

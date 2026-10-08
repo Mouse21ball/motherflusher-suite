@@ -1,21 +1,16 @@
 // ─── Generic Server-Authoritative Game Engine ─────────────────────────────────
-// Handles Dead7, Fifteen35, SuitsPoker in server-authoritative mode.
+// Shared table runtime; Flushed Up and Box Chevy own their mechanics.
 // Same seat/session model as the Badugi engine, parameterized by GameMode.
 
 import type { WebSocket } from 'ws';
 import { randomUUID } from 'node:crypto';
 import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration, ChatMessage, ReactionEvent, GameMode } from '../shared/gameTypes';
-import { Dead7Mode, evaluateDead7 } from '../shared/modes/dead7';
-import { Fifteen35Mode } from '../shared/modes/fifteen35';
-import { SuitsPokerMode, suitsDeclarationError } from '../shared/modes/suitspoker';
-import { FlushedUpMode, evaluateFlushedUpHand } from '../shared/modes/flushedUp';
-import { KamikazeMode, evaluateKamikaze } from '../shared/modes/kamikaze';
-import { BonecrusherMode } from '../shared/modes/bonecrusher';
-import { BoxChevyMode, hasMadeHand as hasMadeHandBoxChevy } from '../shared/modes/boxchevy';
+import { FlushedUpEngine } from './flushedUpEngine';
+import { BoxChevyEngine } from './boxChevyEngine';
+import type { ModeEngine } from './modeEngine';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import { applyGenericDraw } from './utils/genericDraw';
-import { applyBonecrusherDiscard } from './utils/bonecrusherDiscard';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
@@ -44,15 +39,9 @@ import {
 
 // ─── Mode registry ────────────────────────────────────────────────────────────
 
-const MODE_REGISTRY: Record<string, GameMode> = {
-  dead7: Dead7Mode,
-  fifteen35: Fifteen35Mode,
-  suits_poker: SuitsPokerMode,
-  flushed_up: FlushedUpMode,
-  kamikaze: KamikazeMode,
-  bonecrusher: BonecrusherMode,
-  box_chevy: BoxChevyMode,
-  // swing_poker removed — Mother Flusher is no longer an active game mode
+const MODE_REGISTRY: Record<string, ModeEngine> = {
+  flushed_up: FlushedUpEngine,
+  box_chevy: BoxChevyEngine,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -127,20 +116,12 @@ function isPhaseRoundOver(state: GameState): boolean {
     return players.filter(p => p.status === 'active').every(p => p.hasActed);
   }
 
-  // Draw phases, HIT phases, DECLARE phases, Bonecrusher action phases
-  if (phase.startsWith('DRAW') || phase.startsWith('HIT_') || phase === 'DECLARE' ||
-      phase === 'DISCARD_2' || phase === 'SELECT_5' ||
-      phase === 'REVEAL_1' || phase.startsWith('FLIP_')) {
-    const active = players.filter(p => p.status === 'active');
-    // For fifteen35 hit phases: also done if all are STAY or BUST
-    if (phase.startsWith('HIT_')) {
-      return active.every(p => p.hasActed || p.declaration === 'STAY' || p.declaration === 'BUST');
-    }
-    return active.every(p => p.hasActed);
+  if (phase.startsWith('DRAW') || phase === 'DECLARE') {
+    return players.filter(p => p.status === 'active').every(p => p.hasActed);
   }
 
-  // Bet phases and DECLARE_AND_BET
-  if (phase.startsWith('BET') || phase === 'DECLARE_AND_BET') {
+  // Betting rounds
+  if (phase.startsWith('BET')) {
     const active = players.filter(p => p.status === 'active' && p.chips > 0);
     return active.every(p => p.hasActed) && active.every(p => p.bet === currentBet);
   }
@@ -154,7 +135,6 @@ const RECONNECT_TIMEOUT_MS = 60_000;
 // Bot names: per-table, derived from tableId+seatId via getBotName().
 
 // ─── Flushed Up bot names ─────────────────────────────────────────────────────
-const FLUSHED_UP_BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 'Cleo', 'Remy'];
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
@@ -238,8 +218,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
 }
 
 // ─── Universal bot fill + auto-start ─────────────────────────────────────────
-// Used by every non-Flushed-Up mode (Dead7, Fifteen35, SuitsPoker, Kamikaze,
-// Bonecrusher, BoxChevy).  Mirrors the Flushed-Up scheduler:
+// Default bot-fill utility. Individual engines can supply their own scheduler:
 //   8 s → seat first bot (or auto-start if 2+ players already present)
 //   every 1.5 s → seat next bot until human-count cap is reached
 //   2 s after cap → autoStartHand (which fills any remaining reserved seats)
@@ -302,8 +281,8 @@ function scheduleUniversalBotFill(key: string): void {
   }, 8_000);
 }
 
-// ─── Flushed Up auto-start ────────────────────────────────────────────────────
-// Internal helper: transitions a WAITING Flushed Up table straight into ANTE.
+// ─── Shared table auto-start ────────────────────────────────────────────────────
+// Transitions a funded WAITING table straight into ANTE.
 function autoStartHand(table: GenericTable): void {
   if (table.state.phase !== 'WAITING') return;
   if (table.actionLock || table.pendingFundingSeats.size > 0) {
@@ -333,84 +312,12 @@ function autoStartHand(table: GenericTable): void {
 // Bot fill following the Lady Luck pattern:
 //   10 s → add 1 bot; then 1 bot every 2 s until all seats filled;
 //   3 s after the table is full (or already has 2+ active players) → auto-start.
-function scheduleFlushedUpBotFill(key: string): void {
-  const t0 = tables.get(key);
-  if (!t0) return;
-
-  console.log('[FlushedUp] Bot fill timer scheduled — key:', key, 'tableId:', t0.tableId);
-
-  const fillOne = () => {
-    const t = tables.get(key);
-    if (!t || t.state.phase !== 'WAITING' || t.crewId || !t.botsEnabled) {
-      console.log('[FlushedUp] fillOne early-exit — key:', key, 'phase:', t?.state.phase ?? 'TABLE_GONE', 'botsEnabled:', t?.botsEnabled, 'crewId:', t?.crewId);
-      return;
-    }
-
-    const reserved = t.state.players.filter(p => p.presence === 'reserved');
-    const active   = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
-
-    if (reserved.length === 0) {
-      if (active.length >= 2) {
-        console.log('[FlushedUp] All seats filled — scheduling auto-start in 3 s, key:', key);
-        t.botFillTimer = setTimeout(() => {
-          const t2 = tables.get(key);
-          if (!t2 || t2.state.phase !== 'WAITING') return;
-          t2.botFillTimer = undefined;
-          autoStartHand(t2);
-        }, 3_000);
-      }
-      return;
-    }
-
-    // Seat one bot with a Flushed Up name
-    const first = reserved[0];
-    const usedNames = t.state.players.filter(p => p.presence === 'bot').map(p => p.name);
-    const botName = FLUSHED_UP_BOT_NAMES.find(n => !usedNames.includes(n))
-      ?? FLUSHED_UP_BOT_NAMES[Math.floor(Math.random() * FLUSHED_UP_BOT_NAMES.length)];
-    console.log('[FlushedUp] Seating bot', botName, 'in seat', first.id, '— key:', key, 'reserved remaining:', reserved.length - 1);
-    t.state = {
-      ...t.state,
-      players: t.state.players.map(p =>
-        p.id === first.id
-          ? makeBotPlayer(p, botName, 'active')
-          : p,
-      ),
-    };
-    broadcastState(t);
-
-    const reservedNow = t.state.players.filter(p => p.presence === 'reserved');
-    const activeNow   = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
-
-    if (reservedNow.length > 0) {
-      t.botFillTimer = setTimeout(fillOne, 2_000);
-    } else if (activeNow.length >= 2) {
-      console.log('[FlushedUp] Table full — scheduling auto-start in 3 s, key:', key);
-      t.botFillTimer = setTimeout(() => {
-        const t2 = tables.get(key);
-        if (!t2 || t2.state.phase !== 'WAITING') return;
-        t2.botFillTimer = undefined;
-        autoStartHand(t2);
-      }, 3_000);
-    }
-  };
-
-  t0.botFillTimer = setTimeout(() => {
-    const t = tables.get(key);
-    console.log('[FlushedUp] Bot fill timer FIRED — key:', key, 'phase:', t?.state.phase ?? 'TABLE_GONE', 'active:', t?.state.players.filter(p => p.presence === 'bot' || p.presence === 'human').length);
-    if (!t || t.state.phase !== 'WAITING') return;
-    const active = t.state.players.filter(p => p.presence === 'bot' || p.presence === 'human');
-    if (active.length >= 2) {
-      console.log('[FlushedUp] 2+ players already present — scheduling auto-start in 3 s, key:', key);
-      t.botFillTimer = setTimeout(() => {
-        const t2 = tables.get(key);
-        if (!t2 || t2.state.phase !== 'WAITING') return;
-        t2.botFillTimer = undefined;
-        autoStartHand(t2);
-      }, 3_000);
-    } else {
-      fillOne();
-    }
-  }, 10_000);
+function scheduleModeBotFill(key: string): void {
+  const table = tables.get(key);
+  if (!table) return;
+  if (table.engine.scheduleBotFill) {
+    table.engine.scheduleBotFill(key, { getTable: key => tables.get(key), broadcast: broadcastState, startHand: autoStartHand });
+  } else scheduleUniversalBotFill(key);
 }
 
 function makeInitialState(tableId: string, isClubTable = false, minBet = 50): GameState {
@@ -436,8 +343,7 @@ function makeInitialState(tableId: string, isClubTable = false, minBet = 50): Ga
 // ─── State masking ────────────────────────────────────────────────────────────
 
 // publicCardIndicesPerPlayer: maps playerId → card indices that are face-up for ALL players.
-// Used by 15/35 where the first dealt card and all hit cards are public (blackjack-style).
-// Swing/SuitsPoker have no public player cards (empty map → all opponent cards hidden).
+// Public visibility metadata is generic wire masking, not mode mechanics.
 
 export function maskStateForPlayer(
   state: GameState,
@@ -487,7 +393,8 @@ interface SessionStat {
   recentDeltas: number[];    // last 3 per-hand chip deltas (for momentum/comeback)
 }
 
-interface GenericTable {
+export interface GenericTable {
+  engine: ModeEngine;
   resolvedPot?: number;
   tableId: string;
   modeId: string;
@@ -505,8 +412,7 @@ interface GenericTable {
   humanSeats: Set<string>;
   sessionToSeat: Map<string, string>;
   spectators: Map<string, { ws: WebSocket; name: string }>;
-  // Card indices (per player) that are face-up for ALL players (e.g. 15/35 public cards).
-  // Empty object means all opponent cards are hidden (default for Swing/SP/Dead7).
+  // Card indices (per player) explicitly public to all connections.
   publicCardIndicesPerPlayer: Record<string, number[]>;
   // Maps game seat id → stable PlayerIdentity UUID (from client localStorage).
   seatToIdentityId: Map<string, string>;
@@ -704,10 +610,9 @@ export function hasGenericRewardedAdBust(modeId: string, tableId: string, identi
 const TURN_TIMEOUT_MS = 30_000;
 
 const INTERACTIVE_PHASES = new Set<GamePhase>([
-  'BET_1','BET_2','BET_3','BET_4','BET_5','BET_6','BET_7','BET_8',
+  'BET_1','BET_2','BET_3','BET_4',
   'DRAW','DRAW_1','DRAW_2','DRAW_3',
-  'HIT_1','HIT_2','HIT_3','HIT_4','HIT_5','HIT_6','HIT_7','HIT_8',
-  'DECLARE','DECLARE_AND_BET',
+  'DECLARE',
 ]);
 
 function clearTurnTimer(table: GenericTable): void {
@@ -720,7 +625,7 @@ function clearTurnTimer(table: GenericTable): void {
   }
 }
 
-// Plain betting rounds only: combined DECLARE_AND_BET still requires declarations.
+// All-in players skip betting, not required non-betting decisions.
 function ensureBettingActor(table: GenericTable): boolean {
   const s = table.state;
   if (!s.phase.startsWith('BET')) return false;
@@ -792,19 +697,12 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
   const callAmt = s.currentBet - player.bet;
   const newPlayers = [...s.players];
   let msg = '';
-  if (phase.startsWith('HIT_')) {
-    // Auto-stay: safest action (no extra chips, no fold-out).
-    newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
-    msg = `${player.name} times out — stays`;
-  } else if (phase.startsWith('DRAW')) {
+  if (phase.startsWith('DRAW')) {
     // Stand pat (no card swap).
     newPlayers[playerIdx] = { ...player, hasActed: true };
     msg = `${player.name} times out — stands pat`;
   } else if (phase === 'DECLARE') {
     newPlayers[playerIdx] = { ...player, declaration: 'FOLD', status: 'folded', hasActed: true };
-    msg = `${player.name} times out — folds`;
-  } else if (phase === 'DECLARE_AND_BET') {
-    newPlayers[playerIdx] = { ...player, declaration: 'FOLD' as Declaration, status: 'folded', hasActed: true };
     msg = `${player.name} times out — folds`;
   } else if (callAmt <= 0) {
     // Free check available — auto-check.
@@ -881,18 +779,15 @@ function advanceToNextPhase(table: GenericTable): void {
 
   let nextPhase = phases[(idx + 1) % phases.length] as GamePhase;
 
-  // Let mode override (e.g. Fifteen35 getNextPhase)
+  // Let the individual mode own any phase override.
   if (mode.getNextPhase) {
     const modeNext = mode.getNextPhase(state.phase, state);
     if (modeNext) nextPhase = modeNext;
   }
 
-  const isBetRound     = nextPhase.startsWith('BET') || nextPhase === 'DECLARE_AND_BET';
-  const isDrawRound    = nextPhase.startsWith('DRAW') || nextPhase.startsWith('HIT_');
+  const isBetRound     = nextPhase.startsWith('BET');
+  const isDrawRound    = nextPhase.startsWith('DRAW');
   const isDeclare      = nextPhase === 'DECLARE';
-  const isRevealPhase  = nextPhase.startsWith('REVEAL_') || nextPhase.startsWith('STREET_') ||
-                         nextPhase === 'DISCARD_2' || nextPhase === 'SELECT_5' ||
-                         nextPhase.startsWith('FLIP_');
   const skipAllIn      = !isDeclare && !isDrawRound;
 
   const dealerIdx = getDealerIndex(state.players);
@@ -903,28 +798,6 @@ function advanceToNextPhase(table: GenericTable): void {
     hasActed: false,
     bet: (isBetRound || isDrawRound) ? 0 : p.bet,
   }));
-
-  // ── HIT-phase continuity fix ──────────────────────────────────────────────
-  // A player who declared STAY in a prior HIT round must not act again in
-  // subsequent HIT rounds. Preserving hasActed=true for them keeps the round-
-  // over check (isPhaseRoundOver) and all next-player calculations consistent:
-  // they are skipped everywhere that looks for `!p.hasActed`.
-  if (nextPhase.startsWith('HIT_')) {
-    nextPlayers = nextPlayers.map(p =>
-      (p.status === 'active' && p.declaration === 'STAY') ? { ...p, hasActed: true } : p
-    );
-    // If the first-actor slot landed on a player who already has hasActed=true,
-    // re-scan forward to the first seat that still needs to act.
-    if (nextPlayers[firstActIdx]?.hasActed) {
-      for (let i = 1; i < nextPlayers.length; i++) {
-        const idx = (firstActIdx + i) % nextPlayers.length;
-        if (nextPlayers[idx].status === 'active' && !nextPlayers[idx].hasActed) {
-          firstActIdx = idx;
-          break;
-        }
-      }
-    }
-  }
 
   const prevPhase = state.phase;
   table.state = addMsg({
@@ -938,138 +811,18 @@ function advanceToNextPhase(table: GenericTable): void {
 
   engineLog('PHASE', `${table.modeId}:${table.tableId}`, { from: prevPhase, to: nextPhase });
 
-  // Bonecrusher starts a fresh four-flip sequence after SELECT_5. Previously
-  // revealed indices cannot carry over: up to four kept cards are already
-  // public, leaving fewer hidden cards than the four required flip decisions.
-  if (nextPhase === 'SELECT_5') {
-    table.publicCardIndicesPerPlayer = {};
-  }
-
-  // ── DECLARE (Dead7 / Kamikaze): auto-fold any active player without a valid hand ──
-  // In Dead7, a valid hand means qualifying high or qualifying low (no 7s, no dup ranks).
-  // In Kamikaze, a valid hand means 3+2+1 suit distribution with no paired ranks.
-  // Bots handle this themselves via botAction; we intercept here for human players
-  // so they are never shown a declaration prompt with a dead/invalid hand.
-  if (nextPhase === 'DECLARE' && table.modeId === 'kamikaze') {
-    const declPlayers = [...table.state.players];
-    const foldMsgs: string[] = [];
-    let anyAutoFolded = false;
-    for (let i = 0; i < declPlayers.length; i++) {
-      const p = declPlayers[i];
-      if (p.status !== 'active') continue;
-      const ev = evaluateKamikaze(p.cards.map(c => ({ ...c, isHidden: false })));
-      if (!ev.isValid) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
-        foldMsgs.push(`${p.name} has no qualifying hand — auto-folded`);
-        anyAutoFolded = true;
-      }
-    }
-    if (anyAutoFolded) {
-      let st = { ...table.state, players: declPlayers };
-      for (const msg of foldMsgs) st = addMsg(st, msg);
-      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
-      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
-      table.state = st;
-      if (isPhaseRoundOver(table.state)) {
-        const fenced = table.handId;
-        const fencedPhase = table.state.phase;
-        setTimeout(() => {
-          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
-          advanceToNextPhase(table);
-          broadcastState(table);
-          scheduleNextBot(table);
-        }, 450);
-      }
-    }
-  }
-  if (nextPhase === 'DECLARE' && table.modeId === 'dead7') {
-    const declPlayers = [...table.state.players];
-    const foldMsgs: string[] = [];
-    let anyAutoFolded = false;
-    for (let i = 0; i < declPlayers.length; i++) {
-      const p = declPlayers[i];
-      if (p.status !== 'active') continue;
-      const ev = evaluateDead7(p.cards.map(c => ({ ...c, isHidden: false })));
-      if (!ev || !ev.isValidBadugi) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
-        const reason = ev?.isDead ? 'holds a 7' : 'has no qualifying hand';
-        foldMsgs.push(`${p.name} ${reason} — auto-folded`);
-        anyAutoFolded = true;
-      }
-    }
-    if (anyAutoFolded) {
-      let st = { ...table.state, players: declPlayers };
-      for (const msg of foldMsgs) st = addMsg(st, msg);
-      // Update activePlayerId to next un-acted active player after auto-folds
-      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
-      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
-      table.state = st;
-      // If all were auto-folded, schedule phase advance explicitly
-      if (isPhaseRoundOver(table.state)) {
-        const fenced = table.handId;
-        const fencedPhase = table.state.phase;
-        setTimeout(() => {
-          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
-          advanceToNextPhase(table);
-          broadcastState(table);
-          scheduleNextBot(table);
-        }, 450);
-      }
-    }
-  }
-
-  // ── DECLARE (Box Chevy): auto-fold players without a made hand ───────────
-  // A made hand requires all 10 combined cards (5 hole + 5 community) to have
-  // unique ranks. Any player with a duplicate rank across hole+community is
-  // auto-folded here before the declare prompt is shown.
-  if (nextPhase === 'DECLARE' && table.modeId === 'box_chevy') {
-    const comm = table.state.communityCards ?? [];
-    const declPlayers = [...table.state.players];
-    const foldMsgs: string[] = [];
-    let anyAutoFolded = false;
-    for (let i = 0; i < declPlayers.length; i++) {
-      const p = declPlayers[i];
-      if (p.status !== 'active') continue;
-      const holeCards = p.cards.map(c => ({ ...c, isHidden: false }));
-      const commCards = comm.map(c => ({ ...c, isHidden: false }));
-      if (!hasMadeHandBoxChevy(holeCards, commCards)) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
-        foldMsgs.push(`${p.name} has no made hand — auto-folded`);
-        anyAutoFolded = true;
-      }
-    }
-    if (anyAutoFolded) {
-      let st = { ...table.state, players: declPlayers };
-      for (const msg of foldMsgs) st = addMsg(st, msg);
-      const nextUnacted = declPlayers.findIndex(p => p.status === 'active' && !p.hasActed);
-      if (nextUnacted !== -1) st = { ...st, activePlayerId: declPlayers[nextUnacted].id };
-      table.state = st;
-      if (isPhaseRoundOver(table.state)) {
-        const fenced = table.handId;
-        const fencedPhase = table.state.phase;
-        setTimeout(() => {
-          if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
-          advanceToNextPhase(table);
-          broadcastState(table);
-          scheduleNextBot(table);
-        }, 450);
-      }
-    }
-  }
-
-  // ── DECLARE_AND_BET (SuitsPoker): auto-declare all-in active players ──────
-  // Players with chips=0 see an "ALL IN" badge in the UI and are never shown a
-  // declaration prompt, so their declaration remains null.  To keep them eligible
-  // for the POKER half of the pot we auto-assign declaration='POKER' and mark
-  // them as having acted.  activePlayerId is already pointing at a chips>0 player
-  // (skipAllIn=true for DECLARE_AND_BET), so no scheduling stall results.
-  if (nextPhase === 'DECLARE_AND_BET') {
-    const declPlayers = table.state.players.map(p => {
-      if (p.status !== 'active' || p.chips > 0 || p.declaration) return p;
-      return { ...p, declaration: 'POKER' as Declaration, hasActed: true };
-    });
-    if (declPlayers.some((p, i) => p !== table.state.players[i])) {
-      table.state = { ...table.state, players: declPlayers };
+  const entered = table.engine.onPhaseEnter?.(table.state, addMsg) ?? table.state;
+  if (entered !== table.state) {
+    table.state = entered;
+    if (isPhaseRoundOver(entered)) {
+      const fenced = table.handId;
+      const fencedPhase = entered.phase;
+      setTimeout(() => {
+        if (table.handId !== fenced || table.state.phase !== fencedPhase) return;
+        advanceToNextPhase(table);
+        broadcastState(table);
+        scheduleNextBot(table);
+      }, 450);
     }
   }
 
@@ -1091,43 +844,6 @@ function advanceToNextPhase(table: GenericTable): void {
   if (nextPhase === 'SHOWDOWN') {
     resolveShowdown(table);
     return;
-  }
-
-  // Auto-transition phases (REVEAL_*, STREET_*)
-  if (isRevealPhase) {
-    const autoTrans = mode.getAutoTransition ? mode.getAutoTransition(nextPhase as GamePhase) : null;
-    if (autoTrans) {
-      const fenced = table.handId;
-      const capturedNext = nextPhase;
-      broadcastState(table);
-      setTimeout(() => {
-        if (table.handId !== fenced) return;
-        const prevPlayers = table.state.players;
-        const result = autoTrans.action(table.state);
-        if (result.stateUpdates) {
-          table.state = addMsg({ ...table.state, ...result.stateUpdates }, result.message || '');
-        }
-        // Track STREET_ dealt cards as public for bonecrusher
-        if (capturedNext.startsWith('STREET_') && result.stateUpdates && (result.stateUpdates as any).players) {
-          const pub = { ...table.publicCardIndicesPerPlayer };
-          for (const np of ((result.stateUpdates as any).players as Player[])) {
-            const op = prevPlayers.find(p => p.id === np.id);
-            if (!op || np.cards.length <= op.cards.length) continue;
-            const prevPub = pub[np.id] ?? [];
-            const newIdxs: number[] = [];
-            for (let i = op.cards.length; i < np.cards.length; i++) newIdxs.push(i);
-            pub[np.id] = [...prevPub, ...newIdxs];
-          }
-          table.publicCardIndicesPerPlayer = pub;
-        }
-        if (result.advancePhase) {
-          advanceToNextPhase(table);
-        }
-        broadcastState(table);
-        scheduleNextBot(table);
-      }, autoTrans.delay || 1000);
-      return;
-    }
   }
 
   // ── All-in bypass: BET phases ─────────────────────────────────────────────
@@ -1159,7 +875,7 @@ function dealCards(table: GenericTable): void {
   table.handId += 1;
   const deck = createDeck();
   // Deal with '__server__' as myId: mode marks opponent private cards isHidden:true,
-  // and any face-up-for-all cards (e.g. 15/35 card1) as isHidden:false.
+  // and any explicitly public cards as isHidden:false.
   const dealt = table.mode.deal(deck, table.state.players, '__server__');
 
   // Capture which card indices are public (face-up for ALL players) based on
@@ -1275,10 +991,7 @@ export function resolveByFold(table: GenericTable): boolean {
     // Flushed Up requires a qualifying flush even when every opponent folds.
     // Resolve a lone non-flush through the mode's normal showdown path so its
     // post-rake pot rolls over instead of being awarded as a fold win.
-    if (
-      table.modeId === 'flushed_up' &&
-      !evaluateFlushedUpHand(winner.cards.map(card => ({ ...card, isHidden: false }))).isFlush
-    ) {
+    if (table.engine.canWinUncontested && !table.engine.canWinUncontested(winner)) {
       table.resolvedPot = pot;
       const { winnerPot, rake } = applyRake(pot);
       if (rake > 0) {
@@ -1291,27 +1004,7 @@ export function resolveByFold(table: GenericTable): boolean {
           netPot:       winnerPot,
         }).catch(console.error);
       }
-      const result = FlushedUpMode.resolveShowdown(s.players, winnerPot, '__server__', s.communityCards);
-      const rolloverMessage = `No qualifying hands — $${winnerPot} rolls over!`;
-      table.state = {
-        ...s,
-        players: result.players,
-        // Flushed Up's showdown resolver builds pot tiers from totalBet; keep
-        // this fold-only rollover at the post-rake amount used by showdown.
-        pot: winnerPot,
-        phase: 'SHOWDOWN' as GamePhase,
-        activePlayerId: winner.id,
-        currentBet: 0,
-        messages: [
-          ...s.messages,
-          ...result.messages.map(text => ({
-            id: makeId(),
-            text: text.startsWith('No qualifying hands') ? rolloverMessage : text,
-            time: Date.now(),
-            isResolution: true,
-          })),
-        ].slice(-10),
-      };
+      table.state = table.engine.resolveUncontested!(s, winner, winnerPot);
 
       for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
       table.botTimers.clear();
@@ -1582,7 +1275,7 @@ function scheduleNextBot(table: GenericTable): void {
   // in a BET phase, the normal bot-scheduling path exits here and nothing runs.
   // Catch that stall and auto-advance if the round is already complete.
   if (active && active.presence !== 'bot' && active.chips === 0 &&
-      (state.phase.startsWith('BET') || state.phase === 'DECLARE_AND_BET') &&
+      (state.phase.startsWith('BET')) &&
       isPhaseRoundOver(state)) {
     const fencedHand  = table.handId;
     const fencedPhase = table.state.phase;
@@ -1711,29 +1404,6 @@ function executeBotAction(table: GenericTable, botId: string): void {
 
     engineLog('BOT', `${table.modeId}:${table.tableId}`, { bot: botId, action: message ?? '?', phase: table.state.phase });
 
-    // Apply publicIndices from bot action (bonecrusher reveal/flip phases)
-    if (result.publicIndices) {
-      const pub = { ...table.publicCardIndicesPerPlayer };
-      for (const [pid, idxs] of Object.entries(result.publicIndices)) {
-        pub[pid] = [...(pub[pid] ?? []), ...idxs];
-      }
-      table.publicCardIndicesPerPlayer = pub;
-    }
-
-    // Track public hit cards in 15/35 (all hit cards are face-up for everyone)
-    if (table.state.phase.startsWith('HIT_') && stateUpdates.players) {
-      const pub = { ...table.publicCardIndicesPerPlayer };
-      for (const newP of (stateUpdates.players as Player[])) {
-        const oldP = table.state.players.find(p => p.id === newP.id);
-        if (!oldP || newP.cards.length <= oldP.cards.length) continue;
-        const prevPub = pub[newP.id] ?? [];
-        const newIndices: number[] = [];
-        for (let i = oldP.cards.length; i < newP.cards.length; i++) newIndices.push(i);
-        pub[newP.id] = [...prevPub, ...newIndices];
-      }
-      table.publicCardIndicesPerPlayer = pub;
-    }
-
     table.state = newState;
     table.actionLock = false;
     broadcastState(table);
@@ -1795,13 +1465,12 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
     }, wasRaise ? 500 : 350);
   } else {
     const s = table.state;
-    const isHitPhase     = s.phase.startsWith('HIT_');
-    const isDrawPhase    = s.phase.startsWith('DRAW') || isHitPhase;
-    const isDeclarePhase = s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET';
+    const isDrawPhase    = s.phase.startsWith('DRAW');
+    const isDeclarePhase = s.phase === 'DECLARE';
     const skipAllIn      = !isDrawPhase && !isDeclarePhase;
     const myIdx   = s.players.findIndex(p => p.id === s.activePlayerId);
     let nextIdx: number;
-    if (s.phase === 'DECLARE' || s.phase === 'DECLARE_AND_BET') {
+    if (s.phase === 'DECLARE') {
       // Advance to the next active player who has NOT yet declared / declared+bet.
       // This correctly skips all-in players that were auto-declared before the
       // human's turn, preventing the turn from cycling back to already-acted players.
@@ -1809,19 +1478,6 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
       for (let i = 1; i <= s.players.length; i++) {
         const idx = (myIdx + i) % s.players.length;
         if (s.players[idx].status === 'active' && !s.players[idx].hasActed) { nextIdx = idx; break; }
-      }
-    } else if (isHitPhase) {
-      // HIT phases: skip players who already declared STAY — they don't act again.
-      // The advanceToNextPhase HIT-continuity fix sets hasActed=true for STAY players,
-      // so checking both `!p.hasActed` and `declaration !== 'STAY'` is belt-and-suspenders.
-      nextIdx = myIdx;
-      for (let i = 1; i <= s.players.length; i++) {
-        const idx = (myIdx + i) % s.players.length;
-        const p = s.players[idx];
-        if (p.status === 'active' && !p.hasActed && p.declaration !== 'STAY') {
-          nextIdx = idx;
-          break;
-        }
       }
     } else {
       nextIdx = getNextActivePlayerIndex(s.players, myIdx, skipAllIn);
@@ -1842,7 +1498,8 @@ export function getOrCreateTable(
   quickPlay = false,
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): GenericTable | null {
-  const mode = MODE_REGISTRY[modeId];
+  const engine = MODE_REGISTRY[modeId];
+  const mode = engine?.mode;
   if (!mode) return null;
 
   const key = tableKey(modeId, tableId);
@@ -1855,6 +1512,7 @@ export function getOrCreateTable(
       tableId,
       modeId,
       mode,
+      engine,
       state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
       handId: 0,
       actionLock: false,
@@ -1888,11 +1546,7 @@ export function getOrCreateTable(
     });
     engineLog('TABLE_CREATE', `${modeId}:${tableId}`, { source: 'new', mode: modeId, joinWindowMs: JOIN_WINDOW_MS, isPrivate, quickPlay, maxPlayers, botsEnabled });
     if (!isPrivate && !quickPlay && botsEnabled) {
-      if (modeId === 'flushed_up') {
-        scheduleFlushedUpBotFill(key);
-      } else {
-        scheduleUniversalBotFill(key);
-      }
+      scheduleModeBotFill(key);
     }
   } else {
     // Refresh crewId and botsEnabled from options so a restored table (which
@@ -2183,11 +1837,7 @@ export async function addGenericConnection(
     !table.crewId && table.botsEnabled && !isPrivate
   ) {
     console.log(`[botFill] re-scheduling fill for ${modeId}:${tableId} isReconnect=${isReconnect}`);
-    if (modeId === 'flushed_up') {
-      scheduleFlushedUpBotFill(key);
-    } else {
-      scheduleUniversalBotFill(key);
-    }
+    scheduleModeBotFill(key);
   }
 
   // ── Persist identity and load chips ────────────────────────────────────────
@@ -2229,8 +1879,7 @@ export async function addGenericConnection(
     !table.botFillTimer && table.state.phase === 'WAITING' &&
     !table.crewId && table.botsEnabled && !isPrivate && !quickPlay
   ) {
-    if (modeId === 'flushed_up') scheduleFlushedUpBotFill(key);
-    else scheduleUniversalBotFill(key);
+    scheduleModeBotFill(key);
   }
 
   // P4 (architect M-3): if this human is the active seat in an interactive
@@ -2502,35 +2151,6 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
   }
 
   scheduleGenericSave(tableKey(table.modeId, table.tableId), table.state, table.handId);
-}
-
-// Keep validation, state mutation, and lock release together for both accepted
-// and rejected Bonecrusher selections.
-export function applyBonecrusherDiscardAction(
-  table: Pick<GenericTable, 'state' | 'actionLock' | 'publicCardIndicesPerPlayer'>,
-  playerId: string,
-  payload: unknown,
-): string | void {
-  try {
-    const s = table.state;
-    const playerIdx = s.players.findIndex(p => p.id === playerId);
-    if (playerIdx < 0) return 'Player is not seated.';
-    const player = s.players[playerIdx];
-    const result = applyBonecrusherDiscard(
-      player.cards, s.discardPile || [], table.publicCardIndicesPerPlayer[playerId] ?? [], payload,
-    );
-    if (!result.ok) return result.message;
-    table.publicCardIndicesPerPlayer = {
-      ...table.publicCardIndicesPerPlayer, [playerId]: result.publicIndices,
-    };
-    table.state = addMsg({
-      ...s,
-      players: s.players.map(p => p.id === playerId ? { ...p, cards: result.cards, hasActed: true } : p),
-      discardPile: result.discardPile,
-    }, `${player.name} discarded 2 cards`);
-  } finally {
-    table.actionLock = false;
-  }
 }
 
 export async function rebuyGenericSeat(
@@ -2856,28 +2476,15 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       return;
     }
 
-    const declarationError = suitsDeclarationError(s.phase, action, payload);
-    if (declarationError) {
+    const playerIdx = s.players.findIndex(player => player.id === playerId);
+    if (playerIdx < 0 || s.players[playerIdx].status !== 'active') {
       table.actionLock = false;
-      return declarationError;
+      return;
     }
-
-    const playerIdx = s.players.findIndex(p => p.id === playerId);
-    if (playerIdx === -1) { table.actionLock = false; return; }
-
     const player = s.players[playerIdx];
-    const bettingPhase = s.phase.startsWith('BET') || s.phase === 'DECLARE_AND_BET';
-    const isBettingAction =
-      action === 'fold' || action === 'check' || action === 'call' ||
-      action === 'raise' || action === 'declare_and_bet';
-    if (bettingPhase && isBettingAction && player.chips <= 0) {
-      // Suits Poker auto-declares all-ins as POKER on entry to this phase, so
-      // the combined declare-and-bet request is no longer a required declaration.
-      engineLog('ACTION', `${table.modeId}:${table.tableId}`, {
-        player: playerId, action, accepted: false, reason: 'all-in-cannot-act', phase: s.phase,
-      });
-      // All-ins remain active for showdown/side-pot eligibility but never get
-      // another betting action. Mark the stale turn complete and advance it.
+    if (s.phase.startsWith('BET') &&
+        ['fold', 'check', 'call', 'raise'].includes(action) && player.chips <= 0) {
+      // All-ins retain showdown eligibility but must never take a betting turn.
       table.state = {
         ...s,
         players: s.players.map(p => p.id === playerId ? { ...p, hasActed: true } : p),
@@ -2886,7 +2493,6 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       afterHumanAction(table);
       return;
     }
-
     let newPlayers = [...s.players];
     let newPot = s.pot;
     let newCurrentBet = s.currentBet;
@@ -2972,7 +2578,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
 
     // ── draw ─────────────────────────────────────────────────────────────────
     else if (action === 'draw') {
-      const drawCap = s.phase === 'DRAW_1' ? 3 : s.phase === 'DRAW_2' ? 2 : s.phase === 'DRAW_3' ? 1 : s.phase === 'DRAW' ? 2 : 0;
+      const drawCap = table.engine.drawCap(s.phase);
+      if (drawCap === null) { table.actionLock = false; return 'Draw is not available in this phase.'; }
       const player = newPlayers[playerIdx];
       const drawn = applyGenericDraw(player.cards, s.deck, s.discardPile || [], payload, drawCap);
       if (!drawn.ok) { table.actionLock = false; return; }
@@ -2989,146 +2596,6 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       table.actionLock = false;
       afterHumanAction(table, false);
       return;
-    }
-
-    // ── discard (bonecrusher DISCARD_2 / SELECT_5) ───────────────────────────
-    else if (action === 'discard' && (s.phase === 'DISCARD_2' || s.phase === 'SELECT_5')) {
-      const error = applyBonecrusherDiscardAction(table, playerId, payload);
-      if (error) {
-        engineLog('ACTION', `${table.modeId}:${table.tableId}`, { player: playerId, action: 'discard', accepted: false, reason: error });
-        return error;
-      }
-      afterHumanAction(table, false);
-      return;
-    }
-
-    // ── flip (bonecrusher REVEAL_1 / FLIP_1-4) ───────────────────────────────
-    else if (action === 'flip' && (s.phase === 'REVEAL_1' || s.phase.startsWith('FLIP_'))) {
-      const idx = typeof payload === 'number' ? payload : -1;
-      if (idx < 0) { table.actionLock = false; return; }
-      const player = newPlayers[playerIdx];
-      if (idx >= player.cards.length) { table.actionLock = false; return; }
-      const existingPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
-      if (existingPub.includes(idx)) { table.actionLock = false; return; }
-      table.publicCardIndicesPerPlayer = {
-        ...table.publicCardIndicesPerPlayer,
-        [playerId]: [...existingPub, idx],
-      };
-      newPlayers[playerIdx] = { ...player, hasActed: true };
-      table.state = addMsg({ ...s, players: newPlayers }, `${player.name} revealed a card`);
-      table.actionLock = false;
-      afterHumanAction(table, false);
-      return;
-    }
-
-    // ── hit (fifteen35) ──────────────────────────────────────────────────────
-    else if (action === 'hit') {
-      const player = newPlayers[playerIdx];
-      // P6: Reject hit if player has already declared STAY or BUST.
-      // Prevents an out-of-turn or stale-client request from re-drawing on a
-      // standing hand. The client also hides Hit in this case but the server
-      // must remain authoritative.
-      if (player.declaration === 'STAY' || player.declaration === 'BUST') {
-        engineLog('REJECT_HIT_AFTER_STAY', `${table.modeId}:${table.tableId}`, {
-          seat: playerId, declaration: player.declaration, phase: s.phase,
-        });
-        table.actionLock = false;
-        return;
-      }
-      const newDeck = [...s.deck];
-      const hitCard = newDeck.shift();
-      if (hitCard) {
-        const newCardIndex = player.cards.length;
-        const newCards = [...player.cards, { ...hitCard, isHidden: false }];
-        // Hit cards in 15/35 are face-up for all — add to public indices
-        const prevPub = table.publicCardIndicesPerPlayer[playerId] ?? [];
-        table.publicCardIndicesPerPlayer = {
-          ...table.publicCardIndicesPerPlayer,
-          [playerId]: [...prevPub, newCardIndex],
-        };
-        // Bust check: compute best total, reducing aces from 11→1 if needed
-        const aceCount = newCards.filter(c => c.rank === 'A').length;
-        let tot = newCards.reduce((sum, c) => {
-          if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') return sum + 0.5;
-          if (c.rank === 'A') return sum + 11;
-          return sum + parseInt(c.rank, 10);
-        }, 0);
-        let acesFlipped = 0;
-        while (tot > 35 && acesFlipped < aceCount) { tot -= 10; acesFlipped++; }
-        if (tot > 35) {
-          // Player busts — fold them from the hand immediately (same as bots).
-          // Without status:'folded' the player stays 'active' and blocks round progression.
-          newPlayers[playerIdx] = { ...player, cards: newCards, declaration: 'BUST', status: 'folded', hasActed: true };
-          table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} BUSTS (${Math.round(tot * 2) / 2})`);
-          table.actionLock = false;
-          afterHumanAction(table, false);
-          return;
-        }
-        newPlayers[playerIdx] = { ...player, cards: newCards, hasActed: true };
-        table.state = addMsg({ ...s, players: newPlayers, deck: newDeck }, `${player.name} hits (${Math.round(tot * 2) / 2})`);
-      } else {
-        newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
-        table.state = addMsg({ ...s, players: newPlayers }, `${player.name} stays`);
-      }
-      table.actionLock = false;
-      afterHumanAction(table, false);
-      return;
-    }
-
-    // ── stay (fifteen35) ─────────────────────────────────────────────────────
-    else if (action === 'stay') {
-      const player = newPlayers[playerIdx];
-      newPlayers[playerIdx] = { ...player, declaration: 'STAY', hasActed: true };
-      msg = `${player.name} stays`;
-    }
-
-    // ── declare_and_bet (suitspoker) ─────────────────────────────────────────
-    // Combined declare+bet action. Payload: { declaration, action, amount? }
-    else if (action === 'declare_and_bet') {
-      const pl = (payload as { declaration?: string; action?: string; amount?: number }) ?? {};
-      const declaration = pl.declaration;
-      const betAction   = pl.action;
-      const betAmount   = pl.amount;
-      if (!declaration) { table.actionLock = false; return; }
-      const player = newPlayers[playerIdx];
-      if (betAction === 'fold') {
-        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, status: 'folded', hasActed: true };
-        msg = `${player.name} declares ${declaration} and folds`;
-      } else if (betAction === 'check') {
-        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, hasActed: true };
-        msg = `${player.name} declares ${declaration} and checks`;
-      } else if (betAction === 'call') {
-        const callAmt = Math.max(0, Math.min(newCurrentBet - player.bet, player.chips));
-        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - callAmt, bet: player.bet + callAmt, hasActed: true };
-        newPot += callAmt;
-        msg = callAmt === 0
-          ? `${player.name} declares ${declaration} and checks`
-          : `${player.name} declares ${declaration} and calls $${callAmt}`;
-      } else if (betAction === 'raise' || betAction === 'bet') {
-        const amt = typeof betAmount === 'number' ? betAmount : s.minBet;
-        if (!Number.isFinite(amt) || amt <= 0) { table.actionLock = false; return; }
-        const activeCount = s.players.filter(p => p.status === 'active').length;
-        const raiseCap = activeCount <= 2 ? 4 : 3;
-        if (newRaisesThisRound >= raiseCap) { table.actionLock = false; return; }
-        const raiseTotal = Math.min(amt, player.chips + player.bet);
-        const isAllIn = raiseTotal === player.chips + player.bet;
-        if (raiseTotal <= newCurrentBet && !isAllIn) { table.actionLock = false; return; }
-        if (!meetsMinimumBet(newCurrentBet, raiseTotal, isAllIn, s.minBet)) { table.actionLock = false; return; }
-        const chipCost = raiseTotal - player.bet;
-        if (chipCost <= 0) { table.actionLock = false; return; }
-        newPlayers[playerIdx] = { ...player, declaration: declaration as Declaration, chips: player.chips - chipCost, bet: raiseTotal, hasActed: true };
-        newPot += chipCost;
-        newCurrentBet = raiseTotal;
-        wasRaise = true;
-        newRaisesThisRound += 1;
-        msg = `${player.name} declares ${declaration} and raises to $${raiseTotal}`;
-        newPlayers = newPlayers.map((p, i) =>
-          i !== playerIdx && p.status === 'active' ? { ...p, hasActed: false } : p
-        );
-      } else {
-        table.actionLock = false;
-        return;
-      }
     }
 
     else {
@@ -3321,14 +2788,15 @@ export function incrementGenericTimeBankSessionUsed(tableId: string, modeId: str
 }
 
 // ─── Startup restore ──────────────────────────────────────────────────────────
-// Called once at server startup. Restores all generic mode tables (Dead7,
-// Fifteen35, SuitsPoker) from disk so active players reconnecting
+// Called once at server startup. Restores retained generic-runtime tables
+// (Flushed Up and Box Chevy) from disk so active players reconnecting
 // after a server restart find their table intact with chips preserved.
 
 export async function initGenericEngine(): Promise<void> {
   const restored = await loadPersistedGenericTables();
   for (const { modeId, tableId, state, handId } of restored) {
-    const mode = MODE_REGISTRY[modeId];
+    const engine = MODE_REGISTRY[modeId];
+  const mode = engine?.mode;
     if (!mode) continue; // skip unknown modes (e.g. leftover from a removed mode)
     const key = tableKey(modeId, tableId);
     if (tables.has(key)) continue; // already in-memory (shouldn't happen at startup)
@@ -3336,6 +2804,7 @@ export async function initGenericEngine(): Promise<void> {
       tableId,
       modeId,
       mode,
+      engine,
       state,
       handId,
       actionLock: false,

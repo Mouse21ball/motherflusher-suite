@@ -176,7 +176,7 @@ app.use(createApiResponseLogger(log));
   }
 
   await initEngine();              // restore persisted Badugi tables before WS server opens
-  await initGenericEngine();       // restore persisted Dead7/Fifteen35/SuitsPoker tables
+  await initGenericEngine();       // restore persisted Flushed Up and Box Chevy tables
   await initLadyLuckEngine(); // restore persisted Lady Luck tables + refund crash wagers
   initRooms(httpServer);
   startGuestResetJob();      // hourly guest-account 24h reset
@@ -664,8 +664,8 @@ app.use(createApiResponseLogger(log));
       <h3>What is Chain Gang Poker?</h3>
       <p>
         Chain Gang Poker is a free-to-play social card game featuring multiple poker variants
-        including classic Texas Hold'em, Kamikaze, Bonecrusher, Box Chevy, Dead 7, Suits Poker,
-        Lady Luck, and Badugi. All gameplay uses virtual chips — no real money is ever wagered.
+        Badugi, Flushed Up, Lady Luck, and Box Chevy.
+        All gameplay uses virtual chips — no real money is ever wagered.
       </p>
     </div>
 

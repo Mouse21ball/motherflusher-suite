@@ -18,5 +18,5 @@ export function reportTableConnection(status: TableConnectionStatus) {
   window.dispatchEvent(new CustomEvent(TABLE_CONNECTION_EVENT, { detail: latest }));
 }
 export function isTablePath(path: string): boolean {
-  return /^\/(?:badugi|dead7|fifteen35|suitspoker|flushedup|kamikaze|bonecrusher|box-chevy|ladyluck(?:\/spectate)?|join\/[^/]+)\/?$/.test(path);
+  return /^\/(?:badugi|flushedup|box-chevy|ladyluck(?:\/spectate)?|join\/[^/]+)\/?$/.test(path);
 }

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as botUtils from '../shared/engine/botUtils';
 import type { CardType, GameMode, GameState, Player } from '../shared/gameTypes';
-import { Dead7Mode } from '../shared/modes/dead7';
-import { Fifteen35Mode } from '../shared/modes/fifteen35';
+
+
 import { FlushedUpMode } from '../shared/modes/flushedUp';
-import { KamikazeMode } from '../shared/modes/kamikaze';
-import { SuitsPokerMode } from '../shared/modes/suitspoker';
+
+
 
 const card = (rank: CardType['rank'], suit: CardType['suit']): CardType =>
   ({ rank, suit, isHidden: false });
@@ -17,11 +17,11 @@ const community: CardType[] = [
 ];
 
 const modes: { mode: GameMode; cards: CardType[] }[] = [
-  { mode: Dead7Mode, cards: [card('8', 'spades'), card('9', 'hearts'), card('10', 'clubs'), card('J', 'diamonds')] },
-  { mode: Fifteen35Mode, cards: [card('10', 'spades'), card('10', 'hearts'), card('10', 'diamonds')] },
+
+
   { mode: FlushedUpMode, cards: [card('2', 'spades'), card('3', 'spades'), card('4', 'spades'), card('5', 'hearts'), card('6', 'clubs')] },
-  { mode: KamikazeMode, cards: [card('2', 'spades'), card('3', 'spades'), card('4', 'spades'), card('5', 'hearts'), card('6', 'hearts'), card('8', 'clubs')] },
-  { mode: SuitsPokerMode, cards: [card('A', 'spades'), card('K', 'spades'), card('4', 'clubs'), card('5', 'clubs'), card('6', 'diamonds')] },
+
+
 ];
 
 function stateFor(id: string, cards: CardType[]): GameState {

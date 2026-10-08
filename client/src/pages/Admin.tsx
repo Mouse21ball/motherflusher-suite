@@ -116,9 +116,8 @@ interface DailyStats {
 
 const MODE_NAMES: Record<string, string> = {
   badugi:     "Badugi",
-  dead7:      "Dead 7",
-  fifteen35:  "15 / 35",
-  suitspoker: "Suits & Poker",
+  flushed_up: "Flushed Up",
+  box_chevy: "Box Chevy",
   ladyluck:   "Lady Luck",
 };
 

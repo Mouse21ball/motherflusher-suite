@@ -285,7 +285,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     vi.unstubAllEnvs();
   });
 
-  it.each(['badugi', 'dead7'])('routes Android 1.3 legacy starter rebuy through the same free-grant path in %s', async modeId => {
+  it.each(['badugi', 'box_chevy'])('routes Android 1.3 legacy starter rebuy through the same free-grant path in %s', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-starter-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -306,7 +306,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('routes the legacy %s selected amount from reserve and ignores an injected modeId', async modeId => {
+  it.each(['badugi', 'box_chevy'])('routes the legacy %s selected amount from reserve and ignores an injected modeId', async modeId => {
     walletBalance = 6_000;
     const tableId = `legacy-reserve-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -328,7 +328,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('uses the old default reserve rebuy amount in %s when the payload is null', async modeId => {
+  it.each(['badugi', 'box_chevy'])('uses the old default reserve rebuy amount in %s when the payload is null', async modeId => {
     walletBalance = 8_000;
     const tableId = `legacy-default-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -345,7 +345,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('allocates an already granted legacy HTTP chip loan in %s without another grant', async modeId => {
+  it.each(['badugi', 'box_chevy'])('allocates an already granted legacy HTTP chip loan in %s without another grant', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-loan-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -374,7 +374,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('deduplicates distinct legacy and new rebuy requests in the same %s bust event', async modeId => {
+  it.each(['badugi', 'box_chevy'])('deduplicates distinct legacy and new rebuy requests in the same %s bust event', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-mixed-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -423,7 +423,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('deduplicates a new rebuy queued behind an in-flight legacy grant in %s', async modeId => {
+  it.each(['badugi', 'box_chevy'])('deduplicates a new rebuy queued behind an in-flight legacy grant in %s', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-first-mixed-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -475,7 +475,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('rejects malformed and cross-seat legacy rebuys in %s without granting chips', async modeId => {
+  it.each(['badugi', 'box_chevy'])('rejects malformed and cross-seat legacy rebuys in %s without granting chips', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-reject-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);
@@ -496,7 +496,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
     }
   });
 
-  it.each(['badugi', 'dead7'])('serializes duplicate legacy messages with different server IDs in %s', async modeId => {
+  it.each(['badugi', 'box_chevy'])('serializes duplicate legacy messages with different server IDs in %s', async modeId => {
     walletBalance = 1_000;
     const tableId = `legacy-duplicate-${modeId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const { socket, seat } = await connectPlayer(tableId, 1_000, modeId);

@@ -10,6 +10,7 @@ import { apiUrl } from '@/lib/apiConfig';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { track } from '@/lib/analytics';
 import { STAKE_TIERS, DEFAULT_STAKE_TIER_ID, type StakeTierId } from '@shared/stakeTiers';
+import { MODE_PLACEHOLDER_ASSETS } from '@/lib/modePlaceholders';
 
 // ─── Mode definitions ─────────────────────────────────────────────────────────
 
@@ -22,25 +23,18 @@ const MODES = [
     icon: '/mode-icon-badugi.png',
   },
   {
-    id: 'dead7',
-    name: 'DEAD 7',
-    tagline: 'SNITCHES GET STITCHES',
-    path: '/dead7',
-    icon: '/mode-icon-dead7.png',
+    id: 'flushed_up',
+    name: 'FLUSHED UP',
+    tagline: 'CHASE THE FLUSH',
+    path: '/flushedup',
+    icon: MODE_PLACEHOLDER_ASSETS.flushedUpIcon,
   },
   {
-    id: 'fifteen35',
-    name: '15 / 35',
-    tagline: 'HIT OR GO HOME',
-    path: '/fifteen35',
-    icon: '/mode-icon-fifteen35.png',
-  },
-  {
-    id: 'suitspoker',
-    name: 'SUITS & POKER',
-    tagline: 'TWO PATHS. ONE WINNER.',
-    path: '/suitspoker',
-    icon: '/mode-icon-suits.png',
+    id: 'box_chevy',
+    name: 'BOX CHEVY',
+    tagline: '10 CARDS. NO PAIRS.',
+    path: '/box-chevy',
+    icon: MODE_PLACEHOLDER_ASSETS.boxChevyIcon,
   },
 ] as const;
 
@@ -175,7 +169,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableId:      code,
-          modeId:       selectedMode === 'suitspoker' ? 'suits_poker' : selectedMode,
+          modeId:       selectedMode,
           createdBy:    identity.id,
           maxPlayers,
           botsEnabled,

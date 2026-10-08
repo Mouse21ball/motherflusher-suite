@@ -5,27 +5,27 @@ import { BarChart3 } from "lucide-react";
 import { getHandHistory, getAllChips, type HandRecord } from "@/lib/persistence";
 
 const MODE_NAMES: Record<string, string> = {
-  swing: "Swing Poker",
   badugi: "Badugi",
-  dead7: "Dead 7",
-  fifteen35: "15 / 35",
-  suitspoker: "Suits & Poker",
+  flushed_up: "Flushed Up",
+  flushedup: "Flushed Up",
+  box_chevy: "Box Chevy",
+  ladyluck: "Lady Luck",
 };
 
 const MODE_COLORS: Record<string, string> = {
-  swing: "text-blue-400",
   badugi: "text-emerald-400",
-  dead7: "text-red-400",
-  fifteen35: "text-amber-400",
-  suitspoker: "text-cyan-400",
+  flushed_up: "text-violet-400",
+  flushedup: "text-violet-400",
+  box_chevy: "text-blue-400",
+  ladyluck: "text-rose-400",
 };
 
 const MODE_BAR_COLORS: Record<string, string> = {
-  swing: "bg-blue-500",
   badugi: "bg-emerald-500",
-  dead7: "bg-red-500",
-  fifteen35: "bg-amber-500",
-  suitspoker: "bg-cyan-500",
+  flushed_up: "bg-violet-500",
+  flushedup: "bg-violet-500",
+  box_chevy: "bg-blue-500",
+  ladyluck: "bg-rose-500",
 };
 
 interface StatsViewProps {

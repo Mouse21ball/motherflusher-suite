@@ -4,13 +4,12 @@
 //
 // Run with:  npx tsx server/__tests__/bugRegression.test.ts
 //
-// Bug 1  — 15/35 false rollover message
 // Bug 3  — Negative payout overlay for winning player (classifyResult)
 // Bug 4  — Side pot chip conservation and award correctness
 // Bug 9  — Badugi deal duplicate-card detection
 
 import type { Player, CardType, GamePhase } from '../../shared/gameTypes';
-import { Fifteen35Mode } from '../../shared/modes/fifteen35';
+
 import { BadugiMode } from '../../shared/modes/badugi';
 import { computeSidePots, resolveSplitPots } from '../../shared/engine/sidePots';
 import { classifyResult, type ResolutionMessage } from '../../shared/utils/classifyResult';
@@ -45,50 +44,10 @@ function makePlayer(id: string, opts: Partial<Player> = {}): Player {
   } as Player;
 }
 
-// ─── Bug 1: 15/35 false rollover ─────────────────────────────────────────────
 // Verifies that when players hold valid qualifying hands,
 // resolveShowdown never emits a "rolls over" message.
-section('Bug 1 — 15/35: no false rollover when all players qualify');
-{
-  // 15/35 card values: A=11, J/Q/K=0.5, numbers=face.
-  // qualifiesLow:  total between 13 and 15 inclusive.
-  // qualifiesHigh: total between 33 and 35 inclusive.
 
-  // LOW hand:  A(11) + 4 = 15  → qualifiesLow
-  const lowCards  = [makeCard('A', 'spades'), makeCard('4', 'hearts')];
-  // HIGH hand: 9 + 9 + 9 + 8 = 35  → qualifiesHigh
-  const highCards = [makeCard('9', 'spades'), makeCard('9', 'hearts'),
-                     makeCard('9', 'diamonds'), makeCard('8', 'clubs')];
 
-  const pLow  = makePlayer('p1', { chips: 0, totalBet: 100, cards: lowCards  });
-  const pHigh = makePlayer('p2', { chips: 0, totalBet: 100, cards: highCards });
-
-  const pot = 200;
-  const result = Fifteen35Mode.resolveShowdown!([pLow, pHigh], pot);
-
-  const rolloverMsg = result.messages.find(m => /rolls over/i.test(m));
-  assert(!rolloverMsg, `no "rolls over" message when both players qualify (got: ${rolloverMsg ?? 'none'})`);
-
-  const winner = result.players.find(p => p.isWinner);
-  assert(winner !== undefined, 'at least one player is marked isWinner');
-
-  const totalOut = result.players.reduce((s, p) => s + p.chips, 0) + result.pot;
-  const totalIn  = pLow.chips + pHigh.chips + pot;
-  assert(totalOut === totalIn, `chip conservation: in=${totalIn} out=${totalOut}`);
-
-  // Extra: sole-qualifier scenario — only LOW player has qualifying hand.
-  const bustCards  = [makeCard('9', 'clubs'), makeCard('9', 'spades'),
-                      makeCard('8', 'hearts'), makeCard('8', 'diamonds')]; // 34 → qualifiesHigh
-  const pBust = makePlayer('p3', { chips: 0, totalBet: 100, cards: bustCards });
-  // Override — mark as folded so only pLow qualifies
-  const pFolded = { ...pBust, status: 'folded' as const };
-
-  const soloResult = Fifteen35Mode.resolveShowdown!([pLow, pFolded], 100);
-  const soloRollover = soloResult.messages.find(m => /rolls over/i.test(m));
-  assert(!soloRollover, 'no rollover when one qualifying player and one folded opponent');
-  const soloWinner = soloResult.players.find(p => p.isWinner);
-  assert(!!soloWinner, 'sole qualifier wins with one folded opponent');
-}
 
 // ─── Bug 3: classifyResult — winner never gets a loss overlay ─────────────────
 section('Bug 3 — classifyResult: isWinner=true always yields type=win');
@@ -153,69 +112,8 @@ section('Bug 3 — classifyResult: isWinner=true always yields type=win');
 // P1 has LOW qualifier → wins main pot.
 // P2 has HIGH qualifier → wins side pot 1.
 // P3 has HIGH qualifier → wins side pot 2 (uncontested).
-section('Bug 4 — side pot: chip conservation and correct awards');
-{
-  const mc = makeCard;
 
-  // P1: LOW hand — A(11)+4=15 qualifies LOW
-  const p1 = makePlayer('p1', {
-    chips: 0, totalBet: 500, status: 'active',
-    cards: [mc('A','spades'), mc('4','hearts')],
-  });
-  // P2: HIGH hand — 9+9+9+8=35 qualifies HIGH
-  const p2 = makePlayer('p2', {
-    chips: 0, totalBet: 1000, status: 'active',
-    cards: [mc('9','spades'), mc('9','hearts'), mc('9','diamonds'), mc('8','clubs')],
-  });
-  // P3: HIGH hand — 8+8+9+10=35 qualifies HIGH
-  const p3 = makePlayer('p3', {
-    chips: 1000, totalBet: 2000, status: 'active',
-    cards: [mc('8','spades'), mc('8','hearts'), mc('9','clubs'), mc('10','diamonds')],
-  });
 
-  const sidePots = computeSidePots([p1, p2, p3]);
-  assert(sidePots.length === 3, `3 side pots computed (got ${sidePots.length})`);
-  assert(sidePots[0].amount === 1500, `main pot = $1500 (got $${sidePots[0].amount})`);
-  assert(sidePots[1].amount === 1000, `side pot 1 = $1000 (got $${sidePots[1].amount})`);
-  assert(sidePots[2].amount === 1000, `side pot 2 = $1000 (got $${sidePots[2].amount})`);
-
-  // P1 eligible for main pot only (totalBet 500)
-  assert(sidePots[0].eligibleIds.includes('p1'), 'P1 eligible for main pot');
-  assert(!sidePots[1].eligibleIds.includes('p1'), 'P1 NOT eligible for side pot 1');
-  assert(!sidePots[2].eligibleIds.includes('p1'), 'P1 NOT eligible for side pot 2');
-
-  // Use fifteen35's logic to determine findHigh / findLow
-  const totalPot = sidePots[0].amount + sidePots[1].amount + sidePots[2].amount;
-  assert(totalPot === 3500, `total side pot = $3500 (got $${totalPot})`);
-  assert(totalPot === p1.totalBet + p2.totalBet + p3.totalBet, 'total side pot equals sum of totalBets');
-
-  // Resolve using fifteen35's actual award logic
-  const result = Fifteen35Mode.resolveShowdown!([p1, p2, p3], totalPot);
-
-  const rp1 = result.players.find(p => p.id === 'p1')!;
-  const rp2 = result.players.find(p => p.id === 'p2')!;
-  const rp3 = result.players.find(p => p.id === 'p3')!;
-
-  // Conservation: chips in + pot = chips out
-  const chipsIn  = p1.chips + p2.chips + p3.chips + totalPot;
-  const chipsOut = rp1.chips + rp2.chips + rp3.chips + result.pot;
-  assert(chipsOut === chipsIn, `chip conservation: in=${chipsIn} out=${chipsOut}`);
-
-  // P1 should win ONLY the main pot (1500) — they cannot win more than 500×3
-  assert(rp1.chips <= 1500, `P1 wins at most $1500 (main pot cap) — got $${rp1.chips}`);
-  assert(rp1.chips > 0, 'P1 receives chips (won main pot)');
-
-  // P2 should win their side pot (1000) plus nothing from main (P1 had LOW)
-  assert(rp2.chips > 0, 'P2 receives chips (won side pot 1)');
-
-  // No chips should be negative
-  assert(rp1.chips >= 0 && rp2.chips >= 0 && rp3.chips >= 0, 'all players have non-negative chips');
-
-  // Verify no chips created from thin air: total must balance
-  const totalChipsAfter = rp1.chips + rp2.chips + rp3.chips + result.pot;
-  const totalChipsBefore = p1.chips + p2.chips + p3.chips + totalPot;
-  assert(totalChipsAfter === totalChipsBefore, `no chips duplicated or lost: before=${totalChipsBefore} after=${totalChipsAfter}`);
-}
 
 // ─── Bug 9: Badugi deal — no duplicate cards in 1000 deals ───────────────────
 // A valid deck has 52 unique cards (rank+suit combos).

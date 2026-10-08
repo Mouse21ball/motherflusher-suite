@@ -1,18 +1,14 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BadugiActionBar } from '../components/badugi/BadugiActionBar';
-import { Dead7ActionBar } from '../components/dead7/Dead7ActionBar';
-import { KamikazeActionBar } from '../components/kamikaze/KamikazeActionBar';
 
-type Mode = 'dead7' | 'badugi' | 'kamikaze';
+type Mode = 'badugi';
 const modes: Array<{ id: Mode; label: string }> = [
-  { id: 'dead7', label: 'Dead 7' },
   { id: 'badugi', label: 'Badugi' },
-  { id: 'kamikaze', label: 'Kamikaze' },
 ];
 
 export default function BettingControlsBrowserHarness() {
-  const [mode, setMode] = useState<Mode>('dead7');
+  const [mode, setMode] = useState<Mode>('badugi');
   const [currentBet, setCurrentBet] = useState(500);
   const [chips, setChips] = useState(1000);
   const [lastAction, setLastAction] = useState('');
@@ -62,14 +58,8 @@ export default function BettingControlsBrowserHarness() {
       </nav>
       <output data-testid="last-action" aria-live="polite">{lastAction}</output>
       <div style={{ width: '100%' }} data-mode={mode}>
-        {mode === 'dead7' && (
-          <Dead7ActionBar {...common} onStandPat={common.onStandPat} onDraw={common.onDraw} />
-        )}
         {mode === 'badugi' && (
           <BadugiActionBar {...common} onStandPat={common.onStandPat} onDraw={common.onDraw} />
-        )}
-        {mode === 'kamikaze' && (
-          <KamikazeActionBar {...common} onStay={common.onStay} onDraw={common.onDraw} />
         )}
       </div>
     </main>

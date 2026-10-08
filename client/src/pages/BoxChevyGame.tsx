@@ -24,6 +24,7 @@ import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
 import { apiUrl } from '@/lib/apiConfig';
+import { MODE_PLACEHOLDER_ASSETS } from '@/lib/modePlaceholders';
 
 const MODE_ID   = 'box_chevy';
 const ENGINE_ID = 'box_chevy';
@@ -299,7 +300,7 @@ function BoxChevyGameUI() {
       height: '100dvh', display: 'flex', flexDirection: 'column',
       position: 'relative',
       backgroundColor: '#0a1628',
-      backgroundImage: "url('/backgrounds/box-chevy-bg.jpg')",
+       backgroundImage: `url('${MODE_PLACEHOLDER_ASSETS.boxChevyBackground}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
 

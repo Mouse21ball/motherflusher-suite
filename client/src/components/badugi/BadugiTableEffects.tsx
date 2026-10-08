@@ -3,10 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '@/lib/poker/types';
 
 const CARD_BACK = '/ladyluck/card-back-cgp.png';
-const CHIP_COLORS = {
-  badugi: ['#C9A227', '#D4B44A', '#E8C96B', '#A07C10'],
-  dead7: ['#B91C1C', '#DC2626', '#F87171', '#7F1D1D'],
-} as const;
+const CHIP_COLORS = ['#C9A227', '#D4B44A', '#E8C96B', '#A07C10'] as const;
 const FLIGHT_MS = 680;
 
 interface PlayerVisualState {
@@ -109,12 +106,10 @@ function pointWithin(root: DOMRect, element: Element): { x: number; y: number } 
   };
 }
 
-function ChipStack({ effect, variant }: { effect: MeasuredEffect; variant: 'badugi' | 'dead7' }) {
+function ChipStack({ effect }: { effect: MeasuredEffect }) {
   return (
     <motion.div
-      {...(variant === 'badugi'
-        ? { 'data-badugi-chip-flight': effect.kind }
-        : { 'data-dead7-chip-flight': effect.kind })}
+      data-badugi-chip-flight={effect.kind}
       initial={{ x: 0, y: 0, opacity: 0, scale: 0.72 }}
       animate={{
         x: effect.dx,
@@ -139,7 +134,7 @@ function ChipStack({ effect, variant }: { effect: MeasuredEffect; variant: 'badu
         willChange: 'transform, opacity',
       }}
     >
-      {CHIP_COLORS[variant].slice(0, 3).map((color, index) => (
+      {CHIP_COLORS.slice(0, 3).map((color, index) => (
         <span
           key={color}
           style={{
@@ -163,7 +158,7 @@ function ChipStack({ effect, variant }: { effect: MeasuredEffect; variant: 'badu
         padding: '2px 5px',
         borderRadius: 8,
         background: 'rgba(3,3,5,0.86)',
-        color: variant === 'dead7' ? '#FCA5A5' : '#F3D66F',
+        color: '#F3D66F',
         font: '700 10px monospace',
         whiteSpace: 'nowrap',
         boxShadow: '0 2px 7px rgba(0,0,0,0.5)',
@@ -174,12 +169,10 @@ function ChipStack({ effect, variant }: { effect: MeasuredEffect; variant: 'badu
   );
 }
 
-function FoldedCards({ effect, variant }: { effect: MeasuredEffect; variant: 'badugi' | 'dead7' }) {
+function FoldedCards({ effect }: { effect: MeasuredEffect }) {
   return (
     <div
-      {...(variant === 'badugi'
-        ? { 'data-badugi-fold-flight': effect.playerId }
-        : { 'data-dead7-fold-flight': effect.playerId })}
+      data-badugi-fold-flight={effect.playerId}
       style={{
         position: 'absolute',
         zIndex: 69,
@@ -225,11 +218,9 @@ function FoldedCards({ effect, variant }: { effect: MeasuredEffect; variant: 'ba
 export function BadugiTableEffects({
   state,
   tableRoot,
-  variant = 'badugi',
 }: {
   state: GameState;
   tableRoot: HTMLElement | null;
-  variant?: 'badugi' | 'dead7';
 }) {
   const reducedMotion = useReducedMotion();
   const previousRef = useRef<BadugiVisualTracker | null>(null);
@@ -285,8 +276,8 @@ export function BadugiTableEffects({
   return (
     <>
       {effects.map(effect => effect.kind === 'fold'
-        ? <FoldedCards key={effect.id} effect={effect} variant={variant} />
-        : <ChipStack key={effect.id} effect={effect} variant={variant} />)}
+        ? <FoldedCards key={effect.id} effect={effect} />
+        : <ChipStack key={effect.id} effect={effect} />)}
     </>
   );
 }

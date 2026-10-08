@@ -1,8 +1,7 @@
 export const REVIEW_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 const GAME_ROUTES = [
-  '/badugi', '/dead7', '/fifteen35', '/suitspoker',
-  '/flushedup', '/kamikaze', '/bonecrusher', '/box-chevy', '/ladyluck',
+  '/badugi', '/flushedup', '/box-chevy', '/ladyluck',
 ];
 
 export interface ReviewGate {

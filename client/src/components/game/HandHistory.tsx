@@ -5,11 +5,11 @@ import { Clock } from "lucide-react";
 import { getHandHistory, type HandRecord } from "@/lib/persistence";
 
 const MODE_COLORS: Record<string, string> = {
-  swing: "text-blue-400",
   badugi: "text-emerald-400",
-  dead7: "text-red-400",
-  fifteen35: "text-amber-400",
-  suitspoker: "text-cyan-400",
+  flushed_up: "text-violet-400",
+  flushedup: "text-violet-400",
+  box_chevy: "text-blue-400",
+  ladyluck: "text-rose-400",
 };
 
 const RESULT_STYLES: Record<string, { label: string; bg: string; text: string }> = {

@@ -1,86 +1,7 @@
-import { useMemo } from "react";
-import { CardHand } from "@/components/flushedUp/CardHand";
-import { evaluateBadugi } from "@/lib/poker/modes/badugi";
-import { evaluateDead7 } from "@/lib/poker/modes/dead7";
-import { Fifteen35Mode } from "@/lib/poker/modes/fifteen35";
-import { evaluateSuitsScore, evaluatePokerHand, evaluateBestSuitsOnPath, PATH_A_INDICES, PATH_B_INDICES } from "@shared/modes/suitspoker";
-import type { CardType } from "@/lib/poker/types";
-import { getHeroAvatar } from "@shared/engine/avatarMap";
-import type { Player, GamePhase } from "@/lib/poker/types";
-import { cn } from "@/lib/utils";
-
-// ── Qualifier computation ────────────────────────────────────────────────────
-
-const INACTIVE_PHASES = new Set(['SHOWDOWN','WAITING','ANTE','DEAL']);
-
-function computeQualifier(modeId: string, player: Player, phase: GamePhase, communityCards?: CardType[]) {
-  const inactive = INACTIVE_PHASES.has(phase);
-  const cards = player.cards;
-
-  if (inactive || !cards.length) return { label: qualifierLabel(modeId), status: '', isMade: false, liveSuitsScore: null as number | null };
-
-  if (modeId === 'badugi') {
-    const ev = evaluateBadugi(cards);
-    const isMade = !!ev?.isValidBadugi;
-    const status = isMade && ev ? `✓ ${ev.description}` : '✗ No Badugi yet';
-    return { label: 'QUALIFIER', status, isMade, liveSuitsScore: null as number | null };
-  }
-
-  if (modeId === 'dead7') {
-    const ev = evaluateDead7(cards.map(c => ({ ...c, isHidden: false })));
-    const isMade = !!ev?.isValidBadugi;
-    const status = ev?.isDead
-      ? '✗ Dead — has a 7'
-      : isMade ? `✓ ${ev!.description}` : '✗ No qualifier yet';
-    return { label: 'HAND', status, isMade, liveSuitsScore: null as number | null };
-  }
-
-  if (modeId === 'fifteen35') {
-    const ev = Fifteen35Mode.evaluateHand?.(player, []);
-    const isMade = !!ev?.isValidBadugi;
-    let status = '';
-    if (isMade && ev) {
-      const total = ev.badugiRankValues![0];
-      const rec = total >= 13 && total <= 15 ? ' — LOW' : total >= 33 && total <= 35 ? ' — HIGH' : '';
-      status = `✓ ${ev.description}${rec}`;
-    } else if (ev?.description?.toLowerCase().includes('bust')) {
-      status = '✗ Bust';
-    } else {
-      status = '✗ No qualifier yet';
-    }
-    return { label: 'TOTAL', status, isMade, liveSuitsScore: null as number | null };
-  }
-
-  if (modeId === 'suitspoker') {
-    const pokerEv = evaluatePokerHand(cards);
-    // Compute best suits score across both paths using visible community cards.
-    // evaluateBestSuitsOnPath filters hidden cards automatically, so this updates
-    // live as cards are revealed each round.
-    const cc = communityCards ?? [];
-    const suitsA = evaluateBestSuitsOnPath(cards, cc, PATH_A_INDICES);
-    const suitsB = evaluateBestSuitsOnPath(cards, cc, PATH_B_INDICES);
-    const bestSuits = suitsA.score >= suitsB.score ? suitsA : suitsB;
-    // Fall back to hole-cards-only score when no community cards visible yet
-    const holeSuitsScore = evaluateSuitsScore(cards);
-    const liveSuitsScore = bestSuits.score > 0 ? bestSuits.score : holeSuitsScore;
-    // Per-spec: qualification = 5 cards of the same suit on any path
-    const suitsQualifies = bestSuits.valid;
-    const isMade = !!pokerEv || suitsQualifies;
-    const pokerLabel = pokerEv?.description ?? 'High Card';
-    const suitsLabel = `Suits ${liveSuitsScore}${suitsQualifies ? '' : ' (need 5 of one suit)'}`;
-    return { label: 'HAND', status: `${pokerLabel} · ${suitsLabel}`, isMade, liveSuitsScore, suitsQualifies };
-  }
-
-  return { label: qualifierLabel(modeId), status: '', isMade: false, liveSuitsScore: null as number | null };
-}
-
-function qualifierLabel(modeId: string) {
-  if (modeId === 'dead7' || modeId === 'suitspoker') return 'HAND';
-  if (modeId === 'fifteen35') return 'TOTAL';
-  return 'QUALIFIER';
-}
-
-// ── Props ────────────────────────────────────────────────────────────────────
+import { useMemo } from 'react';
+import { CardHand } from '@/components/flushedUp/CardHand';
+import { evaluateBadugi } from '@/lib/poker/modes/badugi';
+import type { CardType, GamePhase, Player } from '@/lib/poker/types';
 
 interface HeroHandPanelProps {
   player: Player;
@@ -94,328 +15,50 @@ interface HeroHandPanelProps {
   communityCards?: CardType[];
 }
 
-// ── Shared sub-components ────────────────────────────────────────────────────
+export function HeroHandPanel({
+  player,
+  modeId,
+  phase,
+  selectedCardIndices,
+  onCardClick,
+  selectableCards,
+  sessionNetProfit = 0,
+  isShowdown = false,
+  communityCards = [],
+}: HeroHandPanelProps) {
+  const qualifier = useMemo(() => {
+    if (modeId !== 'badugi' || !player.cards.length || ['WAITING', 'ANTE', 'DEAL', 'SHOWDOWN'].includes(phase)) return null;
+    const result = evaluateBadugi(player.cards);
+    return result?.isValidBadugi ? result.description : 'No Badugi yet';
+  }, [modeId, player.cards, phase]);
+  const drawing = phase === 'DRAW_1' || phase === 'DRAW_2' || phase === 'DRAW_3';
 
-function CardFan({
-  cards, selectedCardIndices,
-  selectableCards, onCardClick, isShowdownPhase, isDrawPhase,
-  compact = false,
-}: {
-  cards: Player['cards'];
-  selectedCardIndices: number[];
-  selectableCards: boolean;
-  onCardClick: (i: number) => void;
-  isShowdownPhase: boolean;
-  isDrawPhase: boolean;
-  compact?: boolean;
-}) {
   return (
-    <div className="flex w-full min-w-0 flex-col items-center gap-2">
-      {isDrawPhase && (
-        <span className="text-[12px] font-mono uppercase tracking-widest text-[#C9A227]/60">
-          Tap to discard
-        </span>
-      )}
+    <section className="w-full rounded-xl border border-white/[0.08] bg-[#0B0B0D]/85 px-3 py-2 shadow-xl backdrop-blur-md" data-testid="panel-hero-hand">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white/60">Your hand</div>
+        <div className="font-mono text-[11px] text-emerald-200/70" aria-live="polite">
+          {qualifier ?? (drawing ? 'Choose cards to draw' : '')}
+        </div>
+      </div>
       <CardHand
-        cards={cards.map(card => ({ ...card, isHidden: !isShowdownPhase && card.isHidden }))}
+        cards={player.cards.map(card => ({ ...card, isHidden: !isShowdown && card.isHidden }))}
         selectedIndices={selectedCardIndices}
         onCardClick={onCardClick}
         isSelectable={selectableCards}
-        isShowdown={isShowdownPhase}
-        cardWidth={compact ? 52 : 58}
-        cardHeight={compact ? 73 : 81}
-        testIdPrefix="card-hero"
+        dealingIndices={[]}
+        drawingIndices={[]}
+        discardingIndices={[]}
+        isShowdown={isShowdown}
       />
-    </div>
-  );
-}
-
-function QualifierBlock({
-  qualifier, isShowdownPhase, player, compact = false,
-}: {
-  qualifier: ReturnType<typeof computeQualifier>;
-  isShowdownPhase: boolean;
-  player: Player;
-  compact?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-1 min-w-0">
-      <span className="text-[12px] sm:text-xs font-mono uppercase tracking-wider text-white/60 leading-none">
-        {qualifier.label}
-      </span>
-      {qualifier.status ? (
-        <span className={cn(
-          "font-mono leading-tight break-words",
-          compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm",
-          qualifier.isMade ? "text-emerald-400/80" : "text-white/60",
-        )}>
-          {qualifier.status}
-        </span>
-      ) : (
-        <span className="text-xs font-mono text-white/60 leading-none">—</span>
-      )}
-      {isShowdownPhase && player.isWinner && (
-        <span className="mt-1 text-[12px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
-          ✓ Winner
-        </span>
-      )}
-      {isShowdownPhase && player.isLoser && !player.isWinner && (
-        <span className="mt-1 text-[12px] font-mono text-red-400/60 uppercase tracking-wider">
-          ✗ Lost
-        </span>
-      )}
-    </div>
-  );
-}
-
-function HeroAvatar({ size = 'md' }: { size?: 'sm' | 'md' | '3col' }) {
-  const cls = size === 'sm' ? 'w-8 h-8' : size === '3col' ? 'w-12 h-12 sm:w-14 sm:h-14' : 'w-9 h-9';
-  return (
-    <div
-      className={cn("relative rounded-full overflow-hidden bg-black/60 shrink-0", cls)}
-      style={{ border: '1.5px solid rgba(201,162,39,0.35)' }}
-    >
-      <img
-        src={getHeroAvatar()} alt="You"
-        className="w-full h-full object-cover"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-      />
-    </div>
-  );
-}
-
-// ── Live Suits Score Badge (Suits & Poker only) ───────────────────────────────
-// Shows the hero's best running suits total across both paths, updating live
-// as community cards are revealed. Beginner-friendly: always visible, big number.
-
-function SuitsScoreBadge({
-  score, isShowdownPhase, player, pokerStatus, isMade, qualified,
-}: {
-  score: number;
-  isShowdownPhase: boolean;
-  player: Player;
-  pokerStatus: string;
-  isMade: boolean;
-  qualified: boolean;
-}) {
-  const qualifies = qualified;
-  // Extract just the poker hand part (everything before " · Suits")
-  const pokerPart = pokerStatus.split(' · ')[0] ?? pokerStatus;
-
-  return (
-    <div className="flex flex-col gap-1 min-w-0">
-      {/* Small poker hand label */}
-      <span className={cn(
-        "font-mono leading-tight break-words text-[12px]",
-        isMade ? "text-emerald-400/70" : "text-white/60",
-      )}>
-        {pokerPart || '—'}
-      </span>
-
-      {/* Prominent suits score */}
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[12px] sm:text-[12px] font-mono uppercase tracking-widest text-blue-400/60 leading-none">
-          BEST SUITS
-        </span>
-        <div className="flex items-baseline gap-1">
-          <span className={cn(
-            "text-2xl sm:text-3xl font-mono font-black tabular-nums leading-none",
-            qualifies ? "text-blue-300" : "text-white/60",
-          )}>
-            {score}
-          </span>
-          <span className={cn(
-            "text-[12px] font-mono leading-none mb-0.5",
-            qualifies ? "text-blue-400/60" : "text-white/60",
-          )}>
-            pts
-          </span>
+      {communityCards.length > 0 && (
+        <div className="sr-only" aria-label={`${communityCards.length} community cards in play`}>
+          {communityCards.length} community cards
         </div>
-        <span className={cn(
-          "text-[12px] font-mono leading-none",
-          qualifies ? "text-blue-400/70" : "text-white/60",
-        )}>
-          {qualifies ? "✓ qualifies" : `need ${40 - score} more`}
-        </span>
-      </div>
-
-      {/* Showdown result */}
-      {isShowdownPhase && player.isWinner && (
-        <span className="mt-0.5 text-[12px] font-mono font-bold text-[#C9A227] uppercase tracking-wider">
-          ✓ Winner
-        </span>
       )}
-      {isShowdownPhase && player.isLoser && !player.isWinner && (
-        <span className="mt-0.5 text-[12px] font-mono text-red-400/60 uppercase tracking-wider">
-          ✗ Lost
-        </span>
-      )}
-    </div>
-  );
-}
-
-function DeclarationBadge({ declaration }: { declaration: string }) {
-  return (
-    <span className={cn(
-      "text-[12px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md w-fit",
-      declaration === 'HIGH'  && "bg-red-600/20 text-red-300/80",
-      declaration === 'LOW'   && "bg-blue-600/20 text-blue-300/80",
-      declaration === 'SWING' && "bg-purple-600/20 text-purple-300/80",
-      declaration === 'POKER' && "bg-red-600/20 text-red-300/80",
-      declaration === 'SUITS' && "bg-blue-600/20 text-blue-300/80",
-      declaration === 'STAY'  && "bg-emerald-600/20 text-emerald-300/80",
-      declaration === 'BUST'  && "bg-red-900/40 text-red-400/80",
-    )}>
-      {declaration}
-    </span>
-  );
-}
-
-// ── Component ────────────────────────────────────────────────────────────────
-
-export function HeroHandPanel({
-  player, modeId, phase,
-  selectedCardIndices, onCardClick, selectableCards,
-  sessionNetProfit = 0, isShowdown = false,
-  communityCards,
-}: HeroHandPanelProps) {
-  const qualifier = useMemo(
-    () => computeQualifier(modeId, player, phase, communityCards),
-    [modeId, player, phase, communityCards]
-  );
-
-  const cards = player.cards;
-  const n = cards.length;
-  const isDrawPhase = phase.startsWith('DRAW') || phase === 'DRAW';
-  const isShowdownPhase = phase === 'SHOWDOWN';
-
-  const isTwoColumn = modeId === 'badugi' || modeId === 'dead7';
-
-  if (!n) return null;
-
-  return (
-    <div
-      className="relative z-30 mx-auto w-full max-w-md md:max-w-2xl px-3"
-      data-testid="panel-hero-hand"
-      data-deal-seat={player.id}
-    >
-      <div className="relative rounded-2xl border border-[#C9A227]/30 bg-gradient-to-br from-[#1a1a1f]/90 to-[#0a0a0e]/95 backdrop-blur-xl overflow-visible shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)]">
-
-        {/* Gold accent line at top */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gradient-to-r from-transparent via-[#C9A227]/40 to-transparent rounded-full" />
-
-        {isTwoColumn ? (
-          /* ── 2-column layout: Badugi / Dead 7 ──────────────────────────── */
-          <div className="grid grid-cols-1 gap-0 divide-y divide-white/[0.06] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-
-            {/* Column 1: Cards */}
-            <div className="px-5 pt-6 pb-4 flex items-center justify-center min-w-0 overflow-visible">
-              <CardFan
-                cards={cards}
-                selectedCardIndices={selectedCardIndices}
-                selectableCards={selectableCards} onCardClick={onCardClick}
-                isShowdownPhase={isShowdownPhase} isDrawPhase={isDrawPhase}
-              />
-            </div>
-
-            {/* Column 2: Player info (top) + Qualifier (bottom), gold divider */}
-            <div className="px-3 py-3 flex flex-col justify-center gap-2 min-w-0 overflow-hidden">
-
-              {/* Top half: avatar row + name + chips + session */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <HeroAvatar size="sm" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm sm:text-base font-semibold text-white/85 truncate leading-none">
-                      {player.name}
-                    </span>
-                    <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none mt-0.5" style={{ color: '#C9A227' }}>
-                      ${player.chips}
-                    </span>
-                  </div>
-                </div>
-                {sessionNetProfit !== 0 && (
-                  <span className={cn(
-                    "text-xs font-mono tabular-nums leading-none",
-                    sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
-                  )}>
-                    {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
-                  </span>
-                )}
-                {player.declaration && player.declaration !== 'FOLD' && (
-                  <DeclarationBadge declaration={player.declaration} />
-                )}
-              </div>
-
-              {/* Gold divider */}
-              <div className="border-t border-[#C9A227]/20" />
-
-              {/* Bottom half: qualifier */}
-              <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} />
-
-            </div>
-          </div>
-        ) : (
-          /* ── 3-column layout: 15/35 / Suits & Poker ───────────────────── */
-          <div className="grid grid-cols-1 gap-0 divide-y divide-white/[0.06] sm:grid-cols-[1.4fr_1fr_1.2fr] sm:gap-x-4 sm:divide-x sm:divide-y-0">
-
-            {/* Column 1: Cards */}
-            <div className="px-3 py-3 flex items-center justify-center min-w-0 overflow-hidden">
-              <CardFan
-                cards={cards}
-                selectedCardIndices={selectedCardIndices}
-                selectableCards={selectableCards} onCardClick={onCardClick}
-                isShowdownPhase={isShowdownPhase} isDrawPhase={isDrawPhase}
-                compact
-              />
-            </div>
-
-            {/* Column 2: Player avatar + name + chips + session */}
-            <div className="px-3 py-3 pb-4 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
-              <HeroAvatar size="3col" />
-              <div className="text-xs sm:text-sm font-semibold text-white/85 truncate leading-none mt-0.5">
-                {player.name}
-              </div>
-              <div className="text-base sm:text-lg font-bold font-mono tabular-nums leading-none" style={{ color: '#C9A227' }}>
-                ${player.chips}
-              </div>
-              {sessionNetProfit !== 0 && (
-                <div className={cn(
-                  "text-[12px] sm:text-xs font-mono tabular-nums leading-none",
-                  sessionNetProfit >= 0 ? "text-emerald-400/70" : "text-red-400/65"
-                )}>
-                  {sessionNetProfit >= 0 ? '+' : ''}${sessionNetProfit} session
-                </div>
-              )}
-              {player.bet > 0 && (
-                <div className="text-[12px] font-mono text-white/60 leading-none">
-                  Bet <span className="text-white/60">${player.bet}</span>
-                </div>
-              )}
-              {player.declaration && player.declaration !== 'FOLD' && (
-                <DeclarationBadge declaration={player.declaration} />
-              )}
-            </div>
-
-            {/* Column 3: Qualifier / Total — Suits Poker gets a live suits score badge */}
-            <div className="px-3 py-3 pb-4 flex flex-col justify-center gap-1 min-w-0 overflow-hidden">
-              {modeId === 'suitspoker' && qualifier.liveSuitsScore !== null ? (
-                <SuitsScoreBadge
-                  score={qualifier.liveSuitsScore}
-                  qualified={(qualifier as any).suitsQualifies ?? false}
-                  isShowdownPhase={isShowdownPhase}
-                  player={player}
-                  pokerStatus={qualifier.status}
-                  isMade={qualifier.isMade}
-                />
-              ) : (
-                <QualifierBlock qualifier={qualifier} isShowdownPhase={isShowdownPhase} player={player} compact />
-              )}
-            </div>
-
-          </div>
-        )}
+      <div className="mt-1 text-center font-mono text-[10px] text-white/35">
+        {sessionNetProfit >= 0 ? '+' : ''}{sessionNetProfit.toLocaleString()} session
       </div>
-    </div>
+    </section>
   );
 }

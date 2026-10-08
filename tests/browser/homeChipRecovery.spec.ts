@@ -44,8 +44,10 @@ test('funded Home retains the normal balance without the broke-state action', as
 test('zero-chip PLAY watches live Badugi updates without betting controls and can exit offline', async ({ page }) => {
   const sent: Record<string, unknown>[] = [];
   let liveSocket: Parameters<Parameters<Page['routeWebSocket']>[1]>[0] | undefined;
+  let offline = false;
   let state: Record<string, any>;
   await page.routeWebSocket('**/ws*', socket => {
+    if (offline) { socket.close(); return; }
     liveSocket = socket;
     socket.onMessage(raw => {
       const message = JSON.parse(String(raw));
@@ -72,12 +74,16 @@ test('zero-chip PLAY watches live Badugi updates without betting controls and ca
   liveSocket!.send(JSON.stringify({ type: 'badugi:snapshot', state }));
   await expect(page.getByText('$987', { exact: true }).first()).toBeVisible();
   expect(sent.some(message => message.type === 'badugi:action' || message.type === 'table:rebuy')).toBe(false);
+  await page.clock.install();
+  offline = true;
   liveSocket!.close();
-  await page.getByTestId('button-emergency-lobby').click();
-  await expect(page).toHaveURL(/\/\?tableExit=local$/);
+  await expect(page.getByTestId('button-emergency-lobby')).toHaveCount(0);
+  await page.clock.runFor(16_000);
+  await expect(page).toHaveURL(/\/\?tableExit=timeout$/);
 });
 
 test('zero-chip Lady Luck watchers see live cards but cannot make side bets', async ({ page }) => {
+  let offline = false;
   const messages: Record<string, unknown>[] = [];
   let socket: Parameters<Parameters<Page['routeWebSocket']>[1]>[0] | undefined;
   const state = {
@@ -88,6 +94,7 @@ test('zero-chip Lady Luck watchers see live cards but cannot make side bets', as
     betTimeLeft: 20, spectatorCount: 1,
   };
   await page.routeWebSocket('**/ws*', ws => {
+    if (offline) { ws.close(); return; }
     socket = ws;
     ws.onMessage(raw => {
       const message = JSON.parse(String(raw));
@@ -109,9 +116,12 @@ test('zero-chip Lady Luck watchers see live cards but cannot make side bets', as
     flippedCards: [...state.flippedCards, { rank: 'K', suit: 'hearts' }] } }));
   await expect(page.getByText('K♥', { exact: true })).toBeVisible();
   await expect(page.getByText('Watching only — get chips to play.', { exact: true })).toBeVisible();
+  await page.clock.install();
+  offline = true;
   socket!.close();
-  await page.getByTestId('button-emergency-lobby').click();
-  await expect(page).toHaveURL(/\/\?tableExit=local$/);
+  await expect(page.getByTestId('button-emergency-lobby')).toHaveCount(0);
+  await page.clock.runFor(16_000);
+  await expect(page).toHaveURL(/\/\?tableExit=timeout$/);
 });
 
 test('a paid all-in Badugi player retains draw and declare controls after betting is skipped', async ({ page }) => {

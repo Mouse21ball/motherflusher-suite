@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.setTimeout(30_000);
+
 async function openDrawHarness(page: Parameters<typeof test>[0]['page'], width = 375) {
   await page.setViewportSize({ width, height: 720 });
   await page.goto('/badugi-draw-test.html');

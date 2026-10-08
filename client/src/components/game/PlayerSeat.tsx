@@ -47,7 +47,7 @@ interface PlayerSeatProps {
   hasActivePlayer?: boolean;
   /** True during the showdown stagger window before this seat is dramatically revealed */
   showdownRevealPending?: boolean;
-  /** Badugi/Dead7: render opponent at ~35% larger scale for mobile readability */
+  /** Render opponent pods larger for mobile readability. */
   enlarged?: boolean;
 }
 
@@ -518,12 +518,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       </div>
 
       {/* Declaration badges */}
-      {player.declaration === 'BUST' && (
-        <span className="status-pill-soft status-pill-bust absolute -bottom-3 z-30 uppercase">Bust</span>
-      )}
-      {player.declaration === 'STAY' && (
-        <span className="status-pill-soft status-pill-stay absolute -bottom-3 z-30 uppercase">Stay</span>
-      )}
       {player.declaration === 'HIGH' && (
         <span className="status-pill-soft status-pill-high absolute -bottom-3 z-30 uppercase">High</span>
       )}
@@ -532,12 +526,6 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
       )}
       {player.declaration === 'SWING' && (
         <span className="status-pill-soft status-pill-swing absolute -bottom-3 z-30 uppercase">Swing</span>
-      )}
-      {player.declaration === 'POKER' && (
-        <span className="status-pill-soft status-pill-poker absolute -bottom-3 z-30 uppercase">Poker</span>
-      )}
-      {player.declaration === 'SUITS' && (
-        <span className="status-pill-soft status-pill-suits absolute -bottom-3 z-30 uppercase">Suits</span>
       )}
       {player.status === 'folded' && !player.declaration && (
         <Badge variant="destructive" className="absolute -bottom-3 text-xs uppercase font-semibold z-30">Folded</Badge>

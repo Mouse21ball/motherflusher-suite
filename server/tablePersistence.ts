@@ -276,11 +276,11 @@ export function deletePersistedTable(tableId: string): void {
   } catch { /* non-critical */ }
 }
 
-// ─── Generic mode persistence (Dead7, Fifteen35, SuitsPoker, Kamikaze…) ───────
+// ─── Generic runtime persistence (Flushed Up and Box Chevy) ───────
 // Uses a separate JSON file so Badugi and generic tables are isolated.
 // Keys in the file are `${modeId}:${tableId}` composite strings.
 // Postgres uses the same `game_table_snapshots` table with the modeId column
-// set to the actual mode slug (e.g. 'kamikaze', 'dead7', 'suits_poker').
+// set to the kept mode slug ('flushed_up' or 'box_chevy').
 
 const GENERIC_DATA_FILE = path.join(DATA_DIR, 'generic_tables.json');
 const genericPending = new Map<string, PendingWrite>();
@@ -312,8 +312,7 @@ export interface RestoredGenericTable {
 
 // All mode IDs served by the generic engine — kept in sync with MODE_REGISTRY
 const GENERIC_MODE_IDS = [
-  'dead7', 'fifteen35', 'suits_poker', 'flushed_up',
-  'kamikaze', 'bonecrusher', 'box_chevy',
+  'flushed_up', 'box_chevy',
 ];
 
 export async function loadPersistedGenericTables(): Promise<RestoredGenericTable[]> {
@@ -356,6 +355,8 @@ export async function loadPersistedGenericTables(): Promise<RestoredGenericTable
       modeId  = key.slice(0, colonIdx);
       tableId = key.slice(colonIdx + 1);
     }
+    if (!GENERIC_MODE_IDS.includes(modeId)) continue;
+
 
     const { state, handId } = sanitizeForRestore(key, entry.state, entry.handId);
     results.push({ modeId, tableId, state, handId });

@@ -65,7 +65,7 @@ declare global {
 
 export type AnalyticsEvent =
   | { name: 'age_gate_accepted' }
-  | { name: 'mode_started';         mode: 'badugi' | 'dead7' | 'fifteen35' | 'suits' }
+  | { name: 'mode_started';         mode: 'badugi' }
   | { name: 'hand_played';          mode: string; outcome: 'win' | 'loss' | 'fold' }
   | { name: 'hourly_bonus_claimed'; chips_awarded: number }
   | { name: 'account_created';      from: 'guest' | 'fresh' }
@@ -96,8 +96,5 @@ export function setUserId(userId: string | null): void {
 export function getModeFromPath(): string {
   const p = typeof window !== 'undefined' ? window.location.pathname : '';
   if (p.startsWith('/badugi'))     return 'badugi';
-  if (p.startsWith('/dead7'))      return 'dead7';
-  if (p.startsWith('/fifteen35'))  return 'fifteen35';
-  if (p.startsWith('/suitspoker')) return 'suits';
   return 'unknown';
 }

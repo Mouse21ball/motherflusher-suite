@@ -4,6 +4,8 @@ import { findChromiumExecutable } from './browser-discovery';
 export default defineConfig({
   testDir: './tests/browser',
   testMatch: '**/*.spec.ts',
+  // Production bootstrap assertions require the built static app, not Vite.
+  testIgnore: '**/productionColdStart.spec.ts',
   timeout: 10_000,
   reporter: [
     ['list'],
