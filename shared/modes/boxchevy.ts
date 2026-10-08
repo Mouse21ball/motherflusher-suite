@@ -63,11 +63,21 @@ function scoreLow5(cards: CardType[]): { value: number; desc: string } {
   const ranks = cards.map(c => lv(c.rank)).sort((a, b) => a - b);
   const rc: Record<number, number> = {};
   for (const r of ranks) rc[r] = (rc[r] ?? 0) + 1;
-  const maxCount = Math.max(...Object.values(rc));
-  const penalty = maxCount >= 4 ? 30_000_000 : maxCount >= 3 ? 10_000_000 : maxCount >= 2 ? 3_000_000 : 0;
-  const unique = [...new Set(ranks)].sort((a, b) => a - b).slice(0, 5);
-  const encoded = unique.reduce((acc, r, i) => acc + r * Math.pow(15, i), 0);
-  return { value: penalty + encoded, desc: unique.map(rankLabel).join('-') };
+  const counts = Object.values(rc).sort((a, b) => b - a);
+  // Ace-to-five ignores straights/flushes. Every category must rank below
+  // the next: unpaired, pair, two pair, trips, full house, quads.
+  const category = counts[0] === 4 ? 5
+    : counts[0] === 3 && counts[1] === 2 ? 4
+    : counts[0] === 3 ? 3
+    : counts[0] === 2 && counts[1] === 2 ? 2
+    : counts[0] === 2 ? 1 : 0;
+  // Compare repeated ranks first, then descending kickers. Sorting only
+  // unique ranks incorrectly lets a low kicker beat a lower pair.
+  const ordered = Object.entries(rc)
+    .sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]))
+    .map(([rank]) => Number(rank));
+  const encoded = ordered.reduce((acc, rank, i) => acc + rank * 15 ** (4 - i), 0);
+  return { value: category * 1_000_000 + encoded, desc: ranks.map(rankLabel).join('-') };
 }
 
 function bestLowHand(cards: CardType[]): { value: number; desc: string } {
