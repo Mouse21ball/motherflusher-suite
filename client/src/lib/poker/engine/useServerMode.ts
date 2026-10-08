@@ -132,6 +132,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
   const [lastWsAt, setLastWsAt] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [retiredMode, setRetiredMode] = useState<{
+    modeId: string;
+    modeName: string;
+    message: string;
+    storeUrls: { ios: string; android: string };
+  } | null>(null);
   const [lastWsType, setLastWsType] = useState<string | null>(null);
   // Client-side invariant: total chips + pot should not silently change
   // mid-hand. We log when it does so desync is visible immediately.
@@ -378,6 +384,26 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
+          if (msg.type === 'mode:retired') {
+            // A 9→4-cut retired mode. Show the plain-language message (never an
+            // error code) and expose the store links so the UI can render a
+            // one-tap Update button. Same failure reporting as mode:error so
+            // the table doesn't hang on a spinner.
+            if (!initialized) reportTableConnection('failed');
+            const payload = msg as {
+              modeId: string; modeName: string; message: string;
+              storeUrls: { ios: string; android: string };
+            };
+            setRetiredMode({
+              modeId: String(payload.modeId ?? ''),
+              modeName: String(payload.modeName ?? 'This game'),
+              message: String(payload.message ?? 'This game has been retired. Update the app to play the new lineup.'),
+              storeUrls: payload.storeUrls ?? { ios: '', android: '' },
+            });
+            setActionError(String(payload.message ?? 'This game has been retired. Update the app to play the new lineup.'));
+            console.info('[CGP] Retired mode:', payload.modeId);
+            return;
+          }
           if (msg.type === 'error') {
             if (!initialized) { reportTableConnection('failed'); ws.close(); return; }
             setActionError(String(msg.message ?? 'Action rejected.'));
@@ -604,5 +630,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
+  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }
