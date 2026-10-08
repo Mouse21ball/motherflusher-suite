@@ -14,3 +14,9 @@ Internal house and bot ledger accounts must be excluded from guest-account lifec
 **Why:** Production guest resets erased the Lady Luck reserve, reducing it to a normal guest allowance; subsequent bot transfers ran out of funds and stalled solo lobbies.
 
 **How to apply:** Apply this boundary to both reset candidate selection and the actual mutation, including background-job defenses. Historical reserve recovery must reverse only recorded reset adjustments, be serialized and idempotent, and never replenish genuine game losses.
+
+A bot-fill warning is not permission to stop retries after a fixed failure limit.
+
+**Why:** The user requires recovery on the normal two-second cadence; stopping after repeated failures recreates the solo-lobby soft-lock even if an error has been displayed.
+
+**How to apply:** Preserve retries while the lobby has a connected player, cancel them on leave/start, and retain a visible exit. Review incoming hardening changes against this requirement.

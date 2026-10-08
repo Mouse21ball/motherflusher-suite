@@ -8,6 +8,8 @@
 //   handleAction → send 'mode:action' → server processes
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { readRetiredModeNotice, type RetiredModeNotice } from './retiredModeNotice';
 import { reportTableConnection } from '../../tableConnectionHealth';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
@@ -132,6 +134,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
   const [lastWsAt, setLastWsAt] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [retiredMode, setRetiredMode] = useState<RetiredModeNotice | null>(null);
   const [lastWsType, setLastWsType] = useState<string | null>(null);
   // Client-side invariant: total chips + pot should not silently change
   // mid-hand. We log when it does so desync is visible immediately.
@@ -378,6 +381,15 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             console.error('[CGP] Server rejected mode connection:', msg.reason, 'modeId=', modeIdRef.current);
             return;
           }
+          const retirement = readRetiredModeNotice(msg, Capacitor.getPlatform());
+          if (retirement) {
+            // Handle the actual legacy-readable rejection as well as the
+            // dedicated type. Do not discard retirement text before init.
+            if (!initialized) reportTableConnection('failed');
+            setRetiredMode(retirement);
+            setActionError(retirement.message);
+            return;
+          }
           if (msg.type === 'error') {
             if (!initialized) { reportTableConnection('failed'); ws.close(); return; }
             setActionError(String(msg.message ?? 'Action rejected.'));
@@ -604,5 +616,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
+  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }

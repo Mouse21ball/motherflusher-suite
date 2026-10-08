@@ -77,6 +77,13 @@ clients that only render the error string do not gain a new button just because
 the server includes extra fields; their JS must already support that behavior
 or be updated.
 
+The current `useServerMode` exposes `retiredMode` with its readable message,
+selected `updateUrl`, and both configured listings as `storeUrls`. It consumes
+the server's existing `error`/`updateRequired` response, not only the separate
+`mode:retired` type supported by the incoming build-lane client. Neither notice
+format permits arbitrary destination URLs. No server-side `mode:retired` plus
+`unknown-mode` fallback is emitted for recognized retired games.
+
 ## Release gate
 
 **Do not push or publish yet.** The owner requires the shim to be on main and

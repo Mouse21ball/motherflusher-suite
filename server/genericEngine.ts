@@ -1491,6 +1491,10 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
   }
 }
 
+// Metadata only. Shared rejection path preserves legacy init/error ordering
+// and platform-specific links, including both historical Suits IDs.
+export { RETIRED_MODES } from './retiredModes';
+
 // ─── Get or create table ─────────────────────────────────────────────────────
 
 export function getOrCreateTable(

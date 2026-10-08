@@ -9,6 +9,11 @@ const RETIRED_MODE_NAMES = new Map([
   ['suits_poker', 'Suits Poker'],
 ]);
 
+/** Exported metadata only; null prototype avoids treating constructor/__proto__ as modes. */
+export const RETIRED_MODES: Readonly<Record<string, string>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<string, string>, Object.fromEntries(RETIRED_MODE_NAMES)),
+);
+
 export interface RetirementClientContext {
   platform?: unknown;
   userAgent?: string;

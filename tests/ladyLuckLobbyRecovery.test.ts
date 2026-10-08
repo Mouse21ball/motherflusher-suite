@@ -70,13 +70,15 @@ describe('Lady Luck solo lobby funding recovery', () => {
     vi.mocked(storage.fundLadyLuckBot).mockRejectedValue(new Error('database unavailable'));
     createLLTable(tableId, 'pony', 'host');
     join();
-    await vi.advanceTimersByTimeAsync(18_000);
-    expect(storage.fundLadyLuckBot).toHaveBeenCalledTimes(5);
-    expect(latest().botFillError?.attempts).toBe(5);
+    // Exceed the incoming branch's five-failure cutoff: warnings must not
+    // permanently terminate refill, even when funding stays unavailable.
+    await vi.advanceTimersByTimeAsync(24_000);
+    expect(storage.fundLadyLuckBot).toHaveBeenCalledTimes(8);
+    expect(latest().botFillError?.attempts).toBe(8);
     expect(latest().players).toHaveLength(1);
     handleLLDisconnect(tableId, 'host');
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(storage.fundLadyLuckBot).toHaveBeenCalledTimes(5);
+    expect(storage.fundLadyLuckBot).toHaveBeenCalledTimes(8);
   });
 
   it('recovers when a later refill, rather than the first bot, fails', async () => {
