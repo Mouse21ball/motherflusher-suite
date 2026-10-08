@@ -12,6 +12,10 @@ interface ServerMessage {
   tableId?: string;
   playerId?: string;
   requestId?: string;
+  leaveId?: string;
+  code?: string;
+  modeId?: string;
+  accepted?: boolean;
   error?: string;
   message?: string;
   chips?: number;
@@ -284,6 +288,52 @@ describe('table rebuys over the real server WebSocket handler', () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
+
+  it.each(['dead7', 'fifteen35', 'suitspoker', 'suits_poker', 'kamikaze', 'bonecrusher'])(
+    'rejects retired %s joins over the real room handler without seating or accessing wallets', async modeId => {
+      const tableId = `retired-${modeId}`;
+      const sessionId = `retired-session-${modeId}`;
+      const socket = new WebSocket(
+        `ws://127.0.0.1:${port}/ws?ticket=${issueWsTicket(authenticatedPlayerId)}`,
+      );
+      await new Promise<void>((resolve, reject) => {
+        socket.once('open', resolve);
+        socket.once('error', reject);
+      });
+      const walletReads = vi.mocked(storage.getOrCreatePlayer).mock.calls.length;
+      const seatWrites = vi.mocked(storage.setPlayerActiveTable).mock.calls.length;
+      const initPromise = waitForMessage(socket, msg => msg.type === 'mode:init');
+      const errorPromise = waitForMessage(socket, msg => msg.type === 'error');
+      socket.send(JSON.stringify({
+        type: 'join', tableId, modeId, playerId: sessionId, seatId: sessionId,
+        identityId: authenticatedPlayerId, name: 'Old Native', quickPlay: true, buyinChips: 1000,
+      }));
+      try {
+        const [init, error] = await Promise.all([initPromise, errorPromise]);
+        expect(init.accepted).toBe(false);
+        expect(init.state?.players).toEqual([]);
+        expect(error).toMatchObject({
+          code: 'MODE_RETIRED', modeId,
+          message: 'This game mode has been retired. Please update the app to continue.',
+        });
+        expect(vi.mocked(storage.getOrCreatePlayer).mock.calls.length).toBe(walletReads);
+        expect(vi.mocked(storage.setPlayerActiveTable).mock.calls.length).toBe(seatWrites);
+        expect((await import('../server/genericEngine')).getOrCreateTable(modeId, tableId)).toBeNull();
+        const actionError = waitForMessage(socket, msg => msg.type === 'error');
+        socket.send(JSON.stringify({
+          type: 'mode:action', tableId, modeId, playerId: sessionId, action: 'rebuy', payload: 1000,
+        }));
+        expect((await actionError).code).toBe('MODE_RETIRED');
+        const left = waitForMessage(socket, msg => msg.type === 'leave:complete');
+        socket.send(JSON.stringify({ type: 'leave', tableId, playerId: sessionId, leaveId: 'retired-leave' }));
+        expect((await left).leaveId).toBe('retired-leave');
+        expect(activeTableId).toBeNull();
+        expect(walletBalance).toBe(30_000);
+        expect(vi.mocked(storage.claimFreeTableRebuy)).not.toHaveBeenCalled();
+        expect(vi.mocked(storage.grantTableChipLoan)).not.toHaveBeenCalled();
+      } finally { await closeSocket(socket); }
+    },
+  );
 
   it.each(['badugi', 'box_chevy'])('routes Android 1.3 legacy starter rebuy through the same free-grant path in %s', async modeId => {
     walletBalance = 1_000;

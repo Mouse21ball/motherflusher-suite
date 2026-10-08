@@ -41,6 +41,7 @@ import {
   incrementGenericTimeBankSessionUsed,
 } from "./genericEngine";
 import { db } from "./db";
+import { getRetiredModeError, rejectRetiredMode } from "./retiredModes";
 import { sql as drizzleSql } from "drizzle-orm";
 import { levelFromXP } from "@shared/progressionRules";
 import { requireAuth, requireAdmin, requireSelf } from "./middleware/auth";
@@ -829,7 +830,7 @@ export async function registerRoutes(
   // POST /api/tables — register a new table
   // Called by the client when a player starts a session.
   // Returns 201 on success, 409 if the code is already taken.
-  app.post("/api/tables", (req, res) => {
+  app.post("/api/tables", rejectRetiredMode, (req, res) => {
     pruneExpiredTables();
     try {
       const parsed = createTableSchema.parse(req.body);
@@ -1804,7 +1805,7 @@ export async function registerRoutes(
   // Returns the best existing public table for a mode (most humans, at least 1 open seat),
   // or { tableId: null } if no suitable table exists and the client must create a new one.
   // Client should use the returned tableId as the WS join target when non-null.
-  app.get("/api/tables/mode/:modeId/join", (req, res) => {
+  app.get("/api/tables/mode/:modeId/join", rejectRetiredMode, (req, res) => {
     const { modeId } = req.params;
     const MAX_SEATS = 5;
     // Subscribers (gold_pro / diamond_elite) get priority access: they can join
@@ -3981,7 +3982,7 @@ export async function registerRoutes(
 
   // POST /api/tables/:table_id/join — validate a requested table allocation.
   // The wallet remains a total balance; only gameplay deltas are persisted.
-  app.post("/api/tables/:table_id/join", requireAuth, async (req, res) => {
+  app.post("/api/tables/:table_id/join", requireAuth, rejectRetiredMode, async (req, res) => {
     try {
       const tableId  = (req.params.table_id as string).toUpperCase();
       const playerId = req.sessionPlayerId!;
@@ -3991,6 +3992,8 @@ export async function registerRoutes(
       }).parse(req.body);
 
       const tableRecord = getTableRecord(tableId);
+      const retired = getRetiredModeError(tableRecord?.modeId);
+      if (retired) { res.status(410).json(retired); return; }
       // Prefer the live game state; use the registered tier while the engine
       // table is still being created, and Low for unregistered quick-play codes.
       const minBet = (mode_id === 'badugi'

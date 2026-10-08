@@ -21,6 +21,12 @@ Hold the four-game backend publication until the owner decides on compatibility 
 
 **How to apply:** Report the old-client risk first; do not publish merely to apply the analytics schema additions. Get a rollout decision before implementing a compatibility shim or resuming publication.
 
+Legacy retirement errors need verification in the actual old renderer, not just a valid wire response. Some archived Android game wrappers omit error propagation; legacy iOS ignores ordinary errors until its initialization handshake.
+
+**Why:** Archived-bundle browser tests exposed both behaviors while building the retirement shim. A correct server payload alone did not guarantee a visible message.
+
+**How to apply:** Check wire aliases as well as UI IDs, use a non-funded display-only rejection handshake where supported, and verify exact shipped packages before lifting the publication hold. Never force a message with fake payouts or restore retired mechanics.
+
 Trace what the old client actually consumes before declaring an accounting correction a protocol break.
 
 **Why:** A review initially classified removing the HTTP buy-in debit as incompatible, but the old slider only checks success and forwards its selected amount to the socket join; it neither decrements its own balance nor requires a debit response. Restoring the debit would reintroduce the confirmed total-wallet accounting defect. Likewise, preventing a one-player poker hand is an intentional eligibility correction, not a removed message contract.

@@ -14,6 +14,7 @@ import { applyGenericDraw } from './utils/genericDraw';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
+import { sendRetiredModeRejection } from './retiredModes';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import {
   scheduleGenericSave,
@@ -1697,6 +1698,7 @@ export async function addGenericConnection(
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId; spectateOnly?: boolean } = {},
   buyinChips?: number
 ): Promise<string | null> {
+  if (sendRetiredModeRejection(ws, modeId, tableId, sessionId)) return null;
   const key = tableKey(modeId, tableId);
   const isNew = !tables.has(key);
   const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay, options);

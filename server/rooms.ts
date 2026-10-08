@@ -39,6 +39,7 @@ import {
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
 import { parseLegacyRebuyAmount } from './tableRebuyRequests';
+import { getRetiredModeError, sendRetiredModeRejection } from './retiredModes';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, type StakeTierId } from '../shared/stakeTiers';
 import {
   handleLLJoin,
@@ -390,6 +391,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
     let engineSeatPid:    string | null      = null; // seat label assigned by the engine (e.g. "p1")
     let spectatorTableId: string | undefined = undefined;
     let spectatorUserId:  string | undefined = undefined;
+    let retiredJoin: { modeId: string; tableId: string; playerId: string } | null = null;
 
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
@@ -417,6 +419,19 @@ export function initRooms(httpServer: Server): WebSocketServer {
         return;
       }
 
+      // The display-only rejection has no seat to release. Let the legacy Back
+      // button finish its acknowledged leave without settling or minting chips.
+      if (retiredJoin && msg.type === 'leave' &&
+          msg.tableId === retiredJoin.tableId && msg.playerId === retiredJoin.playerId) {
+        try { ws.send(JSON.stringify({ type: 'leave:complete', leaveId: msg.leaveId })); } catch {}
+        retiredJoin = null;
+        return;
+      }
+      if (retiredJoin && msg.type === 'mode:action') {
+        try { ws.send(JSON.stringify({ type: 'error', ...getRetiredModeError(retiredJoin.modeId) })); } catch {}
+        return;
+      }
+
       // ── join ────────────────────────────────────────────────────────────────
       if (msg.type === 'join') {
         const { tableId, modeId, playerId: pid, name, seatId, isPrivate, quickPlay, identityId } = msg;
@@ -436,6 +451,13 @@ export function initRooms(httpServer: Server): WebSocketServer {
           return;
         }
         const authenticatedIdentityId = authWs.authenticatedPlayerId;
+
+        // Reject before room/seat ownership, wallet access or engine allocation.
+        if (sendRetiredModeRejection(ws, modeId, tableId, pid)) {
+          retiredJoin = { modeId, tableId, playerId: pid };
+          return;
+        }
+        retiredJoin = null;
 
         // ── Club membership gate ───────────────────────────────────────────────
         const tableRec = getTableRecord(tableId);
