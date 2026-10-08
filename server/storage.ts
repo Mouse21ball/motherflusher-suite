@@ -53,6 +53,11 @@ export const LADY_LUCK_HOUSE_ID = '__ladyluck_house__';
 export const LADY_LUCK_BOT_STACK = 10_000;
 const LADY_LUCK_HOUSE_SEED = 100_000_000;
 
+/** Internal ledger accounts are never disposable guest identities. */
+export function isInternalChipAccount(id: string): boolean {
+  return id === LADY_LUCK_HOUSE_ID || id.startsWith('bot_');
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const hash = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -762,6 +767,35 @@ export class MemStorage implements IStorage {
           reason: 'other', source: 'ladyluck_house_genesis',
         });
       }
+      // Older guest-reset jobs erased the reserve because this internal account
+      // has no login credentials. Reverse only that recorded net adjustment,
+      // not legitimate game losses. Locking the house serializes concurrent
+      // recovery/funding calls; the correction ledger makes recovery idempotent.
+      const [house] = await tx.select({ balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(eq(playerProfiles.id, LADY_LUCK_HOUSE_ID)).for('update');
+      if (!house) throw new Error('Lady Luck house ledger account is missing');
+      const [history] = await tx.select({
+        resetNet: sql<string>`coalesce(sum(${chipTransactions.amountChange}) filter (where ${chipTransactions.source} = 'guestReset'), 0)`,
+        recovered: sql<string>`coalesce(sum(${chipTransactions.amountChange}) filter (where ${chipTransactions.source} = 'ladyluck_guest_reset_recovery'), 0)`,
+      }).from(chipTransactions).where(and(
+        eq(chipTransactions.playerId, LADY_LUCK_HOUSE_ID),
+        inArray(chipTransactions.source, ['guestReset', 'ladyluck_guest_reset_recovery']),
+      ));
+      const correction = -Number(history.resetNet) - Number(history.recovered);
+      if (correction === 0) return;
+      const afterBalance = house.balance + correction;
+      if (!Number.isSafeInteger(correction) || !Number.isSafeInteger(afterBalance)
+          || afterBalance < 0 || afterBalance > 2_147_483_647) {
+        throw new Error('Invalid Lady Luck reserve recovery amount');
+      }
+      await tx.update(playerProfiles).set({ chipBalance: afterBalance, updatedAt: new Date() })
+        .where(eq(playerProfiles.id, LADY_LUCK_HOUSE_ID));
+      await this._insertChipLedger(tx, {
+        playerId: LADY_LUCK_HOUSE_ID, beforeBalance: house.balance,
+        amountChange: correction, afterBalance, reason: 'other',
+        source: 'ladyluck_guest_reset_recovery',
+        metadata: { resetNet: Number(history.resetNet), previouslyRecovered: Number(history.recovered) },
+      });
     });
   }
 
@@ -1795,6 +1829,8 @@ export class MemStorage implements IStorage {
         and(
           isNull(playerProfiles.email),
           isNull(playerProfiles.passwordHash),
+          ne(playerProfiles.id, LADY_LUCK_HOUSE_ID),
+          notLike(playerProfiles.id, 'bot\\_%'),
           or(
             and(
               isNull(playerProfiles.lastResetAt),
@@ -1808,15 +1844,23 @@ export class MemStorage implements IStorage {
   }
 
   async resetGuestAccount(id: string): Promise<void> {
+    if (isInternalChipAccount(id)) return;
     const RESET_BALANCE = 25000;
     const now = new Date();
     await db.transaction(async (tx) => {
       const rows = await tx
         .select({ chipBalance: playerProfiles.chipBalance })
         .from(playerProfiles)
-        .where(eq(playerProfiles.id, id))
-        .limit(1);
-      const before = rows[0]?.chipBalance ?? 0;
+        .where(and(
+          eq(playerProfiles.id, id),
+          isNull(playerProfiles.email),
+          isNull(playerProfiles.passwordHash),
+          ne(playerProfiles.id, LADY_LUCK_HOUSE_ID),
+          notLike(playerProfiles.id, 'bot\\_%'),
+        ))
+        .for('update');
+      if (!rows[0]) return;
+      const before = rows[0].chipBalance;
       await tx
         .update(playerProfiles)
         .set({
@@ -1835,7 +1879,9 @@ export class MemStorage implements IStorage {
           and(
             eq(playerProfiles.id, id),
             isNull(playerProfiles.email),
-            isNull(playerProfiles.passwordHash)
+            isNull(playerProfiles.passwordHash),
+            ne(playerProfiles.id, LADY_LUCK_HOUSE_ID),
+            notLike(playerProfiles.id, 'bot\\_%')
           )
         );
       await this._insertChipLedger(tx, {

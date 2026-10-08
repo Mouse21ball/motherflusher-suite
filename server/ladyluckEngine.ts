@@ -38,6 +38,8 @@ interface LLTableMeta {
   spectatorBets: Map<string, { suit: LadyLuckSuit; amount: number }>;
   raceInterval?: ReturnType<typeof setInterval>;
   botFillTimer?: ReturnType<typeof setTimeout>;
+  pendingLobbyBotId?: string;
+  botFillInFlight?: boolean;
   countdownTimer?: ReturnType<typeof setInterval>;
   resultsInterval?: ReturnType<typeof setInterval>;
   betInterval?: ReturnType<typeof setInterval>;
@@ -175,10 +177,13 @@ async function addBotToLobby(tableId: string): Promise<void> {
   if (!meta || meta.state.phase !== 'LOBBY' || meta.state.players.length >= 4) return;
   const { state } = meta;
   const name  = pickBotName(state.players.map(p => p.name));
-  const botId = `bot_${randomUUID()}`;
+  // A failed funding attempt must not create another empty ledger account on
+  // every retry. Retry the same pending bot until it is funded.
+  const botId = meta.pendingLobbyBotId ??= `bot_${randomUUID()}`;
   const chips = await storage.fundLadyLuckBot(botId, tableId);
   if (tables.get(tableId) !== meta || state.phase !== 'LOBBY' || state.players.length >= 4) {
     await storage.releaseLadyLuckBot(botId, tableId);
+    meta.pendingLobbyBotId = undefined;
     return;
   }
   state.players.push({
@@ -191,34 +196,53 @@ async function addBotToLobby(tableId: string): Promise<void> {
     wagered:   false,
     seatIndex: state.players.length,
   });
+  meta.pendingLobbyBotId = undefined;
   broadcastState(meta);
 }
 
 async function scheduleBotFill(tableId: string): Promise<void> {
   const meta = tables.get(tableId);
   if (!meta || meta.state.phase !== 'LOBBY') return;
+  if (meta.botFillInFlight) return;
   meta.botFillTimer = undefined;
-
-  // Add one bot immediately, then schedule the rest 2 s apart
-  await addBotToLobby(tableId);
-
-  const refill = async () => {
-    const m = tables.get(tableId);
-    if (!m || m.state.phase !== 'LOBBY') return;
-    if (m.state.players.length < 4) {
-      await addBotToLobby(tableId);
-      m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
-    } else {
-      scheduleCountdown(tableId);
+  if (meta.connections.size === 0) return;
+  meta.botFillInFlight = true;
+  try {
+    if (meta.state.players.length < 4) await addBotToLobby(tableId);
+    if (tables.get(tableId) !== meta || meta.state.phase !== 'LOBBY') return;
+    if (meta.state.botFillError) {
+      delete meta.state.botFillError;
+      broadcastState(meta);
+      const host = meta.hostId ? meta.connections.get(meta.hostId) : undefined;
+      if (host?.readyState === WebSocket.OPEN) {
+        try { host.send(JSON.stringify({ type: 'll:bot_fill_recovered' })); } catch {}
+      }
     }
-  };
-
-  const m = tables.get(tableId);
-  if (!m) return;
-  if (m.state.players.length < 4) {
-    m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
-  } else {
-    scheduleCountdown(tableId);
+  } catch (error) {
+    if (tables.get(tableId) !== meta || meta.state.phase !== 'LOBBY') return;
+    const attempts = (meta.state.botFillError?.attempts ?? 0) + 1;
+    const message = 'Opponents could not be added. Retrying every 2 seconds. You can return to rooms and try another table.';
+    meta.state.botFillError = { code: 'BOT_FILL_UNAVAILABLE', message, attempts, retryInMs: 2_000 };
+    // Preserve the server exception for diagnosis; never expose it in client state.
+    if (attempts === 1 || attempts % 15 === 0) {
+      console.error(`[LL-BOT-FILL] table=${tableId} attempt=${attempts}`, error);
+      const host = meta.hostId ? meta.connections.get(meta.hostId) : undefined;
+      if (host?.readyState === WebSocket.OPEN) {
+        try { host.send(JSON.stringify({ type: 'll:error', code: 'BOT_FILL_UNAVAILABLE', message })); } catch {}
+      }
+    }
+    broadcastState(meta);
+  } finally {
+    meta.botFillInFlight = false;
+    // Both the first attempt and every retry use this path, including throws.
+    // Never revive a closed table or a table whose host has already started.
+    if (tables.get(tableId) === meta && meta.state.phase === 'LOBBY' && meta.connections.size > 0) {
+      if (meta.state.players.length < 4) {
+        meta.botFillTimer = setTimeout(() => { void scheduleBotFill(tableId).catch(console.error); }, 2_000);
+      } else {
+        scheduleCountdown(tableId);
+      }
+    }
   }
 }
 
@@ -416,6 +440,12 @@ export function handleLLJoin(
   console.log(`[LL-TIMING-SERVER] handleLLJoin — player lookup+append took ${Date.now() - t1}ms (existing=${!!existing})`);
 
   if (!meta.hostId) meta.hostId = playerId;
+
+  // Creation may precede joining by more than the initial ten-second grace.
+  // Resume a paused fill loop when a human finally connects.
+  if (meta.state.phase === 'LOBBY' && !meta.botFillTimer && !meta.botFillInFlight && !meta.countdownTimer) {
+    meta.botFillTimer = setTimeout(() => { void scheduleBotFill(tableId).catch(console.error); }, 2_000);
+  }
 
   const broadcastStart = Date.now();
   broadcastState(meta);

@@ -319,6 +319,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
               console.error('[ladyluck] ll:error received:', errMsg, '| tableId sent:', tableId);
               setWsError(errMsg);
             }
+            if (msg.type === 'll:bot_fill_recovered') setWsError(null);
           } catch {}
         };
 
@@ -867,7 +868,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
             <>
               <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
               <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: 4, color: '#C9A227', marginBottom: 10 }}>
-                {isHost ? 'WAITING FOR 2+ PLAYERS...' : 'WAITING FOR HOST TO START...'}
+                {state.botFillError && isHost ? 'OPPONENTS UNAVAILABLE — RETRYING...' : isHost ? 'WAITING FOR 2+ PLAYERS...' : 'WAITING FOR HOST TO START...'}
               </div>
               {/* Ornamental divider with horse medallion */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -887,6 +888,15 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                 />
               )}
             </>
+          )}
+          {isHost && state.botFillError && (
+            <div role="alert" data-testid="ll-bot-fill-error" style={{ margin: '12px 0', padding: 14, border: '1px solid #ff6b6b', borderRadius: 10, color: '#ffb4b4', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 10px' }}>{state.botFillError.message}</p>
+              <button type="button" data-testid="button-ll-bot-fill-leave" onClick={goBack}
+                style={{ minHeight: 44, padding: '10px 20px', borderRadius: 22, border: '1px solid #C9A227', background: '#15151f', color: '#fff', cursor: 'pointer' }}>
+                Back to rooms
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -36,6 +36,8 @@ export interface LadyLuckState {
   claimedSuits: LadyLuckSuit[];
   /** Countdown seconds remaining before auto-start from LOBBY (null when not counting down) */
   startingIn: number | null;
+  /** Transient lobby funding failure; retries continue without seating unfunded bots. */
+  botFillError?: { code: 'BOT_FILL_UNAVAILABLE'; message: string; attempts: number; retryInMs: number };
   /** Seconds remaining in RESULTS window (10→0) */
   resultsTimeLeft: number | null;
   /** Seconds remaining in BET window (30→0) */
