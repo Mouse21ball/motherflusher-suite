@@ -4,7 +4,8 @@ test.describe.configure({ timeout: 30_000 });
 
 // Restore the guest storage that survives an app update, without hitting the
 // production API or changing the app's bootstrap/rendering path.
-async function openReturningGuest(page: Page, legacyNameOnly = false) {
+async function openReturningGuest(page: Page, legacyNameOnly = false, autoSkip = false) {
+  if (autoSkip) await page.addInitScript(() => sessionStorage.setItem('cgp_skip_welcome_back_once', '1'));
   await page.addInitScript((legacy: boolean) => {
     localStorage.setItem('cgp_age_17_confirmed', '1');
     localStorage.setItem('poker_table_player_name', 'Returning Guest');
@@ -43,7 +44,8 @@ async function openReturningGuest(page: Page, legacyNameOnly = false) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Skip Chain Gang Poker introduction' }).click();
   await expect(page.getByRole('button', { name: 'Skip Chain Gang Poker introduction' })).toHaveCount(0);
-  await expect(page.getByTestId('button-welcome-back-play')).toBeVisible();
+  if (autoSkip) await expect(page.getByTestId('text-bankroll')).toBeVisible();
+  else await expect(page.getByTestId('button-welcome-back-play')).toBeVisible();
 }
 
 // Tap the gold button painted INSIDE the poster. Clicking a locator alone
@@ -89,6 +91,12 @@ for (const viewport of [
     for (const legacyNameOnly of [false, true]) {
       test(`${legacyNameOnly ? 'legacy' : 'persisted identity'} guest taps the artwork and reaches Home after an upgrade`, async ({ page }) => {
         const errors: string[] = [];
+        const analytics: Record<string, any>[] = [];
+        page.on('request', request => {
+          if (new URL(request.url()).pathname === '/api/analytics/track' && request.method() === 'POST') {
+            analytics.push(request.postDataJSON());
+          }
+        });
         page.on('pageerror', error => errors.push(error.message));
         page.on('console', message => {
           if (message.type() === 'error') errors.push(message.text());
@@ -102,6 +110,13 @@ for (const viewport of [
         for (const id of ['badugi', 'flushedup', 'ladyluck', 'box_chevy']) {
           await expect(page.getByTestId(`button-play-${id}`)).toHaveCount(1);
         }
+        await expect.poll(() => analytics.filter(e => e.eventType === 'welcome_back_dismissed').length).toBe(1);
+        expect(analytics.find(e => e.eventType === 'welcome_back_dismissed')).toMatchObject({
+          platform: 'web', properties: { via: 'play_now' },
+        });
+        await expect.poll(() => analytics.filter(e => e.eventType === 'home_viewed').length).toBe(1);
+        expect(analytics.find(e => e.eventType === 'home_viewed')?.properties.is_first_home).toBe(true);
+        expect(analytics.find(e => e.eventType === 'app_open')?.properties.first_open).toBe(false);
         expect(errors).toEqual([]);
       });
     }
@@ -120,4 +135,18 @@ test('returning guest can enter Home using the keyboard', async ({ page }) => {
   await page.getByRole('button', { name: 'Play now', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('text-bankroll')).toBeVisible();
+});
+
+test('automatic welcome-back skip emits once, and Box Chevy card selection is normalized', async ({ page }) => {
+  const analytics: any[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/analytics/track' && request.method() === 'POST') analytics.push(request.postDataJSON());
+  });
+  await openReturningGuest(page, false, true);
+  await expect.poll(() => analytics.filter(e => e.eventType === 'welcome_back_dismissed').length).toBe(1);
+  expect(analytics.find(e => e.eventType === 'welcome_back_dismissed').properties.via).toBe('auto');
+  expect(analytics.filter(e => e.eventType === 'home_viewed')).toHaveLength(1);
+  await page.getByTestId('button-play-box_chevy').click();
+  await expect.poll(() => analytics.filter(e => e.eventType === 'mode_selected').length).toBe(1);
+  expect(analytics.find(e => e.eventType === 'mode_selected').properties.mode).toBe('box_chevy');
 });

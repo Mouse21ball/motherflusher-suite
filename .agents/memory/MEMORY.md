@@ -34,3 +34,4 @@
 - [AdMob SSV compatibility](admob-ssv-compatibility.md) — signed callbacks may use numeric slots and configurable rewards; never use provider amounts as chip grants.
 - [Zero-wallet viewing](zero-wallet-viewing.md) — zero-chip PLAY is real viewing, never automatic seating, grants, loans, or game funding.
 - [All-in turn policy](all-in-turn-policy.md) — skip betting without any idle timer; preserve required non-betting actions and pot eligibility.
+- [Capacitor core lifecycle](capacitor-core-lifecycle.md) — inspect the base bridge before adding an optional plugin solely for iOS return tracking.

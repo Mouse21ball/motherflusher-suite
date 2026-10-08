@@ -10,6 +10,7 @@ type ApiStatus = {
   method: string;
   path: string;
   status: number;
+  event?: { eventType: string; platform?: string; appVersion?: string; properties?: Record<string, unknown> };
 };
 
 type NativeCall = {
@@ -65,6 +66,8 @@ async function configureOfflineSafeBrowser(
           method: route.request().method(),
           path: requestUrl.pathname,
           status: response.status(),
+          event: requestUrl.pathname === '/api/analytics/track'
+            ? route.request().postDataJSON() : undefined,
         });
         await route.fulfill({
           response,
@@ -259,6 +262,15 @@ async function runProductionColdStart(
         ? 'age-gate'
         : 'unexpected',
   );
+  await expect.poll(() => apiStatuses.filter(e => e.event?.eventType === 'app_open').length).toBe(1);
+  const appOpen = apiStatuses.find(e => e.event?.eventType === 'app_open')!;
+  expect(appOpen.status).toBeGreaterThanOrEqual(200);
+  expect(appOpen.status).toBeLessThan(300);
+  expect(appOpen.event?.platform).toBe(androidShim ? 'android' : 'web');
+  expect(appOpen.event?.appVersion).toMatch(/^\d+\.\d+(?:\.\d+)?$/);
+  expect(appOpen.event?.properties?.first_open).toBe(true);
+  expect(Number.isInteger(appOpen.event?.properties?.build_number)).toBe(true);
+  expect(apiStatuses.find(e => e.event?.eventType === 'session_start')?.status).toBe(204);
   mkdirSync(QA_SCREENSHOT_DIR, { recursive: true });
   await page.screenshot({
     path: resolve(QA_SCREENSHOT_DIR, androidShim

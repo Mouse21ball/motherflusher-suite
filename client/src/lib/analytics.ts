@@ -39,6 +39,7 @@ export function fire2(eventType: FunnelEventType, props: Record<string, unknown>
 }
 
 export function trackHomeViewed(): void {
+  if (isPracticeBadugiRoute()) return;
   const identity = getPlayerId();
   const key = `cgp_first_home:${identity}`;
   let isFirstHome = true;

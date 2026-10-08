@@ -1,0 +1,456 @@
+[
+  {
+    "id": "fixture-1",
+    "player_id": "anon-a",
+    "event_type": "session_start",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:00:00Z",
+    "mode": null,
+    "properties": null,
+    "platform": null,
+    "app_version": null
+  },
+  {
+    "id": "fixture-2",
+    "player_id": "anon-a",
+    "event_type": "app_open",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "first_open": true
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-3",
+    "player_id": "anon-a",
+    "event_type": "age_gate_accepted",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:01:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-4",
+    "player_id": "player-a",
+    "event_type": "signup_completed",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:02:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "method": "login",
+      "name_length": 4
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-5",
+    "player_id": "player-a",
+    "event_type": "home_viewed",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:03:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "is_first_home": true
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-6",
+    "player_id": "player-a",
+    "event_type": "mode_selected",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:04:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-7",
+    "player_id": "player-a",
+    "event_type": "mode_play",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:05:00Z",
+    "mode": "badugi",
+    "properties": null,
+    "platform": null,
+    "app_version": null
+  },
+  {
+    "id": "fixture-8",
+    "player_id": "player-a",
+    "event_type": "table_joined",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:05:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-9",
+    "player_id": "player-a",
+    "event_type": "hand_started",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:06:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi",
+      "table_id": "TABLE1",
+      "hand_id": "1"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-10",
+    "player_id": "player-a",
+    "event_type": "hand_started",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:06:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi",
+      "table_id": "TABLE1",
+      "hand_id": "1"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-11",
+    "player_id": "player-a",
+    "event_type": "hand_completed",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:07:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi",
+      "table_id": "TABLE1",
+      "hand_id": "1",
+      "outcome": "win"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-12",
+    "player_id": "player-a",
+    "event_type": "bonus_claimed",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:08:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "type": "daily_calendar",
+      "chips": 500,
+      "streak_day": 1
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-13",
+    "player_id": "player-a",
+    "event_type": "bust_shown",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:09:00Z",
+    "mode": "badugi",
+    "properties": {
+      "session_id": "a1",
+      "session_player_id": "anon-a",
+      "mode": "badugi",
+      "tier": 3,
+      "chips_before": 5
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-14",
+    "player_id": "player-a",
+    "event_type": "session_end",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T10:10:00Z",
+    "mode": null,
+    "properties": null,
+    "platform": null,
+    "app_version": null
+  },
+  {
+    "id": "fixture-15",
+    "player_id": "player-a",
+    "event_type": "app_open",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T10:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a2",
+      "session_player_id": "anon-a",
+      "first_open": false
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-16",
+    "player_id": "player-a",
+    "event_type": "session_start",
+    "event_date": "2000-01-08",
+    "created_at": "2000-01-08T10:00:00Z",
+    "mode": null,
+    "properties": null,
+    "platform": null,
+    "app_version": null
+  },
+  {
+    "id": "fixture-17",
+    "player_id": "player-a",
+    "event_type": "app_open",
+    "event_date": "2000-01-31",
+    "created_at": "2000-01-31T10:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "a3",
+      "session_player_id": "anon-a",
+      "first_open": false
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-18",
+    "player_id": "player-b",
+    "event_type": "app_open",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T12:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "b1",
+      "session_player_id": "player-b",
+      "first_open": true
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-19",
+    "player_id": "player-b",
+    "event_type": "age_gate_accepted",
+    "event_date": "2000-01-01",
+    "created_at": "2000-01-01T12:01:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "b1",
+      "session_player_id": "player-b"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-20",
+    "player_id": "player-c",
+    "event_type": "app_open",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "first_open": true
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-21",
+    "player_id": "player-c",
+    "event_type": "age_gate_accepted",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:01:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-22",
+    "player_id": "player-c",
+    "event_type": "signup_completed",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:02:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "method": "guest",
+      "name_length": 4
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-23",
+    "player_id": "player-c",
+    "event_type": "home_viewed",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:03:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "is_first_home": true
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-24",
+    "player_id": "player-c",
+    "event_type": "mode_selected",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:04:00Z",
+    "mode": "box_chevy",
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "mode": "box_chevy"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-25",
+    "player_id": "player-c",
+    "event_type": "table_joined",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:04:00Z",
+    "mode": "box_chevy",
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "mode": "box_chevy"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-26",
+    "player_id": "player-c",
+    "event_type": "hand_started",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:05:00Z",
+    "mode": "box_chevy",
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "mode": "box_chevy",
+      "table_id": "TABLE2",
+      "hand_id": "1"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-27",
+    "player_id": "player-c",
+    "event_type": "hand_completed",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:06:00Z",
+    "mode": "box_chevy",
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "mode": "box_chevy",
+      "table_id": "TABLE2",
+      "hand_id": "1",
+      "outcome": "fold"
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-28",
+    "player_id": "player-c",
+    "event_type": "bonus_claimed",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:07:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "type": "hourly",
+      "chips": 250,
+      "streak_day": 0
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-29",
+    "player_id": "player-c",
+    "event_type": "bonus_claimed",
+    "event_date": "2000-01-02",
+    "created_at": "2000-01-02T12:08:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c1",
+      "session_player_id": "player-c",
+      "type": "starter_pack",
+      "reward_type": "welcome_kit",
+      "chips": 2500,
+      "streak_day": 0
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  },
+  {
+    "id": "fixture-30",
+    "player_id": "player-c",
+    "event_type": "app_open",
+    "event_date": "2000-01-03",
+    "created_at": "2000-01-03T12:00:00Z",
+    "mode": null,
+    "properties": {
+      "session_id": "c2",
+      "session_player_id": "player-c",
+      "first_open": false
+    },
+    "platform": "web",
+    "app_version": "1.4"
+  }
+]

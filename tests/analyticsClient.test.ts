@@ -96,8 +96,8 @@ describe("additive native funnel helper", () => {
   });
   it("does not create identities or send first-party events in practice", async () => {
     window.location.pathname = "/practice/badugi";
-    const { initAnalytics, fire2 } = await import("../client/src/lib/analytics");
-    initAnalytics(); fire2("hand_started", { mode: "badugi" });
+    const { initAnalytics, fire2, trackHomeViewed } = await import("../client/src/lib/analytics");
+    initAnalytics(); fire2("hand_started", { mode: "badugi" }); trackHomeViewed();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(localStorage.getItem("poker_table_identity")).toBeNull();
   });
