@@ -814,7 +814,7 @@ function advanceToNextPhase(table: AuthTable): void {
       if (p.status !== 'active') continue;
       const ev = evaluateBadugi(p.cards);
       if (!ev?.isValidBadugi) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true };
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true };
         foldMsgs.push(`${p.name} has no Badugi — auto-folded`);
         anyAutoFolded = true;
       }
@@ -1075,6 +1075,23 @@ export function resetToAnte(table: AuthTable): Promise<void> {
   return pending;
 }
 
+/**
+ * Rollover player-set rule (Badugi): when the pot rolls over (no valid hand
+ * anywhere), the next hand is played by everyone who hasn't voluntarily
+ * folded. Players auto-folded at DECLARE (no valid badugi) made it to the end
+ * — they're still in for the rolled-over pot. Voluntary folders sit out.
+ * On a normal (non-rollover) reset, everyone with chips plays.
+ */
+export function nextHandStatus(
+  p: { status: PlayerStatus; autoFoldedAtDeclare?: boolean },
+  newChips: number,
+  isRollover: boolean,
+): PlayerStatus {
+  const stillIn = p.status === 'active' || (p.status === 'folded' && p.autoFoldedAtDeclare === true);
+  if (isRollover) return (stillIn && newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus;
+  return (newChips > 0 ? 'active' : 'sitting_out') as PlayerStatus;
+}
+
 async function settleAndResetToAnte(table: AuthTable): Promise<void> {
   const s = table.state;
   /* A real rollover = pot carried forward because nobody qualified.
@@ -1097,9 +1114,8 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
       isWinner: undefined,
       isLoser: undefined,
       score: undefined,
-      status: (isRollover
-        ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out')
-        : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
+      autoFoldedAtDeclare: undefined,
+      status: nextHandStatus(p, newChips, isRollover),
     };
   });
 

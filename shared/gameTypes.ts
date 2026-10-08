@@ -45,6 +45,10 @@ export interface Player {
   hasActed?: boolean;
   isWinner?: boolean;
   isLoser?: boolean;
+  // Badugi: set when the engine auto-folds a player at DECLARE for holding no
+  // valid badugi (distinct from a voluntary fold). On a rollover (no valid hand
+  // anywhere), these players are still in for the next hand.
+  autoFoldedAtDeclare?: boolean;
   subscriptionTier?: string | null;
   score?: {
     high?: string;

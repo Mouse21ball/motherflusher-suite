@@ -167,7 +167,9 @@ export const BadugiMode: GameMode = {
       }
 
       if (declaration === 'FOLD') {
-        newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true };
+        // Bot with no valid badugi — same as the human auto-fold: still in for
+        // a rollover hand (autoFoldedAtDeclare), unlike a voluntary fold.
+        newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true };
         message = `${bot.name} declared FOLD`;
       } else {
         newPlayers[bIdx] = { ...bot, declaration, hasActed: true };
