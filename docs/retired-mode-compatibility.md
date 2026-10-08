@@ -9,11 +9,27 @@ Unrelated unknown IDs retain their existing handling.
 
 The player-facing text is:
 
-> This game mode has been retired. Please update the app to continue.
+> Dead 7 has been retired. Please update the app to continue.
+
+Each response names its actual game: Dead 7, Fifteen-Thirty-Five, Suits Poker,
+Kamikaze, or Bonecrusher. The old `suits_poker` alias also names Suits Poker.
 
 HTTP table creation, public matching and buy-in requests return status **410**
-with `code: "MODE_RETIRED"`, `reason: "mode-retired"`, `modeId`,
-`message`, `error` (both containing that text), and `updateRequired: true`.
+with `modeId`, `modeName`, `message`, `error` (both containing that text),
+`updateRequired: true`, `platform` and `updateUrl`. No retirement `code`,
+`reason` or `unknown-mode` text is sent.
+
+`updateUrl` is the configured App Store listing for iOS and the configured
+Google Play listing for Android, shared with Rate the Chain. The update URL
+does not include the App Store's write-review parameter.
+
+HTTP requests may provide `platform` in JSON/query or `x-app-platform`;
+WebSocket joins may provide `platform` in their message or `x-app-platform`
+in the handshake. Existing native clients need not change their requests:
+Android/iPhone/iPad User-Agent detection supplies the fallback, including
+iPad desktop-mode Macintosh agents containing `Mobile/`.
+Unidentified desktop/web requests get `updateUrl: null` and both configured
+listings in `storeLinks: { ios, android }`, not a guessed store.
 
 Authenticated WebSocket joins receive two frames, in order:
 
@@ -21,9 +37,10 @@ Authenticated WebSocket joins receive two frames, in order:
    player's session ID, role `player`, and an empty WAITING state.
 2. `error`, with the retirement metadata and readable message.
 
+Both frames include the mode-specific message and store-link fields.
 The first frame is strictly a display-only compatibility handshake. Old iOS
 `useServerMode` discards error text before initialization. Sending only a new
-error code or `mode:error` does not solve that problem. Role `player` is needed
+error payload or `mode:error` does not solve that problem. Role `player` is needed
 because the old generic UI suppresses its error banner for spectators.
 
 No room, seat, bot, betting timer, hand or active-table record is created, and
@@ -55,9 +72,15 @@ The tests explicitly verify both the working banners and the archived Android
 limitation; passing tests do **not** mean all installed clients are covered.
 If archived assets are absent, these optional bundle tests skip.
 
+Store-link fields allow a client to render an Update button. Existing compiled
+clients that only render the error string do not gain a new button just because
+the server includes extra fields; their JS must already support that behavior
+or be updated.
+
 ## Release gate
 
-**Do not publish yet.** Verify the exact vc28/build-13 packages before treating
+**Do not push or publish yet.** The owner requires the shim to be on main and
+personally verified before publication. Verify the exact vc28/build-13 packages before treating
 this shim as safe for every installed client. If vc28 has the same missing error
 propagation, decide on an app update or another rollout strategy with the owner.
 Do not send fake showdown/payout state or reintroduce retired games to force a

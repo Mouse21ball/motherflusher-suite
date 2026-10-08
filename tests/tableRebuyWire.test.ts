@@ -6,6 +6,10 @@ import { issueWsTicket } from '../server/wsTickets';
 import type { GameState } from '../shared/gameTypes';
 
 const authenticatedPlayerId = 'wire-test-profile';
+const retiredNames: Record<string, string> = {
+  dead7: 'Dead 7', fifteen35: 'Fifteen-Thirty-Five', suitspoker: 'Suits Poker',
+  suits_poker: 'Suits Poker', kamikaze: 'Kamikaze', bonecrusher: 'Bonecrusher',
+};
 
 interface ServerMessage {
   type: string;
@@ -15,6 +19,10 @@ interface ServerMessage {
   leaveId?: string;
   code?: string;
   modeId?: string;
+  modeName?: string;
+  updateUrl?: string | null;
+  updateRequired?: boolean;
+  platform?: string;
   accepted?: boolean;
   error?: string;
   message?: string;
@@ -289,12 +297,16 @@ describe('table rebuys over the real server WebSocket handler', () => {
     vi.unstubAllEnvs();
   });
 
-  it.each(['dead7', 'fifteen35', 'suitspoker', 'suits_poker', 'kamikaze', 'bonecrusher'])(
-    'rejects retired %s joins over the real room handler without seating or accessing wallets', async modeId => {
+  it.each(['dead7', 'fifteen35', 'suitspoker', 'suits_poker', 'kamikaze', 'bonecrusher']
+    .flatMap(mode => ['android', 'ios'].map(platform => [mode, platform])))(
+    'rejects retired %s joins on %s without seating or accessing wallets', async (modeId, platform) => {
       const tableId = `retired-${modeId}`;
       const sessionId = `retired-session-${modeId}`;
       const socket = new WebSocket(
         `ws://127.0.0.1:${port}/ws?ticket=${issueWsTicket(authenticatedPlayerId)}`,
+        { headers: { 'User-Agent': platform === 'ios'
+          ? 'Mozilla/5.0 (iPad; CPU OS 27_0 like Mac OS X) Mobile/15E148'
+          : 'Mozilla/5.0 (Linux; Android 15; Pixel 9) wv' } },
       );
       await new Promise<void>((resolve, reject) => {
         socket.once('open', resolve);
@@ -313,9 +325,14 @@ describe('table rebuys over the real server WebSocket handler', () => {
         expect(init.accepted).toBe(false);
         expect(init.state?.players).toEqual([]);
         expect(error).toMatchObject({
-          code: 'MODE_RETIRED', modeId,
-          message: 'This game mode has been retired. Please update the app to continue.',
+          modeId, modeName: retiredNames[modeId], platform, updateRequired: true,
+          message: `${retiredNames[modeId]} has been retired. Please update the app to continue.`,
+          updateUrl: platform === 'ios' ? 'https://apps.apple.com/app/id6796398661'
+            : 'https://play.google.com/store/apps/details?id=com.dgmentertainment.poker',
         });
+        expect(error).not.toHaveProperty('code');
+        expect(error).not.toHaveProperty('reason');
+        expect(JSON.stringify([init, error])).not.toMatch(/MODE_RETIRED|mode-retired|unknown-mode/);
         expect(vi.mocked(storage.getOrCreatePlayer).mock.calls.length).toBe(walletReads);
         expect(vi.mocked(storage.setPlayerActiveTable).mock.calls.length).toBe(seatWrites);
         expect((await import('../server/genericEngine')).getOrCreateTable(modeId, tableId)).toBeNull();
@@ -323,7 +340,7 @@ describe('table rebuys over the real server WebSocket handler', () => {
         socket.send(JSON.stringify({
           type: 'mode:action', tableId, modeId, playerId: sessionId, action: 'rebuy', payload: 1000,
         }));
-        expect((await actionError).code).toBe('MODE_RETIRED');
+        expect(await actionError).toMatchObject({ updateRequired: true, message: error.message, updateUrl: error.updateUrl });
         const left = waitForMessage(socket, msg => msg.type === 'leave:complete');
         socket.send(JSON.stringify({ type: 'leave', tableId, playerId: sessionId, leaveId: 'retired-leave' }));
         expect((await left).leaveId).toBe('retired-leave');

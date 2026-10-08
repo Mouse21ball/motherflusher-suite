@@ -19,7 +19,7 @@ Hold the four-game backend publication until the owner decides on compatibility 
 
 **Why:** The owner explicitly made publication conditional on safety for older native clients and requested a report before publishing if their UI is bundled locally.
 
-**How to apply:** Report the old-client risk first; do not publish merely to apply the analytics schema additions. Get a rollout decision before implementing a compatibility shim or resuming publication.
+**How to apply:** Report the old-client risk first; do not publish merely to apply the analytics schema additions. The owner requires the shim on main and their verification before publication; a local commit is not permission to publish.
 
 Legacy retirement errors need verification in the actual old renderer, not just a valid wire response. Some archived Android game wrappers omit error propagation; legacy iOS ignores ordinary errors until its initialization handshake.
 

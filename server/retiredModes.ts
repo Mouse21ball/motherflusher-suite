@@ -1,28 +1,55 @@
 import type { GameState } from '../shared/gameTypes';
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
+import { APP_STORE_LISTING_URL, PLAY_STORE_LISTING_URL } from '../shared/mobileStoreListings';
 
-const RETIRED_MODE_IDS = new Set([
-  'dead7', 'fifteen35', 'suitspoker', 'kamikaze', 'bonecrusher',
+const RETIRED_MODE_NAMES = new Map([
+  ['dead7', 'Dead 7'], ['fifteen35', 'Fifteen-Thirty-Five'],
+  ['suitspoker', 'Suits Poker'], ['kamikaze', 'Kamikaze'], ['bonecrusher', 'Bonecrusher'],
   // Shipped UnifiedGamePage maps the Suits Poker UI ID to this wire ID.
-  'suits_poker',
+  ['suits_poker', 'Suits Poker'],
 ]);
 
-export function getRetiredModeError(modeId: unknown) {
-  if (typeof modeId !== 'string' || !RETIRED_MODE_IDS.has(modeId)) return null;
-  const message = 'This game mode has been retired. Please update the app to continue.';
+export interface RetirementClientContext {
+  platform?: unknown;
+  userAgent?: string;
+}
+
+export function getRetirementPlatform(client: RetirementClientContext): 'ios' | 'android' | 'web' {
+  if (client.platform === 'ios' || client.platform === 'android' || client.platform === 'web') return client.platform;
+  const ua = client.userAgent ?? '';
+  if (/\bAndroid\b/i.test(ua)) return 'android';
+  // iPad desktop-mode WebViews identify as Macintosh but retain Mobile/.
+  if (/\b(iPad|iPhone|iPod)\b/i.test(ua) || /Macintosh.*\bMobile\//i.test(ua)) return 'ios';
+  return 'web';
+}
+
+export function retirementClientFromRequest(req: Request): RetirementClientContext {
   return {
-    code: 'MODE_RETIRED',
-    reason: 'mode-retired',
+    platform: req.body?.platform ?? req.query.platform ?? req.get('x-app-platform'),
+    userAgent: req.get('user-agent'),
+  };
+}
+
+export function getRetiredModeError(modeId: unknown, client: RetirementClientContext = {}) {
+  if (typeof modeId !== 'string' || !RETIRED_MODE_NAMES.has(modeId)) return null;
+  const modeName = RETIRED_MODE_NAMES.get(modeId)!;
+  const message = `${modeName} has been retired. Please update the app to continue.`;
+  const platform = getRetirementPlatform(client);
+  return {
     modeId,
+    modeName,
     message,
     error: message,
     updateRequired: true,
+    platform,
+    updateUrl: platform === 'ios' ? APP_STORE_LISTING_URL : platform === 'android' ? PLAY_STORE_LISTING_URL : null,
+    ...(platform === 'web' ? { storeLinks: { ios: APP_STORE_LISTING_URL, android: PLAY_STORE_LISTING_URL } } : {}),
   } as const;
 }
 
 /** HTTP callers already surface the response's `error` string. */
 export const rejectRetiredMode: RequestHandler = (req, res, next) => {
-  const error = getRetiredModeError(req.params.modeId ?? req.body?.modeId ?? req.body?.mode_id);
+  const error = getRetiredModeError(req.params.modeId ?? req.body?.modeId ?? req.body?.mode_id, retirementClientFromRequest(req));
   if (!error) { next(); return; }
   res.status(410).json({ ...error, tableId: null });
 };
@@ -38,8 +65,9 @@ export function sendRetiredModeRejection(
   modeId: string,
   tableId: string,
   playerId: string,
+  client: RetirementClientContext = {},
 ): boolean {
-  const error = getRetiredModeError(modeId);
+  const error = getRetiredModeError(modeId, client);
   if (!error) return false;
   const state: GameState = {
     tableId,

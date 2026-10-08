@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { APP_STORE_LISTING_URL, PLAY_STORE_LISTING_URL } from "@shared/mobileStoreListings";
 
 export type NativeReviewResult =
   | { status: "success"; requestCompleted: true }
@@ -17,9 +18,8 @@ interface RateTheChainReviewPlugin {
 
 const RateTheChainReview = registerPlugin<RateTheChainReviewPlugin>("RateTheChainReview");
 
-const APPLE_LISTING_URL = "https://apps.apple.com/app/id6796398661?action=write-review";
-const PLAY_LISTING_URL =
-  "https://play.google.com/store/apps/details?id=com.dgmentertainment.poker";
+const APPLE_LISTING_URL = `${APP_STORE_LISTING_URL}?action=write-review`;
+const PLAY_LISTING_URL = PLAY_STORE_LISTING_URL;
 
 /**
  * Request the platform in-app review UI. Success only means the native

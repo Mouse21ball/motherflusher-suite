@@ -39,7 +39,7 @@ import {
 } from './genericEngine';
 import { getTableRecord, updateTableRecord } from './routes';
 import { parseLegacyRebuyAmount } from './tableRebuyRequests';
-import { getRetiredModeError, sendRetiredModeRejection } from './retiredModes';
+import { getRetiredModeError, sendRetiredModeRejection, type RetirementClientContext } from './retiredModes';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, type StakeTierId } from '../shared/stakeTiers';
 import {
   handleLLJoin,
@@ -100,7 +100,7 @@ interface Room {
 // ─── Client message types ─────────────────────────────────────────────────────
 
 type ClientMessage =
-  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number; spectateOnly?: boolean }
+  | { type: 'join';          tableId: string; modeId: string; playerId: string; name: string; seatId: string; authoritative?: boolean; isPrivate?: boolean; quickPlay?: boolean; identityId?: string; subscriptionTier?: string; buyinChips?: number; spectateOnly?: boolean; platform?: 'ios' | 'android' | 'web' }
   | { type: 'leave';         tableId: string; playerId: string; leaveId?: string }
   | { type: 'ping' }
   | { type: 'table:rebuy'; tableId: string; modeId: string; playerId: string; requestId: string; kind: 'free' | 'reserve' | 'borrow'; amount?: number }
@@ -391,7 +391,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
     let engineSeatPid:    string | null      = null; // seat label assigned by the engine (e.g. "p1")
     let spectatorTableId: string | undefined = undefined;
     let spectatorUserId:  string | undefined = undefined;
-    let retiredJoin: { modeId: string; tableId: string; playerId: string } | null = null;
+    let retiredJoin: { modeId: string; tableId: string; playerId: string; client: RetirementClientContext } | null = null;
 
     const pingTimer = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
@@ -428,7 +428,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         return;
       }
       if (retiredJoin && msg.type === 'mode:action') {
-        try { ws.send(JSON.stringify({ type: 'error', ...getRetiredModeError(retiredJoin.modeId) })); } catch {}
+        try { ws.send(JSON.stringify({ type: 'error', ...getRetiredModeError(retiredJoin.modeId, retiredJoin.client) })); } catch {}
         return;
       }
 
@@ -453,8 +453,12 @@ export function initRooms(httpServer: Server): WebSocketServer {
         const authenticatedIdentityId = authWs.authenticatedPlayerId;
 
         // Reject before room/seat ownership, wallet access or engine allocation.
-        if (sendRetiredModeRejection(ws, modeId, tableId, pid)) {
-          retiredJoin = { modeId, tableId, playerId: pid };
+        const retirementClient = {
+          platform: msg.platform ?? req.headers['x-app-platform'],
+          userAgent: req.headers['user-agent'],
+        };
+        if (sendRetiredModeRejection(ws, modeId, tableId, pid, retirementClient)) {
+          retiredJoin = { modeId, tableId, playerId: pid, client: retirementClient };
           return;
         }
         retiredJoin = null;
@@ -546,7 +550,7 @@ export function initRooms(httpServer: Server): WebSocketServer {
         if (room.isAuthoritative) {
           assignedSeat = await addBadugiConnection(tableId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, authenticatedIdentityId, engineOptions, msg.buyinChips);
         } else if (SERVER_MODES_ON && modeId !== 'badugi') {
-          assignedSeat = await addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, authenticatedIdentityId, engineOptions, msg.buyinChips);
+          assignedSeat = await addGenericConnection(tableId, modeId, pid, ws, name || undefined, !!isPrivate, !!quickPlay, authenticatedIdentityId, engineOptions, msg.buyinChips, retirementClient);
         }
         if (assignedSeat === null) {
           clearSeatOwner(tableId, pid);

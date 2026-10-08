@@ -4,7 +4,8 @@ import path from 'node:path';
 import { sendRetiredModeRejection } from '../../server/retiredModes';
 
 const modes = ['dead7', 'fifteen35', 'suitspoker', 'kamikaze', 'bonecrusher'];
-const message = 'This game mode has been retired. Please update the app to continue.';
+const names: Record<string, string> = { dead7: 'Dead 7', fifteen35: 'Fifteen-Thirty-Five',
+  suitspoker: 'Suits Poker', kamikaze: 'Kamikaze', bonecrusher: 'Bonecrusher' };
 // This archived Android bundle predates forwarding actionError to these pages.
 // Keep this limitation explicit; a server cannot patch an installed JS renderer.
 const androidMissingBanner = new Set(['dead7', 'fifteen35', 'suitspoker', 'kamikaze']);
@@ -25,6 +26,7 @@ for (const bundle of bundles) {
     test.skip(!available, 'Requires an archived nine-mode native web bundle');
     test.use({ viewport: bundle.viewport });
     for (const mode of modes) {
+      const message = `${names[mode]} has been retired. Please update the app to continue.`;
       const missingBanner = bundle.platform === 'Android' && androidMissingBanner.has(mode);
       test(`${mode} ${missingBanner ? 'receives rejection but archived UI lacks its banner' : 'shows the real legacy error banner'}`, async ({ page }) => {
         const errors: string[] = [];
@@ -48,7 +50,7 @@ for (const bundle of bundles) {
               sendRetiredModeRejection({ send: frame => {
                 sentFrames.push(JSON.parse(frame));
                 socket.send(frame);
-              } }, msg.modeId, msg.tableId, msg.playerId);
+              } }, msg.modeId, msg.tableId, msg.playerId, { platform: bundle.platform === 'Android' ? 'android' : 'ios' });
             } else if (msg.type === 'leave') {
               socket.send(JSON.stringify({ type: 'leave:complete', leaveId: msg.leaveId }));
             }
@@ -98,7 +100,9 @@ for (const bundle of bundles) {
         if (bundle.platform === 'Android') await playNow.click();
         await expect.poll(() => joinSeen).toBe(true);
         expect(sentFrames.map(frame => frame.type)).toEqual(['mode:init', 'error']);
-        expect(sentFrames[1]).toMatchObject({ code: 'MODE_RETIRED', message });
+        expect(sentFrames[1]).toMatchObject({ updateRequired: true, message, updateUrl: bundle.platform === 'Android'
+          ? 'https://play.google.com/store/apps/details?id=com.dgmentertainment.poker'
+          : 'https://apps.apple.com/app/id6796398661' });
         const banner = page.getByRole('alert').filter({ hasText: message });
         if (missingBanner) {
           await expect(page.locator('#root')).not.toBeEmpty();

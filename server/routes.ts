@@ -41,7 +41,7 @@ import {
   incrementGenericTimeBankSessionUsed,
 } from "./genericEngine";
 import { db } from "./db";
-import { getRetiredModeError, rejectRetiredMode } from "./retiredModes";
+import { getRetiredModeError, rejectRetiredMode, retirementClientFromRequest } from "./retiredModes";
 import { sql as drizzleSql } from "drizzle-orm";
 import { levelFromXP } from "@shared/progressionRules";
 import { requireAuth, requireAdmin, requireSelf } from "./middleware/auth";
@@ -3992,7 +3992,7 @@ export async function registerRoutes(
       }).parse(req.body);
 
       const tableRecord = getTableRecord(tableId);
-      const retired = getRetiredModeError(tableRecord?.modeId);
+      const retired = getRetiredModeError(tableRecord?.modeId, retirementClientFromRequest(req));
       if (retired) { res.status(410).json(retired); return; }
       // Prefer the live game state; use the registered tier while the engine
       // table is still being created, and Low for unregistered quick-play codes.
