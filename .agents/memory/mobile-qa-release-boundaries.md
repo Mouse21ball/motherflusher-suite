@@ -15,6 +15,12 @@ The owner publishes the backend himself from the Replit website. A rebuy network
 
 **How to apply:** Fix and verify requested QA items, keep their commits separate, and report exact hashes without starting or suggesting backend publication for these QA passes.
 
+Do not publish the backend until the additive analytics migration is confirmed applied to production. Explicitly confirm the production columns and indexes, or clearly report why application is blocked.
+
+**Why:** The user explicitly required production migration confirmation before the next backend publish.
+
+**How to apply:** Treat this as a release hold. Managed production database access is read-only for the agent and schema changes use Replit's Publish flow; do not bypass that restriction or claim development migration success proves production readiness. Explain this conflict before proposing any publication.
+
 The owner confirmed AdMob review approval on 2026-10-02 and authorized wiring Watch Ad to the bust-out modal.
 
 **Why:** The user explicitly lifted the earlier review hold.
