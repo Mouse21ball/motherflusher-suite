@@ -15,6 +15,12 @@ Backend publishing must preserve compatibility with production mobile clients st
 
 **How to apply:** Compare all shipped-client HTTP and WebSocket contracts against the proposed backend. Treat rejection of a formerly supported game action as a breaking change even if endpoint names and JSON envelopes are unchanged. Check legacy join, rebuy, leave, authentication, and wallet behavior rather than relying on tests of the new client alone.
 
+Hold the four-game backend publication until the owner decides on compatibility handling or a staged rollout for installed nine-mode native apps. Do not treat publishing web UI as updating installed native UI.
+
+**Why:** The owner explicitly made publication conditional on safety for older native clients and requested a report before publishing if their UI is bundled locally.
+
+**How to apply:** Report the old-client risk first; do not publish merely to apply the analytics schema additions. Get a rollout decision before implementing a compatibility shim or resuming publication.
+
 Trace what the old client actually consumes before declaring an accounting correction a protocol break.
 
 **Why:** A review initially classified removing the HTTP buy-in debit as incompatible, but the old slider only checks success and forwards its selected amount to the socket join; it neither decrements its own balance nor requires a debit response. Restoring the debit would reintroduce the confirmed total-wallet accounting defect. Likewise, preventing a one-player poker hand is an intentional eligibility correction, not a removed message contract.
