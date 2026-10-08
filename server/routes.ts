@@ -93,6 +93,7 @@ import {
 } from "./firstPurchase";
 import { randomBytes, randomUUID } from "crypto";
 import { BUILD_COMMIT, BUILD_TIMESTAMP } from "./buildInfo";
+import { trackEventSchema } from "../shared/analytics";
 import { registerLeaderboardRoute } from "./leaderboardRoutes";
 import { adMobAdUnitMatches, getAdMobVerifierKeys, isAdMobSsvSetupPing, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "./rewardedAdConfig";
@@ -233,12 +234,7 @@ export function isFriendTableJoinable(
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
-const trackEventSchema = z.object({
-  eventType: z.enum(["session_start", "session_end", "mode_play"]),
-  playerId: z.string().min(1),
-  mode: z.string().optional(),
-  durationMs: z.number().int().optional(),
-});
+// Shared with contract tests; legacy validation remains backward compatible.
 
 const createTableSchema = z.object({
   tableId:     z.string().length(6).regex(/^[A-Z0-9]+$/),
@@ -791,6 +787,9 @@ export async function registerRoutes(
         playerId: parsed.playerId,
         mode: parsed.mode ?? null,
         durationMs: parsed.durationMs ?? null,
+        properties: parsed.properties ?? null,
+        platform: parsed.platform ?? null,
+        appVersion: parsed.appVersion ?? null,
         eventDate,
       });
       res.status(204).end();

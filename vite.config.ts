@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
+import { readAppReleaseInfo } from "./scripts/appReleaseInfo";
 
 export default defineConfig({
   plugins: [
@@ -40,6 +41,7 @@ export default defineConfig({
   // .env.local are picked up by the browser bundle.
   envDir: path.resolve(import.meta.dirname),
   define: {
+    __APP_RELEASE_INFO__: JSON.stringify(readAppReleaseInfo(import.meta.dirname)),
     'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
       process.env.VITE_API_BASE_URL ?? ''
     ),

@@ -549,9 +549,15 @@ export const analyticsEvents = pgTable("analytics_events", {
   playerId: text("player_id").notNull(),
   mode: text("mode"),
   durationMs: integer("duration_ms"),
+  properties: jsonb("properties").$type<Record<string, unknown>>(),
+  platform: text("platform"),
+  appVersion: text("app_version"),
   eventDate: text("event_date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("analytics_events_player_event_idx").on(table.playerId, table.eventType),
+  index("analytics_events_date_event_idx").on(table.eventDate, table.eventType),
+]);
 
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
   id: true,

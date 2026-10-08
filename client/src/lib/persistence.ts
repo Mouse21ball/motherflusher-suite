@@ -40,6 +40,7 @@ export interface PlayerIdentity {
 // iOS Safari private browsing, which throws on localStorage.setItem with quota=0).
 // Survives SPA navigations within the same page load.
 let _memoryIdentity: PlayerIdentity | null = null;
+let newlyCreatedIdentity = false;
 
 function safePersist(key: string, value: unknown): void {
   try {
@@ -86,7 +87,10 @@ export function ensurePlayerIdentity(): PlayerIdentity {
   let legacyName = 'Player';
   const newId   = crypto.randomUUID();
   let legacyId: string = newId;
+  let migratedIdentity = false;
   try {
+    migratedIdentity = localStorage.getItem('poker_table_player_name') !== null
+      || localStorage.getItem('poker_table_analytics_id') !== null;
     legacyName = localStorage.getItem('poker_table_player_name') ?? 'Player';
     legacyId   = localStorage.getItem('poker_table_analytics_id') ?? newId;
   } catch {}
@@ -99,12 +103,21 @@ export function ensurePlayerIdentity(): PlayerIdentity {
   };
 
   _memoryIdentity = identity;
+  newlyCreatedIdentity = !migratedIdentity;
   safePersist(IDENTITY_KEY, identity);
   return identity;
 }
 
 export function getPlayerIdentity(): PlayerIdentity | null {
   return safeRead<PlayerIdentity>(IDENTITY_KEY) ?? _memoryIdentity;
+}
+
+// Consume the creation signal even when a profile consumer initialized identity
+// before App's analytics effect. Existing/migrated identities are not installs.
+export function consumeNewIdentityForAnalytics(): boolean {
+  const created = newlyCreatedIdentity;
+  newlyCreatedIdentity = false;
+  return created;
 }
 
 export function savePlayerIdentity(identity: PlayerIdentity): void {
