@@ -1490,6 +1490,37 @@ function afterHumanAction(table: GenericTable, wasRaise = false): void {
   }
 }
 
+// ─── Retired-mode compatibility shim ─────────────────────────────────────────
+// The 9→4 lineup cut (Oct 2026) removed these modes from MODE_REGISTRY, but
+// already-installed native clients bundle their UI locally and still render the
+// old mode buttons. Instead of a cryptic unknown-mode rejection, retired modes
+// get a graceful "update the app" response carrying both store listings so the
+// client can render a one-tap Update button. No game logic is revived — this is
+// a rejection with directions, same pattern as the legacy rebuy shim.
+export const RETIRED_MODES: Record<string, string> = {
+  dead7:        'Dead 7',
+  fifteen35:    'Fifteen-Thirty-Five',
+  suits_poker:  'Suits Poker',
+  kamikaze:     'Kamikaze',
+  bonecrusher:  'Bonecrusher',
+};
+
+const RETIRED_MODE_APP_STORE_URL = 'https://apps.apple.com/app/id6796398661';
+const RETIRED_MODE_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.dgmentertainment.poker';
+
+function sendRetiredModeResponse(ws: WebSocket, modeId: string): void {
+  const modeName = RETIRED_MODES[modeId];
+  try {
+    ws.send(JSON.stringify({
+      type: 'mode:retired',
+      modeId,
+      modeName,
+      message: `${modeName} has been retired. Update the app to play the new lineup: Badugi, Flushed Up, Lady Luck, and Box Chevy.`,
+      storeUrls: { ios: RETIRED_MODE_APP_STORE_URL, android: RETIRED_MODE_PLAY_STORE_URL },
+    }));
+  } catch { /* ignore — connection already dead */ }
+}
+
 // ─── Get or create table ─────────────────────────────────────────────────────
 
 export function getOrCreateTable(
@@ -1701,6 +1732,14 @@ export async function addGenericConnection(
   const isNew = !tables.has(key);
   const table = getOrCreateTable(modeId, tableId, isPrivate, quickPlay, options);
   if (!table) {
+    if (RETIRED_MODES[modeId]) {
+      // Graceful retired-mode response for clients that understand it (web +
+      // future native builds). Old native clients don't know `mode:retired` and
+      // would spin forever on it, so ALSO send the legacy `mode:error` they
+      // already handle — that lands them on their connection-failed state
+      // instead of a hang. No error codes are shown to the user either way.
+      sendRetiredModeResponse(ws, modeId);
+    }
     try { ws.send(JSON.stringify({ type: 'mode:error', reason: 'unknown-mode' })); } catch {}
     return null;
   }

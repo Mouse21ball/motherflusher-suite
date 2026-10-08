@@ -199,14 +199,47 @@ async function scheduleBotFill(tableId: string): Promise<void> {
   if (!meta || meta.state.phase !== 'LOBBY') return;
   meta.botFillTimer = undefined;
 
+  // Hardened Oct 2026: a single addBotToLobby failure must NOT kill the chain.
+  // Previously the bare `await` below threw, the .catch at the timer level
+  // swallowed it, and the refill loop never started — soft-locking solo hosts
+  // in the lobby forever with no error shown.
+  let consecutiveFailures = 0;
+  const notifyHostOfBotFillFailure = () => {
+    const m = tables.get(tableId);
+    const ws = m?.connections.get(m?.hostId ?? '');
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({
+          type: 'll:error',
+          message: "Couldn't fill the table with players. Please leave and create a new table.",
+        }));
+      } catch {}
+    }
+  };
+
   // Add one bot immediately, then schedule the rest 2 s apart
-  await addBotToLobby(tableId);
+  try {
+    await addBotToLobby(tableId);
+  } catch (err) {
+    consecutiveFailures++;
+    console.error(`[LL] initial bot-fill failed for table ${tableId}:`, err);
+  }
 
   const refill = async () => {
     const m = tables.get(tableId);
     if (!m || m.state.phase !== 'LOBBY') return;
     if (m.state.players.length < 4) {
-      await addBotToLobby(tableId);
+      try {
+        await addBotToLobby(tableId);
+        consecutiveFailures = 0;
+      } catch (err) {
+        consecutiveFailures++;
+        console.error(`[LL] bot-fill refill failed for table ${tableId} (${consecutiveFailures}x consecutive):`, err);
+        if (consecutiveFailures >= 5) {
+          notifyHostOfBotFillFailure();
+          return; // stop retrying — the host has been told
+        }
+      }
       m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
     } else {
       scheduleCountdown(tableId);
