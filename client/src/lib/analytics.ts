@@ -81,9 +81,9 @@ export function trackSessionEnd(): void {
   fire({ eventType: "session_end", durationMs });
 }
 
-export function trackModePlay(mode: string): void {
+export function trackModePlay(mode: string, details: Record<string, unknown> = {}): void {
   fire({ eventType: "mode_play", mode });
-  fire2("table_joined", { mode });
+  fire2("table_joined", { ...details, mode });
 }
 
 let initialized = false;
@@ -93,17 +93,32 @@ export function initAnalytics(): void {
   initialized = true;
   trackSessionStart();
   fire2("app_open", { first_open: consumeNewIdentityForAnalytics() });
+  let inBackground = false;
+  const noteActive = (active: boolean) => {
+    if (isPracticeBadugiRoute()) return;
+    if (!active) { inBackground = true; return; }
+    if (!inBackground) return;
+    inBackground = false;
+    funnelSessionId = undefined;
+    sessionPlayerId = undefined;
+    fire2("app_open", { first_open: false });
+  };
   window.addEventListener("beforeunload", trackSessionEnd);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       trackSessionEnd();
+      noteActive(false);
     } else {
-      // A retained native WebView can resume a day later without remounting App.
-      funnelSessionId = undefined;
-      sessionPlayerId = undefined;
-      fire2("app_open", { first_open: false });
+      noteActive(true);
     }
   });
+  // Capacitor core emits document pause/resume (including iOS without an App
+  // plugin). Native foregrounding need not change WebView visibility. Share
+  // the guard to dedupe both signals; legacy session_end scheduling is intact.
+  if (Capacitor.isNativePlatform()) {
+    document.addEventListener("pause", () => noteActive(false));
+    document.addEventListener("resume", () => noteActive(true));
+  }
 }
 
 // ── GA4 Custom Event Wrapper ──────────────────────────────────────────────────
@@ -146,6 +161,13 @@ export function setUserId(userId: string | null): void {
 }
 
 export function getModeFromPath(): string {
+  const p = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (p.startsWith('/badugi'))     return 'badugi';
+  return 'unknown';
+}
+
+// Keep GA4's original path helper unchanged; this is for new first-party events.
+export function getFunnelModeFromPath(): string {
   const p = typeof window !== 'undefined' ? window.location.pathname : '';
   if (p.startsWith('/badugi'))     return 'badugi';
   if (p.startsWith('/flushedup'))  return 'flushed_up';

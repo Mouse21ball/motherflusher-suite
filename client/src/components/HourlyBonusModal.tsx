@@ -4,7 +4,7 @@ import { saveChips, getChips, ensurePlayerIdentity } from '@/lib/persistence';
 import { getLevelInfo, getProgression } from '@/lib/progression';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
-import { track } from '@/lib/analytics';
+import { track, fire2 } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 
 interface HourlyBonusModalProps {
@@ -73,6 +73,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
     const response = await apiFetch(apiUrl(`/api/players/${identity.id}/rewards/hourly/claim`), { method: 'POST' });
     if (!response.ok) throw new Error('Hourly reward on cooldown or unavailable');
     const { chips: earned } = await response.json() as { chips: number };
+    fire2("bonus_claimed", { type: "hourly", chips: earned, streak_day: 0 });
     claimHourlyBonus(level); // local notification cache
     track({ name: 'hourly_bonus_claimed', chips_awarded: earned });
     for (const modeId of MODES) {

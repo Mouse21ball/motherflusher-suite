@@ -548,9 +548,10 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
 
 function broadcastState(table: AuthTable): void {
   const spectatorCount = table.spectators.size;
-  const stateWithMeta = spectatorCount > 0
-    ? { ...table.state, spectatorCount }
-    : table.state;
+  const stateWithMeta = {
+    ...table.state, handId: table.handId,
+    ...(spectatorCount > 0 ? { spectatorCount } : {}),
+  };
 
   for (const [playerId, ws] of Array.from(table.connections.entries())) {
     if (ws.readyState !== 1 /* OPEN */) continue;

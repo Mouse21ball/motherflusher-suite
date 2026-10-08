@@ -9,6 +9,7 @@ import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { DISCLAIMER } from '@/lib/retention';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { fire2 } from '@/lib/analytics';
 
 // ── Reward schedule (mirrors server) ──────────────────────────────────────────
 const SCHEDULE = [
@@ -126,6 +127,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
       }
       if (!r.ok) throw new Error(`${r.status}`);
       const result: ClaimResult = await r.json();
+      fire2("bonus_claimed", { type: "daily_calendar", chips: result.chipsGranted, streak_day: result.newStreakDay });
       setClaimed(result);
       onClaimed(result.chipsGranted, result.stripesGranted, result.newChipBalance, result.newStripesBalance);
     } catch {

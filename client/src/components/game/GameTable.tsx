@@ -8,6 +8,8 @@ import { ReactionBar } from "./ReactionBar";
 import { getPhaseLabel } from "@/lib/phaseLabel";
 import { saveSessionResult, saveHandResult } from "@/lib/tableSession";
 import { track, getModeFromPath } from "@/lib/analytics";
+import { getFunnelModeFromPath } from "@/lib/analytics";
+import { useHandAnalytics } from "@/lib/useHandAnalytics";
 
 interface GameTableProps {
   gameState: GameState;
@@ -20,6 +22,7 @@ interface GameTableProps {
 }
 
 export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, selectableCards, onReact, incomingReactions }: GameTableProps) {
+  useHandAnalytics(gameState, myId, typeof window === "undefined" ? undefined : new URLSearchParams(window.location.search).get("t") ?? undefined, getFunnelModeFromPath());
   const myIndex = gameState.players.findIndex(p => p.id === myId);
   const orderedPlayers = [...gameState.players];
   if (myIndex !== -1) {

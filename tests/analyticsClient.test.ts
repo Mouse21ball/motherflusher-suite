@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { readAppReleaseInfo } from "../scripts/appReleaseInfo";
 
 vi.mock("@capacitor/core", () => ({
   Capacitor: { getPlatform: () => "ios", isNativePlatform: () => true },
@@ -38,7 +39,8 @@ describe("additive native funnel helper", () => {
     const { initAnalytics } = await import("../client/src/lib/analytics");
     initAnalytics(); initAnalytics();
     expect(bodies().map(b => b.eventType)).toEqual(["session_start", "app_open"]);
-    expect(bodies()[1]).toMatchObject({ platform: "ios", appVersion: "1.4", properties: { first_open: true, build_number: 13 } });
+    const release = readAppReleaseInfo(process.cwd()).ios;
+    expect(bodies()[1]).toMatchObject({ platform: "ios", appVersion: release.version, properties: { first_open: true, build_number: release.build } });
     expect(bodies()[0]).not.toHaveProperty("properties");
     expect(window.gtag).not.toHaveBeenCalled();
   });
@@ -76,6 +78,21 @@ describe("additive native funnel helper", () => {
     doc.visibilityState = "visible"; visibility!();
     expect(bodies().at(-1)).toMatchObject({ eventType: "app_open", properties: { first_open: false } });
     expect(bodies().at(-1).properties.session_id).not.toBe(first);
+  });
+  it("records a native warm return once even if visibility also changes", async () => {
+    const { initAnalytics } = await import("../client/src/lib/analytics");
+    initAnalytics();
+    const pause = doc.addEventListener.mock.calls.find(call => call[0] === "pause")![1];
+    const resume = doc.addEventListener.mock.calls.find(call => call[0] === "resume")![1];
+    pause();
+    resume();
+    visibility!();
+    resume();
+    const opens = bodies().filter(b => b.eventType === "app_open");
+    expect(opens).toHaveLength(2);
+    expect(opens[1].properties.first_open).toBe(false);
+    expect(opens[1].properties.session_id).not.toBe(opens[0].properties.session_id);
+    expect(bodies().filter(b => b.eventType === "session_end")).toHaveLength(0);
   });
   it("does not create identities or send first-party events in practice", async () => {
     window.location.pathname = "/practice/badugi";

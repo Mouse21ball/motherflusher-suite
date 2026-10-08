@@ -721,9 +721,10 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
 
 function broadcastState(table: GenericTable): void {
   const spectatorCount = table.spectators.size;
-  const stateWithMeta = spectatorCount > 0
-    ? { ...table.state, spectatorCount }
-    : table.state;
+  const stateWithMeta = {
+    ...table.state, handId: table.handId,
+    ...(spectatorCount > 0 ? { spectatorCount } : {}),
+  };
   const pub = table.publicCardIndicesPerPlayer;
 
   for (const [playerId, ws] of Array.from(table.connections.entries())) {

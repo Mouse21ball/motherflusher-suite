@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLadyLuckAnalytics } from '@/lib/useHandAnalytics';
 import { useLocation } from 'wouter';
 import { apiUrl, wsUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
@@ -228,6 +229,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
   const wsRef    = useRef<WebSocket | null>(null);
   const identity = ensurePlayerIdentity();
+  useLadyLuckAnalytics(state, identity.id, tableId);
   const { counts: roomCounts, fullTableId } = useLLRoomData();
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { isPracticeBadugiPath } from "../client/src/lib/practiceRoute";
 
 vi.mock("../client/src/lib/persistence", () => ({
   ensurePlayerIdentity: vi.fn(() => ({ id: "practice-guard-test" })),
+  consumeNewIdentityForAnalytics: vi.fn(() => false),
 }));
 
 describe("practice-route analytics and referral isolation", () => {
@@ -40,7 +41,7 @@ describe("practice-route analytics and referral isolation", () => {
     const analytics = await import("../client/src/lib/analytics");
     analytics.initAnalytics();
     expect(sessionStore.setItem).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // legacy session_start + additive app_open
     const onUnload = windowListeners.get("beforeunload")!;
     const onVisibility = documentListeners.get("visibilitychange")!;
 
@@ -51,12 +52,12 @@ describe("practice-route analytics and referral isolation", () => {
     analytics.trackSessionEnd();
     expect(sessionStore.getItem).not.toHaveBeenCalled();
     expect(sessionStore.setItem).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     location.pathname = "/";
     onUnload(new Event("beforeunload"));
     expect(sessionStore.getItem).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("does not persist a referral on query-string practice entry, but preserves lobby capture", async () => {

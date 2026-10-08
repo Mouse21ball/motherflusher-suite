@@ -14,6 +14,7 @@ import { getBadugiDrawLimit, toggleBadugiDrawSelection } from './badugiDrawSelec
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { BustOutModal } from '@/components/game/BustOutModal';
+import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
@@ -60,6 +61,7 @@ export function BadugiFullPage({
   state, handleAction, actionError, requestRebuy, myId, modeId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
 }: BadugiFullPageProps) {
+  const analyticsChipsBefore = useHandAnalytics(state, myId, tableId, 'badugi');
   void modeId;
   const [, navigate]   = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
@@ -333,7 +335,7 @@ export function BadugiFullPage({
 
       {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
 
-      <BustOutModal open={showBustModal} tableId={tableId} modeId={MODE_ID} bankrollAvailable={serverProfile?.chipBalance ?? 0}
+      <BustOutModal open={showBustModal} tableId={tableId} modeId={MODE_ID} chipsBefore={analyticsChipsBefore} bankrollAvailable={serverProfile?.chipBalance ?? 0}
         bigBlind={state.minBet} lifetimeBusts={lifetimeBusts} sessionBusts={sessionBusts}
         hasNeverPurchased={hasNeverPurchased}
         onRebuy={async amount => { await requestRebuy('reserve', amount); setBustDismissed(true); void refetchProfile(); }}

@@ -112,6 +112,8 @@ export interface ReactionEvent {
 }
 
 export interface GameState {
+  /** Authoritative per-table hand sequence; observational metadata, not rules. */
+  handId?: number;
   tableId: string;
   phase: GamePhase;
   /** Server-owned consecutive wins per seat for this active table. */

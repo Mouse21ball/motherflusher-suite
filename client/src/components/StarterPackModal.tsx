@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
+import { fire2 } from '@/lib/analytics';
 import { apiFetch } from '@/lib/session';
 
 interface StarterPackModalProps {
@@ -43,6 +44,15 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
         method: 'POST',
       });
       if (!response.ok) throw new Error(response.status === 409 ? 'Welcome kit already claimed' : 'Unable to claim welcome kit');
+      // This modal is the welcome-kit claim UI, not a second independent grant.
+      // Do not let a malformed analytics response break an otherwise valid claim.
+      try {
+        const reward = await response.json() as { chips?: number };
+        if (Number.isInteger(reward.chips)) fire2("bonus_claimed", {
+          type: "starter_pack", reward_type: "welcome_kit",
+          chips: reward.chips, streak_day: 0,
+        });
+      } catch {}
     } catch (e) { setError((e as Error).message); setAnimating(false); return; }
 
     try { localStorage.setItem('cgp_emotes_just_unlocked', '1'); } catch {}

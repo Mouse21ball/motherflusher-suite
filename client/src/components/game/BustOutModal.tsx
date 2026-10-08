@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { track, getModeFromPath } from "@/lib/analytics";
+import { track, getModeFromPath, fire2, getFunnelModeFromPath } from "@/lib/analytics";
+import { bustAnalyticsTier } from "@/lib/handAnalytics";
 import { billing } from "@/lib/billing";
 import { apiFetch } from "@/lib/session";
 import { apiUrl } from "@/lib/apiConfig";
@@ -22,6 +23,8 @@ interface BustOutModalProps {
   tableId?: string;
   modeId?: string;
   bankrollAvailable?: number;
+  /** Last observed positive table stack before going bust; zero if unknown. */
+  chipsBefore?: number;
   bigBlind?: number;
 }
 
@@ -101,6 +104,7 @@ export function BustOutModal({
   tableId,
   modeId,
   bankrollAvailable,
+  chipsBefore = 0,
   bigBlind,
 }: BustOutModalProps) {
   const [showRebuySlider, setShowRebuySlider] = useState(false);
@@ -122,6 +126,18 @@ export function BustOutModal({
   const [adPendingSession, setAdPendingSession] = useState<string | null>(null);
   const serverProfile = useOptionalServerProfile();
   const bustKey = `${modeId}:${tableId}:${lifetimeBusts}:${sessionBusts}`;
+  const analyticsBustRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) { analyticsBustRef.current = null; return; }
+    if (analyticsBustRef.current !== null) return;
+    analyticsBustRef.current = bustKey;
+    fire2("bust_shown", {
+      mode: modeId ?? getFunnelModeFromPath(),
+      tier: bustAnalyticsTier(lifetimeBusts, sessionBusts, hasNeverPurchased),
+      chips_before: Number.isFinite(chipsBefore) ? Math.max(0, Math.trunc(chipsBefore)) : 0,
+      chips_before_source: "last_positive_table_snapshot",
+    });
+  }, [open, bustKey, modeId, lifetimeBusts, sessionBusts, hasNeverPurchased, chipsBefore]);
 
   useEffect(() => {
     setAdUsed(false);

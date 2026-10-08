@@ -32,7 +32,7 @@ import { HowToPlay } from '@/components/ui/HowToPlay';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
-import { track } from '@/lib/analytics';
+import { track, fire2, trackHomeViewed } from '@/lib/analytics';
 import { startMenuReview } from '@/lib/reviewFlow';
 import { MusicButton } from '@/components/MusicButton';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
@@ -271,6 +271,17 @@ function syncXPFromHistory(): void {
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const homeTracked = useRef(false);
+  useEffect(() => {
+    if (homeTracked.current) return;
+    homeTracked.current = true;
+    trackHomeViewed();
+  }, []);
+  const selectMode = (id: string, path: string, direct: boolean) => {
+    fire2("mode_selected", { mode: id });
+    if (direct) navigate(path);
+    else void navigateToMode(id, path);
+  };
   const [showPrivateSetup,   setShowPrivateSetup]   = useState(false);
   const [showOpenTableModal, setShowOpenTableModal] = useState(false);
   const [howToPlayMode, setHowToPlayMode] = useState<'badugi' | 'flushedup' | 'box_chevy' | 'ladyluck' | null>(null);
@@ -638,9 +649,9 @@ export default function Home() {
               const htpModeId  = HOW_TO_PLAY_ID[card.id];
               return (
                 <div key={card.id} data-testid={`button-mode-${card.id}`}
-                  onClick={() => (card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path)}
+                  onClick={() => selectMode(card.id, mode.path, Boolean((card as any).directNav))}
                   role="button" tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') ((card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path)); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}
                   style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
                   {/* BG scene art */}
                   <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
@@ -683,7 +694,7 @@ export default function Home() {
                   <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
                     <button
                       data-testid={`button-play-${card.id}`}
-                      onClick={e => { e.stopPropagation(); (card as any).directNav ? navigate(mode.path) : navigateToMode(card.id, mode.path); }}
+                      onClick={e => { e.stopPropagation(); selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}
                       style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em', border: 'none', cursor: 'pointer' }}
                     >
                       PLAY →

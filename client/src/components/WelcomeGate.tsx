@@ -1,9 +1,9 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
 import { setSessionToken } from "@/lib/session";
 import { BrandBackground } from "./BrandBackground";
-import { track, setUserId } from "@/lib/analytics";
+import { track, setUserId, fire2 } from "@/lib/analytics";
 import { clearSavedReferralCode, getSavedReferralCode } from "@/lib/referralAttribution";
 
 const AGE_KEY = 'cgp_age_17_confirmed';
@@ -29,17 +29,25 @@ interface WelcomeGateProps {
 const LEGAL_PATHS = ['/terms', '/privacy'];
 
 export function WelcomeGate({ children }: WelcomeGateProps) {
+  const autoDismissPending = useRef(false);
   const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
   const [name,  setName]    = useState(getInitialPlayerName);
   const [welcomeBackOpen, setWelcomeBackOpen] = useState(() => {
     try {
       if (sessionStorage.getItem('cgp_skip_welcome_back_once') === '1') {
         sessionStorage.removeItem('cgp_skip_welcome_back_once');
+        autoDismissPending.current = Boolean(getInitialPlayerName());
         return false;
       }
     } catch {}
     return Boolean(getInitialPlayerName());
   });
+  useEffect(() => {
+    if (ageOk && name && autoDismissPending.current) {
+      autoDismissPending.current = false;
+      fire2("welcome_back_dismissed", { via: "auto" });
+    }
+  }, [ageOk, name]);
 
   // Clear the just_logged_out flag once the welcome/login screen is showing.
   // DiamondBackground's useServerProfile effect fires first (sibling order) and
@@ -54,15 +62,15 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
 
   if (!ageOk && !onLegalPage) {
     return (
-      <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); track({ name: 'age_gate_accepted' }); }} />
+      <AgeGate onConfirm={() => { setAgeConfirmed(); setAgeOk(true); track({ name: 'age_gate_accepted' }); fire2("age_gate_accepted"); }} />
     );
   }
   if (onLegalPage) return <>{children}</>;
   if (name && welcomeBackOpen) {
-    return <WelcomeBackScreen name={name} onPlay={() => setWelcomeBackOpen(false)} />;
+    return <WelcomeBackScreen name={name} onPlay={() => { fire2("welcome_back_dismissed", { via: "play_now" }); setWelcomeBackOpen(false); }} />;
   }
   if (name) return <>{children}</>;
-  return <WelcomeScreen onComplete={(n) => { setPlayerName(n); setName(n); }} />;
+  return <WelcomeScreen onComplete={(n, method) => { setPlayerName(n); fire2("signup_completed", { method, name_length: n.length }); setName(n); }} />;
 }
 
 // ── Age Gate ─────────────────────────────────────────────────────────────────
@@ -252,7 +260,7 @@ const FEATURES = [
 
 type Mode = 'choose' | 'guest' | 'login' | 'register';
 
-function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
+function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "guest" | "login" | "create_account") => void }) {
   const [mode,      setMode]      = useState<Mode>('choose');
   const [input,     setInput]     = useState("");
   const [email,     setEmail]     = useState("");
@@ -270,7 +278,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validGuest) { setShaking(true); setTimeout(() => setShaking(false), 500); return; }
-    onComplete(trimName);
+    onComplete(trimName, "guest");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -292,7 +300,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
       });
       if (data.sessionToken) setSessionToken(data.sessionToken);
       clearSavedReferralCode();
-      onComplete(data.displayName);
+      onComplete(data.displayName, "login");
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
   };
@@ -329,7 +337,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string) => void }) {
       clearSavedReferralCode();
       track({ name: 'account_created', from: 'guest' });
       setUserId(data.profileId);
-      onComplete(data.displayName);
+      onComplete(data.displayName, "create_account");
     } catch { setError('Could not reach the server. Check your connection and try again.'); }
     finally { setBusy(false); }
   };
