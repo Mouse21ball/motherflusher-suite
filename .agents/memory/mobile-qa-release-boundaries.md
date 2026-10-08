@@ -21,6 +21,12 @@ Do not publish the backend until the additive analytics migration is confirmed a
 
 **How to apply:** Treat this as a release hold. Managed production database access is read-only for the agent and schema changes use Replit's Publish flow; do not bypass that restriction or claim development migration success proves production readiness. Explain this conflict before proposing any publication.
 
+Before finishing each work session, leave the workspace runnable with the server actually up. If it needs a restart, confirm it is back up and reachable before ending the session.
+
+**Why:** The user reported the preview showing Replit's "couldn't reach this app" page during work and explicitly requested this end-of-session check.
+
+**How to apply:** Check the configured workflow and the proxied development URL before finishing. Restart when necessary and verify reachability afterward; this does not authorize production publication.
+
 The owner confirmed AdMob review approval on 2026-10-02 and authorized wiring Watch Ad to the bust-out modal.
 
 **Why:** The user explicitly lifted the earlier review hold.
