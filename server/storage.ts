@@ -53,6 +53,14 @@ export const LADY_LUCK_HOUSE_ID = '__ladyluck_house__';
 export const LADY_LUCK_BOT_STACK = 10_000;
 const LADY_LUCK_HOUSE_SEED = 100_000_000;
 
+/** Bot-stake funding sources eligible for automatic house-float replenishment.
+ * Bots are not real economic participants: their stakes are synthesized on
+ * demand, decoupled from the finite house reserve and from real
+ * player-vs-player chip conservation. Every other transfer — all player
+ * transfers, refunds, sweeps — still fails on insufficient balance exactly
+ * as before. */
+const BOT_FLOAT_FUNDING_SOURCES = new Set(['ladyluck_bot_rebuy']);
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const hash = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -775,10 +783,31 @@ export class MemStorage implements IStorage {
         .orderBy(asc(playerProfiles.id)).for('update');
       const from = accounts.find(a => a.id === fromId);
       const to = accounts.find(a => a.id === toId);
-      if (!from || !to || from.balance < amount) return false;
-      await tx.update(playerProfiles).set({ chipBalance: from.balance - amount, updatedAt: new Date() }).where(eq(playerProfiles.id, fromId));
+      if (!from || !to) return false;
+      // Auto-replenishing float: if the house cannot cover a bot-stake funding,
+      // mint the shortfall as a system grant inside this same locked transaction.
+      // Ledger-recorded for audit. Restricted to house->bot funding sources;
+      // ordinary player transfers are ineligible and still fail on insufficient
+      // balance, so the player economy is untouched.
+      let fromBalance = from.balance;
+      if (fromId === LADY_LUCK_HOUSE_ID && BOT_FLOAT_FUNDING_SOURCES.has(source) && from.balance < amount) {
+        const grant = amount - from.balance;
+        await tx.update(playerProfiles)
+          .set({ chipBalance: amount, updatedAt: new Date() })
+          .where(eq(playerProfiles.id, fromId));
+        await this._insertChipLedger(tx, {
+          playerId: fromId, beforeBalance: from.balance,
+          amountChange: grant, afterBalance: amount,
+          reason: 'other', source: 'ladyluck_house_float_grant', gameId: tableId,
+          metadata: { grantFor: toId, fundingSource: source },
+        });
+        console.log(`[LL] house float grant +${grant} (house was ${from.balance}, funding bot ${toId})`);
+        fromBalance = amount;
+      }
+      if (fromBalance < amount) return false;
+      await tx.update(playerProfiles).set({ chipBalance: fromBalance - amount, updatedAt: new Date() }).where(eq(playerProfiles.id, fromId));
       await tx.update(playerProfiles).set({ chipBalance: to.balance + amount, updatedAt: new Date() }).where(eq(playerProfiles.id, toId));
-      await this._insertChipLedger(tx, { playerId: fromId, beforeBalance: from.balance, amountChange: -amount, afterBalance: from.balance - amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: toId, ...(rake != null ? { rake } : {}) } });
+      await this._insertChipLedger(tx, { playerId: fromId, beforeBalance: fromBalance, amountChange: -amount, afterBalance: fromBalance - amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: toId, ...(rake != null ? { rake } : {}) } });
       await this._insertChipLedger(tx, { playerId: toId, beforeBalance: to.balance, amountChange: amount, afterBalance: to.balance + amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: fromId, ...(rake != null ? { rake } : {}) } });
       return true;
     });
