@@ -19,6 +19,10 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
+import { YardPlayerHeader } from '@/components/YardPlayerHeader';
+import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
+import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
+import { Crown } from 'lucide-react';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
@@ -302,9 +306,11 @@ function BoxChevyGameUI() {
       height: '100dvh', display: 'flex', flexDirection: 'column',
       position: 'relative',
       backgroundColor: '#0a1628',
-       backgroundImage: `url('${MODE_PLACEHOLDER_ASSETS.boxChevyBackground}')`,
+       backgroundImage: `url('${yardBackdrop}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
+
+      <YardPlayerHeader readOnly />
 
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
@@ -357,6 +363,25 @@ function BoxChevyGameUI() {
             myId={myId}
             phase={phase}
             isDrawPhase={isDrawPhase}
+            heroCards={!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 ? (
+              <div data-deal-seat={myId} data-player-seat={myId} className="yard-box-hero-hand">
+                <YardHeroIdentity state={state} myId={myId} accent="#F97316" />
+                <div className="yard-box-hand-label">YOUR HAND{isDrawPhase && isMyTurn && <span> · TAP TO DISCARD</span>}</div>
+                <CardHand
+                  cards={(me?.cards ?? []).map(c => ({ ...c, isHidden: false }))}
+                  selectedIndices={Array.from(selectedCards)}
+                  onCardClick={handleCardClick}
+                  isSelectable={isDrawPhase && isMyTurn && !effectiveSpectator}
+                  dealingIndices={[]}
+                  drawingIndices={[]}
+                  discardingIndices={[]}
+                  isShowdown={phase === 'SHOWDOWN'}
+                  celebrationCardMarkers
+                  cardWidth={64}
+                  cardHeight={90}
+                />
+              </div>
+            ) : undefined}
           />
         </FriendSeatActions>
 
@@ -385,41 +410,6 @@ function BoxChevyGameUI() {
           chatUnread={chatUnread}
         />
       </main>
-
-      {/* Hero hand — pinned just above action bar, closer to controls */}
-      {!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 && (
-        <div data-deal-seat={myId} data-player-seat={myId} style={{
-          flexShrink: 0,
-          background: 'rgba(9,22,40,0.92)',
-          backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-          borderTop: `1px solid rgba(59,130,246,0.20)`,
-          paddingTop: 6, paddingBottom: 2, paddingLeft: 12, paddingRight: 12,
-        }}>
-          <div style={{
-            fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.08em',
-            color: 'rgba(148,163,184,0.7)', textAlign: 'center', marginBottom: 2,
-            textTransform: 'uppercase',
-          }}>
-            YOUR HAND
-            {isDrawPhase && isMyTurn && (
-              <span style={{ color: ACT, marginLeft: 6 }}>— TAP TO DISCARD</span>
-            )}
-          </div>
-          <CardHand
-            cards={(me?.cards ?? []).map(c => ({ ...c, isHidden: false }))}
-            selectedIndices={Array.from(selectedCards)}
-            onCardClick={handleCardClick}
-            isSelectable={isDrawPhase && isMyTurn && !effectiveSpectator}
-            dealingIndices={[]}
-            drawingIndices={[]}
-            discardingIndices={[]}
-            isShowdown={phase === 'SHOWDOWN'}
-            celebrationCardMarkers
-            cardWidth={52}
-            cardHeight={73}
-          />
-        </div>
-      )}
 
       {!effectiveSpectator && (
         <TableDealAnimator

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Eraser, Layers3, Spade } from 'lucide-react';
 
 interface FlushedUpActionBarProps {
   phase: string;
@@ -27,8 +28,8 @@ interface FlushedUpActionBarProps {
 function ChipIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}>
-      <circle cx="6" cy="6" r="5.5" fill="#7c3aed" stroke="#a855f7" strokeWidth="0.75"/>
-      <circle cx="6" cy="6" r="3.5" fill="none" stroke="#c084fc" strokeWidth="0.75"/>
+      <circle cx="6" cy="6" r="5.5" fill="#86198F" stroke="#D946EF" strokeWidth="0.75"/>
+      <circle cx="6" cy="6" r="3.5" fill="none" stroke="#F0ABFC" strokeWidth="0.75"/>
     </svg>
   );
 }
@@ -48,16 +49,16 @@ function TutorialPanel() {
         gridTemplateColumns: '1fr 1fr 1fr',
         gap: 8,
         padding: '10px 4px 6px',
-        borderTop: '1px solid rgba(124,58,237,0.18)',
+        borderTop: '1px solid rgba(217,70,239,0.3)',
       }}>
         {[
-          { icon: '🎴', label: 'DRAW UP TO 3', sub: 'Cards per round' },
-          { icon: '🗑', label: 'DISCARD ANY', sub: 'Tap to select' },
-          { icon: '♠', label: 'MAKE A FLUSH', sub: '5 same-suit cards qualify; otherwise pot rolls over' },
+          { icon: <Layers3 size={18} />, label: 'DRAW UP TO 3', sub: 'Cards per round' },
+          { icon: <Eraser size={18} />, label: 'DISCARD ANY', sub: 'Tap to select' },
+          { icon: <Spade size={18} />, label: 'MAKE A FLUSH', sub: '5 same-suit cards qualify; otherwise pot rolls over' },
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 18 }}>{step.icon}</span>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>
+            <span style={{ color:'#D946EF' }}>{step.icon}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#D946EF', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>
               {step.label}
             </span>
             <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>
@@ -118,17 +119,17 @@ export function FlushedUpActionBar({
     ...btnBase,
     background: 'rgba(20,12,40,0.9)',
     color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)',
-    border: '1px solid rgba(124,58,237,0.35)',
+    border: '1px solid rgba(217,70,239,0.35)',
     opacity: canAct ? 1 : 0.5,
   };
 
   const drawBtn: React.CSSProperties = {
     ...btnBase,
     background: canAct
-      ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
+      ? 'linear-gradient(135deg, #86198F, #D946EF)'
       : 'rgba(60,30,90,0.5)',
     color: canAct ? '#fff' : 'rgba(255,255,255,0.25)',
-    boxShadow: canAct ? '0 0 18px rgba(124,58,237,0.5), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
+    boxShadow: canAct ? '0 0 18px rgba(217,70,239,0.5), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
     opacity: (canAct && (selectedCount > 0 || true)) ? 1 : 0.5,
   };
 
@@ -147,8 +148,8 @@ export function FlushedUpActionBar({
       ? 'linear-gradient(135deg, #1a0a3d, #2d0f6e)'
       : 'rgba(20,10,35,0.5)',
     color: canAct ? '#c084fc' : 'rgba(255,255,255,0.2)',
-    border: '1px solid rgba(124,58,237,0.3)',
-    boxShadow: canAct ? '0 0 10px rgba(124,58,237,0.25)' : 'none',
+    border: '1px solid rgba(217,70,239,0.3)',
+    boxShadow: canAct ? '0 0 10px rgba(217,70,239,0.25)' : 'none',
     opacity: canAct ? 1 : 0.5,
   };
 
@@ -159,17 +160,17 @@ export function FlushedUpActionBar({
       ? 'linear-gradient(135deg, #6d28d9, #9333ea)'
       : 'rgba(50,20,80,0.5)',
     color: canAct ? '#fff' : 'rgba(255,255,255,0.2)',
-    boxShadow: canAct ? '0 0 14px rgba(124,58,237,0.4)' : 'none',
+    boxShadow: canAct ? '0 0 14px rgba(217,70,239,0.4)' : 'none',
     opacity: canAct && chips > raiseAmount ? 1 : 0.4,
   };
 
   return (
-    <div style={{ width: '100%' }}>
+    <div className="yard-action-bar" style={{ width: '100%' }}>
       {/* ── Action buttons ───────────────────────────────────────────── */}
       <div style={{ padding: '8px 12px 0' }}>
         {/* Draw phase */}
         {isDrawPhase && (
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="yard-action-buttons" style={{ display: 'flex', gap: 10 }}>
             <button
               style={stayBtn}
               disabled={!canAct}
@@ -196,7 +197,7 @@ export function FlushedUpActionBar({
           </div>
         )}
         {isBetPhase && chips > 0 && isMyTurn && (
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
             <button
               style={foldBtn}
               disabled={!canAct}
@@ -245,11 +246,11 @@ export function FlushedUpActionBar({
                 outline: 'none',
                 WebkitTapHighlightColor: 'transparent',
                 background: canStart
-                  ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
+                  ? 'linear-gradient(135deg, #86198F, #D946EF)'
                   : 'rgba(50,20,80,0.45)',
                 color: canStart ? '#fff' : 'rgba(255,255,255,0.28)',
                 boxShadow: canStart
-                  ? '0 0 24px rgba(124,58,237,0.6), 0 4px 16px rgba(0,0,0,0.4)'
+                  ? '0 0 24px rgba(217,70,239,0.6), 0 4px 16px rgba(0,0,0,0.4)'
                   : 'none',
                 opacity: canStart ? 1 : 0.65,
                 transition: 'all 0.2s',
@@ -274,7 +275,7 @@ export function FlushedUpActionBar({
           <div style={{
             textAlign: 'center', padding: '10px 0',
             fontSize: 11, fontFamily: 'monospace',
-            color: 'rgba(124,58,237,0.7)', letterSpacing: '0.12em',
+            color: 'rgba(217,70,239,0.7)', letterSpacing: '0.12em',
           }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>
@@ -288,7 +289,7 @@ export function FlushedUpActionBar({
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           width: '100%', padding: '6px 12px',
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(168,85,247,0.7)', fontSize: 11, fontFamily: 'monospace',
+          color: 'rgba(217,70,239,0.7)', fontSize: 11, fontFamily: 'monospace',
           letterSpacing: '0.1em', textTransform: 'uppercase',
           WebkitTapHighlightColor: 'transparent',
         }}
@@ -333,7 +334,7 @@ export function FlushedUpActionBar({
         {/* YOUR STACK */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>YOUR STACK</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#a855f7', fontWeight: 700 }}>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#D946EF', fontWeight: 700 }}>
             <ChipIcon />{chips.toLocaleString()}
           </span>
         </div>
@@ -346,11 +347,11 @@ export function FlushedUpActionBar({
           onClick={onRebuy}
           style={{
             width: 28, height: 28, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            background: 'linear-gradient(135deg, #86198F, #D946EF)',
             border: 'none', cursor: 'pointer',
             color: '#fff', fontSize: 16, fontWeight: 700, lineHeight: 1,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 10px rgba(124,58,237,0.4)',
+            boxShadow: '0 0 10px rgba(217,70,239,0.4)',
             WebkitTapHighlightColor: 'transparent',
           }}
           data-testid="button-rebuy"

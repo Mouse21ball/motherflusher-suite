@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { ensurePlayerIdentity, getAvatarInitials, getAvatarColor } from '@/lib/persistence';
-import { getProgression, getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import { apiUrl } from '@/lib/apiConfig';
 import { getSessionToken } from '@/lib/session';
 import {
-  APPLE_PERSONAL_CHIP_PRODUCTS,
-  GOOGLE_PERSONAL_CHIP_PRODUCTS,
-  PERSONAL_CHIP_PACKS,
   FIRST_PURCHASE_BUNDLE,
   GOOGLE_SUBSCRIPTION_PRODUCT_IDS,
 } from '@shared/billingProducts';
@@ -22,22 +17,17 @@ import {
   type ActiveSubscription,
   type SubscriptionProductReadiness,
 } from '@/lib/billing';
-
-// ── Chip image lookup (Google Play IDs + Apple App Store IDs) ─────────────────
-const PACK_CHIP: Record<string, string> = {
-  // Google Play
-  stripes_starter_99:  '/chip-starter.png',
-  stripes_small_499:   '/chip-popular.png',
-  stripes_medium_999:  '/chip-popular.png',
-  stripes_large_2499:  '/chip-highroller.png',
-  stripes_mega_9999:   '/chip-whale.png',
-  // Apple App Store
-  'com.dgmentertainment.poker.stripes.starter.v2':  '/chip-starter.png',
-  'com.dgmentertainment.poker.stripes.standard.v2': '/chip-popular.png',
-  'com.dgmentertainment.poker.stripes.popular.v2':  '/chip-popular.png',
-  'com.dgmentertainment.poker.stripes.big.v2':      '/chip-highroller.png',
-  'com.dgmentertainment.poker.stripes.mega.v2':     '/chip-whale.png',
-};
+import smallChipArt from '@/assets/chips/small.png';
+import mediumChipArt from '@/assets/chips/medium.png';
+import largeChipArt from '@/assets/chips/large.png';
+import megaChipArt from '@/assets/chips/mega.png';
+import { YardBottomNav } from '@/components/YardBottomNav';
+import { YardPlayerHeader } from '@/components/YardPlayerHeader';
+import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
+import { HourlyBonusModal } from '@/components/HourlyBonusModal';
+import { Clock } from 'lucide-react';
+import { useBonusStatus } from '@/lib/useBonusStatus';
+import '@/yard-reskin.css';
 
 // ── Stripes pack definitions ──────────────────────────────────────────────────
 // Google Play packs — used on Android
@@ -49,11 +39,7 @@ const STRIPES_PACKS = [
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
 
-const PERSONAL_CHIP_SHOP_PACKS = PERSONAL_CHIP_PACKS.map(pack => ({
-  tier: pack.tier,
-  chips: pack.chips,
-  price: `$${(pack.priceCents / 100).toFixed(2)}`,
-}));
+const STRIPES_ART = [smallChipArt, mediumChipArt, largeChipArt, megaChipArt];
 
 const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
   'Subscriptions are temporarily unavailable. Please try again shortly.';
@@ -151,6 +137,7 @@ function SectionHeader({ children }: { children: string }) {
 export default function Shop() {
   const [, navigate]       = useLocation();
   const { profile, refetch } = useServerProfile();
+  const bonusStatus = useBonusStatus();
 
   const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
   const [purchaseMsg,  setPurchaseMsg]  = useState<string | null>(null);
@@ -161,6 +148,7 @@ export default function Shop() {
     expiresAt: string | null;
   } | null>(null);
   const [offerClock, setOfferClock] = useState(Date.now());
+  const [bonusClock, setBonusClock] = useState(Date.now());
 
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [subStatus,     setSubStatus]     = useState<ActiveSubscription | null>(null);
@@ -195,6 +183,11 @@ export default function Shop() {
   }, []);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setBonusClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!firstPurchaseOffer?.available || !firstPurchaseOffer.expiresAt) return;
     const timer = window.setInterval(() => setOfferClock(Date.now()), 1_000);
     return () => window.clearInterval(timer);
@@ -220,12 +213,6 @@ export default function Shop() {
     return () => window.removeEventListener('billing:purchase-reconciled', handleReconciledPurchase);
   }, [refetch]);
 
-  const identity    = ensurePlayerIdentity();
-  const prog        = getProgression();
-  const levelInfo   = getLevelInfo(profile?.xp ?? 0);
-  const rank        = getRankForLevel(levelInfo.level);
-  const initials    = getAvatarInitials(profile?.displayName ?? identity.name);
-  const avatarColor = getAvatarColor(identity.id);
 
   useEffect(() => {
     if (!subscriptionSuccessTrace) return;
@@ -294,10 +281,7 @@ export default function Shop() {
   // iOS  → Apple App Store product IDs with App Store prices/quantities
   // Web/Android → Google Play product IDs
   const activePacks = isIOS ? APPLE_STRIPES_SHOP_PRODUCTS : STRIPES_PACKS;
-  const activePersonalChipPacks = PERSONAL_CHIP_SHOP_PACKS.map(pack => ({
-    ...pack,
-    id: isIOS ? APPLE_PERSONAL_CHIP_PRODUCTS[pack.tier] : GOOGLE_PERSONAL_CHIP_PRODUCTS[pack.tier],
-  }));
+  const [hourlyBonusOpen, setHourlyBonusOpen] = useState(false);
 
   const subscriptionPriceFor = (tier: TierDef): string => {
     if (isIOS && billingPeriod === 'yearly') {
@@ -570,9 +554,9 @@ export default function Shop() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen text-white"
+      className="yard-shop-page min-h-[100dvh] text-white"
       style={{
-        backgroundImage: "url('/cosmetics/backgrounds/shop-bg.png')",
+        backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')",
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',
@@ -585,6 +569,8 @@ export default function Shop() {
 
       {/* Content */}
       <div className="min-h-screen flex flex-col" style={{ position: 'relative', zIndex: 1 }}>
+        <HourlyBonusModal open={hourlyBonusOpen} onClose={() => { setHourlyBonusOpen(false); void refetch(); }} />
+        <YardPlayerHeader />
         <div className="w-full max-w-md mx-auto px-4 pt-10 pb-4">
 
           {/* ── Back button ──────────────────────────────────────────────── */}
@@ -596,35 +582,25 @@ export default function Shop() {
             ← BACK
           </button>
 
-          {/* ── Player profile bar ───────────────────────────────────────── */}
-          <div
-            className="flex items-center gap-3 mb-6 px-4 py-3 rounded-2xl"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-          >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-base font-black shrink-0"
-              style={{ background: avatarColor }}
-            >
-              {initials}
+          <section className="yard-chip-balance-hero" aria-label="Current chip and Stripes balance">
+            <div><span>YOUR CHIP BALANCE</span><strong>{(profile?.chipBalance ?? 0).toLocaleString()}</strong><small>SERVER BALANCE · PLAYABLE AT EVERY TABLE</small></div>
+            <div className="yard-chip-hero-stripes"><span>STRIPES</span><strong>{(profile?.stripes ?? 0).toLocaleString()}</strong></div>
+          </section>
+
+          <section className="yard-reward-stack" aria-label="Daily and hourly bonuses">
+            <div className="yard-shop-hero yard-hourly-banner">
+              <img src={smallChipArt} alt="" aria-hidden="true" />
+              <div className="yard-hourly-copy"><span><Clock size={16} /> HOURLY BONUS</span><strong>{bonusStatus?.hourly.available ? 'READY TO CLAIM' : bonusStatus?.hourly.nextAt
+                ? `NEXT IN ${(() => { const ms=Math.max(0,new Date(bonusStatus.hourly.nextAt).getTime()-bonusClock);return `${String(Math.floor(ms/60000)).padStart(2,'0')}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}`; })()}`
+                : 'CHECKING STATUS'}</strong></div>
+              <button onClick={() => setHourlyBonusOpen(true)} aria-label="Open hourly reward" className={bonusStatus?.hourly.available ? 'is-ready' : ''}>{bonusStatus?.hourly.available ? 'CLAIM' : 'VIEW'}</button>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-white text-sm truncate">
-                {profile?.displayName ?? identity.name}
-              </div>
-              <div className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                Lv.{levelInfo.level} · {rank.name}
-              </div>
+            <div className="yard-calendar-inline-wrap">
+              <div className="yard-calendar-inline-heading"><span>7-DAY CHAIN BONUS</span><span>CLAIM A DAY · KEEP THE RUN ALIVE</span></div>
+              {/* The inline calendar shares the exact status, countdown, and claim flow used by the modal. */}
+              <DailyBonusCalendarModal open presentation="inline" onClose={() => undefined} onClaimed={() => { void refetch(); }} />
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-[10px] font-mono text-white/40 uppercase">Balance</div>
-              <div className="flex items-center justify-end gap-1 mt-0.5">
-                <img src="/stripes-icon.png" alt="" aria-hidden="true" style={{ width: 14, height: 14 }} />
-                <span className="text-base font-bold font-mono tabular-nums" style={{ color: '#a855f7' }}>
-                  {(profile?.stripes ?? 0).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
+          </section>
 
           {/* ── Stripes explainer ──────────────────────────────────────── */}
           <p style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.50)', margin: '0 0 20px' }}>
@@ -829,12 +805,12 @@ export default function Shop() {
                     {/* Grace period warning */}
                     {isGrace && (
                       <div className="mb-3 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono text-amber-400">
-                        ⚠ Payment issue — update payment in Play Store within 3 days to keep benefits.
+                        Payment issue — update payment in Play Store within 3 days to keep benefits.
                       </div>
                     )}
                     {isHold && (
                       <div className="mb-3 py-2 px-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[10px] font-mono text-red-400">
-                        ⛔ Benefits paused — update payment method in Play Store to restore access.
+                        Benefits paused — update payment method in Play Store to restore access.
                       </div>
                     )}
 
@@ -947,7 +923,7 @@ export default function Shop() {
             )}
 
             {/* Pack rows */}
-            <div className="flex flex-col" style={{ gap: 10 }}>
+            <div className="yard-stripes-pack-grid">
               {activePacks.map(pack => (
                 <div
                   key={pack.id}
@@ -961,8 +937,8 @@ export default function Shop() {
                       style={{
                         top: -8,
                         right: 14,
-                        background: pack.featured ? '#FF6B1A' : '#FFD700',
-                        color: pack.featured ? '#fff' : '#0B0B0D',
+                        background: '#A78BFA',
+                        color: '#150A2E',
                         padding: '4px 10px',
                         borderRadius: 12,
                         letterSpacing: '0.05em',
@@ -974,25 +950,27 @@ export default function Shop() {
                   )}
 
                   <div
-                    className="flex items-center gap-3"
+                    className="yard-stripes-pack-content flex items-center gap-3"
                     style={{
                       background: 'rgba(15,10,25,0.50)',
                       borderRadius: 14,
                       padding: '14px 18px',
                       border: pack.featured
-                        ? '2px solid #FF6B1A'
-                        : '1px solid rgba(255,255,255,0.06)',
+                        ? '2px solid #A78BFA'
+                        : '1px solid rgba(167,139,250,0.24)',
                       boxShadow: pack.featured
                         ? '0 0 16px rgba(255,107,26,0.4)'
                         : 'none',
                     }}
                   >
-                    {/* Chip image */}
+                    {/* Tier illustration only; approved product amount below remains authoritative. */}
                     <div className="shrink-0">
                       <img
-                        src={PACK_CHIP[pack.id]}
-                        alt={pack.name}
-                        style={{ width: 60, height: 60, objectFit: 'contain' }}
+                        src={STRIPES_ART[Math.min(activePacks.indexOf(pack), STRIPES_ART.length - 1)]}
+                        alt=""
+                        aria-hidden="true"
+                        className="yard-shop-pack-art"
+                        style={{ width: 70 }}
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     </div>
@@ -1012,18 +990,18 @@ export default function Shop() {
                       className="shrink-0 transition-all duration-150 active:scale-[0.97]"
                       style={{
                         background: purchaseBusy === pack.id
-                          ? 'rgba(255,107,26,0.35)'
-                          : 'linear-gradient(135deg, #FF8C42 0%, #FF6B1A 100%)',
-                        color: '#fff',
+                          ? 'rgba(124,58,237,0.45)'
+                          : 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
+                        color: '#150A2E',
                         fontWeight: 800,
                         padding: '12px 20px',
                         borderRadius: 10,
                         border: 'none',
                         cursor: 'pointer',
                         fontSize: 14,
-                        boxShadow: purchaseBusy === pack.id ? 'none' : '0 2px 8px rgba(255,107,26,0.4)',
+                        boxShadow: purchaseBusy === pack.id ? 'none' : '0 2px 8px rgba(124,58,237,0.35)',
                         opacity: purchaseBusy && purchaseBusy !== pack.id ? 0.4 : 1,
-                        minHeight: 44,
+                        minHeight: 48,
                         minWidth: 72,
                         letterSpacing: '0.02em',
                       }}
@@ -1041,81 +1019,9 @@ export default function Shop() {
             </p>
           </div>
 
-          <div className="mb-6" data-testid="personal-chip-packs-section">
-            <SectionHeader>PERSONAL CHIP PACKS</SectionHeader>
-            <p className="text-[11px] text-center mb-4 text-white/55">
-              Chips are added directly to your personal balance — not a crew bank.
-            </p>
-            {purchaseMsg && (
-              <div
-                className="text-xs font-mono text-center mb-3 py-2 px-3 rounded-xl"
-                style={{
-                  background: purchaseMsg.startsWith('✓') ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                  color: purchaseMsg.startsWith('✓') ? '#4ade80' : '#f87171',
-                }}
-                data-testid="personal-chip-purchase-status"
-              >
-                {purchaseMsg}
-              </div>
-            )}
-            <div className="flex flex-col" style={{ gap: 10 }}>
-              {activePersonalChipPacks.map(pack => (
-                <div
-                  key={pack.id}
-                  className="flex items-center gap-3"
-                  style={{
-                    background: 'rgba(15,10,25,0.50)',
-                    borderRadius: 14,
-                    padding: '14px 18px',
-                    border: '1px solid rgba(79,209,197,0.20)',
-                  }}
-                  data-testid={`personal-chip-pack-${pack.tier}`}
-                >
-                  <div
-                    className="shrink-0 flex items-center justify-center rounded-full"
-                    style={{
-                      width: 52, height: 52, border: '3px dashed #4FD1C5',
-                      color: '#4FD1C5', fontWeight: 900, fontSize: 21,
-                    }}
-                    aria-hidden="true"
-                  >
-                    ●
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.90)' }}>
-                      {pack.tier[0].toUpperCase() + pack.tier.slice(1)} Personal Chips
-                    </div>
-                    <div style={{ fontWeight: 900, fontSize: 18, color: '#4FD1C5', fontFamily: 'monospace', lineHeight: 1.2 }}>
-                      {pack.chips.toLocaleString()} chips
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handlePurchase(pack.id)}
-                    disabled={!!purchaseBusy}
-                    className="shrink-0 transition-all duration-150 active:scale-[0.97]"
-                    style={{
-                      background: purchaseBusy === pack.id ? 'rgba(79,209,197,0.35)' : 'linear-gradient(135deg, #4FD1C5 0%, #289E96 100%)',
-                      color: '#071110',
-                      fontWeight: 800,
-                      padding: '12px 20px',
-                      borderRadius: 10,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      opacity: purchaseBusy && purchaseBusy !== pack.id ? 0.4 : 1,
-                      minHeight: 44,
-                      minWidth: 72,
-                    }}
-                    data-testid={`button-buy-personal-chips-${pack.tier}`}
-                  >
-                    {purchaseBusy === pack.id ? '…' : pack.price}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="text-[9px] font-mono text-white/20 text-center mt-4 leading-relaxed italic">
-              Personal chip purchases never fund or debit a crew chip bank.
-            </p>
+          <div className="yard-shop-hero mb-6 p-4 text-center" data-testid="personal-chip-packs-section">
+            <SectionHeader>CHIP BALANCE</SectionHeader>
+            <p className="text-sm leading-relaxed text-[#EDE9FE]">Personal chip packs are not available for purchase. Your table stack and chip bonuses remain available through gameplay and existing claim offers.</p>
           </div>
 
           {firstPurchaseOffer?.eligible
@@ -1164,6 +1070,7 @@ export default function Shop() {
           <div className="h-24" />
         </div>
       </div>
+      <YardBottomNav active="MY CHIPS" />
     </div>
   );
 }

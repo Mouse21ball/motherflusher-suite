@@ -11,10 +11,12 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { useBonusStatus } from '@/lib/useBonusStatus';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
+import { Award, Check, Clock3, Gift, Smile, TrendingUp, Zap } from 'lucide-react';
+import { YardBottomNav } from '@/components/YardBottomNav';
+import '@/yard-reskin.css';
 
-const GOLD  = '#F0B829';
-const PINK  = '#FF1493';
-const BG    = '#05050A';
+const GOLD  = '#FBBF24';
+const PINK  = '#EF4444';
 
 function formatCountdown(ms: number): string {
   const totalSec = Math.ceil(ms / 1000);
@@ -96,7 +98,7 @@ export default function BonusCenter() {
     : 100;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: BG }}>
+    <div className="yard-bonus-page yard-page min-h-[100dvh] flex flex-col">
 
       {/* Ambient glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
@@ -120,12 +122,12 @@ export default function BonusCenter() {
         </button>
         <span className="text-white/10">·</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-sm">⚡</span>
+          <Zap size={16} color="#FBBF24" aria-hidden="true" />
           <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Bonus Center</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full"
           style={{ backgroundColor: vip.bg, border: `1px solid ${vip.border}` }}>
-          <span className="text-xs">{vip.badge}</span>
+          <span aria-label={`${vip.name} VIP tier`} className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FBBF24] text-xs font-black text-[#150A2E]">{vip.name.slice(0, 1)}</span>
           <span className="text-[10px] font-mono font-bold" style={{ color: vip.color }}>{vip.name}</span>
         </div>
       </header>
@@ -139,7 +141,7 @@ export default function BonusCenter() {
 
           {/* ── HOURLY BONUS ───────────────────────────────────────────────── */}
           <div>
-            <SectionLabel>⏰ Hourly Bonus</SectionLabel>
+            <SectionLabel>Hourly Bonus</SectionLabel>
             <button
               onClick={() => setHourlyOpen(true)}
               className="w-full rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 active:scale-[0.99] relative overflow-hidden text-left"
@@ -157,7 +159,7 @@ export default function BonusCenter() {
                   border: hourlyReady ? '1px solid rgba(240,184,41,0.25)' : '1px solid rgba(255,255,255,0.06)',
                 }}
               >
-                {hourlyReady ? '⚡' : '⏰'}
+                {hourlyReady ? <Zap size={26} color="#FBBF24" /> : <Clock3 size={26} color="#C4B5FD" />}
                 {hourlyReady && <NotifDot />}
               </div>
               <div className="flex-1 min-w-0">
@@ -169,12 +171,12 @@ export default function BonusCenter() {
                 </div>
                 <div className="text-[11px] font-mono text-white/40 mt-0.5">
                   {hourlyReady
-                    ? `+$${hourlyChips.toLocaleString()} chips available now`
+                    ? `+${hourlyChips.toLocaleString()} chips available now`
                     : `Next bonus in ${formatCountdown(countdown)}`}
                 </div>
                 {vip.hourlyBonusPct > 0 && (
                   <div className="text-[10px] font-mono mt-1" style={{ color: vip.color + 'aa' }}>
-                    {vip.badge} {vip.name} VIP: +{vip.hourlyBonusPct}% bonus applied
+                    {vip.name} VIP: +{vip.hourlyBonusPct}% bonus applied
                   </div>
                 )}
               </div>
@@ -184,7 +186,7 @@ export default function BonusCenter() {
 
           {/* ── STARTER KIT ────────────────────────────────────────────────── */}
           <div>
-            <SectionLabel>🎁 Starter Kit</SectionLabel>
+            <SectionLabel>Starter Kit</SectionLabel>
             {starterAvailable ? (
               <button
                 onClick={() => setStarterOpen(true)}
@@ -196,7 +198,7 @@ export default function BonusCenter() {
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 relative"
                   style={{ backgroundColor: 'rgba(240,184,41,0.10)', border: '1px solid rgba(240,184,41,0.22)' }}
                 >
-                  🎁
+                  <Gift size={26} color="#FBBF24" />
                   <NotifDot />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -225,7 +227,7 @@ export default function BonusCenter() {
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
                   style={{ backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.16)' }}
                 >
-                  ✅
+                  <Check size={26} color="#22C55E" />
                 </div>
                 <div>
                   <div className="font-bold text-sm text-white/55 font-sans">Starter Kit Claimed</div>
@@ -239,7 +241,7 @@ export default function BonusCenter() {
 
           {/* ── VIP TIER ───────────────────────────────────────────────────── */}
           <div>
-            <SectionLabel>⛓️ VIP Tier Progress</SectionLabel>
+            <SectionLabel>VIP Tier Progress</SectionLabel>
             <div
               className="w-full rounded-2xl p-4 flex flex-col gap-3"
               style={{ backgroundColor: '#0D0D14', border: `1px solid ${vip.border}` }}
@@ -251,7 +253,7 @@ export default function BonusCenter() {
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
                   style={{ backgroundColor: vip.bg, border: `1.5px solid ${vip.border}` }}
                 >
-                  {vip.badge}
+                  {vip.name.slice(0, 1)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -293,10 +295,10 @@ export default function BonusCenter() {
               {/* Tier perks grid */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {[
-                  { icon: '🏅', label: 'VIP Badge', sub: 'Profile border + badge' },
-                  { icon: '😎', label: `+${vip.extraEmotes} Emotes`, sub: 'Extra table reactions/session' },
-                  { icon: '📈', label: `+${vip.dailyBonusPct}% Daily`, sub: 'Daily reward multiplier', locked: vip.dailyBonusPct === 0 },
-                  { icon: '⚡', label: `+${vip.hourlyBonusPct}% Hourly`, sub: 'Hourly bonus multiplier', locked: vip.hourlyBonusPct === 0 },
+                  { icon: <Award size={17} />, label: 'VIP Badge', sub: 'Profile border + badge' },
+                  { icon: <Smile size={17} />, label: `+${vip.extraEmotes} Emotes`, sub: 'Extra table reactions/session' },
+                  { icon: <TrendingUp size={17} />, label: `+${vip.dailyBonusPct}% Daily`, sub: 'Daily reward multiplier', locked: vip.dailyBonusPct === 0 },
+                  { icon: <Zap size={17} />, label: `+${vip.hourlyBonusPct}% Hourly`, sub: 'Hourly bonus multiplier', locked: vip.hourlyBonusPct === 0 },
                 ].map((perk, i) => (
                   <div
                     key={i}
@@ -307,7 +309,7 @@ export default function BonusCenter() {
                       opacity: perk.locked ? 0.5 : 1,
                     }}
                   >
-                    <span className="text-base leading-none shrink-0">{perk.icon}</span>
+                    <span className="text-base leading-none shrink-0 text-[#FBBF24]">{perk.icon}</span>
                     <div>
                       <div
                         className="text-[11px] font-bold font-sans"
@@ -336,7 +338,7 @@ export default function BonusCenter() {
                       fontWeight: tier.name === vip.name ? 700 : 400,
                     }}
                   >
-                    <span>{tier.badge}</span>
+                    <span className="font-bold">{tier.name.slice(0, 1)}</span>
                     <span>{tier.name}</span>
                     {tier.nextLevel && <span className="text-white/15">·</span>}
                   </div>
@@ -368,6 +370,7 @@ export default function BonusCenter() {
 
         </div>
       </div>
+      <YardBottomNav active="MORE" />
     </div>
   );
 }

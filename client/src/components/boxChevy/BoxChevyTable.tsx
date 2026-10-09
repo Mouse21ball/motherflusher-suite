@@ -4,11 +4,14 @@ import { CardType, GameState } from '@/lib/poker/types';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
 import { PlayingCard } from '@/components/game/Card';
 import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
+import { TableBoard } from '@/components/game/TableBoard';
+import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
+import { Crown } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-const SLV  = '#94a3b8';
-const ACT  = '#60a5fa';
-const nvA  = (a: number) => `rgba(15,28,46,${a})`;
-const blA  = (a: number) => `rgba(59,130,246,${a})`;
+const ACT  = '#F97316';
+const nvA  = (a: number) => `rgba(45,27,105,${a})`;
+const blA  = (a: number) => `rgba(249,115,22,${a})`;
 
 function PipRow({ count }: { count: number }) {
   return (
@@ -35,40 +38,14 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
   const isActive   = player.status === 'active';
   const folded     = player.status === 'folded';
   const isShowdown = phase === 'SHOWDOWN';
-  const chipColor  = player.isWinner ? '#fbbf24' : SLV;
-
-  return (
-    <div style={{
-      borderRadius: 10,
-      background: 'rgba(0,0,0,0.50)',
-      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-      border: `1px solid ${isActive && !folded ? blA(0.35) : nvA(0.6)}`,
-      padding: '6px 8px',
-      display: 'flex', flexDirection: 'column', gap: 4,
-      opacity: folded ? 0.7 : 1,
-      minWidth: 0,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: folded ? '#cbd5e1' : '#e2e8f0', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
-          {player.name}
-        </span>
-        <span style={{ fontSize: 11, fontFamily: 'monospace', color: chipColor, fontWeight: 700 }}>
-          ${player.chips}
-        </span>
-      </div>
+  return <YardOpponentSeat name={player.name} chips={player.chips} seat={parseInt(player.id.replace('p', ''),10) || 1}
+    active={isActive} folded={folded} winner={!!player.isWinner} dealer={!!player.isDealer}>
       {player.declaration && (
-        <div style={{
-          fontSize: 11, fontWeight: 700, textAlign: 'center', fontFamily: 'monospace',
-          color: player.declaration === 'SWING' ? '#fbbf24' : player.declaration === 'HIGH' ? ACT : '#86efac',
-          background: player.declaration === 'SWING' ? 'rgba(251,191,36,0.15)' : player.declaration === 'HIGH' ? blA(0.12) : 'rgba(134,239,172,0.12)',
-          borderRadius: 4, padding: '1px 4px',
-        }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textAlign: 'center', fontFamily: 'monospace', color: player.declaration === 'SWING' ? '#FDE68A' : player.declaration === 'HIGH' ? ACT : '#86efac', borderRadius: 4, padding: '1px 4px' }}>
           {player.declaration}
-        </div>
+        </span>
       )}
-      {folded ? (
-        <div style={{ fontSize: 11, textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>FOLDED</div>
-      ) : isShowdown && player.cards.some(c => !c.isHidden) ? (
+      {!folded && (isShowdown && player.cards.some(c => !c.isHidden) ? (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           {player.cards.map((c, i) => (
             <div key={i} data-celebration-card style={{ width: 26, height: 38, flexShrink: 0 }}>
@@ -76,11 +53,8 @@ function OpponentPanel({ player, phase }: OpponentPanelProps) {
             </div>
           ))}
         </div>
-      ) : (
-        <PipRow count={player.cards.length || 5} />
-      )}
-    </div>
-  );
+      ) : <PipRow count={player.cards.length || 5} />)}
+  </YardOpponentSeat>;
 }
 
 interface BoxChevyTableProps {
@@ -88,9 +62,10 @@ interface BoxChevyTableProps {
   myId: string;
   phase: string;
   isDrawPhase: boolean;
+  heroCards?: ReactNode;
 }
 
-export function BoxChevyTable({ state, myId, phase }: BoxChevyTableProps) {
+export function BoxChevyTable({ state, myId, phase, heroCards }: BoxChevyTableProps) {
   const me          = state.players.find(p => p.id === myId);
   const opponents   = state.players.filter(p => p.id !== myId);
   const communityCards: CardType[] = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
@@ -98,6 +73,12 @@ export function BoxChevyTable({ state, myId, phase }: BoxChevyTableProps) {
   const heroValidity = getHeroHandValidity('boxchevy', phase, me?.cards ?? [], state.communityCards ?? []);
 
   const pot = state.pot;
+  const opponentSeats = [
+    ...opponents.map(player => <div key={player.id} data-deal-seat={player.id} data-player-seat={player.id}>
+      {player.presence === 'reserved' || player.presence === 'open' ? <YardOpponentSeat name="OPEN" chips={0} seat={0} open /> : <OpponentPanel player={player} phase={phase} />}
+    </div>),
+    ...Array.from({length:Math.max(0,4-opponents.length)},(_,index)=><div key={`open-${index}`}><YardOpponentSeat name="OPEN" chips={0} seat={0} open /></div>),
+  ];
 
   /* ── Staggered deal animation ─────────────────────────────────────────── */
   // visibleCount tracks how many community cards have animated in.
@@ -138,25 +119,21 @@ export function BoxChevyTable({ state, myId, phase }: BoxChevyTableProps) {
   }, [communityCards.length]);
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <TableBoard gameAccent="#F97316" title="BOX CHEVY" subtitle="10-CARD LOWBALL" phase={phase} heroPlayerId={myId}
+      heroCards={heroCards}
+      opponentSeats={opponentSeats}
+      centerReadout={<div className="yard-table-readout">{heroValidity ? <HeroHandValidityBadge validity={heroValidity} phase={phase} /> : `${me?.cards.length ?? 0} HOLE CARDS · ${communityCards.length}/5 COMMUNITY`}</div>}
+      pot={<div data-pot-anchor className="yard-box-pot"><span>POT</span><strong>{pot.toLocaleString()}</strong></div>}>
+    <div className="yard-box-table-content">
       <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
-      {/* Opponent grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: opponents.length <= 2 ? `repeat(${Math.max(1, opponents.length)}, 1fr)` : 'repeat(2, 1fr)',
-        gap: 8,
-      }}>
-        {opponents.slice(0, 4).map(opp => (
-          <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id}><OpponentPanel player={opp} phase={phase} /></div>
-        ))}
-      </div>
+      {/* Community cards surface stays translucent over the shared glass surface. */}
 
       {/* Community cards — staggered animation */}
-      <div style={{
+      <div className="yard-box-community" style={{
         borderRadius: 14,
-        background: 'rgba(0,0,0,0.60)',
+        background: 'rgba(21,10,46,0.34)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-        border: `1px solid rgba(96,165,250,0.30)`,
+        border: `1px solid rgba(249,115,22,0.35)`,
         padding: '10px 12px 14px',
         boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
       }}>
@@ -199,33 +176,7 @@ export function BoxChevyTable({ state, myId, phase }: BoxChevyTableProps) {
         </div>
       </div>
 
-      {/* Pot + phase + made-hand — high-contrast dark backdrop */}
-      <div style={{
-        borderRadius: 10,
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        padding: '8px 14px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-        fontFamily: 'monospace', fontSize: 11,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
-      }}>
-        <div data-pot-anchor style={{ color: SLV }}>
-          POT <span style={{ color: '#e2e8f0', fontWeight: 700 }}>${pot}</span>
-        </div>
-
-        <HeroHandValidityBadge validity={heroValidity} phase={phase} />
-
-        <div style={{
-          fontSize: 11, fontWeight: 700,
-          color: 'rgba(255,255,255,0.75)',
-          background: 'rgba(255,255,255,0.07)',
-          borderRadius: 5, padding: '2px 7px',
-          letterSpacing: '0.10em',
-        }}>
-          {phase.replace(/_/g, ' ')}
-        </div>
-      </div>
     </div>
+    </TableBoard>
   );
 }

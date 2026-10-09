@@ -18,6 +18,7 @@ export interface FiveSeatOpponent {
   isDealer: boolean;
   seatNum: number;
   isOpen?: boolean;
+  isChipLeader?: boolean;
 }
 
 interface FiveSeatPokerTableProps {
@@ -26,6 +27,7 @@ interface FiveSeatPokerTableProps {
   myId: string;
   opponents: FiveSeatOpponent[];
   hero: ReactNode;
+  heroInBoardSlot?: boolean;
   center: ReactNode;
   accent: string;
   modeLabel: string;
@@ -93,7 +95,7 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
       <div
         data-deal-seat={opponent.id}
         style={{
-          width: 'clamp(104px, 28vw, 174px)',
+          width: 'clamp(140px, 34vw, 174px)',
           minHeight: 74,
           maxWidth: 'calc(100vw - 22px)',
           padding: '8px',
@@ -129,7 +131,8 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
     <div
       data-deal-seat={opponent.id}
       style={{
-        width: 'clamp(104px, 28vw, 174px)',
+        position: 'relative',
+        width: 'clamp(140px, 34vw, 174px)',
         maxWidth: 'calc(100vw - 22px)',
         padding: '7px 8px 6px',
         borderRadius: 16,
@@ -150,11 +153,13 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
         WebkitBackdropFilter: 'blur(12px)',
       }}
     >
+      {opponent.isChipLeader && <span aria-label="Chip leader" style={{ position:'absolute', zIndex:3, top:-9, left:9, color:'#FBBF24', fontSize:15, lineHeight:1, textShadow:'0 1px 5px #000' }}>♛</span>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
         <div
           style={{
-            width: 30,
-            height: 30,
+            width: 56,
+            height: 56,
+            position: 'relative',
             borderRadius: '50%',
             overflow: 'hidden',
             flexShrink: 0,
@@ -183,7 +188,7 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
               </span>
             )}
           </div>
-          <div style={{ color: `${accent}cc`, font: '600 10px monospace', marginTop: 2 }}>
+          <div style={{ color: '#FDE68A', font: '700 12px monospace', marginTop: 2 }}>
             {opponent.chips.toLocaleString()}
           </div>
         </div>
@@ -200,14 +205,16 @@ function OpponentSeat({ opponent, accent, modeLabel }: { opponent: FiveSeatOppon
   );
 }
 
-function TableTurnTimer({
+export function TableTurnTimer({
   deadline,
   playerName,
   accent,
+  variant = 'pill',
 }: {
   deadline: number;
   playerName: string;
   accent: string;
+  variant?: 'pill' | 'ring';
 }) {
   const [remainingMs, setRemainingMs] = useState(() => Math.max(0, deadline - Date.now()));
   const durationRef = useRef(Math.max(1000, deadline - Date.now()));
@@ -223,6 +230,17 @@ function TableTurnTimer({
   const seconds = Math.ceil(remainingMs / 1000);
   const progress = Math.max(0, Math.min(1, remainingMs / durationRef.current));
   const urgent = seconds <= 5;
+
+  if (variant === 'ring') return (
+    <span className="yard-avatar-timer" role="timer" aria-label={`${playerName} has ${seconds} seconds remaining`}>
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#4C2A99" strokeWidth="3" />
+        <circle cx="32" cy="32" r="30" fill="none" stroke={urgent ? '#EF4444' : accent} strokeWidth="3"
+          strokeDasharray={188.5} strokeDashoffset={188.5 * (1 - progress)} transform="rotate(-90 32 32)" />
+      </svg>
+      <small>{seconds}s</small>
+    </span>
+  );
 
   return (
     <div
@@ -262,7 +280,7 @@ function TableTurnTimer({
 }
 
 export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
-  { players, phase, myId, opponents, hero, center, accent, modeLabel, activePlayerId, turnDeadline, effects }: FiveSeatPokerTableProps,
+  { players, phase, myId, opponents, hero, heroInBoardSlot = false, center, accent, modeLabel, activePlayerId, turnDeadline, effects }: FiveSeatPokerTableProps,
   ref: Ref<HTMLDivElement>,
 ) {
   const [tableRoot, setTableRoot] = useState<HTMLDivElement | null>(null);
@@ -294,7 +312,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
       <div data-pot-anchor aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '48%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
       <div data-muck-anchor aria-hidden="true" style={{ position: 'absolute', left: '38%', top: '55%', width: 2, height: 2, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
 
-      {turnDeadline && activePlayerId && phase !== 'WAITING' && phase !== 'SHOWDOWN' && (
+      {turnDeadline && activePlayerId && !(heroInBoardSlot && activePlayerId === myId) && phase !== 'WAITING' && phase !== 'SHOWDOWN' && (
         <TableTurnTimer
           deadline={turnDeadline}
           playerName={players.find(player => player.id === activePlayerId)?.name ?? 'Player'}
@@ -302,7 +320,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
         />
       )}
 
-      {opponents.map((opponent, index) => {
+      {opponents.slice(0, 4).map((opponent, index) => {
         const position = SLOT_STYLES[index];
         return (
           <div
@@ -314,6 +332,11 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
           </div>
         );
       })}
+      {opponents.length > 4 && <div className="yard-seat-overflow" aria-label="Additional table seats">
+        {opponents.slice(4).map(opponent => <div key={opponent.id} data-player-seat={opponent.id} data-deal-seat={opponent.id}>
+          <OpponentSeat opponent={opponent} accent={accent} modeLabel={modeLabel} />
+        </div>)}
+      </div>}
 
       <div
         style={{
@@ -321,7 +344,7 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
           zIndex: 4,
           left: '50%',
           top: '48%',
-          width: 'min(46%, 250px)',
+          width: 'min(34%, 210px)',
           transform: 'translate(-50%, -50%)',
           display: 'flex',
           flexDirection: 'column',
@@ -353,11 +376,11 @@ export const FiveSeatPokerTable = forwardRef(function FiveSeatPokerTable(
           transition: 'filter 220ms ease',
         }}
       >
-        {hero}
+        {!heroInBoardSlot && hero}
       </div>
 
-      <TableDealAnimator players={players} phase={phase} myId={myId} tableRoot={tableRoot} />
-      {effects?.(tableRoot)}
+      <TableDealAnimator players={players} phase={phase} myId={myId} tableRoot={tableRoot?.closest('.yard-table-board') ?? tableRoot} />
+      {effects?.(tableRoot?.closest('.yard-table-board') ?? tableRoot)}
     </div>
   );
 });

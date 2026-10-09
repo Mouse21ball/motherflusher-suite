@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/session';
 import { DISCLAIMER } from '@/lib/retention';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { fire2 } from '@/lib/analytics';
+import { Check, Crown, Gift, Lightbulb, Zap } from 'lucide-react';
 
 // ── Reward schedule (mirrors server) ──────────────────────────────────────────
 const SCHEDULE = [
@@ -43,6 +44,7 @@ interface Props {
   open:      boolean;
   onClose:   () => void;
   onClaimed: (chipsGranted: number, stripesGranted: number, newChipBalance: number, newStripesBalance: number) => void;
+  presentation?: 'modal' | 'inline';
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,7 +66,8 @@ function fmtChips(n: number): string {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
+export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation = 'modal' }: Props) {
+  const inline = presentation === 'inline';
   const [status,    setStatus]    = useState<DailyBonusStatus | null>(null);
   const [loading,   setLoading]   = useState(false);
   const [claiming,  setClaiming]  = useState(false);
@@ -151,16 +154,16 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
   const activeDay = streakDay;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
+    <div className={inline ? 'yard-reward-inline' : 'yard-reward-overlay fixed inset-0 z-50 flex items-center justify-center px-4'} role="dialog" aria-modal={inline ? undefined : true}>
       {/* Backdrop */}
-      <div
+      {!inline && <div
         className="absolute inset-0 bg-black/75 backdrop-blur-sm"
         onClick={() => { if (!claiming) onClose(); }}
-      />
+      />}
 
       {/* Card */}
       <div
-        className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+        className={`yard-reward-panel relative w-full ${inline ? 'yard-inline-reward-panel' : 'max-w-sm'} rounded-2xl overflow-hidden shadow-2xl`}
         style={{
           background: 'linear-gradient(160deg, #141417 0%, #0d0d10 100%)',
           border:     '1px solid rgba(255,255,255,0.07)',
@@ -183,17 +186,17 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
                 Daily Bonus
               </span>
               <h2 className="text-lg font-black text-white leading-none" data-testid="text-daily-bonus-title">
-                {claimed ? 'Reward Claimed! 🎉' : canClaim ? 'Your Reward Awaits' : 'Come Back Tomorrow'}
+                {claimed ? 'Reward Claimed' : canClaim ? 'Your Reward Awaits' : 'Come Back Tomorrow'}
               </h2>
             </div>
-            <button
+            {!inline && <button
               onClick={() => { if (!claiming) onClose(); }}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white/70 transition-all text-sm"
               data-testid="button-close-daily-bonus"
               aria-label="Close"
             >
               ✕
-            </button>
+            </button>}
           </div>
 
           {/* ── 7-Day calendar grid ─────────────────────────────────────────── */}
@@ -244,13 +247,13 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
 
                   {/* State icon */}
                   {isPast && (
-                    <span className="text-[11px] leading-none" style={{ color: '#C9A227' }}>✓</span>
+                    <Check size={12} style={{ color: '#FBBF24' }} />
                   )}
                   {isToday && !claimed && (
-                    <span className="text-[11px] leading-none">{isDay7 ? '👑' : '🎁'}</span>
+                    isDay7 ? <Crown size={12} color="#FBBF24" /> : <Gift size={12} color="#FBBF24" />
                   )}
                   {isToday && claimed && (
-                    <span className="text-[11px] leading-none">✅</span>
+                    <Check size={12} color="#C4B5FD" />
                   )}
                   {isFuture && (
                     <span className="text-[9px] font-mono text-white/30 leading-none">{dayNum}</span>
@@ -285,7 +288,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
               style={{ background: 'rgba(201,162,39,0.10)', border: '1px solid rgba(201,162,39,0.25)' }}
             >
               <span className="text-[10px] font-mono font-black uppercase tracking-[0.2em]" style={{ color: '#C9A227' }}>
-                ⚡ Streak Reward — Day 7 ⚡
+                <Zap size={14} aria-hidden="true" /> Streak Reward — Day 7
               </span>
             </div>
           )}
@@ -346,7 +349,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
                         </div>
                       )}
                     </div>
-                    {todayReward.isJackpot && <span className="text-4xl ml-auto">👑</span>}
+                    {todayReward.isJackpot && <Crown className="ml-auto" size={36} color="#FBBF24" />}
                   </div>
                 </>
               ) : (
@@ -409,7 +412,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
                     </div>
                   )}
                 </div>
-                <span className="text-3xl ml-auto">✅</span>
+                <Check className="ml-auto" size={28} color="#22C55E" />
               </div>
               <div className="flex flex-col gap-0.5 mt-1 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="text-[9px] font-mono text-white/20">
@@ -447,8 +450,8 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
                   {claiming
                     ? 'Claiming…'
                     : activeDay === 7
-                      ? '👑 Claim Day 7 Reward!'
-                      : `⚡ Claim Day ${activeDay} Reward`}
+                      ? 'Claim Day 7 Reward'
+                      : `Claim Day ${activeDay} Reward`}
                 </button>
               )}
 
@@ -475,7 +478,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed }: Props) {
               className="flex items-start gap-2 rounded-xl px-3 py-2"
               style={{ background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.15)' }}
             >
-              <span className="text-sm leading-none mt-0.5">💡</span>
+              <Lightbulb className="mt-0.5 shrink-0" size={15} color="#FBBF24" />
               <p className="text-[10px] font-mono leading-relaxed" style={{ color: 'rgba(168,85,247,0.70)' }}>
                 You're playing as a guest. Save your progress to keep your streak permanent — guest accounts reset every 24 hours.
               </p>

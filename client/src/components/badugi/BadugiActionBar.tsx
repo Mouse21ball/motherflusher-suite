@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BettingControls } from '../game/BettingControls';
+import { Award, Layers3, Spade } from 'lucide-react';
 
 const G = (a: number) => `rgba(201,162,39,${a})`;
 
@@ -51,12 +52,12 @@ function TutorialPanel() {
       style={{ overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, padding: '10px 4px 6px', borderTop: `1px solid ${G(0.18)}` }}>
         {[
-          { icon: '🎴', label: 'DRAW UP TO 3', sub: 'Cards per round' },
-          { icon: '♠', label: 'ALL 4 SUITS', sub: '4-card Badugi wins' },
-          { icon: '🏆', label: 'LOWEST HAND', sub: 'Badugi beats non-Badugi' },
+          { icon: <Layers3 size={18} />, label: 'DRAW UP TO 3', sub: 'Cards per round' },
+          { icon: <Spade size={18} />, label: 'ALL 4 SUITS', sub: '4-card Badugi wins' },
+          { icon: <Award size={18} />, label: 'LOWEST HAND', sub: 'Badugi beats non-Badugi' },
         ].map(s => (
           <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 18 }}>{s.icon}</span>
+            <span style={{ color:'#FBBF24' }}>{s.icon}</span>
             <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
             <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{s.sub}</span>
           </div>
@@ -112,11 +113,11 @@ export function BadugiActionBar({
     boxShadow: canAct ? `0 0 18px ${G(0.45)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none',
   };
   return (
-    <div style={{ width: '100%' }}>
+    <div className="yard-action-bar" style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
         {/* Draw phase */}
         {isDrawPhase && (
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="yard-action-buttons" style={{ display: 'flex', gap: 10 }}>
             <button style={standPatBtn} disabled={!canAct} onClick={canAct ? onStandPat : undefined} data-testid="button-stand-pat">
               STAND PAT
             </button>
@@ -182,7 +183,7 @@ export function BadugiActionBar({
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: G(0.7), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
                 DECLARE HIGH OR LOW
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div className="yard-action-buttons" style={{ display: 'flex', gap: 10 }}>
                 <button
                   onClick={() => onAction('declare', { declaration: 'HIGH' })}
                   data-testid="button-declare-high"
