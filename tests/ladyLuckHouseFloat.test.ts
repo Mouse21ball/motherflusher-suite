@@ -47,7 +47,7 @@ vi.mock('../server/db', () => ({
   },
 }));
 
-import { storage } from '../server/storage';
+import { storage, isInternalChipAccount } from '../server/storage';
 
 function grantEntries() {
   return ledger.filter(e => e.source === 'ladyluck_house_float_grant');
@@ -179,5 +179,33 @@ describe('Lady Luck house float (auto-replenishing bot funding)', () => {
     expect(balances.get('bot_a')).toBe(10_000);
     expect(balances.get('bot_b')).toBe(10_000);
     expect(grantEntries()).toHaveLength(2);
+  });
+});
+
+describe('Guest-reset protection for internal chip accounts', () => {
+  it('identifies the house and bot accounts as internal', () => {
+    expect(isInternalChipAccount('__ladyluck_house__')).toBe(true);
+    expect(isInternalChipAccount('bot_abc123')).toBe(true);
+    expect(isInternalChipAccount('bot_')).toBe(true);
+  });
+
+  it('does not treat player or guest accounts as internal', () => {
+    expect(isInternalChipAccount('player1')).toBe(false);
+    expect(isInternalChipAccount('guest_xyz')).toBe(false);
+    expect(isInternalChipAccount('')).toBe(false);
+  });
+
+  it('resetGuestAccount refuses to touch the house or bot accounts', async () => {
+    balances.set(HOUSE, 100_000);
+    balances.set(BOT, 10_000);
+
+    await storage.resetGuestAccount(HOUSE);
+    await storage.resetGuestAccount(BOT);
+
+    // Early return: no balance changes, no ledger entries, no DB updates.
+    expect(balances.get(HOUSE)).toBe(100_000);
+    expect(balances.get(BOT)).toBe(10_000);
+    expect(ledger).toHaveLength(0);
+    expect(updateTargets).toHaveLength(0);
   });
 });

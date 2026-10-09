@@ -10,7 +10,7 @@
 // DRY_RUN MODE: set env var GUEST_RESET_DRY_RUN=true to log what would be
 // reset without actually writing anything to the database.
 
-import { storage } from "./storage";
+import { storage, isInternalChipAccount } from "./storage";
 
 const DRY_RUN           = process.env.GUEST_RESET_DRY_RUN === "true";
 const RESET_WINDOW_MS   = 24 * 60 * 60 * 1000;   // 24 hours
@@ -44,6 +44,10 @@ async function runGuestResetJob(): Promise<void> {
   let errorCount = 0;
 
   for (const guest of candidates) {
+    if (isInternalChipAccount(guest.id)) {
+      skipCount++;
+      continue;
+    }
     // ── SAFETY: double-check auth status ──────────────────────────────────────
     // This must never be removed. Even if the DB query returns a row that
     // somehow has auth credentials, we stop here and never touch it.
