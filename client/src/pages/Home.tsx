@@ -47,7 +47,7 @@ import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import { YardRewardFlight } from '@/components/YardRewardFlight';
 import { publishYardMissionBadge } from '@/lib/yardMissionBadge';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
-import { RefreshCw, ArrowRight, Medal } from 'lucide-react';
+import { RefreshCw, ArrowRight, Medal, Crown } from 'lucide-react';
 import '@/yard-reskin.css';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
@@ -637,7 +637,7 @@ export default function Home() {
         </section>
       </main>}
       <div className={`yard-home-regular${isMissionsPage ? ' is-hidden' : ''}`} style={{ flex: 1, paddingBottom: 140 }}>
-        <div style={{ width: '100%', maxWidth: 512, margin: '0 auto' }}>
+        <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
 
           {/* ══ GUEST NUDGE BANNER ═══════════════════════════════════════════════ */}
           {showGuestNudge && (
@@ -743,7 +743,9 @@ export default function Home() {
                       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>
                         {card.subtitle}
                       </div>
-                       <span className="yard-card-chevron" aria-hidden="true">›</span>
+                       <button className="yard-card-chevron" data-testid={`button-play-${card.id}`}
+                         aria-label={`Play ${card.title}`}
+                         onClick={e => { e.stopPropagation(); selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}>›</button>
                        <div className="yard-card-utilities">
                        {htpModeId && (
                         <button

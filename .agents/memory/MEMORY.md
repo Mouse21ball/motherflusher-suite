@@ -36,3 +36,4 @@
 - [All-in turn policy](all-in-turn-policy.md) — skip betting without any idle timer; preserve required non-betting actions and pot eligibility.
 - [Capacitor core lifecycle](capacitor-core-lifecycle.md) — inspect the base bridge before adding an optional plugin solely for iOS return tracking.
 - [Purchase approval boundary](purchase-approval-boundary.md) — personal consumable chip packs are not approved; visual inspiration does not authorize new SKUs.
+- [Workspace session health](workspace-session-health.md) — leave the development server running and confirm reachability before ending each work session.

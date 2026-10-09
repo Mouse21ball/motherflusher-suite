@@ -88,8 +88,8 @@
 .yard-home-title h1 { margin:0; font-size:clamp(38px,10vw,80px); line-height:.91; color:#E5E7EB; background:linear-gradient(#fff 15%,#9CA3AF 58%,#FBBF24 95%); background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 2px #0A0618) drop-shadow(0 0 14px #A855F755); }
 .yard-home-title em { color:#FBBF24;font:italic 700 clamp(20px,5vw,34px) Georgia,serif;display:block;text-shadow:0 2px 2px #0A0618; }
 .yard-home-title p { display:inline-block;margin:8px 0 0;padding:4px 16px;background:#EDE9FE;color:#150A2E;font:800 11px 'Oswald',sans-serif;letter-spacing:.19em;clip-path:polygon(4% 0,96% 0,100% 100%,0 100%); }
-.yard-game-grid { display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px!important;padding:0 16px!important;max-width:920px;margin:0 auto; }
-.yard-game-card { height:auto!important; aspect-ratio: .82; width:100%!important; margin:0!important; border-radius:12px!important; border:3px solid var(--card-accent)!important; box-shadow:0 0 0 1px #E5E7EB88,inset 0 -50px 42px #0A0618aa,0 0 16px color-mix(in srgb,var(--card-accent),transparent 55%); transition:transform .18s,filter .18s; }
+.yard-game-grid { display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px!important;padding:0 16px!important;max-width:1100px;margin:0 auto; }
+.yard-game-card { position:relative;overflow:hidden;height:auto!important; aspect-ratio: .82; width:100%!important; margin:0!important; border-radius:12px!important; border:3px solid var(--card-accent)!important; box-shadow:0 0 0 1px #E5E7EB88,inset 0 -50px 42px #0A0618aa,0 0 16px color-mix(in srgb,var(--card-accent),transparent 55%); transition:transform .18s,filter .18s; }
 .yard-game-card:active { transform:scale(.97);filter:brightness(1.12); }
 .yard-game-card img.yard-card-art { transition:transform .3s,opacity .3s; }
 .yard-game-card:hover img.yard-card-art { transform:scale(1.035); }
@@ -372,3 +372,61 @@
 .yard-card-utilities {position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:12px}
 .yard-card-utilities button {width:48px!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0!important;display:grid;place-items:center;font-size:14px!important}
 .yard-game-card [data-testid^="text-mode-name"] {max-width:calc(100% - 54px)}
+.yard-game-card [data-testid^="text-mode-name"] {background:linear-gradient(180deg,#E5E7EB 10%,#FDE68A 48%,#6B7280 54%,#FBBF24 100%);background-clip:text;-webkit-background-clip:text;color:transparent!important;font-weight:700;filter:drop-shadow(0 3px 0 #0A0618)}
+.yard-card-chevron {cursor:pointer}
+.yard-reward-inline .grid-cols-7 {grid-template-columns:repeat(7,minmax(48px,1fr));overflow-x:auto;padding-bottom:4px}
+.yard-reward-inline [data-testid^="day-card-"] {min-width:48px;min-height:82px}
+.yard-streak-day-label {font-size:14px;font-weight:700;white-space:nowrap;color:#EDE9FE}
+.yard-reward-inline [role="button"] {cursor:pointer;box-shadow:0 0 12px #F59E0B80!important}
+.yard-suspension-chain {z-index:0}
+.yard-opponent-name b {position:absolute;left:-9px;top:28px;width:24px;height:24px;display:grid;place-items:center;background:#FBBF24;color:#150A2E;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);font-size:12px}
+.yard-page {height:100dvh;overflow:hidden;box-sizing:border-box}
+.yard-home-regular {min-height:0;overflow-y:auto;scroll-padding-bottom:20px}
+.yard-player-header {background:rgba(21,10,46,.48);backdrop-filter:blur(4px)}
+.yard-player-balance strong,.yard-opponent-seat strong {font-variant-numeric:tabular-nums}
+.yard-player-balance>button {background:#1E1040;color:#FBBF24}
+.yard-shop-title {margin:0 0 22px;width:fit-content;font:700 38px 'Oswald',sans-serif;letter-spacing:.07em;background:linear-gradient(#E5E7EB 20%,#FDE68A 62%,#B45309);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 1px #0A0618)}
+.yard-mission-card {grid-template-columns:56px minmax(0,1fr) 96px;gap:12px;min-height:112px}
+.yard-mission-art {width:56px;height:56px;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px)}
+.yard-mission-copy h3 {font-size:14px;text-transform:uppercase;margin-bottom:7px}
+.yard-mission-state {min-width:96px}
+.yard-mission-track {height:10px;background:#150A2E}
+.yard-mission-track i {background:#A855F7}
+.yard-mission-track i[style*="100%"] {position:relative}
+.yard-mission-track i[style*="100%"]::after {content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,#FDE68A,transparent);animation:yard-shimmer 2.5s linear infinite}
+@keyframes yard-shimmer {from{transform:translateX(-110%)}to{transform:translateX(110%)}}
+@media(max-width:640px){
+  .yard-player-header {grid-template-columns:72px minmax(0,1fr) auto;grid-template-areas:"avatar identity actions" "wallet wallet wallet";gap:10px;padding:8px 12px}
+  .yard-player-avatar {width:72px;height:72px}
+  .yard-player-wallet {grid-row:2}
+  .yard-player-actions {grid-row:1;gap:4px}
+}
+@media(prefers-reduced-motion:reduce){.yard-mission-track i::after{animation:none!important}}
+.yard-table-board .yard-opponent-position {width:90px}
+.yard-table-board .yard-opponent-card {min-width:0;width:100%;box-sizing:border-box}
+.yard-table-board .yard-opponent-position.seat-1 {left:50%;right:auto;top:7%;transform:translateX(-50%)}
+.yard-table-board .yard-opponent-position.seat-2 {left:3%;right:auto;top:32%}
+.yard-table-board .yard-opponent-position.seat-3 {left:auto;right:3%;top:32%}
+.yard-table-board .yard-opponent-position.seat-4 {left:auto;right:3%;top:7%}
+.yard-table-board .yard-opponent-head {flex-direction:column;gap:3px}
+.yard-table-board .yard-opponent-info {width:100%;text-align:center}
+.yard-table-board .yard-opponent-name {font-size:12px}
+.yard-table-board .yard-phase-slot {top:28%}
+.yard-table-board .yard-phase-step {flex-direction:column;gap:4px;width:60px;padding:4px}
+.yard-table-board .yard-phase-step::after {top:15px}
+.yard-table-board .yard-phase-step.is-current .yard-phase-dot {background:var(--table-accent);border-color:var(--table-accent);color:#0A0618;box-shadow:0 0 12px var(--table-accent)}
+.yard-table-board .yard-readout-slot {top:42%;max-width:46%;text-align:center}
+.yard-table-board .yard-pot-slot {top:56%}
+.yard-table-board .yard-hero-hand {padding-left:64px;box-sizing:border-box}
+.yard-table-board .yard-hero-identity {position:absolute;left:3px;bottom:6px;width:60px;flex-direction:column;gap:2px}
+.yard-table-board .yard-hero-name {max-width:60px;font-size:11px;text-align:center}
+.yard-discard-prompt {position:absolute;right:12px;bottom:126px;max-width:260px;z-index:5;text-align:center}
+.yard-reward-stack>.yard-calendar-inline-wrap {order:0}
+.yard-reward-stack>.yard-hourly-banner {order:1}
+.yard-hourly-banner>button.is-ready {box-shadow:0 0 14px #22C55E70}
+@media(max-width:370px){
+  .yard-table-board .yard-hero-hand {padding-left:0}
+  .yard-table-board .yard-hero-identity {pointer-events:none}
+}
+.yard-bottom-nav {height:calc(72px + env(safe-area-inset-bottom));padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+.yard-page {padding-bottom:calc(88px + env(safe-area-inset-bottom))}

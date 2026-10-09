@@ -7,6 +7,12 @@ const fullTableTimingCapMs = 1900;
 async function openFixture(page: Parameters<typeof test>[0]['page']) {
   await page.goto('/table-deal-test.html');
   await expect(page.getByTestId('deal')).toBeVisible();
+  // Measure the branded table after local fonts have settled; font swaps are
+  // real geometry changes and intentionally cancel in-flight measurements.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
 }
 
 test.describe('table deal animation in a narrow browser viewport', () => {
@@ -85,34 +91,38 @@ test.describe('table deal animation in a narrow browser viewport', () => {
     expect(geometry.viewport.width).toBe(375);
     await page.getByTestId('deal').click();
     await expect(page.locator(flightSelector)).toHaveCount(3);
-    await expect(page.getByTestId('table').locator('[data-deal-seat="hero"]')).toHaveCSS('visibility', 'hidden');
-    await expect(page.getByTestId('table').locator('[data-deal-seat="opponent-1"]')).toHaveCSS('visibility', 'hidden');
-
-    const flightGeometry = await page.locator(flightSelector).first().evaluate((flight) => ({
-      left: parseFloat((flight as HTMLElement).style.left),
-      top: parseFloat((flight as HTMLElement).style.top),
-      hasFront: !!flight.querySelector('.playing-card-front'),
-      hasBack: !!flight.querySelector('.playing-card-back'),
-      text: flight.textContent,
-    }));
+    // Capture within one browser call: serial protocol assertions consumed the
+    // flight's lifetime before the 380ms destination sample on slower runners.
+    const sample = await page.evaluate(async selector => {
+      const flights = [...document.querySelectorAll<HTMLElement>(selector)];
+      const flight = flights[0];
+      const table = document.querySelector<HTMLElement>('[data-testid="table"]')!;
+      const hiddenSeats = ['hero', 'opponent-1'].map(id =>
+        getComputedStyle(table.querySelector<HTMLElement>(`[data-deal-seat="${id}"]`)!).visibility);
+      const flightGeometry = {
+        left: parseFloat(flight.style.left), top: parseFloat(flight.style.top),
+        hasFront: !!flight.querySelector('.playing-card-front'), hasBack: !!flight.querySelector('.playing-card-back'),
+      };
+      const flightKinds = flights.map(node => ({
+        hasFront: !!node.querySelector('.playing-card-front'), hasBack: !!node.querySelector('.playing-card-back'),
+        text: node.textContent ?? '',
+      }));
+      await new Promise(resolve => setTimeout(resolve, 380));
+      const rect = flight.getBoundingClientRect();
+      return { hiddenSeats, flightGeometry, flightKinds,
+        heroFlightBox: flight.isConnected ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+        tableBox: table.getBoundingClientRect().toJSON() };
+    }, flightSelector);
+    expect(sample.hiddenSeats).toEqual(['hidden', 'hidden']);
+    const { flightGeometry, flightKinds, heroFlightBox, tableBox } = sample;
     expect(flightGeometry.left).toBeCloseTo(geometry.deckCenter.x - 19, 0);
     expect(flightGeometry.top).toBeCloseTo(geometry.deckCenter.y - 27, 0);
     expect(flightGeometry.hasFront || flightGeometry.hasBack).toBe(true);
 
-    const flightKinds = await page.locator(flightSelector).evaluateAll((flights) =>
-      flights.map((flight) => ({
-        hasFront: !!flight.querySelector('.playing-card-front'),
-        hasBack: !!flight.querySelector('.playing-card-back'),
-        text: flight.textContent ?? '',
-      })),
-    );
     expect(flightKinds.filter((flight) => flight.hasFront)).toHaveLength(0);
     expect(flightKinds.filter((flight) => flight.hasBack)).toHaveLength(3);
     expect(flightKinds.filter((flight) => flight.hasBack).every((flight) => flight.text === '')).toBe(true);
 
-    await page.waitForTimeout(380);
-    const heroFlightBox = await page.locator(flightSelector).first().boundingBox();
-    const tableBox = await page.getByTestId('table').boundingBox();
     expect(heroFlightBox).not.toBeNull();
     expect(tableBox).not.toBeNull();
     expect(heroFlightBox!.x + heroFlightBox!.width / 2 - tableBox!.x).toBeCloseTo(geometry.heroCenter.x, 0);

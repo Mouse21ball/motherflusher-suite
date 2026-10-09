@@ -153,7 +153,7 @@ test('a paid all-in Badugi player retains draw and declare controls after bettin
       })) };
   });
   await page.getByTestId('button-play-badugi').click();
-  await expect(page.getByText('FIRST BET', { exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Hand phase: BET 1' })).toBeVisible();
   await page.getByRole('dialog').filter({
     has: page.getByRole('heading', { name: 'Badugi', exact: true }),
   }).getByRole('button', { name: 'Close', exact: true }).click();
@@ -161,11 +161,11 @@ test('a paid all-in Badugi player retains draw and declare controls after bettin
   state = { ...state, phase: 'DRAW_2', activePlayerId: 'p1', turnDeadline: Date.now() + 30_000 };
   socket!.send(JSON.stringify({ type: 'badugi:snapshot', state }));
   await expect(page.getByTestId('button-stand-pat')).toBeEnabled();
-  await page.getByTestId('button-stand-pat').evaluate(element => (element as HTMLButtonElement).click());
+  await page.getByTestId('button-stand-pat').click();
   await expect.poll(() => messages.filter(message => message.type === 'badugi:action' && message.action === 'draw').length).toBe(1);
   state = { ...state, phase: 'DECLARE' };
   socket!.send(JSON.stringify({ type: 'badugi:snapshot', state }));
   await expect(page.getByTestId('button-declare-high')).toBeEnabled();
-  await page.getByTestId('button-declare-high').evaluate(element => (element as HTMLButtonElement).click());
+  await page.getByTestId('button-declare-high').click();
   await expect.poll(() => messages.filter(message => message.type === 'badugi:action' && message.action === 'declare').length).toBe(1);
 });

@@ -267,10 +267,10 @@ export function AnimatedCard({
    *
    * For non-selectable cards: a plain motion.div wrapper applies fan rotation.
    */
-  const selectedLift = isSelected ? -22 : 0;
+  const selectedLift = isSelected ? -8 : 0;
 
   const shadowFilter = isSelected
-    ? 'drop-shadow(0 0 12px rgba(168,85,247,0.95)) drop-shadow(0 0 6px rgba(168,85,247,0.7))'
+    ? 'drop-shadow(0 0 12px var(--table-accent, #A855F7)) drop-shadow(0 0 6px var(--table-accent, #A855F7))'
     : glowColor
     ? `drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 0 4px ${glowColor})`
     : 'none';

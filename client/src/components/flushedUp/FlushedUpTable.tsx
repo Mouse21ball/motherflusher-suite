@@ -179,7 +179,7 @@ export function FlushedUpTable({
   const liveReadout = heroHandEval
     ? `${heroHandEval.suitCount}/5 SUIT MATCH · ${showdownLabel(heroHandEval)}`
     : me?.status === 'folded' ? 'FOLDED · HAND COMPLETE' : 'TRACKING SUIT MATCH';
-  const heroCards = <div className="yard-hero-hand">
+  const heroCards = me ? <div className="yard-hero-hand">
     <YardHeroIdentity state={state} myId={myId} accent="#D946EF" />
     <div data-deal-seat={myId} data-player-seat={myId} style={{ display:'flex',flexDirection:'column',alignItems:'center',paddingBottom:8 }}>
       {isDrawPhase && selectedCardIndices.length > 0 && <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -195,7 +195,7 @@ export function FlushedUpTable({
         {isShowdown && heroHandEval && me.status !== 'folded' && <div style={{ marginTop:3,fontSize:12,fontFamily:'monospace',color:heroIsWinner?'#FDE68A':'rgba(255,255,255,.7)',fontWeight:heroIsWinner?700:400,letterSpacing:'.08em',textAlign:'center' }}>{showdownLabel(heroHandEval)}</div>}
       </> : <div style={{ display:'flex',gap:4,paddingTop:12,paddingBottom:6 }}>{Array.from({length:5}).map((_,i)=><div key={i} style={{width:heroCardW,height:heroCardH,borderRadius:8,border:'1px dashed rgba(217,70,239,.25)'}} />)}</div>}
     </div>
-  </div>;
+  </div> : undefined;
 
   return (
     <TableBoard rootRef={tableRef} gameAccent="#D946EF" title="FLUSHED UP" subtitle="CHASE THE FLUSH" phase={state.phase}

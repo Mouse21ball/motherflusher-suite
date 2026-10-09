@@ -114,15 +114,15 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   /* Suppress hero hand glow when not winning */
   const heroFilter  = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
-  const heroCards = (
+  const heroCards = me ? (
     <div className="yard-hero-hand">
       <YardHeroIdentity state={state} myId={myId} accent="#8B5CF6" />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-        {isDrawPhase && selectedCardIndices.length > 0 && (
-          <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
+        {isDrawPhase && (
+          <motion.div className="yard-discard-prompt" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
             style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: `${GOLD}0.2)`, border: `1px solid ${GOLD}0.4)`,
-              fontSize: 11, fontFamily: 'monospace', color: '#C9A227', letterSpacing: '0.08em' }}>
-            {selectedCardIndices.length} SELECTED · TAP DRAW
+              fontSize: 14, fontFamily: 'monospace', color: '#FBBF24', letterSpacing: '0.04em' }}>
+            ↻ SELECT CARDS TO DISCARD{selectedCardIndices.length ? ` · ${selectedCardIndices.length} SELECTED` : ''}
           </motion.div>
         )}
         {me && me.cards.length > 0 && me.status !== 'folded' ? <>
@@ -142,7 +142,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
             <div key={i} style={{ width: HERO_CARD_W, height: HERO_CARD_H, borderRadius: 8, border: `1px dashed ${GOLD}0.12)` }} />)}</div>}
       </div>
     </div>
-  );
+  ) : undefined;
 
   return (
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}

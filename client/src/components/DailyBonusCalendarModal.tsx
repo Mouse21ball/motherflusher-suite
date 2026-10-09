@@ -154,7 +154,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
   const activeDay = streakDay;
 
   return (
-    <div className={inline ? 'yard-reward-inline' : 'yard-reward-overlay fixed inset-0 z-50 flex items-center justify-center px-4'} role="dialog" aria-modal={inline ? undefined : true}>
+    <div className={inline ? 'yard-reward-inline' : 'yard-reward-overlay fixed inset-0 z-50 flex items-center justify-center px-4'} role={inline ? 'region' : 'dialog'} aria-label={inline ? '7-Day Login Streak' : undefined} aria-modal={inline ? undefined : true}>
       {/* Backdrop */}
       {!inline && <div
         className="absolute inset-0 bg-black/75 backdrop-blur-sm"
@@ -234,7 +234,18 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                     boxShadow:   isToday && isDay7 ? '0 0 10px rgba(201,162,39,0.25)' : undefined,
                   }}
                   data-testid={`day-card-${dayNum}`}
+                  role={inline && isToday && canClaim && !claimed ? 'button' : undefined}
+                  tabIndex={inline && isToday && canClaim && !claimed ? 0 : undefined}
+                  aria-disabled={inline && isToday ? claiming || Boolean(claimed) || !canClaim : undefined}
+                  onClick={inline && isToday && canClaim && !claimed && !claiming ? () => void handleClaim() : undefined}
+                  onKeyDown={event => {
+                    if (inline && isToday && canClaim && !claimed && !claiming && (event.key === 'Enter' || event.key === ' ')) {
+                      event.preventDefault();
+                      void handleClaim();
+                    }
+                  }}
                 >
+                  {inline && <span className="yard-streak-day-label">Day {dayNum}</span>}
                   {/* Day 7 label */}
                   {isDay7 && (
                     <span

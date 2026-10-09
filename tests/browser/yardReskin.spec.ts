@@ -25,6 +25,7 @@ for (const viewport of [
         expect(await board.evaluate(element => getComputedStyle(element).getPropertyValue('--table-accent').trim())).toBe(mode.accent);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
         await expect(page.getByText(/Yard King/).first()).toBeVisible();
+        if (viewport.label === 'phone') await page.screenshot({ path: `/tmp/yard-table-${mode.id}.png` });
       }
       expect(errors).toEqual([]);
     });

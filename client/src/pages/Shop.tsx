@@ -582,6 +582,7 @@ export default function Shop() {
             ← BACK
           </button>
 
+          <h1 className="yard-shop-title">⛓ MY CHIPS ⛓</h1>
           <section className="yard-chip-balance-hero" aria-label="Current chip and Stripes balance">
             <div><span>YOUR CHIP BALANCE</span><strong>{(profile?.chipBalance ?? 0).toLocaleString()}</strong><small>SERVER BALANCE · PLAYABLE AT EVERY TABLE</small></div>
             <div className="yard-chip-hero-stripes"><span>STRIPES</span><strong>{(profile?.stripes ?? 0).toLocaleString()}</strong></div>
