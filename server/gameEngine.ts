@@ -1122,8 +1122,12 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
   // Mirror of genericEngine: if everyone folded last hand, reactivate eligible
   // seats so the next hand can begin instead of stalling in ANTE.
+  // NOTE: this is a last-resort override of the rollover player-set rule above
+  // (it reactivates even voluntary folders). It only fires when the rule would
+  // produce an empty table — i.e. every single player folded — where the
+  // alternative is a permanently dead table. Loud log so it's never silent.
   if (isRollover && !nextPlayers.some(p => p.status === 'active')) {
-    console.log(`[CGP][server] reset:no-active-after-rollover badugi:${table.tableId} — reactivating eligible seats`);
+    console.warn(`[CGP][server] reset:no-active-after-rollover badugi:${table.tableId} — rule produced zero players (all voluntarily folded); reactivating ALL chipped seats as last resort to avoid a dead table`);
     nextPlayers = nextPlayers.map(p => ({
       ...p,
       status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,

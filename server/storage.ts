@@ -807,7 +807,17 @@ export class MemStorage implements IStorage {
       const moved = delta > 0
         ? await this.transferLadyLuckChips(LADY_LUCK_HOUSE_ID, botId, delta, 'ladyluck_bot_rebuy', tableId)
         : await this.transferLadyLuckChips(botId, LADY_LUCK_HOUSE_ID, -delta, 'ladyluck_bot_sweep', tableId);
-      if (!moved) throw new Error('Lady Luck bot stack transfer failed');
+      if (!moved) {
+        // Diagnostic: transferLadyLuckChips returns false when the house is
+        // missing or its balance < amount. Log both so the next occurrence
+        // identifies a drained house vs. a missing account immediately.
+        const house = await this.getPlayerProfile(LADY_LUCK_HOUSE_ID).catch(() => null);
+        console.error(
+          `[LL] bot stack transfer failed: house=${LADY_LUCK_HOUSE_ID} ` +
+          `houseBalance=${house?.chipBalance ?? 'MISSING'} amount=${delta} bot=${botId} botBalance=${bot.chipBalance}`,
+        );
+        throw new Error('Lady Luck bot stack transfer failed');
+      }
     }
     return LADY_LUCK_BOT_STACK;
   }

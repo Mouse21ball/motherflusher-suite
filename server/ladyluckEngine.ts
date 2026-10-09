@@ -202,9 +202,15 @@ async function scheduleBotFill(tableId: string): Promise<void> {
   // Hardened Oct 2026: a single addBotToLobby failure must NOT kill the chain.
   // Previously the bare `await` below threw, the .catch at the timer level
   // swallowed it, and the refill loop never started — soft-locking solo hosts
-  // in the lobby forever with no error shown.
+  // in the lobby forever with no error shown. Retries run forever on the 2s
+  // cadence (the failure may be transient, e.g. a funding race); the host is
+  // notified once after 5 consecutive failures so they're never left waiting
+  // in silence.
   let consecutiveFailures = 0;
+  let hostNotified = false;
   const notifyHostOfBotFillFailure = () => {
+    if (hostNotified) return;
+    hostNotified = true;
     const m = tables.get(tableId);
     const ws = m?.connections.get(m?.hostId ?? '');
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -235,10 +241,9 @@ async function scheduleBotFill(tableId: string): Promise<void> {
       } catch (err) {
         consecutiveFailures++;
         console.error(`[LL] bot-fill refill failed for table ${tableId} (${consecutiveFailures}x consecutive):`, err);
-        if (consecutiveFailures >= 5) {
-          notifyHostOfBotFillFailure();
-          return; // stop retrying — the host has been told
-        }
+        if (consecutiveFailures >= 5) notifyHostOfBotFillFailure();
+        // Intentionally no return — keep retrying forever. The failure may be
+        // transient; giving up permanently is what soft-locked lobbies before.
       }
       m.botFillTimer = setTimeout(() => { void refill().catch(console.error); }, 2_000);
     } else {
