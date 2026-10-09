@@ -46,12 +46,14 @@ import { applyRake } from "./utils/rake";
 
 const scryptAsync = promisify(scrypt);
 const chipSyncQueue = new Map<string, Promise<void>>();
+type StorageTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** Reserved internal profile: its balance is the available Lady Luck house reserve.
- * Bot profile balances are house-owned stacks held separately from this reserve. */
+/** Reserved internal profile: its balance is the available Lady Luck house float.
+ * Bot stakes may receive explicit system subsidies; player transfers never do. */
 export const LADY_LUCK_HOUSE_ID = '__ladyluck_house__';
 export const LADY_LUCK_BOT_STACK = 10_000;
 const LADY_LUCK_HOUSE_SEED = 100_000_000;
+export const LADY_LUCK_BOT_FUNDING_FLOAT = LADY_LUCK_HOUSE_SEED;
 
 /** Internal ledger accounts are never disposable guest identities. */
 export function isInternalChipAccount(id: string): boolean {
@@ -799,23 +801,50 @@ export class MemStorage implements IStorage {
     });
   }
 
-  /** Atomic double-entry transfer, locking accounts in ID order. The bot's
-   * stack is held in a regular chip-balance row, never minted in table state. */
+  /** Ordinary transfers remain strictly funded double-entry movements. */
   async transferLadyLuckChips(fromId: string, toId: string, amount: number, source: string, tableId: string, rake?: number, handId?: string): Promise<boolean> {
     if (!Number.isSafeInteger(amount) || amount <= 0 || fromId === toId) throw new Error('Invalid Lady Luck transfer');
-    return db.transaction(async tx => {
+    return db.transaction(tx => this._transferLadyLuckChips(tx, fromId, toId, amount, source, tableId, rake, handId));
+  }
+
+  /** Only rebalanceLadyLuckBot can opt into an auditable system subsidy.
+   * The subsidy and both transfer entries commit or roll back together. */
+  private async _transferLadyLuckChips(
+    tx: StorageTransaction, fromId: string, toId: string, amount: number, source: string,
+    tableId: string, rake?: number, handId?: string, botFunding = false,
+  ): Promise<boolean> {
       const accounts = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
         .from(playerProfiles).where(inArray(playerProfiles.id, [fromId, toId]))
         .orderBy(asc(playerProfiles.id)).for('update');
       const from = accounts.find(a => a.id === fromId);
       const to = accounts.find(a => a.id === toId);
-      if (!from || !to || from.balance < amount) return false;
+      if (!from || !to) return false;
+      if (botFunding) {
+        if (fromId !== LADY_LUCK_HOUSE_ID || !toId.startsWith('bot_')
+            || source !== 'ladyluck_bot_rebuy' || amount > LADY_LUCK_BOT_STACK
+            || !Number.isSafeInteger(amount) || amount <= 0 || from.balance < 0) {
+          throw new Error('Invalid Lady Luck bot funding subsidy');
+        }
+        if (from.balance < amount) {
+          const subsidy = LADY_LUCK_BOT_FUNDING_FLOAT - from.balance;
+          await tx.update(playerProfiles).set({
+            chipBalance: LADY_LUCK_BOT_FUNDING_FLOAT, updatedAt: new Date(),
+          }).where(eq(playerProfiles.id, LADY_LUCK_HOUSE_ID));
+          await this._insertChipLedger(tx, {
+            playerId: LADY_LUCK_HOUSE_ID, beforeBalance: from.balance,
+            amountChange: subsidy, afterBalance: LADY_LUCK_BOT_FUNDING_FLOAT,
+            reason: 'other', source: 'ladyluck_bot_funding_subsidy', gameId: tableId,
+            metadata: { purpose: 'system_generated_bot_stakes', botId: toId, requiredChips: amount },
+          });
+          from.balance = LADY_LUCK_BOT_FUNDING_FLOAT;
+        }
+      }
+      if (from.balance < amount) return false;
       await tx.update(playerProfiles).set({ chipBalance: from.balance - amount, updatedAt: new Date() }).where(eq(playerProfiles.id, fromId));
       await tx.update(playerProfiles).set({ chipBalance: to.balance + amount, updatedAt: new Date() }).where(eq(playerProfiles.id, toId));
       await this._insertChipLedger(tx, { playerId: fromId, beforeBalance: from.balance, amountChange: -amount, afterBalance: from.balance - amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: toId, ...(rake != null ? { rake } : {}) } });
       await this._insertChipLedger(tx, { playerId: toId, beforeBalance: to.balance, amountChange: amount, afterBalance: to.balance + amount, reason: 'other', source, gameId: tableId, handId, metadata: { counterparty: fromId, ...(rake != null ? { rake } : {}) } });
       return true;
-    });
   }
 
   async fundLadyLuckBot(botId: string, tableId: string): Promise<number> {
@@ -834,16 +863,24 @@ export class MemStorage implements IStorage {
   }
 
   async rebalanceLadyLuckBot(botId: string, tableId: string): Promise<number> {
-    const bot = await this.getPlayerProfile(botId);
-    if (!bot) throw new Error('Lady Luck bot has no ledger account');
-    const delta = LADY_LUCK_BOT_STACK - bot.chipBalance;
-    if (delta !== 0) {
-      const moved = delta > 0
-        ? await this.transferLadyLuckChips(LADY_LUCK_HOUSE_ID, botId, delta, 'ladyluck_bot_rebuy', tableId)
-        : await this.transferLadyLuckChips(botId, LADY_LUCK_HOUSE_ID, -delta, 'ladyluck_bot_sweep', tableId);
-      if (!moved) throw new Error('Lady Luck bot stack transfer failed');
-    }
-    return LADY_LUCK_BOT_STACK;
+    if (!botId.startsWith('bot_')) throw new Error('Invalid Lady Luck bot ID');
+    return db.transaction(async tx => {
+      // Calculate the delta under the same ordered locks as the transfer.
+      // Concurrent rebalances of one bot cannot allocate its stake twice.
+      const accounts = await tx.select({ id: playerProfiles.id, balance: playerProfiles.chipBalance })
+        .from(playerProfiles).where(inArray(playerProfiles.id, [LADY_LUCK_HOUSE_ID, botId]))
+        .orderBy(asc(playerProfiles.id)).for('update');
+      const bot = accounts.find(a => a.id === botId);
+      if (!bot) throw new Error('Lady Luck bot has no ledger account');
+      const delta = LADY_LUCK_BOT_STACK - bot.balance;
+      if (delta !== 0) {
+        const moved = delta > 0
+          ? await this._transferLadyLuckChips(tx, LADY_LUCK_HOUSE_ID, botId, delta, 'ladyluck_bot_rebuy', tableId, undefined, undefined, true)
+          : await this._transferLadyLuckChips(tx, botId, LADY_LUCK_HOUSE_ID, -delta, 'ladyluck_bot_sweep', tableId);
+        if (!moved) throw new Error('Lady Luck bot stack transfer failed');
+      }
+      return LADY_LUCK_BOT_STACK;
+    });
   }
 
   async releaseLadyLuckBot(botId: string, tableId: string): Promise<void> {

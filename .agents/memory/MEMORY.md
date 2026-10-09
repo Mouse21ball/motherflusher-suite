@@ -1,6 +1,7 @@
 - [Profile bootstrap ownership](profile-manager-singleton.md) — share one bootstrap owner; multiple context consumers are safe, independent guest-init requests can race.
 - [drizzle-kit push non-interactive](db-push-noninteractive.md) — db:push hangs in non-TTY; use tsx + raw SQL for agent/CI migrations.
 - [Box Chevy lowball fixtures](test-design-gotchas.md) — use five-card snapshots for paired category comparisons; best-five selection can discard extra paired ranks.
+- [Rollback DB fixtures](rollback-db-fixtures.md) — route hidden backfill writes into the fixture transaction to prevent self-blocking locks and escaped changes.
 - [Spectator mode — Lady Luck](spectator-ladyluck.md) — spectators use a separate Map in LLTableMeta (not connections); ll:spectate/ll:spectator_sidebet/ll:spectator_leave WS prefix; broadcastState sends to both maps.
 - [House rake implementation](rake-impl.md) — 5% rake via applyRake() in server/utils/rake.ts; logHouseRake() in storage; all engines patched; spectator_sidebet raked separately.
 - [DECLARE phase bot scheduling](declare-bot-scheduling.md) — bot actions for DECLARE must return a computed nextPlayerId or multi-bot declare stalls after first bot.
@@ -17,7 +18,7 @@
 - [Table streak ownership](table-streak-ownership.md) — persisted streaks reserve seats for matching identities after restart; unpaid winner flags must not advance them.
 - [Split-pot declaration rules](split-pot-declarations.md) — Detroit chose independent per-pot SWING adjudication and full payout to the sole qualifying hi-lo side.
 - [Mode eligibility on early folds](mode-eligibility-on-folds.md) — modes requiring a qualifying hand must enforce it in win-by-fold shortcuts, not only showdown.
-- [Lady Luck house economics](lady-luck-house-economics.md) — bot stacks are house-owned escrow, not virtual chips; conserve reserve + bot/player balances + unsettled pot.
+- [Lady Luck house economics](lady-luck-house-economics.md) — bot stakes use an auditable replenishing float; preserve player transfers and include system grants in conservation checks.
 - [Cosmetic seed evolution](cosmetic-seed-evolution.md) — existing catalogs may be partial; refresh subscription-only rows independently of the empty-table seed.
 - [Tutorial continuity](tutorial-continuity.md) — first-visit walkthroughs need a stable parent across phase-specific game screens or their page resets mid-reading.
 - [Referral attribution boundary](referral-attribution.md) — table and crew invites do not identify a new account on their own; bind the inviter at signup before rewarding settled play.
