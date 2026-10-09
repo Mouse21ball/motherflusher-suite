@@ -98,20 +98,12 @@ function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, huma
       {/* Center: title */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
-          color: '#a855f7', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-          background: 'rgba(124,58,237,0.15)', padding: '1px 7px', borderRadius: 4,
-          border: '1px solid rgba(124,58,237,0.3)',
-        }}>
-          NEW MODE
-        </div>
-        <div style={{
           fontSize: 16, fontFamily: 'monospace', fontWeight: 900,
           background: 'linear-gradient(90deg, #c084fc, #a855f7, #7c3aed)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           letterSpacing: '0.08em', lineHeight: 1,
         }}>
-          FLUSH RUSH
+          FLUSHED UP
         </div>
       </div>
 
