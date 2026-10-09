@@ -6,6 +6,7 @@ import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
 import { track, fire2 } from '@/lib/analytics';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { Check, Clock3, Coins, Zap } from 'lucide-react';
 
 interface HourlyBonusModalProps {
   open: boolean;
@@ -91,13 +92,13 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
+    <div className="yard-reward-overlay fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={() => onClose(claimed ? chipsGained : undefined)}
       />
       <div
-        className="relative w-full max-w-sm rounded-2xl overflow-hidden"
+        className="yard-reward-panel relative w-full max-w-sm rounded-2xl overflow-hidden"
         style={{ backgroundColor: '#141417', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 0 48px rgba(0,0,0,0.6)' }}
       >
         <div
@@ -109,7 +110,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
 
           {/* Header */}
           <div className="flex flex-col items-center gap-1.5">
-            <div className="text-3xl leading-none">{claimed ? '⚡' : '⏰'}</div>
+            <div className="text-3xl leading-none text-[#FBBF24]">{claimed ? <Zap size={30} /> : <Clock3 size={30} />}</div>
             <h2 className="text-lg font-bold text-white/90 font-sans" data-testid="text-hourly-title">
               {claimed ? 'Bonus Collected!' : 'Hourly Bonus'}
             </h2>
@@ -117,7 +118,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
               style={{ backgroundColor: vip.bg, border: `1px solid ${vip.border}` }}
             >
-              <span className="text-xs">{vip.badge}</span>
+              <span aria-label={`${vip.name} VIP tier`} className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FBBF24] text-xs font-black text-[#150A2E]">{vip.name.slice(0, 1)}</span>
               <span className="text-[10px] font-mono font-bold" style={{ color: vip.color }}>
                 {vip.name} VIP
               </span>
@@ -141,7 +142,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
                     style={{ color: '#F0B829' }}
                     data-testid="text-hourly-chips"
                   >
-                    +${chips.toLocaleString()}
+                    +{chips.toLocaleString()}
                   </span>
                   <span className="text-xs text-white/30 font-mono">chips</span>
                 </div>
@@ -156,7 +157,7 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
                   </div>
                 )}
               </div>
-              <div className="text-3xl leading-none">🪙</div>
+              <Coins className="text-[#FBBF24]" size={28} aria-hidden="true" />
             </div>
           ) : (
             <div
@@ -167,12 +168,12 @@ export function HourlyBonusModal({ open, onClose }: HourlyBonusModalProps) {
                 <div className="text-[10px] font-mono text-emerald-400/50 uppercase tracking-widest mb-1">Added to stack</div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold font-mono tabular-nums text-emerald-400">
-                    +${chipsGained.toLocaleString()}
+                    +{chipsGained.toLocaleString()}
                   </span>
                   <span className="text-xs text-white/30 font-mono">chips</span>
                 </div>
               </div>
-              <span className="text-2xl">✅</span>
+              <Check className="text-emerald-400" size={24} aria-hidden="true" />
             </div>
           )}
 

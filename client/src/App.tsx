@@ -112,6 +112,7 @@ function Router() {
     <ErrorBoundary>
       <Switch>
         <Route path="/" component={Home}/>
+        <Route path="/missions" component={Home}/>
         <Route path="/profile" component={Profile}/>
         <Route path="/friends" component={Friends}/>
         <Route path="/leaderboard" component={Leaderboard}/>

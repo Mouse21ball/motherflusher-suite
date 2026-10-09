@@ -19,6 +19,8 @@ import { trackModePlay } from '@/lib/analytics';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
+import { YardPlayerHeader } from '@/components/YardPlayerHeader';
+import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
@@ -373,13 +375,14 @@ function FlushedUpGameUI() {
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#0d0a1a',
-        backgroundImage: "url('/flushedup/flushedup-bg.png')",
+        backgroundImage: `url('${yardBackdrop}')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         overflow: 'hidden',
       }}
       data-mode={MODE_ID}
     >
+      <YardPlayerHeader readOnly />
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
       {/* ── Custom header ─────────────────────────────────────────── */}

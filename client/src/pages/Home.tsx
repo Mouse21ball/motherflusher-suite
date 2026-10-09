@@ -38,6 +38,17 @@ import { MusicButton } from '@/components/MusicButton';
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from '@shared/stakeTiers';
 import { shouldShowHomeChipRecovery } from './homeChipRecovery';
 import { MODE_PLACEHOLDER_ASSETS } from '@/lib/modePlaceholders';
+import badugiArt from '@/assets/home/badugi.png';
+import flushedUpArt from '@/assets/home/flushed-up.png';
+import ladyLuckArt from '@/assets/home/lady-luck.png';
+import boxChevyArt from '@/assets/home/box-chevy.png';
+import { YardBottomNav } from '@/components/YardBottomNav';
+import { YardPlayerHeader } from '@/components/YardPlayerHeader';
+import { YardRewardFlight } from '@/components/YardRewardFlight';
+import { publishYardMissionBadge } from '@/lib/yardMissionBadge';
+import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
+import { RefreshCw, ArrowRight, Medal, Crown } from 'lucide-react';
+import '@/yard-reskin.css';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
 
@@ -121,10 +132,10 @@ const MODES = [
 
 // Card-specific background images and copy (per spec)
 const MODE_CARD_CONFIGS = [
-  { id: 'badugi',     bg: '/modes/bg-badugi.png',               color: '#4CAF50', btnText: 'white', title: 'BADUGI',        subtitle: 'THE OG DRAW GAME'      },
-  { id: 'flushedup',  bg: MODE_PLACEHOLDER_ASSETS.retainedModeBackground, color: '#7c3aed', btnText: 'white', title: 'FLUSHED UP', subtitle: 'CHASE THE FLUSH.' },
-  { id: 'box_chevy',  bg: MODE_PLACEHOLDER_ASSETS.boxChevyBackground, color: '#3b82f6', btnText: 'white', title: 'BOX CHEVY', subtitle: '10 CARDS. NO PAIRS. SWING.' },
-  { id: 'ladyluck',   bg: '/assets/backgrounds/bg-cellblock.jpg', color: '#e53935', btnText: 'white', title: 'LADY LUCK',    subtitle: 'PICK YOUR SUIT. RUN THE RACE.', directNav: true },
+  { id: 'badugi',     bg: badugiArt, color: '#8B5CF6', btnText: '#150A2E', title: 'BADUGI', subtitle: '4-CARD DRAW', tag: '4-CARD DRAW' },
+  { id: 'flushedup',  bg: flushedUpArt, color: '#D946EF', btnText: '#150A2E', title: 'FLUSHED UP', subtitle: 'CHASE THE FLUSH', tag: 'CHASE THE FLUSH' },
+  { id: 'ladyluck',   bg: ladyLuckArt, color: '#FB7185', btnText: '#150A2E', title: 'LADY LUCK', subtitle: 'PICK YOUR QUEEN', tag: 'PICK YOUR QUEEN', directNav: true },
+  { id: 'box_chevy',  bg: boxChevyArt, color: '#F97316', btnText: '#150A2E', title: 'BOX CHEVY', subtitle: '10-CARD LOWBALL', tag: '10-CARD LOWBALL' },
 ];
 
 // ── Live table browser ────────────────────────────────────────────────────────
@@ -270,7 +281,11 @@ function syncXPFromHistory(): void {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const isMissionsPage = location === '/missions';
+  const pullStartY = useRef<number | null>(null);
+  const [refreshingMissions, setRefreshingMissions] = useState(false);
+  const [missionRefreshSuccess, setMissionRefreshSuccess] = useState(false);
   const homeTracked = useRef(false);
   useEffect(() => {
     if (homeTracked.current) return;
@@ -356,12 +371,19 @@ export default function Home() {
   const [questData,     setQuestData]     = useState<QuestData | null>(null);
   const [questClaiming, setQuestClaiming] = useState<string | null>(null);
   const [questToast,    setQuestToast]    = useState<string | null>(null);
+  const [rewardFlight, setRewardFlight] = useState<{ id: number; amount: number } | null>(null);
 
-  const fetchQuestData = useCallback(async (pid: string) => {
+  const fetchQuestData = useCallback(async (pid: string): Promise<boolean> => {
     try {
       const r = await apiFetch(apiUrl(`/api/players/${pid}/quests`));
-      if (r.ok) setQuestData(await r.json());
-    } catch {}
+      if (r.ok) {
+        setQuestData(await r.json());
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }, []);
 
   useEffect(() => {
@@ -387,6 +409,7 @@ export default function Home() {
       if (r.ok) {
         const body = await r.json();
         setQuestToast(`+${body.stripesGranted ?? stripes} ◆ Stripes earned!`);
+        setRewardFlight(previous => ({ id: (previous?.id ?? 0) + 1, amount: body.stripesGranted ?? stripes }));
         refetch();
         fetchQuestData(serverProfile.profileId);
       } else {
@@ -407,6 +430,19 @@ export default function Home() {
   const todayQuestPct     = todayQuest ? Math.min(100, Math.round((todayQuestHands / todayQuest.requiredHands) * 100)) : 0;
   const todayQuestEligible = todayQuestHands >= (todayQuest?.requiredHands ?? 0);
   const todayQuestClaimed  = questData?.claimed.includes(todayQuest?.questId ?? '') ?? false;
+  const hasClaimableMissions = (todayQuestEligible && !todayQuestClaimed) || HOME_MILESTONES.some(m =>
+    !!questData && !questData.claimed.includes(m.questId) && questHandsForMode(questData, m.modeId ?? null) >= m.required);
+  useEffect(() => {
+    if (serverProfile?.profileId) publishYardMissionBadge(serverProfile.profileId, hasClaimableMissions);
+  }, [serverProfile?.profileId, hasClaimableMissions]);
+  const refreshMissions = useCallback(async () => {
+    if (!serverProfile?.profileId || refreshingMissions) return;
+    setRefreshingMissions(true);
+    const succeeded = await fetchQuestData(serverProfile.profileId);
+    setMissionRefreshSuccess(succeeded);
+    window.setTimeout(() => setMissionRefreshSuccess(false), 1500);
+    setRefreshingMissions(false);
+  }, [serverProfile?.profileId, refreshingMissions, fetchQuestData]);
 
   // Auto-show starter pack
   useEffect(() => {
@@ -500,39 +536,18 @@ export default function Home() {
   return (
     <>
     {/* ── Fixed background ──────────────────────────────────────────────────── */}
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: `url('${yardBackdrop}')`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
     <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.55)' }} />
 
-    <div style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div className={`yard-page${isMissionsPage ? ' is-missions-page' : ''}`} style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Sticky header ─────────────────────────────────────────────────────── */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px' }}>
-        {/* Left: live indicator + leaderboard */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em' }}>LIVE</span>
-          </div>
-          <button onClick={() => navigate('/leaderboard')} data-testid="link-leaderboard-header"
-            style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <img src="/dock-leaderboard.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-          </button>
-          <MusicButton size={36} popoverAlign="right" />
-        </div>
-
-        {/* Center: logo */}
-        <img src="/hero-chain-logo.png" alt="Chain Gang Poker"
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', height: 64, objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 14px rgba(201,162,39,0.50))' }} />
-
-        {/* Right: avatar only */}
-        <button onClick={() => navigate('/profile')} data-testid="button-open-profile"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          <AvatarWithFrame
-            avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
-            frameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
-            initials={initials} initialsColor="#F0B829" size={40} />
+      <YardPlayerHeader notificationDot={hasClaimableMissions} actions={<>
+        <button className="yard-header-action" type="button" onClick={() => navigate('/leaderboard')} aria-label="Leaderboard">
+          <img src="/dock-leaderboard.png" alt="" />
         </button>
-      </header>
+        <MusicButton size={56} popoverAlign="right" />
+      </>} />
 
       {/* ── Toasts ────────────────────────────────────────────────────────────── */}
       {newAchievements.length > 0 && (
@@ -550,6 +565,11 @@ export default function Home() {
           ))}
         </div>
       )}
+      {!isMissionsPage && hasAuthoritativeZeroBalance && <div className="yard-zero-wallet">
+        <span data-testid="text-bankroll">You're out of chips</span>
+        <button type="button" data-testid="button-home-get-chips" onClick={() => navigate('/shop')}>GET CHIPS</button>
+      </div>}
+      {rewardFlight && <YardRewardFlight key={rewardFlight.id} amount={rewardFlight.amount} />}
       {questToast && (
         <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,8,24,0.96)', backdropFilter: 'blur(16px)', border: '1.5px solid rgba(201,162,39,0.55)', borderRadius: 12, padding: '10px 22px', color: '#F0B829', fontFamily: 'monospace', fontWeight: 800, fontSize: 13, zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 8px 32px rgba(0,0,0,0.60)' }}>
           {questToast}
@@ -563,8 +583,61 @@ export default function Home() {
       {howToPlayMode && <HowToPlay modeId={howToPlayMode} onClose={() => setHowToPlayMode(null)} />}
 
       {/* ── Scrollable content ────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, paddingBottom: 140 }}>
-        <div style={{ width: '100%', maxWidth: 512, margin: '0 auto' }}>
+      {isMissionsPage && <main className="yard-missions-screen" onTouchStart={event => { if (event.currentTarget.scrollTop <= 0) pullStartY.current = event.touches[0]?.clientY ?? null; }}
+        onTouchEnd={event => { const start = pullStartY.current; pullStartY.current = null; if (start != null && event.changedTouches[0] && event.changedTouches[0].clientY - start > 72) void refreshMissions(); }}>
+        <div className="yard-missions-titlebar">
+          <div><span>THE YARD / OBJECTIVES</span><h1>MISSIONS</h1></div>
+          <button type="button" aria-label="Refresh missions" onClick={() => void refreshMissions()} disabled={refreshingMissions}>
+            <RefreshCw size={19} className={refreshingMissions ? 'is-refreshing' : ''} />
+          </button>
+        </div>
+        <div className={`yard-refresh-flight${missionRefreshSuccess ? ' is-visible' : ''}`} aria-live="polite">
+          {missionRefreshSuccess ? 'MISSIONS REFRESHED' : refreshingMissions ? 'CHECKING THE BOARD' : ''}
+        </div>
+        <section className="yard-mission-group">
+          <div className="yard-section-heading"><h2>DAILY MISSIONS</h2><span>ONE CONTRACT · RESET EACH DAY</span></div>
+          {todayQuest && (() => {
+            const modeId = todayQuest.modeId === 'flushed_up' ? 'flushedup' : todayQuest.modeId ?? 'badugi';
+            const artwork = MODE_CARD_CONFIGS.find(mode => mode.id === modeId) ?? MODE_CARD_CONFIGS[0];
+            const hands = Math.min(todayQuestHands, todayQuest.requiredHands);
+            const claimed = todayQuestClaimed;
+            const eligible = todayQuestEligible && !claimed;
+            return <article className="yard-mission-card">
+              <img className="yard-mission-art" src={artwork.bg} alt="" />
+              <div className="yard-mission-copy">
+                <span className="yard-mission-mode">{artwork.title}</span>
+                <h3>{todayQuest.description}</h3>
+                <div className="yard-mission-progress"><span>{hands}/{todayQuest.requiredHands}</span><span>+{todayQuest.stripes} STRIPES</span></div>
+                <div className="yard-mission-track"><i style={{ width: `${todayQuestPct}%` }} /></div>
+              </div>
+              {claimed ? <button type="button" className="yard-mission-state is-done" disabled>DONE</button>
+                : eligible ? <button type="button" className="yard-mission-state is-claim" disabled={!!questClaiming} onClick={() => void claimQuestById(todayQuest.questId, todayQuest.stripes)}>{questClaiming === todayQuest.questId ? 'CLAIMING' : 'CLAIM'}</button>
+                : <button type="button" className="yard-mission-state is-go" onClick={() => { const target = MODES.find(mode => mode.id === modeId); if (target) void navigateToMode(modeId, target.path); else navigate('/'); }}>GO NOW <ArrowRight size={16} /></button>}
+            </article>;
+          })()}
+        </section>
+        <section className="yard-mission-group">
+          <div className="yard-section-heading"><h2>WEEKLY MISSIONS</h2><span>LONGER RUN · NO ACTIVE CONTRACTS</span></div>
+          <div className="yard-weekly-empty"><div className="yard-empty-emblem"><Medal size={22} /></div><div><strong>No weekly missions configured</strong><p>There are no weekly objectives in the current mission data. Your daily contract is live above.</p></div></div>
+        </section>
+        <section className="yard-mission-group yard-career-group">
+          <div className="yard-section-heading"><h2>CAREER MILESTONES</h2><span>ALL-TIME PROGRESS</span></div>
+          <div className="yard-career-list">{HOME_MILESTONES.map(m => {
+            const total = questData ? questHandsForMode(questData, m.modeId ?? null) : 0;
+            const complete = total >= m.required;
+            const claimed = questData?.claimed.includes(m.questId) ?? false;
+            const pct = Math.min(100, Math.round(total / m.required * 100));
+            return <article className="yard-career-row" key={m.questId}>
+              <div className="yard-career-copy"><strong>{m.modeId ? m.label.replace(' 100', '') : `${m.required.toLocaleString()} HANDS`}</strong><span>{Math.min(total,m.required).toLocaleString()} / {m.required.toLocaleString()}</span><div className="yard-mission-track"><i style={{ width: `${pct}%` }} /></div></div>
+              {claimed ? <button className="yard-mission-state is-done" disabled>DONE</button>
+                : complete ? <button className="yard-mission-state is-claim" disabled={!!questClaiming} onClick={() => void claimQuestById(m.questId, m.stripes)}>CLAIM</button>
+                  : <span className="yard-career-reward">+{m.stripes} STRIPES</span>}
+            </article>;
+          })}</div>
+        </section>
+      </main>}
+      <div className={`yard-home-regular${isMissionsPage ? ' is-hidden' : ''}`} style={{ flex: 1, paddingBottom: 140 }}>
+        <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
 
           {/* ══ GUEST NUDGE BANNER ═══════════════════════════════════════════════ */}
           {showGuestNudge && (
@@ -591,7 +664,7 @@ export default function Home() {
           )}
 
           {/* ══ PLAYER AREA — floating, no box ═══════════════════════════════════ */}
-          <button onClick={() => navigate('/profile')} data-testid="button-profile-strip"
+          <button className="yard-home-player-area" onClick={() => navigate('/profile')} data-testid="button-profile-strip"
             style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 14px', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <AvatarWithFrame
               avatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
@@ -609,7 +682,7 @@ export default function Home() {
               <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.55)', fontFamily: 'monospace' }}>Welcome back, {identity.name.split(' ')[0]}.</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-              <div data-testid="text-bankroll" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: hasAuthoritativeZeroBalance ? 11 : 18, color: hasAuthoritativeZeroBalance ? '#F2C66D' : '#22c55e', textShadow: hasAuthoritativeZeroBalance ? 'none' : '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1, textAlign: 'right', maxWidth: 132 }}>
+              <div data-testid="text-bankroll-legacy" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: hasAuthoritativeZeroBalance ? 11 : 18, color: hasAuthoritativeZeroBalance ? '#F2C66D' : '#22c55e', textShadow: hasAuthoritativeZeroBalance ? 'none' : '0 0 12px rgba(34,197,94,0.45)', lineHeight: 1, textAlign: 'right', maxWidth: 132 }}>
                 {hasAuthoritativeZeroBalance ? "You're out of chips" : `$${displayChips.toLocaleString()}`}
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(34,197,94,0.55)', letterSpacing: '0.08em', marginTop: -3 }}>CHIPS</div>
@@ -630,7 +703,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => navigate('/shop')}
-              data-testid="button-home-get-chips"
+              data-testid="button-home-get-chips-legacy"
               style={{ margin: '0 16px 12px 98px', alignSelf: 'stretch', padding: '11px 16px', border: '1px solid rgba(201,162,39,0.55)', borderRadius: 12, background: 'linear-gradient(135deg, rgba(201,162,39,0.20), rgba(201,162,39,0.08))', color: '#F2C66D', fontFamily: 'monospace', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer' }}
             >
               GET CHIPS
@@ -643,62 +716,58 @@ export default function Home() {
               You’re back in the lobby. Your table balance remains server-controlled and may still be awaiting confirmation.
             </p>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="yard-home-title">
+            <h1>CHAIN GANG</h1>
+            <em>Poker</em>
+            <p>DIFFERENT GAMES. SAME YARD.</p>
+          </div>
+          <div className="yard-game-grid">
             {MODE_CARD_CONFIGS.map(card => {
               const mode       = MODES.find(m => m.id === card.id)!;
               const htpModeId  = HOW_TO_PLAY_ID[card.id];
               return (
                 <div key={card.id} data-testid={`button-mode-${card.id}`}
+                  className="yard-game-card"
                   onClick={() => selectMode(card.id, mode.path, Boolean((card as any).directNav))}
                   role="button" tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}
-                  style={{ position: 'relative', height: 120, borderRadius: 16, overflow: 'hidden', width: 'calc(100% - 24px)', margin: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, boxShadow: 'inset 0 -20px 30px rgba(0,0,0,0.4)' }}>
-                  {/* BG scene art */}
-                  <img src={card.bg} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
-                  {/* Atmospheric overlay — dark both sides, lighter center */}
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.05) 100%)` }} />
-
-                  {/* Icon + text grouped in a flex row */}
-                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', flex: 1, gap: 14, padding: '0 10px 0 14px', minWidth: 0 }}>
-                    <img src={mode.icon} alt={card.title} style={{ flexShrink: 0, width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.8))' }} />
-                    <div style={{ minWidth: 0, textAlign: 'left' }}>
-                      <div data-testid={`text-mode-name-${card.id}`}
-                        style={{ fontFamily: 'Anton, Impact, "Arial Narrow Bold", sans-serif', fontSize: 34, color: card.color, letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginBottom: 4 }}>
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectMode(card.id, mode.path, Boolean((card as any).directNav)); } }}
+                  style={{ '--card-accent': card.color } as React.CSSProperties}>
+                  <img className="yard-card-art" src={card.bg} alt={`${card.title} — ${card.tag}`} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+                  <div className="yard-card-wash" style={{ position: 'absolute', inset: 0 }} />
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'flex-start', padding: 12, textAlign: 'left' }}>
+                       <Crown size={18} aria-hidden="true" color="#FBBF24" />
+                       <div data-testid={`text-mode-name-${card.id}`}
+                        style={{ fontFamily: 'Oswald, Impact, sans-serif', fontSize: 'clamp(21px,5vw,32px)', color: '#E5E7EB', letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px #0A0618', marginBottom: 4 }}>
                         {card.title}
                       </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 14, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', textShadow: '0 1px 4px rgba(0,0,0,0.9)', marginBottom: 4 }}>
+                      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>
                         {card.subtitle}
                       </div>
-                      {htpModeId && (
+                       <button className="yard-card-chevron" data-testid={`button-play-${card.id}`}
+                         aria-label={`Play ${card.title}`}
+                         onClick={e => { e.stopPropagation(); selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}>›</button>
+                       <div className="yard-card-utilities">
+                       {htpModeId && (
                         <button
                           data-testid={`button-how-to-play-${card.id}`}
+                           aria-label={`How to play ${card.title}`}
                           onClick={e => { e.stopPropagation(); setHowToPlayMode(htpModeId); }}
-                          style={{ background: 'rgba(201,162,39,0.15)', border: '1px solid rgba(201,162,39,0.5)', borderRadius: 20, padding: '4px 14px', fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: '#C9A227', letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ background: '#150A2Edd', border: '1px solid #FBBF24', borderRadius: 8, minHeight: 32, padding: '4px 9px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#FBBF24', cursor: 'pointer', textTransform: 'uppercase' }}
                         >
-                          HOW TO PLAY
+                           <span aria-hidden="true" style={{fontSize:24}}>?</span>
                         </button>
                       )}
                       {card.id === 'badugi' && (
                         <button
                           data-testid="button-practice-badugi"
+                           aria-label="Practice Badugi"
                           onClick={e => { e.stopPropagation(); navigate('/practice/badugi'); }}
-                          style={{ marginLeft: 6, background: 'rgba(110,231,183,0.14)', border: '1px solid rgba(110,231,183,0.55)', borderRadius: 20, padding: '4px 12px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#6ee7b7', letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ marginLeft: 5, background: '#150A2Edd', border: '1px solid #C4B5FD', borderRadius: 8, minHeight: 32, padding: '4px 8px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#EDE9FE', cursor: 'pointer', textTransform: 'uppercase' }}
                         >
-                          PRACTICE
+                           <RefreshCw size={20} aria-hidden="true" />
                         </button>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Right: PLAY button */}
-                  <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, marginRight: 12 }}>
-                    <button
-                      data-testid={`button-play-${card.id}`}
-                      onClick={e => { e.stopPropagation(); selectMode(card.id, mode.path, Boolean((card as any).directNav)); }}
-                      style={{ background: card.color, color: card.btnText, borderRadius: 24, padding: '9px 18px', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', boxShadow: `0 0 16px ${card.color}80`, letterSpacing: '0.04em', border: 'none', cursor: 'pointer' }}
-                    >
-                      PLAY →
-                    </button>
+                       </div>
                   </div>
                 </div>
               );
@@ -706,12 +775,12 @@ export default function Home() {
           </div>
 
           {/* ══ DAILY BONUS + MISSIONS ════════════════════════════════════════════ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
+          <div className="yard-bonus-mission-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
 
             {/* Daily Bonus — parchment / amber */}
-            <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+            <div id="missions" className="yard-missions-screen" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em', display: 'flex', alignItems: 'center', gap: 5 }}>
-                🔥 <span>DAILY BONUS</span>
+                <span aria-hidden="true">CHAIN</span><span>DAILY BONUS</span>
               </div>
               <div style={{ fontWeight: 900, color: 'white', fontSize: 15, lineHeight: 1.2 }}>
                 {serverBonusCanClaim !== null
@@ -727,14 +796,18 @@ export default function Home() {
               <div style={{ flex: 1 }} />
               <button onClick={() => setDailyBonusCalOpen(true)} data-testid="button-claim-daily-home"
                 style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: canClaimBonus ? 'none' : '1px solid rgba(255,255,255,0.12)', background: canClaimBonus ? 'linear-gradient(135deg,#F0B829,#C9A227)' : 'rgba(255,255,255,0.06)', color: canClaimBonus ? '#0c0b08' : 'rgba(255,255,255,0.35)', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: canClaimBonus ? '0 4px 18px rgba(240,184,41,0.45)' : 'none', transition: 'all 0.2s' }}>
-                {canClaimBonus ? '🎁 CLAIM BONUS' : `📅 ${getTimeUntilMidnight()}`}
+                {canClaimBonus ? 'CLAIM BONUS' : `NEXT IN ${getTimeUntilMidnight()}`}
               </button>
             </div>
 
             {/* Daily Missions + Milestones */}
             <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em' }}>
-                🎯 DAILY MISSIONS
+              <div className="yard-missions-title">
+                DAILY MISSIONS
+                <button type="button" aria-label="Refresh daily missions" onClick={() => serverProfile?.profileId && fetchQuestData(serverProfile.profileId)}
+                  style={{ marginLeft: 'auto', minWidth: 48, minHeight: 48, display: 'grid', placeItems: 'center', border: '1px solid #A78BFA', borderRadius: 8, background: '#1E1040', color: '#EDE9FE' }}>
+                  <RefreshCw size={18} />
+                </button>
               </div>
               {todayQuest ? (
                 <>
@@ -747,14 +820,21 @@ export default function Home() {
                     </div>
                     <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.30)' }}>{Math.min(todayQuestHands, todayQuest.requiredHands)}/{todayQuest.requiredHands}</span>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.14)', borderRadius: 3, height: 6, overflow: 'hidden' }}>
-                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: todayQuestClaimed ? '#22c55e' : 'rgba(201,162,39,0.85)', borderRadius: 3, transition: 'width 0.4s' }} />
+                  <div role="progressbar" aria-label="Daily mission progress" aria-valuemin={0} aria-valuemax={todayQuest.requiredHands} aria-valuenow={Math.min(todayQuestHands,todayQuest.requiredHands)} style={{ background: 'rgba(255,255,255,0.14)', borderRadius: 3, height: 10, overflow: 'hidden' }}>
+                    <div style={{ width: `${todayQuestPct}%`, height: '100%', background: 'linear-gradient(90deg,#B45309,#FDE68A)', borderRadius: 3, transition: 'width 0.4s' }} />
                   </div>
-                  <button disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
+                  <div style={{display:'flex',gap:10}}>
+                  {!todayQuestEligible && !todayQuestClaimed && (() => {
+                    const gameMode = MODES.find(m => m.id === todayQuest.modeId || (todayQuest.modeId === 'flushed_up' && m.id === 'flushedup'));
+                    return gameMode ? <button type="button" onClick={() => selectMode(gameMode.id, gameMode.path, Boolean((gameMode as any).directNav))}
+                      style={{flex:1,minHeight:48,borderRadius:8,border:'1px solid #A78BFA',background:'#1E1040',color:'#EDE9FE',fontWeight:800,fontSize:13}}>GO NOW</button> : null;
+                  })()}
+                  <button className={`yard-mission-claim${todayQuestClaimed ? ' is-done' : ''}`} disabled={!todayQuestEligible || todayQuestClaimed || questClaiming === todayQuest.questId}
                     onClick={() => claimQuestById(todayQuest.questId, todayQuest.stripes)} data-testid="daily-quest-claim-btn"
                     style={{ padding: '7px 0', borderRadius: 10, border: 'none', background: todayQuestClaimed ? 'rgba(34,197,94,0.15)' : todayQuestEligible ? '#22c55e' : 'rgba(255,255,255,0.07)', color: todayQuestClaimed ? '#22c55e' : todayQuestEligible ? 'white' : 'rgba(255,255,255,0.28)', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, textTransform: 'uppercase', cursor: todayQuestEligible && !todayQuestClaimed ? 'pointer' : 'not-allowed', boxShadow: todayQuestEligible && !todayQuestClaimed ? '0 3px 12px rgba(34,197,94,0.40)' : 'none', letterSpacing: '0.06em' }}>
-                    {todayQuestClaimed ? '✓ CLAIMED' : questClaiming === todayQuest.questId ? '…' : 'CLAIM'}
+                    {todayQuestClaimed ? 'DONE' : questClaiming === todayQuest.questId ? 'CLAIMING' : 'CLAIM'}
                   </button>
+                  </div>
                 </>
               ) : (
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', fontFamily: 'monospace' }}>No quest today.</div>
@@ -765,7 +845,7 @@ export default function Home() {
 
           {/* ══ MILESTONES — floating circles, no container ═══════════════════════ */}
           <div style={{ padding: '10px 14px 0' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>MILESTONES</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>LIFETIME MILESTONES</div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
               {HOME_MILESTONES.map(m => {
                 const totalHands = questData
@@ -856,7 +936,7 @@ export default function Home() {
                       {info.icon && <img src={info.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 5px ${info.color}55)` }} />}
                       <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: info.color }}>{info.name}</span>
                       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
-                        👤 {table.humanCount}/{table.maxPlayers}
+                        {table.humanCount}/{table.maxPlayers} players
                       </span>
                       {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{info.stakes}</span>}
                       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.70)' }} data-testid={`text-live-stakes-${table.tableId}`}>
@@ -899,35 +979,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Fixed bottom dock ─────────────────────────────────────────────────── */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, height: 76, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(245,158,11,0.18)', display: 'flex', alignItems: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 512, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', height: '100%' }}>
-          {([
-            { icon: '/dock-leaderboard.png', label: 'RANKS',   onClick: () => navigate('/leaderboard'), testId: 'link-leaderboard-footer', isCenter: false },
-            { icon: '/dock-shop.png',        label: 'SHOP',    onClick: () => navigate('/shop'),        testId: 'link-shop-footer',        isCenter: false },
-            { icon: '💎',                   label: 'STYLE',   onClick: () => navigate('/cosmetics'),   testId: 'link-cosmetics-footer',   isCenter: false },
-            { icon: '/dock-home.png',        label: 'HOME',    onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }), testId: 'link-home-dock', isCenter: true },
-            { icon: '👥',                   label: 'CREWS',   onClick: () => navigate('/crews'),       testId: 'link-crews-footer',       isCenter: false },
-            { icon: '/dock-profile.png',     label: 'PROFILE', onClick: () => navigate('/profile'),    testId: 'link-profile-footer',     isCenter: false },
-          ] as const).map(item => (
-            <button key={item.testId} onClick={item.onClick} data-testid={item.testId}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, height: '100%', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', transform: item.isCenter ? 'translateY(-4px)' : undefined }}>
-              {item.isCenter ? (
-                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(240,184,41,0.55)', boxShadow: '0 0 16px rgba(240,184,41,0.30)', background: 'rgba(240,184,41,0.10)' }}>
-                  <img src={item.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-                </div>
-              ) : item.icon.startsWith('/') ? (
-                <img src={item.icon} alt={item.label} style={{ width: 36, height: 36, objectFit: 'contain' }} />
-              ) : (
-                <span style={{ fontSize: 24, lineHeight: 1 }}>{item.icon}</span>
-              )}
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: item.isCenter ? 'rgba(240,184,41,0.90)' : 'rgba(240,184,41,0.60)' }}>
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <YardBottomNav active={isMissionsPage ? 'MISSIONS' : 'HOME'} missionDot={hasClaimableMissions} />
 
     </div>
 

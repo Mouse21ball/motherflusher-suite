@@ -1,13 +1,16 @@
-import { motion, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '@shared/gameTypes';
 import { CardHand } from './CardHand';
+import { PlayingCard } from '@/components/game/Card';
 import type { CardAnimState } from './useCardAnimations';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
-import { getAvatarForSeat } from '@shared/engine/avatarMap';
-import { getAvatarInitials, getAvatarColor } from '@/lib/persistence';
 import { TableDealAnimator } from './TableDealAnimator';
+import { TableBoard } from '@/components/game/TableBoard';
+import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
+import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
+import { Crown } from 'lucide-react';
 
 /* ── Showdown helpers ─────────────────────────────────────────────────────── */
 
@@ -39,23 +42,6 @@ function showdownLabel(ev: FlushedUpEval): string {
 
 /* ── Phase label ─────────────────────────────────────────────────────────── */
 
-function phaseLabel(phase: string): string {
-  const map: Record<string, string> = {
-    WAITING:  'WAITING FOR PLAYERS',
-    ANTE:     'POSTING ANTE',
-    DEAL:     'DEALING',
-    BET_1:    'FIRST BET',
-    DRAW_1:   'DRAW 1 · UP TO 3',
-    BET_2:    'SECOND BET',
-    DRAW_2:   'DRAW 2 · UP TO 2',
-    BET_3:    'THIRD BET',
-    DRAW_3:   'DRAW 3 · UP TO 1',
-    BET_4:    'FINAL BET',
-    SHOWDOWN: 'SHOWDOWN',
-  };
-  return map[phase] ?? phase.replace(/_/g, ' ');
-}
-
 /* ── Animated pot counter ─────────────────────────────────────────────────── */
 
 function AnimatedPot({ pot }: { pot: number }) {
@@ -68,18 +54,18 @@ function AnimatedPot({ pot }: { pot: number }) {
       background: 'rgba(0,0,0,0.55)',
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
-      border: '1px solid rgba(124,58,237,0.35)',
-      boxShadow: '0 0 20px rgba(124,58,237,0.2), 0 2px 12px rgba(0,0,0,0.5)',
+      border: '1px solid rgba(245,158,11,0.55)',
+      boxShadow: '0 0 20px rgba(245,158,11,0.16), 0 2px 12px rgba(0,0,0,0.5)',
       textAlign: 'center',
       padding: '6px 22px',
       borderRadius: 50,
     }}>
-      <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(168,85,247,0.7)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#FDE68A', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
         POT
       </div>
       <motion.div style={{
         fontSize: 18, fontFamily: 'monospace', fontWeight: 800,
-        color: '#fff', letterSpacing: '0.05em', display: 'inline-block',
+        color: '#FDE68A', letterSpacing: '0.05em', display: 'inline-block',
       }}>
         {display}
       </motion.div>
@@ -100,144 +86,16 @@ interface OppPanelProps {
   seatNum: number;
 }
 
-function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isDealer, seatNum }: OppPanelProps) {
+function OpponentPanel({ name, chips, cardCount, status, isActive, isWinner, isDealer, seatNum, declaration }: OppPanelProps & { declaration?: string | null }) {
   const isFolded = status === 'folded';
-  const avatarSrc = getAvatarForSeat(seatNum);
-  const initials = getAvatarInitials(name);
-  const avatarBg = getAvatarColor(name);
-
-  const panelStyle: React.CSSProperties = {
-    background: isFolded
-      ? 'rgba(5,3,15,0.6)'
-      : isWinner
-        ? 'rgba(10,5,30,0.8)'
-        : 'rgba(8,4,20,0.75)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    borderRadius: 14,
-    border: isWinner
-      ? '1px solid rgba(168,85,247,0.8)'
-      : isActive
-        ? '1px solid rgba(124,58,237,0.65)'
-        : '1px solid rgba(255,255,255,0.07)',
-    boxShadow: isWinner
-      ? '0 0 16px rgba(168,85,247,0.4)'
-      : isActive
-        ? '0 0 10px rgba(124,58,237,0.25)'
-        : '0 2px 10px rgba(0,0,0,0.4)',
-    padding: '8px 8px 6px',
-    opacity: isFolded ? 0.7 : 1,
-    transition: 'border 0.3s, box-shadow 0.3s, opacity 0.3s',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 5,
-  };
-
-  return (
-    <div style={panelStyle}>
-      {/* Top row: avatar + name + dealer chip */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {/* Circular avatar */}
-        <div style={{
-          width: 30, height: 30, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-          border: isActive ? '1.5px solid rgba(124,58,237,0.7)' : '1.5px solid rgba(255,255,255,0.1)',
-          background: avatarBg,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: isActive ? '0 0 8px rgba(124,58,237,0.5)' : 'none',
-        }}>
-          <img
-            src={avatarSrc}
-            alt={name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
-        </div>
-
-        {/* Name + active indicator */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 3,
-            overflow: 'hidden',
-          }}>
-            {isActive && (
-              <motion.div
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 0.85, repeat: Infinity }}
-                style={{ width: 5, height: 5, borderRadius: '50%', background: '#a855f7', flexShrink: 0 }}
-              />
-            )}
-            <span style={{
-              fontSize: 11, fontFamily: 'monospace', color: isFolded ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.85)',
-              fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {name}
-            </span>
-            {isDealer && (
-              <div style={{
-                width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, #C9A227, #A07C10)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace',
-              }}>D</div>
-            )}
-          </div>
-          {/* Chips */}
-          <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(201,162,39,0.75)', fontWeight: 600, marginTop: 1 }}>
-            {chips.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      {/* Card backs row OR folded label */}
-      {isFolded ? (
-        <div style={{
-          fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)',
-          letterSpacing: '0.08em', textAlign: 'center',
-        }}>
-          FOLDED
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', alignItems: 'center' }}>
-          {Array.from({ length: Math.max(cardCount, 5) }).map((_, i) => (
-            <div key={i} data-celebration-card style={{
-              width: 14, height: 20, borderRadius: 3, flexShrink: 0,
-              background: 'linear-gradient(145deg, rgba(75,30,130,0.7), rgba(40,15,80,0.9))',
-              border: '1px solid rgba(124,58,237,0.4)',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }} />
-          ))}
-        </div>
-      )}
-
-      {/* Winner badge */}
-      {isWinner && (
-        <div style={{
-          fontSize: 11, fontFamily: 'monospace', color: '#a855f7',
-          letterSpacing: '0.08em', textAlign: 'center', fontWeight: 700,
-        }}>
-          ★ WINNER
-        </div>
-      )}
-    </div>
-  );
+  return <YardOpponentSeat name={name} chips={chips} seat={seatNum} active={isActive} folded={isFolded} winner={isWinner} dealer={isDealer}>
+    {declaration && <span className="yard-opponent-declaration">{declaration}</span>}
+    {!isFolded && <span className="yard-opponent-cards">{Array.from({ length: Math.max(cardCount, 5) }).map((_, i) =>
+      <i key={i} data-celebration-card />)}</span>}
+  </YardOpponentSeat>;
 }
 
 /* ── Empty seat panel ─────────────────────────────────────────────────────── */
-function EmptyPanel() {
-  return (
-    <div style={{
-      background: 'rgba(5,3,12,0.4)',
-      borderRadius: 14,
-      border: '1px dashed rgba(255,255,255,0.05)',
-      padding: '8px',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: 68,
-    }}>
-      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>OPEN</span>
-    </div>
-  );
-}
-
 /* ── Props ───────────────────────────────────────────────────────────────── */
 
 interface FlushedUpTableProps {
@@ -262,8 +120,32 @@ export function FlushedUpTable({
   const tableRef = useRef<HTMLDivElement>(null);
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
+  const communityCards = (state.communityCards ?? []).map(card => ({ ...card, isHidden: false }));
+  const [visibleCount, setVisibleCount] = useState(communityCards.length);
+  const prevLenRef = useRef(communityCards.length);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    const newLen = communityCards.length;
+    const oldLen = prevLenRef.current;
+    prevLenRef.current = newLen;
+    if (newLen === 0) {
+      setVisibleCount(0);
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      return;
+    }
+    if (oldLen === 0 && newLen > 0) {
+      setVisibleCount(0);
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      for (let i = 0; i < newLen; i++) timersRef.current.push(setTimeout(() => setVisibleCount(i + 1), 200 + i * 300));
+      return () => { timersRef.current.forEach(clearTimeout); };
+    }
+    if (newLen > oldLen) setVisibleCount(newLen);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityCards.length]);
 
-  const heroHandEval: FlushedUpEval | null = isShowdown && me && me.cards.length > 0
+  const heroHandEval: FlushedUpEval | null = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
     ? evaluateFlushedUpHand(me.cards.map(c => ({ ...c, isHidden: false })))
     : null;
   const heroIsWinner = !!me?.isWinner;
@@ -277,192 +159,74 @@ export function FlushedUpTable({
     ...state.players.slice(0, myIndex),
   ].filter(p => p.id !== myId);
 
-  /* Always show 4 opponent slots: reserved seats render as OPEN panels inside the grid */
-  const gridOpps  = reorderedOpps.slice(0, 4);
-  const emptyCount = Math.max(0, 4 - gridOpps.length);
+  const opponentSeats = [
+    ...reorderedOpps.map((opp) => {
+      const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
+      const open = opp.presence === 'reserved' || opp.presence === 'open';
+      return <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id}>
+        {open ? <YardOpponentSeat name="OPEN" chips={0} seat={seatNum} open />
+          : <OpponentPanel name={opp.name} chips={opp.chips} cardCount={opp.cards.length} status={opp.status}
+            isActive={state.activePlayerId === opp.id} isWinner={!!opp.isWinner} isDealer={!!opp.isDealer}
+            seatNum={seatNum} declaration={opp.declaration} />}
+      </div>;
+    }),
+    ...Array.from({ length: Math.max(0, 3 - reorderedOpps.length) }, (_, index) =>
+      <div key={`open-${index}`}><YardOpponentSeat name="OPEN" chips={0} seat={0} open /></div>),
+  ];
 
-  const heroCardW = 54;
-  const heroCardH = 76;
+  const heroCardW = 64;
+  const heroCardH = 90;
+  const liveReadout = heroHandEval
+    ? `${heroHandEval.suitCount}/5 SUIT MATCH · ${showdownLabel(heroHandEval)}`
+    : me?.status === 'folded' ? 'FOLDED · HAND COMPLETE' : 'TRACKING SUIT MATCH';
+  const heroCards = me ? <div className="yard-hero-hand">
+    <YardHeroIdentity state={state} myId={myId} accent="#D946EF" />
+    <div data-deal-seat={myId} data-player-seat={myId} style={{ display:'flex',flexDirection:'column',alignItems:'center',paddingBottom:8 }}>
+      {isDrawPhase && selectedCardIndices.length > 0 && <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
+        style={{ marginBottom:4,padding:'3px 12px',borderRadius:20,background:'rgba(217,70,239,0.18)',border:'1px solid rgba(217,70,239,0.45)',fontSize:11,fontFamily:'monospace',color:'#F0ABFC',letterSpacing:'0.08em' }}>
+        {selectedCardIndices.length} SELECTED · TAP DRAW
+      </motion.div>}
+      {me && me.cards.length > 0 ? <>
+        <div style={{ opacity:heroIsLoser?0.55:1,filter:heroGlowColor?`drop-shadow(0 0 14px ${heroGlowColor}) drop-shadow(0 0 6px ${heroGlowColor})`:'none',transition:'opacity 0.4s ease, filter 0.4s ease' }}>
+          <CardHand cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick} isSelectable={isDrawPhase}
+            dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices} discardingIndices={animState.discardingIndices}
+            isShowdown={isShowdown} celebrationCardMarkers cardWidth={heroCardW} cardHeight={heroCardH} />
+        </div>
+        {isShowdown && heroHandEval && me.status !== 'folded' && <div style={{ marginTop:3,fontSize:12,fontFamily:'monospace',color:heroIsWinner?'#FDE68A':'rgba(255,255,255,.7)',fontWeight:heroIsWinner?700:400,letterSpacing:'.08em',textAlign:'center' }}>{showdownLabel(heroHandEval)}</div>}
+      </> : <div style={{ display:'flex',gap:4,paddingTop:12,paddingBottom:6 }}>{Array.from({length:5}).map((_,i)=><div key={i} style={{width:heroCardW,height:heroCardH,borderRadius:8,border:'1px dashed rgba(217,70,239,.25)'}} />)}</div>}
+    </div>
+  </div> : undefined;
 
   return (
-    <div ref={tableRef} style={{
+    <TableBoard rootRef={tableRef} gameAccent="#D946EF" title="FLUSHED UP" subtitle="CHASE THE FLUSH" phase={state.phase}
+      heroCards={heroCards} heroPlayerId={myId} opponentSeats={opponentSeats}
+      centerReadout={<span className="yard-table-readout">{liveReadout}</span>}
+      pot={state.pot > 0 ? <AnimatedPot pot={state.pot} /> : undefined}>
+    <div style={{
       position: 'relative',
       width: '100%',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      overflow: 'visible',
     }}>
-      {/* ── Opponent 2×2 grid ──────────────────────────────────────────── */}
       <div data-deal-anchor="deck" style={{
         position: 'absolute', left: '50%', top: '50%', width: 44, height: 44,
         transform: 'translate(-50%, -50%)', pointerEvents: 'none', opacity: 0,
       }} />
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 7,
-        padding: '8px 10px 4px',
-        flexShrink: 0,
-      }}>
-        {gridOpps.map((opp) => {
-          if (opp.presence === 'reserved' || opp.presence === 'open') {
-            return <EmptyPanel key={opp.id} />;
-          }
-          const seatNum = parseInt(opp.id.replace('p', ''), 10) || 1;
-          return (
-            <div key={opp.id} data-deal-seat={opp.id} data-player-seat={opp.id} style={{ minWidth: 0 }}>
-              <OpponentPanel
-                name={opp.name}
-                chips={opp.chips}
-                cardCount={opp.cards.length}
-                status={opp.status}
-                isActive={state.activePlayerId === opp.id}
-                isWinner={!!opp.isWinner}
-                isDealer={!!opp.isDealer}
-                seatNum={seatNum}
-              />
-            </div>
-          );
-        })}
-        {Array.from({ length: emptyCount }).map((_, i) => (
-          <EmptyPanel key={`empty-${i}`} />
-        ))}
+      <div className="yard-flushed-community">
+        {communityCards.length > 0 ? <div className="yard-flushed-community-cards">
+          {communityCards.map((card, i) => <div key={i} style={{ flexShrink:0,width:58,height:84 }}>
+            <AnimatePresence>{i < visibleCount && <motion.div key={`comm-${i}`} data-celebration-card
+              initial={{ opacity:0,y:-22,rotateY:90,scale:.85 }} animate={{ opacity:1,y:0,rotateY:0,scale:1 }}
+              transition={{ duration:.32,ease:'easeOut' }} style={{ transformOrigin:'top center' }}>
+              <PlayingCard card={card} className="!w-[58px] !h-[84px] sm:!w-[68px] sm:!h-[96px]" />
+            </motion.div>}</AnimatePresence>
+          </div>)}
+        </div> : <div className="yard-flushed-community-cards">{Array.from({length:5}).map((_,i)=><div key={i} className="yard-community-placeholder" />)}</div>}
       </div>
-
-      {/* ── Centre — phase label + pot ────────────────────────────────── */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        pointerEvents: 'none',
-        padding: '4px 0',
-      }}>
-        <motion.div
-          key={state.phase}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          style={{
-            fontSize: 11, fontFamily: 'monospace',
-            color: 'rgba(168,85,247,0.7)',
-            letterSpacing: '0.12em', textTransform: 'uppercase',
-            textShadow: '0 0 12px rgba(124,58,237,0.4)',
-          }}
-        >
-          {phaseLabel(state.phase)}
-        </motion.div>
-
-        {state.pot > 0 && <AnimatedPot pot={state.pot} />}
-
-        {/* Hero identity */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {me?.isDealer && (
-            <div style={{
-              width: 14, height: 14, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #C9A227, #A07C10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 6, fontWeight: 700, color: '#000', fontFamily: 'monospace',
-            }}>D</div>
-          )}
-          {state.activePlayerId === myId && state.phase !== 'WAITING' && (
-            <motion.div
-              animate={{ opacity: [1, 0.3, 1] }}
-              transition={{ duration: 0.85, repeat: Infinity }}
-              style={{ width: 5, height: 5, borderRadius: '50%', background: '#a855f7' }}
-            />
-          )}
-          <span style={{
-            fontSize: 11, fontFamily: 'monospace',
-            color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: '0.06em',
-            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
-          }}>
-            {me?.name ?? 'You'}
-          </span>
-        </div>
-      </div>
-
-      {/* ── Hero hand ─────────────────────────────────────────────────── */}
-      <div data-deal-seat={myId} data-player-seat={myId} style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        paddingBottom: 8, flexShrink: 0,
-      }}>
-        {/* Selection badge */}
-        {isDrawPhase && selectedCardIndices.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            style={{
-              marginBottom: 4,
-              padding: '3px 12px',
-              borderRadius: 20,
-              background: 'rgba(124,58,237,0.25)',
-              border: '1px solid rgba(168,85,247,0.4)',
-              fontSize: 11, fontFamily: 'monospace',
-              color: '#c084fc', letterSpacing: '0.08em',
-            }}
-          >
-            {selectedCardIndices.length} SELECTED · TAP DRAW
-          </motion.div>
-        )}
-
-        {/* Cards with glow on showdown */}
-        {me && me.cards.length > 0 ? (
-          <>
-            <div style={{
-              opacity: heroIsLoser ? 0.55 : 1,
-              filter: heroGlowColor
-                ? `drop-shadow(0 0 14px ${heroGlowColor}) drop-shadow(0 0 6px ${heroGlowColor})`
-                : 'none',
-              transition: 'opacity 0.4s ease, filter 0.4s ease',
-            }}>
-              <CardHand
-                cards={me.cards}
-                selectedIndices={selectedCardIndices}
-                onCardClick={onCardClick}
-                isSelectable={isDrawPhase}
-                dealingIndices={animState.dealingIndices}
-                drawingIndices={animState.drawingIndices}
-                discardingIndices={animState.discardingIndices}
-                isShowdown={isShowdown}
-                celebrationCardMarkers
-                cardWidth={heroCardW}
-                cardHeight={heroCardH}
-              />
-            </div>
-
-            {/* Showdown hand rank */}
-            {isShowdown && heroHandEval && me.status !== 'folded' && (
-              <div style={{
-                marginTop: 3,
-                fontSize: 11, fontFamily: 'monospace',
-                color: heroIsWinner ? '#a855f7' : 'rgba(255,255,255,0.7)',
-                fontWeight: heroIsWinner ? 700 : 400,
-                letterSpacing: '0.08em', textAlign: 'center',
-                textShadow: heroIsWinner ? '0 0 10px rgba(168,85,247,0.7)' : '0 1px 6px rgba(0,0,0,0.9)',
-              }}>
-                {showdownLabel(heroHandEval)}
-              </div>
-            )}
-          </>
-        ) : (
-          /* Ghost card slots */
-          <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{
-                width: heroCardW, height: heroCardH, borderRadius: 8,
-                border: '1px dashed rgba(124,58,237,0.15)',
-              }} />
-            ))}
-          </div>
-        )}
-
-      </div>
-
-      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current} />
+      <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current?.closest('.yard-table-board') ?? tableRef.current} />
     </div>
+    </TableBoard>
   );
 }

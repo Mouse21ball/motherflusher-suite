@@ -1,9 +1,11 @@
+import { Layers3, RefreshCw, Zap } from 'lucide-react';
+
 import { useState, useEffect, useRef } from 'react';
 import { CardType } from '@/lib/poker/types';
 import { getHeroHandValidity } from '../../../../shared/modes/heroHandValidity';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const B  = (a: number) => `rgba(59,130,246,${a})`;
+const B  = (a: number) => `rgba(249,115,22,${a})`;
 const R  = (a: number) => `rgba(239,68,68,${a})`;
 const G  = (a: number) => `rgba(134,239,172,${a})`;
 const Am = (a: number) => `rgba(251,191,36,${a})`;
@@ -14,7 +16,7 @@ type Declaration = 'HIGH' | 'LOW' | 'SWING';
 function ChipIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}>
-      <circle cx="6" cy="6" r="5.5" fill="#1e1e1e" stroke="#3b82f6" strokeWidth="0.75"/>
+      <circle cx="6" cy="6" r="5.5" fill="#2D1B69" stroke="#F97316" strokeWidth="0.75"/>
       <circle cx="6" cy="6" r="3.5" fill="none" stroke="#1d4ed8" strokeWidth="0.75"/>
     </svg>
   );
@@ -25,13 +27,13 @@ function TutorialPanel() {
     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} style={{ overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, padding: '10px 4px 6px', borderTop: `1px solid ${B(0.2)}` }}>
         {[
-          { icon: '🃏', label: '5 HOLE CARDS', sub: 'Plus 5 community cards' },
-          { icon: '🔄', label: '3 DRAW ROUNDS', sub: '3→2→1 cards max' },
-          { icon: '⚡', label: 'HI/LO/SWING', sub: 'SWING must win both' },
+          { icon: <Layers3 size={18} />, label: '5 HOLE CARDS', sub: 'Plus 5 community cards' },
+          { icon: <RefreshCw size={18} />, label: '3 DRAW ROUNDS', sub: '3→2→1 cards max' },
+          { icon: <Zap size={18} />, label: 'HI/LO/SWING', sub: 'SWING must win both' },
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 18 }}>{step.icon}</span>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
+            <span style={{ color:'#F97316' }}>{step.icon}</span>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#F97316', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
             <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{step.sub}</span>
           </div>
         ))}
@@ -136,14 +138,14 @@ export function BoxChevyActionBar({
   };
   const raiseStyle: React.CSSProperties = {
     ...base, flex: 0.9,
-    background: canAct && canRaise ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : B(0.2),
+    background: canAct && canRaise ? 'linear-gradient(135deg, #B45309, #F97316)' : B(0.2),
     color: canAct && canRaise ? '#fff' : 'rgba(255,255,255,0.2)',
     boxShadow: canAct && canRaise ? `0 0 14px ${B(0.4)}` : 'none',
     opacity: canAct && canRaise ? 1 : 0.4,
   };
 
   return (
-    <div style={{ width: '100%' }}>
+    <div className="yard-action-bar" style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
 
         {beforeOrAtDeclare && validity && (
@@ -208,11 +210,11 @@ export function BoxChevyActionBar({
               letterSpacing: '0.08em', textAlign: 'center',
             }}>
               DISCARD UP TO {maxSelect}&nbsp;
-              <span style={{ color: selectedCards.size > 0 ? '#60a5fa' : 'rgba(255,255,255,0.3)' }}>
+              <span style={{ color: selectedCards.size > 0 ? '#F97316' : 'rgba(255,255,255,0.3)' }}>
                 [{selectedCards.size}/{maxSelect}]
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
               <button
                 style={{ ...base, flex: 0.7, background: 'rgba(12,12,12,0.9)', color: canAct ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)', border: `1px solid rgba(148,163,184,0.2)`, opacity: canAct ? 1 : 0.5 }}
                 disabled={!canAct}
@@ -258,12 +260,12 @@ export function BoxChevyActionBar({
                   value={raiseAmt}
                   onChange={e => setRaiseAmt(+e.target.value)}
                   data-testid="input-raise-amount"
-                  style={{ flex: 1, accentColor: '#3b82f6' }}
+                  style={{ flex: 1, accentColor: '#F97316' }}
                 />
-                <span style={{ fontSize: 11, color: '#60a5fa', fontFamily: 'monospace', minWidth: 36 }}>{raiseAmt}</span>
+                <span style={{ fontSize: 11, color: '#F97316', fontFamily: 'monospace', minWidth: 36 }}>{raiseAmt}</span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
               <button style={foldStyle} disabled={!canAct} onClick={canAct ? onFold : undefined} data-testid="button-fold">
                 FOLD
               </button>
@@ -296,7 +298,7 @@ export function BoxChevyActionBar({
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{
                 fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
-                color: declaration === 'HIGH' ? '#60a5fa' : declaration === 'LOW' ? '#86efac' : '#fbbf24',
+                color: declaration === 'HIGH' ? '#F97316' : declaration === 'LOW' ? '#86efac' : '#fbbf24',
                 textShadow: declaration === 'HIGH' ? `0 0 16px ${B(0.7)}` : declaration === 'LOW' ? `0 0 16px ${G(0.7)}` : `0 0 16px ${Am(0.7)}`,
               }}>
                 {declaration ?? '—'}
@@ -312,7 +314,7 @@ export function BoxChevyActionBar({
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.8), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
                 DECLARE HIGH · LOW · SWING
               </div>
-              <div style={{ display: 'flex', gap: 7 }}>
+              <div className="yard-action-buttons" style={{ display: 'flex', gap: 7 }}>
                 <button onClick={() => onDeclare('HIGH')} data-testid="button-declare-high"
                   style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #1e3a5f, #1d4ed8)', color: '#93c5fd', boxShadow: `0 0 22px ${B(0.6)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
                   HIGH
@@ -367,7 +369,7 @@ export function BoxChevyActionBar({
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>YOUR STACK</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700 }}><ChipIcon />{heroChips.toLocaleString()}</span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#F97316', fontWeight: 700 }}><ChipIcon />{heroChips.toLocaleString()}</span>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <button
