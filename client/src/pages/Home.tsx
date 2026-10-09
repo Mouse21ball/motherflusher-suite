@@ -752,9 +752,9 @@ export default function Home() {
                           data-testid={`button-how-to-play-${card.id}`}
                            aria-label={`How to play ${card.title}`}
                           onClick={e => { e.stopPropagation(); setHowToPlayMode(htpModeId); }}
-                          style={{ background: '#150A2Edd', border: '1px solid #FBBF24', borderRadius: 8, minHeight: 32, padding: '4px 9px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#FBBF24', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ background: '#150A2Edd', border: '1px solid #FBBF24', borderRadius: 8, minHeight: 32, padding: '4px 12px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#FBBF24', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                         >
-                           <span aria-hidden="true" style={{fontSize:24}}>?</span>
+                           HOW TO PLAY
                         </button>
                       )}
                       {card.id === 'badugi' && (

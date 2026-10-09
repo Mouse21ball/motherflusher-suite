@@ -296,7 +296,7 @@ export function FlushedUpActionBar({
         data-testid="button-tutorial-toggle"
       >
         <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
-        HOW FLUSH RUSH WORKS
+        HOW FLUSHED UP WORKS
       </button>
 
       <AnimatePresence>
