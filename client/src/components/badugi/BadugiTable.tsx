@@ -9,6 +9,7 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
+import { OpponentStrip } from './OpponentStrip';
 import { useEffect } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
@@ -25,7 +26,7 @@ const HERO_CARD_H = 95;
 
 /* ── Animated pot ─────────────────────────────────────────────────────────── */
 
-function AnimatedPot({ pot }: { pot: number }) {
+function AnimatedPot({ pot, activeCount, totalCount }: { pot: number; activeCount: number; totalCount: number }) {
   const spring  = useSpring(pot, { stiffness: 80, damping: 20 });
   const display = useTransform(spring, v => Math.round(v).toLocaleString());
   useEffect(() => { spring.set(pot); }, [pot, spring]);
@@ -36,6 +37,9 @@ function AnimatedPot({ pot }: { pot: number }) {
       <motion.div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A', letterSpacing: '0.05em', textShadow: '0 2px 8px #000' }}>
         {display}
       </motion.div>
+      <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', marginTop: 2 }}>
+        {activeCount} OF {totalCount} IN HAND
+      </div>
     </div>
   );
 }
@@ -137,11 +141,15 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     </div>
   ) : undefined;
 
-  return (
+  return (<>
+    {/* Hero-centric: opponent strip at top (Detroit 2026-10-10) */}
+    <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} />
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
-      opponentSeats={opponentSeats}
+      opponentSeats={[]}
       centerReadout={<span className="yard-table-readout">{isDrawPhase ? `DRAW ${state.phase.split('_')[1]} / 3 · ` : ''}{heroHandEval?.description ?? (me?.status === 'folded' ? 'FOLDED' : 'WAITING FOR HAND')}</span>}
-      pot={state.pot > 0 ? <AnimatedPot pot={state.pot} /> : undefined}>
+      pot={state.pot > 0 ? <AnimatedPot pot={state.pot}
+        activeCount={state.players.filter(p => p.status === 'active').length}
+        totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /> : undefined}>
     <FiveSeatPokerTable
       players={state.players}
       phase={state.phase}
@@ -165,5 +173,5 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       hero={null}
     />
     </TableBoard>
-  );
+  </>);
 }

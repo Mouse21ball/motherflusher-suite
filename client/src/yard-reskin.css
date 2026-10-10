@@ -602,3 +602,79 @@
   font: 700 10px 'Oswald', sans-serif; letter-spacing: .12em;
   color: rgba(139,92,246,.5); text-shadow: 0 1px 4px #000;
 }
+
+/* ═══ OPPONENT STRIP (Detroit 2026-10-10 — hero-centric Badugi) ═══
+   Top of screen. Shows: who's in, chips, bets, card counts, draws. */
+
+.opp-strip {
+  display: flex; justify-content: center; gap: 8px;
+  width: 100%; max-width: 420px;
+  padding: 6px 8px;
+  z-index: 10;
+}
+
+.opp-cell {
+  flex: 1; min-width: 0; max-width: 100px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  position: relative;
+  transition: opacity 0.3s;
+}
+.opp-cell.is-folded { opacity: 0.35; }
+
+.opp-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(139,92,246,.4);
+  overflow: hidden; position: relative; flex-shrink: 0;
+}
+.opp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.opp-cell.is-active .opp-avatar { border-color: #FDE68A; }
+.opp-turn-ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid #FDE68A;
+  animation: opp-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes opp-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.opp-name {
+  font: 700 10px 'DM Sans', sans-serif; color: #EDE9FE;
+  text-shadow: 0 1px 3px #000;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.opp-chips {
+  font: 700 10px 'DM Sans', sans-serif; color: #FDE68A;
+  text-shadow: 0 1px 3px #000;
+}
+.opp-bet {
+  font: 700 9px 'DM Sans', sans-serif; color: #F59E0B;
+  background: rgba(0,0,0,.4); padding: 1px 6px; border-radius: 8px;
+  text-shadow: 0 1px 2px #000;
+}
+
+.opp-cards {
+  display: flex; gap: 2px; margin-top: 2px; min-height: 16px;
+}
+.opp-card-back {
+  width: 11px; height: 15px; border-radius: 2px;
+  background: linear-gradient(145deg, #4C1D95, #2D1B4E);
+  border: 1px solid rgba(139,92,246,.5);
+  display: block;
+}
+
+.opp-draw-flash {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  font: 700 9px 'DM Sans', sans-serif; color: #FDE68A;
+  background: rgba(0,0,0,.7); padding: 2px 8px; border-radius: 10px;
+  white-space: nowrap; z-index: 11; margin-top: 2px;
+  text-shadow: 0 1px 2px #000;
+}
+.opp-draw-flash.is-pat { color: #A78BFA; }
+
+.opp-declare {
+  font: 700 9px 'Oswald', sans-serif; letter-spacing: .08em;
+  color: #FDE68A; text-shadow: 0 1px 3px #000;
+  text-transform: uppercase;
+}

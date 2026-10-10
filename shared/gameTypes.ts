@@ -45,6 +45,9 @@ export interface Player {
   hasActed?: boolean;
   isWinner?: boolean;
   isLoser?: boolean;
+  // Display-only: how many cards this player drew on their last draw action.
+  // Used by the client to animate discards/draws. Reset each hand.
+  lastDrawCount?: number;
   // Badugi: set when the engine auto-folds a player at DECLARE for holding no
   // valid badugi (distinct from a voluntary fold). On a rollover (no valid hand
   // anywhere), these players are still in for the next hand.

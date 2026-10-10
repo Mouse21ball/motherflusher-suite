@@ -2639,7 +2639,11 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       }
       const msg = result.count === 0 ? 'You stood pat' : `You discarded ${result.count} card${result.count > 1 ? 's' : ''}`;
       engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: result.count, phase: s.phase });
-      table.state = addMsg({ ...s, players: result.players, deck: result.deck, discardPile: result.discardPile }, msg);
+      // Tag the drawing player with their draw count for client animation
+      const playersWithDrawCount = result.players.map(p =>
+        p.id === playerId ? { ...p, lastDrawCount: result.count } : p
+      );
+      table.state = addMsg({ ...s, players: playersWithDrawCount, deck: result.deck, discardPile: result.discardPile }, msg);
       table.actionLock = false;
       afterHumanAction(table);
       return;
