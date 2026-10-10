@@ -12,7 +12,6 @@ import { BadugiTable } from './BadugiTable';
 import { BadugiActionBar } from './BadugiActionBar';
 import { getBadugiDrawLimit, toggleBadugiDrawSelection } from './badugiDrawSelection';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
-import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { BustOutModal } from '@/components/game/BustOutModal';
@@ -226,7 +225,6 @@ export function BadugiFullPage({
       backgroundImage: `url('${yardBackdrop}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top',
     }} data-mode={MODE_ID}>
-      <YardPlayerHeader readOnly />
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
       {/* Fixed top status bar */}

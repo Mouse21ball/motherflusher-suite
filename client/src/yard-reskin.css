@@ -53,19 +53,19 @@
 .yard-table-watermark i::after { content:"";position:absolute;bottom:6%;left:12%;width:76%;height:48%;border-radius:60% 60% 12% 12%;background:#EDE9FE; }
 .yard-table-content { position:relative; z-index:1; width:100%; height:100%; }
 .yard-readout-slot,.yard-phase-slot,.yard-hero-slot,.yard-pot-slot { position:absolute; z-index:4; }
-.yard-readout-slot { left:50%; top:39%; transform:translate(-50%,-50%); max-width:90%; pointer-events:none; }
-.yard-phase-slot { left:50%; top:28%; transform:translateX(-50%); display:flex;align-items:center;gap:8px;pointer-events:none; }
+.yard-readout-slot { left:50%; top:34%; transform:translate(-50%,-50%); max-width:88%; pointer-events:none; z-index:5; }
+.yard-phase-slot { left:50%; top:22%; transform:translateX(-50%); display:flex;align-items:center;gap:10px;pointer-events:none; z-index:5; }
 .yard-phase-step { position:relative; display:flex;align-items:center;gap:5px;padding:4px 8px;color:#A78BFA;font:700 12px 'Oswald',sans-serif;letter-spacing:.06em;white-space:nowrap; }
 .yard-phase-step:not(:last-child)::after { content:"";position:absolute;left:calc(100% - 2px);top:50%;width:15px;height:2px;background:#6B5A88;transform:translateY(-50%); }
 .yard-phase-step.is-done:not(:last-child)::after { background:#F59E0B; }
 .yard-phase-dot { width:23px;height:23px;border:1px solid #8B5CF6;border-radius:50%;display:grid;place-items:center;background:#150A2E;color:#C4B5FD;font:700 12px 'DM Sans',sans-serif; }
 .yard-phase-step.is-current { color:#FDE68A; }.yard-phase-step.is-current .yard-phase-dot { background:#F59E0B;border-color:#FDE68A;color:#150A2E;box-shadow:0 0 12px #F59E0B88; }
 .yard-phase-step.is-done .yard-phase-dot { background:#7C3AED;border-color:#F59E0B;color:#FDE68A; }
-.yard-pot-slot { top:48%;left:50%;transform:translate(-50%,-50%);pointer-events:none; }
+.yard-pot-slot { top:46%;left:50%;transform:translate(-50%,-50%);pointer-events:none; z-index:5; }
 .yard-opponent-seats { position:absolute;z-index:3;inset:0;pointer-events:none; }
 .yard-opponent-position { position:absolute;pointer-events:auto;width:clamp(142px,36vw,176px);max-width:calc(50% - 8px); }
-.yard-opponent-position.seat-1 { left:7%;top:14%; }
-.yard-opponent-position.seat-2 { right:7%;top:14%; }
+.yard-opponent-position.seat-1 { left:4%;top:12%; }
+.yard-opponent-position.seat-2 { right:4%;top:12%; }
 .yard-opponent-position.seat-3 { left:1%;top:47%; }
 .yard-opponent-position.seat-4 { right:1%;top:47%; }
 .yard-opponent-position.seat-5,.yard-opponent-position.seat-6,.yard-opponent-position.seat-7,.yard-opponent-position.seat-8 { position:relative;top:auto;left:auto;right:auto;flex:0 0 150px; }

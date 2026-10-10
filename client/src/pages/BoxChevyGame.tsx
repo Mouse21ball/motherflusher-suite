@@ -19,7 +19,6 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
-import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { Crown } from 'lucide-react';
@@ -309,8 +308,6 @@ function BoxChevyGameUI() {
        backgroundImage: `url('${yardBackdrop}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
-
-      <YardPlayerHeader readOnly />
 
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
