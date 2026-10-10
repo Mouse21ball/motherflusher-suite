@@ -860,3 +860,17 @@
 .opp-cell {
   gap: 3px !important;
 }
+
+/* Hero avatar: force centered above cards (Detroit 2026-10-10) */
+.yard-table-board .yard-hero-hand .yard-hero-identity {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin: 0 auto 6px auto !important;
+  padding: 0 !important;
+  position: static !important;
+  left: auto !important;
+  transform: none !important;
+}
