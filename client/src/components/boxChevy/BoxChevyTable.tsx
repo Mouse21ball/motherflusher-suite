@@ -155,7 +155,7 @@ export function BoxChevyTable({ state, myId, phase, heroCards }: BoxChevyTablePr
   );
 
   return (<>
-    <OpponentStrip opponents={opponents} activePlayerId={state.activePlayerId ?? undefined} totalCards={5} />
+    <OpponentStrip opponents={opponents} activePlayerId={state.activePlayerId ?? undefined} totalCards={5} phase={state.phase} />
     <TableBoard gameAccent="#F97316" title="BOX CHEVY" subtitle="10-CARD LOWBALL" phase={phase} heroPlayerId={myId}
       heroCards={heroCards}
       communityCards={communityCardsEl}

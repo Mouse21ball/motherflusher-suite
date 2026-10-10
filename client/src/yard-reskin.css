@@ -903,3 +903,27 @@
 .yard-table-board .yard-hero-hand > div {
   overflow: visible !important;
 }
+
+/* Discard badge: compact glass under chip stack (Detroit 2026-10-10) */
+.opp-discard-badge {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 3px 8px; border-radius: 8px;
+  background: rgba(21,10,46,0.55);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(139,92,246,0.35);
+  margin-top: 3px;
+}
+.opp-discard-label {
+  font: 700 8px 'DM Sans',sans-serif; letter-spacing: 0.08em;
+  color: #A78BFA;
+}
+.opp-discard-count {
+  font: 800 12px 'DM Sans',sans-serif; color: #FDE68A;
+  font-variant-numeric: tabular-nums;
+}
+.opp-discard-badge.is-waiting {
+  border-color: rgba(139,92,246,0.2);
+  opacity: 0.6;
+}
+.opp-discard-badge.is-waiting .opp-discard-label { color: #6D6A8A; }
+.opp-discard-badge.is-waiting .opp-discard-count { color: #6D6A8A; }

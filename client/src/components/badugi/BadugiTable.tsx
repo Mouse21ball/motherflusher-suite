@@ -119,7 +119,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   return (<>
     {/* Hero-centric: opponent strip at top (Detroit 2026-10-10) */}
-    <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} />
+    <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} phase={state.phase} />
     {showShuffle && <ShuffleAnimation onComplete={() => setShowShuffle(false)} />}
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
       centerReadout={<span className="yard-table-readout">{isDrawPhase ? `DRAW ${state.phase.split('_')[1]} / 3 · ` : ''}{heroHandEval?.description ?? (me?.status === 'folded' ? 'FOLDED' : 'WAITING FOR HAND')}</span>}

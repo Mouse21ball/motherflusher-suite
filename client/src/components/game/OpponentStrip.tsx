@@ -8,6 +8,7 @@ interface OpponentStripProps {
   opponents: Player[];
   activePlayerId?: string;
   totalCards?: number; // Cards per hand: Badugi=4, FlushedUp=5, BoxChevy=5
+  phase?: string; // Current game phase (for draw-round discard badges)
 }
 
 /**
@@ -15,19 +16,25 @@ interface OpponentStripProps {
  * Shows: who's in, chip stacks, current bets, card counts with draw/discard animations.
  * Detroit 2026-10-10: "The only hand you care about is yourself."
  * Detroit 2026-10-10: Discarded cards go dark — you SEE how many they threw away.
+ * Detroit 2026-10-10: Discard badge under each stack — WAITING before they act,
+ *   DISCARDED N after, resets each draw round.
  */
-export function OpponentStrip({ opponents, activePlayerId, totalCards = 4 }: OpponentStripProps) {
+export function OpponentStrip({ opponents, activePlayerId, totalCards = 4, phase = '' }: OpponentStripProps) {
   return (
     <div className="opp-strip" aria-label="Opponents">
       {opponents.map((opp, i) => (
-        <OpponentCell key={opp.id} player={opp} seatNum={i + 1} isActive={opp.id === activePlayerId} totalCards={totalCards} />
+        <OpponentCell key={opp.id} player={opp} seatNum={i + 1} isActive={opp.id === activePlayerId} totalCards={totalCards} phase={phase} />
       ))}
     </div>
   );
 }
 
-function OpponentCell({ player, seatNum, isActive, totalCards }: { player: Player; seatNum: number; isActive: boolean; totalCards: number }) {
+function OpponentCell({ player, seatNum, isActive, totalCards, phase }: { player: Player; seatNum: number; isActive: boolean; totalCards: number; phase: string }) {
   const [drawFlash, setDrawFlash] = useState<number | null>(null);
+  // Discard badge: null = WAITING (hasn't acted this round), number = DISCARDED N
+  const [discardBadge, setDiscardBadge] = useState<number | null>(null);
+  const seenDrawCount = useRef<number | undefined>(undefined);
+  const seenDrawPhase = useRef<string | null>(null);
   const prevDrawCount = useRef<number | undefined>(undefined);
 
   // Trigger draw/discard animation when lastDrawCount changes
@@ -41,9 +48,28 @@ function OpponentCell({ player, seatNum, isActive, totalCards }: { player: Playe
   }, [player.lastDrawCount]);
 
   const isFolded = player.status === 'folded';
+  const isDrawPhase = phase.startsWith('DRAW_');
   // Discarded cards go dark (Detroit 2026-10-10): show how many they threw away
-  const discarded = player.lastDrawCount ?? 0;
+  const discarded = discardBadge ?? 0;
   const liveCards = totalCards - discarded;
+
+  // Discard badge logic: reset to WAITING on new draw round, show count after they act
+  useEffect(() => {
+    if (isDrawPhase && seenDrawPhase.current !== phase) {
+      // New draw round — back to WAITING
+      setDiscardBadge(null);
+      seenDrawCount.current = undefined;
+      seenDrawPhase.current = phase;
+    }
+  }, [phase, isDrawPhase]);
+
+  useEffect(() => {
+    if (isDrawPhase && player.lastDrawCount !== undefined && player.lastDrawCount !== seenDrawCount.current) {
+      seenDrawCount.current = player.lastDrawCount;
+      seenDrawPhase.current = phase;
+      setDiscardBadge(player.lastDrawCount);
+    }
+  }, [player.lastDrawCount, phase, isDrawPhase]);
 
   return (
     <div className={`opp-cell${isFolded ? ' is-folded' : ''}${isActive ? ' is-active' : ''}`}>
@@ -56,6 +82,14 @@ function OpponentCell({ player, seatNum, isActive, totalCards }: { player: Playe
       {/* Name + chips */}
       <div className="opp-name">{player.name}</div>
       <div className="opp-chips">{player.chips.toLocaleString()}</div>
+
+      {/* Discard badge: WAITING or DISCARDED N (Detroit 2026-10-10) */}
+      {isDrawPhase && !isFolded && (
+        <div className={`opp-discard-badge${discardBadge === null ? ' is-waiting' : ''}`}>
+          <span className="opp-discard-label">{discardBadge === null ? 'WAITING' : 'DISCARDED'}</span>
+          <span className="opp-discard-count">{discardBadge === null ? '…' : discardBadge}</span>
+        </div>
+      )}
 
       {/* Current bet */}
       {player.bet > 0 && <div className="opp-bet">BET {player.bet.toLocaleString()}</div>}
