@@ -48,10 +48,6 @@ export interface Player {
   // Display-only: how many cards this player drew on their last draw action.
   // Used by the client to animate discards/draws. Reset each hand.
   lastDrawCount?: number;
-  // Backend: how many replacement cards this player is waiting to receive.
-  // Set during discard phase, cleared after dealing. Detroit 2026-10-10:
-  // "Everyone must discard. Then people receive new cards. In order."
-  pendingDrawCount?: number;
   // Badugi: set when the engine auto-folds a player at DECLARE for holding no
   // valid badugi (distinct from a voluntary fold). On a rollover (no valid hand
   // anywhere), these players are still in for the next hand.

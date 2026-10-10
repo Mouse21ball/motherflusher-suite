@@ -13,7 +13,7 @@ import type { GameState, Player, CardType, GamePhase, PlayerStatus, Declaration,
 import { BadugiMode, evaluateBadugi } from '../shared/modes/badugi';
 import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
-import { applyBadugiDraw, applyBadugiDiscard, applyBadugiDeal } from './utils/badugiDraw';
+import { applyBadugiDraw } from './utils/badugiDraw';
 import { takeAnte } from '../shared/engine/botUtils';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
@@ -1545,71 +1545,6 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
 
 // ─── After-human-action plumbing ──────────────────────────────────────────────
 
-
-/**
- * Deal sequence (Detroit 2026-10-10).
- * After all players discard in a DRAW round, deal replacements in turn order
- * with visible delays so players watch each deal. Then advance phase.
- */
-function runDealSequence(table: AuthTable): void {
-  const capturedHandId = table.handId;
-  const capturedPhase = table.state.phase;
-
-  // Get players with pending draws in turn order (starting after dealer)
-  const dealerIdx = getDealerIndex(table.state.players);
-  const ordered: string[] = [];
-  for (let i = 1; i <= table.state.players.length; i++) {
-    const idx = (dealerIdx + i) % table.state.players.length;
-    const p = table.state.players[idx];
-    if (p.status === 'active' && (p.pendingDrawCount ?? 0) > 0) {
-      ordered.push(p.id);
-    }
-  }
-
-  if (ordered.length === 0) {
-    // No pending draws — advance immediately
-    advanceToNextPhase(table);
-    broadcastState(table);
-    scheduleNextBot(table);
-    return;
-  }
-
-  engineLog('DEAL_SEQ', table.tableId, { players: ordered.length, phase: capturedPhase });
-
-  let dealIndex = 0;
-  const dealNext = () => {
-    // Abort if hand or phase changed (e.g., everyone folded)
-    if (table.handId !== capturedHandId || table.state.phase !== capturedPhase) return;
-
-    if (dealIndex >= ordered.length) {
-      // All dealt — advance to next phase
-      advanceToNextPhase(table);
-      broadcastState(table);
-      scheduleNextBot(table);
-      return;
-    }
-
-    const playerId = ordered[dealIndex];
-    const result = applyBadugiDeal(table.state, playerId);
-    if (result.ok) {
-      table.state = {
-        ...table.state,
-        players: result.players,
-        deck: result.deck,
-        discardPile: result.discardPile,
-      };
-      engineLog('DEAL', table.tableId, { player: playerId, count: result.count });
-    }
-    broadcastState(table);
-    dealIndex++;
-    // 700ms between deals — visible sequence, retention pacing
-    setTimeout(dealNext, 700);
-  };
-
-  // Small pause after last discard before dealing starts
-  setTimeout(dealNext, 600);
-}
-
 function afterHumanAction(table: AuthTable, wasRaise = false): void {
   // Clear the timer — player acted in time (or timeout already fired).
   clearTurnTimerBadugi(table);
@@ -1622,13 +1557,6 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
     if (table.state.phase.startsWith('BET') &&
         !table.state.players.some(p => p.status === 'active' && p.chips > 0)) {
       ensureBettingActorBadugi(table);
-      return;
-    }
-    // Detroit 2026-10-10: After all discards in a DRAW round, deal replacements
-    // in turn order with visible delays (retention: watch the deal sequence).
-    if (table.state.phase.startsWith('DRAW') &&
-        table.state.players.some(p => (p.pendingDrawCount ?? 0) > 0)) {
-      runDealSequence(table);
       return;
     }
     const capturedHandId = table.handId;
@@ -2703,9 +2631,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── draw ──────────────────────────────────────────────────────────────────
     if (action === 'draw' && s.phase.startsWith('DRAW')) {
-      // Detroit 2026-10-10: Split into discard phase then deal phase.
-      // Everyone discards in order first, then everyone receives in order.
-      const result = applyBadugiDiscard(s, playerId, payload);
+      const result = applyBadugiDraw(s, playerId, payload);
       if (!result.ok) {
         engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: result.reason, phase: s.phase });
         table.actionLock = false;
@@ -2713,7 +2639,11 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       }
       const msg = result.count === 0 ? 'You stood pat' : `You discarded ${result.count} card${result.count > 1 ? 's' : ''}`;
       engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: result.count, phase: s.phase });
-      table.state = addMsg({ ...s, players: result.players, deck: result.deck, discardPile: result.discardPile }, msg);
+      // Tag the drawing player with their draw count for client animation
+      const playersWithDrawCount = result.players.map(p =>
+        p.id === playerId ? { ...p, lastDrawCount: result.count } : p
+      );
+      table.state = addMsg({ ...s, players: playersWithDrawCount, deck: result.deck, discardPile: result.discardPile }, msg);
       table.actionLock = false;
       afterHumanAction(table);
       return;
