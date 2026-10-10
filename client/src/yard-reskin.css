@@ -927,3 +927,52 @@
 }
 .opp-discard-badge.is-waiting .opp-discard-label { color: #6D6A8A; }
 .opp-discard-badge.is-waiting .opp-discard-count { color: #6D6A8A; }
+
+/* YOUR HAND glass panel (Detroit 2026-10-10, from mockup) */
+.your-hand-panel {
+  width: 100%; max-width: 420px; margin: 0 auto;
+  background: rgba(21,10,46,0.45);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139,92,246,0.35);
+  border-radius: 16px;
+  padding: 10px 12px 8px;
+  position: relative;
+}
+.your-hand-header {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-bottom: 8px;
+  font: 800 13px 'Oswald',sans-serif; letter-spacing: 0.12em;
+  color: #FDE68A; text-shadow: 0 1px 4px #000;
+}
+.your-hand-crown { color: #FBBF24; }
+.your-hand-cards {
+  display: flex; justify-content: center;
+  min-height: 110px;
+}
+.your-hand-hint {
+  text-align: center; margin-top: 6px;
+  font: 500 11px 'DM Sans',sans-serif; color: #A78BFA;
+}
+
+/* Phase tracker bar (Detroit 2026-10-10, from mockup) */
+.phase-tracker {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 420px; margin: 8px auto;
+  padding: 10px 14px; border-radius: 14px;
+  background: rgba(21,10,46,0.5);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139,92,246,0.3);
+}
+.phase-tracker-left { display: flex; align-items: center; gap: 10px; }
+.phase-tracker-icon { color: #FBBF24; flex-shrink: 0; }
+.phase-tracker-title {
+  font: 800 13px 'Oswald',sans-serif; letter-spacing: 0.1em; color: #EDE9FE;
+}
+.phase-tracker-subtitle {
+  font: 600 10px 'DM Sans',sans-serif; letter-spacing: 0.06em; color: #A78BFA;
+}
+.phase-tracker-timer {
+  display: flex; align-items: center; gap: 5px;
+  font: 800 14px 'DM Sans',sans-serif; color: #FBBF24;
+  font-variant-numeric: tabular-nums;
+}

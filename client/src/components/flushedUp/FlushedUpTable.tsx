@@ -9,6 +9,8 @@ import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import { TableDealAnimator } from './TableDealAnimator';
 import { TableBoard } from '@/components/game/TableBoard';
 import { OpponentStrip } from '@/components/game/OpponentStrip';
+import { YourHandPanel } from '@/components/game/YourHandPanel';
+import { PhaseTracker } from '@/components/game/PhaseTracker';
 import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
 import { Crown } from 'lucide-react';
@@ -182,17 +184,20 @@ export function FlushedUpTable({
     : me?.status === 'folded' ? 'FOLDED · HAND COMPLETE' : 'TRACKING SUIT MATCH';
   const heroCards = me ? <div className="yard-hero-hand">
     <YardHeroIdentity state={state} myId={myId} accent="#D946EF" />
+    <PhaseTracker phase={state.phase} totalPlayers={state.players.filter(pl => pl.status === 'active').length} />
     <div data-deal-seat={myId} data-player-seat={myId} style={{ display:'flex',flexDirection:'column',alignItems:'center',paddingBottom:8 }}>
       {isDrawPhase && selectedCardIndices.length > 0 && <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
         style={{ marginBottom:4,padding:'3px 12px',borderRadius:20,background:'rgba(217,70,239,0.18)',border:'1px solid rgba(217,70,239,0.45)',fontSize:11,fontFamily:'monospace',color:'#F0ABFC',letterSpacing:'0.08em' }}>
         {selectedCardIndices.length} SELECTED · TAP DRAW
       </motion.div>}
       {me && me.cards.length > 0 ? <>
+        <YourHandPanel hint={isDrawPhase ? "Tap cards to select for discard" : undefined}>
         <div style={{ opacity:heroIsLoser?0.55:1,filter:heroGlowColor?`drop-shadow(0 0 14px ${heroGlowColor}) drop-shadow(0 0 6px ${heroGlowColor})`:'none',transition:'opacity 0.4s ease, filter 0.4s ease' }}>
           <CardHand cards={me.cards} selectedIndices={selectedCardIndices} onCardClick={onCardClick} isSelectable={isDrawPhase}
             dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices} discardingIndices={animState.discardingIndices}
             isShowdown={isShowdown} celebrationCardMarkers cardWidth={heroCardW} cardHeight={heroCardH} />
         </div>
+        </YourHandPanel>
         {isShowdown && heroHandEval && me.status !== 'folded' && <div style={{ marginTop:3,fontSize:12,fontFamily:'monospace',color:heroIsWinner?'#FDE68A':'rgba(255,255,255,.7)',fontWeight:heroIsWinner?700:400,letterSpacing:'.08em',textAlign:'center' }}>{showdownLabel(heroHandEval)}</div>}
       </> : <div style={{ display:'flex',gap:4,paddingTop:12,paddingBottom:6 }}>{Array.from({length:5}).map((_,i)=><div key={i} style={{width:heroCardW,height:heroCardH,borderRadius:8,border:'1px dashed rgba(217,70,239,.25)'}} />)}</div>}
     </div>

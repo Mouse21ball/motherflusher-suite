@@ -9,6 +9,8 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { OpponentStrip } from '@/components/game/OpponentStrip';
+import { YourHandPanel } from '@/components/game/YourHandPanel';
+import { PhaseTracker } from '@/components/game/PhaseTracker';
 import { ShuffleAnimation } from './ShuffleAnimation';
 import { useEffect, useState, useRef } from 'react';
 import type { GameState } from '@/lib/poker/types';
@@ -90,6 +92,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const heroCards = me ? (
     <div className="yard-hero-hand">
       <YardHeroIdentity state={state} myId={myId} accent="#8B5CF6" />
+      <PhaseTracker phase={state.phase} totalPlayers={state.players.filter(pl => pl.status === 'active').length} />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         {isDrawPhase && (
           <motion.div className="yard-discard-prompt" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -99,11 +102,13 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
           </motion.div>
         )}
         {me && me.cards.length > 0 && me.status !== 'folded' ? <>
-          <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '12px 10px 4px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
+          <YourHandPanel hint={isDrawPhase ? "Tap cards to select for discard" : undefined}>
+          <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '4px 6px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
             <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
               isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
               discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
           </div>
+          </YourHandPanel>
           {isShowdown && heroHandEval && <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace',
             color: heroIsWinner ? '#C9A227' : 'rgba(255,255,255,0.7)', fontWeight: heroIsWinner ? 700 : 400,
             letterSpacing: '0.08em', textAlign: 'center', textShadow: heroIsWinner ? `0 0 10px ${GOLD}0.65)` : '0 1px 6px rgba(0,0,0,0.9)' }}>
