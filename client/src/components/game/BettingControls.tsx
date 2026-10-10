@@ -22,8 +22,8 @@ interface BettingControlsProps {
 
 const buttonStyle: React.CSSProperties = {
   minWidth: 0,
-  minHeight: 44,
-  padding: '8px 7px',
+  minHeight: 38,
+  padding: '6px 7px',
   borderRadius: 10,
   border: '1px solid rgba(185,28,28,0.32)',
   background: 'rgba(30,10,10,0.86)',
@@ -112,9 +112,9 @@ export function BettingControls({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 9,
+        gap: 6,
         width: '100%',
-        padding: '10px 12px 12px',
+        padding: '6px 8px 8px',
         boxSizing: 'border-box',
         color: '#fff',
         fontFamily: 'monospace',
@@ -125,7 +125,7 @@ export function BettingControls({
         {context.callAmount > 0 && <span>TO CALL ${context.payableCall.toLocaleString()}</span>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 5 }}>
         <button
           type="button"
           style={actionButtonStyle}
