@@ -847,3 +847,16 @@
   -webkit-backdrop-filter: blur(10px) !important;
   border-radius: 16px;
 }
+
+/* Opponent strip: dial back — compact, clean (Detroit 2026-10-10) */
+.opp-strip {
+  padding: 6px 8px 8px !important;
+  gap: 6px !important;
+}
+.opp-card-back {
+  width: 20px !important;
+  height: 28px !important;
+}
+.opp-cell {
+  gap: 3px !important;
+}
