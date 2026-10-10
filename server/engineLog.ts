@@ -20,6 +20,8 @@ type Event =
   | 'RECONNECT'
   | 'PERSIST'
   | 'TURN_TIMEOUT'
+  | 'DEAL_SEQ'
+  | 'DEAL'
   | 'ERROR';
 
 type Detail = Record<string, string | number | boolean | undefined>;

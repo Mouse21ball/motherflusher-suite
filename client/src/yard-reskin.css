@@ -678,3 +678,32 @@
   color: #FDE68A; text-shadow: 0 1px 3px #000;
   text-transform: uppercase;
 }
+
+/* ═══ SHUFFLE ANIMATION (Detroit 2026-10-10) ═══ */
+
+.shuffle-overlay {
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  z-index: 20; pointer-events: none;
+}
+
+.shuffle-cards {
+  position: relative; width: 120px; height: 80px;
+}
+
+.shuffle-card {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 62px;
+  margin: -31px 0 0 -22px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, #4C1D95, #2D1B4E);
+  border: 2px solid rgba(139,92,246,.6);
+  box-shadow: 0 4px 12px rgba(0,0,0,.5);
+}
+
+.shuffle-text {
+  font: 900 12px 'Oswald', sans-serif; letter-spacing: .3em;
+  color: #FDE68A; text-shadow: 0 2px 8px #000;
+}

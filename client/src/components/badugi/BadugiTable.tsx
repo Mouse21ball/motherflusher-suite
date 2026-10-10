@@ -10,7 +10,8 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
 import { OpponentStrip } from './OpponentStrip';
-import { useEffect } from 'react';
+import { ShuffleAnimation } from './ShuffleAnimation';
+import { useEffect, useState, useRef } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
@@ -21,8 +22,8 @@ import { TableBoard } from '@/components/game/TableBoard';
 import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 
 const GOLD = 'rgba(201,162,39,';
-const HERO_CARD_W = 68;
-const HERO_CARD_H = 95;
+const HERO_CARD_W = 78;
+const HERO_CARD_H = 110;
 
 /* ── Animated pot ─────────────────────────────────────────────────────────── */
 
@@ -58,6 +59,19 @@ export interface BadugiTableProps {
 export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: BadugiTableProps) {
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
+
+  // Shuffle animation: show for 3s when a new hand starts (Detroit 2026-10-10)
+  const [showShuffle, setShowShuffle] = useState(false);
+  const prevPhase = useRef(state.phase);
+  useEffect(() => {
+    // New hand: phase went from SHOWDOWN/WAITING to ANTE/DRAW_1, or hero got cards
+    const wasEnd = prevPhase.current === 'SHOWDOWN' || prevPhase.current === 'WAITING';
+    const isStart = state.phase === 'ANTE' || state.phase === 'DRAW_1';
+    if (wasEnd && isStart && me && me.cards.length > 0) {
+      setShowShuffle(true);
+    }
+    prevPhase.current = state.phase;
+  }, [state.phase, me?.cards.length]);
 
   /* Read-only evaluator powers the live hand label; it never changes game state. */
   const heroHandEval = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
@@ -144,6 +158,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   return (<>
     {/* Hero-centric: opponent strip at top (Detroit 2026-10-10) */}
     <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} />
+    {showShuffle && <ShuffleAnimation onComplete={() => setShowShuffle(false)} />}
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
       opponentSeats={[]}
       centerReadout={<span className="yard-table-readout">{isDrawPhase ? `DRAW ${state.phase.split('_')[1]} / 3 · ` : ''}{heroHandEval?.description ?? (me?.status === 'folded' ? 'FOLDED' : 'WAITING FOR HAND')}</span>}
