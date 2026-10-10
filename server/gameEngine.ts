@@ -1986,7 +1986,7 @@ export async function addBadugiConnection(
   table.connections.set(seat, ws);
   table.humanSeats.add(seat);
 
-  // Update name, presence, and—if taking a reserved seat—activate it.
+  // Update name, presence, and activate the seat so the player is auto-queued for the next hand.
   const wasReserved = (p => p === 'reserved' || p === 'open')(table.state.players.find(p => p.id === seat)?.presence ?? '');
   table.state = {
     ...table.state,
@@ -1997,7 +1997,7 @@ export async function addBadugiConnection(
         ...p,
         ...(playerName ? { name: playerName } : {}),
         presence: 'human' as const,
-        ...(wasReserved ? { status: 'active' as const } : {}),
+        status: 'active' as const,
       };
     }),
   };
