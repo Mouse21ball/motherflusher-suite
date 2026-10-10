@@ -431,3 +431,109 @@
 }
 .yard-bottom-nav {height:calc(72px + env(safe-area-inset-bottom));padding-bottom:calc(5px + env(safe-area-inset-bottom))}
 .yard-page {padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+
+/* ═══ OVAL GLASS TABLE — portrait, reference pattern (Detroit 2026-10-10) ═══
+   Oval see-through glass table, players around it, hero at bottom.
+   No dealer. Yard background visible through the glass. */
+
+.yard-table-board {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  min-height: 100dvh; padding: 8px 12px 16px;
+  overflow: hidden;
+}
+
+/* Table title bar — compact, top */
+.yard-table-heading {
+  display: flex; align-items: center; gap: 8px;
+  margin: 4px 0 8px; z-index: 10;
+}
+.yard-table-heading strong {
+  font: 900 18px 'Oswald', sans-serif; letter-spacing: .1em; color: #FDE68A;
+  text-shadow: 0 2px 8px #000;
+}
+.yard-table-heading span {
+  font: 700 10px 'Oswald', sans-serif; letter-spacing: .15em; color: #C4B5FD;
+}
+
+/* The oval glass table */
+.yard-table-glass {
+  position: relative;
+  width: min(94vw, 420px); aspect-ratio: 1.35;
+  border-radius: 50%;
+  background: rgba(21,10,46,.25);
+  backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 2px 20px rgba(0,0,0,.3), 0 0 30px color-mix(in srgb, var(--table-accent), transparent 70%);
+  margin: 12px 0;
+  display: grid; place-items: center;
+}
+/* Hide the old chain decorations */
+.yard-suspension-chain { display: none !important; }
+
+/* Center content: pot, phase, readout — stacked vertically */
+.yard-table-center {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  z-index: 5; text-align: center;
+  max-width: 80%;
+}
+.yard-phase-slot {
+  position: static !important; transform: none !important;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.yard-phase-step {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font: 700 10px 'Oswald', sans-serif; letter-spacing: .08em; color: #A78BFA;
+}
+.yard-phase-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(21,10,46,.6); border: 1px solid #8B5CF6;
+  color: #C4B5FD; font: 700 13px 'DM Sans', sans-serif;
+}
+.yard-phase-step.is-current { color: #FDE68A; }
+.yard-phase-step.is-current .yard-phase-dot {
+  background: #F59E0B; border-color: #FDE68A; color: #150A2E;
+  box-shadow: 0 0 12px #F59E0B88;
+}
+.yard-pot-slot {
+  position: static !important; transform: none !important;
+  display: flex; align-items: center; gap: 6px;
+  font: 900 20px 'DM Sans', sans-serif; color: #FDE68A;
+  text-shadow: 0 2px 8px #000;
+  background: rgba(0,0,0,.35); padding: 6px 16px; border-radius: 20px;
+  backdrop-filter: blur(6px);
+}
+.yard-readout-slot {
+  position: static !important; transform: none !important;
+  font: 700 12px 'DM Sans', sans-serif; color: #EDE9FE;
+  text-shadow: 0 1px 4px #000; max-width: 100%;
+}
+
+/* Opponent seats — positioned around the oval */
+.yard-opponent-seats {
+  position: absolute !important; inset: 0; pointer-events: none; z-index: 6;
+}
+.yard-opponent-position {
+  position: absolute !important; pointer-events: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 84px;
+}
+/* 4 opponents: 2 top, 1 left, 1 right */
+.yard-opponent-position.seat-1 { top: 2%; left: 50%; transform: translateX(-110%); }
+.yard-opponent-position.seat-2 { top: 2%; left: 50%; transform: translateX(10%); }
+.yard-opponent-position.seat-3 { top: 38%; left: 2%; }
+.yard-opponent-position.seat-4 { top: 38%; right: 2%; }
+
+/* Hero — bottom center, below table */
+.yard-hero-slot {
+  position: static !important; transform: none !important;
+  width: 100%; max-width: 480px;
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 8px; z-index: 10;
+}
+.yard-table-content {
+  position: static !important; width: 100%;
+  display: flex; flex-direction: column; align-items: center;
+}
