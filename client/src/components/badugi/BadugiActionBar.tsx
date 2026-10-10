@@ -147,7 +147,7 @@ export function BadugiActionBar({
             <button disabled={!canStart} onClick={canStart ? () => onAction('start') : undefined}
               data-testid="button-deal-me-in"
               style={{
-                width: '100%', padding: '14px 8px', borderRadius: 12, fontSize: 15,
+                width: 'auto', minWidth: 180, alignSelf: 'center', padding: '10px 28px', borderRadius: 20, fontSize: 13,
                 fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
                 cursor: canStart ? 'pointer' : 'not-allowed', border: 'none', outline: 'none',
                 WebkitTapHighlightColor: 'transparent',
@@ -158,9 +158,7 @@ export function BadugiActionBar({
               }}>
               {chips <= 0 ? 'REBUY BEFORE STARTING' : canStart ? 'DEAL ME IN' : 'NEED 1 MORE PLAYER'}
             </button>
-            <div style={{ textAlign: 'center', fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.14em' }}>
-              or wait for players to join
-            </div>
+
           </div>
         )}
 
@@ -238,31 +236,6 @@ export function BadugiActionBar({
       </button>
 
       <AnimatePresence>{tutorialOpen && <TutorialPanel />}</AnimatePresence>
-
-      {/* Stats bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ANTE</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{ante}</span>
-        </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>PLAYERS</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
-        </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>YOUR STACK</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700 }}><ChipIcon />{chips.toLocaleString()}</span>
-        </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-        <button onClick={onRebuy}
-          style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #7a5500, #C9A227)',
-            border: 'none', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 700, lineHeight: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 0 10px ${G(0.35)}`, WebkitTapHighlightColor: 'transparent' }}
-          data-testid="button-rebuy">+</button>
-      </div>
     </div>
   );
 }

@@ -130,7 +130,7 @@
 .yard-player-balance { min-width:95px;min-height:48px;display:grid;grid-template-columns:1fr 38px;grid-template-rows:14px 25px;align-items:center;padding:3px 4px 3px 9px;border:none;background:rgba(30,16,64,.45);border-radius:12px;backdrop-filter:blur(8px);color:#FDE68A; }
 .yard-player-balance>span { grid-column:1;font:700 10px 'Oswald',sans-serif;letter-spacing:.08em;color:#C4B5FD; }
 .yard-player-balance strong { grid-column:1;grid-row:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px 'DM Sans',sans-serif;color:#FDE68A; }
-.yard-player-balance button,.yard-player-actions button { width:40px;height:40px;min-width:40px;min-height:40px;display:grid;place-items:center;border:none;border-radius:10px;background:rgba(45,27,105,.5);backdrop-filter:blur(8px);color:#FDE68A;cursor:pointer; }
+.yard-player-balance button,.yard-player-actions button { width:32px;height:32px;min-width:32px;min-height:32px;display:grid;place-items:center;border:none;border-radius:10px;background:rgba(45,27,105,.5);backdrop-filter:blur(8px);color:#FDE68A;cursor:pointer; }
 .yard-player-balance button { grid-column:2;grid-row:1/3; }
 .yard-player-actions { display:flex;align-items:center;gap:6px; }
 .yard-header-action img { width:24px;height:24px;object-fit:contain; }
