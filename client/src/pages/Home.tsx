@@ -47,7 +47,7 @@ import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import { YardRewardFlight } from '@/components/YardRewardFlight';
 import { publishYardMissionBadge } from '@/lib/yardMissionBadge';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
-import { RefreshCw, ArrowRight, Medal, Crown } from 'lucide-react';
+import { RefreshCw, ArrowRight, Medal, Crown, Trophy } from 'lucide-react';
 import '@/yard-reskin.css';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
@@ -544,9 +544,9 @@ export default function Home() {
       {/* ── Sticky header ─────────────────────────────────────────────────────── */}
       <YardPlayerHeader notificationDot={hasClaimableMissions} actions={<>
         <button className="yard-header-action" type="button" onClick={() => navigate('/leaderboard')} aria-label="Leaderboard">
-          <img src="/dock-leaderboard.png" alt="" />
+          <Trophy size={20} color="#FBBF24" />
         </button>
-        <MusicButton size={56} popoverAlign="right" />
+        <MusicButton size={40} popoverAlign="right" />
       </>} />
 
       {/* ── Toasts ────────────────────────────────────────────────────────────── */}

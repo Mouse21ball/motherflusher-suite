@@ -290,7 +290,15 @@ class MusicManager {
     if (this._muted === muted) return;
     this._muted = muted;
     this.writeMuted(muted);
-    if (this.audio) this.audio.muted = muted;
+    if (this.audio) {
+      this.audio.muted = muted;
+      // Actually pause when muting so music truly stops; resume when unmuting
+      if (muted) {
+        this.audio.pause();
+      } else if (this.currentUrl && this.unlocked) {
+        this.audio.play().catch(() => {});
+      }
+    }
     if (this.previewAudio) this.previewAudio.muted = muted;
     if (!muted && !this.audio && this.currentUrl && this.unlocked) {
       this.startAudio(this.currentUrl);
