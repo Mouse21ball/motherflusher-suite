@@ -976,3 +976,20 @@
   font: 800 14px 'DM Sans',sans-serif; color: #FBBF24;
   font-variant-numeric: tabular-nums;
 }
+
+/* YOUR HAND panel: taller, cards fully visible (Detroit 2026-10-10) */
+.your-hand-panel {
+  min-height: 170px !important;
+  padding-bottom: 14px !important;
+}
+.your-hand-cards {
+  min-height: 120px !important;
+  align-items: flex-start !important;
+}
+/* Discard pill: clear separation above panel */
+.yard-table-board .yard-discard-prompt {
+  margin: 6px auto 10px auto !important;
+  display: block !important;
+  width: fit-content !important;
+  position: static !important;
+}
