@@ -805,3 +805,45 @@
   flex: 1; min-height: 0;
   width: 100%;
 }
+
+/* Detroit 2026-10-10: hero layout cleanup */
+.yard-table-board .yard-hero-hand {
+  padding-left: 0 !important;
+}
+/* Hero avatar centered above cards */
+.yard-table-board .yard-hero-identity {
+  justify-content: center !important;
+  margin-bottom: 4px;
+}
+/* Cards up higher — less dead space in center */
+.yard-table-board .yard-center-info {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+.yard-table-board .yard-hero-zone {
+  margin-top: 0 !important;
+  padding-top: 4px !important;
+}
+/* Opponent strip: taller, bigger card backs */
+.opp-strip {
+  padding: 10px 8px 14px !important;
+}
+.opp-card-back {
+  width: 26px !important;
+  height: 36px !important;
+}
+/* See-through panels (Detroit 2026-10-10) */
+.yard-discard-prompt {
+  background: rgba(21,10,46,0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+.yard-action-bar {
+  background: transparent !important;
+}
+.yard-action-bar > div {
+  background: rgba(21,10,46,0.35) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-radius: 16px;
+}
