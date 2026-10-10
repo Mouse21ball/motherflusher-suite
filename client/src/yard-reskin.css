@@ -45,7 +45,7 @@
 .yard-table-readout { display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:5px 12px;border:1px solid #F59E0B66;border-radius:8px;background:#150A2Edd;color:#FDE68A;font:700 10px 'Oswald',sans-serif;letter-spacing:.1em; }
 .yard-action-bar button { min-height:56px; }
 .yard-action-bar button:focus-visible,.yard-nav-item:focus-visible,.yard-game-card:focus-visible { outline:2px solid #FDE68A;outline-offset:3px; }
-.yard-table-glass { position:absolute; z-index:-1; inset:19% 7% 20%; border-radius:20% / 15%; border:1px solid #E5E7EB88; background:linear-gradient(145deg,#EDE9FE18,#1E104080 28%,#150A2E78 75%,#A855F71A); box-shadow:inset 0 1px 1px #ffffff88,inset 0 0 42px #150A2EAA,0 0 0 4px #6B728044,0 0 22px color-mix(in srgb,var(--table-accent),transparent 58%); backdrop-filter:blur(2px); }
+.yard-table-glass { position:absolute; z-index:-1; inset:19% 7% 20%; border-radius:20% / 15%; border:none; background:linear-gradient(145deg,#EDE9FE10,#1E104030 28%,#150A2E28 75%,#A855F710); box-shadow:inset 0 1px 1px #ffffff44; backdrop-filter:blur(3px); }
 .yard-chain-bezel { position:absolute; inset:8px; border:1px dashed #E5E7EB40; border-radius:18% / 14%; }
 .yard-table-watermark { position:absolute;inset:0;display:grid;place-items:center;opacity:.07; }
 .yard-table-watermark i { position:relative;display:block;width:clamp(90px,20vw,190px);aspect-ratio:1; }
@@ -54,7 +54,7 @@
 .yard-table-content { position:relative; z-index:1; width:100%; height:100%; }
 .yard-readout-slot,.yard-phase-slot,.yard-hero-slot,.yard-pot-slot { position:absolute; z-index:4; }
 .yard-readout-slot { left:50%; top:39%; transform:translate(-50%,-50%); max-width:90%; pointer-events:none; }
-.yard-phase-slot { left:50%; top:30%; transform:translateX(-50%); display:flex;align-items:center;gap:0;pointer-events:none; }
+.yard-phase-slot { left:50%; top:28%; transform:translateX(-50%); display:flex;align-items:center;gap:8px;pointer-events:none; }
 .yard-phase-step { position:relative; display:flex;align-items:center;gap:5px;padding:4px 8px;color:#A78BFA;font:700 12px 'Oswald',sans-serif;letter-spacing:.06em;white-space:nowrap; }
 .yard-phase-step:not(:last-child)::after { content:"";position:absolute;left:calc(100% - 2px);top:50%;width:15px;height:2px;background:#6B5A88;transform:translateY(-50%); }
 .yard-phase-step.is-done:not(:last-child)::after { background:#F59E0B; }
@@ -365,7 +365,7 @@
 }
 
 .yard-chain-bezel-art {position:absolute;inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px);overflow:visible;filter:drop-shadow(0 0 3px var(--table-accent));pointer-events:none}
-.yard-table-glass {border-radius:12%;background:linear-gradient(145deg,#EDE9FE18,#1E10404D 28%,#150A2E55 75%,#A855F718)}
+.yard-table-glass {border-radius:12%;background:linear-gradient(145deg,#EDE9FE10,#1E104030 28%,#150A2E28 75%,#A855F710)}
 .yard-pot-chips {color:#FBBF24;filter:drop-shadow(0 0 6px #F59E0B66);margin-bottom:4px}
 .yard-game-card {aspect-ratio:4/5!important;min-height:200px}
 .yard-hero-name {max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -431,60 +431,3 @@
 }
 .yard-bottom-nav {height:calc(72px + env(safe-area-inset-bottom));padding-bottom:calc(5px + env(safe-area-inset-bottom))}
 .yard-page {padding-bottom:calc(88px + env(safe-area-inset-bottom))}
-
-/* ═══ LANDSCAPE TABLES (Detroit 2026-10-09) ═══
-   Tables are landscape-only. In portrait, show a rotate prompt.
-   In landscape, spread seats horizontally with room to breathe. */
-
-@media (orientation: portrait) {
-  .yard-table-board .yard-table-content,
-  .yard-table-board .yard-opponent-seats,
-  .yard-table-board .yard-hero-slot,
-  .yard-table-board .yard-phase-slot,
-  .yard-table-board .yard-readout-slot,
-  .yard-table-board .yard-pot-slot {
-    display: none !important;
-  }
-  .yard-table-board::after {
-    content: "ROTATE YOUR DEVICE";
-    position: absolute; inset: 0; z-index: 50;
-    display: grid; place-items: center;
-    background: #150A2E; color: #FBBF24;
-    font: 900 20px 'Oswald', sans-serif; letter-spacing: 0.15em;
-    text-align: center; padding: 20px;
-  }
-}
-
-@media (orientation: landscape) {
-  .yard-table-board {
-    min-height: 100vh; min-height: 100dvh;
-  }
-  /* Opponents in a row across the top */
-  .yard-opponent-seats {
-    position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
-    width: min(90%, 900px); display: flex; justify-content: center;
-    gap: 16px; flex-wrap: nowrap; overflow-x: auto;
-  }
-  .yard-opponent-position {
-    position: relative !important; top: auto !important; left: auto !important; right: auto !important;
-    flex: 0 0 auto; width: clamp(120px, 15vw, 160px); max-width: none;
-  }
-  .yard-opponent-position.seat-1, .yard-opponent-position.seat-2,
-  .yard-opponent-position.seat-3, .yard-opponent-position.seat-4 {
-    left: auto; right: auto; top: auto;
-  }
-  /* Phase tracker centered with breathing room */
-  .yard-phase-slot {
-    top: 32%; gap: 12px;
-  }
-  .yard-phase-step {
-    padding: 6px 14px; font-size: 14px;
-  }
-  /* Pot and readout centered */
-  .yard-pot-slot { top: 52%; }
-  .yard-readout-slot { top: 42%; max-width: 70%; }
-  /* Hero at bottom center with more width */
-  .yard-hero-slot {
-    width: min(100%, 700px); bottom: 12px;
-  }
-}
