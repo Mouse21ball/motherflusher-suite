@@ -740,3 +740,32 @@
 .yard-table-center {
   display: none !important;
 }
+
+/* Discarded card backs go dark (Detroit 2026-10-10) */
+.opp-card-back.is-discarded {
+  background: #1a1a1a;
+  border-color: rgba(100,100,100,.3);
+}
+
+/* Title tag: no border, no box (Detroit 2026-10-10) */
+.yard-table-heading {
+  border: none !important;
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  padding: 0 !important;
+}
+
+/* Hero cards: fully visible above action bar (Detroit 2026-10-10) */
+.yard-hero-zone {
+  padding-bottom: 12px;
+}
+.yard-hero-slot {
+  margin-bottom: 4px;
+}
+.yard-hero-hand {
+  padding-bottom: 8px;
+}

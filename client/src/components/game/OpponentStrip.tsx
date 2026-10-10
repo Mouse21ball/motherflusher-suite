@@ -7,24 +7,26 @@ import '@/yard-reskin.css';
 interface OpponentStripProps {
   opponents: Player[];
   activePlayerId?: string;
+  totalCards?: number; // Cards per hand: Badugi=4, FlushedUp=5, BoxChevy=5
 }
 
 /**
- * Hero-centric Badugi opponent strip.
+ * Hero-centric opponent strip.
  * Shows: who's in, chip stacks, current bets, card counts with draw/discard animations.
  * Detroit 2026-10-10: "The only hand you care about is yourself."
+ * Detroit 2026-10-10: Discarded cards go dark — you SEE how many they threw away.
  */
-export function OpponentStrip({ opponents, activePlayerId }: OpponentStripProps) {
+export function OpponentStrip({ opponents, activePlayerId, totalCards = 4 }: OpponentStripProps) {
   return (
     <div className="opp-strip" aria-label="Opponents">
       {opponents.map((opp, i) => (
-        <OpponentCell key={opp.id} player={opp} seatNum={i + 1} isActive={opp.id === activePlayerId} />
+        <OpponentCell key={opp.id} player={opp} seatNum={i + 1} isActive={opp.id === activePlayerId} totalCards={totalCards} />
       ))}
     </div>
   );
 }
 
-function OpponentCell({ player, seatNum, isActive }: { player: Player; seatNum: number; isActive: boolean }) {
+function OpponentCell({ player, seatNum, isActive, totalCards }: { player: Player; seatNum: number; isActive: boolean; totalCards: number }) {
   const [drawFlash, setDrawFlash] = useState<number | null>(null);
   const prevDrawCount = useRef<number | undefined>(undefined);
 
@@ -32,16 +34,16 @@ function OpponentCell({ player, seatNum, isActive }: { player: Player; seatNum: 
   useEffect(() => {
     if (player.lastDrawCount !== undefined && player.lastDrawCount !== prevDrawCount.current) {
       prevDrawCount.current = player.lastDrawCount;
-      if (player.lastDrawCount > 0) {
-        setDrawFlash(player.lastDrawCount);
-        const t = setTimeout(() => setDrawFlash(null), 1500);
-        return () => clearTimeout(t);
-      }
+      setDrawFlash(player.lastDrawCount);
+      const t = setTimeout(() => setDrawFlash(null), 2500);
+      return () => clearTimeout(t);
     }
   }, [player.lastDrawCount]);
 
   const isFolded = player.status === 'folded';
-  const cardCount = player.cards.length || 4; // Default to 4 if not revealed
+  // Discarded cards go dark (Detroit 2026-10-10): show how many they threw away
+  const discarded = player.lastDrawCount ?? 0;
+  const liveCards = totalCards - discarded;
 
   return (
     <div className={`opp-cell${isFolded ? ' is-folded' : ''}${isActive ? ' is-active' : ''}`}>
@@ -59,19 +61,23 @@ function OpponentCell({ player, seatNum, isActive }: { player: Player; seatNum: 
       {player.bet > 0 && <div className="opp-bet">BET {player.bet.toLocaleString()}</div>}
 
       {/* Card backs with draw animation */}
+      {/* Card backs: live cards bright, discarded go dark (Detroit 2026-10-10) */}
       <div className="opp-cards">
-        {Array.from({ length: cardCount }).map((_, i) => (
-          <motion.i
-            key={`${i}-${drawFlash !== null ? 'anim' : 'static'}`}
-            className="opp-card-back"
-            initial={drawFlash !== null ? { scale: 0.5, opacity: 0, y: -10 } : false}
-            animate={{ scale: 1, opacity: isFolded ? 0.3 : 1, y: 0 }}
-            transition={{ delay: i * 0.08, duration: 0.3 }}
-          />
-        ))}
+        {Array.from({ length: totalCards }).map((_, i) => {
+          const isDiscarded = i >= liveCards;
+          return (
+            <motion.i
+              key={`${i}-${drawFlash !== null ? 'anim' : 'static'}`}
+              className={`opp-card-back${isDiscarded ? ' is-discarded' : ''}`}
+              initial={drawFlash !== null && !isDiscarded ? { scale: 0.5, opacity: 0, y: -10 } : false}
+              animate={{ scale: 1, opacity: isFolded ? 0.3 : isDiscarded ? 0.25 : 1, y: 0 }}
+              transition={{ delay: i * 0.08, duration: 0.3 }}
+            />
+          );
+        })}
       </div>
 
-      {/* Draw count flash */}
+      {/* Draw count: shows how many they threw away each round */}
       <AnimatePresence>
         {drawFlash !== null && drawFlash > 0 && (
           <motion.div
@@ -80,7 +86,7 @@ function OpponentCell({ player, seatNum, isActive }: { player: Player; seatNum: 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
           >
-            Drew {drawFlash}
+            -{drawFlash}
           </motion.div>
         )}
         {drawFlash === 0 && (

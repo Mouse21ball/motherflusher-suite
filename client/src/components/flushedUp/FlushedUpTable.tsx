@@ -199,7 +199,7 @@ export function FlushedUpTable({
   </div> : undefined;
 
   return (<>
-    <OpponentStrip opponents={reorderedOpps} activePlayerId={state.activePlayerId ?? undefined} />
+    <OpponentStrip opponents={reorderedOpps} activePlayerId={state.activePlayerId ?? undefined} totalCards={5} />
     <TableBoard rootRef={tableRef} gameAccent="#D946EF" title="FLUSHED UP" subtitle="CHASE THE FLUSH" phase={state.phase}
       heroCards={heroCards} heroPlayerId={myId}
       centerReadout={<span className="yard-table-readout">{liveReadout}</span>}
