@@ -874,3 +874,32 @@
   left: auto !important;
   transform: none !important;
 }
+
+/* Premium layout pass (Detroit 2026-10-10): fix overlaps, clipping, dead space */
+/* 1. Hero cards: clear of action bar */
+.yard-table-board .yard-hero-slot {
+  padding-bottom: 20px !important;
+}
+/* 2. Discard pill: above cards, not overlapping */
+.yard-table-board .yard-discard-prompt {
+  margin-bottom: 10px !important;
+  position: relative !important;
+  z-index: 6 !important;
+}
+/* 3. Kill dead space — compact center */
+.yard-table-board .yard-center-info {
+  min-height: 0 !important;
+  padding: 4px 0 !important;
+}
+.yard-table-board .yard-pot-row {
+  margin: 2px 0 !important;
+}
+/* 4. Opponent strip: breathing room on edges */
+.opp-strip {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+/* 5. Hero cards container: no clipping */
+.yard-table-board .yard-hero-hand > div {
+  overflow: visible !important;
+}
