@@ -15,7 +15,6 @@ import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateBadugi } from '@shared/modes/badugi';
-import { FiveSeatPokerTable, type FiveSeatOpponent } from '@/components/game/FiveSeatPokerTable';
 import { BadugiTableEffects } from './BadugiTableEffects';
 import { TableBoard } from '@/components/game/TableBoard';
 import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
@@ -127,28 +126,8 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       pot={state.pot > 0 ? <AnimatedPot pot={state.pot}
         activeCount={state.players.filter(p => p.status === 'active').length}
         totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /> : undefined}>
-    <FiveSeatPokerTable
-      players={state.players}
-      phase={state.phase}
-      myId={myId}
-       opponents={[]}
-      accent="#8B5CF6"
-      modeLabel="badugi"
-      activePlayerId={state.activePlayerId}
-      turnDeadline={state.turnDeadline}
-      heroInBoardSlot
-      effects={tableRoot => <BadugiTableEffects state={state} tableRoot={(tableRoot?.closest('.yard-table-board') as HTMLElement | null) ?? tableRoot} />}
-      center={(
-        <>
-        {/* "BADUGI" watermark */}
-        <div style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.4em', color: `${GOLD}0.08)`, textTransform: 'uppercase', userSelect: 'none' }}>
-          BADUGI
-        </div>
-
-        </>
-      )}
-      hero={null}
-    />
+    {/* Effects only — no table layout (free-floating per Detroit 2026-10-10) */}
+    <BadugiTableEffects state={state} tableRoot={null} />
     </TableBoard>
   </>);
 }

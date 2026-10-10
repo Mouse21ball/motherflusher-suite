@@ -769,3 +769,23 @@
 .yard-hero-hand {
   padding-bottom: 8px;
 }
+
+/* Hero layout: avatar + cards grouped, centered (Detroit 2026-10-10) */
+.yard-hero-hand {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; gap: 8px;
+}
+.yard-hero-identity {
+  display: flex !important;
+  align-items: center; justify-content: center;
+  gap: 10px;
+}
+.yard-hero-zone {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; padding: 8px 0 16px;
+}
+/* Center info compact — pot moved up */
+.yard-center-info {
+  padding: 8px 0 4px;
+  gap: 6px;
+}
