@@ -789,3 +789,19 @@
   padding: 8px 0 4px;
   gap: 6px;
 }
+
+/* Hero slot: flex flow, NOT absolute — sits above action bar (Detroit 2026-10-10) */
+.yard-table-board .yard-hero-slot {
+  position: static !important;
+  transform: none !important;
+  left: auto !important; bottom: auto !important;
+  width: 100% !important;
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: auto;
+  padding-bottom: 12px;
+}
+.yard-table-board .yard-hero-zone {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0;
+  width: 100%;
+}
