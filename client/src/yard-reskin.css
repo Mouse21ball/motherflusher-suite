@@ -492,15 +492,17 @@
 .yard-phase-step.is-current .yard-phase-dot {
   background: #F59E0B; border-color: #FDE68A; color: #150A2E;
 }
+.yard-pot-row {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  width: 100%;
+}
 .yard-pot-slot {
   position: static !important; transform: none !important;
-  font: 900 18px 'DM Sans', sans-serif; color: #FDE68A;
-  text-shadow: 0 2px 8px #000;
 }
 .yard-readout-slot {
   position: static !important; transform: none !important;
-  font: 700 11px 'DM Sans', sans-serif; color: #EDE9FE;
-  text-shadow: 0 1px 4px #000; max-width: 100%;
+  font: 700 10px 'DM Sans', sans-serif; color: #C4B5FD;
+  text-shadow: 0 1px 4px #000; text-align: left; line-height: 1.3;
 }
 
 /* Players float OUTSIDE the oval — no boxes, no backgrounds */

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode, Ref } from 'react';
-import { Coins, Crown } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import '@/yard-reskin.css';
 
 export type YardGameAccent = '#8B5CF6' | '#D946EF' | '#F97316';
@@ -44,8 +44,10 @@ export function TableBoard({
             <span className="yard-phase-dot">{index + 1}</span><span>{label}</span>
           </div>)}
         </div>
-        {pot && <div className="yard-pot-slot"><Coins size={20} aria-hidden="true" className="yard-pot-chips" />{pot}</div>}
-        {centerReadout && <div className="yard-readout-slot">{centerReadout}</div>}
+        <div className="yard-pot-row">
+          {pot && <div className="yard-pot-slot">{pot}</div>}
+          {centerReadout && <div className="yard-readout-slot">{centerReadout}</div>}
+        </div>
       </div>
     </div>
     {!!opponentSeats.length && <div className="yard-opponent-seats" aria-label="Players at the table">

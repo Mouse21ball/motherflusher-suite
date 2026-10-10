@@ -31,16 +31,9 @@ function AnimatedPot({ pot }: { pot: number }) {
   useEffect(() => { spring.set(pot); }, [pot, spring]);
 
   return (
-    <div style={{
-      background: 'rgba(0,0,0,0.55)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      border: `1px solid ${GOLD}0.35)`,
-      boxShadow: `0 0 18px ${GOLD}0.18), 0 2px 10px rgba(0,0,0,0.5)`,
-      padding: '6px 22px', borderRadius: 50, textAlign: 'center',
-    }}>
-      <div style={{ fontSize: 11, fontFamily: 'monospace', color: `${GOLD}0.7)`, letterSpacing: '0.12em' }}>POT</div>
-      <motion.div style={{ fontSize: 18, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A', letterSpacing: '0.05em' }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: 10, fontFamily: 'monospace', color: `${GOLD}0.6)`, letterSpacing: '0.15em' }}>POT</div>
+      <motion.div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A', letterSpacing: '0.05em', textShadow: '0 2px 8px #000' }}>
         {display}
       </motion.div>
     </div>
