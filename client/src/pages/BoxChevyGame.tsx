@@ -16,6 +16,7 @@ import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
@@ -341,12 +342,18 @@ function BoxChevyGameUI() {
         <XPToast key={xpToast.id} xpGained={xpToast.xpGained} leveledUp={xpToast.leveledUp} newLevel={xpToast.newLevel} newAchievementName={xpToast.achievementName} onDone={dismissXP} />
       )}
 
-      <BoxChevyHeader
-        onBack={handleBack}
-        onOpenChat={() => setChatOpen(true)}
-        onOpenHowToPlay={() => setShowHowToPlay(true)}
-        chatUnread={chatUnread}
+      <GameStatusBar
+        modeId="box_chevy"
+        gameState={state}
+        chips={me?.chips ?? 0}
+        stripes={serverProfile?.stripes ?? 0}
+        phase={phase}
+        onLeave={leaveToLobby}
+        tableId={tableId}
         humanCount={humanCount}
+        onOpenChat={() => setChatOpen(true)}
+        chatUnread={chatUnread}
+        spectating={effectiveSpectator}
       />
 
       {!effectiveSpectator && (

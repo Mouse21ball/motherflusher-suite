@@ -19,6 +19,7 @@ import { trackModePlay } from '@/lib/analytics';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
+import { GameStatusBar } from '@/components/game/GameStatusBar';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
@@ -375,13 +376,19 @@ function FlushedUpGameUI() {
     >
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
-      {/* ── Custom header ─────────────────────────────────────────── */}
-      <FlushedUpHeader
-        onBack={handleBack}
-        onOpenChat={() => setChatOpen(true)}
-        onOpenHowToPlay={() => setShowHowToPlay(true)}
-        chatUnread={chatUnread}
+      {/* ── Shared game menu (consistent across all tables) ─────────── */}
+      <GameStatusBar
+        modeId="flushedup"
+        gameState={state}
+        chips={me?.chips ?? 0}
+        stripes={serverProfile?.stripes ?? 0}
+        phase={state.phase}
+        onLeave={leaveToLobby}
+        tableId={tableId}
         humanCount={humanCount}
+        onOpenChat={() => setChatOpen(true)}
+        chatUnread={chatUnread}
+        spectating={effectiveSpectator}
       />
 
       {!effectiveSpectator && (
