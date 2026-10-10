@@ -6,7 +6,7 @@
  * Auto-ante fires when it is the player's turn in the ANTE phase.
  */
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { BettingControls } from '../game/BettingControls';
 import { Award, Layers3, Spade } from 'lucide-react';
 
@@ -46,27 +46,6 @@ function ChipIcon() {
   );
 }
 
-function TutorialPanel() {
-  return (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }}
-      style={{ overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, padding: '10px 4px 6px', borderTop: `1px solid ${G(0.18)}` }}>
-        {[
-          { icon: <Layers3 size={18} />, label: 'DRAW UP TO 3', sub: 'Cards per round' },
-          { icon: <Spade size={18} />, label: 'ALL 4 SUITS', sub: '4-card Badugi wins' },
-          { icon: <Award size={18} />, label: 'LOWEST HAND', sub: 'Badugi beats non-Badugi' },
-        ].map(s => (
-          <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ color:'#FBBF24' }}>{s.icon}</span>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#C9A227', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.03em', textAlign: 'center' }}>{s.sub}</span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 export function BadugiActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
   chips, currentBet, myBet, pot, minBet,
@@ -75,7 +54,6 @@ export function BadugiActionBar({
   onStandPat, onDraw, onAction, onRebuy,
 }: BadugiActionBarProps) {
   void openSeatsCount;
-  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   /* Auto-ante: fire once per ANTE phase when it's the player's turn */
   const autoAnteFired = useRef(false);
@@ -223,19 +201,6 @@ export function BadugiActionBar({
           </div>
         )}
       </div>
-
-      {/* Tutorial toggle */}
-      <button onClick={() => setTutorialOpen(o => !o)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer',
-          color: G(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
-          WebkitTapHighlightColor: 'transparent' }}
-        data-testid="button-tutorial-toggle">
-        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
-        HOW BADUGI WORKS
-      </button>
-
-      <AnimatePresence>{tutorialOpen && <TutorialPanel />}</AnimatePresence>
     </div>
   );
 }

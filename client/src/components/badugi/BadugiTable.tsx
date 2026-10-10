@@ -8,8 +8,7 @@
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Crown } from 'lucide-react';
-import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
-import { OpponentStrip } from './OpponentStrip';
+import { OpponentStrip } from '@/components/game/OpponentStrip';
 import { ShuffleAnimation } from './ShuffleAnimation';
 import { useEffect, useState, useRef } from 'react';
 import type { GameState } from '@/lib/poker/types';
@@ -87,42 +86,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     ...state.players.slice(myIndex + 1),
     ...state.players.slice(0, myIndex),
   ].filter(p => p.id !== myId);
-  const opponents: FiveSeatOpponent[] = [
-    ...gridOpps.map(opp => ({
-      id: opp.id,
-      name: opp.name,
-      chips: opp.chips,
-      cardCount: opp.cards.length,
-      status: opp.status,
-      isActive: state.activePlayerId === opp.id,
-      isWinner: !!(opp as any).isWinner,
-      isDealer: !!(opp as any).isDealer,
-      isChipLeader: opp.id === chipLeaderId,
-      seatNum: parseInt(opp.id.replace('p', ''), 10) || 1,
-      isOpen: opp.presence === 'reserved' || opp.presence === 'open',
-    })),
-    ...Array.from({ length: Math.max(0, 3 - gridOpps.length) }, (_, index) => ({
-      id: `open-${index}`,
-      name: 'OPEN',
-      chips: 0,
-      cardCount: 0,
-      status: 'folded' as const,
-      isActive: false,
-      isWinner: false,
-      isDealer: false,
-      seatNum: 0,
-      isOpen: true,
-    })),
-  ];
-  const opponentSeats = opponents.map((opponent) => <div key={opponent.id} data-deal-seat={opponent.id} data-player-seat={opponent.id}>
-    <YardOpponentSeat name={opponent.name} chips={opponent.chips} seat={opponent.seatNum} active={opponent.isActive} chipLeader={opponent.isChipLeader}
-      folded={opponent.status === 'folded'} winner={opponent.isWinner} dealer={opponent.isDealer} open={opponent.isOpen}>
-      {!opponent.isOpen && opponent.status !== 'folded' && <span className="yard-opponent-cards">
-        {Array.from({ length: Math.max(1, opponent.cardCount) }).map((_, index) => <i key={index} data-celebration-card />)}
-      </span>}
-    </YardOpponentSeat>
-  </div>);
-
   /* Suppress hero hand glow when not winning */
   const heroFilter  = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
   const heroCards = me ? (
@@ -160,7 +123,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} />
     {showShuffle && <ShuffleAnimation onComplete={() => setShowShuffle(false)} />}
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
-      opponentSeats={[]}
       centerReadout={<span className="yard-table-readout">{isDrawPhase ? `DRAW ${state.phase.split('_')[1]} / 3 · ` : ''}{heroHandEval?.description ?? (me?.status === 'folded' ? 'FOLDED' : 'WAITING FOR HAND')}</span>}
       pot={state.pot > 0 ? <AnimatedPot pot={state.pot}
         activeCount={state.players.filter(p => p.status === 'active').length}

@@ -5,6 +5,7 @@ import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
 import { PlayingCard } from '@/components/game/Card';
 import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 import { TableBoard } from '@/components/game/TableBoard';
+import { OpponentStrip } from '@/components/game/OpponentStrip';
 import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
 import { Crown } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -118,65 +119,52 @@ export function BoxChevyTable({ state, myId, phase, heroCards }: BoxChevyTablePr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityCards.length]);
 
-  return (
+  // Community cards — free-floating center (Detroit 2026-10-10), no box
+  const communityCardsEl = (
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'flex-end' }}>
+      {communityCards.length > 0 ? (
+        communityCards.map((c, i) => (
+          <div key={i} style={{ flexShrink: 0, width: 58, height: 84 }}>
+            <AnimatePresence>
+              {i < visibleCount && (
+                <motion.div
+                  key={`comm-${i}`}
+                  data-celebration-card
+                  initial={{ opacity: 0, y: -22, rotateY: 90, scale: 0.85 }}
+                  animate={{ opacity: 1, y: 0,   rotateY: 0,  scale: 1    }}
+                  transition={{ duration: 0.32, ease: 'easeOut' }}
+                  style={{ transformOrigin: 'top center' }}
+                >
+                  <PlayingCard card={c} className="!w-[58px] !h-[84px] sm:!w-[68px] sm:!h-[96px]" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))
+      ) : (
+        Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} style={{
+            width: 58, height: 84, borderRadius: 8,
+            border: `1px dashed ${nvA(0.5)}`,
+            background: nvA(0.25),
+            flexShrink: 0,
+          }} />
+        ))
+      )}
+    </div>
+  );
+
+  return (<>
+    <OpponentStrip opponents={opponents} activePlayerId={state.activePlayerId ?? undefined} />
     <TableBoard gameAccent="#F97316" title="BOX CHEVY" subtitle="10-CARD LOWBALL" phase={phase} heroPlayerId={myId}
       heroCards={heroCards}
-      opponentSeats={opponentSeats}
+      communityCards={communityCardsEl}
       centerReadout={<div className="yard-table-readout">{heroValidity ? <HeroHandValidityBadge validity={heroValidity} phase={phase} /> : `${me?.cards.length ?? 0} HOLE CARDS · ${communityCards.length}/5 COMMUNITY`}</div>}
       pot={<div data-pot-anchor className="yard-box-pot"><span>POT</span><strong>{pot.toLocaleString()}</strong></div>}>
     <div className="yard-box-table-content">
       <div data-deal-anchor="deck" style={{ position: 'absolute', left: '50%', top: '50%', width: 44, height: 44, transform: 'translate(-50%,-50%)', opacity: 0, pointerEvents: 'none' }} />
-      {/* Community cards surface stays translucent over the shared glass surface. */}
-
-      {/* Community cards — staggered animation */}
-      <div className="yard-box-community" style={{
-        borderRadius: 14,
-        background: 'rgba(21,10,46,0.34)',
-        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-        border: `1px solid rgba(249,115,22,0.35)`,
-        padding: '10px 12px 14px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
-      }}>
-        <div style={{
-          fontSize: 11, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em',
-          color: ACT, textAlign: 'center', marginBottom: 10, textTransform: 'uppercase',
-        }}>
-          ◈ COMMUNITY CARDS ◈
-        </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'flex-end' }}>
-          {communityCards.length > 0 ? (
-            communityCards.map((c, i) => (
-              <div key={i} style={{ flexShrink: 0, width: 58, height: 84 }}>
-                <AnimatePresence>
-                  {i < visibleCount && (
-                    <motion.div
-                      key={`comm-${i}`}
-                      data-celebration-card
-                      initial={{ opacity: 0, y: -22, rotateY: 90, scale: 0.85 }}
-                      animate={{ opacity: 1, y: 0,   rotateY: 0,  scale: 1    }}
-                      transition={{ duration: 0.32, ease: 'easeOut' }}
-                      style={{ transformOrigin: 'top center' }}
-                    >
-                      <PlayingCard card={c} className="!w-[58px] !h-[84px] sm:!w-[68px] sm:!h-[96px]" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))
-          ) : (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{
-                width: 58, height: 84, borderRadius: 8,
-                border: `1px dashed ${nvA(0.5)}`,
-                background: nvA(0.25),
-                flexShrink: 0,
-              }} />
-            ))
-          )}
-        </div>
-      </div>
 
     </div>
     </TableBoard>
-  );
+  </>);
 }

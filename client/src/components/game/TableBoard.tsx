@@ -15,7 +15,7 @@ function phaseStatus(phase: string, index: number): 'done' | 'current' | 'upcomi
 }
 
 export function TableBoard({
-  gameAccent, title, subtitle, phase, phaseSteps, rootRef, centerReadout, heroCards, heroPlayerId, opponentSeats = [], pot, children,
+  gameAccent, title, subtitle, phase, phaseSteps, rootRef, centerReadout, heroCards, heroPlayerId, pot, communityCards, children,
 }: {
   gameAccent: YardGameAccent;
   title: string;
@@ -26,8 +26,8 @@ export function TableBoard({
   centerReadout?: ReactNode;
   heroCards?: ReactNode;
   heroPlayerId?: string;
-  opponentSeats?: ReactNode[];
   pot?: ReactNode;
+  communityCards?: ReactNode;
   children: ReactNode;
 }) {
   const style = { '--table-accent': gameAccent } as CSSProperties;
@@ -36,25 +36,22 @@ export function TableBoard({
        <span className="yard-mark" aria-hidden="true"><Crown size={17} fill="currentColor" /></span>
       <div><strong>{title}</strong><span>{subtitle}</span></div>
     </div>
-    {/* Table zone: oval + 4 opponents positioned around it */}
-    <div className="yard-table-zone">
-      <div className="yard-table-glass" />
-      <div className="yard-table-center">
-        <div className="yard-phase-slot" role="list" aria-label={`Hand phase: ${phase.replace(/_/g, ' ')}`}>
-          {phaseSteps ?? ['DRAW', phase === 'DECLARE' ? 'DECLARE' : 'BET', 'SHOWDOWN'].map((label, index) => <div key={label} className={`yard-phase-step is-${phaseStatus(phase, index)}`} role="listitem">
-            <span className="yard-phase-dot">{index + 1}</span><span>{label}</span>
-          </div>)}
-        </div>
-        <div className="yard-pot-row">
-          {pot && <div className="yard-pot-slot">{pot}</div>}
-          {centerReadout && <div className="yard-readout-slot">{centerReadout}</div>}
-        </div>
+
+    {/* Center info: free-floating, no table. Phase + pot + community cards. */}
+    <div className="yard-center-info">
+      <div className="yard-phase-slot" role="list" aria-label={`Hand phase: ${phase.replace(/_/g, ' ')}`}>
+        {phaseSteps ?? ['DRAW', phase === 'DECLARE' ? 'DECLARE' : 'BET', 'SHOWDOWN'].map((label, index) => <div key={label} className={`yard-phase-step is-${phaseStatus(phase, index)}`} role="listitem">
+          <span className="yard-phase-dot">{index + 1}</span><span>{label}</span>
+        </div>)}
       </div>
-      {!!opponentSeats.length && <div className="yard-opponent-seats" aria-label="Players at the table">
-        {opponentSeats.map((seat, index) => <div key={index} className={`yard-opponent-position seat-${index + 1}`}>{seat}</div>)}
-      </div>}
+      <div className="yard-pot-row">
+        {pot && <div className="yard-pot-slot">{pot}</div>}
+        {centerReadout && <div className="yard-readout-slot">{centerReadout}</div>}
+      </div>
+      {communityCards && <div className="yard-community">{communityCards}</div>}
     </div>
-    {/* Hero zone: below the table */}
+
+    {/* Hero zone: below, just for the player */}
     <div className="yard-hero-zone">
       <div className="yard-table-content">{children}</div>
       {heroCards && <div className="yard-hero-slot" data-deal-seat={heroPlayerId} data-player-seat={heroPlayerId}>{heroCards}</div>}

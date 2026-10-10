@@ -282,27 +282,6 @@ export function FlushedUpActionBar({
         )}
       </div>
 
-      {/* ── Tutorial toggle ───────────────────────────────────────────── */}
-      <button
-        onClick={() => setTutorialOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          width: '100%', padding: '6px 12px',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(217,70,239,0.7)', fontSize: 11, fontFamily: 'monospace',
-          letterSpacing: '0.1em', textTransform: 'uppercase',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-        data-testid="button-tutorial-toggle"
-      >
-        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
-        HOW FLUSHED UP WORKS
-      </button>
-
-      <AnimatePresence>
-        {tutorialOpen && <TutorialPanel />}
-      </AnimatePresence>
-
       {/* ── Stats bar ─────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

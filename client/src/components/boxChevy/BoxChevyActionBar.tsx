@@ -344,17 +344,6 @@ export function BoxChevyActionBar({
 
       </div>
 
-      {/* Tutorial toggle */}
-      <button
-        onClick={() => setTutorialOpen(o => !o)}
-        data-testid="button-tutorial-toggle"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', color: B(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase', WebkitTapHighlightColor: 'transparent' }}
-      >
-        <span style={{ fontSize: 11 }}>{tutorialOpen ? '▲' : '▼'}</span>
-        HOW BOX CHEVY WORKS
-      </button>
-      <AnimatePresence>{tutorialOpen && <TutorialPanel />}</AnimatePresence>
-
       {/* Stats bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>

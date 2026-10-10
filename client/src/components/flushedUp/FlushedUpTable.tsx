@@ -8,6 +8,7 @@ import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import { TableDealAnimator } from './TableDealAnimator';
 import { TableBoard } from '@/components/game/TableBoard';
+import { OpponentStrip } from '@/components/game/OpponentStrip';
 import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 import { YardOpponentSeat } from '@/components/game/YardOpponentSeat';
 import { Crown } from 'lucide-react';
@@ -197,9 +198,10 @@ export function FlushedUpTable({
     </div>
   </div> : undefined;
 
-  return (
+  return (<>
+    <OpponentStrip opponents={reorderedOpps} activePlayerId={state.activePlayerId ?? undefined} />
     <TableBoard rootRef={tableRef} gameAccent="#D946EF" title="FLUSHED UP" subtitle="CHASE THE FLUSH" phase={state.phase}
-      heroCards={heroCards} heroPlayerId={myId} opponentSeats={opponentSeats}
+      heroCards={heroCards} heroPlayerId={myId}
       centerReadout={<span className="yard-table-readout">{liveReadout}</span>}
       pot={state.pot > 0 ? <AnimatedPot pot={state.pot} /> : undefined}>
     <div style={{
@@ -228,5 +230,5 @@ export function FlushedUpTable({
       <TableDealAnimator players={state.players} phase={state.phase} myId={myId} tableRoot={tableRef.current?.closest('.yard-table-board') ?? tableRef.current} />
     </div>
     </TableBoard>
-  );
+  </>);
 }
