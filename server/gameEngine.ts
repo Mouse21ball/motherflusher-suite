@@ -399,6 +399,9 @@ interface AuthTable {
   sessionStats: Map<string, SessionStat>;
   // Spectators: sessions watching but not seated (table full).
   spectators: Map<string, { ws: WebSocket; name: string }>;
+  // Waitlist: ordered queue of player IDs waiting for a seat (Detroit 2026-10-11).
+  // When a seat opens, the first waitlisted player is notified via WS.
+  waitlist: Array<{ playerId: string; identityId: string; name: string; ws: WebSocket; joinedAt: number }>;
   // Per-seat reconnect timers. Fired when a disconnected player has not returned
   // within RECONNECT_TIMEOUT_MS. On expiry the seat is released (converted to bot
   // mid-hand or to 'reserved' between hands) so the game can continue.
@@ -1305,6 +1308,20 @@ function releaseSeat(table: AuthTable, seat: string): void {
   } else {
     broadcastState(table);
   }
+
+  // ── Waitlist: notify next player when a seat opens between hands (Detroit 2026-10-11)
+  if (isBetweenHands && table.waitlist.length > 0) {
+    const next = table.waitlist[0];
+    if (next) {
+      try {
+        next.ws.send(JSON.stringify({
+          type: 'badugi:waitlist_ready',
+          tableId: table.tableId,
+          position: 1,
+        }));
+      } catch {}
+    }
+  }
 }
 
 // ─── Bot action execution ─────────────────────────────────────────────────────
@@ -1615,6 +1632,7 @@ export async function initEngine(): Promise<void> {
       rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       spectators: new Map(),
+      waitlist: [],
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
@@ -1711,6 +1729,7 @@ export function getOrCreateBadugiTable(
       rebuyBustEvents: new Map(),
       sessionStats: new Map(),
       spectators: new Map(),
+      waitlist: [],
       disconnectTimers: new Map(),
       joinWindowEndsAt,
       isPrivate,
