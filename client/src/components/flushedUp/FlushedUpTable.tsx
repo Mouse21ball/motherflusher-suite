@@ -218,7 +218,7 @@ export function FlushedUpTable({
         ) : me?.status === 'folded' ? (
           <div className="pt-folded">FOLDED</div>
         ) : (
-          <div className="pt-waiting">WAITING FOR HAND</div>
+          <div className="pt-queued">DEALT IN NEXT HAND</div>
         )}
       </div>
 
