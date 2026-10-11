@@ -536,8 +536,13 @@ export async function registerRoutes(
   // Get my invite code (Detroit 2026-10-11: friend discovery via codes)
   app.get("/api/friends/invite-code", requireAuth, generalApiRateLimit, async (req, res) => {
     try {
-      const code = await storage.getPlayerReferralCode(req.sessionPlayerId!);
-      if (!code) return res.status(404).json({ error: "No invite code found" });
+      let code = await storage.getPlayerReferralCode(req.sessionPlayerId!);
+      if (!code) {
+        // Backfill for older accounts created before referral codes
+        const { generateReferralCode } = await import("./referralCodes");
+        code = generateReferralCode();
+        await db.update(playerProfiles).set({ referralCode: code }).where(eq(playerProfiles.id, req.sessionPlayerId!));
+      }
       res.json({ code });
     } catch (err) {
       console.error("[friends] Failed to get invite code:", err);
@@ -1408,6 +1413,7 @@ export async function registerRoutes(
         stripes:          profile.stripes,
         handsPlayed:      profile.handsPlayed,
         handsWon:         profile.handsWon ?? 0,
+        achievements:     profile.xpAchievements ?? [],
         lifetimeProfit:   profile.lifetimeProfit,
         email:            profile.email ?? null,
         hasAuth:          !!profile.passwordHash,
@@ -1487,6 +1493,7 @@ export async function registerRoutes(
         stripes:          profile.stripes,
         handsPlayed:      profile.handsPlayed,
         handsWon:         profile.handsWon ?? 0,
+        achievements:     profile.xpAchievements ?? [],
         lifetimeProfit:   profile.lifetimeProfit,
         email:            null,
         hasAuth:          false,
