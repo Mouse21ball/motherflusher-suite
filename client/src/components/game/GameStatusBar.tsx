@@ -232,23 +232,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
           >
             <Home className="w-4 h-4" />
           </button>
-          {htpModeId && (
-            <button
-              onClick={() => setShowHelp(true)}
-              aria-label="How to Play"
-              data-testid="button-how-to-play-ingame"
-              style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: 'white', fontSize: 14, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0,
-              }}
-            >
-              ?
-            </button>
-          )}
+          {/* Detroit 2026-10-11: ? help moved to UniversalTableHeader — removed duplicate */}
         </div>
       </header>
       {isLeaving && (
@@ -263,9 +247,6 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
         <div role="alert" className="fixed top-14 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-red-400/30 bg-black/95 px-4 py-2 text-xs font-mono text-red-300 shadow-lg" data-testid="leave-error">
           {leaveError}
         </div>
-      )}
-      {showHelp && htpModeId && (
-        <HowToPlay modeId={htpModeId} onClose={() => setShowHelp(false)} />
       )}
 
       {/* Hamburger drawer */}
