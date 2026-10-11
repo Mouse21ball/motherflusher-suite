@@ -80,7 +80,11 @@ function YardReskinBrowserHarness() {
       {mode === 'badugi' && <BadugiTable {...common} />}
       {mode === 'flushed_up' && <FlushedUpTable {...common} />}
       {mode === 'box_chevy' && <BoxChevyTable state={state} myId="hero" phase={phase} isDrawPhase={isDrawPhase}
-        selectedCardIndices={selected} onCardClick={clickCard} />}
+        heroCards={<div className="yard-hero-hand">
+          <YardHeroIdentity state={state} myId="hero" accent="#F97316" />
+          <CardHand cards={FLUSH_CARDS} selectedIndices={selected} onCardClick={clickCard} isSelectable={isDrawPhase}
+            {...IDLE_ANIMATION} isShowdown={false} cardWidth={64} cardHeight={90} />
+        </div>} />}
     </div>
     {mode === 'badugi' && <BadugiActionBar
       phase={phase} isDrawPhase={isDrawPhase} selectedCount={selected.length} drawLimit={3}
