@@ -178,14 +178,12 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
         </div>
       </div>
 
-      {/* Big pot */}
-      <div className="pt-pot" data-pot-anchor>
-        <div className="pt-pot-label">POT</div>
-        <motion.div className="pt-pot-value">{potDisplay}</motion.div>
-      </div>
-
-      {/* Hero — rendered directly from table state (prototype/Badugi pattern) */}
-      <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
+      {/* Pot + Hero header side by side — saves vertical space, hero hand moves up */}
+      <div className="pt-pot-hero-row">
+        <div className="pt-pot" data-pot-anchor>
+          <div className="pt-pot-label">POT</div>
+          <motion.div className="pt-pot-value">{potDisplay}</motion.div>
+        </div>
         <div className={`pt-mehead${state.activePlayerId === myId ? ' is-turn' : ''}`}>
           <span className="pt-me-avatar">
             <img src={getAvatarForSeat(mySeatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
@@ -193,6 +191,10 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
           <span className="pt-me-name">{me?.name ?? 'YOU'}</span>
           <span className="pt-me-stack">{(me?.chips ?? 0).toLocaleString()}</span>
         </div>
+      </div>
+
+      {/* Hero cards — rendered directly from table state (prototype/Badugi pattern) */}
+      <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
         <div className="pt-hero-cards">
           {me && me.cards.length > 0 && me.status !== 'folded' ? (
             <div className="pt-hand">
