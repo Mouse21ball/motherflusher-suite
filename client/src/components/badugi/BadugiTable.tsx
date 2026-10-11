@@ -1,50 +1,61 @@
 /**
- * BadugiTable — visual table layer for the Badugi game mode.
- * Mirrors FlushedUpTable structure with gold (#C9A227) accent colour
- * and a 4-card hand layout specific to Badugi.
- *
- * No WinnerOverlay: ShowdownReveal (z-200 fixed) handles SHOWDOWN display.
- * No debug PHASE/SELECTED strip.
+ * BadugiTable — prototype-matched table layout (Detroit 2026-10-10).
+ * Structure from Claude prototype: topbar → info grid → opponent grid →
+ * big pot → hero (avatar + cards) → actions. Yard graphics on everything,
+ * nothing that isn't needed.
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { Crown } from 'lucide-react';
-import { OpponentStrip } from '@/components/game/OpponentStrip';
-import { YourHandPanel } from '@/components/game/YourHandPanel';
-import { PhaseTracker } from '@/components/game/PhaseTracker';
 import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
 import type { GameState } from '@/lib/poker/types';
+import type { Player } from '@shared/gameTypes';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateBadugi } from '@shared/modes/badugi';
+import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { BadugiTableEffects } from './BadugiTableEffects';
-import { TableBoard } from '@/components/game/TableBoard';
-import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 
-const GOLD = 'rgba(201,162,39,';
-const HERO_CARD_W = 78;
-const HERO_CARD_H = 110;
+const HERO_CARD_W = 72;
+const HERO_CARD_H = 102;
 
-/* ── Animated pot ─────────────────────────────────────────────────────────── */
+function phaseLabel(phase: string): string {
+  if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
+  if (phase.startsWith('BET_')) return 'BETTING';
+  if (phase === 'SHOWDOWN') return 'SHOWDOWN';
+  if (phase === 'ANTE') return 'ANTES';
+  if (phase === 'WAITING') return 'WAITING';
+  return phase.replace(/_/g, ' ');
+}
 
-function AnimatedPot({ pot, activeCount, totalCount }: { pot: number; activeCount: number; totalCount: number }) {
-  const spring  = useSpring(pot, { stiffness: 80, damping: 20 });
-  const display = useTransform(spring, v => Math.round(v).toLocaleString());
-  useEffect(() => { spring.set(pot); }, [pot, spring]);
+function OpponentCell({ player, seatNum, isActive, isDrawPhase }: {
+  player: Player; seatNum: number; isActive: boolean; isDrawPhase: boolean;
+}) {
+  const isFolded = player.status === 'folded';
+  const badge = !isDrawPhase || isFolded ? null
+    : player.lastDrawCount === undefined ? 'WAITING'
+    : player.lastDrawCount === 0 ? 'STAND PAT'
+    : `DREW ${player.lastDrawCount}`;
+  const cardCount = 4;
+  const darkened = isDrawPhase && player.lastDrawCount !== undefined ? player.lastDrawCount : 0;
 
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 10, fontFamily: 'monospace', color: `${GOLD}0.6)`, letterSpacing: '0.15em' }}>POT</div>
-      <motion.div style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A', letterSpacing: '0.05em', textShadow: '0 2px 8px #000' }}>
-        {display}
-      </motion.div>
-      <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', marginTop: 2 }}>
-        {activeCount} OF {totalCount} IN HAND
+    <div className={`pt-seat${isFolded ? ' is-out' : ''}${isActive ? ' is-turn' : ''}`}
+      data-player-seat={player.id} data-deal-seat={player.id}>
+      <div className="pt-sav">
+        <img src={getAvatarForSeat(seatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
+        {isActive && <span className="pt-turn-ring" />}
+      </div>
+      <div className="pt-nm">{player.name}</div>
+      <div className="pt-st">{player.chips.toLocaleString()}</div>
+      {badge && <div className={`pt-tag${badge === 'WAITING' ? '' : ' hl'}`}>{badge}</div>}
+      <div className="pt-cards">
+        {Array.from({ length: cardCount }).map((_, i) => (
+          <i key={i} className={i >= cardCount - darkened ? ' is-dark' : ''} />
+        ))}
       </div>
     </div>
   );
 }
-
-/* ── Props & main component ───────────────────────────────────────────────── */
 
 export interface BadugiTableProps {
   state: GameState;
@@ -56,73 +67,94 @@ export interface BadugiTableProps {
 }
 
 export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: BadugiTableProps) {
+  const [, navigate] = useLocation();
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const [tableRoot, setTableRoot] = useState<HTMLElement | null>(null);
 
-  /* Read-only evaluator powers the live hand label; it never changes game state. */
   const heroHandEval = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
     ? evaluateBadugi(me.cards.map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateBadugi>[0])
     : null;
-  const heroIsWinner = !!(me as any)?.isWinner;
-  const heroIsLoser  = isShowdown && !heroIsWinner && me?.status !== 'folded';
+  const heroIsLoser = isShowdown && !(me as any)?.isWinner && me?.status !== 'folded';
 
-  /* Opponent reorder: player left of hero first */
-  const myIndex     = state.players.findIndex(p => p.id === myId);
-  const chipLeaderId = state.players.reduce((leader, player) => player.chips > (leader?.chips ?? -1) ? player : leader, state.players[0])?.id;
-  const gridOpps    = [
+  const myIndex = state.players.findIndex(p => p.id === myId);
+  const gridOpps = [
     ...state.players.slice(myIndex + 1),
     ...state.players.slice(0, myIndex),
   ].filter(p => p.id !== myId);
-  /* Suppress hero hand glow when not winning */
-  const heroFilter  = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
-  const heroCards = me ? (
-    <div className="yard-hero-hand">
-      <PhaseTracker phase={state.phase} totalPlayers={state.players.filter(pl => pl.status === 'active').length} />
-      {/* Hand eval readout: in flow under the phase panel, never buried (Detroit 2026-10-10) */}
-      {heroHandEval && !isShowdown && me.status !== 'folded' && (
-        <div className="yard-hero-readout">{heroHandEval.description}</div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-        {isDrawPhase && (
-          <motion.div className="yard-discard-prompt" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ marginBottom: 4, padding: '3px 12px', borderRadius: 20, background: `${GOLD}0.2)`, border: `1px solid ${GOLD}0.4)`,
-              fontSize: 14, fontFamily: 'monospace', color: '#FBBF24', letterSpacing: '0.04em' }}>
-            ↻ SELECT CARDS TO DISCARD{selectedCardIndices.length ? ` · ${selectedCardIndices.length} SELECTED` : ''}
-          </motion.div>
-        )}
-        {me && me.cards.length > 0 && me.status !== 'folded' ? <>
-          <YourHandPanel hint={isDrawPhase ? "Tap cards to select for discard" : undefined}>
-          <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '4px 6px', overflow: 'visible', filter: heroFilter, transition: 'filter 0.4s ease' }}>
-            <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
-              isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
-              discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
-          </div>
-          </YourHandPanel>
-          {isShowdown && heroHandEval && <div style={{ marginTop: 3, fontSize: 11, fontFamily: 'monospace',
-            color: heroIsWinner ? '#C9A227' : 'rgba(255,255,255,0.7)', fontWeight: heroIsWinner ? 700 : 400,
-            letterSpacing: '0.08em', textAlign: 'center', textShadow: heroIsWinner ? `0 0 10px ${GOLD}0.65)` : '0 1px 6px rgba(0,0,0,0.9)' }}>
-            {heroHandEval.description}
-          </div>}
-        </> : me?.status === 'folded' ? <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.62 }}
-          style={{ padding: '18px 26px', color: 'rgba(255,255,255,0.62)', font: '700 11px monospace', letterSpacing: '0.14em' }}>FOLDED</motion.div>
-          : <div style={{ display: 'flex', gap: 4, paddingTop: 16, paddingBottom: 6 }}>{Array.from({ length: 4 }).map((_, i) =>
-            <div key={i} style={{ width: HERO_CARD_W, height: HERO_CARD_H, borderRadius: 8, border: `1px dashed ${GOLD}0.12)` }} />)}</div>}
-      </div>
-    </div>
-  ) : undefined;
 
-  return (<>
-    {/* Hero-centric: opponent strip at top (Detroit 2026-10-10) */}
-    <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} phase={state.phase} />
-    <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
-      rootRef={setTableRoot}
-      pot={state.pot > 0 ? <div data-pot-anchor style={{ position: 'relative' }}><AnimatedPot pot={state.pot}
-        activeCount={state.players.filter(p => p.status === 'active').length}
-        totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /></div> : undefined}>
-    {/* Effects only — no table layout (free-floating per Detroit 2026-10-10) */}
-    <div data-muck-anchor aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '40%', width: 2, height: 2, pointerEvents: 'none' }} />
-    <BadugiTableEffects state={state} tableRoot={tableRoot} />
-    </TableBoard>
-  </>);
+  const activeCount = state.players.filter(p => p.status === 'active').length;
+  const potSpring = useSpring(state.pot, { stiffness: 80, damping: 20 });
+  const potDisplay = useTransform(potSpring, v => Math.round(v).toLocaleString());
+  useEffect(() => { potSpring.set(state.pot); }, [state.pot, potSpring]);
+
+  const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
+  const mySeatNum = myIndex + 1;
+
+  return (
+    <div className="pt-table" ref={setTableRoot}>
+      {/* Top bar */}
+      <div className="pt-ttop">
+        <button className="pt-iconbtn" onClick={() => navigate('/')} aria-label="Back">‹</button>
+        <div className="pt-ttitle">
+          <div className="pt-game-name">BADUGI</div>
+          <div className="pt-game-sub">4-CARD DRAW</div>
+        </div>
+        <div style={{ width: 40 }} />
+      </div>
+
+      {/* Info grid */}
+      <div className="pt-info">
+        <div><b>PLAYERS</b><span>{activeCount} / {state.players.length}</span></div>
+        <div><b>POT</b><span>${state.pot.toLocaleString()}</span></div>
+        <div><b>DRAW</b><span>{state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]} / 3` : '–'}</span></div>
+        <div><b>PHASE</b><span>{phaseLabel(state.phase)}</span></div>
+      </div>
+
+      {/* Opponents */}
+      <div className="pt-opps">
+        {gridOpps.map((opp, i) => (
+          <OpponentCell key={opp.id} player={opp} seatNum={i + 1}
+            isActive={opp.id === state.activePlayerId} isDrawPhase={isDrawPhase} />
+        ))}
+      </div>
+
+      {/* Big pot */}
+      <div className="pt-pot" data-pot-anchor>
+        <div className="pt-pot-label">POT</div>
+        <motion.div className="pt-pot-value">{potDisplay}</motion.div>
+      </div>
+
+      {/* Hero */}
+      <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
+        <div className={`pt-mehead${state.activePlayerId === myId ? ' is-turn' : ''}`}>
+          <span className="pt-me-avatar">
+            <img src={getAvatarForSeat(mySeatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          </span>
+          <span className="pt-me-name">{me?.name ?? 'YOU'}</span>
+          <span className="pt-me-stack">{(me?.chips ?? 0).toLocaleString()}</span>
+        </div>
+        {me && me.cards.length > 0 && me.status !== 'folded' ? (
+          <>
+            <div className="pt-hand" style={{ filter: heroFilter }}>
+              <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
+                isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
+                discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
+            </div>
+            <div className="pt-hint">
+              {isDrawPhase ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
+                : heroHandEval ? heroHandEval.description : ''}
+            </div>
+          </>
+        ) : me?.status === 'folded' ? (
+          <div className="pt-folded">FOLDED</div>
+        ) : (
+          <div className="pt-waiting">WAITING FOR HAND</div>
+        )}
+      </div>
+
+      <div data-muck-anchor aria-hidden="true" className="pt-muck" />
+      <BadugiTableEffects state={state} tableRoot={tableRoot} />
+    </div>
+  );
 }
