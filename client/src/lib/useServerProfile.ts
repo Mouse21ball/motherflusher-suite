@@ -53,6 +53,7 @@ export interface ServerProfile {
   equippedLobbyTrack:      string | null;  // cosmetic item id or null
   equippedGameTrack:       string | null;
   equippedLadyLuckTrack:   string | null;
+  handsWon?:               number;         // total hands won (server-side)
 }
 
 interface UseServerProfileResult {
