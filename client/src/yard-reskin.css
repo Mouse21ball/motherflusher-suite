@@ -1168,8 +1168,8 @@
 .pt-me-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .pt-me-name { font: 800 15px 'Oswald',sans-serif; letter-spacing: .1em; color: #FDE68A; }
 .pt-me-stack { font: 700 14px 'DM Sans',sans-serif; color: #EDE9FE; }
-.pt-hand { display: flex; justify-content: center; padding: 12px 0 4px; min-height: 118px; align-items: flex-end; }
-.pt-hint { text-align: center; font: 600 13px 'DM Sans',sans-serif; color: #A78BFA; min-height: 20px; padding: 0 8px; }
+.pt-hand { display: flex; justify-content: center; padding: 8px 0 2px; min-height: 84px; align-items: flex-end; }
+.pt-hint { text-align: center; font: 600 12px 'DM Sans',sans-serif; color: #A78BFA; min-height: 18px; padding: 0 8px; }
 .pt-folded { text-align: center; padding: 20px 0; font: 700 12px 'DM Sans',sans-serif; letter-spacing: .14em; color: rgba(255,255,255,.5); }
 .pt-waiting { text-align: center; padding: 20px 0; font: 600 14px 'DM Sans',sans-serif; color: #A78BFA; }
 .pt-muck { position: absolute; left: 50%; top: 40%; width: 2px; height: 2px; pointer-events: none; }
