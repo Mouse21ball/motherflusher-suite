@@ -546,7 +546,7 @@ export default function Home() {
         <button className="yard-header-action" type="button" onClick={() => navigate('/leaderboard')} aria-label="Leaderboard">
           <Trophy size={20} color="#FBBF24" />
         </button>
-        <MusicButton size={40} popoverAlign="right" popoverDirection="down" />
+        <MusicButton size={40} popoverAlign="right" />
       </>} />
 
       {/* ── Toasts ────────────────────────────────────────────────────────────── */}
