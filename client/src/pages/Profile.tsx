@@ -92,7 +92,8 @@ export default function Profile() {
   const levelInfo   = getLevelInfo(serverProfile?.xp ?? 0);
   const stats       = getPlayerStats();
   const chips       = getAllChips();
-  const unlocked    = getUnlockedAchievements();
+  const serverAchievements = serverProfile?.achievements ?? null;
+  const unlocked    = serverAchievements ?? getUnlockedAchievements();
   const initials    = getAvatarInitials(identity.name);
   const avatarColor = getAvatarColor(identity.avatarSeed);
   const totalChips  = Object.values(chips).reduce((s, c) => s + c, 0);
