@@ -7,7 +7,6 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
-import { useLocation } from 'wouter';
 import { CardType, GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
@@ -15,6 +14,7 @@ import { PlayingCard } from '@/components/game/Card';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
+import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -79,7 +79,6 @@ interface BoxChevyTableProps {
 }
 
 export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardIndices, onCardClick, isMyTurn }: BoxChevyTableProps) {
-  const [, navigate] = useLocation();
   const me = state.players.find(p => p.id === myId);
   const myIndex = state.players.findIndex(p => p.id === myId);
   const gridOpps = [
@@ -124,15 +123,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
 
   return (
     <div className="pt-table pt-chevy">
-      {/* Top bar */}
-      <div className="pt-ttop">
-        <button className="pt-iconbtn" onClick={() => navigate('/')} aria-label="Back">‹</button>
-        <div className="pt-ttitle">
-          <div className="pt-game-name pt-orange">BOX CHEVY</div>
-          <div className="pt-game-sub">10-CARD LOWBALL</div>
-        </div>
-        <div style={{ width: 40 }} />
-      </div>
+      <UniversalTableHeader mode="box_chevy" title="BOX CHEVY" subtitle="10-CARD LOWBALL" titleClass="pt-orange" />
 
       {/* Info — compact: header already shows players/pot, so only board + phase here */}
       <div className="pt-info pt-info-compact">
