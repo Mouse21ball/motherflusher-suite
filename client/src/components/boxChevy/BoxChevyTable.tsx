@@ -12,9 +12,12 @@ import { CardType, GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
 import { PlayingCard } from '@/components/game/Card';
+import { CardHand } from '@/components/flushedUp/CardHand';
 import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
-import type { ReactNode } from 'react';
+
+const HERO_CARD_W = 62;
+const HERO_CARD_H = 88;
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -73,10 +76,11 @@ interface BoxChevyTableProps {
   myId: string;
   phase: string;
   isDrawPhase: boolean;
-  heroCards?: ReactNode;
+  selectedCardIndices?: number[];
+  onCardClick?: (index: number) => void;
 }
 
-export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: BoxChevyTableProps) {
+export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardIndices = [], onCardClick }: BoxChevyTableProps) {
   const [, navigate] = useLocation();
   const me = state.players.find(p => p.id === myId);
   const myIndex = state.players.findIndex(p => p.id === myId);
@@ -149,8 +153,9 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
         ))}
       </div>
 
-      {/* Community cards — centered, Box Chevy's signature */}
+      {/* Community cards — centered, Box Chevy's signature (prototype .board) */}
       <div className="pt-community pt-community-center">
+        <div className="pt-community-label">COMMUNITY BOARD</div>
         <div className="pt-community-cards">
           {communityCards.length > 0 ? (
             communityCards.map((c, i) => (
@@ -172,11 +177,6 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
             Array.from({ length: 5 }).map((_, i) => <div key={i} className="pt-comm-placeholder" />)
           )}
         </div>
-        <div className="pt-validity">
-          {heroValidity
-            ? <HeroHandValidityBadge validity={heroValidity} phase={phase} />
-            : `${me?.cards.length ?? 0} HOLE · ${communityCards.length}/5 BOARD`}
-        </div>
       </div>
 
       {/* Big pot */}
@@ -185,7 +185,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
         <motion.div className="pt-pot-value">{potDisplay}</motion.div>
       </div>
 
-      {/* Hero */}
+      {/* Hero — prototype .me: hand renders directly from state, always visible */}
       <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
         <div className={`pt-mehead${state.activePlayerId === myId ? ' is-turn' : ''}`}>
           <span className="pt-me-avatar">
@@ -194,7 +194,28 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
           <span className="pt-me-name">{me?.name ?? 'YOU'}</span>
           <span className="pt-me-stack">{(me?.chips ?? 0).toLocaleString()}</span>
         </div>
-        <div className="pt-hero-cards">{heroCards ?? <div className="pt-waiting">WAITING FOR HAND</div>}</div>
+        {me && me.cards.length > 0 && me.status !== 'folded' ? (
+          <>
+            <div className="pt-hand">
+              <CardHand cards={me.cards.map(c => ({ ...c, isHidden: false }))} celebrationCardMarkers
+                selectedIndices={selectedCardIndices} onCardClick={onCardClick}
+                isSelectable={isDrawPhase && !!onCardClick}
+                isShowdown={phase === 'SHOWDOWN'}
+                cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} />
+            </div>
+            <div className="pt-hint">
+              {isDrawPhase
+                ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
+                : heroValidity
+                  ? <HeroHandValidityBadge validity={heroValidity} phase={phase} />
+                  : `${me.cards.length} HOLE · ${communityCards.length}/5 BOARD`}
+            </div>
+          </>
+        ) : me?.status === 'folded' ? (
+          <div className="pt-folded">FOLDED</div>
+        ) : (
+          <div className="pt-waiting">WAITING FOR HAND</div>
+        )}
       </div>
 
       <div data-muck-anchor aria-hidden="true" className="pt-muck" />
