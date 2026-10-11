@@ -72,7 +72,7 @@ function OpponentCell({ player, seatNum, isActive, totalCards, phase }: { player
   }, [player.lastDrawCount, phase, isDrawPhase]);
 
   return (
-    <div className={`opp-cell${isFolded ? ' is-folded' : ''}${isActive ? ' is-active' : ''}`}>
+    <div className={`opp-cell${isFolded ? ' is-folded' : ''}${isActive ? ' is-active' : ''}`} data-player-seat={player.id} data-deal-seat={player.id}>
       {/* Avatar + turn ring */}
       <div className="opp-avatar">
         <img src={getAvatarForSeat(seatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
