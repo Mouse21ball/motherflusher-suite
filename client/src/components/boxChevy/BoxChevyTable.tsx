@@ -206,8 +206,8 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
                 discardingIndices={[]}
                 isShowdown={phase === 'SHOWDOWN'}
                 celebrationCardMarkers
-                cardWidth={64}
-                cardHeight={90}
+                cardWidth={52}
+                cardHeight={74}
               />
             </div>
           ) : (
