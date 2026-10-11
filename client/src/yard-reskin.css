@@ -1150,12 +1150,19 @@
 .pt-cards i.is-dark { background: #1a1a1a; opacity: .5; }
 
 /* Big pot */
-.pt-pot { margin: 6px auto 0; text-align: center; padding: 6px 20px; }
-.pt-pot-label { font: 700 11px 'DM Sans',sans-serif; letter-spacing: .2em; color: #A78BFA; }
+.pt-pot { margin: 0; text-align: center; padding: 4px 12px; }
+.pt-pot-label { font: 700 10px 'DM Sans',sans-serif; letter-spacing: .2em; color: #A78BFA; }
 .pt-pot-value {
-  font: 800 36px 'Oswald',sans-serif; color: #FDE68A; line-height: 1.05;
+  font: 800 28px 'Oswald',sans-serif; color: #FDE68A; line-height: 1.05;
   text-shadow: 0 2px 0 #000, 0 0 24px rgba(242,193,78,.4);
 }
+/* Pot + hero header side by side */
+.pt-pot-hero-row {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin: 6px 10px 0; padding: 4px 0;
+}
+/* Kill the table background box for chevy — page background shows through */
+.pt-chevy { background-image: none; background-color: transparent; }
 
 /* Hero */
 .pt-me { margin: 8px 10px 0; padding: 8px 6px 4px; }
