@@ -12,9 +12,9 @@ import { CardType, GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
 import { PlayingCard } from '@/components/game/Card';
+import { CardHand } from '@/components/flushedUp/CardHand';
 import { HeroHandValidityBadge } from '@/components/game/HeroHandValidityBadge';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
-import type { ReactNode } from 'react';
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -73,10 +73,12 @@ interface BoxChevyTableProps {
   myId: string;
   phase: string;
   isDrawPhase: boolean;
-  heroCards?: ReactNode;
+  selectedCardIndices: number[];
+  onCardClick: (index: number) => void;
+  isMyTurn: boolean;
 }
 
-export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: BoxChevyTableProps) {
+export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardIndices, onCardClick, isMyTurn }: BoxChevyTableProps) {
   const [, navigate] = useLocation();
   const me = state.players.find(p => p.id === myId);
   const myIndex = state.players.findIndex(p => p.id === myId);
@@ -185,7 +187,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
         <motion.div className="pt-pot-value">{potDisplay}</motion.div>
       </div>
 
-      {/* Hero */}
+      {/* Hero — rendered directly from table state (prototype/Badugi pattern) */}
       <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
         <div className={`pt-mehead${state.activePlayerId === myId ? ' is-turn' : ''}`}>
           <span className="pt-me-avatar">
@@ -194,7 +196,30 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, heroCards }: Bo
           <span className="pt-me-name">{me?.name ?? 'YOU'}</span>
           <span className="pt-me-stack">{(me?.chips ?? 0).toLocaleString()}</span>
         </div>
-        <div className="pt-hero-cards">{heroCards ?? <div className="pt-waiting">WAITING FOR HAND</div>}</div>
+        <div className="pt-hero-cards">
+          {me && me.cards.length > 0 && me.status !== 'folded' ? (
+            <div className="pt-hand">
+              <CardHand
+                cards={me.cards.map(c => ({ ...c, isHidden: false }))}
+                selectedIndices={selectedCardIndices}
+                onCardClick={onCardClick}
+                isSelectable={isDrawPhase && isMyTurn}
+                dealingIndices={[]}
+                drawingIndices={[]}
+                discardingIndices={[]}
+                isShowdown={phase === 'SHOWDOWN'}
+                celebrationCardMarkers
+                cardWidth={64}
+                cardHeight={90}
+              />
+            </div>
+          ) : (
+            <div className="pt-waiting">WAITING FOR HAND</div>
+          )}
+        </div>
+        <div className="pt-hint">
+          {isDrawPhase && isMyTurn ? 'TAP CARDS TO DISCARD' : ''}
+        </div>
       </div>
 
       <div data-muck-anchor aria-hidden="true" className="pt-muck" />
