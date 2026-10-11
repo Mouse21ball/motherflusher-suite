@@ -993,3 +993,66 @@
   width: fit-content !important;
   position: static !important;
 }
+
+/* Screenshot fixes round 2 (Detroit 2026-10-10): no more layered absolute
+   center elements. Everything flows top-to-bottom: title -> phase dots ->
+   pot -> phase panel -> hand readout -> discard pill -> YOUR HAND -> action bar. */
+.yard-table-board .yard-phase-slot {
+  position: static !important;
+  transform: none !important;
+  left: auto !important; top: auto !important;
+  margin: 2px auto !important;
+  pointer-events: none;
+}
+.yard-table-board .yard-readout-slot {
+  position: static !important;
+  transform: none !important;
+  left: auto !important; top: auto !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  pointer-events: none;
+}
+.yard-table-board .yard-pot-slot {
+  position: static !important;
+  transform: none !important;
+  left: auto !important; top: auto !important;
+}
+.yard-table-board .yard-center-info {
+  position: static !important;
+  display: flex !important; flex-direction: column !important; align-items: center !important;
+  gap: 4px !important;
+  padding: 6px 0 2px !important;
+  margin: 0 auto !important;
+  min-height: 0 !important;
+}
+.yard-table-board .yard-pot-row {
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  gap: 10px !important; margin: 0 !important;
+}
+/* Hand eval readout under the phase panel */
+.yard-hero-readout {
+  font: 700 11px 'DM Sans',sans-serif; letter-spacing: 0.08em;
+  color: #A78BFA; text-shadow: 0 1px 4px #000;
+  text-align: center; margin: 2px 0 4px;
+}
+/* Phase tracker panel: consistent spacing, never overlapping dots */
+.yard-table-board .phase-tracker {
+  margin: 6px auto !important;
+}
+/* YOUR HAND: clear of the action bar below */
+.yard-table-board .yard-hero-zone {
+  padding-bottom: 10px !important;
+}
+.yard-table-board .your-hand-panel {
+  margin-bottom: 10px !important;
+}
+
+/* Detroit 2026-10-10: borders off all glass panels — frosted and see-through only */
+.yard-table-board .your-hand-panel,
+.yard-table-board .phase-tracker,
+.yard-table-board .yard-discard-prompt,
+.yard-table-board .opp-discard-badge {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
