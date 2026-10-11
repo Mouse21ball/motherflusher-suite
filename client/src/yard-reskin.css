@@ -1113,6 +1113,8 @@
 }
 .pt-info b { display: block; font: 700 10px 'DM Sans',sans-serif; letter-spacing: .14em; color: #A78BFA; }
 .pt-info span { font: 700 15px 'DM Sans',sans-serif; color: #EDE9FE; text-shadow: 0 1px 4px #000; }
+/* Compact 2-col variant — used when the app header already shows players/pot */
+.pt-info-compact { grid-template-columns: repeat(2,1fr); margin: 2px 12px 0; padding: 4px 0; }
 
 /* Opponent grid */
 .pt-opps { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; padding: 8px 8px 2px; }
@@ -1175,12 +1177,12 @@
 /* Prototype table: game accents + community cards (Detroit 2026-10-10) */
 .pt-game-name.pt-pink { color: #F0ABFC; text-shadow: 0 2px 0 #000, 0 0 18px rgba(217,70,239,.4); }
 .pt-game-name.pt-orange { color: #FDBA74; text-shadow: 0 2px 0 #000, 0 0 18px rgba(249,115,22,.4); }
-.pt-community { margin: 8px 12px 0; }
+.pt-community { margin: 6px 12px 0; }
 .pt-community-center { text-align: center; }
-.pt-community-cards { display: flex; justify-content: center; gap: 6px; align-items: flex-end; min-height: 80px; }
-.pt-comm-card { flex-shrink: 0; width: 54px; height: 76px; }
+.pt-community-cards { display: flex; justify-content: center; gap: 5px; align-items: flex-end; min-height: 72px; }
+.pt-comm-card { flex-shrink: 0; width: 48px; height: 68px; }
 .pt-comm-placeholder {
-  width: 54px; height: 76px; border-radius: 8px; flex-shrink: 0;
+  width: 48px; height: 68px; border-radius: 8px; flex-shrink: 0;
   border: 1px dashed rgba(249,115,22,.35); background: rgba(45,27,105,.25);
 }
 .pt-validity {
