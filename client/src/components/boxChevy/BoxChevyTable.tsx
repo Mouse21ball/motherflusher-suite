@@ -89,7 +89,6 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
   const communityCards: CardType[] = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
   const heroValidity = getHeroHandValidity('boxchevy', phase, me?.cards ?? [], state.communityCards ?? []);
 
-  const activeCount = state.players.filter(p => p.status === 'active').length;
   const potSpring = useSpring(state.pot, { stiffness: 80, damping: 20 });
   const potDisplay = useTransform(potSpring, v => Math.round(v).toLocaleString());
   useEffect(() => { potSpring.set(state.pot); }, [state.pot, potSpring]);
@@ -135,10 +134,8 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
         <div style={{ width: 40 }} />
       </div>
 
-      {/* Info grid */}
-      <div className="pt-info">
-        <div><b>PLAYERS</b><span>{activeCount} / {state.players.length}</span></div>
-        <div><b>POT</b><span>${state.pot.toLocaleString()}</span></div>
+      {/* Info — compact: header already shows players/pot, so only board + phase here */}
+      <div className="pt-info pt-info-compact">
         <div><b>BOARD</b><span>{communityCards.length} / 5</span></div>
         <div><b>PHASE</b><span>{phaseLabel(phase)}</span></div>
       </div>
@@ -164,7 +161,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
                       animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
                       transition={{ duration: 0.32, ease: 'easeOut' }}
                       style={{ transformOrigin: 'top center' }}>
-                      <PlayingCard card={c} className="!w-[54px] !h-[76px]" />
+                      <PlayingCard card={c} className="!w-[48px] !h-[68px]" />
                     </motion.div>
                   )}
                 </AnimatePresence>
