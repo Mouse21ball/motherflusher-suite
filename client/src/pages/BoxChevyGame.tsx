@@ -20,8 +20,10 @@ import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
+import { YardHeroIdentity } from '@/components/game/YardHeroIdentity';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { Crown } from 'lucide-react';
+import { CardHand } from '@/components/flushedUp/CardHand';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
@@ -365,8 +367,25 @@ function BoxChevyGameUI() {
             myId={myId}
             phase={phase}
             isDrawPhase={isDrawPhase}
-            selectedCardIndices={!effectiveSpectator && !showShowdown ? Array.from(selectedCards) : []}
-            onCardClick={!effectiveSpectator && !showShowdown ? handleCardClick : undefined}
+            heroCards={!effectiveSpectator && !showShowdown && (me?.cards?.length ?? 0) > 0 ? (
+              <div data-deal-seat={myId} data-player-seat={myId} className="yard-box-hero-hand">
+                <YardHeroIdentity state={state} myId={myId} accent="#F97316" />
+                <div className="yard-box-hand-label">YOUR HAND{isDrawPhase && isMyTurn && <span> · TAP TO DISCARD</span>}</div>
+                <CardHand
+                  cards={(me?.cards ?? []).map(c => ({ ...c, isHidden: false }))}
+                  selectedIndices={Array.from(selectedCards)}
+                  onCardClick={handleCardClick}
+                  isSelectable={isDrawPhase && isMyTurn && !effectiveSpectator}
+                  dealingIndices={[]}
+                  drawingIndices={[]}
+                  discardingIndices={[]}
+                  isShowdown={phase === 'SHOWDOWN'}
+                  celebrationCardMarkers
+                  cardWidth={64}
+                  cardHeight={90}
+                />
+              </div>
+            ) : undefined}
           />
         </FriendSeatActions>
 
