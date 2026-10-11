@@ -148,6 +148,29 @@ export function BoxChevyActionBar({
     <div className="yard-action-bar" style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
 
+        {beforeOrAtDeclare && validity && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="box-chevy-made-hand-validity"
+            style={{
+              margin: '0 0 8px',
+              padding: '8px 10px',
+              borderRadius: 9,
+              border: `1px solid ${validityAccent(0.35)}`,
+              background: validityAccent(0.08),
+              color: validityColor,
+              fontSize: 11,
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              textAlign: 'center',
+            }}
+          >
+            {validity.label}
+          </div>
+        )}
+
         {/* WAITING — Deal Me In */}
         {isWaiting && isMyTurn && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingTop: 4 }}>
