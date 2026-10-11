@@ -396,6 +396,7 @@ interface SessionStat {
 export interface GenericTable {
   engine: ModeEngine;
   resolvedPot?: number;
+  resolvedWinners?: string[];
   tableId: string;
   modeId: string;
   mode: GameMode;
@@ -937,6 +938,7 @@ function resolveShowdown(table: GenericTable): void {
       }).catch(console.error);
     }
     const result = table.mode.resolveShowdown(s.players, winnerPot, '__server__', s.communityCards);
+    table.resolvedWinners = result.players.filter(p => p.isWinner).map(p => p.id);
 
     table.state = {
       ...s,
@@ -1036,6 +1038,7 @@ export function resolveByFold(table: GenericTable): boolean {
         ? { ...p, chips: p.chips + winnerPot, isWinner: true, hasActed: true }
         : { ...p, isWinner: false }
     );
+    table.resolvedWinners = [winner.id];
     const winMsg = `${winner.name} wins $${winnerPot} (all opponents folded)`;
     table.state = {
       ...s,
@@ -1183,7 +1186,8 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
   // are never updated.
   const potWon = table.resolvedPot ?? s.pot;
   const completedHandId = String(table.handId);
-  const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
+  const winnerSeatIds = new Set(table.resolvedWinners ?? s.players.filter(p => p.isWinner).map(p => p.id));
+  table.resolvedWinners = undefined;
 
   const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
   for (const p of nextPlayers) {
