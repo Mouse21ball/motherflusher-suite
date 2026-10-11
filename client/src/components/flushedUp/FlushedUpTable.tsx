@@ -7,12 +7,12 @@
  */
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'wouter';
 import type { GameState } from '@shared/gameTypes';
 import type { Player } from '@shared/gameTypes';
 import { CardHand } from './CardHand';
 import { PlayingCard } from '@/components/game/Card';
 import type { CardAnimState } from './useCardAnimations';
+import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { FlushedUpEval } from '@shared/modes/flushedUp';
 import { TableDealAnimator } from './TableDealAnimator';
@@ -97,7 +97,6 @@ export function FlushedUpTable({
   isDrawPhase,
   animState,
 }: FlushedUpTableProps) {
-  const [, navigate] = useLocation();
   const tableRef = useRef<HTMLDivElement>(null);
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
@@ -147,15 +146,7 @@ export function FlushedUpTable({
 
   return (
     <div className="pt-table pt-flushed" ref={tableRef}>
-      {/* Top bar */}
-      <div className="pt-ttop">
-        <button className="pt-iconbtn" onClick={() => navigate('/')} aria-label="Back">‹</button>
-        <div className="pt-ttitle">
-          <div className="pt-game-name pt-pink">FLUSHED UP</div>
-          <div className="pt-game-sub">CHASE THE FLUSH</div>
-        </div>
-        <div style={{ width: 40 }} />
-      </div>
+      <UniversalTableHeader mode="flushedup" title="FLUSHED UP" subtitle="CHASE THE FLUSH" titleClass="pt-pink" />
 
       {/* Info grid */}
       <div className="pt-info">
