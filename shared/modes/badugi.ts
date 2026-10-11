@@ -394,14 +394,11 @@ export const BadugiMode: GameMode = {
     }
     const totalAwardable = totalSidePotAmount(sidePots);
 
-    // An uncontested survivor wins the entire actual pot, regardless of
-    // side-pot eligibility. Eligibility matters only when hands are compared.
+    // Detroit 2026-10-11: an uncontested survivor does NOT take the pot —
+    // it rolls over to the next hand. Matches Flushed Up / Box Chevy.
     if (activePlayers.length === 1) {
-      const sole = activePlayers[0];
-      const soleIdx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[soleIdx] = { ...finalPlayers[soleIdx], chips: finalPlayers[soleIdx].chips + pot, isWinner: true };
-      messages.push(`${finalPlayers[soleIdx].name} wins $${pot} (last player standing)`);
-      return { players: finalPlayers, pot: 0, messages };
+      messages.push(`Only one player remains — $${pot} rolls over to the next hand!`);
+      return { players: finalPlayers, pot, messages };
     }
 
     // ── Awarders for split-pot resolver ───────────────────────────────────
