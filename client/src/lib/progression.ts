@@ -73,7 +73,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'first_win',     name: 'First Blood',    description: 'Win your first hand',      xpReward: 50,  icon: '🩸', rarity: 'common'    },
   { id: 'hat_trick',     name: 'Hat Trick',      description: 'Win 3 hands in a row',     xpReward: 75,  icon: '🎩', rarity: 'common'    },
   { id: 'high_roller',   name: 'High Roller',    description: 'Win a pot of $10 or more', xpReward: 50,  icon: '🎰', rarity: 'common'    },
-  { id: 'globe_trotter', name: 'Globe Trotter',  description: 'Play all 5 game modes',    xpReward: 100, icon: '🌍', rarity: 'rare'      },
+  { id: 'globe_trotter', name: 'Globe Trotter',  description: 'Play all 4 game modes',    xpReward: 100, icon: '🌍', rarity: 'rare'      },
   { id: 'century',       name: 'Century Club',   description: 'Play 100 hands',           xpReward: 200, icon: '💯', rarity: 'rare'      },
   { id: 'sharp',         name: 'Sharp',          description: 'Win 50 hands total',       xpReward: 150, icon: '⚡', rarity: 'rare'      },
   { id: 'on_fire',       name: 'On Fire',        description: 'Win 5 hands in a row',     xpReward: 125, icon: '🔥', rarity: 'epic'      },
