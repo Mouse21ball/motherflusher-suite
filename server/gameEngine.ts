@@ -363,6 +363,7 @@ interface SessionStat {
 
 interface AuthTable {
   resolvedPot?: number;
+  resolvedWinners?: string[];
   tableId: string;
   state: GameState;
   // Increments on each new hand. Bot timers capture this value at creation;
@@ -918,6 +919,7 @@ function resolveShowdown(table: AuthTable): void {
       }).catch(console.error);
     }
     const result = BadugiMode.resolveShowdown(s.players, winnerPot, '__server__');
+    table.resolvedWinners = result.players.filter(p => p.isWinner).map(p => p.id);
 
     const winner = result.players.find(p => p.isWinner)?.id ?? 'unknown';
     engineLog('PHASE', table.tableId, {
@@ -1147,7 +1149,8 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
   // winStreak / biggestPotWon / lifetimeProfit are never updated.
   const potWon = table.resolvedPot ?? s.pot;
   const completedHandId = String(table.handId);
-  const winnerSeatIds = new Set(s.players.filter(p => p.isWinner).map(p => p.id));
+  const winnerSeatIds = new Set(table.resolvedWinners ?? s.players.filter(p => p.isWinner).map(p => p.id));
+  table.resolvedWinners = undefined;
 
   const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
   for (const p of nextPlayers) {
