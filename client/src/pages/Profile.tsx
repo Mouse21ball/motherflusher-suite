@@ -102,6 +102,9 @@ export default function Profile() {
   const displayHands = serverProfile?.handsPlayed    ?? stats.handsPlayed;
   const displayNet   = serverProfile?.lifetimeProfit ?? stats.totalChipChange;
   const displayLevel = serverProfile?.level          ?? levelInfo.level;
+  const serverWinRate = serverProfile && serverProfile.handsPlayed > 0
+    ? Math.round(((serverProfile.handsWon ?? 0) / serverProfile.handsPlayed) * 100)
+    : stats.winRate;
   const rank         = getRankForLevel(displayLevel);
 
   const currentAvatarId  = (serverProfile?.avatarId ?? identity.avatarId) ?? null;
@@ -683,7 +686,7 @@ export default function Profile() {
             >
               <div style={{ fontSize: 9, color: '#FFD700', letterSpacing: '0.10em', fontFamily: 'monospace', fontWeight: 700 }}>WIN%</div>
               <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'monospace', lineHeight: 1.1 }}>
-                {stats.winRate}%
+                {serverWinRate}%
               </div>
               <img src="/profile/icons/stat-icon-winrate.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
