@@ -3,9 +3,51 @@ import { Link } from 'wouter';
 
 interface SpectatorBannerProps {
   spectatorCount?: number;
+  openSeats?: number;
+  onTakeSeat?: () => void;
 }
 
-export function SpectatorBanner({ spectatorCount }: SpectatorBannerProps) {
+export function SpectatorBanner({ spectatorCount, openSeats = 0, onTakeSeat }: SpectatorBannerProps) {
+  // Detroit 2026-10-11: if seats are open, offer to take one instead of just watching
+  if (openSeats > 0 && onTakeSeat) {
+    return (
+      <div className="w-full px-2 pt-2">
+        <div className="max-w-md mx-auto rounded-xl px-3.5 py-3 flex items-center justify-between gap-3 shadow-lg"
+          style={{
+            background: 'linear-gradient(145deg, rgba(28,22,38,.95), rgba(14,11,20,.96))',
+            border: '1px solid rgba(201,162,39,.30)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.07), 0 4px 14px rgba(0,0,0,.4)',
+          }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(201,162,39,.12)' }}>
+              <Eye className="w-3.5 h-3.5 text-amber-200" />
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-[12px] font-mono uppercase tracking-[0.18em] text-amber-200 font-bold leading-none">
+                Seat open
+              </span>
+              <span className="text-[12px] text-white/70 leading-none truncate">
+                {openSeats} seat{openSeats > 1 ? 's' : ''} available — jump in!
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onTakeSeat}
+            className="shrink-0 text-[12px] font-mono uppercase tracking-widest px-3 py-2 rounded-lg font-bold transition-all duration-200 touch-manipulation"
+            style={{
+              background: 'linear-gradient(145deg, rgba(201,162,39,.25), rgba(201,162,39,.15))',
+              border: '1px solid rgba(201,162,39,.45)',
+              color: '#F2C14E',
+            }}
+          >
+            Take a seat
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full px-2 pt-2">
       <div className="max-w-md mx-auto rounded-xl bg-[#192320]/95 border border-[#a8d5be]/25 px-3.5 py-3 flex items-center justify-between gap-3 shadow-lg">
@@ -26,7 +68,7 @@ export function SpectatorBanner({ spectatorCount }: SpectatorBannerProps) {
               )}
             </div>
             <span className="text-[12px] text-white/70 leading-none truncate" data-testid="text-spectator-watch-only">
-              Watching only — get chips to play.
+              Table is full — you'll be notified when a seat opens.
             </span>
           </div>
         </div>
