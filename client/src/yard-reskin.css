@@ -1171,3 +1171,31 @@
 .pt-folded { text-align: center; padding: 20px 0; font: 700 12px 'DM Sans',sans-serif; letter-spacing: .14em; color: rgba(255,255,255,.5); }
 .pt-waiting { text-align: center; padding: 20px 0; font: 600 14px 'DM Sans',sans-serif; color: #A78BFA; }
 .pt-muck { position: absolute; left: 50%; top: 40%; width: 2px; height: 2px; pointer-events: none; }
+
+/* Prototype table: game accents + community cards (Detroit 2026-10-10) */
+.pt-game-name.pt-pink { color: #F0ABFC; text-shadow: 0 2px 0 #000, 0 0 18px rgba(217,70,239,.4); }
+.pt-game-name.pt-orange { color: #FDBA74; text-shadow: 0 2px 0 #000, 0 0 18px rgba(249,115,22,.4); }
+.pt-community { margin: 8px 12px 0; }
+.pt-community-center { text-align: center; }
+.pt-community-cards { display: flex; justify-content: center; gap: 6px; align-items: flex-end; min-height: 80px; }
+.pt-comm-card { flex-shrink: 0; width: 54px; height: 76px; }
+.pt-comm-placeholder {
+  width: 54px; height: 76px; border-radius: 8px; flex-shrink: 0;
+  border: 1px dashed rgba(249,115,22,.35); background: rgba(45,27,105,.25);
+}
+.pt-validity {
+  margin-top: 6px; font: 600 12px 'DM Sans',sans-serif; letter-spacing: .06em;
+  color: #A78BFA; text-align: center;
+}
+.pt-declare {
+  display: inline-block; margin-top: 3px; font: 800 10px 'DM Sans',sans-serif; letter-spacing: .08em;
+  padding: 2px 8px; border-radius: 8px;
+}
+.pt-declare-high { color: #FDBA74; background: rgba(249,115,22,.16); }
+.pt-declare-low { color: #86efac; background: rgba(52,211,153,.14); }
+.pt-declare-swing { color: #FDE68A; background: rgba(242,193,78,.16); }
+.pt-mini-card { display: inline-block; margin: 1px; }
+.pt-deck-anchor { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%,-50%); opacity: 0; pointer-events: none; }
+.pt-hero-cards { padding: 4px 0; }
+.pt-flushed .pt-mehead.is-turn { background: rgba(217,70,239,.12); box-shadow: 0 0 20px rgba(217,70,239,.35); }
+.pt-chevy .pt-mehead.is-turn { background: rgba(249,115,22,.12); box-shadow: 0 0 20px rgba(249,115,22,.35); }
