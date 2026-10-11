@@ -6,13 +6,13 @@
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
 import type { GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
 import { evaluateBadugi } from '@shared/modes/badugi';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
+import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 import { BadugiTableEffects } from './BadugiTableEffects';
 
 const HERO_CARD_W = 72;
@@ -67,7 +67,6 @@ export interface BadugiTableProps {
 }
 
 export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: BadugiTableProps) {
-  const [, navigate] = useLocation();
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const [tableRoot, setTableRoot] = useState<HTMLElement | null>(null);
@@ -93,15 +92,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   return (
     <div className="pt-table" ref={setTableRoot}>
-      {/* Top bar */}
-      <div className="pt-ttop">
-        <button className="pt-iconbtn" onClick={() => navigate('/')} aria-label="Back">‹</button>
-        <div className="pt-ttitle">
-          <div className="pt-game-name">BADUGI</div>
-          <div className="pt-game-sub">4-CARD DRAW</div>
-        </div>
-        <div style={{ width: 40 }} />
-      </div>
+      <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
 
       {/* Info grid */}
       <div className="pt-info">
