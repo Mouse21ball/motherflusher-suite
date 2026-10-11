@@ -204,7 +204,7 @@ export function BoxChevyTable({ state, myId, phase, isDrawPhase, selectedCardInd
               />
             </div>
           ) : (
-            <div className="pt-waiting">WAITING FOR HAND</div>
+            <div className="pt-queued">DEALT IN NEXT HAND</div>
           )}
         </div>
         <div className="pt-hint">
