@@ -43,7 +43,7 @@ export function handXP(state: XPCounters, result: { won: boolean; potSize: numbe
   gained = Math.round(gained * (tier === "diamond_elite" ? 2 : tier === "gold_pro" ? 1.5 : 1));
   const conditions: Record<string, boolean> = {
     first_win: next.handsWon >= 1, hat_trick: next.winStreak >= 3,
-    high_roller: next.biggestPot >= 10, globe_trotter: next.modesPlayed.length >= 5,
+    high_roller: next.biggestPot >= 10, globe_trotter: next.modesPlayed.length >= 4,
     century: next.handsPlayed >= 100, sharp: next.handsWon >= 50,
     on_fire: next.winStreak >= 5, badugi_master: next.badugisWon >= 10,
     unstoppable: next.winStreak >= 10, legend: next.handsWon >= 200,
