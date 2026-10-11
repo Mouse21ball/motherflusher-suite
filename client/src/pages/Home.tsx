@@ -618,7 +618,7 @@ export default function Home() {
         </section>
         <section className="yard-mission-group">
           <div className="yard-section-heading"><h2>WEEKLY MISSIONS</h2><span>LONGER RUN · NO ACTIVE CONTRACTS</span></div>
-          <div className="yard-weekly-empty"><div className="yard-empty-emblem"><Medal size={22} /></div><div><strong>No weekly missions configured</strong><p>There are no weekly objectives in the current mission data. Your daily contract is live above.</p></div></div>
+          <div className="yard-weekly-empty"><div className="yard-empty-emblem"><Medal size={22} /></div><div><strong>Weekly missions coming soon</strong><p>New weekly objectives drop soon. Your daily contract is live above.</p></div></div>
         </section>
         <section className="yard-mission-group yard-career-group">
           <div className="yard-section-heading"><h2>CAREER MILESTONES</h2><span>ALL-TIME PROGRESS</span></div>
@@ -787,7 +787,7 @@ export default function Home() {
                   ? `Day ${serverBonusStreakDay} Ready`
                   : 'Loading bonus…'}
               </div>
-              {!canClaimBonus && (
+              {!canClaimBonus && serverBonusCanClaim !== null && (
                 <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', display: 'flex', justifyContent: 'space-between' }}>
                   <span>{getTimeUntilMidnight()}</span>
                   <span style={{ color: 'rgba(201,162,39,0.55)' }}>NEXT BONUS</span>
