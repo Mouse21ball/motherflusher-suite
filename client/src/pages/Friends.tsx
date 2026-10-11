@@ -31,9 +31,36 @@ const MODE_ROUTES: Record<string, string> = {
 function Avatar({ player }: { player: PlayerSummary }) {
   const src = resolveAvatarSrc(null, player.avatarId);
   return src
-    ? <img src={src} alt="" className="h-11 w-11 rounded-full object-cover border border-white/15" />
-    : <div aria-hidden className="h-11 w-11 rounded-full border border-white/15 bg-white/10 flex items-center justify-center font-bold text-amber-200">{player.displayName.slice(0, 1).toUpperCase()}</div>;
+    ? <img src={src} alt="" className="h-11 w-11 rounded-full object-cover" style={{ border: '1px solid rgba(201,162,39,.25)' }} />
+    : <div aria-hidden className="h-11 w-11 rounded-full flex items-center justify-center font-bold text-amber-200"
+        style={{ border: '1px solid rgba(201,162,39,.25)', background: 'linear-gradient(145deg, rgba(38,30,52,.9), rgba(20,16,30,.92))' }}>
+        {player.displayName.slice(0, 1).toUpperCase()}
+      </div>;
 }
+
+// Obsidian Cut section container
+const obsidianSection: React.CSSProperties = {
+  borderRadius: 16,
+  border: '1px solid rgba(201,162,39,.20)',
+  background: 'linear-gradient(145deg, rgba(28,22,38,.88), rgba(14,11,20,.92))',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.45), 0 4px 16px rgba(0,0,0,.4)',
+  backdropFilter: 'blur(12px)',
+  padding: 16,
+};
+
+const obsidianButton: React.CSSProperties = {
+  borderRadius: 10,
+  border: '1px solid rgba(201,162,39,.25)',
+  background: 'linear-gradient(145deg, rgba(38,30,52,.9), rgba(20,16,30,.92))',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.09), inset 0 -1px 0 rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.4)',
+  color: '#F2C14E',
+  padding: '8px 12px',
+  fontSize: 12,
+  fontWeight: 700,
+  fontFamily: 'monospace',
+  letterSpacing: '.08em',
+  cursor: 'pointer',
+};
 
 export default function Friends() {
   const [, navigate] = useLocation();
@@ -42,6 +69,9 @@ export default function Friends() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const loadFriends = useCallback(async () => {
     setLoading(true);
@@ -58,7 +88,15 @@ export default function Friends() {
     }
   }, []);
 
-  useEffect(() => { void loadFriends(); }, [loadFriends]);
+  const loadInviteCode = useCallback(async () => {
+    try {
+      const res = await apiFetch(apiUrl('/api/friends/invite-code'));
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.code) setInviteCode(body.code);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => { void loadFriends(); void loadInviteCode(); }, [loadFriends, loadInviteCode]);
 
   const act = async (key: string, path: string, method = 'POST', body?: unknown) => {
     setBusy(key);
@@ -86,6 +124,51 @@ export default function Friends() {
   const sendRequest = (playerId: string) =>
     act(`add-${playerId}`, '/api/friends/requests', 'POST', { recipientId: playerId });
 
+  const redeemCode = async () => {
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    setBusy('redeem');
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await apiFetch(apiUrl('/api/friends/by-code'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error ?? 'Could not send friend request.');
+      setNotice(`Friend request sent! You both get 2,500 chips when they accept.`);
+      setCodeInput('');
+      await loadFriends();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send friend request.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const copyCode = async () => {
+    if (!inviteCode) return;
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch {
+      setError('Could not copy. Your code is: ' + inviteCode);
+    }
+  };
+
+  const shareCode = async () => {
+    if (!inviteCode) return;
+    const text = `Add me on Chain Gang Poker! My invite code is ${inviteCode}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Chain Gang Poker', text }); } catch { /* dismissed */ }
+    } else {
+      void copyCode();
+    }
+  };
+
   const joinFriend = (friend: Friend) => {
     const route = friend.joinTable && MODE_ROUTES[friend.joinTable.modeId];
     if (!route || !friend.joinTable?.tableId) return;
@@ -103,7 +186,7 @@ export default function Friends() {
   ) ?? [];
 
   const section = (title: string, children: React.ReactNode, count?: number) => (
-    <section className="rounded-2xl border border-white/10 bg-black/45 p-4">
+    <section style={obsidianSection}>
       <h2 className="mb-3 flex items-center justify-between font-mono text-xs tracking-[0.18em] text-amber-200/80 uppercase">
         {title}<span className="text-white/35">{count ?? 0}</span>
       </h2>
@@ -119,23 +202,66 @@ export default function Friends() {
     </div>
   );
 
-  const buttonClass = 'rounded-lg border border-amber-300/30 px-3 py-2 text-xs font-mono font-bold tracking-wider text-amber-100 hover:bg-amber-200/10 disabled:opacity-40';
-
   return (
-    <main className="min-h-[100dvh] bg-[#09080b] px-4 py-5 text-white">
+    <main className="min-h-[100dvh] px-4 py-5 text-white" style={{ background: '#09080b' }}>
       <div className="mx-auto flex max-w-xl flex-col gap-4">
         <header className="flex items-center gap-3">
-          <button className="rounded-full border border-amber-300/40 px-3 py-2 text-amber-200" onClick={() => navigate('/profile')} aria-label="Back to profile">‹</button>
+          <button
+            style={{ ...obsidianButton, borderRadius: 999, padding: '8px 14px' }}
+            onClick={() => navigate('/profile')}
+            aria-label="Back to profile">‹</button>
           <div className="flex-1">
             <p className="font-mono text-[10px] tracking-[0.2em] text-amber-200/60">LOBBY · SOCIAL</p>
             <h1 className="text-xl font-bold tracking-wide">Friends</h1>
           </div>
-          <button className={buttonClass} onClick={() => void loadFriends()} disabled={loading}>Refresh</button>
+          <button style={obsidianButton} onClick={() => void loadFriends()} disabled={loading}>Refresh</button>
         </header>
 
         {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-200">{error}</p>}
         {notice && <p role="status" className="rounded-lg border border-emerald-400/25 bg-emerald-950/25 p-3 text-sm text-emerald-200">{notice}</p>}
         {loading && !data && <p className="py-8 text-center text-sm text-white/50">Loading friends…</p>}
+
+        {/* ── Invite code ── */}
+        <section style={obsidianSection}>
+          <h2 className="mb-3 font-mono text-xs tracking-[0.18em] text-amber-200/80 uppercase">Your Invite Code</h2>
+          {inviteCode ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-lg px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.2em] text-amber-100"
+                  style={{ background: 'rgba(0,0,0,.4)', border: '1px solid rgba(201,162,39,.25)' }}>
+                  {inviteCode}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button style={{ ...obsidianButton, flex: 1 }} onClick={() => void copyCode()}>
+                  {codeCopied ? '✓ COPIED' : 'COPY'}
+                </button>
+                <button style={{ ...obsidianButton, flex: 1 }} onClick={() => void shareCode()}>SHARE</button>
+              </div>
+              <p className="text-xs text-white/45 text-center">Share your code. You both get <span className="text-amber-200 font-bold">2,500 chips</span> when they accept.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-white/45">Loading your code…</p>
+          )}
+        </section>
+
+        {/* ── Enter a code ── */}
+        <section style={obsidianSection}>
+          <h2 className="mb-3 font-mono text-xs tracking-[0.18em] text-amber-200/80 uppercase">Add by Code</h2>
+          <div className="flex gap-2">
+            <input
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value.toUpperCase())}
+              placeholder="Enter friend's code"
+              maxLength={16}
+              className="flex-1 rounded-lg px-4 py-2.5 font-mono text-sm tracking-[0.15em] text-white placeholder:text-white/30 outline-none"
+              style={{ background: 'rgba(0,0,0,.4)', border: '1px solid rgba(201,162,39,.25)' }}
+            />
+            <button style={obsidianButton} disabled={busy === 'redeem' || !codeInput.trim()} onClick={() => void redeemCode()}>
+              {busy === 'redeem' ? '...' : 'ADD'}
+            </button>
+          </div>
+        </section>
 
         {data && <>
           {section('FRIENDS', data.friends.length
@@ -146,17 +272,20 @@ export default function Friends() {
                     {friend.online ? (friend.inTable ? 'IN TABLE' : 'ONLINE') : 'OFFLINE'}
                   </span>
                   {friend.online && friend.inTable && friend.joinTable && MODE_ROUTES[friend.joinTable.modeId] &&
-                    <button className={buttonClass} onClick={() => joinFriend(friend)}>JOIN</button>}
+                    <button style={obsidianButton} onClick={() => joinFriend(friend)}>JOIN</button>}
                 </div>,
               ))
-            : <p className="py-2 text-sm text-white/45">No friends yet. Add someone from your recent games.</p>,
+            : <p className="py-2 text-sm text-white/45">No friends yet. Share your invite code above.</p>,
           data.friends.length)}
 
           {section('RECEIVED REQUESTS', data.received.length
             ? data.received.map(request => personRow(request.player,
                 <div className="flex gap-2">
-                  <button className={buttonClass} disabled={busy === `accept-${request.id}`} onClick={() => void act(`accept-${request.id}`, `/api/friends/requests/${encodeURIComponent(request.id)}/accept`)}>Accept</button>
-                  <button className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white/65 disabled:opacity-40" disabled={busy === `decline-${request.id}`} onClick={() => void act(`decline-${request.id}`, `/api/friends/requests/${encodeURIComponent(request.id)}/decline`)}>Decline</button>
+                  <button style={obsidianButton} disabled={busy === `accept-${request.id}`} onClick={() => void act(`accept-${request.id}`, `/api/friends/requests/${encodeURIComponent(request.id)}/accept`)}>Accept</button>
+                  <button
+                    style={{ ...obsidianButton, color: 'rgba(255,255,255,.65)', borderColor: 'rgba(255,255,255,.15)' }}
+                    disabled={busy === `decline-${request.id}`}
+                    onClick={() => void act(`decline-${request.id}`, `/api/friends/requests/${encodeURIComponent(request.id)}/decline`)}>Decline</button>
                 </div>, request.id))
             : <p className="py-2 text-sm text-white/45">No incoming requests.</p>,
           data.received.length)}
@@ -171,7 +300,7 @@ export default function Friends() {
                 const canAdd = player.id !== identity.id && !friendIds.has(player.id) && !pendingIds.has(player.id);
                 return personRow(player,
                   canAdd
-                    ? <button className={buttonClass} disabled={busy === `add-${player.id}`} onClick={() => void sendRequest(player.id)}>ADD</button>
+                    ? <button style={obsidianButton} disabled={busy === `add-${player.id}`} onClick={() => void sendRequest(player.id)}>ADD</button>
                     : <span className="text-[10px] text-white/35">{friendIds.has(player.id) ? 'FRIEND' : pendingIds.has(player.id) ? 'PENDING' : ''}</span>,
                   `${player.id}-${lastPlayedAt}`,
                 );
