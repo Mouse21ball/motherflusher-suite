@@ -54,6 +54,7 @@ export interface ServerProfile {
   equippedGameTrack:       string | null;
   equippedLadyLuckTrack:   string | null;
   handsWon?:               number;         // total hands won (server-side)
+  achievements?:           string[];       // unlocked achievement IDs (server-side)
 }
 
 interface UseServerProfileResult {
