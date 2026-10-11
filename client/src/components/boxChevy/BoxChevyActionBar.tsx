@@ -104,12 +104,8 @@ export function BoxChevyActionBar({
     && communityCards.length === 5
     && heroCards.every(card => !card.isHidden)
     && communityCards.every(card => !card.isHidden);
-  const beforeOrAtDeclare = isDrawPhase || isBetPhase || isDeclare;
   const validity = getHeroHandValidity('boxchevy', phase, heroCards, communityCards);
   const isMade = validity?.isValid === true;
-  const isValidityPending = validity?.status === 'pending';
-  const validityColor = isMade ? '#86efac' : isValidityPending ? '#fbbf24' : '#fca5a5';
-  const validityAccent = isMade ? G : isValidityPending ? Am : R;
 
   const canAct = isMyTurn && !actionLocked;
 
@@ -148,28 +144,7 @@ export function BoxChevyActionBar({
     <div className="yard-action-bar" style={{ width: '100%' }}>
       <div style={{ padding: '8px 12px 0' }}>
 
-        {beforeOrAtDeclare && validity && (
-          <div
-            role="status"
-            aria-live="polite"
-            data-testid="box-chevy-made-hand-validity"
-            style={{
-              margin: '0 0 8px',
-              padding: '8px 10px',
-              borderRadius: 9,
-              border: `1px solid ${validityAccent(0.35)}`,
-              background: validityAccent(0.08),
-              color: validityColor,
-              fontSize: 11,
-              fontFamily: 'monospace',
-              fontWeight: 800,
-              letterSpacing: '0.1em',
-              textAlign: 'center',
-            }}
-          >
-            {validity.label}
-          </div>
-        )}
+        {/* Validity badge lives in the table (next to the cards) — not duplicated here. */}
 
         {/* WAITING — Deal Me In */}
         {isWaiting && isMyTurn && (
