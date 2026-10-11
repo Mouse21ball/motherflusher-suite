@@ -318,21 +318,6 @@ export function BoxChevyActionBar({
         )}
 
       </div>
-
-      {/* Stats bar — compact: header already shows pot/players, so only stack + rebuy here */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>YOUR STACK</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#F97316', fontWeight: 700 }}><ChipIcon />{heroChips.toLocaleString()}</span>
-        </div>
-        <button
-          onClick={onRebuy}
-          data-testid="button-rebuy"
-          style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #1e3a5f, #1d4ed8)', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: 16, fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 10px ${B(0.4)}`, WebkitTapHighlightColor: 'transparent' }}
-        >
-          +
-        </button>
-      </div>
     </div>
   );
 }
