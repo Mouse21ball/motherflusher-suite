@@ -92,6 +92,10 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const heroCards = me ? (
     <div className="yard-hero-hand">
       <PhaseTracker phase={state.phase} totalPlayers={state.players.filter(pl => pl.status === 'active').length} />
+      {/* Hand eval readout: in flow under the phase panel, never buried (Detroit 2026-10-10) */}
+      {heroHandEval && !isShowdown && me.status !== 'folded' && (
+        <div className="yard-hero-readout">{heroHandEval.description}</div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 8, flexShrink: 0, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
         {isDrawPhase && (
           <motion.div className="yard-discard-prompt" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -126,7 +130,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} phase={state.phase} />
     {showShuffle && <ShuffleAnimation onComplete={() => setShowShuffle(false)} />}
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
-      centerReadout={<span className="yard-table-readout">{heroHandEval?.description ?? (me?.status === 'folded' ? 'FOLDED' : 'WAITING FOR HAND')}</span>}
       pot={state.pot > 0 ? <AnimatedPot pot={state.pot}
         activeCount={state.players.filter(p => p.status === 'active').length}
         totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /> : undefined}>
