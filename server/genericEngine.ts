@@ -1187,6 +1187,7 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
   const potWon = table.resolvedPot ?? s.pot;
   const completedHandId = String(table.handId);
   const winnerSeatIds = new Set(table.resolvedWinners ?? s.players.filter(p => p.isWinner).map(p => p.id));
+  console.log(`[win-debug] table=${table.tableId} hand=${completedHandId} resolvedWinners=${JSON.stringify(table.resolvedWinners)} s.players.isWinner=${JSON.stringify(s.players.map(p => ({id: p.id, isWinner: p.isWinner})))} winnerSeatIds=${JSON.stringify([...winnerSeatIds])}`);
   table.resolvedWinners = undefined;
 
   const settlements: Array<{ player: Player; identityId: string; isWinner: boolean; deltaChips: number }> = [];
