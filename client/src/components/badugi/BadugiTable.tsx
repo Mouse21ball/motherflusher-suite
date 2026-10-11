@@ -11,8 +11,7 @@ import { Crown } from 'lucide-react';
 import { OpponentStrip } from '@/components/game/OpponentStrip';
 import { YourHandPanel } from '@/components/game/YourHandPanel';
 import { PhaseTracker } from '@/components/game/PhaseTracker';
-import { ShuffleAnimation } from './ShuffleAnimation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { CardHand } from '@/components/flushedUp/CardHand';
 import type { CardAnimState } from '@/components/flushedUp/useCardAnimations';
@@ -59,19 +58,7 @@ export interface BadugiTableProps {
 export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isDrawPhase, animState }: BadugiTableProps) {
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
-
-  // Shuffle animation: show for 3s when a new hand starts (Detroit 2026-10-10)
-  const [showShuffle, setShowShuffle] = useState(false);
-  const prevPhase = useRef(state.phase);
-  useEffect(() => {
-    // New hand: phase went from SHOWDOWN/WAITING to ANTE/DRAW_1, or hero got cards
-    const wasEnd = prevPhase.current === 'SHOWDOWN' || prevPhase.current === 'WAITING';
-    const isStart = state.phase === 'ANTE' || state.phase === 'DRAW_1';
-    if (wasEnd && isStart && me && me.cards.length > 0) {
-      setShowShuffle(true);
-    }
-    prevPhase.current = state.phase;
-  }, [state.phase, me?.cards.length]);
+  const [tableRoot, setTableRoot] = useState<HTMLElement | null>(null);
 
   /* Read-only evaluator powers the live hand label; it never changes game state. */
   const heroHandEval = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
@@ -128,13 +115,14 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   return (<>
     {/* Hero-centric: opponent strip at top (Detroit 2026-10-10) */}
     <OpponentStrip opponents={gridOpps} activePlayerId={state.activePlayerId ?? undefined} phase={state.phase} />
-    {showShuffle && <ShuffleAnimation onComplete={() => setShowShuffle(false)} />}
     <TableBoard gameAccent="#8B5CF6" title="BADUGI" subtitle="4-CARD DRAW" phase={state.phase} heroCards={heroCards} heroPlayerId={myId}
-      pot={state.pot > 0 ? <AnimatedPot pot={state.pot}
+      rootRef={setTableRoot}
+      pot={state.pot > 0 ? <div data-pot-anchor style={{ position: 'relative' }}><AnimatedPot pot={state.pot}
         activeCount={state.players.filter(p => p.status === 'active').length}
-        totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /> : undefined}>
+        totalCount={state.players.filter(p => p.presence === 'human' || p.status === 'active').length} /></div> : undefined}>
     {/* Effects only — no table layout (free-floating per Detroit 2026-10-10) */}
-    <BadugiTableEffects state={state} tableRoot={null} />
+    <div data-muck-anchor aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '40%', width: 2, height: 2, pointerEvents: 'none' }} />
+    <BadugiTableEffects state={state} tableRoot={tableRoot} />
     </TableBoard>
   </>);
 }
