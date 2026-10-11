@@ -4216,6 +4216,14 @@ export class MemStorage implements IStorage {
       .set({ status: action, updatedAt: new Date() })
       .where(and(eq(friendRequests.id, requestId), eq(friendRequests.recipientId, actorId), eq(friendRequests.status, "pending")))
       .returning();
+    // Detroit 2026-10-11: two-sided chip reward when friendship is confirmed (2,500 each, matches referral)
+    if (updated && action === "accepted") {
+      const FRIEND_BONUS = 2500;
+      await Promise.all([
+        this.addChipsToPlayer(request.requesterId, FRIEND_BONUS, { reason: "friend_bonus", source: "friend_accept" }),
+        this.addChipsToPlayer(request.recipientId, FRIEND_BONUS, { reason: "friend_bonus", source: "friend_accept" }),
+      ]).catch(err => console.error("[friends] Failed to award friend bonus:", err));
+    }
     if (updated) return { id: updated.id, status: updated.status };
     const [raced] = await db.select().from(friendRequests).where(eq(friendRequests.id, requestId)).limit(1);
     if (raced?.recipientId === actorId && raced.status === action) return { id: raced.id, status: raced.status };
