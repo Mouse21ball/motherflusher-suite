@@ -319,23 +319,12 @@ export function BoxChevyActionBar({
 
       </div>
 
-      {/* Stats bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>POT</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}><ChipIcon />{pot}</span>
-        </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>PLAYERS</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{humanCount}</span>
-        </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
+      {/* Stats bar — compact: header already shows pot/players, so only stack + rebuy here */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '6px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>YOUR STACK</span>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#F97316', fontWeight: 700 }}><ChipIcon />{heroChips.toLocaleString()}</span>
         </div>
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
         <button
           onClick={onRebuy}
           data-testid="button-rebuy"
