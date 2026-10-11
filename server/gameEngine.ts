@@ -968,7 +968,9 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
   const nonFolded = s.players.filter(p => p.status === 'active');
 
   if (nonFolded.length === 1) {
-    const winner = nonFolded[0];
+    // Detroit 2026-10-11: uncontested Badugi pots ROLL OVER to the next hand —
+    // the survivor does not take it. Matches Flushed Up / Box Chevy behavior.
+    const survivor = nonFolded[0];
     const pot = s.pot;
     table.resolvedPot = pot;
     const { winnerPot, rake } = applyRake(pot);
@@ -982,29 +984,25 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
         netPot:       winnerPot,
       }).catch(console.error);
     }
-    const newPlayers = s.players.map(p =>
-      p.id === winner.id
-        ? { ...p, chips: p.chips + winnerPot, isWinner: true, hasActed: true }
-        : { ...p, isWinner: false }
-    );
-    const winMsg = `${winner.name} wins $${winnerPot} (all opponents folded)`;
+    const newPlayers = s.players.map(p => ({ ...p, isWinner: false, hasActed: true }));
+    const rollMsg = `All opponents folded — $${winnerPot} rolls over to the next hand!`;
     table.state = {
       ...s,
       players: newPlayers,
       winStreaks: confirmedWinStreaks(s, newPlayers),
-      pot: 0,
+      pot: winnerPot,
       phase: 'SHOWDOWN' as GamePhase,
-      activePlayerId: winner.id,
+      activePlayerId: survivor.id,
       currentBet: 0,
       messages: [
         ...s.messages,
-        { id: makeId(), text: winMsg, time: Date.now(), isResolution: true },
+        { id: makeId(), text: rollMsg, time: Date.now(), isResolution: true },
       ].slice(-10),
     };
     engineLog('PHASE', table.tableId, {
-      from: s.phase, to: 'SHOWDOWN', reason: 'win-by-fold', winner: winner.id, pot: winnerPot,
+      from: s.phase, to: 'SHOWDOWN', reason: 'fold-rollover', survivor: survivor.id, pot: winnerPot,
     });
-    console.log(`[CGP][server] win-by-fold badugi:${table.tableId} winner=${winner.id} pot=$${winnerPot} (rake=$${rake}) from=${s.phase}`);
+    console.log(`[CGP][server] fold-rollover badugi:${table.tableId} survivor=${survivor.id} carry=$${winnerPot} (rake=$${rake}) from=${s.phase}`);
 
     for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
     table.botTimers.clear();
