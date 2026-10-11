@@ -1056,3 +1056,23 @@
   box-shadow: none !important;
   outline: none !important;
 }
+
+/* Detroit 2026-10-10: panels truly invisible — no box edges at all.
+   Content floats on the yard; only a whisper of frost behind it. */
+.yard-table-board .your-hand-panel,
+.yard-table-board .phase-tracker,
+.yard-table-board .yard-discard-prompt,
+.yard-table-board .opp-discard-badge {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: rgba(21,10,46,0.18) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+/* Action buttons: no borders either */
+.yard-table-board .yard-action-bar button {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
