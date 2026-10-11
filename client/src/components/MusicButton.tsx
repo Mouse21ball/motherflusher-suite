@@ -13,13 +13,20 @@ interface MusicButtonProps {
    * Default: 'left'
    */
   popoverAlign?: 'left' | 'right';
+  /**
+   * Which way the popover opens.
+   * 'up'   → popover appears above the button (default; for bottom bars)
+   * 'down' → popover appears below the button (for top headers — 'up' would
+   *           render off-screen and the menu becomes unreachable)
+   */
+  popoverDirection?: 'up' | 'down';
 }
 
 /**
  * Circular music control button. Click to open a compact volume popover
  * with a mute toggle and volume slider. Click outside to dismiss.
  */
-export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }: MusicButtonProps) {
+export function MusicButton({ className = '', size = 36, popoverAlign = 'left', popoverDirection = 'up' }: MusicButtonProps) {
   const [muted,  setMuted]  = useState(() => music.muted);
   const [volume, setVolume] = useState(() => music.volume);
   const [repeat, setRepeat] = useState(() => music.repeat);
@@ -53,6 +60,12 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }
   const popoverEdge: React.CSSProperties = popoverAlign === 'right'
     ? { right: 0 }
     : { left: 0 };
+
+  // Vertical placement: above the button by default; below it when the button
+  // sits in a top header (opening upward would render off-screen).
+  const popoverVertical: React.CSSProperties = popoverDirection === 'down'
+    ? { top: `calc(100% + 8px)` }
+    : { bottom: `calc(100% + 8px)` };
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
@@ -99,7 +112,7 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left' }
       {open && (
         <div style={{
           position: 'absolute',
-          bottom: `calc(100% + 8px)`,
+          ...popoverVertical,
           ...popoverEdge,
           background: 'rgba(10,10,14,0.96)',
           border: '1px solid rgba(255,255,255,0.12)',
