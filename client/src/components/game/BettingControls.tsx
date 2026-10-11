@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   canRaiseTo,
   createBettingContext,
@@ -122,13 +123,17 @@ export function BettingControls({
         </button>
       </div>
 
-      {/* Raise popup — slider + presets + confirm */}
-      {raiseOpen && canAct && (
+      {/* Raise popup — bottom sheet via portal so it can never be clipped by
+          table scroll containers or stacking contexts; confirm always visible */}
+      {raiseOpen && canAct && createPortal(
         <div data-testid="raise-popup"
-          style={{ position: 'absolute', bottom: '100%', left: 8, right: 8, marginBottom: 6,
-            background: 'rgba(21,10,46,.96)', backdropFilter: 'blur(16px)',
-            borderRadius: 14, padding: '12px', zIndex: 50,
-            boxShadow: '0 -4px 24px rgba(0,0,0,.5)' }}>
+          style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9999,
+            background: 'rgba(21,10,46,.97)', backdropFilter: 'blur(16px)',
+            borderTop: '1px solid rgba(242,193,78,.25)',
+            borderTopLeftRadius: 18, borderTopRightRadius: 18,
+            padding: '14px 16px calc(16px + env(safe-area-inset-bottom))',
+            boxShadow: '0 -8px 32px rgba(0,0,0,.6)' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 11, letterSpacing: '0.08em', color: '#C4B5FD' }}>
               {context.currentBet > 0 ? 'RAISE TO' : 'BET'}
@@ -163,12 +168,12 @@ export function BettingControls({
           </div>
           {/* Confirm / cancel */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
-            <button type="button" style={{ ...buttonStyle, minHeight: 40 }}
+            <button type="button" style={{ ...buttonStyle, minHeight: 48 }}
               onClick={() => setRaiseOpen(false)} data-testid="button-raise-cancel">
               CANCEL
             </button>
             <button type="button"
-              style={{ ...buttonStyle, minHeight: 40,
+              style={{ ...buttonStyle, minHeight: 48,
                 background: validRaise ? 'linear-gradient(135deg,#7a1010,#dc2626)' : 'rgba(50,10,10,.5)',
                 color: '#fff', opacity: validRaise ? 1 : 0.45 }}
               disabled={!validRaise}
@@ -177,7 +182,9 @@ export function BettingControls({
               {context.currentBet > 0 ? 'RAISE' : 'BET'} ${raiseTo?.toLocaleString() ?? '—'}
             </button>
           </div>
-        </div>
+          </div>
+        </div>,
+        document.body
       )}
     </section>
   );
