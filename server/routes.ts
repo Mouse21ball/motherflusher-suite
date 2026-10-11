@@ -98,7 +98,7 @@ import { registerLeaderboardRoute } from "./leaderboardRoutes";
 import { adMobAdUnitMatches, getAdMobVerifierKeys, isAdMobSsvSetupPing, verifyAdMobSsvQuery } from "./admobSsv";
 import { isRewardedAdTestModeEnabled, rewardedAdUnitId } from "./rewardedAdConfig";
 import { DEFAULT_STAKE_TIER_ID, getBuyInBounds, getStakeTier, type StakeTierId } from "@shared/stakeTiers";
-import { notificationDevices, notificationPreferences, sessions } from "@shared/schema";
+import { notificationDevices, notificationPreferences, playerProfiles, sessions } from "@shared/schema";
 import { and, eq, gt, or } from "drizzle-orm";
 import { recordMeaningfulActivity } from "./activity";
 import {
@@ -532,6 +532,38 @@ export async function registerRoutes(
     };
   app.post("/api/friends/requests/:id/accept", requireAuth, generalApiRateLimit, respondToFriendRequest("accepted"));
   app.post("/api/friends/requests/:id/decline", requireAuth, generalApiRateLimit, respondToFriendRequest("declined"));
+
+  // Get my invite code (Detroit 2026-10-11: friend discovery via codes)
+  app.get("/api/friends/invite-code", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const code = await storage.getPlayerReferralCode(req.sessionPlayerId!);
+      if (!code) return res.status(404).json({ error: "No invite code found" });
+      res.json({ code });
+    } catch (err) {
+      console.error("[friends] Failed to get invite code:", err);
+      res.status(500).json({ error: "Failed to get invite code" });
+    }
+  });
+
+  // Redeem a friend's invite code → sends friend request (Detroit 2026-10-11)
+  app.post("/api/friends/by-code", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const parsed = z.object({ code: z.string().min(4).max(16) }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid code" });
+      const code = parsed.data.code.trim().toUpperCase();
+      const [target] = await db.select({ id: playerProfiles.id })
+        .from(playerProfiles)
+        .where(eq(playerProfiles.referralCode, code))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: "Code not found. Check it and try again." });
+      if (target.id === req.sessionPlayerId) return res.status(400).json({ error: "That's your own code" });
+      const result = await storage.sendFriendRequest(req.sessionPlayerId!, target.id);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[friends] Failed to redeem invite code:", err);
+      res.status(500).json({ error: err.message ?? "Failed to send friend request" });
+    }
+  });
 
   // Public, read-only build provenance for the exact server artifact handling requests.
   app.get("/api/version", (_req, res) => {
