@@ -454,6 +454,7 @@ export type ChipTxReason =
   | 'iap_purchase'   // Fix B: Google Play IAP audit (amountChange=0; Stripes credited separately)
   | 'club_distribution'
   | 'personal_gift'
+  | 'friend_bonus'   // Detroit 2026-10-11: two-sided reward when friend request accepted
   | 'other';
 
 export const chipTransactions = pgTable("chip_transactions", {
