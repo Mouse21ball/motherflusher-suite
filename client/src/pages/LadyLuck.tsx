@@ -1402,10 +1402,10 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
           {isFinal && (
             <div style={{ fontFamily: 'monospace', fontSize: 8, color: '#f59e0b', letterSpacing: 2 }}>⚡ FINAL STRETCH</div>
           )}
-          {/* Laps */}
+          {/* Flips */}
           <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textAlign: 'right' }}>
-            <div style={{ color: '#C9A227', fontSize: 11, fontFamily: 'Anton, Georgia, serif' }}>{flipCount}/9</div>
-            <div style={{ fontSize: 6, letterSpacing: 2, marginTop: -1 }}>LAPS COMPLETED</div>
+            <div style={{ color: '#C9A227', fontSize: 11, fontFamily: 'Anton, Georgia, serif' }}>FLIP {flipCount}</div>
+            <div style={{ fontSize: 6, letterSpacing: 2, marginTop: -1 }}>FIRST TO 9 WINS</div>
           </div>
         </div>
 
