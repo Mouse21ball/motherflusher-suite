@@ -27,6 +27,7 @@ export const playerProfiles = pgTable("player_profiles", {
   handsWon:             integer("hands_won").notNull().default(0),
   xp:                   integer("xp").notNull().default(0),
   xpBackfilled:         boolean("xp_backfilled").notNull().default(false),
+  xpAchievementsBackfilled: boolean("xp_achievements_backfilled").notNull().default(false),
   xpWinStreak:          integer("xp_win_streak").notNull().default(0),
   xpLossStreak:         integer("xp_loss_streak").notNull().default(0),
   xpBiggestPot:         integer("xp_biggest_pot").notNull().default(0),

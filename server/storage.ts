@@ -1285,10 +1285,77 @@ export class MemStorage implements IStorage {
   private async ensureHistoricalXP(id: string): Promise<void> {
     // An existing profile receives base XP exactly once, including after a
     // publish that applies schema changes without running data migrations.
-    await db.update(playerProfiles).set({
-      xp: sql`${playerProfiles.handsPlayed} * 10`,
-      xpBackfilled: true,
-    }).where(and(eq(playerProfiles.id, id), eq(playerProfiles.xpBackfilled, false)));
+    // Detroit 2026-10-12: also backfill achievements based on existing stats.
+    let p: any;
+    try {
+      const rows = await db.select({
+        handsPlayed: playerProfiles.handsPlayed,
+        handsWon: playerProfiles.handsWon,
+        xpWinStreak: playerProfiles.xpWinStreak,
+        xpBiggestPot: playerProfiles.xpBiggestPot,
+        xpBadugisWon: playerProfiles.xpBadugisWon,
+        xpModesPlayed: playerProfiles.xpModesPlayed,
+        xpAchievements: playerProfiles.xpAchievements,
+        xpBackfilled: playerProfiles.xpBackfilled,
+        xpAchievementsBackfilled: playerProfiles.xpAchievementsBackfilled,
+      }).from(playerProfiles).where(eq(playerProfiles.id, id)).limit(1);
+      p = rows[0];
+    } catch {
+      // Column may not exist until migration runs — fall back to basic query
+      const rows = await db.select({
+        handsPlayed: playerProfiles.handsPlayed,
+        xpBackfilled: playerProfiles.xpBackfilled,
+      }).from(playerProfiles).where(eq(playerProfiles.id, id)).limit(1);
+      p = rows[0];
+      if (!p) return;
+      if (!p.xpBackfilled) {
+        await db.update(playerProfiles).set({
+          xp: sql`${playerProfiles.handsPlayed} * 10`,
+          xpBackfilled: true,
+        }).where(eq(playerProfiles.id, id));
+      }
+      return;
+    }
+    if (!p) return;
+
+    // XP backfill (original logic)
+    if (!p.xpBackfilled) {
+      await db.update(playerProfiles).set({
+        xp: sql`${playerProfiles.handsPlayed} * 10`,
+        xpBackfilled: true,
+      }).where(eq(playerProfiles.id, id));
+    }
+
+    // Achievement backfill (Detroit 2026-10-12) — runs once per player
+    // Wrapped in try/catch: column may not exist until migration runs
+    try {
+      if (!p.xpAchievementsBackfilled) {
+      const achievements: string[] = [...(p.xpAchievements ?? [])];
+      const conditions: Record<string, boolean> = {
+        first_win: (p.handsWon ?? 0) >= 1,
+        hat_trick: (p.xpWinStreak ?? 0) >= 3,
+        high_roller: (p.xpBiggestPot ?? 0) >= 10,
+        globe_trotter: (p.xpModesPlayed ?? []).length >= 4,
+        century: (p.handsPlayed ?? 0) >= 100,
+        sharp: (p.handsWon ?? 0) >= 50,
+        on_fire: (p.xpWinStreak ?? 0) >= 5,
+        badugi_master: (p.xpBadugisWon ?? 0) >= 10,
+        unstoppable: (p.xpWinStreak ?? 0) >= 10,
+        legend: (p.handsWon ?? 0) >= 200,
+        grinder: (p.handsPlayed ?? 0) >= 500,
+        // comeback: requires win after 3+ losses — can't backfill reliably, skip
+      };
+      for (const [achId, met] of Object.entries(conditions)) {
+        if (met && !achievements.includes(achId)) achievements.push(achId);
+      }
+      await db.update(playerProfiles).set({
+        xpAchievements: achievements,
+        xpAchievementsBackfilled: true,
+      }).where(eq(playerProfiles.id, id));
+      }
+    } catch {
+      // Column doesn't exist yet — migration will add it
+    }
   }
 
   async getPlayerIsAdmin(id: string): Promise<boolean> {
