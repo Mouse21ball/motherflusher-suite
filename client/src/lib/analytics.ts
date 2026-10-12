@@ -16,10 +16,19 @@ export function fire2(eventType: FunnelEventType, props: Record<string, unknown>
     const mode = analyticsMode(props.mode);
     if (props.mode !== undefined && !mode) return;
     const playerId = getPlayerId();
-    funnelSessionId ??= crypto.randomUUID();
+    try {
+      funnelSessionId ??= (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    } catch { funnelSessionId ??= `sess-${Date.now()}`; }
     sessionPlayerId ??= playerId;
-    const platform = Capacitor.getPlatform() as "ios" | "android" | "web";
-    const release = APP_RELEASE_INFO[platform];
+    let platform: string = 'web';
+    try {
+      platform = (typeof Capacitor !== 'undefined' && Capacitor.getPlatform ? Capacitor.getPlatform() : 'web') as string;
+    } catch { platform = 'web'; }
+    let release: { build: string | number; version: string } = { build: 'unknown', version: 'unknown' };
+    try {
+      const r = (APP_RELEASE_INFO as Record<string, { build: string | number; version: string }>)[platform];
+      if (r) release = r;
+    } catch {}
     fetch(apiUrl("/api/analytics/track"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },

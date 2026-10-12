@@ -575,7 +575,7 @@ export async function registerRoutes(
   // POST /api/badugi/:tableId/waitlist — join the waitlist for a full table
   app.post("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
     try {
-      const table = getBadugiTable(req.params.tableId);
+      const table = getBadugiTable(req.params.tableId as string);
       if (!table) return res.status(404).json({ error: "Table not found" });
       const identityId = req.sessionPlayerId!;
       // Already seated?
@@ -603,7 +603,7 @@ export async function registerRoutes(
   // DELETE /api/badugi/:tableId/waitlist — leave the waitlist
   app.delete("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
     try {
-      const table = getBadugiTable(req.params.tableId);
+      const table = getBadugiTable(req.params.tableId as string);
       if (!table) return res.status(404).json({ error: "Table not found" });
       const identityId = req.sessionPlayerId!;
       const idx = table.waitlist.findIndex(w => w.identityId === identityId);
@@ -617,7 +617,7 @@ export async function registerRoutes(
   // GET /api/badugi/:tableId/waitlist — check waitlist position
   app.get("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
     try {
-      const table = getBadugiTable(req.params.tableId);
+      const table = getBadugiTable(req.params.tableId as string);
       if (!table) return res.status(404).json({ error: "Table not found" });
       const identityId = req.sessionPlayerId!;
       // Check if promoted (now seated)

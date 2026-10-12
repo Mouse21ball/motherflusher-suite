@@ -93,7 +93,11 @@ export default function Profile() {
   const stats       = getPlayerStats();
   const chips       = getAllChips();
   const serverAchievements = serverProfile?.achievements ?? null;
-  const unlocked    = serverAchievements ?? getUnlockedAchievements();
+  const unlocked: Achievement[] = serverAchievements
+    ? serverAchievements
+        .map(id => ACHIEVEMENTS.find(a => a.id === id))
+        .filter((a): a is Achievement => !!a)
+    : getUnlockedAchievements();
   const initials    = getAvatarInitials(identity.name);
   const avatarColor = getAvatarColor(identity.avatarSeed);
   const totalChips  = Object.values(chips).reduce((s, c) => s + c, 0);
