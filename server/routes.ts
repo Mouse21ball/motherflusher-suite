@@ -19,6 +19,7 @@ import { z } from "zod";
 import {
   getActiveBadugiTables,
   hasBadugiRewardedAdBust,
+  getBadugiTable,
   getBadugiTablePhase,
   getPlayerBadugiTablePhases,
   getConnectedBadugiPlayers,
@@ -567,6 +568,67 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("[friends] Failed to redeem invite code:", err);
       res.status(500).json({ error: err.message ?? "Failed to send friend request" });
+    }
+  });
+
+  // ── Badugi waitlist (Detroit 2026-10-12) ──────────────────────────────────
+  // POST /api/badugi/:tableId/waitlist — join the waitlist for a full table
+  app.post("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const table = getBadugiTable(req.params.tableId);
+      if (!table) return res.status(404).json({ error: "Table not found" });
+      const identityId = req.sessionPlayerId!;
+      // Already seated?
+      const seated = table.state.players.some(p =>
+        table.seatToIdentityId.get(p.id) === identityId && p.presence === 'human');
+      if (seated) return res.status(400).json({ error: "You're already seated" });
+      // Already waitlisted?
+      const existing = table.waitlist.findIndex(w => w.identityId === identityId);
+      if (existing >= 0) return res.json({ position: existing + 1, already: true });
+      const profile = await storage.getPlayerProfile(identityId);
+      table.waitlist.push({
+        playerId: `waitlist-${identityId.slice(0, 8)}`,
+        identityId,
+        name: profile?.displayName ?? "Player",
+        ws: null as any, // HTTP polling, no WS needed
+        joinedAt: Date.now(),
+      });
+      res.json({ position: table.waitlist.length });
+    } catch (err) {
+      console.error("[waitlist] join failed:", err);
+      res.status(500).json({ error: "Failed to join waitlist" });
+    }
+  });
+
+  // DELETE /api/badugi/:tableId/waitlist — leave the waitlist
+  app.delete("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const table = getBadugiTable(req.params.tableId);
+      if (!table) return res.status(404).json({ error: "Table not found" });
+      const identityId = req.sessionPlayerId!;
+      const idx = table.waitlist.findIndex(w => w.identityId === identityId);
+      if (idx >= 0) table.waitlist.splice(idx, 1);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to leave waitlist" });
+    }
+  });
+
+  // GET /api/badugi/:tableId/waitlist — check waitlist position
+  app.get("/api/badugi/:tableId/waitlist", requireAuth, generalApiRateLimit, async (req, res) => {
+    try {
+      const table = getBadugiTable(req.params.tableId);
+      if (!table) return res.status(404).json({ error: "Table not found" });
+      const identityId = req.sessionPlayerId!;
+      // Check if promoted (now seated)
+      const seated = table.state.players.find(p =>
+        table.seatToIdentityId.get(p.id) === identityId && p.presence === 'human');
+      if (seated) return res.json({ position: 0, promoted: true, seatId: seated.id });
+      const idx = table.waitlist.findIndex(w => w.identityId === identityId);
+      if (idx < 0) return res.json({ position: -1 });
+      res.json({ position: idx + 1, total: table.waitlist.length });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to check waitlist" });
     }
   });
 

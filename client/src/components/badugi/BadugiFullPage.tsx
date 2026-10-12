@@ -249,7 +249,7 @@ export function BadugiFullPage({
         />
       )}
 
-      {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} openSeats={openSeatsCount} onTakeSeat={() => window.location.reload()} />}
+      {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} openSeats={openSeatsCount} onTakeSeat={() => window.location.reload()} tableId={tableId} />}
       {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <SpectatorWatchingBadge count={state.spectatorCount} />

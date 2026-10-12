@@ -1300,31 +1300,72 @@ function releaseSeat(table: AuthTable, seat: string): void {
     }
     broadcastState(table);
     scheduleNextBot(table);
-  } else if (phase === 'ANTE' && table.state.activePlayerId === seat) {
-    // Freed seat was the active ante player — advance to the next eligible player
-    // so the ante round does not stall waiting for a now-empty seat.
-    const myIdx  = table.state.players.findIndex(p => p.id === seat);
-    const nextIdx = getNextActivePlayerIndex(table.state.players, myIdx, false);
-    table.state = { ...table.state, activePlayerId: table.state.players[nextIdx].id };
+  } else {
+    // Between hands: try to promote from waitlist
+    promoteFromWaitlist(table);
+  }
+}
+
+// ── Waitlist promotion (Detroit 2026-10-12) ──────────────────────────────────
+// When a seat opens between hands, immediately give it to the first waitlisted
+// player instead of just notifying them.
+function promoteFromWaitlist(table: AuthTable): void {
+  if (table.waitlist.length === 0) {
     broadcastState(table);
     scheduleNextBot(table);
-  } else {
+    return;
+  }
+  // Find an open/reserved seat
+  const openSeat = table.state.players.find(p => p.presence === 'open' || p.presence === 'reserved');
+  if (!openSeat) {
     broadcastState(table);
+    scheduleNextBot(table);
+    return;
   }
-
-  // ── Waitlist: notify next player when a seat opens between hands (Detroit 2026-10-11)
-  if (isBetweenHands && table.waitlist.length > 0) {
-    const next = table.waitlist[0];
-    if (next) {
-      try {
-        next.ws.send(JSON.stringify({
-          type: 'badugi:waitlist_ready',
-          tableId: table.tableId,
-          position: 1,
-        }));
-      } catch {}
-    }
+  const next = table.waitlist.shift()!;
+  // Claim the seat for the waitlisted player
+  table.state = {
+    ...table.state,
+    players: table.state.players.map(p => {
+      if (p.id !== openSeat.id) return p;
+      return {
+        ...p,
+        presence: 'human' as const,
+        status: 'active' as const,
+        name: next.name,
+        cards: [],
+        bet: 0,
+        totalBet: 0,
+        chips: 10000, // Will be synced from profile
+      };
+    }),
+  };
+  table.seatToIdentityId.set(openSeat.id, next.identityId);
+  table.humanSeats.add(openSeat.id);
+  // Notify the promoted player (WS if connected, otherwise they poll)
+  if (next.ws) {
+    try {
+      next.ws.send(JSON.stringify({
+        type: 'badugi:waitlist_ready',
+        tableId: table.tableId,
+        seatId: openSeat.id,
+        promoted: true,
+      }));
+    } catch {}
   }
+  broadcastState(table);
+  scheduleNextBot(table);
+  // Notify remaining waitlist of position updates (WS only)
+  table.waitlist.forEach((w, idx) => {
+    if (!w.ws) return;
+    try {
+      w.ws.send(JSON.stringify({
+        type: 'badugi:waitlist_update',
+        tableId: table.tableId,
+        position: idx + 1,
+      }));
+    } catch {}
+  });
 }
 
 // ─── Bot action execution ─────────────────────────────────────────────────────
@@ -1702,6 +1743,10 @@ export function getConnectedBadugiIdentityIds(tableId: string): string[] {
   const table = tables.get(tableId);
   if (!table) return [];
   return [...table.connections.keys()].map(seat => table.seatToIdentityId.get(seat)).filter((id): id is string => !!id);
+}
+
+export function getBadugiTable(tableId: string): AuthTable | undefined {
+  return tables.get(tableId);
 }
 
 export function getOrCreateBadugiTable(
