@@ -26,8 +26,8 @@ export function AvatarWithFrame({ avatarSrc, frameSrc, initials, initialsColor, 
         inset: '12%',
         borderRadius: '50%',
         overflow: 'hidden',
-        background: frameSrc ? 'rgba(0,0,0,0.6)' : 'rgba(245,158,11,0.16)',
-        border: frameSrc ? 'none' : '2px solid rgba(245,158,11,0.55)',
+        background: frameSrc ? 'rgba(0,0,0,0.6)' : 'rgba(139,92,246,0.16)',
+        border: frameSrc ? 'none' : '2px solid rgba(139,92,246,0.55)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -36,7 +36,7 @@ export function AvatarWithFrame({ avatarSrc, frameSrc, initials, initialsColor, 
         {avatarSrc ? (
           <img src={avatarSrc} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontWeight: 700, fontSize: size * 0.28, color: initialsColor ?? '#F0B829', fontFamily: 'monospace' }}>{initials}</span>
+          <span style={{ fontWeight: 700, fontSize: size * 0.28, color: initialsColor ?? '#C4B5FD', fontFamily: 'monospace' }}>{initials}</span>
         )}
       </div>
 

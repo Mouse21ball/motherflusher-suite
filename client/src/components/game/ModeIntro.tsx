@@ -151,7 +151,7 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
         </div>
 
         {/* Slide content */}
-        <div className="px-5 pb-2 min-h-[220px]">
+        <div className="px-5 pb-2 min-h-[220px] max-h-[60vh] overflow-y-auto">
           {page === 0 && <SlideObjective title={title} objective={objective} accentColor={accentColor} />}
           {page === 1 && <SlideHowTo steps={steps} />}
           {page === 2 && proTip && <SlideProTip proTip={proTip} onDismiss={dismiss} />}
@@ -233,14 +233,14 @@ export const MODE_INTROS: Record<string, Omit<ModeIntroProps, "modeId">> = {
   },
   ladyluck: {
     title: "Lady Luck",
-    objective: "A shuffled full 52-card deck—including Queens—starts the race. Pick a suit, then watch the cards turn: the first suit seen 9 times wins.",
+    objective: "Pick a suit, then watch the cards flip. First suit seen 9 times wins the pot.",
     steps: [
-      "Choose one of the four unique suits (not a Queen card), starting with the seat left of the dealer",
-      "Wager in 100-chip increments; room ranges are Pony 100–500, Thoroughbred 500–2,000, and Champion 2,000–5,000",
-      "Cards flip one at a time; the first suit to appear 9 times wins",
-      "Your main wager goes into the main pot, awarded to the winning suit after rake",
+      "Choose one of the four suits (not a Queen), starting left of the dealer",
+      "Wager in 100-chip increments: Pony 100–500, Thoroughbred 500–2K, Champion 2K–5K",
+      "Cards flip one at a time; first suit to 9 wins",
+      "Main wager goes to the winning suit's pot, minus rake",
     ],
-    proTip: "Optional side bets are separate from the main pot: a winning side bet pays 2.5× its stake gross, minus rake. You can skip side bets and play with your main wager only.",
+    proTip: "Side bets are separate from the main pot: a winning side bet pays 2.5× gross, minus rake. Skip them and play main wager only if you prefer.",
     accentColor: "from-rose-800/60 to-[#141417]",
   },
   box_chevy: {

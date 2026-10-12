@@ -599,7 +599,8 @@ export default function Home() {
           {todayQuest && (() => {
             const modeId = todayQuest.modeId === 'flushed_up' ? 'flushedup' : todayQuest.modeId ?? 'badugi';
             const artwork = MODE_CARD_CONFIGS.find(mode => mode.id === modeId) ?? MODE_CARD_CONFIGS[0];
-            const hands = Math.min(todayQuestHands, todayQuest.requiredHands);
+            // Detroit 2026-10-12: don't show 0/10 while loading — show … instead
+            const hands = questData ? Math.min(todayQuestHands, todayQuest.requiredHands) : null;
             const claimed = todayQuestClaimed;
             const eligible = todayQuestEligible && !claimed;
             return <article className="yard-mission-card">
@@ -607,8 +608,8 @@ export default function Home() {
               <div className="yard-mission-copy">
                 <span className="yard-mission-mode">{artwork.title}</span>
                 <h3>{todayQuest.description}</h3>
-                <div className="yard-mission-progress"><span>{hands}/{todayQuest.requiredHands}</span><span>+{todayQuest.stripes} STRIPES</span></div>
-                <div className="yard-mission-track"><i style={{ width: `${todayQuestPct}%` }} /></div>
+                <div className="yard-mission-progress"><span>{hands === null ? '…' : `${hands}/${todayQuest.requiredHands}`}</span><span>+{todayQuest.stripes} STRIPES</span></div>
+                <div className="yard-mission-track"><i style={{ width: `${hands === null ? 0 : todayQuestPct}%` }} /></div>
               </div>
               {claimed ? <button type="button" className="yard-mission-state is-done" disabled>DONE</button>
                 : eligible ? <button type="button" className="yard-mission-state is-claim" disabled={!!questClaiming} onClick={() => void claimQuestById(todayQuest.questId, todayQuest.stripes)}>{questClaiming === todayQuest.questId ? 'CLAIMING' : 'CLAIM'}</button>

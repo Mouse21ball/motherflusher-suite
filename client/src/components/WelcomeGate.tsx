@@ -34,6 +34,8 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
   const [name,  setName]    = useState(getInitialPlayerName);
   const [welcomeBackOpen, setWelcomeBackOpen] = useState(() => {
     try {
+      // Detroit 2026-10-12: only show once per session
+      if (sessionStorage.getItem('cgp_welcome_back_shown') === '1') return false;
       if (sessionStorage.getItem('cgp_skip_welcome_back_once') === '1') {
         sessionStorage.removeItem('cgp_skip_welcome_back_once');
         autoDismissPending.current = Boolean(getInitialPlayerName());
@@ -45,6 +47,7 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
   useEffect(() => {
     if (ageOk && name && autoDismissPending.current) {
       autoDismissPending.current = false;
+      try { sessionStorage.setItem('cgp_welcome_back_shown', '1'); } catch {}
       fire2("welcome_back_dismissed", { via: "auto" });
     }
   }, [ageOk, name]);
@@ -67,7 +70,7 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
   }
   if (onLegalPage) return <>{children}</>;
   if (name && welcomeBackOpen) {
-    return <WelcomeBackScreen name={name} onPlay={() => { fire2("welcome_back_dismissed", { via: "play_now" }); setWelcomeBackOpen(false); }} />;
+    return <WelcomeBackScreen name={name} onPlay={() => { fire2("welcome_back_dismissed", { via: "play_now" }); try { sessionStorage.setItem('cgp_welcome_back_shown', '1'); } catch {} setWelcomeBackOpen(false); }} />;
   }
   if (name) return <>{children}</>;
   return <WelcomeScreen onComplete={(n, method) => { setPlayerName(n); fire2("signup_completed", { method, name_length: n.length }); setName(n); }} />;
