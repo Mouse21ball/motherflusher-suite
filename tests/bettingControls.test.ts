@@ -138,16 +138,12 @@ describe.each(actionBars)('%s shared betting controls integration', (_mode, Acti
     const callHtml = renderToStaticMarkup(createElement(ActionBar, { ...props, currentBet: 600 }));
 
     expect(html).toContain('data-testid="betting-controls"');
-    expect(html).toContain('data-testid="input-bet-amount"');
-    expect(html).toContain('value="750"');
-    expect(html).toContain('data-testid="button-bet-quarter-pot"');
-    expect(html).toContain('data-testid="button-bet-half-pot"');
-    expect(html).toContain('data-testid="button-bet-pot"');
-    expect(html).toContain('data-testid="button-bet-two-pot"');
+    // Detroit's spec: betting in one row, raise opens a compact popup (not always-visible input)
     expect(html).toContain('data-testid="button-fold"');
     expect(html).toContain('data-testid="button-check"');
+    expect(html).toContain('data-testid="button-raise-toggle"');
+    expect(html).toContain('data-testid="button-all-in"');
     expect(callHtml).toContain('data-testid="button-call"');
-    expect(html).toContain('data-testid="button-raise"');
     expect(html).toContain('data-testid="button-all-in"');
   });
 });

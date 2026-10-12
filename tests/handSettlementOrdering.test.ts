@@ -101,20 +101,20 @@ describe.each([
   });
 });
 
-it('pays a Badugi sole survivor the entire net pot and starts the next hand with zero', async () => {
+it('rolls over the pot when a Badugi sole survivor remains (Detroit 2026-10-11 rule)', async () => {
   const table = makeTable();
   table.state.players[0].totalBet = 50;
   table.state.players[1].totalBet = 200;
   table.state.players[1].status = 'folded';
   const netPot = 240; // Gross contributions are 250; settlement receives the post-rake pot.
   const result = BadugiMode.resolveShowdown!(table.state.players, netPot, '__server__');
-  expect(result.players[0].chips).toBe(1100 + netPot);
-  expect(result.players[0].isWinner).toBe(true);
-  expect(result.pot).toBe(0);
+  // Uncontested survivor does NOT take the pot — it rolls over to the next hand.
+  expect(result.players[0].chips).toBe(1100);
+  expect(result.pot).toBe(netPot);
 
   table.state = { ...table.state, players: result.players, pot: result.pot };
   vi.spyOn(storage, 'syncPlayerChips').mockResolvedValue(undefined);
   await resetBadugi(table as never);
   expect(table.state.phase).toBe('ANTE');
-  expect(table.state.pot).toBe(0);
+  expect(table.state.pot).toBe(netPot);
 });
