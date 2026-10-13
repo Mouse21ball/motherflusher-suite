@@ -228,6 +228,22 @@ export const sfx = {
     });
   },
 
+  // UNO prototype (Detroit 2026-10-13): higher-pitched tick for hero's own cards
+  dealSelf() {
+    play((ac, t) => {
+      noise(ac, 0.06, 0.14, t, 5200);
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2800, t);
+      osc.frequency.exponentialRampToValueAtTime(1500, t + 0.055);
+      g.gain.setValueAtTime(0.045, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      osc.connect(g).connect(ac.destination);
+      osc.start(t); osc.stop(t + 0.07);
+    });
+  },
+
   bigWin() {
     play((ac, t) => {
       const notes = [523, 659, 784, 1047, 1319, 1568];

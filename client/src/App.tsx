@@ -17,6 +17,7 @@ import { MUSIC_CATALOG } from "@/lib/musicTracks";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
+import ProtoUno from "@/pages/ProtoUno";
 import PracticeBadugiPage from "@/pages/PracticeBadugiPage";
 import FlushedUpGame from "@/pages/FlushedUpGame";
 import BoxChevyGame from "@/pages/BoxChevyGame";
@@ -121,6 +122,7 @@ function Router() {
         <Route path="/crews" component={Crews}/>
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
+        <Route path="/proto-uno" component={ProtoUno}/>
         <Route path="/practice/badugi" component={PracticeBadugiPage}/>
         <Route path="/flushedup" component={FlushedUpGame}/>
         <Route path="/box-chevy" component={BoxChevyGame}/>
