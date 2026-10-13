@@ -44,6 +44,9 @@ interface WinCelebrationProps {
   heroChipChange?: number;
   showSignatureTrace?: boolean;
   onDone: () => void;
+  /** Prototype-style: show any winner's name (Detroit 2026-10-13). If set, shows "WINNER [name]" instead of "YOU WIN!" */
+  winnerName?: string;
+  winnerAmount?: number;
 }
 
 export function WinCelebration({
@@ -51,6 +54,8 @@ export function WinCelebration({
   heroChipChange = 0,
   showSignatureTrace = false,
   onDone,
+  winnerName,
+  winnerAmount,
 }: WinCelebrationProps) {
   const durationMs = isScoop
     ? CELEBRATION_DURATIONS_MS.SWING_SCOOP
@@ -64,7 +69,31 @@ export function WinCelebration({
     return () => clearTimeout(t);
   }, [durationMs]);
 
-  const winContent = (
+  const winContent = winnerName ? (
+    // Prototype-style: any winner (Detroit 2026-10-13)
+    <div
+      style={{
+        padding: '7px 16px',
+        textAlign: 'center',
+        fontFamily: "'Oswald', 'Inter', sans-serif",
+        fontWeight: 900,
+        fontSize: 'clamp(44px, 11vw, 88px)',
+        color: '#FDE68A',
+        letterSpacing: '0.08em',
+        textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
+        WebkitTextStroke: '2px #92400E',
+        animation: `win-text-flash ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1) forwards`,
+      }}
+    >
+      <div>WINNER</div>
+      <div style={{ marginTop: 8, fontSize: '22px', letterSpacing: '0.04em', color: '#fff', WebkitTextStroke: 'none' }}>
+        {winnerName}
+        {winnerAmount !== undefined && winnerAmount > 0 && (
+          <span style={{ color: '#FDE68A', marginLeft: 12 }}>+${winnerAmount.toLocaleString()}</span>
+        )}
+      </div>
+    </div>
+  ) : (
     <div
       style={{
         padding: '7px 16px',
