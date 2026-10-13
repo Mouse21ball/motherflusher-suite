@@ -380,10 +380,12 @@ function useProtoGame() {
       }));
       return { ...s, players };
     });
+    // NOTE: phase stays 'showdown' throughout — changing phase would clear
+    // these timers via the phase-machine effect (Detroit 2026-10-13)
     later(2500, () => {
       setState(s => {
         const winnerIdx = s.players.findIndex(p => p.isWinner);
-        return { ...s, phase: 'settling', rake: { active: true, winnerIndex: winnerIdx, amount: s.pot } };
+        return { ...s, rake: { active: true, winnerIndex: winnerIdx, amount: s.pot } };
       });
       sfx.chipRake();
     });
@@ -393,7 +395,7 @@ function useProtoGame() {
           if (p.isWinner) return { ...p, chips: p.chips + s.pot, bet: 0 };
           return { ...p, bet: 0, cards: [], drewCount: null, isWinner: false, folded: false };
         });
-        // Big celebration: full-screen winner moment (UNO-style)
+        // Big celebration: full-screen winner moment, 5+ seconds (UNO-style)
         const winner = players.find(p => p.isWinner);
         return {
           ...s, players, pot: 0,
@@ -403,7 +405,7 @@ function useProtoGame() {
       });
       sfx.bigWin();
     });
-    later(6200, () => {
+    later(9200, () => {
       setState(s => initialState(s.handNumber + 1));
     });
   }, [later]);
@@ -768,8 +770,9 @@ export function UnoProtoTable() {
         {state.phase === 'dealing' && 'Dealing from the dealer…'}
         {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3') && 'Chips flying to the pot…'}
         {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
-        {state.phase === 'showdown' && 'Showdown — fast reveal'}
-        {state.phase === 'settling' && 'Raking it in…'}
+        {state.phase === 'showdown' && !state.rake.active && !state.celebration.active && 'Showdown — fast reveal'}
+        {state.phase === 'showdown' && state.rake.active && 'Raking it in…'}
+        {state.phase === 'showdown' && state.celebration.active && `${state.celebration.winnerName} takes it down!`}
       </div>
     </div>
   );
