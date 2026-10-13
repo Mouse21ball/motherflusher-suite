@@ -17,8 +17,8 @@ import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
 
-const HERO_CARD_W = 72;
-const HERO_CARD_H = 102;
+const HERO_CARD_W = 97;
+const HERO_CARD_H = 138;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
@@ -226,14 +226,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         style={{ left: `${heroPos.x}%`, top: `${heroPos.y}%` }}
         data-player-seat={myId} data-deal-seat={myId}
       >
-        {state.activePlayerId === myId && (
-          <motion.div
-            className="absolute -inset-3 rounded-2xl pointer-events-none"
-            style={{ border: '2px solid rgba(240,184,41,0.7)' }}
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.2, repeat: Infinity }}
-          />
-        )}
         {isHeroDealer && (
           <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg">D</div>
         )}
