@@ -14,6 +14,8 @@ import { evaluateBadugi } from '@shared/modes/badugi';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 import { BadugiTableEffects } from './BadugiTableEffects';
+import { PotStack } from '@/components/game/PotStack';
+import { WinCelebration } from '@/components/game/WinCelebration';
 
 const HERO_CARD_W = 72;
 const HERO_CARD_H = 102;
@@ -90,6 +92,19 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
   const mySeatNum = myIndex + 1;
 
+  // Win celebration — show for any winner at showdown (Detroit 2026-10-13)
+  const showdownWinner = isShowdown ? state.players.find(p => (p as any).isWinner) : undefined;
+  const [celebrationKey, setCelebrationKey] = useState(0);
+  const [celebratingWinnerId, setCelebratingWinnerId] = useState<string | null>(null);
+  useEffect(() => {
+    if (showdownWinner && celebratingWinnerId !== showdownWinner.id) {
+      setCelebratingWinnerId(showdownWinner.id);
+      setCelebrationKey(k => k + 1);
+    } else if (!isShowdown && celebratingWinnerId) {
+      setCelebratingWinnerId(null);
+    }
+  }, [isShowdown, showdownWinner, celebratingWinnerId]);
+
   return (
     <div className="pt-table" ref={setTableRoot}>
       <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
@@ -113,6 +128,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       {/* Big pot */}
       <div className="pt-pot" data-pot-anchor>
         <div className="pt-pot-label">POT</div>
+        <PotStack amount={state.pot} />
         <motion.div className="pt-pot-value">{potDisplay}</motion.div>
       </div>
 
@@ -146,6 +162,15 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
       <div data-muck-anchor aria-hidden="true" className="pt-muck" />
       <BadugiTableEffects state={state} tableRoot={tableRoot} />
+
+      {/* Win celebration — any winner at showdown (Detroit 2026-10-13) */}
+      {celebratingWinnerId && showdownWinner && (
+        <WinCelebration
+          key={celebrationKey}
+          winnerName={showdownWinner.name}
+          onDone={() => setCelebratingWinnerId(null)}
+        />
+      )}
     </div>
   );
 }
