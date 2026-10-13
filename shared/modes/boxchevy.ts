@@ -57,7 +57,68 @@ function bestHighHand(cards: CardType[]): { value: number; name: string } {
   );
 }
 
-// ── Lowball (ace-to-five) ─────────────────────────────────────────────────────
+// ── Box Chevy 10-card evaluation (Detroit 2026-10-13) ─────────────────────────
+// RULES (Detroit's design):
+// - 10 cards total: 5 hole + 5 community. Must use both. No exceptions.
+// - All 10 ranks must be unique. Pair = you lose (can't win either way).
+// - Ace is ALWAYS 1. King is ALWAYS 13. No ace-high.
+// - HIGH: sort low→high, compare from lowest card up. Higher bottom wins.
+//   Best high: 4-5-6-7-8-9-10-J-Q-K (lowest card is 4)
+// - LOW: sort high→low, compare from highest card down. Lower top wins.
+//   Best low: A-2-3-4-5-6-7-8-9-10 (highest card is 10)
+// - SWING: must be sole best HIGH and sole best LOW. No ties either way.
+
+const BC_RV: Record<string, number> = {
+  'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+  'J': 11, 'Q': 12, 'K': 13,
+};
+
+function bcRank(rank: string): number { return BC_RV[rank] ?? 0; }
+
+export interface BoxChevy10Eval {
+  isMade: boolean;      // all 10 ranks unique, 10 cards present
+  highSeq: number[];    // sorted low→high (for HIGH comparison)
+  lowSeq: number[];     // sorted high→low (for LOW comparison)
+  desc: string;
+}
+
+export function evaluateBoxChevy10(holeCards: CardType[], communityCards: CardType[]): BoxChevy10Eval {
+  const all = [...holeCards, ...communityCards].map(c => ({ ...c, isHidden: false }));
+  const ranks = all.map(c => bcRank(c.rank));
+  const isMade = all.length === 10 && new Set(ranks).size === ranks.length;
+  const highSeq = [...ranks].sort((a, b) => a - b);
+  const lowSeq = [...ranks].sort((a, b) => b - a);
+  return {
+    isMade,
+    highSeq,
+    lowSeq,
+    desc: highSeq.map(rankLabel).join('-'),
+  };
+}
+
+/** HIGH: higher bottom card wins. Non-made (pair) always loses. */
+export function compareBoxChevyHigh(a: BoxChevy10Eval, b: BoxChevy10Eval): number {
+  if (a.isMade && !b.isMade) return 1;
+  if (!a.isMade && b.isMade) return -1;
+  if (!a.isMade && !b.isMade) return 0;
+  for (let i = 0; i < 10; i++) {
+    if (a.highSeq[i] !== b.highSeq[i]) return a.highSeq[i] - b.highSeq[i];
+  }
+  return 0;
+}
+
+/** LOW: lower top card wins. Non-made (pair) always loses. */
+export function compareBoxChevyLow(a: BoxChevy10Eval, b: BoxChevy10Eval): number {
+  if (a.isMade && !b.isMade) return 1;
+  if (!a.isMade && b.isMade) return -1;
+  if (!a.isMade && !b.isMade) return 0;
+  for (let i = 0; i < 10; i++) {
+    if (a.lowSeq[i] !== b.lowSeq[i]) return b.lowSeq[i] - a.lowSeq[i];
+  }
+  return 0;
+}
+
+// ── Legacy 5-card evaluators (kept for bot hand-strength heuristics) ──────────
 
 function scoreLow5(cards: CardType[]): { value: number; desc: string } {
   const ranks = cards.map(c => lv(c.rank)).sort((a, b) => a - b);
@@ -110,11 +171,21 @@ export interface BoxChevyEval {
 export function evaluateBoxChevy(holeCards: CardType[], communityCards: CardType[]): BoxChevyEval {
   const hole = holeCards.map(c => ({ ...c, isHidden: false }));
   const comm = communityCards.map(c => ({ ...c, isHidden: false }));
-  const allCards = [...hole, ...comm];
-  const isMade = hasMadeHand(hole, comm);
-  const high = allCards.length >= 5 ? bestHighHand(allCards) : { value: 0, name: 'Incomplete' };
-  const low  = allCards.length >= 5 ? bestLowHand(allCards)  : { value: 999_999_999, desc: 'Incomplete' };
-  return { isMade, highValue: high.value, highName: high.name, lowValue: low.value, lowDesc: low.desc };
+  const eval10 = evaluateBoxChevy10(hole, comm);
+  // Encode for backwards compat: highValue higher = better, lowValue lower = better
+  const highValue = eval10.isMade
+    ? eval10.highSeq.reduce((acc, r, i) => acc + r * Math.pow(14, 9 - i), 0)
+    : 0;
+  const lowValue = eval10.isMade
+    ? eval10.lowSeq.reduce((acc, r, i) => acc + r * Math.pow(14, 9 - i), 0)
+    : 999_999_999;
+  return {
+    isMade: eval10.isMade,
+    highValue,
+    highName: eval10.desc,
+    lowValue,
+    lowDesc: eval10.desc,
+  };
 }
 
 // ── Bot helpers ───────────────────────────────────────────────────────────────
@@ -141,9 +212,14 @@ function chooseBoxChevyDiscards(holeCards: CardType[], communityCards: CardType[
 
 function botHandStrength(allCards: CardType[], isMade: boolean): number {
   if (!isMade) return 0.05;
-  const visible = allCards.map(c => ({ ...c, isHidden: false }));
-  const highN = bestHighHand(visible).value / 9_000_000;
-  const lowN  = 1 - Math.min(bestLowHand(visible).value, 3_000_000) / 3_000_000;
+  // Use 10-card sequences for strength (Detroit 2026-10-13)
+  // allCards here is hole+community; split assuming 5 hole (first 5)
+  const hole = allCards.slice(0, 5);
+  const comm = allCards.slice(5);
+  const eval10 = evaluateBoxChevy10(hole, comm);
+  if (!eval10.isMade) return 0.05;
+  const highN = (eval10.highSeq[0] - 1) / 3;   // lowest card 1-4 → 0-1
+  const lowN = (13 - eval10.lowSeq[0]) / 3;    // highest card 10-13 → 0-1
   return Math.min(0.95, Math.max(highN, lowN) * 0.85 + 0.15);
 }
 
@@ -261,12 +337,16 @@ export const BoxChevyMode: GameMode = {
         newPlayers[bIdx] = { ...bot, status: 'folded' as any, declaration: null, hasActed: true };
         message = `${bot.name} has no made hand — folds`;
       } else {
-        const allCards = [...botCards, ...comm];
-        const high = bestHighHand(allCards);
-        const low  = bestLowHand(allCards);
-        const highTier = Math.floor(high.value / 1_000_000);
-        const isGoodHigh = highTier >= 2;
-        const isGoodLow  = low.value < 1_500_000;
+        // Bot declaration based on 10-card sequences (Detroit 2026-10-13)
+        const eval10 = evaluateBoxChevy10(botCards, comm);
+        // High quality: lowest card 1-4, higher = better (best = 4)
+        const lowCard = eval10.highSeq[0];
+        const highQuality = (lowCard - 1) / 3;
+        // Low quality: highest card 10-13, lower = better (best = 10)
+        const highCard = eval10.lowSeq[0];
+        const lowQuality = (13 - highCard) / 3;
+        const isGoodHigh = highQuality >= 0.5;
+        const isGoodLow = lowQuality >= 0.5;
 
         let declaration: Declaration;
         if (isGoodHigh && isGoodLow && Math.random() < 0.25) {
@@ -377,24 +457,39 @@ export const BoxChevyMode: GameMode = {
       return { players: finalPlayers, pot: 0, messages };
     }
 
-    const evalMap = new Map<string, { high: { value: number; name: string }; low: { value: number; desc: string } }>();
+    const evalMap = new Map<string, BoxChevy10Eval>();
     for (const p of active) {
-      const all = [...p.cards, ...comm];
-      evalMap.set(p.id, { high: bestHighHand(all), low: bestLowHand(all) });
+      evalMap.set(p.id, evaluateBoxChevy10(p.cards, comm));
     }
 
     function findHighWinners(pool: Player[]): Player[] {
       if (!pool.length) return [];
-      let best = -1;
-      for (const p of pool) best = Math.max(best, evalMap.get(p.id)!.high.value);
-      return pool.filter(p => evalMap.get(p.id)!.high.value === best);
+      let best: BoxChevy10Eval | null = null;
+      for (const p of pool) {
+        const e = evalMap.get(p.id)!;
+        if (!e.isMade) continue;
+        if (!best || compareBoxChevyHigh(e, best) > 0) best = e;
+      }
+      if (!best) return [];
+      return pool.filter(p => {
+        const e = evalMap.get(p.id)!;
+        return e.isMade && compareBoxChevyHigh(e, best) === 0;
+      });
     }
 
     function findLowWinners(pool: Player[]): Player[] {
       if (!pool.length) return [];
-      let best = 999_999_999;
-      for (const p of pool) best = Math.min(best, evalMap.get(p.id)!.low.value);
-      return pool.filter(p => evalMap.get(p.id)!.low.value === best);
+      let best: BoxChevy10Eval | null = null;
+      for (const p of pool) {
+        const e = evalMap.get(p.id)!;
+        if (!e.isMade) continue;
+        if (!best || compareBoxChevyLow(e, best) > 0) best = e;
+      }
+      if (!best) return [];
+      return pool.filter(p => {
+        const e = evalMap.get(p.id)!;
+        return e.isMade && compareBoxChevyLow(e, best) === 0;
+      });
     }
 
     const resolution = resolveSwingSidePots(sidePots, active, findHighWinners, findLowWinners);
