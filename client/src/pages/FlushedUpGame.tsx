@@ -20,7 +20,7 @@ import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
-import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
+import { useTableBackground } from '@/lib/useTableBackground';
 import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
 import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
@@ -163,6 +163,7 @@ function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, huma
 /* ── Main game UI ────────────────────────────────────────────────────────── */
 
 function FlushedUpGameUI() {
+  const { background: tableBackground } = useTableBackground();
   const tableId = useTableId();
   const [, navigate] = useLocation();
 
@@ -367,7 +368,7 @@ function FlushedUpGameUI() {
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#0d0a1a',
-        backgroundImage: `url('${yardBackdrop}')`,
+        backgroundImage: `url('${tableBackground.url}')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         overflow: 'hidden',
@@ -551,6 +552,7 @@ function FlushedUpGameUI() {
 const serverEnabled = FEATURES.SERVER_AUTHORITATIVE_BADUGI || import.meta.env.VITE_BADUGI_ALPHA === 'true';
 
 export default function FlushedUpGame() {
+  const { background: tableBackground } = useTableBackground();
   if (!serverEnabled) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
