@@ -1,8 +1,8 @@
 /**
- * BadugiTable — prototype-matched table layout (Detroit 2026-10-10).
- * Structure from Claude prototype: topbar → info grid → opponent grid →
- * big pot → hero (avatar + cards) → actions. Yard graphics on everything,
- * nothing that isn't needed.
+ * BadugiTable — prototype layout (Detroit 2026-10-13).
+ * Real game on the UNO prototype's table: absolute positioning,
+ * hero at bottom, 3 opponents in top arc, pot center, dealer top.
+ * 4 players (p1-p4). All game logic unchanged — presentation only.
  */
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -20,6 +20,22 @@ import { WinCelebration } from '@/components/game/WinCelebration';
 const HERO_CARD_W = 72;
 const HERO_CARD_H = 102;
 
+// ── Prototype seat positions (percentages) ───────────────────────────────────
+// Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
+
+function seatPosition(index: number): { x: number; y: number } {
+  if (index === 0) return { x: 50, y: 88 }; // hero
+  const spots = [
+    { x: 14, y: 28 },
+    { x: 50, y: 14 },
+    { x: 86, y: 28 },
+  ];
+  return spots[(index - 1) % spots.length];
+}
+
+const DEALER_POS = { x: 50, y: 4 };
+const POT_POS = { x: 50, y: 52 };
+
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
   if (phase.startsWith('BET_')) return 'BETTING';
@@ -29,9 +45,10 @@ function phaseLabel(phase: string): string {
   return phase.replace(/_/g, ' ');
 }
 
-function OpponentCell({ player, seatNum, isActive, isDrawPhase }: {
-  player: Player; seatNum: number; isActive: boolean; isDrawPhase: boolean;
+function OpponentSeat({ player, seatNum, isActive, isDrawPhase, isDealer }: {
+  player: Player; seatNum: number; isActive: boolean; isDrawPhase: boolean; isDealer: boolean;
 }) {
+  const pos = seatPosition(seatNum);
   const isFolded = player.status === 'folded';
   const badge = !isDrawPhase || isFolded ? null
     : player.lastDrawCount === undefined ? 'WAITING'
@@ -41,18 +58,42 @@ function OpponentCell({ player, seatNum, isActive, isDrawPhase }: {
   const darkened = isDrawPhase && player.lastDrawCount !== undefined ? player.lastDrawCount : 0;
 
   return (
-    <div className={`pt-seat${isFolded ? ' is-out' : ''}${isActive ? ' is-turn' : ''}`}
-      data-player-seat={player.id} data-deal-seat={player.id}>
-      <div className="pt-sav">
-        <img src={getAvatarForSeat(seatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
-        {isActive && <span className="pt-turn-ring" />}
+    <div
+      className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+      style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: isFolded ? 0.45 : 1 }}
+      data-player-seat={player.id} data-deal-seat={player.id}
+    >
+      {isActive && (
+        <motion.div
+          className="absolute -inset-2 rounded-xl pointer-events-none"
+          style={{ border: '2px solid rgba(240,184,41,0.6)' }}
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1.2, repeat: Infinity }}
+        />
+      )}
+      {isDealer && (
+        <div className="absolute -top-7 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg">D</div>
+      )}
+      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-400/40 shadow-lg">
+        <img src={getAvatarForSeat(seatNum + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
       </div>
-      <div className="pt-nm">{player.name}</div>
-      <div className="pt-st">{player.chips.toLocaleString()}</div>
-      {badge && <div className={`pt-tag${badge === 'WAITING' ? '' : ' hl'}`}>{badge}</div>}
-      <div className="pt-cards">
+      <div className="text-white text-xs font-bold mt-1 whitespace-nowrap">{player.name}</div>
+      <div className="text-amber-200/80 text-[10px] font-mono">{player.chips.toLocaleString()}</div>
+      {badge && (
+        <div className={`text-[9px] font-mono px-2 py-0.5 rounded-full mt-0.5 ${badge === 'WAITING' ? 'bg-white/10 text-white/50' : 'bg-amber-400/20 text-amber-200 border border-amber-400/40'}`}>
+          {badge}
+        </div>
+      )}
+      <div className="flex gap-0.5 mt-1">
         {Array.from({ length: cardCount }).map((_, i) => (
-          <i key={i} className={i >= cardCount - darkened ? ' is-dark' : ''} />
+          <div
+            key={i}
+            className="w-5 h-7 rounded-sm border border-white/20"
+            style={{
+              background: i >= cardCount - darkened ? 'rgba(0,0,0,0.6)' : 'linear-gradient(135deg, #2a1a4a 0%, #1a0f2e 100%)',
+              transform: `rotate(${(i - 1.5) * 4}deg)`,
+            }}
+          />
         ))}
       </div>
     </div>
@@ -79,10 +120,11 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const heroIsLoser = isShowdown && !(me as any)?.isWinner && me?.status !== 'folded';
 
   const myIndex = state.players.findIndex(p => p.id === myId);
-  const gridOpps = [
-    ...state.players.slice(myIndex + 1),
-    ...state.players.slice(0, myIndex),
-  ].filter(p => p.id !== myId);
+  // Order: hero first (seat 0), then opponents clockwise
+  const orderedPlayers = myIndex >= 0
+    ? [state.players[myIndex], ...state.players.slice(myIndex + 1), ...state.players.slice(0, myIndex)]
+    : state.players;
+  const opponents = orderedPlayers.slice(1, 4); // max 3 opponents (4 players total)
 
   const activeCount = state.players.filter(p => p.status === 'active').length;
   const potSpring = useSpring(state.pot, { stiffness: 80, damping: 20 });
@@ -90,7 +132,8 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   useEffect(() => { potSpring.set(state.pot); }, [state.pot, potSpring]);
 
   const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
-  const mySeatNum = myIndex + 1;
+  const heroPos = seatPosition(0);
+  const isHeroDealer = !!(me as any)?.isDealer;
 
   // Win celebration — show for any winner at showdown (Detroit 2026-10-13)
   const showdownWinner = isShowdown ? state.players.find(p => (p as any).isWinner) : undefined;
@@ -106,64 +149,111 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   }, [isShowdown, showdownWinner, celebratingWinnerId]);
 
   return (
-    <div className="pt-table" ref={setTableRoot}>
+    <div className="relative w-full h-full min-h-[600px] overflow-hidden" ref={setTableRoot as any}>
       <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
 
-      {/* Info grid */}
-      <div className="pt-info">
-        <div><b>PLAYERS</b><span>{activeCount} / {state.players.length}</span></div>
-        <div><b>POT</b><span>${state.pot.toLocaleString()}</span></div>
-        <div><b>DRAW</b><span>{state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]} / 3` : '–'}</span></div>
-        <div><b>PHASE</b><span>{phaseLabel(state.phase)}</span></div>
+      {/* Info bar */}
+      <div className="absolute top-12 left-0 right-0 flex justify-center gap-4 text-[10px] font-mono text-white/60 z-10">
+        <span><b className="text-amber-300/80">PLAYERS</b> {activeCount}/{state.players.length}</span>
+        <span><b className="text-amber-300/80">DRAW</b> {state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]}/3` : '–'}</span>
+        <span><b className="text-amber-300/80">PHASE</b> {phaseLabel(state.phase)}</span>
       </div>
 
-      {/* Opponents */}
-      <div className="pt-opps">
-        {gridOpps.map((opp, i) => (
-          <OpponentCell key={opp.id} player={opp} seatNum={i + 1}
-            isActive={opp.id === state.activePlayerId} isDrawPhase={isDrawPhase} />
-        ))}
+      {/* Dealer marker */}
+      <div
+        className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
+        style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}
+      >
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center text-black font-bold text-sm shadow-xl border-2 border-amber-200">
+          D
+        </div>
       </div>
 
-      {/* Big pot */}
-      <div className="pt-pot" data-pot-anchor>
-        <div className="pt-pot-label">POT</div>
-        <PotStack amount={state.pot} />
-        <motion.div className="pt-pot-value">{potDisplay}</motion.div>
+      {/* Pot — center, prototype style */}
+      <div
+        className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
+        style={{ left: `${POT_POS.x}%`, top: `${POT_POS.y}%` }}
+        data-pot-anchor
+      >
+        <motion.div
+          className="rounded-2xl px-6 py-3 text-center"
+          style={{
+            background: 'rgba(240,184,41,0.08)',
+            border: '1px solid rgba(240,184,41,0.25)',
+            backdropFilter: 'blur(8px)',
+            transform: 'rotateX(8deg)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(240,184,41,0.15)',
+          }}
+        >
+          <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
+          <PotStack amount={state.pot} />
+          <motion.div className="text-amber-200 text-2xl font-bold font-mono mt-1">{potDisplay}</motion.div>
+        </motion.div>
       </div>
 
-      {/* Hero */}
-      <div className="pt-me" data-player-seat={myId} data-deal-seat={myId}>
-        <div className={`pt-mehead${state.activePlayerId === myId ? ' is-turn' : ''}`}>
-          <span className="pt-me-avatar">
-            <img src={getAvatarForSeat(mySeatNum)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />
+      {/* Muck anchor */}
+      <div data-muck-anchor aria-hidden="true" className="absolute" style={{ left: '63%', top: '44%' }} />
+
+      {/* Opponent seats — prototype top arc */}
+      {opponents.map((opp, i) => (
+        <OpponentSeat
+          key={opp.id}
+          player={opp}
+          seatNum={i + 1}
+          isActive={opp.id === state.activePlayerId}
+          isDrawPhase={isDrawPhase}
+          isDealer={!!(opp as any).isDealer}
+        />
+      ))}
+
+      {/* Hero seat — bottom center, prototype position */}
+      <div
+        className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10"
+        style={{ left: `${heroPos.x}%`, top: `${heroPos.y}%` }}
+        data-player-seat={myId} data-deal-seat={myId}
+      >
+        {state.activePlayerId === myId && (
+          <motion.div
+            className="absolute -inset-3 rounded-2xl pointer-events-none"
+            style={{ border: '2px solid rgba(240,184,41,0.7)' }}
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          />
+        )}
+        {isHeroDealer && (
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg">D</div>
+        )}
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-10 h-10 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
+            <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
           </span>
-          <span className="pt-me-name">{me?.name ?? 'YOU'}</span>
-          <span className="pt-me-stack">{(me?.chips ?? 0).toLocaleString()}</span>
+          <div className="text-left">
+            <div className="text-white text-sm font-bold">{me?.name ?? 'YOU'}</div>
+            <div className="text-amber-200/80 text-[11px] font-mono">{(me?.chips ?? 0).toLocaleString()}</div>
+          </div>
         </div>
         {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
-            <div className="pt-hand" style={{ filter: heroFilter }}>
+            <div style={{ filter: heroFilter }}>
               <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
                 discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
             </div>
-            <div className="pt-hint">
+            <div className="text-white/60 text-[10px] font-mono mt-1 text-center">
               {isDrawPhase ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
                 : heroHandEval ? heroHandEval.description : ''}
             </div>
           </>
         ) : me?.status === 'folded' ? (
-          <div className="pt-folded">FOLDED</div>
+          <div className="text-white/40 text-sm font-mono">FOLDED</div>
         ) : (
-          <div className="pt-queued">DEALT IN NEXT HAND</div>
+          <div className="text-white/40 text-[10px] font-mono">DEALT IN NEXT HAND</div>
         )}
       </div>
 
-      <div data-muck-anchor aria-hidden="true" className="pt-muck" />
       <BadugiTableEffects state={state} tableRoot={tableRoot} />
 
-      {/* Win celebration — any winner at showdown (Detroit 2026-10-13) */}
+      {/* Win celebration — any winner at showdown */}
       {celebratingWinnerId && showdownWinner && (
         <WinCelebration
           key={celebrationKey}
