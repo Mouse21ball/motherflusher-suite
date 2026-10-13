@@ -23,6 +23,9 @@ test.describe('Badugi betting controls', () => {
       await raiseToggle.tap();
       await expect(page.getByTestId('raise-popup')).toBeVisible();
       await expect(page.getByTestId('input-raise-slider')).toBeVisible();
+      // Close popup before testing other buttons
+      await raiseToggle.tap();
+      await expect(page.getByTestId('raise-popup')).toHaveCount(0);
 
       const allIn = page.getByTestId('button-all-in');
       const allInBounds = await allIn.boundingBox();
