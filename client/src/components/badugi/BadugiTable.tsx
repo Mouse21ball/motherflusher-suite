@@ -129,6 +129,18 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
+  // Auto-fullscreen on first tap (Detroit 2026-10-13) — browsers require a user gesture
+  useEffect(() => {
+    const goFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+      window.removeEventListener('pointerdown', goFullscreen);
+    };
+    window.addEventListener('pointerdown', goFullscreen);
+    return () => window.removeEventListener('pointerdown', goFullscreen);
+  }, []);
+
   const heroHandEval = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
     ? evaluateBadugi(me.cards.map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateBadugi>[0])
     : null;
