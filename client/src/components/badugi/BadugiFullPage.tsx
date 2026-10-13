@@ -240,15 +240,7 @@ export function BadugiFullPage({
         spectating={effectiveSpectator}
       />
 
-      {!effectiveSpectator && (
-        <PersonalChipGiftPanel
-          tableId={tableId}
-          modeId="badugi"
-          myId={myId}
-          players={state.players}
-          onGiftSuccess={refetchProfile}
-        />
-      )}
+      {/* Gift panel removed — Detroit 2026-10-13 */}
 
       {isSpectator && <SpectatorBanner spectatorCount={state.spectatorCount} openSeats={openSeatsCount} onTakeSeat={() => window.location.reload()} tableId={tableId} />}
       {!effectiveSpectator && state.spectatorCount != null && state.spectatorCount > 0 && (
