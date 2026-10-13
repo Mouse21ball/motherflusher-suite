@@ -142,6 +142,9 @@ function useProtoGame() {
   const [state, setState] = useState<ProtoState>(() => initialState(1));
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Synchronous state access for scripted logic (setState updaters aren't sync)
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const clearTimers = useCallback(() => {
     timers.current.forEach(clearTimeout);
@@ -300,19 +303,18 @@ function useProtoGame() {
       later(t0, () => {
         setState(s => ({ ...s, activeSeat: seatIdx }));
         const seat = seatPosition(seatIdx);
-        let drewCount = 0;
-        setState(s => {
-          const p = s.players[seatIdx];
-          if (p.folded) return s;
-          drewCount = seatIdx === 0 ? 2 : Math.floor(Math.random() * 3);
-          return s;
-        });
+        // Read folded status synchronously via ref (setState updaters aren't sync)
+        const p = stateRef.current.players[seatIdx];
+        if (p.folded) return;
+        const maxDraw = drawNum === 1 ? 3 : drawNum === 2 ? 2 : 2;
+        const drewCount = seatIdx === 0 ? 2 : Math.floor(Math.random() * (maxDraw + 1));
         if (drewCount === 0) {
           setState(s => {
             const players = s.players.map(pl => ({ ...pl }));
             if (!players[seatIdx].folded) players[seatIdx].drewCount = 0;
             return { ...s, players };
           });
+          pulse();
           return;
         }
         // Discards fly face-down to the muck
