@@ -12,7 +12,7 @@ import { BadugiTable } from './BadugiTable';
 import { BadugiActionBar } from './BadugiActionBar';
 import { getBadugiDrawLimit, toggleBadugiDrawSelection } from './badugiDrawSelection';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
-import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
+import { useTableBackground } from '@/lib/useTableBackground';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
@@ -62,6 +62,7 @@ export function BadugiFullPage({
   state, handleAction, actionError, requestRebuy, myId, modeId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
 }: BadugiFullPageProps) {
+  const { background: tableBackground } = useTableBackground();
   const analyticsChipsBefore = useHandAnalytics(state, myId, tableId, 'badugi');
   void modeId;
   const [, navigate]   = useLocation();
@@ -222,7 +223,7 @@ export function BadugiFullPage({
     <div style={{
       height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       backgroundColor: '#0a0800',
-      backgroundImage: `url('${yardBackdrop}')`,
+      backgroundImage: `url('${tableBackground.url}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top',
     }} data-mode={MODE_ID}>
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
