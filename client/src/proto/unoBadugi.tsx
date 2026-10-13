@@ -61,16 +61,22 @@ interface RakeState {
   amount: number;
 }
 
+interface CelebrationState {
+  active: boolean;
+  winnerName: string;
+  amount: number;
+}
+
 interface ProtoState {
   phase: ProtoPhase;
   players: ProtoPlayer[];
   pot: number;
   dealerSeat: number;
   activeSeat: number;
-  pulseKey: number;
   handNumber: number;
   flights: Flight[];
   rake: RakeState;
+  celebration: CelebrationState;
 }
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -111,10 +117,10 @@ function initialState(handNumber: number): ProtoState {
     pot: 0,
     dealerSeat: handNumber % 4,
     activeSeat: 0,
-    pulseKey: 0,
     handNumber,
     flights: [],
     rake: { active: false, winnerIndex: -1, amount: 0 },
+    celebration: { active: false, winnerName: "", amount: 0 },
   };
 }
 
@@ -155,11 +161,6 @@ function useProtoGame() {
     timers.current.push(setTimeout(fn, ms));
   }, []);
 
-  const pulse = useCallback(() => {
-    if (reduced) return;
-    setState(s => ({ ...s, pulseKey: s.pulseKey + 1 }));
-  }, [reduced]);
-
   const addFlight = useCallback((f: Omit<Flight, 'id'>) => {
     const id = nextFlightId();
     setState(s => ({ ...s, flights: [...s.flights, { ...f, id }] }));
@@ -198,9 +199,8 @@ function useProtoGame() {
     });
     later(order.length * 250 + 500, () => {
       setState(s => ({ ...s, phase: 'dealing' }));
-      pulse();
     });
-  }, [later, pulse, addFlight, removeFlight]);
+  }, [later, addFlight, removeFlight]);
 
   // ── DEAL: cards fly from dealer to each seat ──
   const runDeal = useCallback(() => {
@@ -237,9 +237,8 @@ function useProtoGame() {
     }
     later(totalCards * 160 + 500, () => {
       setState(s => ({ ...s, phase: 'draw1', activeSeat: (s.dealerSeat + 1) % 4 }));
-      pulse();
     });
-  }, [later, pulse, addFlight, removeFlight]);
+  }, [later, addFlight, removeFlight]);
 
   // ── BETTING: chips fly from bettor to pot. nextPhase drives the sequence. ──
   const runBetting = useCallback((nextPhase: ProtoPhase) => {
@@ -257,8 +256,7 @@ function useProtoGame() {
             players[seatIdx].folded = true;
             return { ...s, players };
           });
-          pulse();
-          return;
+              return;
         }
         const betAmt = 50 + Math.floor(Math.random() * 3) * 25;
         // Chip flies from seat to pot
@@ -282,8 +280,7 @@ function useProtoGame() {
             const pot = players.reduce((sum, pl) => sum + pl.bet, 0);
             return { ...s, players, pot };
           });
-          pulse();
-        });
+            });
       });
     });
     later(700 + order.length * 1100 + 600, () => {
@@ -293,7 +290,7 @@ function useProtoGame() {
         return { ...s, players, phase: nextPhase, activeSeat: 0 };
       });
     });
-  }, [later, pulse, addFlight, removeFlight]);
+  }, [later, addFlight, removeFlight]);
 
   // ── DRAW: discards fly face-down to muck, fresh cards fly from dealer ──
   const runDraw = useCallback((drawNum: 1 | 2 | 3, nextPhase: ProtoPhase) => {
@@ -314,8 +311,7 @@ function useProtoGame() {
             if (!players[seatIdx].folded) players[seatIdx].drewCount = 0;
             return { ...s, players };
           });
-          pulse();
-          return;
+              return;
         }
         // Discards fly face-down to the muck
         for (let d = 0; d < drewCount; d++) {
@@ -331,8 +327,7 @@ function useProtoGame() {
           later(d * 120 + 350, () => removeFlight(fid));
         }
         sfx.dealSingle();
-        pulse();
-        // Fresh cards fly from dealer to seat
+          // Fresh cards fly from dealer to seat
         later(drewCount * 120 + 400, () => {
           for (let d = 0; d < drewCount; d++) {
             const dfid = addFlight({
@@ -369,9 +364,8 @@ function useProtoGame() {
     });
     later(600 + order.length * 1400 + 800, () => {
       setState(s => ({ ...s, phase: nextPhase, flights: [] }));
-      pulse();
     });
-  }, [later, pulse, addFlight, removeFlight]);
+  }, [later, addFlight, removeFlight]);
 
   // ── SHOWDOWN → rake-in → settle → next hand ──
   const runShowdown = useCallback(() => {
@@ -386,14 +380,12 @@ function useProtoGame() {
       }));
       return { ...s, players };
     });
-    pulse();
     later(2500, () => {
       setState(s => {
         const winnerIdx = s.players.findIndex(p => p.isWinner);
         return { ...s, phase: 'settling', rake: { active: true, winnerIndex: winnerIdx, amount: s.pot } };
       });
       sfx.chipRake();
-      pulse();
     });
     later(3700, () => {
       setState(s => {
@@ -401,15 +393,20 @@ function useProtoGame() {
           if (p.isWinner) return { ...p, chips: p.chips + s.pot, bet: 0 };
           return { ...p, bet: 0, cards: [], drewCount: null, isWinner: false, folded: false };
         });
-        return { ...s, players, pot: 0, rake: { active: false, winnerIndex: -1, amount: 0 } };
+        // Big celebration: full-screen winner moment (UNO-style)
+        const winner = players.find(p => p.isWinner);
+        return {
+          ...s, players, pot: 0,
+          rake: { active: false, winnerIndex: -1, amount: 0 },
+          celebration: winner ? { active: true, winnerName: winner.name, amount: s.pot } : { active: false, winnerName: '', amount: 0 },
+        };
       });
       sfx.bigWin();
-      pulse();
     });
-    later(5400, () => {
+    later(6200, () => {
       setState(s => initialState(s.handNumber + 1));
     });
-  }, [later, pulse]);
+  }, [later]);
 
   // Phase machine — matches real Badugi order:
   // ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → BET_3 → SHOWDOWN
@@ -437,6 +434,7 @@ function useProtoGame() {
 
 function FlightView({ flight }: { flight: Flight }) {
   const isCard = flight.kind !== 'chip';
+  const liftTime = isCard ? 0.18 : 0; // cards lift before flying (UNO two-beat)
   return (
     <motion.div
       className="absolute z-30 pointer-events-none"
@@ -450,11 +448,17 @@ function FlightView({ flight }: { flight: Flight }) {
         left: `${flight.toX}%`,
         top: `${flight.toY}%`,
         opacity: 1,
-        scale: flight.kind === 'chip' ? 0.85 : 1,
-        rotateY: 0, // cards straighten as they land (UNO 3D feel)
+        // Lift beat: card pops up and enlarges first, then flies and straightens
+        scale: isCard ? [1, 1.35, 1] : 0.85,
+        y: isCard ? ['-50%', '-80%', '-50%'] : '-50%',
+        rotateY: 0,
         rotateX: 0,
       }}
-      transition={{ duration: flight.duration, ease: [0.3, 0.7, 0.4, 1] }}
+      transition={{
+        duration: flight.duration + liftTime,
+        ease: [0.3, 0.7, 0.4, 1],
+        times: isCard ? [0, liftTime / (flight.duration + liftTime), 1] : undefined,
+      }}
     >
       {flight.kind === 'chip' ? (
         <div
@@ -506,15 +510,10 @@ export function UnoProtoTable() {
         </span>
       </div>
 
-      {/* Camera pulse wrapper — UNO's signature feel */}
-      <motion.div
+      {/* Table — fixed camera (UNO keeps it still, cards do the dancing) */}
+      <div
         className="flex-1 relative"
-        key={state.pulseKey}
-        initial={reduced ? false : { scale: 1 }}
-        animate={reduced ? {} : { scale: [1, 0.97, 1] }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
         style={{
-          transformOrigin: '50% 45%',
           perspective: '1200px', // UNO-style 3D depth (Detroit 2026-10-13)
         }}
       >
@@ -694,7 +693,74 @@ export function UnoProtoTable() {
             </div>
           );
         })}
-      </motion.div>
+
+        {/* Win celebration — full-screen UNO-style moment */}
+        <AnimatePresence>
+          {state.celebration.active && (
+            <motion.div
+              className="absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%)' }}
+            >
+              {/* Coin fountain particles */}
+              {Array.from({ length: 24 }).map((_, i) => {
+                const angle = (i / 24) * Math.PI * 2;
+                const dist = 120 + Math.random() * 80;
+                return (
+                  <motion.div
+                    key={`coin-${i}`}
+                    className="absolute rounded-full"
+                    style={{
+                      width: 10, height: 10,
+                      background: 'radial-gradient(circle at 30% 30%, #FDE68A, #F59E0B)',
+                      boxShadow: '0 0 8px rgba(245,158,11,0.8)',
+                      left: '50%', top: '45%',
+                    }}
+                    initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                    animate={{
+                      x: Math.cos(angle) * dist,
+                      y: Math.sin(angle) * dist - 40,
+                      opacity: 0,
+                      scale: 0.4,
+                    }}
+                    transition={{ duration: 1.2 + Math.random() * 0.6, ease: 'easeOut', delay: Math.random() * 0.3 }}
+                  />
+                );
+              })}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1] }}
+                className="text-center"
+              >
+                <div
+                  className="font-black tracking-wider"
+                  style={{
+                    fontSize: 'clamp(48px, 12vw, 96px)',
+                    color: '#FDE68A',
+                    textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
+                    WebkitTextStroke: '2px #92400E',
+                  }}
+                >
+                  WINNER
+                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className="mt-2"
+                >
+                  <span className="text-white text-2xl font-bold font-mono">{state.celebration.winnerName}</span>
+                  <span className="text-amber-300 text-2xl font-mono ml-3">+${state.celebration.amount.toLocaleString()}</span>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Phase hint */}
       <div className="pb-6 text-center text-white/40 text-xs font-mono">
