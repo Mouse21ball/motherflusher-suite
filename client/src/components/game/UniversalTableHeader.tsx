@@ -9,6 +9,7 @@ interface UniversalTableHeaderProps {
   title: string;
   subtitle: string;
   titleClass?: string;
+  hideHelp?: boolean;
 }
 
 /**
@@ -18,7 +19,7 @@ interface UniversalTableHeaderProps {
  * Right: info (?) button opening the How To Play modal.
  * (Detroit 2026-10-11: "one universal table exit ... and information")
  */
-export function UniversalTableHeader({ mode, title, subtitle, titleClass = '' }: UniversalTableHeaderProps) {
+export function UniversalTableHeader({ mode, title, subtitle, titleClass = '', hideHelp = false }: UniversalTableHeaderProps) {
   const [, navigate] = useLocation();
   const [showHelp, setShowHelp] = useState(false);
 
@@ -30,7 +31,9 @@ export function UniversalTableHeader({ mode, title, subtitle, titleClass = '' }:
           <div className={`pt-game-name ${titleClass}`}>{title}</div>
           <div className="pt-game-sub">{subtitle}</div>
         </div>
-        <button className="pt-iconbtn" onClick={() => setShowHelp(true)} aria-label="How to play">?</button>
+        {!hideHelp && (
+          <button className="pt-iconbtn" onClick={() => setShowHelp(true)} aria-label="How to play">?</button>
+        )}
       </div>
       {showHelp && <HowToPlay modeId={mode} onClose={() => setShowHelp(false)} />}
     </>
