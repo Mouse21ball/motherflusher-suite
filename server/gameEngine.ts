@@ -125,15 +125,20 @@ const RECONNECT_TIMEOUT_MS = 90_000;
 // p4 is initial dealer → p1 (human) is always first-to-act in hand 1.
 // p2-p5 start as 'reserved'/sitting_out: open seats for real players to claim.
 
-function makeInitialPlayers(isClubTable = false): Player[] {
+function makeInitialPlayers(isClubTable = false, playerCount = 5): Player[] {
   const empty = isClubTable ? 'open' as const : 'reserved' as const;
-  return [
+  // p4 is initial dealer → p1 (human) is always first-to-act in hand 1.
+  // p2-pN start as 'reserved'/sitting_out: open seats for real players to claim.
+  // Detroit 2026-10-13: Badugi uses 4 players (p1-p4) to match prototype.
+  const players: Player[] = [
     { id: 'p1', name: 'Open', presence: empty,   chips: 0, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p2', name: 'Open', presence: empty,   chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p3', name: 'Open', presence: empty,   chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
-    { id: 'p4', name: 'Open', presence: empty,   chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: true,  declaration: null, hasActed: false },
-    { id: 'p5', name: 'Open', presence: empty,   chips: 10000,     bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false },
   ];
+  for (let i = 2; i <= playerCount; i++) {
+    players.push(
+      { id: `p${i}`, name: 'Open', presence: empty, chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: i === 4, declaration: null, hasActed: false },
+    );
+  }
+  return players;
 }
 
 // Convert ALL remaining reserved seats to active bots at once.
@@ -298,7 +303,7 @@ function scheduleBadugiBotFill(tableId: string): void {
   }, 8_000);
 }
 
-function makeInitialState(tableId: string, isClubTable = false, minBet = 50): GameState {
+function makeInitialState(tableId: string, isClubTable = false, minBet = 50, playerCount = 5): GameState {
   return {
     tableId,
     phase: 'WAITING',
@@ -309,7 +314,7 @@ function makeInitialState(tableId: string, isClubTable = false, minBet = 50): Ga
     minBet,
     raisesThisRound: 0,
     activePlayerId: 'p1',
-    players: makeInitialPlayers(isClubTable),
+    players: makeInitialPlayers(isClubTable, playerCount),
     communityCards: [],
     messages: [{ id: makeId(), text: 'Game ready. Press start.', time: Date.now() }],
     chatMessages: [],
@@ -1756,13 +1761,14 @@ export function getOrCreateBadugiTable(
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): AuthTable {
   if (!tables.has(tableId)) {
-    const maxPlayers  = options.maxPlayers  ?? 5;
+    // Detroit 2026-10-13: Badugi uses 4 players to match prototype layout.
+    const maxPlayers  = options.maxPlayers  ?? 4;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
     const table: AuthTable = {
       tableId,
-      state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet),
+      state: makeInitialState(tableId, !!options.crewId, getStakeTier(stakeTier).minBet, maxPlayers),
       handId: 0,
       actionLock: false,
       leavePromises: new Map(),
