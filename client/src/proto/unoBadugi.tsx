@@ -434,6 +434,65 @@ function useProtoGame() {
 
 // ── Flight rendering ─────────────────────────────────────────────────────────
 
+/**
+ * PotStack — visual chip pile that grows in tiers with the pot amount.
+ * Like a meter: each tier adds chips. Capped so ridiculous amounts don't
+ * render a mountain (Detroit 2026-10-13).
+ */
+function PotStack({ amount }: { amount: number }) {
+  // Tier thresholds → chip count. Cap at 14 chips + glow.
+  const chips = amount <= 0 ? 0
+    : amount < 500 ? 3
+    : amount < 2000 ? 6
+    : amount < 10000 ? 10
+    : 14;
+  const isMax = amount >= 10000;
+
+  if (chips === 0) return null;
+
+  return (
+    <div className="relative flex items-end justify-center my-2" style={{ height: 44 }}>
+      {Array.from({ length: chips }).map((_, i) => {
+        // Stack chips in a pyramid-ish pile with slight random-ish offsets
+        const layer = Math.floor(i / 4);
+        const posInLayer = i % 4;
+        const xOff = (posInLayer - 1.5) * 10 + (layer % 2 === 0 ? 3 : -3);
+        const yOff = -layer * 9;
+        const colors = ['#F59E0B', '#FBBF24', '#D97706', '#FCD34D'];
+        return (
+          <motion.div
+            key={`potchip-${i}`}
+            initial={{ scale: 0, y: -20, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22, delay: i * 0.03 }}
+            className="absolute rounded-full"
+            style={{
+              width: 30,
+              height: 30,
+              left: `calc(50% - 15px + ${xOff}px)`,
+              bottom: `${6 + yOff * -1}px`,
+              background: `radial-gradient(circle at 35% 30%, ${colors[i % 4]}, #92400E)`,
+              border: '2px dashed rgba(255,255,255,0.5)',
+              boxShadow: isMax
+                ? '0 0 16px rgba(245,158,11,0.9), 0 3px 6px rgba(0,0,0,0.5)'
+                : '0 3px 6px rgba(0,0,0,0.5)',
+              zIndex: i,
+            }}
+          />
+        );
+      })}
+      {isMax && (
+        <motion.div
+          className="absolute inset-0 rounded-full pointer-events-none"
+          animate={{ opacity: [0.3, 0.7, 0.3] }}
+          transition={{ duration: 1.6, repeat: Infinity }}
+          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.35) 0%, transparent 70%)' }}
+        />
+      )}
+    </div>
+  );
+}
+
 function FlightView({ flight }: { flight: Flight }) {
   const isCard = flight.kind !== 'chip';
   const liftTime = isCard ? 0.18 : 0; // cards lift before flying (UNO two-beat)
@@ -549,7 +608,9 @@ export function UnoProtoTable() {
               }}
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
-              <div className="text-amber-200 text-2xl font-bold font-mono">${state.pot.toLocaleString()}</div>
+              {/* Visual chip stack — grows in tiers with the pot, capped (Detroit 2026-10-13) */}
+              <PotStack amount={state.pot} />
+              <div className="text-amber-200 text-2xl font-bold font-mono mt-1">${state.pot.toLocaleString()}</div>
             </motion.div>
           </AnimatePresence>
           {/* Muck pile — face-down discards stack here */}
@@ -561,34 +622,60 @@ export function UnoProtoTable() {
         {/* Flights: cards and chips moving across the table */}
         {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
 
-        {/* Rake-in: pot chips fly to the winner's seat */}
+        {/* Rake-in: the visual pot stack collapses and flies to the winner */}
         {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
           const wpos = seatPosition(state.rake.winnerIndex);
+          // Chip count scales with pot, capped at 8 flying chips (Detroit 2026-10-13)
+          const amt = state.rake.amount;
+          const flyCount = amt < 500 ? 3 : amt < 2000 ? 5 : amt < 10000 ? 7 : 8;
           return (
-            <motion.div
-              className="absolute z-20 flex flex-col items-center pointer-events-none"
-              style={{ left: '50%', top: '52%' }}
-              initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
-              animate={{
-                x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
-                y: `calc(-50% + ${(wpos.y - 52) * 3.5}px)`,
-                scale: 0.7,
-                opacity: 0.9,
-              }}
-              transition={{ duration: 1.0, ease: [0.3, 0.7, 0.4, 1] }}
-            >
-              <div
-                className="rounded-full px-4 py-2 font-mono font-bold text-amber-200 whitespace-nowrap"
-                style={{
-                  background: 'rgba(20,10,40,0.9)',
-                  border: '2px solid rgba(240,184,41,0.7)',
-                  boxShadow: '0 0 24px rgba(240,184,41,0.4)',
+            <>
+              {Array.from({ length: flyCount }).map((_, i) => (
+                <motion.div
+                  key={`rakechip-${i}`}
+                  className="absolute z-20 rounded-full pointer-events-none"
+                  style={{
+                    left: '50%', top: '52%',
+                    width: 26, height: 26,
+                    background: 'radial-gradient(circle at 35% 30%, #FBBF24, #92400E)',
+                    border: '2px dashed rgba(255,255,255,0.5)',
+                    boxShadow: '0 0 12px rgba(245,158,11,0.6)',
+                  }}
+                  initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  animate={{
+                    x: `calc(-50% + ${(wpos.x - 50) * 3.5 + (i - flyCount / 2) * 8}px)`,
+                    y: `calc(-50% + ${(wpos.y - 52) * 3.5 + (i % 3) * 6}px)`,
+                    scale: 0.6,
+                    opacity: 0.9,
+                  }}
+                  transition={{ duration: 0.9, ease: [0.3, 0.7, 0.4, 1], delay: i * 0.06 }}
+                />
+              ))}
+              <motion.div
+                className="absolute z-20 flex flex-col items-center pointer-events-none"
+                style={{ left: '50%', top: '52%' }}
+                initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                animate={{
+                  x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
+                  y: `calc(-50% + ${(wpos.y - 52) * 3.5}px)`,
+                  scale: 0.7,
+                  opacity: 0.9,
                 }}
+                transition={{ duration: 1.0, ease: [0.3, 0.7, 0.4, 1] }}
               >
-                ${state.rake.amount.toLocaleString()}
-              </div>
-              <div className="text-amber-300/80 text-[10px] font-mono mt-1">◀◀ RAKING IT IN</div>
-            </motion.div>
+                <div
+                  className="rounded-full px-4 py-2 font-mono font-bold text-amber-200 whitespace-nowrap"
+                  style={{
+                    background: 'rgba(20,10,40,0.9)',
+                    border: '2px solid rgba(240,184,41,0.7)',
+                    boxShadow: '0 0 24px rgba(240,184,41,0.4)',
+                  }}
+                >
+                  ${state.rake.amount.toLocaleString()}
+                </div>
+                <div className="text-amber-300/80 text-[10px] font-mono mt-1">◀◀ RAKING IT IN</div>
+              </motion.div>
+            </>
           );
         })()}
 
