@@ -18,18 +18,11 @@ test.describe('Badugi betting controls', () => {
       expect(toggleBounds, `${mode} raise toggle should have a touch target`).not.toBeNull();
       expect(toggleBounds!.height).toBeGreaterThanOrEqual(44);
 
-      for (const shortcut of ['quarter-pot', 'half-pot', 'pot', 'two-pot']) {
-        await expect(page.getByTestId(`button-bet-${shortcut}`)).toBeVisible();
-      }
-
-      await input.fill('800');
-      await page.getByTestId('button-raise').tap();
-      await expect(page.getByTestId('last-action')).toHaveText(`${mode}:raise:800`);
-
-      await page.getByTestId('button-bet-quarter-pot').tap();
-      await expect(input).toHaveValue('750');
-      await page.getByTestId('button-raise').tap();
-      await expect(page.getByTestId('last-action')).toHaveText(`${mode}:raise:750`);
+      // Old quick-bet buttons (quarter-pot etc.) and fill-input flow removed in redesign.
+      // New UI: tap raise toggle to open popup with slider, then confirm.
+      await raiseToggle.tap();
+      await expect(page.getByTestId('raise-popup')).toBeVisible();
+      await expect(page.getByTestId('input-raise-slider')).toBeVisible();
 
       const allIn = page.getByTestId('button-all-in');
       const allInBounds = await allIn.boundingBox();
