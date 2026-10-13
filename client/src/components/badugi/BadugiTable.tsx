@@ -17,8 +17,8 @@ import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
 
-const HERO_CARD_W = 97;
-const HERO_CARD_H = 138;
+const HERO_CARD_W = 120;
+const HERO_CARD_H = 170;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
@@ -177,7 +177,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   return (
     <div className="relative w-full h-full min-h-[600px] overflow-hidden" ref={setTableRoot as any}>
-      <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
+      <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" hideHelp />
 
       {/* Info bar — below header */}
       <div className="absolute top-[76px] left-0 right-0 flex justify-center items-center gap-4 text-[10px] font-mono text-white/60 z-10">
@@ -204,11 +204,9 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       >        <motion.div
           className="rounded-2xl px-6 py-3 text-center"
           style={{
-            background: 'rgba(240,184,41,0.08)',
-            border: '1px solid rgba(240,184,41,0.25)',
+            background: 'rgba(0,0,0,0.35)',
             backdropFilter: 'blur(8px)',
             transform: 'rotateX(8deg)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(240,184,41,0.15)',
           }}
         >
           <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
