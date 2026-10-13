@@ -52,6 +52,7 @@ interface Flight {
   label: string; // chip amount, e.g. "$50"
   faceDown: boolean;
   duration: number; // seconds
+  toHero: boolean; // size the flying card for its destination
 }
 
 interface RakeState {
@@ -179,6 +180,7 @@ function useProtoGame() {
           label: '$25',
           faceDown: false,
           duration: 0.35,
+          toHero: false,
         });
         sfx.betPlace();
         later(350, () => {
@@ -213,6 +215,7 @@ function useProtoGame() {
           label: '',
           faceDown: seatIdx !== 0,
           duration: 0.32,
+          toHero: seatIdx === 0,
         });
         const isHeroCard = seatIdx === 0;
         if (isHeroCard) sfx.dealSelf(); else sfx.dealSingle();
@@ -263,6 +266,7 @@ function useProtoGame() {
           label: `$${betAmt}`,
           faceDown: false,
           duration: 0.45,
+          toHero: false,
         });
         sfx.betPlace();
         // Pot grows when chip lands
@@ -320,6 +324,7 @@ function useProtoGame() {
             label: '',
             faceDown: true,
             duration: 0.35,
+            toHero: false,
           });
           later(d * 120 + 350, () => removeFlight(fid));
         }
@@ -335,6 +340,7 @@ function useProtoGame() {
               label: '',
               faceDown: seatIdx !== 0,
               duration: 0.32,
+              toHero: seatIdx === 0,
             });
             if (seatIdx === 0) sfx.dealSelf(); else sfx.dealSingle();
             later(d * 120 + 320, () => removeFlight(dfid));
@@ -428,16 +434,23 @@ function useProtoGame() {
 // ── Flight rendering ─────────────────────────────────────────────────────────
 
 function FlightView({ flight }: { flight: Flight }) {
+  const isCard = flight.kind !== 'chip';
   return (
     <motion.div
       className="absolute z-30 pointer-events-none"
-      style={{ left: `${flight.fromX}%`, top: `${flight.fromY}%` }}
-      initial={{ x: '-50%', y: '-50%', opacity: 1, scale: 1 }}
+      style={{
+        left: `${flight.fromX}%`,
+        top: `${flight.fromY}%`,
+        transformStyle: 'preserve-3d',
+      }}
+      initial={{ x: '-50%', y: '-50%', opacity: 1, scale: 1, rotateY: isCard ? -70 : 0, rotateX: isCard ? 12 : 0 }}
       animate={{
         left: `${flight.toX}%`,
         top: `${flight.toY}%`,
         opacity: 1,
         scale: flight.kind === 'chip' ? 0.85 : 1,
+        rotateY: 0, // cards straighten as they land (UNO 3D feel)
+        rotateX: 0,
       }}
       transition={{ duration: flight.duration, ease: [0.3, 0.7, 0.4, 1] }}
     >
@@ -456,7 +469,8 @@ function FlightView({ flight }: { flight: Flight }) {
         <div
           className="rounded"
           style={{
-            width: 30, height: 42,
+            width: flight.toHero ? 44 : 20,
+            height: flight.toHero ? 62 : 30,
             background: flight.faceDown
               ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)'
               : 'linear-gradient(135deg, #f5f0ff, #d9ccff)',
@@ -497,7 +511,10 @@ export function UnoProtoTable() {
         initial={reduced ? false : { scale: 1 }}
         animate={reduced ? {} : { scale: [1, 0.97, 1] }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        style={{ transformOrigin: '50% 45%' }}
+        style={{
+          transformOrigin: '50% 45%',
+          perspective: '1200px', // UNO-style 3D depth (Detroit 2026-10-13)
+        }}
       >
         {/* Dealer position — top center, UNO style */}
         <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
@@ -524,6 +541,8 @@ export function UnoProtoTable() {
                 background: 'rgba(240,184,41,0.08)',
                 border: '1px solid rgba(240,184,41,0.25)',
                 backdropFilter: 'blur(8px)',
+                transform: 'rotateX(8deg)', // slight lift toward viewer (UNO 3D feel)
+                boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(240,184,41,0.15)',
               }}
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
@@ -617,26 +636,38 @@ export function UnoProtoTable() {
                   ${p.bet}
                 </motion.div>
               )}
-              {/* Cards */}
-              <div className="flex gap-0.5 mt-1">
+              {/* Cards — UNO ratio: opponents tiny tight fan, hero big */}
+              <div
+                className="flex mt-1"
+                style={!p.isHero
+                  ? { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' }
+                  : { gap: '2px' }
+                }
+              >
                 <AnimatePresence>
-                  {p.cards.map((card, ci) => (
+                  {p.cards.map((card, ci) => {
+                    // Fan rotation for opponents (UNO-style tight fan)
+                    const fanAngle = !p.isHero && p.cards.length > 1
+                      ? (ci - (p.cards.length - 1) / 2) * 10
+                      : 0;
+                    return (
                     <motion.div
                       key={`${p.id}-c${ci}`}
                       initial={{ opacity: 0, scale: 0.6 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                      animate={{ opacity: 1, scale: 1, rotate: fanAngle }}
                       exit={{ opacity: 0, scale: 0.6 }}
                       transition={{
                         duration: state.phase === 'showdown' ? 0.15 : 0.2,
                         ease: 'easeOut',
                       }}
+                      style={{ transformOrigin: 'bottom center' }}
                     >
                       {card.isHidden ? (
                         <div
                           className="rounded"
                           style={{
-                            width: p.isHero ? 44 : 28,
-                            height: p.isHero ? 62 : 40,
+                            width: p.isHero ? 48 : 20,
+                            height: p.isHero ? 68 : 30,
                             background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
                             border: '1px solid rgba(139,92,246,0.4)',
                           }}
@@ -644,11 +675,12 @@ export function UnoProtoTable() {
                       ) : (
                         <PlayingCard
                           card={card}
-                          className={p.isHero ? '!w-[44px] !h-[62px]' : '!w-[28px] !h-[40px]'}
+                          className={p.isHero ? '!w-[48px] !h-[68px]' : '!w-[20px] !h-[30px]'}
                         />
                       )}
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </AnimatePresence>
               </div>
               {/* Draw badge */}
