@@ -107,67 +107,82 @@ function pointWithin(root: DOMRect, element: Element): { x: number; y: number } 
 }
 
 function ChipStack({ effect }: { effect: MeasuredEffect }) {
+  // Payouts fly multiple chips scaled to pot size, capped (Detroit 2026-10-13)
+  const chipCount = effect.kind === 'payout'
+    ? effect.amount < 500 ? 3 : effect.amount < 2000 ? 5 : effect.amount < 10000 ? 7 : 8
+    : 1;
+
   return (
-    <motion.div
-      data-badugi-chip-flight={effect.kind}
-      initial={{ x: 0, y: 0, opacity: 0, scale: 0.72 }}
-      animate={{
-        x: effect.dx,
-        y: effect.dy,
-        opacity: [0, 1, 1, 0],
-        scale: [0.72, 1.08, 1, 0.88],
-      }}
-      transition={{
-        duration: FLIGHT_MS / 1000,
-        ease: [0.22, 1, 0.36, 1],
-        opacity: { times: [0, 0.08, 0.82, 1] },
-        scale: { times: [0, 0.24, 0.78, 1] },
-      }}
-      style={{
-        position: 'absolute',
-        zIndex: 70,
-        left: effect.sx - 13,
-        top: effect.sy - 13,
-        width: 28,
-        height: 28,
-        pointerEvents: 'none',
-        willChange: 'transform, opacity',
-      }}
-    >
-      {CHIP_COLORS.slice(0, 3).map((color, index) => (
-        <span
-          key={color}
+    <>
+      {Array.from({ length: chipCount }).map((_, ci) => (
+        <motion.div
+          key={`chip-${ci}`}
+          data-badugi-chip-flight={effect.kind}
+          initial={{ x: (ci - chipCount / 2) * 6, y: (ci % 3) * 4, opacity: 0, scale: 0.72 }}
+          animate={{
+            x: effect.dx + (ci - chipCount / 2) * 8,
+            y: effect.dy + (ci % 3) * 6,
+            opacity: [0, 1, 1, 0],
+            scale: [0.72, 1.08, 1, 0.88],
+          }}
+          transition={{
+            duration: FLIGHT_MS / 1000,
+            ease: [0.22, 1, 0.36, 1],
+            delay: ci * 0.05,
+            opacity: { times: [0, 0.08, 0.82, 1] },
+            scale: { times: [0, 0.24, 0.78, 1] },
+          }}
           style={{
             position: 'absolute',
-            left: index * 4,
-            top: index * -3,
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: color,
-            border: '2px dashed rgba(255,255,255,0.72)',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(65,38,0,0.36)',
+            zIndex: 70,
+            left: effect.sx - 13,
+            top: effect.sy - 13,
+            width: 28,
+            height: 28,
+            pointerEvents: 'none',
+            willChange: 'transform, opacity',
           }}
-        />
+        >
+          {CHIP_COLORS.slice(0, 3).map((color, index) => (
+            <span
+              key={color}
+              style={{
+                position: 'absolute',
+                left: index * 4,
+                top: index * -3,
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: color,
+                border: '2px dashed rgba(255,255,255,0.72)',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(65,38,0,0.36)',
+              }}
+            />
+          ))}
+          {ci === 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 23,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '2px 5px',
+              borderRadius: 8,
+              background: 'rgba(3,3,5,0.86)',
+              color: '#F3D66F',
+              font: '700 10px monospace',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 7px rgba(0,0,0,0.5)',
+            }}>
+              {effect.kind === 'payout' ? '+' : ''}{effect.amount.toLocaleString()}
+            </span>
+          )}
+        </motion.div>
       ))}
-      <span style={{
-        position: 'absolute',
-        top: 23,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        padding: '2px 5px',
-        borderRadius: 8,
-        background: 'rgba(3,3,5,0.86)',
-        color: '#F3D66F',
-        font: '700 10px monospace',
-        whiteSpace: 'nowrap',
-        boxShadow: '0 2px 7px rgba(0,0,0,0.5)',
-      }}>
-        {effect.kind === 'payout' ? '+' : ''}{effect.amount.toLocaleString()}
-      </span>
-    </motion.div>
+    </>
   );
 }
+
+// ─── Folded cards flight ──────────────────────────────────────────────────────
 
 function FoldedCards({ effect }: { effect: MeasuredEffect }) {
   return (
@@ -188,19 +203,22 @@ function FoldedCards({ effect }: { effect: MeasuredEffect }) {
           key={index}
           src={CARD_BACK}
           alt=""
-          initial={{ x: index * 5 - (effect.cardCount - 1) * 2.5, y: 0, rotate: (index - 1.5) * 5, opacity: 1 }}
+          initial={{ x: index * 5 - (effect.cardCount - 1) * 2.5, y: 0, rotate: (index - 1.5) * 5, opacity: 1, scale: 1 }}
           animate={{
             x: effect.dx + (index - 1.5) * 2,
-            y: effect.dy,
+            // Two-beat: lift up first (UNO feel), then fly to muck (Detroit 2026-10-13)
+            y: [0, -14, effect.dy],
             rotate: 160 + index * 9,
             opacity: [1, 1, 0],
-            scale: [1, 0.78, 0.48],
+            scale: [1, 1.28, 0.48],
           }}
           transition={{
-            duration: FLIGHT_MS / 1000,
+            duration: (FLIGHT_MS + 120) / 1000,
             delay: index * 0.025,
             ease: [0.4, 0, 0.2, 1],
             opacity: { times: [0, 0.72, 1] },
+            y: { times: [0, 0.18, 1] },
+            scale: { times: [0, 0.18, 1] },
           }}
           style={{
             position: 'absolute',
