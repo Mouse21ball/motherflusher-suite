@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+// OBSOLETE (2026-10-12): The yard reskin tables were rebuilt from scratch with
+// a new design (pt-table/pt-seat classes). These tests checked for the old
+// .yard-table-board structure which no longer exists. Skipped, not deleted,
+// in case the reskin concept returns.
+test.describe.skip('yard reskin (obsolete - tables rebuilt)', () => {
 test.setTimeout(25000);
 
 for (const viewport of [
@@ -47,3 +52,4 @@ for (const viewport of [
     });
   });
 }
+}); // end obsolete describe.skip

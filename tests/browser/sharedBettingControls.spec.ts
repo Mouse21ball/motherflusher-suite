@@ -12,11 +12,11 @@ test.describe('Badugi betting controls', () => {
       const controls = page.getByTestId('betting-controls');
       await expect(controls).toBeVisible();
 
-      const input = page.getByTestId('input-bet-amount');
-      const inputBounds = await input.boundingBox();
-      expect(inputBounds, `${mode} amount input should have a touch target`).not.toBeNull();
-      expect(inputBounds!.height).toBeGreaterThanOrEqual(44);
-      expect(inputBounds!.width).toBeGreaterThan(90);
+      // Detroit's spec: raise opens a compact popup; the toggle button is the touch target
+      const raiseToggle = page.getByTestId('button-raise-toggle');
+      const toggleBounds = await raiseToggle.boundingBox();
+      expect(toggleBounds, `${mode} raise toggle should have a touch target`).not.toBeNull();
+      expect(toggleBounds!.height).toBeGreaterThanOrEqual(44);
 
       for (const shortcut of ['quarter-pot', 'half-pot', 'pot', 'two-pot']) {
         await expect(page.getByTestId(`button-bet-${shortcut}`)).toBeVisible();
@@ -64,12 +64,12 @@ test.describe('Badugi betting controls', () => {
       await page.getByTestId('set-zero-chips').tap();
 
       await expect(page.getByTestId('all-in-waiting')).toBeVisible();
-      await expect(page.getByTestId('input-bet-amount')).toHaveCount(0);
+      await expect(page.getByTestId('button-raise-toggle')).toHaveCount(0);
       await expect(page.getByTestId('button-check')).toHaveCount(0);
       await expect(page.getByTestId('button-fold')).toHaveCount(0);
 
       await page.getByTestId('set-funded-chips').tap();
-      await expect(page.getByTestId('input-bet-amount')).toBeVisible();
+      await expect(page.getByTestId('button-raise-toggle')).toBeVisible();
     }
   });
 });
