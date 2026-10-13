@@ -11,6 +11,12 @@ import { TableEscapeGuard } from "@/components/game/TableEscapeGuard";
 import { ServerProfileProvider, useServerProfile } from "@/lib/useServerProfile";
 import { initAnalytics } from "@/lib/analytics";
 import { isPracticeBadugiPath } from "@/lib/practiceRoute";
+
+// UNO prototype (Detroit 2026-10-13): bypasses WelcomeGate like the practice route
+function isProtoUnoPath(pathname: string): boolean {
+  const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
+  return path === "/proto-uno";
+}
 import { billing } from "@/lib/billing";
 import { music } from "@/lib/music";
 import { MUSIC_CATALOG } from "@/lib/musicTracks";
@@ -122,7 +128,6 @@ function Router() {
         <Route path="/crews" component={Crews}/>
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
-        <Route path="/proto-uno" component={ProtoUno}/>
         <Route path="/practice/badugi" component={PracticeBadugiPage}/>
         <Route path="/flushedup" component={FlushedUpGame}/>
         <Route path="/box-chevy" component={BoxChevyGame}/>
@@ -145,9 +150,11 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const isStandalonePractice = isPracticeBadugiPath(location);
+  const isProtoUno = isProtoUnoPath(location);
+  const isBypassRoute = isStandalonePractice || isProtoUno;
 
   useEffect(() => {
-    if (!isStandalonePractice) initAnalytics();
+    if (!isBypassRoute) initAnalytics();
   }, [isStandalonePractice]);
 
   // FIX 1: initialize billing once at app startup after the native bridge is ready.
@@ -156,7 +163,7 @@ function App() {
   // Fire-and-forget: errors are logged but never thrown so the rest of the app is
   // unaffected if Play Billing is unavailable.
   useEffect(() => {
-    if (isStandalonePractice) return;
+    if (isBypassRoute) return;
     let active = true;
     let waitingForDeviceReady = false;
     const init = () => {
@@ -189,13 +196,14 @@ function App() {
   // The practice route deliberately bypasses profile/session bootstrap,
   // billing initialization, session analytics, welcome identity persistence,
   // and the profile-driven manager. Its age check is visit-local in memory.
-  if (isStandalonePractice) {
+  // The UNO prototype route bypasses the same way (Detroit 2026-10-13).
+  if (isBypassRoute) {
     return (
       <ErrorBoundary>
         <TooltipProvider>
           <Toaster />
           <div className="cgp-vignette" aria-hidden="true" />
-          <PracticeBadugiPage />
+          {isProtoUno ? <ProtoUno /> : <PracticeBadugiPage />}
         </TooltipProvider>
       </ErrorBoundary>
     );
