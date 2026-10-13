@@ -290,14 +290,8 @@ export const FlushedUpMode: GameMode = {
 
     if (activePlayers.length === 1) {
       const sole = activePlayers[0];
-      const soleEval = sole.score as FlushedUpEval | undefined;
-      if (!soleEval?.isFlush) {
-        finalPlayers = finalPlayers.map(p =>
-          p.id === sole.id ? { ...p, isLoser: true } : p,
-        );
-        messages.push(`No qualifying hands — $${totalAwardable} rolls over!`);
-        return { players: finalPlayers, pot: totalAwardable, messages };
-      }
+      // Sole survivor always wins — no flush requirement (Detroit 2026-10-13).
+      // Best hand by flush hierarchy takes it; pot never rolls over on a single winner.
       const award = sidePots
         .filter(sp => sp.eligibleIds.includes(sole.id))
         .reduce((s, sp) => s + sp.amount, 0);
@@ -324,8 +318,10 @@ export const FlushedUpMode: GameMode = {
         );
       }
 
-      const qualifying = eligible.filter(p => evalMap.get(p.id)!.isFlush);
-      if (qualifying.length === 0) { rolledOver += sp.amount; continue; }
+      // Best hand by flush hierarchy wins — no flush required (Detroit 2026-10-13).
+      // compareFlushedUpHands ranks by suit count then high cards, so the
+      // strongest flush-ish hand always takes the pot. No rollover.
+      const qualifying = eligible;
 
       let bestEval: FlushedUpEval | null = null;
       for (const p of qualifying) {
