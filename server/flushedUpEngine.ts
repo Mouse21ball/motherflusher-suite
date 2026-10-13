@@ -10,7 +10,8 @@ const FLUSHED_UP_BOT_NAMES = ['Slick', 'Vega', 'Rosie', 'Duke', 'Nyx', 'Bones', 
 export const FlushedUpEngine: ModeEngine = {
   mode: FlushedUpMode,
   drawCap: phase => ({ DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 } as Record<string, number>)[phase] ?? null,
-  canWinUncontested: player => evaluateFlushedUpHand(player.cards.map(card => ({ ...card, isHidden: false }))).isFlush,
+  // Sole survivor always wins — no flush requirement (Detroit 2026-10-13)
+  canWinUncontested: () => true,
   resolveUncontested(state, winner, netPot) {
       const result = FlushedUpMode.resolveShowdown(state.players, netPot, '__server__', state.communityCards);
       const rolloverMessage = `No qualifying hands — $${netPot} rolls over!`;
