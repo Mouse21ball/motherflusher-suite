@@ -13,11 +13,13 @@ import { MyMusic } from '@/components/MyMusic';
 import type { MusicContext } from '@/components/MyMusic';
 import { MUSIC_TRACK_IDS, FREE_MUSIC_IDS } from '@/lib/musicTracks';
 import { music } from '@/lib/music';
+import { useTableBackground } from '@/lib/useTableBackground';
+import { TABLE_BACKGROUNDS } from '@/lib/tableBackgrounds';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CosmeticCategory = 'avatar' | 'frame' | 'name_color';
-type ShopTab = CosmeticCategory | 'music';
+type ShopTab = CosmeticCategory | 'music' | 'backgrounds';
 
 interface CatalogItem {
   id:          string;
@@ -170,10 +172,11 @@ function StateBadge({ state }: { state: 'buy' | 'owned' | 'equipped' }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const TABS: { id: ShopTab; label: string }[] = [
-  { id: 'avatar',     label: 'Avatars' },
-  { id: 'frame',      label: 'Frames' },
-  { id: 'name_color', label: 'Name Colors' },
-  { id: 'music',      label: '♪ Music' },
+  { id: 'avatar',      label: 'Avatars' },
+  { id: 'frame',       label: 'Frames' },
+  { id: 'name_color',  label: 'Name Colors' },
+  { id: 'backgrounds', label: 'Backgrounds' },
+  { id: 'music',       label: '♪ Music' },
 ];
 
 export default function CosmeticsStore() {
@@ -182,6 +185,7 @@ export default function CosmeticsStore() {
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
 
   const [tab,          setTab]          = useState<ShopTab>('avatar');
+  const { background: tableBg, selectBackground: selectTableBg } = useTableBackground();
   const [catalog,      setCatalog]      = useState<CatalogItem[]>([]);
   const [inventory,    setInventory]    = useState<InventoryItem[]>([]);
   const [equipped,     setEquipped]     = useState<EquippedState>({ avatarId: null, frameId: null, nameColorId: null });
@@ -515,7 +519,58 @@ export default function CosmeticsStore() {
         className="flex-1 px-4 pt-3 pb-24"
         style={{ borderTop: '1px solid rgba(201,162,39,0.12)' }}
       >
-        {tab === 'music' ? (
+        {tab === 'backgrounds' ? (
+          /* ── Backgrounds tab ───────────────────────────────────────────── */
+          <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{
+              fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em',
+              color: 'rgba(201,162,39,0.70)', textTransform: 'uppercase',
+              paddingLeft: 2,
+            }}>
+              ◆ Table Backgrounds
+            </div>
+            {TABLE_BACKGROUNDS.map(bg => {
+              const isActive = tableBg.id === bg.id;
+              return (
+                <button
+                  key={bg.id}
+                  onClick={() => selectTableBg(bg.id)}
+                  style={{
+                    display: 'flex', gap: 12, alignItems: 'center', textAlign: 'left',
+                    background: isActive ? 'rgba(201,162,39,0.12)' : 'rgba(15,10,25,0.50)',
+                    border: `1px solid ${isActive ? 'rgba(255,215,0,0.50)' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 12, padding: 10, cursor: 'pointer', width: '100%',
+                  }}
+                >
+                  <img
+                    src={bg.url} alt={bg.name}
+                    style={{ width: 72, height: 96, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: '#FFD700', fontWeight: 700, fontSize: '0.9rem' }}>{bg.name}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.75rem', marginTop: 4 }}>
+                      {bg.description}
+                    </div>
+                    <div style={{
+                      display: 'inline-block', marginTop: 6, fontSize: '0.65rem', fontFamily: 'monospace',
+                      textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: 8,
+                      color: bg.tier === 'free' ? '#4ade80' : bg.tier === 'unlockable' ? '#60a5fa' : '#c084fc',
+                      background: bg.tier === 'free' ? 'rgba(74,222,128,0.12)' : bg.tier === 'unlockable' ? 'rgba(96,165,250,0.12)' : 'rgba(192,132,252,0.12)',
+                    }}>
+                      {bg.tier === 'free' ? 'Free' : bg.tier === 'unlockable' ? 'Unlockable' : 'Premium'}
+                    </div>
+                  </div>
+                  {isActive && (
+                    <span style={{ color: '#4ade80', fontSize: '1.2rem' }}>✓</span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem', textAlign: 'center', marginTop: 4 }}>
+              Tiers coming soon — everything selectable for now.
+            </div>
+          </div>
+        ) : tab === 'music' ? (
           /* ── Music tab ─────────────────────────────────────────────────── */
           <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
             <MusicStore
