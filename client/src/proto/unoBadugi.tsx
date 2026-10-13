@@ -22,7 +22,14 @@ import type { CardType, Rank, Suit } from '@shared/gameTypes';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type ProtoPhase = 'dealing' | 'betting' | 'draw' | 'showdown' | 'settling';
+type ProtoPhase =
+  | 'ante'
+  | 'dealing'
+  | 'draw1' | 'bet1'
+  | 'draw2' | 'bet2'
+  | 'draw3' | 'bet3'
+  | 'showdown'
+  | 'settling';
 
 interface ProtoPlayer {
   id: string;
@@ -82,7 +89,7 @@ function randomCard(): CardType {
 }
 
 function makePlayers(): ProtoPlayer[] {
-  const names = ['YOU', 'Marcus', 'T-Bone', 'Silk', 'Reese'];
+  const names = ['YOU', 'Marcus', 'T-Bone', 'Silk'];
   return names.map((name, i) => ({
     id: `p${i}`,
     name,
@@ -98,10 +105,10 @@ function makePlayers(): ProtoPlayer[] {
 
 function initialState(handNumber: number): ProtoState {
   return {
-    phase: 'dealing',
+    phase: 'ante',
     players: makePlayers(),
     pot: 0,
-    dealerSeat: handNumber % 5,
+    dealerSeat: handNumber % 4,
     activeSeat: 0,
     pulseKey: 0,
     handNumber,
@@ -116,11 +123,11 @@ function initialState(handNumber: number): ProtoState {
 
 function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 }; // hero
+  // 3 opponents spread across the top
   const spots = [
-    { x: 10, y: 32 },
-    { x: 30, y: 16 },
-    { x: 70, y: 16 },
-    { x: 90, y: 32 },
+    { x: 14, y: 28 },
+    { x: 50, y: 14 },
+    { x: 86, y: 28 },
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -159,11 +166,42 @@ function useProtoGame() {
     setState(s => ({ ...s, flights: s.flights.filter(f => f.id !== id) }));
   }, []);
 
+  // ── ANTE: everyone tosses $25 to the pot ──
+  const runAnte = useCallback(() => {
+    const order = [0, 1, 2, 3];
+    order.forEach((seatIdx, i) => {
+      later(i * 250, () => {
+        const seat = seatPosition(seatIdx);
+        const fid = addFlight({
+          kind: 'chip',
+          fromX: seat.x, fromY: seat.y - 4,
+          toX: POT_POS.x, toY: POT_POS.y,
+          label: '$25',
+          faceDown: false,
+          duration: 0.35,
+        });
+        sfx.betPlace();
+        later(350, () => {
+          removeFlight(fid);
+          setState(s => {
+            const players = s.players.map(p => ({ ...p }));
+            players[seatIdx].chips -= 25;
+            return { ...s, players, pot: s.pot + 25 };
+          });
+        });
+      });
+    });
+    later(order.length * 250 + 500, () => {
+      setState(s => ({ ...s, phase: 'dealing' }));
+      pulse();
+    });
+  }, [later, pulse, addFlight, removeFlight]);
+
   // ── DEAL: cards fly from dealer to each seat ──
   const runDeal = useCallback(() => {
-    const totalCards = 5 * 4;
+    const totalCards = 4 * 4;
     for (let i = 0; i < totalCards; i++) {
-      const seatIdx = i % 5;
+      const seatIdx = i % 4;
       const seat = seatPosition(seatIdx);
       const t0 = i * 160;
       // Flight out from dealer
@@ -192,17 +230,14 @@ function useProtoGame() {
       });
     }
     later(totalCards * 160 + 500, () => {
-      setState(s => {
-        const players = s.players.map(p => ({ ...p, bet: 25, chips: p.chips - 25 }));
-        return { ...s, players, pot: 125, phase: 'betting', activeSeat: (s.dealerSeat + 1) % 5 };
-      });
+      setState(s => ({ ...s, phase: 'draw1', activeSeat: (s.dealerSeat + 1) % 4 }));
       pulse();
     });
   }, [later, pulse, addFlight, removeFlight]);
 
-  // ── BETTING: chips fly from bettor to pot ──
-  const runBetting = useCallback(() => {
-    const order = [0, 1, 2, 3, 4];
+  // ── BETTING: chips fly from bettor to pot. nextPhase drives the sequence. ──
+  const runBetting = useCallback((nextPhase: ProtoPhase) => {
+    const order = [0, 1, 2, 3];
     order.forEach((seatIdx, i) => {
       const t0 = 700 + i * 1100;
       later(t0, () => {
@@ -245,13 +280,17 @@ function useProtoGame() {
       });
     });
     later(700 + order.length * 1100 + 600, () => {
-      setState(s => ({ ...s, phase: 'draw', activeSeat: 0 }));
+      // Clear per-round bets before the next phase
+      setState(s => {
+        const players = s.players.map(p => ({ ...p, bet: 0 }));
+        return { ...s, players, phase: nextPhase, activeSeat: 0 };
+      });
     });
   }, [later, pulse, addFlight, removeFlight]);
 
   // ── DRAW: discards fly face-down to muck, fresh cards fly from dealer ──
-  const runDraw = useCallback(() => {
-    const order = [0, 1, 2, 3, 4];
+  const runDraw = useCallback((drawNum: 1 | 2 | 3, nextPhase: ProtoPhase) => {
+    const order = [0, 1, 2, 3];
     order.forEach((seatIdx, i) => {
       const t0 = 600 + i * 1400;
       later(t0, () => {
@@ -321,22 +360,25 @@ function useProtoGame() {
       });
     });
     later(600 + order.length * 1400 + 800, () => {
-      setState(s => {
-        const contenders = s.players.filter(p => !p.folded);
-        const winner = contenders[Math.floor(Math.random() * contenders.length)];
-        const players = s.players.map(p => ({
-          ...p,
-          isWinner: p.id === winner.id,
-          cards: p.cards.map(c => ({ ...c, isHidden: false })),
-        }));
-        return { ...s, players, phase: 'showdown', flights: [] };
-      });
+      setState(s => ({ ...s, phase: nextPhase, flights: [] }));
       pulse();
     });
   }, [later, pulse, addFlight, removeFlight]);
 
   // ── SHOWDOWN → rake-in → settle → next hand ──
   const runShowdown = useCallback(() => {
+    // Reveal all hands, pick winner
+    setState(s => {
+      const contenders = s.players.filter(p => !p.folded);
+      const winner = contenders[Math.floor(Math.random() * contenders.length)];
+      const players = s.players.map(p => ({
+        ...p,
+        isWinner: p.id === winner.id,
+        cards: p.cards.map(c => ({ ...c, isHidden: false })),
+      }));
+      return { ...s, players };
+    });
+    pulse();
     later(2500, () => {
       setState(s => {
         const winnerIdx = s.players.findIndex(p => p.isWinner);
@@ -361,12 +403,18 @@ function useProtoGame() {
     });
   }, [later, pulse]);
 
-  // Phase machine
+  // Phase machine — matches real Badugi order:
+  // ANTE → DEAL → DRAW_1 → BET_1 → DRAW_2 → BET_2 → DRAW_3 → BET_3 → SHOWDOWN
   useEffect(() => {
     clearTimers();
-    if (state.phase === 'dealing') runDeal();
-    else if (state.phase === 'betting') runBetting();
-    else if (state.phase === 'draw') runDraw();
+    if (state.phase === 'ante') runAnte();
+    else if (state.phase === 'dealing') runDeal();
+    else if (state.phase === 'draw1') runDraw(1, 'bet1');
+    else if (state.phase === 'bet1') runBetting('draw2');
+    else if (state.phase === 'draw2') runDraw(2, 'bet2');
+    else if (state.phase === 'bet2') runBetting('draw3');
+    else if (state.phase === 'draw3') runDraw(3, 'bet3');
+    else if (state.phase === 'bet3') runBetting('showdown');
     else if (state.phase === 'showdown') runShowdown();
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -483,7 +531,7 @@ export function UnoProtoTable() {
             </motion.div>
           </AnimatePresence>
           {/* Muck pile — face-down discards stack here */}
-          {state.phase === 'draw' && (
+          {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
             <div className="mt-1 text-white/30 text-[10px] font-mono">🂠 muck</div>
           )}
         </div>
@@ -525,7 +573,7 @@ export function UnoProtoTable() {
         {/* Seats */}
         {state.players.map((p, i) => {
           const pos = seatPosition(i);
-          const isActive = i === state.activeSeat && (state.phase === 'betting' || state.phase === 'draw');
+          const isActive = i === state.activeSeat && (state.phase.startsWith('bet') || state.phase.startsWith('draw'));
           const isDealer = i === state.dealerSeat;
           return (
             <div
@@ -604,7 +652,7 @@ export function UnoProtoTable() {
                 </AnimatePresence>
               </div>
               {/* Draw badge */}
-              {p.drewCount !== null && state.phase === 'draw' && !p.folded && (
+              {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
                 <div className="text-purple-300 text-[10px] font-mono mt-1">
                   {p.drewCount === 0 ? 'STAND PAT' : `DREW ${p.drewCount}`}
                 </div>
@@ -616,9 +664,10 @@ export function UnoProtoTable() {
 
       {/* Phase hint */}
       <div className="pb-6 text-center text-white/40 text-xs font-mono">
+        {state.phase === 'ante' && 'Ante up — $25 each…'}
         {state.phase === 'dealing' && 'Dealing from the dealer…'}
-        {state.phase === 'betting' && 'Chips flying to the pot…'}
-        {state.phase === 'draw' && 'Discards to the muck — fresh cards from the dealer'}
+        {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3') && 'Chips flying to the pot…'}
+        {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
         {state.phase === 'showdown' && 'Showdown — fast reveal'}
         {state.phase === 'settling' && 'Raking it in…'}
       </div>
