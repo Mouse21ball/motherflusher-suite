@@ -25,7 +25,7 @@ const HERO_CARD_H = 102;
 // Adjusted down to clear the UniversalTableHeader (Detroit 2026-10-13).
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 88 }; // hero
+  if (index === 0) return { x: 50, y: 76 }; // hero — up from 88 to clear action buttons
   const spots = [
     { x: 14, y: 34 },
     { x: 50, y: 22 },
@@ -113,6 +113,21 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const [tableRoot, setTableRoot] = useState<HTMLElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
 
   const heroHandEval = me && me.cards.length > 0 && !me.cards.some(card => card.isHidden)
     ? evaluateBadugi(me.cards.map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateBadugi>[0])
@@ -153,10 +168,17 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
 
       {/* Info bar — below header */}
-      <div className="absolute top-[76px] left-0 right-0 flex justify-center gap-4 text-[10px] font-mono text-white/60 z-10">
+      <div className="absolute top-[76px] left-0 right-0 flex justify-center items-center gap-4 text-[10px] font-mono text-white/60 z-10">
         <span><b className="text-amber-300/80">PLAYERS</b> {activeCount}/{state.players.length}</span>
         <span><b className="text-amber-300/80">DRAW</b> {state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]}/3` : '–'}</span>
         <span><b className="text-amber-300/80">PHASE</b> {phaseLabel(state.phase)}</span>
+        <button
+          onClick={toggleFullscreen}
+          className="ml-2 px-2 py-1 rounded bg-white/10 text-white/70 text-[10px] font-mono border border-white/20"
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? '⤓' : '⤢'}
+        </button>
       </div>
 
       {/* Invisible dealer anchor for deal flights (D badges on seats show dealer) */}
