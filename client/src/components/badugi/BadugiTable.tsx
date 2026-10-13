@@ -22,19 +22,19 @@ const HERO_CARD_H = 102;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
+// Adjusted down to clear the UniversalTableHeader (Detroit 2026-10-13).
 
 function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 }; // hero
   const spots = [
-    { x: 14, y: 28 },
-    { x: 50, y: 14 },
-    { x: 86, y: 28 },
+    { x: 14, y: 34 },
+    { x: 50, y: 22 },
+    { x: 86, y: 34 },
   ];
   return spots[(index - 1) % spots.length];
 }
 
-const DEALER_POS = { x: 50, y: 4 };
-const POT_POS = { x: 50, y: 52 };
+const POT_POS = { x: 50, y: 55 };
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -152,30 +152,22 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     <div className="relative w-full h-full min-h-[600px] overflow-hidden" ref={setTableRoot as any}>
       <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" />
 
-      {/* Info bar */}
-      <div className="absolute top-12 left-0 right-0 flex justify-center gap-4 text-[10px] font-mono text-white/60 z-10">
+      {/* Info bar — below header */}
+      <div className="absolute top-[76px] left-0 right-0 flex justify-center gap-4 text-[10px] font-mono text-white/60 z-10">
         <span><b className="text-amber-300/80">PLAYERS</b> {activeCount}/{state.players.length}</span>
         <span><b className="text-amber-300/80">DRAW</b> {state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]}/3` : '–'}</span>
         <span><b className="text-amber-300/80">PHASE</b> {phaseLabel(state.phase)}</span>
       </div>
 
-      {/* Dealer marker */}
-      <div
-        className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
-        style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}
-      >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center text-black font-bold text-sm shadow-xl border-2 border-amber-200">
-          D
-        </div>
-      </div>
+      {/* Invisible dealer anchor for deal flights (D badges on seats show dealer) */}
+      <div data-dealer-anchor aria-hidden="true" className="absolute" style={{ left: '50%', top: '12%' }} />
 
       {/* Pot — center, prototype style */}
       <div
         className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
         style={{ left: `${POT_POS.x}%`, top: `${POT_POS.y}%` }}
         data-pot-anchor
-      >
-        <motion.div
+      >        <motion.div
           className="rounded-2xl px-6 py-3 text-center"
           style={{
             background: 'rgba(240,184,41,0.08)',
