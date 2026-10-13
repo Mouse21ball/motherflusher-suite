@@ -46,7 +46,7 @@ import { YardBottomNav } from '@/components/YardBottomNav';
 import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import { YardRewardFlight } from '@/components/YardRewardFlight';
 import { publishYardMissionBadge } from '@/lib/yardMissionBadge';
-import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
+import { useTableBackground } from '@/lib/useTableBackground';
 import { RefreshCw, ArrowRight, Medal, Crown, Trophy } from 'lucide-react';
 import '@/yard-reskin.css';
 
@@ -281,6 +281,7 @@ function syncXPFromHistory(): void {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { background: tableBackground } = useTableBackground();
   const [location, navigate] = useLocation();
   const isMissionsPage = location === '/missions';
   const pullStartY = useRef<number | null>(null);
@@ -536,7 +537,7 @@ export default function Home() {
   return (
     <>
     {/* ── Fixed background ──────────────────────────────────────────────────── */}
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: `url('${yardBackdrop}')`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: `url('${tableBackground.url}')`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
     <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(0,0,0,0.55)' }} />
 
     <div className={`yard-page${isMissionsPage ? ' is-missions-page' : ''}`} style={{ position: 'relative', zIndex: 1, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
