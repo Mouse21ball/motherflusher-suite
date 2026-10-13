@@ -3,10 +3,11 @@
  * PROTOTYPE ONLY — does not touch the live game.
  *
  * Takes UNO's table structure and applies it to Badugi rules:
- * - Dealer position at top; cards fly from dealer to seats on the deal
- * - Center staging: pot as the centerpiece (UNO's pile position)
- * - Seats arranged in an arc around the center (not the pt-table grid)
- * - Camera pulse on bets, draws, showdown (UNO's signature feel)
+ * - Dealer position at top; cards FLY from dealer to seats on the deal
+ * - Chips FLY from bettor to pot on every bet — the pot visibly grows
+ * - Discards FLY face-down to the muck on the draw; fresh cards fly from dealer
+ * - Pot FLIES to the winner at showdown (the rake-in)
+ * - Camera pulse accompanies the movement (UNO's signature feel)
  * - Per-card deal tick sounds, higher pitch for hero's cards
  * - Fast reveals (0.15s) on showdown
  *
@@ -35,20 +36,42 @@ interface ProtoPlayer {
   isWinner: boolean;
 }
 
+// A transient animated element flying across the table
+interface Flight {
+  id: string;
+  kind: 'card' | 'chip' | 'muck';
+  fromX: number; fromY: number;
+  toX: number; toY: number;
+  label: string; // chip amount, e.g. "$50"
+  faceDown: boolean;
+  duration: number; // seconds
+}
+
+interface RakeState {
+  active: boolean;
+  winnerIndex: number;
+  amount: number;
+}
+
 interface ProtoState {
   phase: ProtoPhase;
   players: ProtoPlayer[];
   pot: number;
-  dealerSeat: number; // index into players
+  dealerSeat: number;
   activeSeat: number;
-  dealtCount: number; // cards dealt so far (for stagger)
-  pulseKey: number; // bump to trigger camera pulse
+  pulseKey: number;
   handNumber: number;
-  rake: RakeState; // pot-to-winner rake-in animation
+  flights: Flight[];
+  rake: RakeState;
 }
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+// Key table positions (percentages)
+const DEALER_POS = { x: 50, y: 4 };
+const POT_POS = { x: 50, y: 52 };
+const MUCK_POS = { x: 63, y: 44 };
 
 function randomCard(): CardType {
   return {
@@ -80,12 +103,30 @@ function initialState(handNumber: number): ProtoState {
     pot: 0,
     dealerSeat: handNumber % 5,
     activeSeat: 0,
-    dealtCount: 0,
     pulseKey: 0,
     handNumber,
+    flights: [],
     rake: { active: false, winnerIndex: -1, amount: 0 },
   };
 }
+
+// ── Seat positioning ─────────────────────────────────────────────────────────
+// Landscape-first (Detroit 2026-10-13): opponents hug the top in a shallow arc,
+// hero at bottom, pot gets clear center space.
+
+function seatPosition(index: number): { x: number; y: number } {
+  if (index === 0) return { x: 50, y: 88 }; // hero
+  const spots = [
+    { x: 10, y: 32 },
+    { x: 30, y: 16 },
+    { x: 70, y: 16 },
+    { x: 90, y: 32 },
+  ];
+  return spots[(index - 1) % spots.length];
+}
+
+let flightId = 0;
+function nextFlightId() { return `f${++flightId}`; }
 
 // ── Scripted game driver ─────────────────────────────────────────────────────
 
@@ -108,110 +149,194 @@ function useProtoGame() {
     setState(s => ({ ...s, pulseKey: s.pulseKey + 1 }));
   }, [reduced]);
 
-  // Deal one card to each player in turn, with tick sounds
+  const addFlight = useCallback((f: Omit<Flight, 'id'>) => {
+    const id = nextFlightId();
+    setState(s => ({ ...s, flights: [...s.flights, { ...f, id }] }));
+    return id;
+  }, []);
+
+  const removeFlight = useCallback((id: string) => {
+    setState(s => ({ ...s, flights: s.flights.filter(f => f.id !== id) }));
+  }, []);
+
+  // ── DEAL: cards fly from dealer to each seat ──
   const runDeal = useCallback(() => {
-    const totalCards = 5 * 4; // 5 players × 4 cards
+    const totalCards = 5 * 4;
     for (let i = 0; i < totalCards; i++) {
-      later(i * 140, () => {
-        setState(s => {
-          const players = s.players.map(p => ({ ...p }));
-          const seatIdx = i % 5;
-          const card = randomCard();
-          // Hero's cards face up, others face down (hidden info preserved)
-          if (seatIdx !== 0) card.isHidden = true;
-          players[seatIdx].cards = [...players[seatIdx].cards, card];
-          return { ...s, players, dealtCount: s.dealtCount + 1 };
+      const seatIdx = i % 5;
+      const seat = seatPosition(seatIdx);
+      const t0 = i * 160;
+      // Flight out from dealer
+      later(t0, () => {
+        const fid = addFlight({
+          kind: 'card',
+          fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+          toX: seat.x, toY: seat.y - 6,
+          label: '',
+          faceDown: seatIdx !== 0,
+          duration: 0.32,
         });
-        // Tick sound — higher pitch for hero's cards (UNO: self vs others)
-        const isHeroCard = i % 5 === 0;
-        if (isHeroCard) sfx.dealSelf();
-        else sfx.dealSingle();
+        const isHeroCard = seatIdx === 0;
+        if (isHeroCard) sfx.dealSelf(); else sfx.dealSingle();
+        // Card lands in hand when flight completes
+        later(320, () => {
+          removeFlight(fid);
+          setState(s => {
+            const players = s.players.map(p => ({ ...p }));
+            const card = randomCard();
+            if (seatIdx !== 0) card.isHidden = true;
+            players[seatIdx].cards = [...players[seatIdx].cards, card];
+            return { ...s, players };
+          });
+        });
       });
     }
-    // After deal → antes → betting
-    later(totalCards * 140 + 400, () => {
+    later(totalCards * 160 + 500, () => {
       setState(s => {
         const players = s.players.map(p => ({ ...p, bet: 25, chips: p.chips - 25 }));
         return { ...s, players, pot: 125, phase: 'betting', activeSeat: (s.dealerSeat + 1) % 5 };
       });
       pulse();
     });
-  }, [later, pulse]);
+  }, [later, pulse, addFlight, removeFlight]);
 
-  // Betting round: each active player acts with camera pulse + chip flight
+  // ── BETTING: chips fly from bettor to pot ──
   const runBetting = useCallback(() => {
     const order = [0, 1, 2, 3, 4];
     order.forEach((seatIdx, i) => {
-      later(600 + i * 900, () => {
-        setState(s => {
-          const players = s.players.map(p => ({ ...p }));
-          const p = players[seatIdx];
-          // 20% fold chance for bots
-          if (seatIdx !== 0 && Math.random() < 0.2) {
-            p.folded = true;
-          } else {
-            const betAmt = 50 + Math.floor(Math.random() * 3) * 25;
-            p.bet += betAmt;
-            p.chips -= betAmt;
-          }
-          const pot = players.reduce((sum, pl) => sum + pl.bet, 0);
-          return { ...s, players, pot, activeSeat: seatIdx };
+      const t0 = 700 + i * 1100;
+      later(t0, () => {
+        const seat = seatPosition(seatIdx);
+        setState(s => ({ ...s, activeSeat: seatIdx }));
+        // Decide action first
+        const willFold = seatIdx !== 0 && Math.random() < 0.2;
+        if (willFold) {
+          setState(s => {
+            const players = s.players.map(p => ({ ...p }));
+            players[seatIdx].folded = true;
+            return { ...s, players };
+          });
+          pulse();
+          return;
+        }
+        const betAmt = 50 + Math.floor(Math.random() * 3) * 25;
+        // Chip flies from seat to pot
+        const fid = addFlight({
+          kind: 'chip',
+          fromX: seat.x, fromY: seat.y - 4,
+          toX: POT_POS.x, toY: POT_POS.y,
+          label: `$${betAmt}`,
+          faceDown: false,
+          duration: 0.45,
         });
         sfx.betPlace();
-        pulse();
+        // Pot grows when chip lands
+        later(450, () => {
+          removeFlight(fid);
+          setState(s => {
+            const players = s.players.map(p => ({ ...p }));
+            players[seatIdx].bet += betAmt;
+            players[seatIdx].chips -= betAmt;
+            const pot = players.reduce((sum, pl) => sum + pl.bet, 0);
+            return { ...s, players, pot };
+          });
+          pulse();
+        });
       });
     });
-    later(600 + order.length * 900 + 500, () => {
+    later(700 + order.length * 1100 + 600, () => {
       setState(s => ({ ...s, phase: 'draw', activeSeat: 0 }));
     });
-  }, [later, pulse]);
+  }, [later, pulse, addFlight, removeFlight]);
 
-  // Draw phase: bots discard face-down (hidden), new cards from dealer
+  // ── DRAW: discards fly face-down to muck, fresh cards fly from dealer ──
   const runDraw = useCallback(() => {
     const order = [0, 1, 2, 3, 4];
     order.forEach((seatIdx, i) => {
-      later(500 + i * 1100, () => {
+      const t0 = 600 + i * 1400;
+      later(t0, () => {
+        setState(s => ({ ...s, activeSeat: seatIdx }));
+        const seat = seatPosition(seatIdx);
+        let drewCount = 0;
         setState(s => {
-          const players = s.players.map(p => ({ ...p }));
-          const p = players[seatIdx];
+          const p = s.players[seatIdx];
           if (p.folded) return s;
-          const discardCount = seatIdx === 0 ? 2 : Math.floor(Math.random() * 3);
-          p.drewCount = discardCount;
-          // Replace discarded cards with new ones from dealer
-          const kept = p.cards.slice(discardCount);
-          const fresh = Array.from({ length: discardCount }, () => {
-            const c = randomCard();
-            if (seatIdx !== 0) c.isHidden = true;
-            return c;
-          });
-          p.cards = [...kept, ...fresh];
-          return { ...s, players, activeSeat: seatIdx };
+          drewCount = seatIdx === 0 ? 2 : Math.floor(Math.random() * 3);
+          return s;
         });
+        if (drewCount === 0) {
+          setState(s => {
+            const players = s.players.map(pl => ({ ...pl }));
+            if (!players[seatIdx].folded) players[seatIdx].drewCount = 0;
+            return { ...s, players };
+          });
+          return;
+        }
+        // Discards fly face-down to the muck
+        for (let d = 0; d < drewCount; d++) {
+          const fid = addFlight({
+            kind: 'muck',
+            fromX: seat.x, fromY: seat.y - 6,
+            toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
+            label: '',
+            faceDown: true,
+            duration: 0.35,
+          });
+          later(d * 120 + 350, () => removeFlight(fid));
+        }
         sfx.dealSingle();
         pulse();
+        // Fresh cards fly from dealer to seat
+        later(drewCount * 120 + 400, () => {
+          for (let d = 0; d < drewCount; d++) {
+            const dfid = addFlight({
+              kind: 'card',
+              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+              toX: seat.x, toY: seat.y - 6,
+              label: '',
+              faceDown: seatIdx !== 0,
+              duration: 0.32,
+            });
+            if (seatIdx === 0) sfx.dealSelf(); else sfx.dealSingle();
+            later(d * 120 + 320, () => removeFlight(dfid));
+          }
+          // Hand updates when new cards land
+          later(drewCount * 120 + 350, () => {
+            setState(s => {
+              const players = s.players.map(p => ({ ...p }));
+              const p = players[seatIdx];
+              if (p.folded) return s;
+              p.drewCount = drewCount;
+              const kept = p.cards.slice(drewCount);
+              const fresh = Array.from({ length: drewCount }, () => {
+                const c = randomCard();
+                if (seatIdx !== 0) c.isHidden = true;
+                return c;
+              });
+              p.cards = [...kept, ...fresh];
+              return { ...s, players };
+            });
+          });
+        });
       });
     });
-    later(500 + order.length * 1100 + 600, () => {
+    later(600 + order.length * 1400 + 800, () => {
       setState(s => {
-        // Pick a winner among non-folded (scripted — presentation only)
         const contenders = s.players.filter(p => !p.folded);
         const winner = contenders[Math.floor(Math.random() * contenders.length)];
         const players = s.players.map(p => ({
           ...p,
           isWinner: p.id === winner.id,
-          // Reveal all cards at showdown
           cards: p.cards.map(c => ({ ...c, isHidden: false })),
         }));
-        return { ...s, players, phase: 'showdown' };
+        return { ...s, players, phase: 'showdown', flights: [] };
       });
       pulse();
     });
-  }, [later, pulse]);
+  }, [later, pulse, addFlight, removeFlight]);
 
-  // Showdown → rake-in → settle → next hand
+  // ── SHOWDOWN → rake-in → settle → next hand ──
   const runShowdown = useCallback(() => {
-    // Phase 1: rake-in — pot chips physically fly to the winner (Detroit 2026-10-13:
-    // "like a person racking in the money of whoever won")
     later(2500, () => {
       setState(s => {
         const winnerIdx = s.players.findIndex(p => p.isWinner);
@@ -220,7 +345,6 @@ function useProtoGame() {
       sfx.chipRake();
       pulse();
     });
-    // Phase 2: chips land, counts update
     later(3700, () => {
       setState(s => {
         const players = s.players.map(p => {
@@ -253,25 +377,48 @@ function useProtoGame() {
   return state;
 }
 
-// ── Seat positioning (arc around center) ─────────────────────────────────────
-// Landscape-optimized: wider arc spread. Percentage-based so it adapts,
-// but tuned for landscape aspect ratio (Detroit 2026-10-13: "whatever gets the job done").
+// ── Flight rendering ─────────────────────────────────────────────────────────
 
-function seatPosition(index: number, total: number): { x: number; y: number } {
-  // Hero (index 0) at bottom center; others fanned in a wide arc above
-  if (index === 0) return { x: 50, y: 85 };
-  const angle = Math.PI * (0.08 + 0.84 * (index / total));
-  return {
-    x: 50 + 42 * Math.cos(Math.PI - angle),
-    y: 45 - 32 * Math.sin(Math.PI - angle),
-  };
-}
-
-// Rake-in animation state: chips flying from pot to winner
-interface RakeState {
-  active: boolean;
-  winnerIndex: number;
-  amount: number;
+function FlightView({ flight }: { flight: Flight }) {
+  return (
+    <motion.div
+      className="absolute z-30 pointer-events-none"
+      style={{ left: `${flight.fromX}%`, top: `${flight.fromY}%` }}
+      initial={{ x: '-50%', y: '-50%', opacity: 1, scale: 1 }}
+      animate={{
+        left: `${flight.toX}%`,
+        top: `${flight.toY}%`,
+        opacity: 1,
+        scale: flight.kind === 'chip' ? 0.85 : 1,
+      }}
+      transition={{ duration: flight.duration, ease: [0.3, 0.7, 0.4, 1] }}
+    >
+      {flight.kind === 'chip' ? (
+        <div
+          className="rounded-full px-3 py-1.5 font-mono font-bold text-xs text-amber-200 whitespace-nowrap"
+          style={{
+            background: 'rgba(20,10,40,0.95)',
+            border: '2px solid rgba(240,184,41,0.8)',
+            boxShadow: '0 0 16px rgba(240,184,41,0.5)',
+          }}
+        >
+          {flight.label}
+        </div>
+      ) : (
+        <div
+          className="rounded"
+          style={{
+            width: 30, height: 42,
+            background: flight.faceDown
+              ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)'
+              : 'linear-gradient(135deg, #f5f0ff, #d9ccff)',
+            border: '1px solid rgba(139,92,246,0.6)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          }}
+        />
+      )}
+    </motion.div>
+  );
 }
 
 // ── Table component ──────────────────────────────────────────────────────────
@@ -305,20 +452,19 @@ export function UnoProtoTable() {
         style={{ transformOrigin: '50% 45%' }}
       >
         {/* Dealer position — top center, UNO style */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-2 flex flex-col items-center">
+        <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
           <motion.div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
             style={{ background: 'rgba(240,184,41,0.15)', border: '2px solid rgba(240,184,41,0.5)' }}
             animate={{ rotate: state.phase === 'dealing' ? 360 : 0 }}
             transition={{ duration: 2, ease: 'linear' }}
           >
-            <span className="text-amber-300 text-xs font-mono">D</span>
+            <span className="text-amber-300 text-[10px] font-mono">D</span>
           </motion.div>
-          <div className="text-white/40 text-[10px] font-mono mt-1">DEALER</div>
         </div>
 
         {/* Center staging — pot as the centerpiece (UNO's pile position) */}
-        <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <AnimatePresence>
             <motion.div
               key={`pot-${state.pot}`}
@@ -336,30 +482,33 @@ export function UnoProtoTable() {
               <div className="text-amber-200 text-2xl font-bold font-mono">${state.pot.toLocaleString()}</div>
             </motion.div>
           </AnimatePresence>
-          {/* Muck area — face-down discards land here (poker's hidden info preserved) */}
-          <div className="mt-2 text-white/30 text-[10px] font-mono">
-            {state.phase === 'draw' ? '··· discarding ···' : ''}
-          </div>
+          {/* Muck pile — face-down discards stack here */}
+          {state.phase === 'draw' && (
+            <div className="mt-1 text-white/30 text-[10px] font-mono">🂠 muck</div>
+          )}
         </div>
+
+        {/* Flights: cards and chips moving across the table */}
+        {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
 
         {/* Rake-in: pot chips fly to the winner's seat */}
         {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
-          const wpos = seatPosition(state.rake.winnerIndex, state.players.length);
+          const wpos = seatPosition(state.rake.winnerIndex);
           return (
             <motion.div
-              className="absolute z-20 flex flex-col items-center"
-              style={{ left: '50%', top: '42%' }}
+              className="absolute z-20 flex flex-col items-center pointer-events-none"
+              style={{ left: '50%', top: '52%' }}
               initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
               animate={{
                 x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
-                y: `calc(-50% + ${(wpos.y - 42) * 3.5}px)`,
+                y: `calc(-50% + ${(wpos.y - 52) * 3.5}px)`,
                 scale: 0.7,
                 opacity: 0.9,
               }}
               transition={{ duration: 1.0, ease: [0.3, 0.7, 0.4, 1] }}
             >
               <div
-                className="rounded-full px-4 py-2 font-mono font-bold text-amber-200"
+                className="rounded-full px-4 py-2 font-mono font-bold text-amber-200 whitespace-nowrap"
                 style={{
                   background: 'rgba(20,10,40,0.9)',
                   border: '2px solid rgba(240,184,41,0.7)',
@@ -373,9 +522,9 @@ export function UnoProtoTable() {
           );
         })()}
 
-        {/* Seats in arc */}
+        {/* Seats */}
         {state.players.map((p, i) => {
-          const pos = seatPosition(i, state.players.length);
+          const pos = seatPosition(i);
           const isActive = i === state.activeSeat && (state.phase === 'betting' || state.phase === 'draw');
           const isDealer = i === state.dealerSeat;
           return (
@@ -387,7 +536,7 @@ export function UnoProtoTable() {
               {/* Active turn ring */}
               {isActive && (
                 <motion.div
-                  className="absolute -inset-2 rounded-xl"
+                  className="absolute -inset-2 rounded-xl pointer-events-none"
                   style={{ border: '2px solid rgba(240,184,41,0.6)' }}
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
@@ -396,7 +545,7 @@ export function UnoProtoTable() {
               {/* Winner glow */}
               {p.isWinner && state.phase === 'showdown' && (
                 <motion.div
-                  className="absolute -inset-3 rounded-2xl"
+                  className="absolute -inset-3 rounded-2xl pointer-events-none"
                   style={{ border: '3px solid rgba(240,184,41,0.9)', boxShadow: '0 0 30px rgba(240,184,41,0.5)' }}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -426,11 +575,11 @@ export function UnoProtoTable() {
                   {p.cards.map((card, ci) => (
                     <motion.div
                       key={`${p.id}-c${ci}`}
-                      initial={{ opacity: 0, y: -30, scale: 0.6 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.6 }}
                       transition={{
-                        duration: state.phase === 'showdown' ? 0.15 : 0.25, // UNO speed: fast reveals
+                        duration: state.phase === 'showdown' ? 0.15 : 0.2,
                         ease: 'easeOut',
                       }}
                     >
@@ -468,10 +617,10 @@ export function UnoProtoTable() {
       {/* Phase hint */}
       <div className="pb-6 text-center text-white/40 text-xs font-mono">
         {state.phase === 'dealing' && 'Dealing from the dealer…'}
-        {state.phase === 'betting' && 'Betting round — watch the pulse on every bet'}
-        {state.phase === 'draw' && 'Draw phase — discards stay face-down'}
+        {state.phase === 'betting' && 'Chips flying to the pot…'}
+        {state.phase === 'draw' && 'Discards to the muck — fresh cards from the dealer'}
         {state.phase === 'showdown' && 'Showdown — fast reveal'}
-        {state.phase === 'settling' && 'Pot to winner…'}
+        {state.phase === 'settling' && 'Raking it in…'}
       </div>
     </div>
   );
