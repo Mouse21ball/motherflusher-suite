@@ -44,6 +44,7 @@ interface ProtoState {
   dealtCount: number; // cards dealt so far (for stagger)
   pulseKey: number; // bump to trigger camera pulse
   handNumber: number;
+  rake: RakeState; // pot-to-winner rake-in animation
 }
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -82,6 +83,7 @@ function initialState(handNumber: number): ProtoState {
     dealtCount: 0,
     pulseKey: 0,
     handNumber,
+    rake: { active: false, winnerIndex: -1, amount: 0 },
   };
 }
 
@@ -206,20 +208,31 @@ function useProtoGame() {
     });
   }, [later, pulse]);
 
-  // Showdown → settle → next hand
+  // Showdown → rake-in → settle → next hand
   const runShowdown = useCallback(() => {
+    // Phase 1: rake-in — pot chips physically fly to the winner (Detroit 2026-10-13:
+    // "like a person racking in the money of whoever won")
     later(2500, () => {
+      setState(s => {
+        const winnerIdx = s.players.findIndex(p => p.isWinner);
+        return { ...s, phase: 'settling', rake: { active: true, winnerIndex: winnerIdx, amount: s.pot } };
+      });
+      sfx.chipRake();
+      pulse();
+    });
+    // Phase 2: chips land, counts update
+    later(3700, () => {
       setState(s => {
         const players = s.players.map(p => {
           if (p.isWinner) return { ...p, chips: p.chips + s.pot, bet: 0 };
           return { ...p, bet: 0, cards: [], drewCount: null, isWinner: false, folded: false };
         });
-        return { ...s, players, pot: 0, phase: 'settling' };
+        return { ...s, players, pot: 0, rake: { active: false, winnerIndex: -1, amount: 0 } };
       });
       sfx.bigWin();
       pulse();
     });
-    later(4200, () => {
+    later(5400, () => {
       setState(s => initialState(s.handNumber + 1));
     });
   }, [later, pulse]);
@@ -241,15 +254,24 @@ function useProtoGame() {
 }
 
 // ── Seat positioning (arc around center) ─────────────────────────────────────
+// Landscape-optimized: wider arc spread. Percentage-based so it adapts,
+// but tuned for landscape aspect ratio (Detroit 2026-10-13: "whatever gets the job done").
 
 function seatPosition(index: number, total: number): { x: number; y: number } {
-  // Hero (index 0) at bottom; others fanned in an arc above
-  if (index === 0) return { x: 50, y: 82 };
-  const angle = Math.PI * (0.15 + 0.7 * (index / total));
+  // Hero (index 0) at bottom center; others fanned in a wide arc above
+  if (index === 0) return { x: 50, y: 85 };
+  const angle = Math.PI * (0.08 + 0.84 * (index / total));
   return {
-    x: 50 + 38 * Math.cos(Math.PI - angle),
-    y: 42 - 30 * Math.sin(Math.PI - angle),
+    x: 50 + 42 * Math.cos(Math.PI - angle),
+    y: 45 - 32 * Math.sin(Math.PI - angle),
   };
+}
+
+// Rake-in animation state: chips flying from pot to winner
+interface RakeState {
+  active: boolean;
+  winnerIndex: number;
+  amount: number;
 }
 
 // ── Table component ──────────────────────────────────────────────────────────
@@ -264,6 +286,13 @@ export function UnoProtoTable() {
       <div className="flex items-center justify-between px-4 py-3">
         <div className="text-amber-300 font-mono text-xs tracking-widest">PROTOTYPE — UNO STRUCTURE</div>
         <div className="text-white/60 font-mono text-xs">HAND #{state.handNumber} · {state.phase.toUpperCase()}</div>
+      </div>
+
+      {/* Rotate hint — shows only in portrait */}
+      <div className="landscape:hidden text-center pb-2">
+        <span className="text-amber-300/70 text-[11px] font-mono bg-amber-400/10 border border-amber-400/30 rounded-full px-3 py-1">
+          ⟳ ROTATE FOR FULL TABLE
+        </span>
       </div>
 
       {/* Camera pulse wrapper — UNO's signature feel */}
@@ -312,6 +341,37 @@ export function UnoProtoTable() {
             {state.phase === 'draw' ? '··· discarding ···' : ''}
           </div>
         </div>
+
+        {/* Rake-in: pot chips fly to the winner's seat */}
+        {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
+          const wpos = seatPosition(state.rake.winnerIndex, state.players.length);
+          return (
+            <motion.div
+              className="absolute z-20 flex flex-col items-center"
+              style={{ left: '50%', top: '42%' }}
+              initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+              animate={{
+                x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
+                y: `calc(-50% + ${(wpos.y - 42) * 3.5}px)`,
+                scale: 0.7,
+                opacity: 0.9,
+              }}
+              transition={{ duration: 1.0, ease: [0.3, 0.7, 0.4, 1] }}
+            >
+              <div
+                className="rounded-full px-4 py-2 font-mono font-bold text-amber-200"
+                style={{
+                  background: 'rgba(20,10,40,0.9)',
+                  border: '2px solid rgba(240,184,41,0.7)',
+                  boxShadow: '0 0 24px rgba(240,184,41,0.4)',
+                }}
+              >
+                ${state.rake.amount.toLocaleString()}
+              </div>
+              <div className="text-amber-300/80 text-[10px] font-mono mt-1">◀◀ RAKING IT IN</div>
+            </motion.div>
+          );
+        })()}
 
         {/* Seats in arc */}
         {state.players.map((p, i) => {

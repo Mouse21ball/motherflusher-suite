@@ -244,6 +244,17 @@ export const sfx = {
     });
   },
 
+  // UNO prototype (Detroit 2026-10-13): chips being raked across the felt to the winner
+  chipRake() {
+    play((ac, t) => {
+      // Series of small chip clicks sliding across
+      for (let i = 0; i < 6; i++) {
+        const tt = t + i * 0.13;
+        noise(ac, 0.04, 0.1, tt, 3800 + i * 200);
+      }
+    });
+  },
+
   bigWin() {
     play((ac, t) => {
       const notes = [523, 659, 784, 1047, 1319, 1568];
