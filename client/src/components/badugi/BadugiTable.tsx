@@ -25,16 +25,16 @@ const HERO_CARD_H = 170;
 // Adjusted down to clear the UniversalTableHeader (Detroit 2026-10-13).
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 80 }; // hero
+  if (index === 0) return { x: 50, y: 68 }; // hero — up to clear action buttons
   const spots = [
-    { x: 14, y: 36 },
-    { x: 50, y: 27 },
-    { x: 86, y: 36 },
+    { x: 14, y: 38 },
+    { x: 50, y: 31 },
+    { x: 86, y: 38 },
   ];
   return spots[(index - 1) % spots.length];
 }
 
-const POT_POS = { x: 50, y: 52 };
+const POT_POS = { x: 50, y: 54 };
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
