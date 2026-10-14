@@ -46,8 +46,9 @@ export function GameScreen({
     <div
       className={`relative flex flex-col w-full overflow-hidden ${className}`}
       style={{
-        // Fill the actual viewport height (dynamic viewport for mobile browsers)
-        height: '100dvh',
+        // Fill parent container (not viewport — parent handles viewport height)
+        height: '100%',
+        minHeight: '100%',
         // Respect safe-area insets
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
