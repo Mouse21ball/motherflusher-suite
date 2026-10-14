@@ -1817,13 +1817,14 @@ export function getOrCreateBadugiTable(
       t.stakeTier = getStakeTierId(options.stakeTier);
       t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
     }
-    // Detroit 2026-10-14: Trim legacy 5-player Badugi tables to 4.
-    // Remove p5 if it's empty/sitting_out; otherwise leave the table alone.
-    if (t.state.players.length > 4) {
+    // Detroit 2026-10-14: Force all Badugi tables to 4 players max.
+    // Trim any 5th seat that isn't a connected human mid-hand.
+    if (t.state.players.length > 4 || t.maxPlayers > 4) {
+      t.maxPlayers = 4;
       const p5 = t.state.players.find(p => p.id === 'p5');
-      if (p5 && (p5.status === 'sitting_out' || p5.status === 'folded') && !t.humanSeats.has('p5')) {
+      const midHand = t.state.phase !== 'waiting' && t.state.phase !== 'showdown';
+      if (p5 && !t.humanSeats.has('p5') && !midHand) {
         t.state.players = t.state.players.filter(p => p.id !== 'p5');
-        t.maxPlayers = 4;
       }
     }
   }
