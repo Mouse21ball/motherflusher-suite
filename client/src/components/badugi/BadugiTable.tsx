@@ -17,8 +17,8 @@ import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
 
-const HERO_CARD_W = 110;
-const HERO_CARD_H = 155;
+const HERO_CARD_W = 115;
+const HERO_CARD_H = 160;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
@@ -253,8 +253,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
               </div>
             </div>
             <div
-              style={{ filter: heroFilter, transform: 'scale(1.15)', transformOrigin: 'top center' }}
-              className="w-[400px] max-w-[96vw]"
+              style={{ filter: heroFilter, width: '460px', maxWidth: '112vw', marginLeft: '-24px', marginRight: '-24px' }}
             >
               <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
