@@ -1822,7 +1822,7 @@ export function getOrCreateBadugiTable(
     if (t.state.players.length > 4 || t.maxPlayers > 4) {
       t.maxPlayers = 4;
       const p5 = t.state.players.find(p => p.id === 'p5');
-      const midHand = t.state.phase !== 'waiting' && t.state.phase !== 'showdown';
+      const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
       if (p5 && !t.humanSeats.has('p5') && !midHand) {
         t.state.players = t.state.players.filter(p => p.id !== 'p5');
       }
