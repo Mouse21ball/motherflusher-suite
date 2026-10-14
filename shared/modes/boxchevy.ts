@@ -16,47 +16,6 @@ function rankLabel(v: number): string {
   return String(v);
 }
 
-// ── Standard 5-card poker evaluator ──────────────────────────────────────────
-
-function eval5Cards(cards: CardType[]): { value: number; name: string } {
-  const ranks = cards.map(c => hv(c.rank)).sort((a, b) => b - a);
-  const suits = cards.map(c => c.suit);
-  const isFlush = new Set(suits).size === 1;
-  const isAceLow = ranks[0] === 14 && ranks[1] === 5 && ranks[2] === 4 && ranks[3] === 3 && ranks[4] === 2;
-  const isStraight = (new Set(ranks).size === 5 && ranks[0] - ranks[4] === 4) || isAceLow;
-  const rc = ranks.reduce((a, r) => { a[r] = (a[r] || 0) + 1; return a; }, {} as Record<number, number>);
-  const counts = Object.values(rc).sort((a, b) => b - a);
-  const byCount = Object.entries(rc).sort((a, b) => b[1] !== a[1] ? b[1] - a[1] : +b[0] - +a[0]).map(([r]) => +r);
-  const kicker = (isAceLow ? [5, 4, 3, 2, 1] : byCount).reduce((s, r, i) => s + r * Math.pow(15, 4 - i), 0);
-  if (isStraight && isFlush) {
-    if (!isAceLow && ranks[0] === 14 && ranks[1] === 13) return { value: 9_000_000 + kicker, name: 'Royal Flush' };
-    return { value: 8_000_000 + kicker, name: 'Straight Flush' };
-  }
-  if (counts[0] === 4) return { value: 7_000_000 + kicker, name: 'Four of a Kind' };
-  if (counts[0] === 3 && counts[1] === 2) return { value: 6_000_000 + kicker, name: 'Full House' };
-  if (isFlush) return { value: 5_000_000 + kicker, name: 'Flush' };
-  if (isStraight) return { value: 4_000_000 + kicker, name: 'Straight' };
-  if (counts[0] === 3) return { value: 3_000_000 + kicker, name: 'Three of a Kind' };
-  if (counts[0] === 2 && counts[1] === 2) return { value: 2_000_000 + kicker, name: 'Two Pair' };
-  if (counts[0] === 2) return { value: 1_000_000 + kicker, name: 'Pair' };
-  return { value: kicker, name: 'High Card' };
-}
-
-function combos<T>(arr: T[], k: number): T[][] {
-  if (k === 0) return [[]];
-  if (arr.length < k) return [];
-  return arr.flatMap((x, i) => combos(arr.slice(i + 1), k - 1).map(rest => [x, ...rest]));
-}
-
-function bestHighHand(cards: CardType[]): { value: number; name: string } {
-  if (cards.length < 5) return { value: 0, name: '< 5 cards' };
-  if (cards.length === 5) return eval5Cards(cards);
-  return combos(cards, 5).reduce<{ value: number; name: string }>(
-    (best, c) => { const r = eval5Cards(c); return r.value > best.value ? r : best; },
-    { value: 0, name: 'No Hand' }
-  );
-}
-
 // ── Box Chevy 10-card evaluation (Detroit 2026-10-13) ─────────────────────────
 // RULES (Detroit's design):
 // - 10 cards total: 5 hole + 5 community. Must use both. No exceptions.
@@ -116,38 +75,6 @@ export function compareBoxChevyLow(a: BoxChevy10Eval, b: BoxChevy10Eval): number
     if (a.lowSeq[i] !== b.lowSeq[i]) return b.lowSeq[i] - a.lowSeq[i];
   }
   return 0;
-}
-
-// ── Legacy 5-card evaluators (kept for bot hand-strength heuristics) ──────────
-
-function scoreLow5(cards: CardType[]): { value: number; desc: string } {
-  const ranks = cards.map(c => lv(c.rank)).sort((a, b) => a - b);
-  const rc: Record<number, number> = {};
-  for (const r of ranks) rc[r] = (rc[r] ?? 0) + 1;
-  const counts = Object.values(rc).sort((a, b) => b - a);
-  // Ace-to-five ignores straights/flushes. Every category must rank below
-  // the next: unpaired, pair, two pair, trips, full house, quads.
-  const category = counts[0] === 4 ? 5
-    : counts[0] === 3 && counts[1] === 2 ? 4
-    : counts[0] === 3 ? 3
-    : counts[0] === 2 && counts[1] === 2 ? 2
-    : counts[0] === 2 ? 1 : 0;
-  // Compare repeated ranks first, then descending kickers. Sorting only
-  // unique ranks incorrectly lets a low kicker beat a lower pair.
-  const ordered = Object.entries(rc)
-    .sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]))
-    .map(([rank]) => Number(rank));
-  const encoded = ordered.reduce((acc, rank, i) => acc + rank * 15 ** (4 - i), 0);
-  return { value: category * 1_000_000 + encoded, desc: ranks.map(rankLabel).join('-') };
-}
-
-function bestLowHand(cards: CardType[]): { value: number; desc: string } {
-  if (cards.length < 5) return { value: 999_999_999, desc: '< 5 cards' };
-  if (cards.length === 5) return scoreLow5(cards);
-  return combos(cards, 5).reduce<{ value: number; desc: string }>(
-    (best, c) => { const r = scoreLow5(c); return r.value < best.value ? r : best; },
-    { value: 999_999_999, desc: 'No Hand' }
-  );
 }
 
 // ── Made hand check ───────────────────────────────────────────────────────────
