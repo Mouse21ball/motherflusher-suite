@@ -17,24 +17,24 @@ import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
 
-const HERO_CARD_W = 120;
-const HERO_CARD_H = 170;
+const HERO_CARD_W = 140;
+const HERO_CARD_H = 200;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
 // Adjusted down to clear the UniversalTableHeader (Detroit 2026-10-13).
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 68 }; // hero — up to clear action buttons
+  if (index === 0) return { x: 50, y: 62 }; // hero — cards up clear of buttons
   const spots = [
-    { x: 14, y: 38 },
-    { x: 50, y: 31 },
-    { x: 86, y: 38 },
+    { x: 14, y: 43 },
+    { x: 50, y: 36 },
+    { x: 86, y: 43 },
   ];
   return spots[(index - 1) % spots.length];
 }
 
-const POT_POS = { x: 50, y: 54 };
+const POT_POS = { x: 50, y: 58 };
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -230,7 +230,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         />
       ))}
 
-      {/* Hero seat — bottom center, prototype position */}
+      {/* Hero seat — bottom center, cards up top, name tucked under */}
       <div
         className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10"
         style={{ left: `${heroPos.x}%`, top: `${heroPos.y}%` }}
@@ -239,15 +239,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         {isHeroDealer && (
           <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg">D</div>
         )}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-10 h-10 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
-            <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
-          </span>
-          <div className="text-left">
-            <div className="text-white text-sm font-bold">{me?.name ?? 'YOU'}</div>
-            <div className="text-amber-200/80 text-[11px] font-mono">{(me?.chips ?? 0).toLocaleString()}</div>
-          </div>
-        </div>
         {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
             <div style={{ filter: heroFilter }}>
@@ -255,7 +246,16 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
                 discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
             </div>
-            <div className="text-white/60 text-[10px] font-mono mt-1 text-center">
+            <div className="flex items-center gap-2 mt-1">
+              <span className="w-8 h-8 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
+                <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
+              </span>
+              <div className="text-left">
+                <div className="text-white text-sm font-bold">{me?.name ?? 'YOU'}</div>
+                <div className="text-amber-200/80 text-[11px] font-mono">{(me?.chips ?? 0).toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="text-white/60 text-[10px] font-mono mt-0.5 text-center">
               {isDrawPhase ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
                 : heroHandEval ? heroHandEval.description : ''}
             </div>
