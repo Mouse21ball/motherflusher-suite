@@ -17,15 +17,15 @@ import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
 
-const HERO_CARD_W = 140;
-const HERO_CARD_H = 200;
+const HERO_CARD_W = 100;
+const HERO_CARD_H = 140;
 
 // ── Prototype seat positions (percentages) ───────────────────────────────────
 // Hero bottom center, 3 opponents in shallow top arc. Pot gets clear center.
 // Adjusted down to clear the UniversalTableHeader (Detroit 2026-10-13).
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 62 }; // hero — cards up clear of buttons
+  if (index === 0) return { x: 50, y: 67 }; // hero — cards 512-682px, clear of pot and buttons
   const spots = [
     { x: 14, y: 43 },
     { x: 50, y: 36 },
@@ -34,7 +34,7 @@ function seatPosition(index: number): { x: number; y: number } {
   return spots[(index - 1) % spots.length];
 }
 
-const POT_POS = { x: 50, y: 58 };
+const POT_POS = { x: 50, y: 50 };
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -241,7 +241,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         )}
         {me && me.cards.length > 0 && me.status !== 'folded' ? (
           <>
-            <div style={{ filter: heroFilter }}>
+            <div style={{ filter: heroFilter }} className="w-[380px] max-w-[94vw]">
               <CardHand cards={me.cards} celebrationCardMarkers selectedIndices={selectedCardIndices} onCardClick={onCardClick}
                 isSelectable={isDrawPhase} dealingIndices={animState.dealingIndices} drawingIndices={animState.drawingIndices}
                 discardingIndices={animState.discardingIndices} isShowdown={isShowdown} cardWidth={HERO_CARD_W} cardHeight={HERO_CARD_H} testIdPrefix="badugi-card" />
