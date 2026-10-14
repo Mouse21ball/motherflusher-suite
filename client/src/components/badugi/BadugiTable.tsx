@@ -67,7 +67,7 @@ function OpponentSeat({ player, seatNum, isActive, isDrawPhase, isDealer, compac
           />
         )}
         {isDealer && (
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center shadow-lg z-10">D</div>
+          <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-amber-400 text-black text-[10px] font-bold flex items-center justify-center shadow-lg z-10">D</div>
         )}
         <div className={`${avatarSize} rounded-full overflow-hidden border-2 border-amber-400/40 shadow-lg`}>
           <img src={getAvatarForSeat(seatNum + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
@@ -160,8 +160,9 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   // Responsive hero card sizing — based on actual viewport width (Detroit 2026-10-14)
   // Cards take ~92% of usable width, 4 cards with overlap
+  // Max 100px wide to ensure vertical fit on mobile (was 120, caused clipping)
   const heroCardAreaWidth = viewport.usableWidth * 0.92;
-  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 120, 0.22);
+  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 100, 0.22);
 
   // Win celebration — show for any winner at showdown (Detroit 2026-10-13)
   const showdownWinner = isShowdown ? state.players.find(p => (p as any).isWinner) : undefined;
