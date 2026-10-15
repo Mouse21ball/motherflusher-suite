@@ -20,14 +20,9 @@ import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { XPToast } from '@/components/XPToast';
-import { ShowdownReveal } from '@/components/game/ShowdownReveal';
-import type { WinnerData, HeroRevealData } from '@/components/game/ShowdownReveal';
 import { useXPWatcher } from '@/lib/useXPWatcher';
-import { usePhaseSounds } from '@/lib/usePhaseSounds';
 import { useGameToasts } from '@/lib/useGameToasts';
-import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 import { useServerProfile } from '@/lib/useServerProfile';
-import { evaluateBadugi } from '@shared/modes/badugi';
 import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
@@ -80,7 +75,10 @@ export function BadugiFullPage({
   }, [leaveAndSettle, navigate, refetchProfile]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
-  usePhaseSounds(state.phase);
+  // Detroit 2026-10-15: usePhaseSounds disabled for Badugi — the flight system
+  // in BadugiTable owns ALL table sounds (deal/bet/draw/win). Running both
+  // caused double sounds (21 deal sounds at once).
+  // usePhaseSounds(state.phase);
   useGameToasts(state, myId, 'Badugi');
 
   useEffect(() => { if (kickedByHost) navigate('/'); }, [kickedByHost, navigate]);
@@ -114,8 +112,9 @@ export function BadugiFullPage({
   }, [effectiveSpectator, isDrawPhase, drawLimit]);
 
   const heroCards = me?.cards ?? [];
-  const { dealingIndices, drawingIndices, discardingIndices, triggerDiscard } =
-    useCardAnimations(heroCards, state.phase);
+  // Detroit 2026-10-15: useCardAnimations removed — dead code. The flight system
+  // in BadugiTable owns all card animations. This hook's output (animState) was
+  // never read by BadugiTable.
 
   const [actionLocked, setActionLocked] = useState(false);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,13 +135,12 @@ export function BadugiFullPage({
     // Detroit 2026-10-15: SWAP requires at least 1 selected card.
     // Button is disabled at 0, but guard here too — never send an empty swap.
     if (selectedCardIndices.length === 0) return;
-    triggerDiscard(selectedCardIndices);
     setTimeout(() => {
       handleAction('draw', selectedCardIndices);
       setSelectedCardIndices([]);
     }, 280);
     lock();
-  }, [selectedCardIndices, triggerDiscard, handleAction, lock]);
+  }, [selectedCardIndices, handleAction, lock]);
 
   const handleControlAction = useCallback((action: string, amount?: number | unknown) => {
     handleAction(action, amount);
@@ -186,39 +184,7 @@ export function BadugiFullPage({
     void refetchProfile();
   };
 
-  /* ShowdownReveal data */
-  const showReveal   = state.phase === 'SHOWDOWN';
-  const [showRevealOverlay, setShowRevealOverlay] = useState(false);
-  useEffect(() => {
-    if (!showReveal) {
-      setShowRevealOverlay(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setShowRevealOverlay(true), 900);
-    return () => window.clearTimeout(timer);
-  }, [showReveal]);
-  const revealWinners: WinnerData[] = showReveal
-    ? state.players
-        .filter(p => (p as any).isWinner)
-        .map(p => ({
-          id: p.id, name: p.name,
-          cards: (p.cards ?? []).map(c => ({ ...c, isHidden: false })),
-          handRankLabel: (() => { try { return evaluateBadugi((p.cards ?? []).map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateBadugi>[0])?.description ?? ''; } catch { return ''; } })(),
-          potShare: 0,
-        }))
-    : [];
-
-  const revealHeroData: HeroRevealData = showReveal && me
-    ? {
-        id: me.id,
-        cards: (me.cards ?? []).map(c => ({ ...c, isHidden: false })),
-        handRankLabel: (() => { try { return evaluateBadugi((me.cards ?? []).map(c => ({ ...c, isHidden: false })) as Parameters<typeof evaluateBadugi>[0])?.description ?? ''; } catch { return ''; } })(),
-      }
-    : { id: myId, cards: [], handRankLabel: '' };
-
-  const heroWonReveal  = revealWinners.some(w => w.id === myId);
-  const potMatch       = state.messages.find(m => (m as any).isResolution)?.text?.match(/\$(\d+)/);
-  const revealPotAmount = potMatch ? parseInt(potMatch[1], 10) : Math.abs(state.heroChipChange ?? 0);
+  /* Detroit 2026-10-15: ShowdownReveal removed — prototype celebration in BadugiTable owns the winner moment */
 
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
 
@@ -260,7 +226,6 @@ export function BadugiFullPage({
             selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
             onCardClick={handleCardClick}
             isDrawPhase={!effectiveSpectator && isDrawPhase}
-            animState={{ dealingIndices, drawingIndices, discardingIndices }}
           />
         </FriendSeatActions>
       </main>
@@ -312,12 +277,6 @@ export function BadugiFullPage({
       {!effectiveSpectator && (
         <ChatEmoteRow level={serverProfile?.level} onReact={emoji => handleAction('reaction', emoji)} incomingReactions={state.liveReactions}
           onOpenChat={() => setChatOpen(true)} chatUnread={chatUnread} />
-      )}
-
-      {/* ShowdownReveal overlay */}
-      {showRevealOverlay && (
-        <ShowdownReveal cardsPerHand={4} winners={revealWinners} heroData={revealHeroData}
-          heroWon={heroWonReveal} potAmount={revealPotAmount} onComplete={() => {}} />
       )}
 
       {xpToast && xpToast.xpGained > 0 && (

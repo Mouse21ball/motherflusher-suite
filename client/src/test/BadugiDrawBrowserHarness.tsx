@@ -62,7 +62,6 @@ export function BadugiDrawBrowserHarness() {
             selectedCardIndices={selectedIndices}
             onCardClick={handleCardClick}
             isDrawPhase={isDrawPhase}
-            animState={{ dealingIndices: [], drawingIndices: [], discardingIndices: [] }}
           />
         </div>
       </div>

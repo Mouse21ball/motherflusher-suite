@@ -23,6 +23,7 @@ type ProtoPhase =
   | 'draw1' | 'bet1'
   | 'draw2' | 'bet2'
   | 'draw3' | 'bet3'
+  | 'bet4'
   | 'showdown'
   | 'settling';
 
@@ -60,6 +61,9 @@ interface CelebrationState {
   active: boolean;
   winnerName: string;
   amount: number;
+  // Winning hand shown WITH the celebration (Detroit 2026-10-15)
+  cards: { rank: string; suit: string }[];
+  handLabel: string;
 }
 
 interface ProtoState {
@@ -115,7 +119,7 @@ function initialState(handNumber: number): ProtoState {
     handNumber,
     flights: [],
     rake: { active: false, winnerIndex: -1, amount: 0 },
-    celebration: { active: false, winnerName: "", amount: 0 },
+    celebration: { active: false, winnerName: "", amount: 0, cards: [], handLabel: "" },
   };
 }
 
@@ -152,6 +156,7 @@ function mapPhase(livePhase: string): ProtoPhase {
   if (livePhase === 'BET_1') return 'bet1';
   if (livePhase === 'BET_2') return 'bet2';
   if (livePhase === 'BET_3') return 'bet3';
+  if (livePhase === 'BET_4') return 'bet4';
   if (livePhase === 'SHOWDOWN') return 'showdown';
   return 'ante';
 }
@@ -159,7 +164,7 @@ function mapPhase(livePhase: string): ProtoPhase {
 function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
-  const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0 });
+  const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
   // Staging: how many cards have visually landed per player this hand.
   // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
   const [landed, setLanded] = useState<Record<string, number>>({});
@@ -288,23 +293,31 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // SHOWDOWN → rake, celebration (prototype: 2500ms, 3700ms, 9200ms)
+      // SHOWDOWN → rake, celebration with winning hand (prototype: 2500ms, 3700ms, 9200ms)
       if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
         const winner = liveState.players.find(p => (p as any).isWinner);
         if (winner) {
           const isHero = winner.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === winner.id) + 1;
+          // Evaluate the winning hand for display
+          let handLabel = '';
+          let winCards: { rank: string; suit: string }[] = [];
+          try {
+            const cards = (winner.cards ?? []).map(c => ({ ...c, isHidden: false }));
+            winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
+            handLabel = evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
+          } catch { /* evaluation failed, show cards without label */ }
           later(2500, () => {
             setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
             sfx.chipRake();
           });
           later(3700, () => {
             setRake({ active: false, winnerIndex: -1, amount: 0 });
-            setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot });
+            setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
             sfx.bigWin();
           });
           later(9200, () => {
-            setCelebration({ active: false, winnerName: "", amount: 0 });
+            setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
           });
         }
       }
@@ -476,7 +489,6 @@ export interface BadugiTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   isDrawPhase: boolean;
-  animState: any;
 }
 
 export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase }: BadugiTableProps) {
@@ -676,7 +688,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                     return (
                     <motion.div
                       key={`${p.id}-c${ci}`}
-                      initial={{ opacity: 0, scale: 0.6 }}
+                      initial={false}
                       animate={{ opacity: 1, scale: 1, rotate: fanAngle }}
                       exit={{ opacity: 0, scale: 0.6 }}
                       transition={{
@@ -794,6 +806,41 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   <span className="text-white text-2xl font-bold font-mono">{state.celebration.winnerName}</span>
                   <span className="text-amber-300 text-2xl font-mono ml-3">+${state.celebration.amount.toLocaleString()}</span>
                 </motion.div>
+                {/* Winning hand — shown with the celebration (Detroit 2026-10-15) */}
+                {state.celebration.cards.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: 0.45, duration: 0.35, ease: 'easeOut' }}
+                    className="mt-4 flex flex-col items-center"
+                  >
+                    <div className="flex gap-2">
+                      {state.celebration.cards.map((card, i) => (
+                        <div
+                          key={`wincard-${i}`}
+                          className="rounded-md bg-white flex flex-col items-center justify-center"
+                          style={{
+                            width: 56, height: 78,
+                            boxShadow: '0 0 20px rgba(253,230,138,0.6), 0 8px 24px rgba(0,0,0,0.5)',
+                            border: '2px solid rgba(253,230,138,0.8)',
+                          }}
+                        >
+                          <span className="text-lg font-black" style={{ color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#DC2626' : '#111' }}>
+                            {card.rank}
+                          </span>
+                          <span className="text-2xl" style={{ color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#DC2626' : '#111' }}>
+                            {card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {state.celebration.handLabel && (
+                      <div className="mt-2 text-amber-200 text-sm font-mono tracking-widest">
+                        {state.celebration.handLabel}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
               </motion.div>
             </motion.div>
           )}
