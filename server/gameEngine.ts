@@ -1823,14 +1823,20 @@ export function getOrCreateBadugiTable(
       t.stakeTier = getStakeTierId(options.stakeTier);
       t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
     }
-    // Detroit 2026-10-14: Force all Badugi tables to 4 players max.
-    // Trim any 5th seat that isn't a connected human mid-hand.
+    // Detroit 2026-10-15: Force all Badugi tables to 4 players max.
+    // Runtime enforcement — trims on every table access, not just server boot.
+    // Keeps connected humans first, then bots.
     if (t.state.players.length > 4 || t.maxPlayers > 4) {
       t.maxPlayers = 4;
-      const p5 = t.state.players.find(p => p.id === 'p5');
       const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
-      if (p5 && !t.humanSeats.has('p5') && !midHand) {
-        t.state.players = t.state.players.filter(p => p.id !== 'p5');
+      if (!midHand) {
+        const humans = t.state.players.filter(p => p.presence === 'human');
+        const others = t.state.players.filter(p => p.presence !== 'human');
+        const trimmed = [...humans, ...others].slice(0, 4);
+        if (trimmed.length !== t.state.players.length) {
+          console.log(`[badugi] Runtime trim table ${tableId} from ${t.state.players.length} to 4 players`);
+          t.state.players = trimmed;
+        }
       }
     }
   }
