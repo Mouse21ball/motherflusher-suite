@@ -81,7 +81,7 @@ export function GameScreen({
 
       {/* ZONE C — Game Center: flex-1, centers content in remaining space */}
       {center && (
-        <main className="flex-1 relative z-10 flex items-center justify-center min-h-0">
+        <main className="flex-1 relative z-10 flex items-center justify-center min-h-0" style={{ minHeight: '80px' }}>
           {center}
         </main>
       )}
