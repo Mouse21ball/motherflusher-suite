@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '@/lib/poker/types';
+import { sfx } from '@/lib/sounds';
 
 const CARD_BACK = '/ladyluck/card-back-cgp.png';
 const CHIP_COLORS = ['#C9A227', '#D4B44A', '#E8C96B', '#A07C10'] as const;
@@ -408,9 +409,11 @@ function FoldedCards({ effect }: { effect: MeasuredEffect }) {
 export function BadugiTableEffects({
   state,
   tableRoot,
+  myId,
 }: {
   state: GameState;
   tableRoot: HTMLElement | null;
+  myId?: string;
 }) {
   const reducedMotion = useReducedMotion();
   const previousRef = useRef<BadugiVisualTracker | null>(null);
@@ -465,6 +468,17 @@ export function BadugiTableEffects({
 
     if (measured.length === 0) return;
     setEffects(current => [...current, ...measured]);
+    // Prototype sounds (Detroit 2026-10-15) — match the UNO prototype audio
+    for (const effect of measured) {
+      if (effect.kind === 'bet') sfx.betPlace();
+      else if (effect.kind === 'deal') {
+        // Higher pitch for hero's cards, like the prototype
+        if (myId && effect.playerId === myId) sfx.dealSelf();
+        else sfx.dealSingle();
+      }
+      else if (effect.kind === 'payout') sfx.chipRake();
+      else if (effect.kind === 'draw') sfx.dealSingle();
+    }
     const ids = new Set(measured.map(effect => effect.id));
     const timer = setTimeout(() => {
       setEffects(current => current.filter(effect => !ids.has(effect.id)));
