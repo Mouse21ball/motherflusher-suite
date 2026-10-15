@@ -160,9 +160,9 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   // Responsive hero card sizing — based on actual viewport width (Detroit 2026-10-14)
   // Cards take ~92% of usable width, 4 cards with overlap
-  // Max 100px wide to ensure vertical fit on mobile (was 120, caused clipping)
+  // Max 85px wide to ensure vertical fit on mobile (was 100, still caused overlap)
   const heroCardAreaWidth = viewport.usableWidth * 0.92;
-  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 100, 0.22);
+  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 85, 0.22);
 
   // Win celebration — show for any winner at showdown (Detroit 2026-10-13)
   const showdownWinner = isShowdown ? state.players.find(p => (p as any).isWinner) : undefined;
@@ -222,16 +222,16 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
             {/* Muck anchor */}
             <div data-muck-anchor aria-hidden="true" className="absolute" style={{ left: '65%', top: '20%' }} />
             <motion.div
-              className="rounded-2xl px-6 py-3 text-center"
+              className="rounded-xl px-4 py-2 text-center"
               style={{
                 background: 'rgba(0,0,0,0.35)',
                 backdropFilter: 'blur(8px)',
               }}
               data-pot-anchor
             >
-              <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
+              <div className="text-amber-300/70 text-[9px] font-mono tracking-widest">POT</div>
               <PotStack amount={state.pot} />
-              <motion.div className="text-amber-200 text-2xl font-bold font-mono mt-1">{potDisplay}</motion.div>
+              <motion.div className="text-amber-200 text-xl font-bold font-mono mt-0.5">{potDisplay}</motion.div>
             </motion.div>
           </>
         }
@@ -243,14 +243,14 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
             {isHeroDealer && (
               <div className="w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg mb-1">D</div>
             )}
-            {/* Hero name/chips ABOVE cards (Detroit 2026-10-14 mockup) */}
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-9 h-9 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
+            {/* Hero name/chips ABOVE cards — compact to avoid pot overlap (Detroit 2026-10-15) */}
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="w-7 h-7 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
                 <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
               </span>
               <div className="text-left">
-                <div className="text-white text-sm font-bold">{me?.name ?? 'YOU'}</div>
-                <div className="text-amber-200/80 text-[11px] font-mono">{(me?.chips ?? 0).toLocaleString()}</div>
+                <div className="text-white text-xs font-bold leading-tight">{me?.name ?? 'YOU'}</div>
+                <div className="text-amber-200/80 text-[10px] font-mono leading-tight">{(me?.chips ?? 0).toLocaleString()}</div>
               </div>
             </div>
             {me && me.cards.length > 0 && me.status !== 'folded' ? (
