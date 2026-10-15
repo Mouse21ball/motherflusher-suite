@@ -22,7 +22,6 @@ import { PlayingCard } from '@/components/game/Card';
 import { evaluateBadugi } from '@shared/modes/badugi';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
-import { BadugiTableEffects } from './BadugiTableEffects';
 import { sfx } from '@/lib/sounds';
 
 // ── Prototype positions ──────────────────────────────────────────────────────
@@ -227,7 +226,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   };
 
   // ── Drive flights from live state diffs ────────────────────────────────────
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; cards: Record<string, number>; winners: Record<string, boolean> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; cards: Record<string, number>; winners: Record<string, boolean>; draws: Record<string, number | undefined> } | null>(null);
 
   useEffect(() => {
     if (reduced) { prevRef.current = null; return; }
@@ -238,10 +237,11 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
       bets: Object.fromEntries(state.players.map(p => [p.id, p.bet])),
       cards: Object.fromEntries(state.players.map(p => [p.id, p.cards.length])),
       winners: Object.fromEntries(state.players.map(p => [p.id, !!(p as any).isWinner])),
+      draws: Object.fromEntries(state.players.map(p => [p.id, (p as any).lastDrawCount])),
     };
 
     if (prev) {
-      // NEW HAND → deal flights from dealer to each seat (prototype sequence)
+      // NEW HAND → deal flights from dealer to each seat (prototype: 160ms apart, 0.32s duration)
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
         const order = [myIndex, ...opponents.map((_, i) => i + 1)].filter(i => i >= 0);
@@ -259,6 +259,42 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
             later(320, () => removeFlight(fid));
           });
         });
+      }
+
+      // DRAWS → discards fly to muck, replacements fly from dealer (prototype: 1400ms apart)
+      // Detected via lastDrawCount changes
+      for (const p of state.players) {
+        const prevDraw = (prev as any).draws?.[p.id];
+        const currDraw = (p as any).lastDrawCount;
+        if (currDraw !== undefined && currDraw > 0 && prevDraw !== currDraw) {
+          const seatIdx = p.id === myId ? 0 : opponents.findIndex(o => o.id === p.id) + 1;
+          const pos = seatPosition(seatIdx);
+          const isHero = seatIdx === 0;
+          // Discards fly face-down to muck (120ms apart, 0.35s duration)
+          for (let d = 0; d < currDraw; d++) {
+            const fid = addFlight({
+              kind: 'muck',
+              fromX: pos.x, fromY: pos.y - 6,
+              toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
+              label: '', faceDown: true, duration: 0.35, toHero: false,
+            });
+            later(d * 120 + 350, () => removeFlight(fid));
+          }
+          sfx.dealSingle();
+          // Replacements fly from dealer (after discards, 0.32s duration)
+          later(currDraw * 120 + 400, () => {
+            for (let d = 0; d < currDraw; d++) {
+              const dfid = addFlight({
+                kind: 'card',
+                fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+                toX: pos.x, toY: pos.y - 6,
+                label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
+              });
+              if (isHero) sfx.dealSelf(); else sfx.dealSingle();
+              later(d * 120 + 320, () => removeFlight(dfid));
+            }
+          });
+        }
       }
 
       // BETS → chips fly from bettor to pot
@@ -608,8 +644,7 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
         )}
       </AnimatePresence>
 
-      {/* Legacy effects (fold/draw flights) — kept for compatibility */}
-      <BadugiTableEffects state={state} tableRoot={tableRoot} myId={myId} />
+      {/* Legacy effects removed — flight system is now built-in (Detroit 2026-10-15) */}
     </div>
   );
 }
