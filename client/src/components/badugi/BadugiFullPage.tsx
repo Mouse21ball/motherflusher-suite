@@ -133,7 +133,10 @@ export function BadugiFullPage({
   }, [handleAction, lock]);
 
   const handleDraw = useCallback(() => {
-    if (selectedCardIndices.length > 0) triggerDiscard(selectedCardIndices);
+    // Detroit 2026-10-15: SWAP requires at least 1 selected card.
+    // Button is disabled at 0, but guard here too — never send an empty swap.
+    if (selectedCardIndices.length === 0) return;
+    triggerDiscard(selectedCardIndices);
     setTimeout(() => {
       handleAction('draw', selectedCardIndices);
       setSelectedCardIndices([]);
