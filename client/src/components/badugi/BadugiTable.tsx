@@ -725,7 +725,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               {/* Draw badge */}
               {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
                 <div className="text-purple-300 text-[10px] font-mono mt-1">
-                  {p.drewCount === 0 ? 'STAND PAT' : `DREW ${p.drewCount}`}
+                  {p.drewCount === 0 ? 'KEPT CARDS' : `DREW ${p.drewCount}`}
                 </div>
               )}
             </div>
