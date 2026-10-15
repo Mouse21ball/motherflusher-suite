@@ -242,9 +242,8 @@ function FlushedUpGameUI() {
   const handleControlAction = useCallback((action: string, amount?: number | unknown) => {
     sounds.unlock();
     if (action === 'draw') {
-      if (selectedCardIndices.length > 0) {
-        sounds.cardDiscard();
-      }
+      // Detroit 2026-10-15: cardDiscard removed — flight system in FlushedUpTable
+      // owns discard sounds. Was doubling with flight muck sounds.
       setTimeout(() => {
         handleAction(action, selectedCardIndices);
         setSelectedCardIndices([]);
@@ -253,7 +252,8 @@ function FlushedUpGameUI() {
       handleAction(action, amount);
     }
     if (action === 'fold') sounds.lose();
-    if (action === 'bet' || action === 'raise' || action === 'call') sounds.chipClink();
+    // Detroit 2026-10-15: chipClink on bet/raise/call removed — flight system
+    // in FlushedUpTable plays sfx.betPlace(). Was doubling.
     const PASSIVE = ['restart', 'rebuy', 'chat', 'reaction', 'ante'];
     if (!PASSIVE.includes(action)) {
       setActionLocked(true);
