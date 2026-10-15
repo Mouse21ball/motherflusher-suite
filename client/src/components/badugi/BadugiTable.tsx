@@ -516,10 +516,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               className="rounded-2xl px-6 py-3 text-center"
               style={{
                 background: 'rgba(240,184,41,0.08)',
-                border: '1px solid rgba(240,184,41,0.25)',
                 backdropFilter: 'blur(8px)',
                 transform: 'rotateX(8deg)', // slight lift toward viewer (UNO 3D feel)
-                boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(240,184,41,0.15)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
               }}
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
@@ -605,14 +604,33 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
-              {/* Active turn ring */}
+              {/* Active turn — premium layered glow (not just a border) */}
               {isActive && (
-                <motion.div
-                  className="absolute -inset-2 rounded-xl pointer-events-none"
-                  style={{ border: '2px solid rgba(240,184,41,0.6)' }}
-                  animate={{ opacity: [0.4, 1, 0.4] }}
-                  transition={{ duration: 1.2, repeat: Infinity }}
-                />
+                <>
+                  {/* Soft breathing glow behind */}
+                  <motion.div
+                    className="absolute -inset-4 rounded-2xl pointer-events-none"
+                    style={{
+                      background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.25) 0%, transparent 70%)',
+                      filter: 'blur(8px)',
+                    }}
+                    animate={{ opacity: [0.5, 1, 0.5], scale: [0.95, 1.05, 0.95] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  {/* Thin animated gradient ring */}
+                  <motion.div
+                    className="absolute -inset-2 rounded-xl pointer-events-none"
+                    style={{
+                      border: '1.5px solid transparent',
+                      background: 'linear-gradient(135deg, rgba(240,184,41,0.8), rgba(240,184,41,0.1), rgba(255,220,100,0.8)) border-box',
+                      WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                      WebkitMaskComposite: 'xor',
+                      maskComposite: 'exclude',
+                    }}
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                </>
               )}
               {/* Winner glow */}
               {p.isWinner && state.phase === 'showdown' && (
@@ -682,8 +700,15 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                           onClick={p.isHero && isDrawPhase ? () => onCardClick(ci) : undefined}
                           style={{
                             cursor: p.isHero && isDrawPhase ? 'pointer' : 'default',
-                            transform: p.isHero && selectedCardIndices.includes(ci) ? 'translateY(-8px)' : 'none',
-                            transition: 'transform 0.15s ease',
+                            transform: p.isHero && selectedCardIndices.includes(ci)
+                              ? 'translateY(-14px) scale(1.06)'
+                              : 'none',
+                            transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                            // Neon glow when selected — premium discard highlight
+                            boxShadow: p.isHero && selectedCardIndices.includes(ci)
+                              ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
+                              : 'none',
+                            borderRadius: '6px',
                           }}
                         >
                           <PlayingCard
