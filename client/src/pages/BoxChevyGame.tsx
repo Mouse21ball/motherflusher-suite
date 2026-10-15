@@ -10,7 +10,6 @@ import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
-import { usePhaseSounds } from '@/lib/usePhaseSounds';
 import { useGameToasts } from '@/lib/useGameToasts';
 import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
@@ -19,10 +18,8 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
-import { BoxChevyShowdown } from '@/components/boxChevy/BoxChevyShowdown';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
 import { Crown } from 'lucide-react';
-import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
@@ -161,7 +158,8 @@ function BoxChevyGameUI() {
 
   useEffect(() => { if (kickedByHost) navigate('/'); }, [kickedByHost, navigate]);
 
-  usePhaseSounds(state.phase);
+  // Detroit 2026-10-15: usePhaseSounds removed — the flight system in BoxChevyTable
+  // owns ALL table sounds. Running both caused double sounds.
   useGameToasts(state, myId, 'Box Chevy');
 
   const isSpectator = role === 'spectator';
@@ -203,9 +201,6 @@ function BoxChevyGameUI() {
     : 0;
 
   useEffect(() => { setSelectedCards(new Set()); }, [phase]);
-
-  const [showdownDismissed, setShowdownDismissed] = useState(false);
-  useEffect(() => { if (phase !== 'SHOWDOWN') setShowdownDismissed(false); }, [phase]);
 
   const handleCardClick = useCallback((idx: number) => {
     if (effectiveSpectator || !isMyTurn || !isDrawPhase) return;
@@ -296,7 +291,8 @@ function BoxChevyGameUI() {
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
 
-  const showShowdown = phase === 'SHOWDOWN' && !showdownDismissed;
+  // Detroit 2026-10-15: BoxChevyShowdown removed — the in-table celebration
+  // in BoxChevyTable owns the winner moment (two winners: high + low).
   const dealRootRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -309,14 +305,6 @@ function BoxChevyGameUI() {
     }} data-mode={MODE_ID}>
 
       {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
-
-      {showShowdown && (
-        <BoxChevyShowdown
-          state={state}
-          myId={myId}
-          onContinue={() => setShowdownDismissed(true)}
-        />
-      )}
 
       {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
       <BustOutModal
@@ -363,11 +351,9 @@ function BoxChevyGameUI() {
           <BoxChevyTable
             state={state}
             myId={myId}
-            phase={phase}
             isDrawPhase={isDrawPhase}
             selectedCardIndices={Array.from(selectedCards)}
             onCardClick={handleCardClick}
-            isMyTurn={isMyTurn}
           />
         </FriendSeatActions>
 
@@ -397,16 +383,10 @@ function BoxChevyGameUI() {
         />
       </main>
 
-      {!effectiveSpectator && (
-        <TableDealAnimator
-          players={state.players}
-          phase={phase}
-          myId={myId}
-          tableRoot={dealRootRef.current}
-        />
-      )}
+      {/* Detroit 2026-10-15: TableDealAnimator removed — the flight system in
+          BoxChevyTable owns all animations. Was doubling with flight deal. */}
 
-      {!effectiveSpectator && !showShowdown && (
+      {!effectiveSpectator && (
         <BoxChevyActionBar
           phase={phase}
           isMyTurn={isMyTurn}

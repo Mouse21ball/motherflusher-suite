@@ -79,8 +79,8 @@ function YardReskinBrowserHarness() {
     <div style={{ height: 600, width: '100%', maxWidth: 1000, marginInline: 'auto' }}>
       {mode === 'badugi' && <BadugiTable {...common} />}
       {mode === 'flushed_up' && <FlushedUpTable {...common} />}
-      {mode === 'box_chevy' && <BoxChevyTable state={state} myId="hero" phase={phase} isDrawPhase={isDrawPhase}
-        selectedCardIndices={selected} onCardClick={clickCard} isMyTurn={isDrawPhase} />}
+      {mode === 'box_chevy' && <BoxChevyTable state={state} myId="hero" isDrawPhase={isDrawPhase}
+        selectedCardIndices={selected} onCardClick={clickCard} />}
     </div>
     {mode === 'badugi' && <BadugiActionBar
       phase={phase} isDrawPhase={isDrawPhase} selectedCount={selected.length} drawLimit={3}

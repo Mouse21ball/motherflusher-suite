@@ -21,8 +21,8 @@ function Fixture() {
       <button onClick={() => setState(s => ({ ...s, players: s.players.map(p => p.id === 'p1' ? { ...p, cards: cards(['A', '3', '5', '7', '9']) } : p) }))}>Repair hand</button>
       <button onClick={() => setState(s => ({ ...s, phase: 'DECLARE' }))}>Enter declaration</button>
     </nav>
-    <BoxChevyTable state={state} myId="p1" phase={state.phase} isDrawPhase={state.phase.startsWith('DRAW')}
-      selectedCardIndices={[]} onCardClick={() => {}} isMyTurn={false} />
+    <BoxChevyTable state={state} myId="p1" isDrawPhase={state.phase.startsWith('DRAW')}
+      selectedCardIndices={[]} onCardClick={() => {}} />
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);
