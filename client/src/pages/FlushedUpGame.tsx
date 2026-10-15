@@ -12,7 +12,6 @@ import { HowToPlay } from '@/components/ui/HowToPlay';
 import { DebugOverlay } from '@/components/game/DebugOverlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
-import { usePhaseSounds } from '@/lib/usePhaseSounds';
 import { useGameToasts } from '@/lib/useGameToasts';
 import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
@@ -22,9 +21,7 @@ import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { useTableBackground } from '@/lib/useTableBackground';
 import { FlushedUpActionBar } from '@/components/flushedUp/FlushedUpActionBar';
-import { ShowdownScreen } from '@/components/flushedUp/ShowdownScreen';
 import { useFlushedUpSounds } from '@/components/flushedUp/useFlushedUpSounds';
-import { useCardAnimations } from '@/components/flushedUp/useCardAnimations';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
@@ -204,7 +201,8 @@ function FlushedUpGameUI() {
 
   useEffect(() => { if (kickedByHost) navigate('/'); }, [kickedByHost, navigate]);
 
-  usePhaseSounds(state.phase);
+  // Detroit 2026-10-15: usePhaseSounds removed — the flight system in FlushedUpTable
+  // owns ALL table sounds. Running both caused double sounds.
   useGameToasts(state, myId, 'Flushed Up');
 
   const isSpectator = role === 'spectator';
@@ -238,26 +236,6 @@ function FlushedUpGameUI() {
     });
   }, [effectiveSpectator, isDrawPhase, drawLimit, sounds]);
 
-  const heroCards = me?.cards ?? [];
-  const { dealingIndices, drawingIndices, discardingIndices, triggerDiscard } =
-    useCardAnimations(heroCards, state.phase);
-
-  const prevPhaseRef = useRef(state.phase);
-  useEffect(() => {
-    const prev = prevPhaseRef.current;
-    prevPhaseRef.current = state.phase;
-    if (prev === state.phase) return;
-    if (state.phase === 'ANTE') sounds.chipClink();
-    if (state.phase === 'SHOWDOWN') {
-      sounds.showdownFlip();
-      const winner = state.players.find(p => (p as any).isWinner);
-      if (winner) {
-        const isHeroWin = winner.id === myId;
-        setTimeout(() => { if (isHeroWin) sounds.win(); else sounds.lose(); }, 800);
-      }
-    }
-  }, [state.phase, state.players, myId, sounds]);
-
   const [actionLocked, setActionLocked] = useState(false);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,7 +243,6 @@ function FlushedUpGameUI() {
     sounds.unlock();
     if (action === 'draw') {
       if (selectedCardIndices.length > 0) {
-        triggerDiscard(selectedCardIndices);
         sounds.cardDiscard();
       }
       setTimeout(() => {
@@ -283,7 +260,7 @@ function FlushedUpGameUI() {
       if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
       lockTimerRef.current = setTimeout(() => setActionLocked(false), 280);
     }
-  }, [selectedCardIndices, triggerDiscard, handleAction, sounds]);
+  }, [selectedCardIndices, handleAction, sounds]);
 
   /* STAY = draw with empty indices (stand pat) */
   const handleStay = useCallback(() => {
@@ -426,7 +403,6 @@ function FlushedUpGameUI() {
             selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
             onCardClick={handleCardClick}
             isDrawPhase={!effectiveSpectator && isDrawPhase}
-            animState={{ dealingIndices, drawingIndices, discardingIndices }}
           />
         </FriendSeatActions>
       </main>
@@ -484,10 +460,8 @@ function FlushedUpGameUI() {
         </div>
       )}
 
-      {/* ── Full-screen showdown overlay ──────────────────────────── */}
-      {state.phase === 'SHOWDOWN' && (
-        <ShowdownScreen state={state} myId={myId} />
-      )}
+      {/* Detroit 2026-10-15: ShowdownScreen removed — the prototype celebration
+          in FlushedUpTable owns the winner moment. Single system, no duplicates. */}
 
       {/* ── XP toast ─────────────────────────────────────────────── */}
       {xpToast && xpToast.xpGained > 0 && (

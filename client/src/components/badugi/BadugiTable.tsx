@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
+import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import type { CardType, Rank, Suit } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
@@ -495,9 +496,18 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
   const reduced = useReducedMotion();
   // Map live GameState to prototype visual state, drive flights from diffs
   const state = useLiveProtoState(liveState, myId);
+  // Detroit 2026-10-15: use the selected table background (Yard at Dusk default)
+  const bg = getSelectedBackground();
 
   return (
-    <div className="h-full flex flex-col relative" style={{ background: 'radial-gradient(ellipse at 50% 40%, #1a0f2e 0%, #0a0618 70%)' }}>
+    <div className="h-full flex flex-col relative" style={{
+      backgroundImage: `url(${bg.url})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+    }}>
+      {/* Dark overlay for card/UI readability over the background image */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(10,6,24,0.55)' }} />
       {/* Table — fixed camera (UNO keeps it still, cards do the dancing) — fills parent <main> */}
       <div
         className="flex-1 relative"
