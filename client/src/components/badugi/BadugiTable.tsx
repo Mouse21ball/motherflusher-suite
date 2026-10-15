@@ -32,11 +32,11 @@ const POT_POS = { x: 50, y: 52 };
 const MUCK_POS = { x: 63, y: 44 };
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 86 }; // hero
+  if (index === 0) return { x: 50, y: 84 }; // hero
   const spots = [
-    { x: 16, y: 30 },
-    { x: 50, y: 20 },
-    { x: 84, y: 30 },
+    { x: 16, y: 32 },
+    { x: 50, y: 22 },
+    { x: 84, y: 32 },
   ];
   return spots[(index - 1) % spots.length];
 }
