@@ -721,6 +721,20 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
 }
 
 function broadcastState(table: GenericTable): void {
+  // Detroit 2026-10-15: Force Flushed Up tables to 4 players max (same as Badugi).
+  // Trims on every broadcast so 5-player tables can't persist.
+  if (table.modeId === 'flushed_up' && table.state.players.length > 4) {
+    const midHand = table.state.phase !== 'WAITING' && table.state.phase !== 'SHOWDOWN';
+    if (!midHand) {
+      const humans = table.state.players.filter(p => (p as any).presence === 'human');
+      const others = table.state.players.filter(p => (p as any).presence !== 'human');
+      const trimmed = [...humans, ...others].slice(0, 4);
+      if (trimmed.length !== table.state.players.length) {
+        console.log(`[flushed_up] Runtime trim table ${table.tableId} from ${table.state.players.length} to 4 players`);
+        table.state.players = trimmed as typeof table.state.players;
+      }
+    }
+  }
   const spectatorCount = table.spectators.size;
   const stateWithMeta = {
     ...table.state, handId: table.handId,
@@ -1541,7 +1555,9 @@ export function getOrCreateTable(
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
-    const maxPlayers  = options.maxPlayers  ?? 5;
+    // Detroit 2026-10-15: Flushed Up max 4 players (same as Badugi).
+    const defaultMax = modeId === 'flushed_up' ? 4 : 5;
+    const maxPlayers  = options.maxPlayers  ?? defaultMax;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
