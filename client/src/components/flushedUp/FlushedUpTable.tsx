@@ -6,15 +6,13 @@
  * 5 cards per hand (20 deal flights), Flushed Up evaluation, community cards near pot.
  * Single animation/sound system — no duplicates (no usePhaseSounds, no useCardAnimations).
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
-import type { CardType, Rank, Suit } from '@shared/gameTypes';
+import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
-import type { Player } from '@shared/gameTypes';
-import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -26,8 +24,7 @@ type ProtoPhase =
   | 'draw2' | 'bet2'
   | 'draw3' | 'bet3'
   | 'bet4'
-  | 'showdown'
-  | 'settling';
+  | 'showdown';
 
 interface ProtoPlayer {
   id: string;
@@ -74,15 +71,11 @@ interface ProtoState {
   pot: number;
   dealerSeat: number;
   activeSeat: number;
-  handNumber: number;
   flights: Flight[];
   rake: RakeState;
   celebration: CelebrationState;
   communityCards: CardType[];
 }
-
-const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
-const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 // Key table positions (percentages) — same as Badugi
 const DEALER_POS = { x: 50, y: 4 };
@@ -157,7 +150,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
         const me = liveState.players.find(p => p.id === myId);
-        const others = liveState.players.filter(p => p.id !== myId);
+        // Detroit 2026-10-15: slice to 3 others to match render (was unsliced —
+        // a 5th player would get zero deal flights and mis-targeted bet flights).
+        const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
         const ordered = me ? [me, ...others] : others;
         // Reset staging: no cards visible until flights land
         const reset: Record<string, number> = {};
@@ -190,10 +185,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // BETS → chips fly (prototype: 0.45s duration)
+      // BETS + ANTES → chips fly (prototype: 0.45s duration)
+      // Detroit 2026-10-15: antes now fly too — they were popping into the pot silently.
       for (const p of liveState.players) {
         const betInc = (curr.bets[p.id] ?? 0) - (prev.bets[p.id] ?? 0);
-        if (betInc > 0 && curr.phase.startsWith('BET')) {
+        if (betInc > 0 && (curr.phase.startsWith('BET') || curr.phase === 'ANTE')) {
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
@@ -218,6 +214,10 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
+          // Detroit 2026-10-15: stage replacement cards — hide the drawn slots
+          // until their flights land (was showing new cards instantly).
+          const keptCount = 5 - currCount;
+          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
           for (let d = 0; d < currCount; d++) {
             const fid = addFlight({
               kind: 'muck',
@@ -237,16 +237,25 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
                 label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
               });
               if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-              later(d * 120 + 320, () => removeFlight(dfid));
+              // Replacement card lands in hand when its flight completes
+              later(d * 120 + 320, () => {
+                removeFlight(dfid);
+                setLanded(prevLanded => ({
+                  ...prevLanded,
+                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 5),
+                }));
+              });
             }
           });
         }
       }
 
       // SHOWDOWN → rake, celebration with winning hand (prototype: 2500ms, 3700ms, 9200ms)
+      // Detroit 2026-10-15: split pots celebrate ALL winners, not just the first.
       if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
-        const winner = liveState.players.find(p => (p as any).isWinner);
-        if (winner) {
+        const winners = liveState.players.filter(p => (p as any).isWinner);
+        if (winners.length > 0) {
+          const winner = winners[0];
           const isHero = winner.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === winner.id) + 1;
           // Evaluate the winning hand for display (Flushed Up)
@@ -263,7 +272,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           });
           later(3700, () => {
             setRake({ active: false, winnerIndex: -1, amount: 0 });
-            setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
+            // Split pot: name all winners
+            const winnerName = winners.length > 1
+              ? `SPLIT — ${winners.map(w => w.name).join(' & ')}`
+              : winner.name;
+            setCelebration({ active: true, winnerName, amount: liveState.pot, cards: winCards, handLabel });
             sfx.bigWin();
           });
           later(9200, () => {
@@ -304,7 +317,6 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     pot: liveState.pot,
     dealerSeat: dealerPlayerIdx >= 0 ? ordered.findIndex(p => p.id === liveState.players[dealerPlayerIdx].id) : 0,
     activeSeat: activeIdx,
-    handNumber: liveState.handId ?? 1,
     flights,
     rake,
     celebration,
@@ -453,6 +465,14 @@ export interface FlushedUpTableProps {
 export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase }: FlushedUpTableProps) {
   const reduced = useReducedMotion();
   const state = useLiveProtoState(liveState, myId);
+  // Detroit 2026-10-15: coin fountain values computed once per celebration —
+  // Math.random() during render teleported coins on every re-render.
+  const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
+    angle: (i / 24) * Math.PI * 2,
+    dist: 120 + Math.random() * 80,
+    duration: 1.2 + Math.random() * 0.6,
+    delay: Math.random() * 0.3,
+  })), [state.celebration.active]);
   // Detroit 2026-10-15: use the selected table background (Yard at Dusk default)
   const bg = getSelectedBackground();
 
@@ -747,10 +767,8 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
               transition={{ duration: 0.3 }}
               style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%)' }}
             >
-              {/* Coin fountain particles */}
-              {Array.from({ length: 24 }).map((_, i) => {
-                const angle = (i / 24) * Math.PI * 2;
-                const dist = 120 + Math.random() * 80;
+              {/* Coin fountain particles — values memoized so re-renders don't teleport coins */}
+              {coins.map((coin, i) => {
                 return (
                   <motion.div
                     key={`coin-${i}`}
@@ -763,12 +781,12 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                     }}
                     initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
                     animate={{
-                      x: Math.cos(angle) * dist,
-                      y: Math.sin(angle) * dist - 40,
+                      x: Math.cos(coin.angle) * coin.dist,
+                      y: Math.sin(coin.angle) * coin.dist - 40,
                       opacity: 0,
                       scale: 0.4,
                     }}
-                    transition={{ duration: 1.2 + Math.random() * 0.6, ease: 'easeOut', delay: Math.random() * 0.3 }}
+                    transition={{ duration: coin.duration, ease: 'easeOut', delay: coin.delay }}
                   />
                 );
               })}
@@ -810,19 +828,16 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                       {state.celebration.cards.map((card, i) => (
                         <div
                           key={`wincard-${i}`}
-                          className="rounded-md bg-white flex flex-col items-center justify-center"
                           style={{
-                            width: 52, height: 72,
                             boxShadow: '0 0 20px rgba(253,230,138,0.6), 0 8px 24px rgba(0,0,0,0.5)',
+                            borderRadius: '8px',
                             border: '2px solid rgba(253,230,138,0.8)',
                           }}
                         >
-                          <span className="text-base font-black" style={{ color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#DC2626' : '#111' }}>
-                            {card.rank}
-                          </span>
-                          <span className="text-xl" style={{ color: (card.suit === 'hearts' || card.suit === 'diamonds') ? '#DC2626' : '#111' }}>
-                            {card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'}
-                          </span>
+                          <PlayingCard
+                            card={{ rank: card.rank as any, suit: card.suit as any, isHidden: false }}
+                            className="!w-[52px] !h-[72px]"
+                          />
                         </div>
                       ))}
                     </div>

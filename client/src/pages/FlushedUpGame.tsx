@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
 import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
@@ -238,6 +238,8 @@ function FlushedUpGameUI() {
 
   const [actionLocked, setActionLocked] = useState(false);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Detroit 2026-10-15: clear lock timer on unmount — was leaking.
+  useEffect(() => () => { if (lockTimerRef.current) clearTimeout(lockTimerRef.current); }, []);
 
   const handleControlAction = useCallback((action: string, amount?: number | unknown) => {
     sounds.unlock();

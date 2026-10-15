@@ -5,15 +5,13 @@
  * Same layout, same flights, same sounds, same timing — driven by live GameState.
  * The prototype's scripted game driver is GONE. No fake players, no timers, no script.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
-import type { CardType, Rank, Suit } from '@shared/gameTypes';
+import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
-import type { Player } from '@shared/gameTypes';
-import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { evaluateBadugi } from '@shared/modes/badugi';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -25,8 +23,7 @@ type ProtoPhase =
   | 'draw2' | 'bet2'
   | 'draw3' | 'bet3'
   | 'bet4'
-  | 'showdown'
-  | 'settling';
+  | 'showdown';
 
 interface ProtoPlayer {
   id: string;
@@ -79,50 +76,9 @@ interface ProtoState {
   celebration: CelebrationState;
 }
 
-const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
-const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-
-// Key table positions (percentages)
 const DEALER_POS = { x: 50, y: 4 };
 const POT_POS = { x: 50, y: 52 };
 const MUCK_POS = { x: 63, y: 44 };
-
-function randomCard(): CardType {
-  return {
-    rank: RANKS[Math.floor(Math.random() * RANKS.length)],
-    suit: SUITS[Math.floor(Math.random() * SUITS.length)],
-    isHidden: false,
-  };
-}
-
-function makePlayers(): ProtoPlayer[] {
-  const names = ['YOU', 'Marcus', 'T-Bone', 'Silk'];
-  return names.map((name, i) => ({
-    id: `p${i}`,
-    name,
-    chips: 1000 + Math.floor(Math.random() * 4000),
-    bet: 0,
-    cards: [],
-    isHero: i === 0,
-    folded: false,
-    drewCount: null,
-    isWinner: false,
-  }));
-}
-
-function initialState(handNumber: number): ProtoState {
-  return {
-    phase: 'ante',
-    players: makePlayers(),
-    pot: 0,
-    dealerSeat: handNumber % 4,
-    activeSeat: 0,
-    handNumber,
-    flights: [],
-    rake: { active: false, winnerIndex: -1, amount: 0 },
-    celebration: { active: false, winnerName: "", amount: 0, cards: [], handLabel: "" },
-  };
-}
 
 // ── Seat positioning ─────────────────────────────────────────────────────────
 // Landscape-first (Detroit 2026-10-13): opponents hug the top in a shallow arc,
@@ -138,11 +94,6 @@ function seatPosition(index: number): { x: number; y: number } {
   ];
   return spots[(index - 1) % spots.length];
 }
-
-let flightId = 0;
-function nextFlightId() { return `f${++flightId}`; }
-
-// ── Scripted game driver ─────────────────────────────────────────────────────
 
 // ── Live state driver ────────────────────────────────────────────────────────
 // Maps live GameState to prototype visual state. Drives flights from real
@@ -241,10 +192,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // BETS → chips fly (prototype: 0.45s duration)
+      // BETS + ANTES → chips fly (prototype: 0.45s duration)
+      // Detroit 2026-10-15: antes now fly too — they were popping into the pot silently.
       for (const p of liveState.players) {
         const betInc = (curr.bets[p.id] ?? 0) - (prev.bets[p.id] ?? 0);
-        if (betInc > 0 && curr.phase.startsWith('BET')) {
+        if (betInc > 0 && (curr.phase.startsWith('BET') || curr.phase === 'ANTE')) {
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
@@ -269,6 +221,10 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
+          // Detroit 2026-10-15: stage replacement cards — hide the drawn slots
+          // until their flights land (was showing new cards instantly).
+          const keptCount = 4 - currCount;
+          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
           for (let d = 0; d < currCount; d++) {
             const fid = addFlight({
               kind: 'muck',
@@ -288,7 +244,14 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
                 label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
               });
               if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-              later(d * 120 + 320, () => removeFlight(dfid));
+              // Replacement card lands in hand when its flight completes
+              later(d * 120 + 320, () => {
+                removeFlight(dfid);
+                setLanded(prevLanded => ({
+                  ...prevLanded,
+                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 4),
+                }));
+              });
             }
           });
         }
@@ -338,7 +301,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     bet: p.bet,
     // Staging: only show cards that have landed from deal flights.
     // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({ ...c, isHidden: i === 0 ? c.isHidden : true })),
+    // Detroit 2026-10-15: opponents reveal at showdown if they didn't fold.
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
+      ...c,
+      isHidden: i === 0 ? c.isHidden : (mapPhase(liveState.phase) === 'showdown' && p.status !== 'folded' ? false : true),
+    })),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
@@ -496,6 +463,14 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
   const reduced = useReducedMotion();
   // Map live GameState to prototype visual state, drive flights from diffs
   const state = useLiveProtoState(liveState, myId);
+  // Detroit 2026-10-15: coin fountain values computed once per celebration —
+  // Math.random() during render teleported coins on every re-render.
+  const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
+    angle: (i / 24) * Math.PI * 2,
+    dist: 120 + Math.random() * 80,
+    duration: 1.2 + Math.random() * 0.6,
+    delay: Math.random() * 0.3,
+  })), [state.celebration.active]);
   // Detroit 2026-10-15: use the selected table background (Yard at Dusk default)
   const bg = getSelectedBackground();
 
@@ -531,7 +506,6 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <AnimatePresence>
             <motion.div
-              key={`pot-${state.pot}`}
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
@@ -564,6 +538,8 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           // Chip count scales with pot, capped at 8 flying chips (Detroit 2026-10-13)
           const amt = state.rake.amount;
           const flyCount = amt < 500 ? 3 : amt < 2000 ? 5 : amt < 10000 ? 7 : 8;
+          // Detroit 2026-10-15: fly to percentage targets directly — the old
+          // px-per-percent calc (* 3.5) mis-targeted on non-~350px screens.
           return (
             <>
               {Array.from({ length: flyCount }).map((_, i) => (
@@ -571,16 +547,16 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   key={`rakechip-${i}`}
                   className="absolute z-20 rounded-full pointer-events-none"
                   style={{
-                    left: '50%', top: '52%',
                     width: 26, height: 26,
                     background: 'radial-gradient(circle at 35% 30%, #FBBF24, #92400E)',
                     border: '2px dashed rgba(255,255,255,0.5)',
                     boxShadow: '0 0 12px rgba(245,158,11,0.6)',
                   }}
-                  initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                   animate={{
-                    x: `calc(-50% + ${(wpos.x - 50) * 3.5 + (i - flyCount / 2) * 8}px)`,
-                    y: `calc(-50% + ${(wpos.y - 52) * 3.5 + (i % 3) * 6}px)`,
+                    left: `${wpos.x}%`, top: `${wpos.y}%`,
+                    x: `calc(-50% + ${(i - flyCount / 2) * 8}px)`,
+                    y: `calc(-50% + ${(i % 3) * 6}px)`,
                     scale: 0.6,
                     opacity: 0.9,
                   }}
@@ -589,11 +565,10 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               ))}
               <motion.div
                 className="absolute z-20 flex flex-col items-center pointer-events-none"
-                style={{ left: '50%', top: '52%' }}
-                initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                 animate={{
-                  x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
-                  y: `calc(-50% + ${(wpos.y - 52) * 3.5}px)`,
+                  left: `${wpos.x}%`, top: `${wpos.y}%`,
+                  x: '-50%', y: '-50%',
                   scale: 0.7,
                   opacity: 0.9,
                 }}
@@ -765,10 +740,8 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               transition={{ duration: 0.3 }}
               style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%)' }}
             >
-              {/* Coin fountain particles */}
-              {Array.from({ length: 24 }).map((_, i) => {
-                const angle = (i / 24) * Math.PI * 2;
-                const dist = 120 + Math.random() * 80;
+              {/* Coin fountain particles — values memoized so re-renders don't teleport coins */}
+              {coins.map((coin, i) => {
                 return (
                   <motion.div
                     key={`coin-${i}`}
@@ -781,12 +754,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                     }}
                     initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
                     animate={{
-                      x: Math.cos(angle) * dist,
-                      y: Math.sin(angle) * dist - 40,
+                      x: Math.cos(coin.angle) * coin.dist,
+                      y: Math.sin(coin.angle) * coin.dist - 40,
                       opacity: 0,
                       scale: 0.4,
                     }}
-                    transition={{ duration: 1.2 + Math.random() * 0.6, ease: 'easeOut', delay: Math.random() * 0.3 }}
+                    transition={{ duration: coin.duration, ease: 'easeOut', delay: coin.delay }}
                   />
                 );
               })}
@@ -861,7 +834,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
       <div className="pb-6 text-center text-white/40 text-xs font-mono">
         {state.phase === 'ante' && 'Ante up — $25 each…'}
         {state.phase === 'dealing' && 'Dealing from the dealer…'}
-        {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3') && 'Chips flying to the pot…'}
+        {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3' || state.phase === 'bet4') && 'Chips flying to the pot…'}
         {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
         {state.phase === 'showdown' && !state.rake.active && !state.celebration.active && 'Showdown — fast reveal'}
         {state.phase === 'showdown' && state.rake.active && 'Raking it in…'}

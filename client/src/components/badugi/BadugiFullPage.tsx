@@ -54,12 +54,11 @@ export interface BadugiFullPageProps {
 }
 
 export function BadugiFullPage({
-  state, handleAction, actionError, requestRebuy, myId, modeId, tableId, role,
+  state, handleAction, actionError, requestRebuy, myId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
 }: BadugiFullPageProps) {
   const { background: tableBackground } = useTableBackground();
   const analyticsChipsBefore = useHandAnalytics(state, myId, tableId, 'badugi');
-  void modeId;
   const [, navigate]   = useLocation();
   const { profile: serverProfile, refetch: refetchProfile } = useServerProfile();
   const leaveToLobby = useCallback(async () => {
@@ -75,10 +74,8 @@ export function BadugiFullPage({
   }, [leaveAndSettle, navigate, refetchProfile]);
   const { toast: xpToast, dismiss: dismissXP } = useXPWatcher();
 
-  // Detroit 2026-10-15: usePhaseSounds disabled for Badugi — the flight system
-  // in BadugiTable owns ALL table sounds (deal/bet/draw/win). Running both
-  // caused double sounds (21 deal sounds at once).
-  // usePhaseSounds(state.phase);
+  // Detroit 2026-10-15: usePhaseSounds removed — the flight system
+  // in BadugiTable owns ALL table sounds (deal/bet/draw/win).
   useGameToasts(state, myId, 'Badugi');
 
   useEffect(() => { if (kickedByHost) navigate('/'); }, [kickedByHost, navigate]);
@@ -111,13 +108,14 @@ export function BadugiFullPage({
     setSelectedCardIndices(prev => toggleBadugiDrawSelection(prev, index, drawLimit));
   }, [effectiveSpectator, isDrawPhase, drawLimit]);
 
-  const heroCards = me?.cards ?? [];
   // Detroit 2026-10-15: useCardAnimations removed — dead code. The flight system
   // in BadugiTable owns all card animations. This hook's output (animState) was
   // never read by BadugiTable.
 
   const [actionLocked, setActionLocked] = useState(false);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Detroit 2026-10-15: clear lock timer on unmount — was leaking.
+  useEffect(() => () => { if (lockTimerRef.current) clearTimeout(lockTimerRef.current); }, []);
 
   const lock = useCallback(() => {
     setActionLocked(true);

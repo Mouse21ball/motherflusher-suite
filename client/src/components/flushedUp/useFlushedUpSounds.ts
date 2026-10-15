@@ -23,50 +23,16 @@ export function useFlushedUpSounds() {
   return {
     unlock() { unlockedRef.current = true; },
 
-    cardDeal(delay = 0) {
-      if (delay > 0) {
-        setTimeout(() => guard(() => sfx.cardDeal()), delay);
-      } else {
-        guard(() => sfx.cardDeal());
-      }
-    },
-
     cardSelect() {
       guard(() => sfx.cardFlip());
-    },
-
-    cardDiscard() {
-      guard(() => sfx.fold());
-    },
-
-    cardDraw(delay = 0) {
-      if (delay > 0) {
-        setTimeout(() => guard(() => sfx.cardDeal()), delay);
-      } else {
-        guard(() => sfx.cardDeal());
-      }
     },
 
     chipClink() {
       guard(() => sfx.chipClink());
     },
 
-    showdownFlip() {
-      guard(() => {
-        [0, 80, 160, 240].forEach(d => setTimeout(() => sfx.cardFlip(), d));
-      });
-    },
-
-    win() {
-      guard(() => sfx.win());
-    },
-
     lose() {
       guard(() => sfx.lose());
-    },
-
-    check() {
-      guard(() => sfx.check());
     },
   };
 }
