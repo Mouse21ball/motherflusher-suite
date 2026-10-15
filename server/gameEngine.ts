@@ -1127,6 +1127,16 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
     };
   });
 
+  // Detroit 2026-10-15: Enforce 4-player max at hand end.
+  // Old tables may carry a 5th player through restores; trim here so it
+  // can't persist hand after hand. Keep humans first, then bots.
+  if (nextPlayers.length > 4) {
+    const humans = nextPlayers.filter(p => p.presence === 'human');
+    const others = nextPlayers.filter(p => p.presence !== 'human');
+    nextPlayers = [...humans, ...others].slice(0, 4);
+    console.log(`[badugi] Hand-end trim: ${basePlayers.length} → 4 players`);
+  }
+
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
   // Mirror of genericEngine: if everyone folded last hand, reactivate eligible
   // seats so the next hand can begin instead of stalling in ANTE.
