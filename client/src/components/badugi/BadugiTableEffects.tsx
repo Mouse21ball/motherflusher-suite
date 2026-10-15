@@ -18,6 +18,7 @@ interface PlayerVisualState {
 
 export interface BadugiVisualTracker {
   phase: string;
+  handId?: number;
   players: Record<string, PlayerVisualState>;
 }
 
@@ -41,6 +42,7 @@ interface MeasuredEffect extends BadugiVisualIntent {
 export function snapshotBadugiVisualState(state: GameState): BadugiVisualTracker {
   return {
     phase: state.phase,
+    handId: state.handId,
     players: Object.fromEntries(state.players.map(player => [
       player.id,
       {
@@ -76,8 +78,19 @@ export function deriveBadugiVisualIntents(
       });
     }
 
-    // Deal: cards dealt to a player who had none (new hand) — fly from dealer (Detroit 2026-10-13)
-    if (old.cardCount === 0 && cardCount > 0 && player.status !== 'folded' && player.status !== 'sitting_out') {
+    // Deal: new hand detected via handId change — cards fly from dealer (Detroit 2026-10-15)
+    // The server sends new hands with cards already dealt, so we can't rely on 0→4 cardCount
+    const isNewHand = previous.handId !== undefined && state.handId !== undefined && previous.handId !== state.handId;
+    if (isNewHand && cardCount > 0 && player.status !== 'folded' && player.status !== 'sitting_out') {
+      intents.push({
+        kind: 'deal',
+        playerId: player.id,
+        amount: 0,
+        cardCount,
+      });
+    }
+    // Fallback: cards dealt to a player who had none (for initial load or edge cases)
+    else if (old.cardCount === 0 && cardCount > 0 && player.status !== 'folded' && player.status !== 'sitting_out') {
       intents.push({
         kind: 'deal',
         playerId: player.id,
