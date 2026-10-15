@@ -1664,6 +1664,12 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
 export async function initEngine(): Promise<void> {
   const restored = await loadPersistedTables();
   for (const { tableId, state, handId } of restored) {
+    // Detroit 2026-10-15: Enforce 4-player Badugi on restored tables.
+    // Old tables may have 5 players from before the 2026-10-13 fix.
+    if (state.players.length > 4) {
+      console.log(`[badugi] Trimming restored table ${tableId} from ${state.players.length} to 4 players`);
+      state.players = state.players.slice(0, 4);
+    }
     tables.set(tableId, {
       tableId,
       state,
@@ -1685,7 +1691,7 @@ export async function initEngine(): Promise<void> {
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
-      maxPlayers: 5,
+      maxPlayers: 4,
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(DEFAULT_STAKE_TIER_ID),
