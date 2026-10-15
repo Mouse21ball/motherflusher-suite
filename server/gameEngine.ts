@@ -978,10 +978,69 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
   const nonFolded = s.players.filter(p => p.status === 'active');
 
   if (nonFolded.length === 1) {
-    // Detroit 2026-10-11: uncontested Badugi pots ROLL OVER to the next hand —
-    // the survivor does not take it. Matches Flushed Up / Box Chevy behavior.
     const survivor = nonFolded[0];
     const pot = s.pot;
+    // Detroit 2026-10-15: uncontested pot rule — if the survivor has a VALID
+    // made Badugi hand (4 different ranks + 4 different suits), they WIN the
+    // pot outright. Only rolls over if the survivor has no made hand.
+    // (Changed from 2026-10-11: all uncontested pots rolled over.)
+    let survivorHasValidHand = false;
+    try {
+      const evalResult = evaluateBadugi((survivor.cards ?? []) as Parameters<typeof evaluateBadugi>[0]);
+      survivorHasValidHand = !!evalResult?.isValidBadugi;
+    } catch { /* treat as invalid on evaluation error */ }
+
+    if (survivorHasValidHand) {
+      // Survivor wins — award the pot
+      table.resolvedPot = pot;
+      const { winnerPot, rake } = applyRake(pot);
+      if (rake > 0) {
+        storage.logHouseRake({
+          tableId:      table.tableId,
+          gameMode:     'badugi',
+          handOrRaceId: String(table.handId),
+          grossPot:     pot,
+          rakeAmount:   rake,
+          netPot:       winnerPot,
+        }).catch(console.error);
+      }
+      const newPlayers = s.players.map(p => ({
+        ...p,
+        isWinner: p.id === survivor.id,
+        hasActed: true,
+      }));
+      const winMsg = `${survivor.name} wins $${winnerPot} — last hand standing with a valid Badugi!`;
+      table.state = {
+        ...s,
+        players: newPlayers,
+        winStreaks: confirmedWinStreaks(s, newPlayers),
+        pot: winnerPot,
+        phase: 'SHOWDOWN' as GamePhase,
+        activePlayerId: survivor.id,
+        currentBet: 0,
+        messages: [
+          ...s.messages,
+          { id: makeId(), text: winMsg, time: Date.now(), isResolution: true },
+        ].slice(-10),
+      };
+      engineLog('PHASE', table.tableId, {
+        from: s.phase, to: 'SHOWDOWN', reason: 'fold-win-valid-hand', survivor: survivor.id, pot: winnerPot,
+      });
+      console.log(`[CGP][server] fold-win badugi:${table.tableId} survivor=${survivor.id} wins=$${winnerPot} (rake=$${rake}) from=${s.phase}`);
+
+      for (const t of Array.from(table.botTimers.values())) clearTimeout(t);
+      table.botTimers.clear();
+      broadcastState(table);
+
+      const fenced = table.handId;
+      setTimeout(() => {
+        if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
+        advanceAfterSettlement(table);
+      }, 2500);
+      return true;
+    }
+
+    // No valid hand — roll over (original 2026-10-11 behavior)
     table.resolvedPot = pot;
     const { winnerPot, rake } = applyRake(pot);
     if (rake > 0) {
