@@ -12,7 +12,6 @@ import { sfx } from '@/lib/sounds';
 import type { CardType, Rank, Suit } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import type { Player } from '@shared/gameTypes';
-import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { evaluateBadugi } from '@shared/modes/badugi';
 
@@ -461,16 +460,8 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
   const state = useLiveProtoState(liveState, myId);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 40%, #1a0f2e 0%, #0a0618 70%)' }}>
-      {/* Header — live */}
-      <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" hideHelp />
-      <div className="flex justify-center items-center gap-3 px-4 py-1 text-[10px] font-mono text-white/60">
-        <span><b className="text-amber-300/80">PLAYERS</b> {liveState.players.filter(p => p.status === 'active').length}/{Math.min(liveState.players.length, 4)}</span>
-        <span><b className="text-amber-300/80">HAND</b> #{state.handNumber}</span>
-        <span><b className="text-amber-300/80">PHASE</b> {state.phase.toUpperCase()}</span>
-      </div>
-
-      {/* Table — fixed camera (UNO keeps it still, cards do the dancing) */}
+    <div className="h-full flex flex-col relative" style={{ background: 'radial-gradient(ellipse at 50% 40%, #1a0f2e 0%, #0a0618 70%)' }}>
+      {/* Table — fixed camera (UNO keeps it still, cards do the dancing) — fills parent <main> */}
       <div
         className="flex-1 relative"
         style={{
