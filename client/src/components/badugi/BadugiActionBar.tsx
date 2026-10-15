@@ -97,10 +97,24 @@ export function BadugiActionBar({
         {isDrawPhase && (
           <div className="yard-action-buttons" style={{ display: 'flex', gap: 10 }}>
             <button style={standPatBtn} disabled={!canAct} onClick={canAct ? onStandPat : undefined} data-testid="button-stand-pat">
-              STAND PAT
+              KEEP CARDS
             </button>
-            <button style={drawBtn} disabled={!canAct} onClick={canAct ? onDraw : undefined} data-testid="button-draw">
-              {selectedCount > 0 ? `DRAW ${selectedCount}` : 'DRAW'}
+            <button
+              style={{
+                ...drawBtn,
+                // Disabled state when no cards selected — can't swap nothing
+                ...((selectedCount === 0) ? {
+                  background: 'rgba(60,44,0,0.5)',
+                  color: 'rgba(255,255,255,0.25)',
+                  boxShadow: 'none',
+                  opacity: 0.5,
+                } : {}),
+              }}
+              disabled={!canAct || selectedCount === 0}
+              onClick={(canAct && selectedCount > 0) ? onDraw : undefined}
+              data-testid="button-draw"
+            >
+              {selectedCount > 0 ? `SWAP ${selectedCount}` : 'SWAP CARDS'}
             </button>
           </div>
         )}
