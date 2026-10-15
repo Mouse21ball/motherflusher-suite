@@ -164,12 +164,13 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
 
   // Prototype seat positions (Detroit 2026-10-15) — UNO-style absolute layout
   // Hero at bottom, opponents spread around top, pot center
+  // Adjusted 2026-10-15: moved opponents down to clear the header (was overlapping title)
   const seatPos = (index: number): { x: number; y: number } => {
-    if (index === 0) return { x: 50, y: 86 }; // hero
+    if (index === 0) return { x: 50, y: 84 }; // hero
     const spots = [
-      { x: 16, y: 26 },
-      { x: 50, y: 12 },
-      { x: 84, y: 26 },
+      { x: 16, y: 32 },
+      { x: 50, y: 22 },
+      { x: 84, y: 32 },
     ];
     return spots[(index - 1) % spots.length];
   };
