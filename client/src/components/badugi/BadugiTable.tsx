@@ -22,8 +22,8 @@ import { UniversalTableHeader } from '@/components/game/UniversalTableHeader';
 import { BadugiTableEffects } from './BadugiTableEffects';
 import { PotStack } from '@/components/game/PotStack';
 import { WinCelebration } from '@/components/game/WinCelebration';
-import { GameScreen } from '@/components/game/GameScreen';
 import { useViewport, useCardSize } from '@/hooks/useViewport';
+import { sfx } from '@/lib/sounds';
 
 function phaseLabel(phase: string): string {
   if (phase.startsWith('DRAW_')) return `DRAW ${phase.split('_')[1]} / 3`;
@@ -110,21 +110,6 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const me = state.players.find(p => p.id === myId);
   const isShowdown = state.phase === 'SHOWDOWN';
   const [tableRoot, setTableRoot] = useState<HTMLElement | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
-    }
-  };
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
 
   // Auto-fullscreen on first tap (Detroit 2026-10-13) — browsers require a user gesture
   useEffect(() => {
@@ -158,11 +143,10 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
   const heroFilter = heroIsLoser ? 'brightness(0.6) saturate(0.5)' : 'none';
   const isHeroDealer = !!(me as any)?.isDealer;
 
-  // Responsive hero card sizing — based on actual viewport width (Detroit 2026-10-14)
-  // Cards take ~92% of usable width, 4 cards with overlap
-  // Max 85px wide to ensure vertical fit on mobile (was 100, still caused overlap)
+  // Responsive hero card sizing — ego style, large and dominant (Detroit 2026-10-15)
+  // Prototype uses absolute positions so no flexbox overlap — cards can be big again
   const heroCardAreaWidth = viewport.usableWidth * 0.92;
-  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 85, 0.22);
+  const { width: heroCardW, height: heroCardH } = useCardSize(heroCardAreaWidth, 4, 110, 0.22);
 
   // Win celebration — show for any winner at showdown (Detroit 2026-10-13)
   const showdownWinner = isShowdown ? state.players.find(p => (p as any).isWinner) : undefined;
@@ -172,120 +156,137 @@ export function BadugiTable({ state, myId, selectedCardIndices, onCardClick, isD
     if (showdownWinner && celebratingWinnerId !== showdownWinner.id) {
       setCelebratingWinnerId(showdownWinner.id);
       setCelebrationKey(k => k + 1);
+      sfx.bigWin(); // Prototype sound (Detroit 2026-10-15)
     } else if (!isShowdown && celebratingWinnerId) {
       setCelebratingWinnerId(null);
     }
   }, [isShowdown, showdownWinner, celebratingWinnerId]);
 
-  return (
-    <div ref={setTableRoot as any} className="w-full h-full">
-      <GameScreen
-        header={
-          <>
-            <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" hideHelp />
-            {/* Info bar — Zone A, below header */}
-            <div className="flex justify-center items-center gap-3 px-4 py-1 text-[10px] font-mono text-white/60">
-              <span><b className="text-amber-300/80">PLAYERS</b> {activeCount}/{Math.min(state.players.length, 4)}</span>
-              <span><b className="text-amber-300/80">DRAW</b> {state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]}/3` : '–'}</span>
-              <span><b className="text-amber-300/80">PHASE</b> {phaseLabel(state.phase)}</span>
-              <button
-                onClick={toggleFullscreen}
-                className="ml-1 px-2 py-1 rounded bg-white/10 text-white/70 text-[10px] font-mono border border-white/20 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              >
-                {isFullscreen ? '⤓' : '⤢'}
-              </button>
-            </div>
-          </>
-        }
-        opponents={
-          opponents.length > 0 ? (
-            <div className="flex justify-around items-start px-4 pt-2 gap-2">
-              {opponents.map((opp, i) => (
-                <OpponentSeat
-                  key={opp.id}
-                  player={opp}
-                  seatNum={i + 1}
-                  isActive={opp.id === state.activePlayerId}
-                  isDrawPhase={isDrawPhase}
-                  isDealer={!!(opp as any).isDealer}
-                  compact={viewport.isNarrow}
-                />
-              ))}
-            </div>
-          ) : undefined
-        }
-        center={
-          <>
-            {/* Invisible dealer anchor for deal flights */}
-            <div data-dealer-anchor aria-hidden="true" className="absolute" style={{ left: '50%', top: '0%' }} />
-            {/* Muck anchor */}
-            <div data-muck-anchor aria-hidden="true" className="absolute" style={{ left: '65%', top: '20%' }} />
-            <motion.div
-              className="rounded-xl px-4 py-2 text-center"
-              style={{
-                background: 'rgba(0,0,0,0.35)',
-                backdropFilter: 'blur(8px)',
-              }}
-              data-pot-anchor
-            >
-              <div className="text-amber-300/70 text-[9px] font-mono tracking-widest">POT</div>
-              <PotStack amount={state.pot} />
-              <motion.div className="text-amber-200 text-xl font-bold font-mono mt-0.5">{potDisplay}</motion.div>
-            </motion.div>
-          </>
-        }
-        hero={
-          <div
-            className="flex flex-col items-center px-4 pb-2"
-            data-player-seat={myId} data-deal-seat={myId}
-          >
-            {isHeroDealer && (
-              <div className="w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg mb-1">D</div>
-            )}
-            {/* Hero name/chips ABOVE cards — compact to avoid pot overlap (Detroit 2026-10-15) */}
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-7 h-7 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
-                <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
-              </span>
-              <div className="text-left">
-                <div className="text-white text-xs font-bold leading-tight">{me?.name ?? 'YOU'}</div>
-                <div className="text-amber-200/80 text-[10px] font-mono leading-tight">{(me?.chips ?? 0).toLocaleString()}</div>
-              </div>
-            </div>
-            {me && me.cards.length > 0 && me.status !== 'folded' ? (
-              <>
-                <div style={{ filter: heroFilter, width: '100%', maxWidth: `${heroCardAreaWidth}px` }}>
-                  <CardHand
-                    cards={me.cards}
-                    celebrationCardMarkers
-                    selectedIndices={selectedCardIndices}
-                    onCardClick={onCardClick}
-                    isSelectable={isDrawPhase}
-                    dealingIndices={animState.dealingIndices}
-                    drawingIndices={animState.drawingIndices}
-                    discardingIndices={animState.discardingIndices}
-                    isShowdown={isShowdown}
-                    cardWidth={Math.round(heroCardW)}
-                    cardHeight={Math.round(heroCardH)}
-                    testIdPrefix="badugi-card"
-                  />
-                </div>
-                <div className="text-white/60 text-[10px] font-mono mt-1 text-center min-h-[14px]">
-                  {isDrawPhase ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
-                    : heroHandEval ? heroHandEval.description : ''}
-                </div>
-              </>
-            ) : me?.status === 'folded' ? (
-              <div className="text-white/40 text-sm font-mono py-4">FOLDED</div>
-            ) : (
-              <div className="text-white/40 text-[10px] font-mono py-4">DEALT IN NEXT HAND</div>
-            )}
-          </div>
-        }
-      />
+  // Prototype seat positions (Detroit 2026-10-15) — UNO-style absolute layout
+  // Hero at bottom, opponents spread around top, pot center
+  const seatPos = (index: number): { x: number; y: number } => {
+    if (index === 0) return { x: 50, y: 86 }; // hero
+    const spots = [
+      { x: 16, y: 26 },
+      { x: 50, y: 12 },
+      { x: 84, y: 26 },
+    ];
+    return spots[(index - 1) % spots.length];
+  };
 
-      <BadugiTableEffects state={state} tableRoot={tableRoot} />
+  return (
+    <div ref={setTableRoot as any} className="w-full h-full relative">
+      {/* Header — compact */}
+      <div className="absolute top-0 left-0 right-0 z-20">
+        <UniversalTableHeader mode="badugi" title="BADUGI" subtitle="4-CARD DRAW" hideHelp />
+        <div className="flex justify-center items-center gap-3 px-4 py-1 text-[10px] font-mono text-white/60">
+          <span><b className="text-amber-300/80">PLAYERS</b> {activeCount}/{Math.min(state.players.length, 4)}</span>
+          <span><b className="text-amber-300/80">DRAW</b> {state.phase.startsWith('DRAW_') ? `${state.phase.split('_')[1]}/3` : '–'}</span>
+          <span><b className="text-amber-300/80">PHASE</b> {phaseLabel(state.phase)}</span>
+        </div>
+      </div>
+
+      {/* Table — prototype absolute positions (UNO-style) */}
+      <div className="absolute inset-0" style={{ perspective: '1200px' }}>
+        {/* Dealer anchor — top center */}
+        <div data-dealer-anchor aria-hidden="true" className="absolute" style={{ left: '50%', top: '4%' }} />
+        {/* Muck anchor */}
+        <div data-muck-anchor aria-hidden="true" className="absolute" style={{ left: '63%', top: '44%' }} />
+
+        {/* Pot — center (50%, 52%) */}
+        <div className="absolute" style={{ left: '50%', top: '52%', transform: 'translate(-50%, -50%)' }}>
+          <motion.div
+            className="rounded-2xl px-6 py-3 text-center"
+            style={{
+              background: 'rgba(240,184,41,0.08)',
+              border: '1px solid rgba(240,184,41,0.25)',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 24px rgba(240,184,41,0.15)',
+            }}
+            data-pot-anchor
+            key={`pot-${state.pot}`}
+            initial={{ scale: 1.15 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
+            <PotStack amount={state.pot} />
+            <motion.div className="text-amber-200 text-2xl font-bold font-mono mt-1">{potDisplay}</motion.div>
+          </motion.div>
+        </div>
+
+        {/* Opponents — spread around top */}
+        {opponents.map((opp, i) => {
+          const pos = seatPos(i + 1);
+          return (
+            <div
+              key={opp.id}
+              className="absolute"
+              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+              data-player-seat={opp.id}
+            >
+              <OpponentSeat
+                player={opp}
+                seatNum={i + 1}
+                isActive={opp.id === state.activePlayerId}
+                isDrawPhase={isDrawPhase}
+                isDealer={!!(opp as any).isDealer}
+                compact={viewport.isNarrow}
+              />
+            </div>
+          );
+        })}
+
+        {/* Hero — bottom center (50%, 86%), ego style with large cards */}
+        <div
+          className="absolute flex flex-col items-center"
+          style={{ left: '50%', top: '86%', transform: 'translate(-50%, -50%)', width: '92%' }}
+          data-player-seat={myId} data-deal-seat={myId}
+        >
+          {isHeroDealer && (
+            <div className="w-6 h-6 rounded-full bg-amber-400 text-black text-xs font-bold flex items-center justify-center shadow-lg mb-1">D</div>
+          )}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-8 h-8 rounded-full overflow-hidden border-2 border-amber-400/60 shadow-lg">
+              <img src={getAvatarForSeat(myIndex + 1)} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
+            </span>
+            <div className="text-left">
+              <div className="text-white text-sm font-bold leading-tight">{me?.name ?? 'YOU'}</div>
+              <div className="text-amber-200/80 text-[11px] font-mono leading-tight">{(me?.chips ?? 0).toLocaleString()}</div>
+            </div>
+          </div>
+          {me && me.cards.length > 0 && me.status !== 'folded' ? (
+            <>
+              <div style={{ filter: heroFilter, width: '100%', maxWidth: `${heroCardAreaWidth}px` }}>
+                <CardHand
+                  cards={me.cards}
+                  celebrationCardMarkers
+                  selectedIndices={selectedCardIndices}
+                  onCardClick={onCardClick}
+                  isSelectable={isDrawPhase}
+                  dealingIndices={animState.dealingIndices}
+                  drawingIndices={animState.drawingIndices}
+                  discardingIndices={animState.discardingIndices}
+                  isShowdown={isShowdown}
+                  cardWidth={Math.round(heroCardW)}
+                  cardHeight={Math.round(heroCardH)}
+                  testIdPrefix="badugi-card"
+                />
+              </div>
+              <div className="text-white/60 text-[10px] font-mono mt-1 text-center min-h-[14px]">
+                {isDrawPhase ? `Tap cards to discard${selectedCardIndices.length ? ` · ${selectedCardIndices.length} selected` : ''}`
+                  : heroHandEval ? heroHandEval.description : ''}
+              </div>
+            </>
+          ) : me?.status === 'folded' ? (
+            <div className="text-white/40 text-sm font-mono py-4">FOLDED</div>
+          ) : (
+            <div className="text-white/40 text-[10px] font-mono py-4">DEALT IN NEXT HAND</div>
+          )}
+        </div>
+      </div>
+
+      <BadugiTableEffects state={state} tableRoot={tableRoot} myId={myId} />
 
       {/* Win celebration — any winner at showdown */}
       {celebratingWinnerId && showdownWinner && (
