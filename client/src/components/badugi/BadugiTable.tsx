@@ -160,10 +160,13 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
   const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0 });
+  // Staging: how many cards have visually landed per player this hand.
+  // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
+  const [landed, setLanded] = useState<Record<string, number>>({});
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, number | undefined> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -189,19 +192,30 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       handId: liveState.handId,
       phase: liveState.phase,
       bets: Object.fromEntries(liveState.players.map(p => [p.id, p.bet])),
-      draws: Object.fromEntries(liveState.players.map(p => [p.id, (p as any).lastDrawCount])),
+      // Key draws by phase+count so same-count draws in different rounds still animate
+      draws: Object.fromEntries(liveState.players.map(p => [p.id, `${liveState.phase}:${(p as any).lastDrawCount ?? 'x'}`])),
     };
 
     if (prev) {
-      // NEW HAND → deal flights (prototype: 160ms apart, 0.32s duration)
+      // NEW HAND → 16-card deal (prototype: 160ms apart, 0.32s flight each).
+      // Cards are staged: they only appear in the hand when their flight lands.
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
-        const heroIdx = liveState.players.findIndex(p => p.id === myId);
-        const order = [0, 1, 2, 3]; // hero is seat 0 in proto layout
-        order.forEach((seatIdx, i) => {
+        const me = liveState.players.find(p => p.id === myId);
+        const others = liveState.players.filter(p => p.id !== myId);
+        const ordered = me ? [me, ...others] : others;
+        // Reset staging: no cards visible until flights land
+        const reset: Record<string, number> = {};
+        for (const p of ordered) reset[p.id] = 0;
+        setLanded(reset);
+        // 16 cards, one every 160ms, seat order 0→1→2→3 repeating
+        for (let i = 0; i < 16; i++) {
+          const seatIdx = i % 4;
+          const player = ordered[seatIdx];
+          if (!player) continue;
+          const isHero = seatIdx === 0;
           later(i * 160, () => {
             const pos = seatPosition(seatIdx);
-            const isHero = seatIdx === 0;
             const fid = addFlight({
               kind: 'card',
               fromX: DEALER_POS.x, fromY: DEALER_POS.y,
@@ -209,9 +223,16 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
               label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
             if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-            later(320, () => removeFlight(fid));
+            // Card lands in hand when flight completes (prototype: 320ms)
+            later(320, () => {
+              removeFlight(fid);
+              setLanded(prevLanded => ({
+                ...prevLanded,
+                [player.id]: Math.min((prevLanded[player.id] ?? 0) + 1, 4),
+              }));
+            });
           });
-        });
+        }
       }
 
       // BETS → chips fly (prototype: 0.45s duration)
@@ -233,14 +254,16 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       }
 
       // DRAWS → discards to muck, replacements from dealer (prototype timing)
+      // Keyed by phase+count so repeat same-count draws in later rounds still fire.
       for (const p of liveState.players) {
         const prevD = prev.draws[p.id];
         const currD = curr.draws[p.id];
-        if (currD !== undefined && currD > 0 && prevD !== currD) {
+        const currCount = parseInt(currD.split(':')[1] || '0', 10);
+        if (currD !== prevD && !isNaN(currCount) && currCount > 0) {
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
-          for (let d = 0; d < currD; d++) {
+          for (let d = 0; d < currCount; d++) {
             const fid = addFlight({
               kind: 'muck',
               fromX: pos.x, fromY: pos.y - 6,
@@ -250,8 +273,8 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             later(d * 120 + 350, () => removeFlight(fid));
           }
           sfx.dealSingle();
-          later(currD * 120 + 400, () => {
-            for (let d = 0; d < currD; d++) {
+          later(currCount * 120 + 400, () => {
+            for (let d = 0; d < currCount; d++) {
               const dfid = addFlight({
                 kind: 'card',
                 fromX: DEALER_POS.x, fromY: DEALER_POS.y,
@@ -299,7 +322,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     name: p.name,
     chips: p.chips,
     bet: p.bet,
-    cards: p.cards.map(c => ({ ...c, isHidden: i === 0 ? c.isHidden : true })),
+    // Staging: only show cards that have landed from deal flights.
+    // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({ ...c, isHidden: i === 0 ? c.isHidden : true })),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
