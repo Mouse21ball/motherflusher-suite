@@ -464,7 +464,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
     }}>
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(10,6,24,0.55)' }} />
+      {/* Detroit 2026-10-16: dark overlay removed — was reading as a "box" around the table */}
       <div className="flex-1 relative" style={{ perspective: '1200px' }}>
         <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
           <motion.div
