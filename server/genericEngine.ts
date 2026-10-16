@@ -432,6 +432,8 @@ export interface GenericTable {
   botsEnabled: boolean; // false = no bots ever fill empty seats
   crewId?: string;      // club table — bots suppressed regardless of botsEnabled
   stakeTier: StakeTierId;
+  // Detroit 2026-10-16: last activity timestamp for idle table cleanup.
+  lastActivityAt: number;
   // Per-seat chip balance at the START of the current hand (for profit delta calculation).
   // Initialized when player first loads chips from DB; updated after each hand sync.
   chipsAtHandStart: Map<string, number>;
@@ -480,7 +482,13 @@ function assignSeat(table: GenericTable, sessionId: string, identityId?: string)
   if (existing && SEAT_ORDER.includes(existing as SeatId)) return existing as SeatId;
   // Enforce host-configured maxPlayers
   if (table.humanSeats.size >= table.maxPlayers) return null;
-  return availableStreakSeat(table.state, SEAT_ORDER, table.connections, identityId) as SeatId | null;
+  // Detroit 2026-10-16: don't seat on a live player's mid-hand seat (bot or human).
+  // Check both connections AND active players in state.
+  const activeSeats = new Set(table.state.players.filter(p => p.status !== 'sitting_out').map(p => p.id));
+  const combined = {
+    has: (seatId: string) => table.connections.has(seatId) || activeSeats.has(seatId),
+  };
+  return availableStreakSeat(table.state, SEAT_ORDER, combined, identityId) as SeatId | null;
 }
 
 // ─── Session stats helper ─────────────────────────────────────────────────────
@@ -611,6 +619,7 @@ export function hasGenericRewardedAdBust(modeId: string, tableId: string, identi
 const TURN_TIMEOUT_MS = 30_000;
 
 const INTERACTIVE_PHASES = new Set<GamePhase>([
+  'ANTE', // Detroit 2026-10-16: added — prevents idle stall in ANTE.
   'BET_1','BET_2','BET_3','BET_4',
   'DRAW','DRAW_1','DRAW_2','DRAW_3',
   'DECLARE',
@@ -698,7 +707,11 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
   const callAmt = s.currentBet - player.bet;
   const newPlayers = [...s.players];
   let msg = '';
-  if (phase.startsWith('DRAW')) {
+  if (phase === 'ANTE') {
+    // Detroit 2026-10-16: auto-post ante on timeout (prevents idle stall).
+    newPlayers[playerIdx] = { ...player, hasActed: true };
+    msg = `${player.name} times out — ante posted`;
+  } else if (phase.startsWith('DRAW')) {
     // Stand pat (no card swap).
     newPlayers[playerIdx] = { ...player, hasActed: true };
     msg = `${player.name} times out — stands pat`;
@@ -1387,12 +1400,26 @@ function executeBotAction(table: GenericTable, botId: string): void {
   if (table.actionLock) {
     const capturedHandId = table.handId;
     const capturedPhase  = table.state.phase;
-    setTimeout(() => {
+    // Detroit 2026-10-16: track re-queue timer so it can be cleared (was untracked, caused double-actions).
+    const existing = table.botTimers.get(`requeue:${botId}`);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      table.botTimers.delete(`requeue:${botId}`);
       if (table.handId !== capturedHandId || table.state.phase !== capturedPhase) return;
+      // Detroit 2026-10-16: verify bot is still the active player before re-queueing.
+      if (table.state.activePlayerId !== botId) return;
+      const bot = table.state.players.find(p => p.id === botId);
+      if (!bot || bot.status !== 'active' || bot.hasActed) return;
       executeBotAction(table, botId);
     }, 200);
+    table.botTimers.set(`requeue:${botId}`, timer);
     return;
   }
+
+  // Detroit 2026-10-16: verify bot is the active player and hasn't acted (prevents double-actions).
+  if (table.state.activePlayerId !== botId) return;
+  const botPlayer = table.state.players.find(p => p.id === botId);
+  if (!botPlayer || botPlayer.status !== 'active' || botPlayer.hasActed) return;
 
   table.actionLock = true;
 
@@ -1586,6 +1613,7 @@ export function getOrCreateTable(
       botsEnabled,
       crewId: options.crewId,
       stakeTier,
+      lastActivityAt: Date.now(),
       chipsAtHandStart: new Map(),
       rebuyBustEvents: new Map(),
       sessionStats: new Map(),
@@ -2383,6 +2411,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
     console.warn('[CGP][server] handleGenericAction: NO TABLE FOUND', { tableId, action });
     return;
   }
+  // Detroit 2026-10-16: touch activity for idle sweeper.
+  table.lastActivityAt = Date.now();
   const targetSeat = table.sessionToSeat.get(playerOrSessionId) || playerOrSessionId;
   if (table.pendingFundingSeats.has(targetSeat)) return 'Wallet funding is still in progress.';
   if (table.leavingSeats.has(targetSeat)) return;
@@ -2882,10 +2912,12 @@ export async function initGenericEngine(): Promise<void> {
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt: 0, // join window closed for restored tables
       isPrivate: false,
-      maxPlayers: 5,
+      // Detroit 2026-10-16: respect 4-player cap on restored tables (was hardcoded 5).
+      maxPlayers: (modeId === 'flushed_up' || modeId === 'box_chevy' || modeId === 'badugi') ? 4 : 5,
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(undefined),
+      lastActivityAt: Date.now(),
       chipsAtHandStart: new Map(),
       rebuyBustEvents: new Map(),
       sessionStats: new Map(),
@@ -2903,3 +2935,22 @@ export async function initGenericEngine(): Promise<void> {
     console.log(`[modes] Restored ${restored.length} generic table(s) from disk.`);
   }
 }
+
+// Detroit 2026-10-16: idle table sweeper — prevents unbounded memory growth.
+// Tables with no connections and no activity for 30 minutes are removed.
+const IDLE_TABLE_TTL_MS = 30 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, table] of tables) {
+    const hasConnections = table.connections.size > 0 || table.spectators.size > 0;
+    const idleTooLong = now - table.lastActivityAt > IDLE_TABLE_TTL_MS;
+    if (!hasConnections && idleTooLong) {
+      // Clear any pending timers before dropping.
+      for (const t of table.botTimers.values()) clearTimeout(t);
+      for (const t of table.disconnectTimers.values()) clearTimeout(t);
+      if (table.settlementRetryTimer) clearTimeout(table.settlementRetryTimer);
+      tables.delete(key);
+      console.log(`[modes] Swept idle table ${key} (idle ${Math.round((now - table.lastActivityAt) / 60000)}m)`);
+    }
+  }
+}, 5 * 60 * 1000); // Run every 5 minutes

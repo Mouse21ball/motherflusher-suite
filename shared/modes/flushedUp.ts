@@ -1,6 +1,6 @@
 import { GameMode, GameState, Player, CardType, GamePhase } from '../gameTypes';
 import { decideBet, applyBetDecision, takeAnte, botPersonality } from '../engine/botUtils';
-import { computeSidePots, totalSidePotAmount, type SidePot } from '../engine/sidePots';
+import { computeSidePots, totalSidePotAmount, sidePotsForShowdown, type SidePot } from '../engine/sidePots';
 
 const RANK_VALUES: Record<string, number> = {
   '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
@@ -282,10 +282,8 @@ export const FlushedUpMode: GameMode = {
     const activePlayers = finalPlayers.filter(p => p.status !== 'folded');
     const messages: string[] = [];
 
-    let sidePots: SidePot[] = computeSidePots(finalPlayers);
-    if (sidePots.length === 0 && pot > 0) {
-      sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
-    }
+    // Detroit 2026-10-16: use sidePotsForShowdown so rollover carry-in is included.
+    const sidePots: SidePot[] = sidePotsForShowdown(finalPlayers, pot, activePlayers.map(p => p.id));
     const totalAwardable = totalSidePotAmount(sidePots);
 
     if (activePlayers.length === 1) {

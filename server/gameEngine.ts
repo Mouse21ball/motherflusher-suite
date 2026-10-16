@@ -1006,6 +1006,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
       }
       const newPlayers = s.players.map(p => ({
         ...p,
+        chips: p.id === survivor.id ? p.chips + winnerPot : p.chips,
         isWinner: p.id === survivor.id,
         hasActed: true,
       }));
@@ -1014,7 +1015,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
         ...s,
         players: newPlayers,
         winStreaks: confirmedWinStreaks(s, newPlayers),
-        pot: winnerPot,
+        pot: 0,
         phase: 'SHOWDOWN' as GamePhase,
         activePlayerId: survivor.id,
         currentBet: 0,

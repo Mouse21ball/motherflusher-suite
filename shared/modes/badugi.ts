@@ -6,7 +6,7 @@
 
 import type { GameMode, GameState, Player, CardType, Declaration } from '../gameTypes';
 import { decideBet, applyBetDecision, botPersonality, takeAnte } from '../engine/botUtils';
-import { computeSidePots, totalSidePotAmount, resolveSplitPots } from '../engine/sidePots';
+import { computeSidePots, totalSidePotAmount, resolveSplitPots, sidePotsForShowdown } from '../engine/sidePots';
 
 const rankValue = (rank: string): number => {
   if (rank === 'A') return 1;
@@ -387,11 +387,8 @@ export const BadugiMode: GameMode = {
     const messages: string[] = [];
 
     // ── Side-pot computation ──────────────────────────────────────────────
-    let sidePots = computeSidePots(finalPlayers);
-    if (sidePots.length === 0 && pot > 0) {
-      // Legacy/fixture path — no totalBet metadata.
-      sidePots = [{ amount: pot, eligibleIds: activePlayers.map(p => p.id) }];
-    }
+    // Detroit 2026-10-16: use sidePotsForShowdown so rollover carry-in is included.
+    const sidePots = sidePotsForShowdown(finalPlayers, pot, activePlayers.map(p => p.id));
     const totalAwardable = totalSidePotAmount(sidePots);
 
     // Detroit 2026-10-11: an uncontested survivor does NOT take the pot —

@@ -6,7 +6,8 @@ import { getTableConnectionHealth, isTablePath, returnToLobby, TABLE_CONNECTION_
  * needed to escape. A hard local navigation also resets a crashed router. */
 export function TableEscapeGuard() {
   const [path] = useLocation();
-  const [, setConnecting] = useState(false);
+  // Detroit 2026-10-16: was discarded — now renders a visible reconnecting overlay.
+  const [connecting, setConnecting] = useState(false);
   const active = isTablePath(path);
   useEffect(() => {
     if (!active) return;
@@ -29,5 +30,13 @@ export function TableEscapeGuard() {
     accept(getTableConnectionHealth());
     return () => { if (timer) clearTimeout(timer); window.removeEventListener(TABLE_CONNECTION_EVENT, listener); };
   }, [active, path]);
-  return null;
+  if (!active || !connecting) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <div className="rounded-2xl px-6 py-4 text-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+        <div className="text-amber-200 text-sm font-mono font-bold animate-pulse">Reconnecting…</div>
+        <div className="text-white/50 text-xs font-mono mt-1">Hold tight — getting you back to the table</div>
+      </div>
+    </div>
+  );
 }
