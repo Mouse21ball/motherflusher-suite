@@ -26,7 +26,6 @@ type ProtoPhase =
   | 'draw2' | 'bet2'
   | 'draw3' | 'bet3'
   | 'bet4'
-  | 'declare'
   | 'showdown';
 
 interface ProtoPlayer {
@@ -93,7 +92,7 @@ function seatPosition(index: number): { x: number; y: number } {
   // 3 opponents spread across the top
   const spots = [
     { x: 14, y: 28 },
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — clipped under status bar
+    { x: 50, y: 14 },
     { x: 86, y: 28 },
   ];
   return spots[(index - 1) % spots.length];
@@ -113,7 +112,6 @@ function mapPhase(livePhase: string): ProtoPhase {
   if (livePhase === 'BET_2') return 'bet2';
   if (livePhase === 'BET_3') return 'bet3';
   if (livePhase === 'BET_4') return 'bet4';
-  if (livePhase === 'DECLARE') return 'declare'; // Detroit 2026-10-16: was missing — players blind during declare.
   if (livePhase === 'SHOWDOWN') return 'showdown';
   return 'ante';
 }
@@ -307,10 +305,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     // Staging: only show cards that have landed from deal flights.
     // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
     // Detroit 2026-10-15: opponents reveal at showdown if they didn't fold.
-    // Detroit 2026-10-16: folded hero hides too (was showing face-up).
     cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
       ...c,
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (mapPhase(liveState.phase) === 'showdown' ? false : true)),
+      isHidden: i === 0 ? c.isHidden : (mapPhase(liveState.phase) === 'showdown' && p.status !== 'folded' ? false : true),
     })),
     isHero: i === 0,
     folded: p.status === 'folded',
@@ -594,13 +591,13 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         {/* Seats */}
         {state.players.map((p, i) => {
           const pos = seatPosition(i);
-          const isActive = i === state.activeSeat && (state.phase.startsWith('bet') || state.phase.startsWith('draw') || state.phase === 'declare');
+          const isActive = i === state.activeSeat && (state.phase.startsWith('bet') || state.phase.startsWith('draw'));
           const isDealer = i === state.dealerSeat;
           return (
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
               {/* Active turn — premium layered glow (not just a border) */}
               {isActive && (
@@ -647,7 +644,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   frameSrc={p.isHero ? heroFrameSrc : null}
                   initials={getAvatarInitials(p.name)}
                   initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44} // Detroit 2026-10-16: uniform with Box Chevy
+                  size={p.isHero ? 40 : 34}
                 />
                 {isDealer && <span className="text-amber-300 text-[10px] font-mono">D</span>}
                 <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
@@ -845,7 +842,6 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         {state.phase === 'dealing' && 'Dealing from the dealer…'}
         {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3' || state.phase === 'bet4') && 'Chips flying to the pot…'}
         {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
-        {state.phase === 'declare' && 'Declare — HIGH or LOW?'}
         {state.phase === 'showdown' && !state.rake.active && !state.celebration.active && 'Showdown — fast reveal'}
         {state.phase === 'showdown' && state.rake.active && 'Raking it in…'}
         {state.phase === 'showdown' && state.celebration.active && `${state.celebration.winnerName} takes it down!`}

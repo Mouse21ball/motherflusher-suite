@@ -295,8 +295,6 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const me = liveState.players.find(p => p.id === myId);
   const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
   const ordered = me ? [me, ...others] : others;
-  // Detroit 2026-10-16: reveal non-folded opponents at showdown (was hardcoded hidden).
-  const showdownPhase = mapPhase(liveState.phase) === 'showdown';
 
   const players: ProtoPlayer[] = ordered.map((p, i) => ({
     id: p.id,
@@ -305,11 +303,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     bet: p.bet,
     // Staging: only show cards that have landed from deal flights.
     // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
-    // Detroit 2026-10-16: folded players hide at showdown; non-folded opponents reveal.
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
-      ...c,
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
-    })),
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({ ...c, isHidden: i === 0 ? c.isHidden : true })),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
@@ -342,7 +336,7 @@ function seatPosition(index: number): { x: number; y: number } {
   // 3 opponents spread across the top
   const spots = [
     { x: 14, y: 28 },
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — clipped under status bar
+    { x: 50, y: 14 },
     { x: 86, y: 28 },
   ];
   return spots[(index - 1) % spots.length];
@@ -514,7 +508,36 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
           </motion.div>
         </div>
 
-        {/* Detroit 2026-10-16: Flushed Up community UI removed — engine never deals community cards (dead code). */}
+        {/* Community cards — Flushed Up shared cards, above the pot */}
+        {state.communityCards.length > 0 && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5"
+            style={{ left: `${COMMUNITY_POS.x}%`, top: `${COMMUNITY_POS.y}%` }}
+          >
+            <AnimatePresence>
+              {state.communityCards.map((card, i) => (
+                <motion.div
+                  key={`comm-${i}-${card.rank}-${card.suit}`}
+                  initial={{ opacity: 0, y: -22, rotateY: 90, scale: 0.85 }}
+                  animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ duration: 0.32, ease: 'easeOut', delay: i * 0.15 }}
+                  style={{ transformOrigin: 'top center' }}
+                >
+                  <PlayingCard card={card} className="!w-[44px] !h-[62px]" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+        {state.communityCards.length > 0 && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 text-center text-purple-300/60 text-[10px] font-mono tracking-widest"
+            style={{ left: `${COMMUNITY_POS.x}%`, top: `calc(${COMMUNITY_POS.y}% + 42px)` }}
+          >
+            COMMUNITY
+          </div>
+        )}
 
         {/* Center staging — pot as the centerpiece */}
         <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
@@ -605,7 +628,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
               {/* Active turn — premium layered glow */}
               {isActive && (
@@ -650,7 +673,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                   frameSrc={p.isHero ? heroFrameSrc : null}
                   initials={getAvatarInitials(p.name)}
                   initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44} // Detroit 2026-10-16: uniform with Box Chevy
+                  size={p.isHero ? 40 : 34}
                 />
                 {isDealer && <span className="text-amber-300 text-[10px] font-mono">D</span>}
                 <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
