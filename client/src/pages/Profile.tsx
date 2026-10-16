@@ -544,6 +544,40 @@ export default function Profile() {
             >
               STORE →
             </button>
+
+            {/* Detroit 2026-10-16: manual fullscreen toggle — re-triggers the
+                browser permission prompt so "always allow" can be checked. */}
+            <button
+              onClick={() => {
+                try {
+                  const el = document.documentElement as any;
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                  } else if (el.requestFullscreen) {
+                    el.requestFullscreen().catch(() => {});
+                  } else if (el.webkitRequestFullscreen) {
+                    el.webkitRequestFullscreen();
+                  }
+                } catch {}
+              }}
+              data-testid="btn-fullscreen-toggle"
+              className="transition-all duration-200 active:scale-[0.97]"
+              style={{
+                marginTop: 12, width: '100%',
+                padding: '14px 24px',
+                border: '2px solid rgba(201,162,39,0.5)',
+                borderRadius: 10,
+                background: 'transparent',
+                color: '#C9A227',
+                fontWeight: 700, fontSize: 15,
+                letterSpacing: '0.08em',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
+              }}
+            >
+              ⛶ FULLSCREEN
+            </button>
           </div>
 
           {/* ════════════════════════════════════════════════════════════════ */}
