@@ -12,9 +12,8 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: |
-          rm -f package-lock.json
           unset NPM_CONFIG_REGISTRY
-          npm install --registry https://registry.npmjs.org/
+          npm ci --registry https://registry.npmjs.org/
 
       - name: Build web app
         script: |
@@ -47,9 +46,8 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: |
-          rm -f package-lock.json
           unset NPM_CONFIG_REGISTRY
-          npm install --registry https://registry.npmjs.org/
+          npm ci --registry https://registry.npmjs.org/
       - name: Build web app
         script: |
           GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
