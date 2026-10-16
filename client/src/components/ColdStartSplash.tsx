@@ -9,10 +9,32 @@ let coldStartSplashConsumed = false;
 function requestAppFullscreen() {
   try {
     const el = document.documentElement as any;
-    if (document.fullscreenElement) return;
-    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    if (document.fullscreenElement) return true;
+    if (el.requestFullscreen) { el.requestFullscreen().catch(() => {}); return true; }
+    else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); return true; }
   } catch {}
+  return false;
+}
+
+// Detroit 2026-10-16: fully automatic fullscreen — request on the first
+// user interaction anywhere in the app, retry until it takes hold.
+// Once the user checks "always allow," every visit goes fullscreen on first tap.
+if (typeof window !== 'undefined') {
+  let fullscreenDone = false;
+  const tryFullscreen = () => {
+    if (fullscreenDone || document.fullscreenElement) { fullscreenDone = true; return; }
+    requestAppFullscreen();
+    // Check if it took hold after a beat
+    setTimeout(() => {
+      if (document.fullscreenElement) {
+        fullscreenDone = true;
+        window.removeEventListener('pointerdown', tryFullscreen);
+      }
+    }, 500);
+  };
+  window.addEventListener('pointerdown', tryFullscreen);
+  // Stop trying after 60s to avoid lingering listeners
+  setTimeout(() => window.removeEventListener('pointerdown', tryFullscreen), 60000);
 }
 
 // This route is drawn over the metal centerline of the supplied chain emblem.
