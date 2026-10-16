@@ -169,6 +169,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
         setCommLanded(0);
+        // Detroit 2026-10-16: clear celebration + rake so they don't bleed into the new hand.
+        setCelebration(emptyCelebration());
+        setRake({ active: false, winnerIndex: -1, amount: 0 });
         for (let i = 0; i < 20; i++) {
           const seatIdx = i % 4;
           const player = ordered[seatIdx];
@@ -785,7 +788,7 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
     >
       <div>
         <span className="text-white text-xl font-bold font-mono">{winner.name}</span>
-        <span className="text-amber-300 text-xl font-mono ml-3">+${winner.amount.toLocaleString()}</span>
+        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots. */}
       </div>
       {winner.side !== 'SOLE' && (
         <div className={`text-xs font-mono tracking-widest mt-1 ${
