@@ -395,7 +395,7 @@ function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 };
   const spots = [
     { x: 14, y: 28 },
-    { x: 50, y: 14 },
+    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — name clipped under status bar
     { x: 86, y: 28 },
   ];
   return spots[(index - 1) % spots.length];
@@ -483,15 +483,10 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="rounded-2xl px-6 py-3 text-center"
-              style={{
-                background: 'rgba(240,184,41,0.08)',
-                backdropFilter: 'blur(8px)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-              }}
+              className="text-center"
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1">${state.pot.toLocaleString()}</div>
+              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
             </motion.div>
           </AnimatePresence>
           {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
