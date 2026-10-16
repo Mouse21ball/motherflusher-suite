@@ -23,6 +23,7 @@ import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
 import { useGameToasts } from '@/lib/useGameToasts';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { resolveAvatarSrc } from '@/lib/persistence';
 import type { GameState } from '@/lib/poker/types';
 import type { GameSessionStats } from '@/components/game/GameHeader';
 import type { TableSettings } from '@/components/HostControls';
@@ -224,6 +225,8 @@ export function BadugiFullPage({
             selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
             onCardClick={handleCardClick}
             isDrawPhase={!effectiveSpectator && isDrawPhase}
+            heroAvatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
+            heroFrameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
           />
         </FriendSeatActions>
       </main>

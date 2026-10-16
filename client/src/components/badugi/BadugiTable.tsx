@@ -10,6 +10,9 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
+import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { getAvatarForSeat } from '@shared/engine/avatarMap';
+import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBadugi } from '@shared/modes/badugi';
@@ -457,9 +460,11 @@ export interface BadugiTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   isDrawPhase: boolean;
+  heroAvatarSrc?: string | null;
+  heroFrameSrc?: string | null;
 }
 
-export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase }: BadugiTableProps) {
+export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc }: BadugiTableProps) {
   const reduced = useReducedMotion();
   // Map live GameState to prototype visual state, drive flights from diffs
   const state = useLiveProtoState(liveState, myId);
@@ -481,8 +486,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
     }}>
-      {/* Dark overlay for card/UI readability over the background image */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(10,6,24,0.55)' }} />
+      {/* Detroit 2026-10-16: dark overlay removed for uniformity with Box Chevy */}
       {/* Table — fixed camera (UNO keeps it still, cards do the dancing) — fills parent <main> */}
       <div
         className="flex-1 relative"
@@ -509,18 +513,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="rounded-2xl px-6 py-3 text-center"
-              style={{
-                background: 'rgba(240,184,41,0.08)',
-                backdropFilter: 'blur(8px)',
-                transform: 'rotateX(8deg)', // slight lift toward viewer (UNO 3D feel)
-                boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-              }}
+              className="text-center"
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
               {/* Visual chip stack — grows in tiers with the pot, capped (Detroit 2026-10-13) */}
               <PotStack amount={state.pot} />
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1">${state.pot.toLocaleString()}</div>
+              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
             </motion.div>
           </AnimatePresence>
           {/* Muck pile — face-down discards stack here */}
@@ -640,6 +638,14 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                 />
               )}
               <div className="flex items-center gap-1.5">
+                {/* Detroit 2026-10-16: avatar with cosmetic border */}
+                <AvatarWithFrame
+                  avatarSrc={p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : ((p as any).avatarUrl || getAvatarForSeat(i + 1))}
+                  frameSrc={p.isHero ? heroFrameSrc : null}
+                  initials={getAvatarInitials(p.name)}
+                  initialsColor="#FDE68A"
+                  size={p.isHero ? 40 : 34}
+                />
                 {isDealer && <span className="text-amber-300 text-[10px] font-mono">D</span>}
                 <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
                   {p.name}

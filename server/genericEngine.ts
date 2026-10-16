@@ -723,7 +723,7 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
 function broadcastState(table: GenericTable): void {
   // Detroit 2026-10-15: Force Flushed Up and Box Chevy tables to 4 players max (same as Badugi).
   // Trims on every broadcast so 5-player tables can't persist.
-  if ((table.modeId === 'flushed_up' || table.modeId === 'box_chevy') && table.state.players.length > 4) {
+  if ((table.modeId === 'flushed_up' || table.modeId === 'box_chevy' || table.modeId === 'badugi') && table.state.players.length > 4) {
     const midHand = table.state.phase !== 'WAITING' && table.state.phase !== 'SHOWDOWN';
     if (!midHand) {
       const humans = table.state.players.filter(p => (p as any).presence === 'human');
@@ -1556,7 +1556,7 @@ export function getOrCreateTable(
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
     // Detroit 2026-10-15: Flushed Up and Box Chevy max 4 players (same as Badugi).
-    const defaultMax = (modeId === 'flushed_up' || modeId === 'box_chevy') ? 4 : 5;
+    const defaultMax = (modeId === 'flushed_up' || modeId === 'box_chevy' || modeId === 'badugi') ? 4 : 5;
     const maxPlayers  = options.maxPlayers  ?? defaultMax;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);

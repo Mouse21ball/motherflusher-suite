@@ -17,6 +17,7 @@ import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { resolveAvatarSrc } from '@/lib/persistence';
 import { FlushedUpTable } from '@/components/flushedUp/FlushedUpTable';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { useTableBackground } from '@/lib/useTableBackground';
@@ -405,6 +406,8 @@ function FlushedUpGameUI() {
             selectedCardIndices={effectiveSpectator ? [] : selectedCardIndices}
             onCardClick={handleCardClick}
             isDrawPhase={!effectiveSpectator && isDrawPhase}
+            heroAvatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
+            heroFrameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
           />
         </FriendSeatActions>
       </main>

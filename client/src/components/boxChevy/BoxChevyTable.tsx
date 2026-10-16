@@ -94,7 +94,7 @@ interface ProtoState {
 const DEALER_POS = { x: 50, y: 4 };
 const POT_POS = { x: 50, y: 52 };
 const MUCK_POS = { x: 63, y: 44 };
-const COMMUNITY_POS = { x: 50, y: 38 };
+const COMMUNITY_POS = { x: 50, y: 42 }; // Detroit 2026-10-16: was 38% — cards sat too high
 
 // Card sizes — hero bigger (5 cards need to fit)
 const HERO_CARD_W = 56;
@@ -501,7 +501,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           )}
         </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '38%' }}>
+        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '42%' }}>
           <AnimatePresence>
             {state.communityCards.map((card, i) => (
               <motion.div
@@ -516,7 +516,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           </AnimatePresence>
         </div>
         {state.communityCards.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(38% - 18px)' }}>
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(42% - 18px)' }}>
             COMMUNITY
           </div>
         )}
