@@ -293,10 +293,9 @@ function BoxChevyGameUI() {
 
   // Detroit 2026-10-15: BoxChevyShowdown removed — the in-table celebration
   // in BoxChevyTable owns the winner moment (two winners: high + low).
-  const dealRootRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={dealRootRef} style={{
+    <div style={{
       height: '100dvh', display: 'flex', flexDirection: 'column',
       position: 'relative',
       backgroundColor: '#0a1628',

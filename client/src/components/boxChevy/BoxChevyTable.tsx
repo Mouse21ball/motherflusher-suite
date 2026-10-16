@@ -36,7 +36,6 @@ interface ProtoPlayer {
   isHero: boolean;
   folded: boolean;
   drewCount: number | null;
-  isWinner: boolean;
   declaration: string | null;
 }
 
@@ -122,7 +121,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
   const [celebration, setCelebration] = useState<CelebrationState>(emptyCelebration);
   const [landed, setLanded] = useState<Record<string, number>>({});
-  const [commLanded, setCommLanded] = useState(0);
+  const [commLanded, setCommLanded] = useState(-1); // -1 = not staged yet (reconnect fallback shows all)
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
@@ -189,7 +188,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             });
           });
         }
-        const commStart = 20 * 160 + 400;
+        const commStart = 20 * 160 + 200; // Detroit 2026-10-16: tightened from 400ms — was a visible pause
         for (let c = 0; c < 5; c++) {
           later(commStart + c * 160, () => {
             const fid = addFlight({
@@ -201,7 +200,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             sfx.dealSingle();
             later(320, () => {
               removeFlight(fid);
-              setCommLanded(prev => Math.min(prev + 1, 5));
+              setCommLanded(prev => Math.min((prev === -1 ? 0 : prev) + 1, 5));
             });
           });
         }
@@ -279,14 +278,26 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           const decl = (w: any) => (w as any).declaration as string | null;
           const highPool = winners.filter(w => decl(w) === 'HIGH' || decl(w) === 'SWING');
           const lowPool = winners.filter(w => decl(w) === 'LOW' || decl(w) === 'SWING');
-          let bestHigh: any = null, bestLow: any = null;
+          // Detroit 2026-10-16: collect ALL tied winners, not just the first.
+          let bestHighEval: any = null;
+          const highTied: any[] = [];
           for (const w of highPool) {
             const e = evals.get(w.id)!;
-            if (!bestHigh || compareBoxChevyHigh(e, evals.get(bestHigh.id)!) > 0) bestHigh = w;
+            if (!bestHighEval || compareBoxChevyHigh(e, bestHighEval) > 0) {
+              bestHighEval = e; highTied.length = 0; highTied.push(w);
+            } else if (compareBoxChevyHigh(e, bestHighEval) === 0) {
+              highTied.push(w);
+            }
           }
+          let bestLowEval: any = null;
+          const lowTied: any[] = [];
           for (const w of lowPool) {
             const e = evals.get(w.id)!;
-            if (!bestLow || compareBoxChevyLow(e, evals.get(bestLow.id)!) > 0) bestLow = w;
+            if (!bestLowEval || compareBoxChevyLow(e, bestLowEval) > 0) {
+              bestLowEval = e; lowTied.length = 0; lowTied.push(w);
+            } else if (compareBoxChevyLow(e, bestLowEval) === 0) {
+              lowTied.push(w);
+            }
           }
           const buildInfo = (w: any, side: WinnerInfo['side']): WinnerInfo => {
             const hole = (w.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
@@ -302,16 +313,26 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           let highWinner: WinnerInfo | null = null;
           let lowWinner: WinnerInfo | null = null;
           let soleWinner: WinnerInfo | null = null;
-          if (bestHigh && bestLow && bestHigh.id === bestLow.id) {
-            soleWinner = buildInfo(bestHigh, 'SWING');
+          // Detroit 2026-10-16: tied winners share the celebration (names joined).
+          const tieName = (tied: any[]) => tied.map(w => w.name).join(' & ');
+          if (highTied.length > 0 && lowTied.length > 0 && highTied[0].id === lowTied[0].id && highTied.length === 1 && lowTied.length === 1) {
+            soleWinner = buildInfo(highTied[0], 'SWING');
           } else {
-            if (bestHigh) highWinner = buildInfo(bestHigh, 'HIGH');
-            if (bestLow) lowWinner = buildInfo(bestLow, 'LOW');
+            if (highTied.length > 0) {
+              const info = buildInfo(highTied[0], 'HIGH');
+              info.name = tieName(highTied);
+              highWinner = info;
+            }
+            if (lowTied.length > 0) {
+              const info = buildInfo(lowTied[0], 'LOW');
+              info.name = tieName(lowTied);
+              lowWinner = info;
+            }
             if (!highWinner && !lowWinner && winners.length > 0) {
               soleWinner = buildInfo(winners[0], 'SOLE');
             }
           }
-          const firstWinner = bestHigh ?? bestLow ?? winners[0];
+          const firstWinner = highTied[0] ?? lowTied[0] ?? winners[0];
           const isHero = firstWinner.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === firstWinner.id) + 1;
           later(2500, () => {
@@ -323,7 +344,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             setCelebration({ active: true, highWinner, lowWinner, soleWinner });
             sfx.bigWin();
           });
-          later(12000, () => {
+          later(9000, () => { // Detroit 2026-10-16: reduced from 12s — 9s is enough to read two hands
             setCelebration(emptyCelebration());
           });
         }
@@ -344,12 +365,12 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     bet: p.bet,
     cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
       ...c,
-      isHidden: i === 0 ? c.isHidden : (showdownPhase && p.status !== 'folded' ? false : true),
+      // Detroit 2026-10-16: folded players (including hero) hide cards at showdown.
+      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
     })),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
-    isWinner: !!(p as any).isWinner,
     declaration: (p as any).declaration ?? null,
   }));
 
@@ -366,7 +387,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     flights,
     rake,
     celebration,
-    communityCards: (liveState.communityCards ?? []).slice(0, commLanded).map(c => ({ ...c, isHidden: false })),
+    communityCards: (liveState.communityCards ?? []).slice(0, commLanded === -1 ? (liveState.communityCards ?? []).length : commLanded).map(c => ({ ...c, isHidden: false })),
   };
 }
 
@@ -493,7 +514,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           </AnimatePresence>
         </div>
         {state.communityCards.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(38% + 68px)' }}>
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(38% - 18px)' }}>
             COMMUNITY
           </div>
         )}
