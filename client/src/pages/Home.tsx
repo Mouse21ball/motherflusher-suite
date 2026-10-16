@@ -25,8 +25,6 @@ import {
   isHourlyReady,
 } from '@/lib/retention';
 import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
-import { ChainLinks } from '@/components/ChainLinks';
-import { CommissaryWheel } from '@/components/CommissaryWheel';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
 import { StarterPackModal } from '@/components/StarterPackModal';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
@@ -581,8 +579,7 @@ export default function Home() {
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
       <DailyBonusCalendarModal open={dailyBonusCalOpen} onClose={() => setDailyBonusCalOpen(false)} onClaimed={handleDailyBonusClaimed} />
-      {/* Detroit 2026-10-16: Commissary Wheel replaces plain hourly modal */}
-      <CommissaryWheel open={hourlyOpen} onClose={handleHourlyClose} />
+      <HourlyBonusModal open={hourlyOpen} onClose={handleHourlyClose} />
       <StarterPackModal open={starterOpen} onClose={handleStarterClose} onRefetchProfile={refetch} />
       {howToPlayMode && <HowToPlay modeId={howToPlayMode} onClose={() => setHowToPlayMode(null)} />}
 
@@ -804,12 +801,28 @@ export default function Home() {
           {/* ══ DAILY BONUS + MISSIONS ════════════════════════════════════════════ */}
           <div className="yard-bonus-mission-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>
 
-            {/* Daily Bonus — Chain Links (Detroit 2026-10-16) */}
-            <ChainLinks
-              currentDay={serverBonusStreakDay || 1}
-              canClaim={canClaimBonus}
-              onClaim={() => setDailyBonusCalOpen(true)}
-            />
+            {/* Daily Bonus — parchment / amber */}
+            <div id="missions" className="yard-missions-screen" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#C9A227', textTransform: 'uppercase', letterSpacing: '0.10em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span aria-hidden="true">CHAIN</span><span>DAILY BONUS</span>
+              </div>
+              <div style={{ fontWeight: 900, color: 'white', fontSize: 15, lineHeight: 1.2 }}>
+                {serverBonusCanClaim !== null
+                  ? `Day ${serverBonusStreakDay} Ready`
+                  : 'Loading bonus…'}
+              </div>
+              {!canClaimBonus && serverBonusCanClaim !== null && (
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.40)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{getTimeUntilMidnight()}</span>
+                  <span style={{ color: 'rgba(201,162,39,0.55)' }}>NEXT BONUS</span>
+                </div>
+              )}
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setDailyBonusCalOpen(true)} data-testid="button-claim-daily-home"
+                style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: canClaimBonus ? 'none' : '1px solid rgba(255,255,255,0.12)', background: canClaimBonus ? 'linear-gradient(135deg,#F0B829,#C9A227)' : 'rgba(255,255,255,0.06)', color: canClaimBonus ? '#0c0b08' : 'rgba(255,255,255,0.35)', fontFamily: 'monospace', fontWeight: 900, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: canClaimBonus ? '0 4px 18px rgba(240,184,41,0.45)' : 'none', transition: 'all 0.2s' }}>
+                {canClaimBonus ? 'CLAIM BONUS' : `NEXT IN ${getTimeUntilMidnight()}`}
+              </button>
+            </div>
 
             {/* Daily Missions + Milestones */}
             <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>

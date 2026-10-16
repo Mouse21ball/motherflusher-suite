@@ -48,6 +48,10 @@ export default function PracticeBadugiPage() {
   const [, setLocation] = useLocation();
   const [betAmount, setBetAmount] = useState(50);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  // Detroit 2026-10-16: guided first-hand mode for new players.
+  const [guided] = useState(() => new URLSearchParams(window.location.search).get('guided') === 'true');
+  const [showIntro, setShowIntro] = useState(guided);
+  const [handComplete, setHandComplete] = useState(false);
   const { game, selectedCardIndices } = state;
   const hero = game.players.find(p => p.id === "p1")!;
   const callAmount = Math.max(0, game.currentBet - hero.bet);
@@ -197,6 +201,14 @@ export default function PracticeBadugiPage() {
             {atShowdown && (
               <button className="rounded-xl bg-amber-300 px-5 py-3 font-bold text-emerald-950 hover:bg-amber-200" onClick={() => dispatch({ type: "RESTART" })}>Practice another hand</button>
             )}
+            {/* Detroit 2026-10-16: guided first-hand completion */}
+            {guided && atShowdown && !handComplete && (
+              <button
+                className="rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-3 font-black text-emerald-950 hover:from-amber-200 hover:to-yellow-300 shadow-lg"
+                onClick={() => setHandComplete(true)}>
+                CLAIM YOUR FIRST WIN →
+              </button>
+            )}
           </div>
           {state.error && <p role="alert" className="mt-2 text-center text-sm text-rose-300">{state.error}</p>}
           {!isPlayerTurn && game.phase !== "WAITING" && !atShowdown && <p className="mt-3 text-center text-xs text-white/45">Bots are responding…</p>}
@@ -209,6 +221,58 @@ export default function PracticeBadugiPage() {
           selectedCount={selectedCardIndices.length}
           onExit={() => setLocation("/")}
         />
+
+        {/* Detroit 2026-10-16: guided intro overlay */}
+        {guided && showIntro && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" style={{ backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-md rounded-2xl border-2 border-amber-300/50 bg-gradient-to-b from-purple-950 to-black p-6 text-center shadow-2xl">
+              <div className="text-xs font-bold uppercase tracking-widest text-amber-300/70 mb-2">Welcome to the yard</div>
+              <h2 className="text-2xl font-black text-white mb-3" style={{ fontFamily: 'Oswald, Impact, sans-serif' }}>LEARN BADUGI IN 60 SECONDS</h2>
+              <div className="text-left text-sm text-white/75 space-y-2 mb-5">
+                <p>🃏 <strong className="text-white">You get 4 cards.</strong> Lowest hand wins.</p>
+                <p>🎯 <strong className="text-white">No pairs, no same suits.</strong> A-2-3-4 all different suits = perfect.</p>
+                <p>🔄 <strong className="text-white">Draw up to 3 times</strong> to improve your hand.</p>
+                <p>🤖 You're playing bots. <strong className="text-white">The coach (bottom-right) guides every step.</strong></p>
+              </div>
+              <button
+                className="w-full rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-4 font-black text-lg text-emerald-950 hover:from-amber-200 hover:to-yellow-300"
+                onClick={() => setShowIntro(false)}>
+                DEAL ME IN →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Detroit 2026-10-16: first-hand completion celebration */}
+        {guided && handComplete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" style={{ backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-md rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-purple-950 to-black p-8 text-center shadow-2xl">
+              <div className="text-5xl mb-3">🏆</div>
+              <h2 className="text-3xl font-black text-amber-300 mb-2" style={{ fontFamily: 'Oswald, Impact, sans-serif' }}>FIRST HAND COMPLETE</h2>
+              <p className="text-white/75 text-sm mb-1">You just played real Badugi.</p>
+              <p className="text-white/75 text-sm mb-5">The yard is yours now.</p>
+              <div className="rounded-xl bg-amber-300/10 border border-amber-300/30 p-4 mb-5">
+                <div className="text-xs font-bold uppercase tracking-widest text-amber-300/70">Welcome kit unlocked</div>
+                <div className="text-2xl font-black text-amber-300">+2,500 CHIPS</div>
+              </div>
+              <button
+                className="w-full rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-4 font-black text-lg text-emerald-950 hover:from-amber-200 hover:to-yellow-300"
+                onClick={async () => {
+                  try {
+                    const { ensurePlayerIdentity } = await import('@/lib/persistence');
+                    const { apiFetch } = await import('@/lib/session');
+                    const { apiUrl } = await import('@/lib/apiConfig');
+                    const identity = ensurePlayerIdentity();
+                    await apiFetch(apiUrl(`/api/players/${identity.id}/claim-welcome-kit`), { method: 'POST' });
+                  } catch {}
+                  localStorage.setItem('cgp_first_hand_done', '1');
+                  setLocation('/');
+                }}>
+                CLAIM & ENTER THE YARD →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
