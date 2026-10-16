@@ -12,9 +12,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
-import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
-import { getAvatarForSeat } from '@shared/engine/avatarMap';
-import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
@@ -40,7 +37,6 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null;
   declaration: string | null;
-  avatarUrl?: string;
 }
 
 // A transient animated element flying across the table
@@ -94,7 +90,7 @@ interface ProtoState {
 const DEALER_POS = { x: 50, y: 4 };
 const POT_POS = { x: 50, y: 52 };
 const MUCK_POS = { x: 63, y: 44 };
-const COMMUNITY_POS = { x: 50, y: 42 }; // Detroit 2026-10-16: was 38% — cards sat too high
+const COMMUNITY_POS = { x: 50, y: 38 };
 
 // Card sizes — hero bigger (5 cards need to fit)
 const HERO_CARD_W = 56;
@@ -169,9 +165,6 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
         setCommLanded(0);
-        // Detroit 2026-10-16: clear celebration + rake so they don't bleed into the new hand.
-        setCelebration(emptyCelebration());
-        setRake({ active: false, winnerIndex: -1, amount: 0 });
         for (let i = 0; i < 20; i++) {
           const seatIdx = i % 4;
           const player = ordered[seatIdx];
@@ -379,7 +372,6 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     declaration: (p as any).declaration ?? null,
-    avatarUrl: (p as any).avatarUrl ?? undefined,
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -452,11 +444,9 @@ interface BoxChevyTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   isDrawPhase: boolean;
-  heroAvatarSrc?: string | null;
-  heroFrameSrc?: string | null;
 }
 
-export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc }: BoxChevyTableProps) {
+export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase }: BoxChevyTableProps) {
   const reduced = useReducedMotion();
   const state = useLiveProtoState(liveState, myId);
   const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
@@ -474,7 +464,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
     }}>
-      {/* Detroit 2026-10-16: dark overlay removed — was reading as a "box" around the table */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(10,6,24,0.55)' }} />
       <div className="flex-1 relative" style={{ perspective: '1200px' }}>
         <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
           <motion.div
@@ -504,7 +494,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           )}
         </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '42%' }}>
+        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '38%' }}>
           <AnimatePresence>
             {state.communityCards.map((card, i) => (
               <motion.div
@@ -519,7 +509,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           </AnimatePresence>
         </div>
         {state.communityCards.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(42% - 18px)' }}>
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(38% - 18px)' }}>
             COMMUNITY
           </div>
         )}
@@ -559,36 +549,24 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
         {state.players.map((p, i) => {
           const pos = seatPosition(i);
           const isActive = state.activeSeat === i && !p.folded;
-          // Detroit 2026-10-16: avatars with cosmetic borders on every seat.
-          const avatarSrc = p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : (p.avatarUrl || getAvatarForSeat(i + 1));
-          const frameSrc = p.isHero ? heroFrameSrc : null;
           return (
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
-              <div className="relative">
-                <AvatarWithFrame
-                  avatarSrc={avatarSrc}
-                  frameSrc={frameSrc}
-                  initials={getAvatarInitials(p.name)}
-                  initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44}
+              {isActive && (
+                <motion.div
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    width: 90, height: 90,
+                    background: 'radial-gradient(circle, rgba(240,184,41,0.25) 0%, transparent 70%)',
+                  }}
+                  animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                 />
-                {isActive && (
-                  <motion.div
-                    className="absolute inset-0 rounded-full pointer-events-none"
-                    style={{
-                      border: '2px solid rgba(240,184,41,0.9)',
-                      boxShadow: '0 0 12px rgba(240,184,41,0.6)',
-                    }}
-                    animate={{ opacity: [0.6, 1, 0.6] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-1 mt-1">
+              )}
+              <div className="flex items-center gap-1">
                 {state.dealerSeat === i && (
                   <span className="text-amber-300 text-[10px] font-mono font-bold">D</span>
                 )}
@@ -788,7 +766,7 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
     >
       <div>
         <span className="text-white text-xl font-bold font-mono">{winner.name}</span>
-        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots. */}
+        <span className="text-amber-300 text-xl font-mono ml-3">+${winner.amount.toLocaleString()}</span>
       </div>
       {winner.side !== 'SOLE' && (
         <div className={`text-xs font-mono tracking-widest mt-1 ${
