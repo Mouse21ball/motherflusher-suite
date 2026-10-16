@@ -290,13 +290,14 @@ export const FlushedUpMode: GameMode = {
       const sole = activePlayers[0];
       // Sole survivor always wins — no flush requirement (Detroit 2026-10-13).
       // Best hand by flush hierarchy takes it; pot never rolls over on a single winner.
-      const award = sidePots
-        .filter(sp => sp.eligibleIds.includes(sole.id))
-        .reduce((s, sp) => s + sp.amount, 0);
+      // Detroit 2026-10-16: award the FULL pot. The old code only awarded side pots
+      // the survivor was eligible for; when a folded opponent had bet MORE than the
+      // survivor, the excess silently rolled over — contradicting this comment and
+      // shorting the winner. Last player standing takes everything, like real poker.
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
-      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + award, isWinner: true };
-      messages.push(`${finalPlayers[idx].name} wins $${award} (last player standing)`);
-      return { players: finalPlayers, pot: totalAwardable - award, messages };
+      finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
+      messages.push(`${finalPlayers[idx].name} wins $${pot} (last player standing)`);
+      return { players: finalPlayers, pot: 0, messages };
     }
 
     const deltas: Record<string, number> = {};
