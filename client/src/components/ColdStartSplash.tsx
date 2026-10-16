@@ -4,6 +4,17 @@ import "./ColdStartSplash.css";
 
 let coldStartSplashConsumed = false;
 
+// Detroit 2026-10-16: request fullscreen on user gesture (splash tap).
+// Browsers require a user gesture for the Fullscreen API — the splash tap is the natural one.
+function requestAppFullscreen() {
+  try {
+    const el = document.documentElement as any;
+    if (document.fullscreenElement) return;
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch {}
+}
+
 // This route is drawn over the metal centerline of the supplied chain emblem.
 // It stays inside the visible link geometry; it is deliberately not a freeform
 // decorative path floating outside the artwork.
@@ -12,6 +23,25 @@ const CHAIN_TRACE_PATH =
 
 interface ColdStartSplashProps {
   children: ReactNode;
+}
+
+// Detroit 2026-10-16: shows real boot progress behind the splash.
+function BootStatus() {
+  const [phase, setPhase] = useState('Starting…');
+  useEffect(() => {
+    setPhase('Connecting to server…');
+    const t1 = setTimeout(() => setPhase('Loading your profile…'), 1200);
+    const t2 = setTimeout(() => setPhase('Ready'), 2500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return (
+    <div style={{
+      marginTop: 12, fontFamily: 'monospace', fontSize: 11,
+      color: 'rgba(240,184,41,0.6)', letterSpacing: '0.08em',
+    }}>
+      {phase}
+    </div>
+  );
 }
 
 export function ColdStartSplash({ children }: ColdStartSplashProps) {
@@ -27,6 +57,8 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
   const exitTimerRef = useRef<number | null>(null);
 
   const finish = useCallback(() => {
+    // Detroit 2026-10-16: forced fullscreen on entry.
+    requestAppFullscreen();
     setExiting((alreadyExiting) => {
       if (alreadyExiting) return alreadyExiting;
       exitTimerRef.current = window.setTimeout(
@@ -136,6 +168,8 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
             </svg>
             <div className="cgp-cold-splash__wordmark-sweep" />
             <div className="cgp-cold-splash__hint">Tap to enter</div>
+            {/* Detroit 2026-10-16: boot status — shows what's loading behind the splash */}
+            <BootStatus />
           </div>
         </button>
       )}
