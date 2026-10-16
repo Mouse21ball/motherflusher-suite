@@ -15,6 +15,7 @@ import { saveChips } from '@/lib/persistence';
 import { trackModePlay } from '@/lib/analytics';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { resolveAvatarSrc } from '@/lib/persistence';
 import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
@@ -353,6 +354,8 @@ function BoxChevyGameUI() {
             isDrawPhase={isDrawPhase}
             selectedCardIndices={Array.from(selectedCards)}
             onCardClick={handleCardClick}
+            heroAvatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
+            heroFrameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
           />
         </FriendSeatActions>
 

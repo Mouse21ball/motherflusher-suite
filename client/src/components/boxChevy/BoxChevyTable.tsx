@@ -12,6 +12,9 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
+import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { getAvatarForSeat } from '@shared/engine/avatarMap';
+import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
@@ -37,6 +40,7 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null;
   declaration: string | null;
+  avatarUrl?: string;
 }
 
 // A transient animated element flying across the table
@@ -372,6 +376,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     declaration: (p as any).declaration ?? null,
+    avatarUrl: (p as any).avatarUrl ?? undefined,
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -444,9 +449,11 @@ interface BoxChevyTableProps {
   selectedCardIndices: number[];
   onCardClick: (index: number) => void;
   isDrawPhase: boolean;
+  heroAvatarSrc?: string | null;
+  heroFrameSrc?: string | null;
 }
 
-export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase }: BoxChevyTableProps) {
+export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc }: BoxChevyTableProps) {
   const reduced = useReducedMotion();
   const state = useLiveProtoState(liveState, myId);
   const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
@@ -549,24 +556,36 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
         {state.players.map((p, i) => {
           const pos = seatPosition(i);
           const isActive = state.activeSeat === i && !p.folded;
+          // Detroit 2026-10-16: avatars with cosmetic borders on every seat.
+          const avatarSrc = p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : (p.avatarUrl || getAvatarForSeat(i + 1));
+          const frameSrc = p.isHero ? heroFrameSrc : null;
           return (
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
             >
-              {isActive && (
-                <motion.div
-                  className="absolute rounded-full pointer-events-none"
-                  style={{
-                    width: 90, height: 90,
-                    background: 'radial-gradient(circle, rgba(240,184,41,0.25) 0%, transparent 70%)',
-                  }}
-                  animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.1, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              <div className="relative">
+                <AvatarWithFrame
+                  avatarSrc={avatarSrc}
+                  frameSrc={frameSrc}
+                  initials={getAvatarInitials(p.name)}
+                  initialsColor="#FDE68A"
+                  size={p.isHero ? 52 : 44}
                 />
-              )}
-              <div className="flex items-center gap-1">
+                {isActive && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{
+                      border: '2px solid rgba(240,184,41,0.9)',
+                      boxShadow: '0 0 12px rgba(240,184,41,0.6)',
+                    }}
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
                 {state.dealerSeat === i && (
                   <span className="text-amber-300 text-[10px] font-mono font-bold">D</span>
                 )}
