@@ -13,7 +13,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           unset NPM_CONFIG_REGISTRY
-          npm ci --registry https://registry.npmjs.org/
+          npm ci --registry https://registry.npmjs.org/ --include=dev
 
       - name: Build web app
         script: |
@@ -47,7 +47,7 @@ workflows:
       - name: Install npm dependencies
         script: |
           unset NPM_CONFIG_REGISTRY
-          npm ci --registry https://registry.npmjs.org/
+          npm ci --registry https://registry.npmjs.org/ --include=dev
       - name: Build web app
         script: |
           GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
