@@ -12,15 +12,14 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: |
+          rm -f package-lock.json
           unset NPM_CONFIG_REGISTRY
           unset NODE_ENV
-          npm cache clean --force
           npm install --registry https://registry.npmjs.org/ --legacy-peer-deps
 
       - name: Build web app
         script: |
           npm install -g tsx@4.20.5 --registry https://registry.npmjs.org/
-          npm install --no-save @rollup/rollup-darwin-arm64 @esbuild/darwin-arm64 --registry https://registry.npmjs.org/
           GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
           BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           npm run build
@@ -51,14 +50,13 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: |
+          rm -f package-lock.json
           unset NPM_CONFIG_REGISTRY
           unset NODE_ENV
-          npm cache clean --force
           npm install --registry https://registry.npmjs.org/ --legacy-peer-deps
       - name: Build web app
         script: |
           npm install -g tsx@4.20.5 --registry https://registry.npmjs.org/
-          npm install --no-save @rollup/rollup-darwin-arm64 @esbuild/darwin-arm64 --registry https://registry.npmjs.org/
           GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}" \
           BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           npm run build
@@ -69,7 +67,6 @@ workflows:
       - name: Build signed IPA
         script: |
           npm install -g tsx@4.20.5 --registry https://registry.npmjs.org/
-          npm install --no-save @rollup/rollup-darwin-arm64 @esbuild/darwin-arm64 --registry https://registry.npmjs.org/
           GIT_COMMIT_SHA="${CM_COMMIT:-$(git rev-parse HEAD)}"
           BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           /usr/libexec/PlistBuddy -c "Set :CGPBuildCommit $GIT_COMMIT_SHA" ios/App/App/Info.plist
