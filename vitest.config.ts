@@ -12,6 +12,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
+      // Must come after '@shared': bare '@' prefix-matches too.
+      '@': path.resolve(__dirname, 'client/src'),
     },
   },
 });
