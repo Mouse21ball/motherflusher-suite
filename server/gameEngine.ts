@@ -117,7 +117,7 @@ const JOIN_WINDOW_MS = 30_000;
 // How long (ms) a disconnected seat is held before it is released (bot mid-hand,
 // 'reserved' between hands). 90 seconds is long enough for a page refresh or
 // network blip, short enough to prevent ghost seats from blocking the table.
-const RECONNECT_TIMEOUT_MS = 90_000;
+const RECONNECT_TIMEOUT_MS = 180_000; // Detroit 2026-10-18: was 90s — industry standard is 2-5 min.
 
 // Bot names: per-table, derived from tableId+seatId via getBotName().
 

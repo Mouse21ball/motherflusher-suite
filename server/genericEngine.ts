@@ -131,7 +131,7 @@ function isPhaseRoundOver(state: GameState): boolean {
 
 // ─── Join window ──────────────────────────────────────────────────────────────
 const JOIN_WINDOW_MS = 30_000;
-const RECONNECT_TIMEOUT_MS = 60_000;
+const RECONNECT_TIMEOUT_MS = 180_000; // Detroit 2026-10-18: was 60s — too short for phone hiccups. Industry standard is 2-5 min.
 // Bot names: per-table, derived from tableId+seatId via getBotName().
 
 // ─── Flushed Up bot names ─────────────────────────────────────────────────────
