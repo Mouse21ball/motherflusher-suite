@@ -92,6 +92,10 @@ const HERO_CARD_W = 56;
 const HERO_CARD_H = 78;
 const OPP_CARD_W = 20;
 const OPP_CARD_H = 30;
+// Detroit 2026-10-18: revealed showdown cards were jumbled/unreadable at 20x30.
+// Bigger size when opponents reveal at showdown.
+const OPP_SHOWDOWN_W = 34;
+const OPP_SHOWDOWN_H = 48;
 
 function mapPhase(livePhase: string): ProtoPhase {
   if (livePhase === 'ANTE') return 'ante';
@@ -669,10 +673,13 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                 </motion.div>
               )}
               {/* Cards — 5-card hands, opponents tiny tight fan, hero big */}
+              {/* Detroit 2026-10-18: at showdown, revealed opponent cards use bigger size + less overlap so they're readable */}
               <div
                 className="flex mt-1"
                 style={!p.isHero
-                  ? { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' }
+                  ? (state.phase === 'showdown' && !p.folded
+                      ? { gap: '3px' }
+                      : { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' })
                   : { gap: '2px' }
                 }
               >
@@ -720,7 +727,11 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                         >
                           <PlayingCard
                             card={card}
-                            className={p.isHero ? `!w-[${HERO_CARD_W}px] !h-[${HERO_CARD_H}px]` : `!w-[${OPP_CARD_W}px] !h-[${OPP_CARD_H}px]`}
+                            className={p.isHero
+                              ? `!w-[${HERO_CARD_W}px] !h-[${HERO_CARD_H}px]`
+                              : (state.phase === 'showdown' && !p.folded
+                                  ? `!w-[${OPP_SHOWDOWN_W}px] !h-[${OPP_SHOWDOWN_H}px]`
+                                  : `!w-[${OPP_CARD_W}px] !h-[${OPP_CARD_H}px]`)}
                           />
                         </div>
                       )}

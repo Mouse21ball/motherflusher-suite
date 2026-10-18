@@ -282,62 +282,6 @@ export function FlushedUpActionBar({
         )}
       </div>
 
-      {/* ── Stats bar ─────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 14px 10px',
-        borderTop: '1px solid rgba(255,255,255,0.05)',
-      }}>
-        {/* ANTES */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ANTES</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-            <ChipIcon />{ante}
-          </span>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-
-        {/* PLAYERS */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>PLAYERS</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-            {humanCount}
-          </span>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-
-        {/* YOUR STACK */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>YOUR STACK</span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#D946EF', fontWeight: 700 }}>
-            <ChipIcon />{chips.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
-
-        {/* Rebuy + */}
-        <button
-          onClick={onRebuy}
-          style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #86198F, #D946EF)',
-            border: 'none', cursor: 'pointer',
-            color: '#fff', fontSize: 16, fontWeight: 700, lineHeight: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 10px rgba(217,70,239,0.4)',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-          data-testid="button-rebuy"
-        >
-          +
-        </button>
-      </div>
     </div>
   );
 }
