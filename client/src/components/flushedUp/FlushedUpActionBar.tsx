@@ -234,9 +234,9 @@ export function FlushedUpActionBar({
               data-testid="button-deal-me-in"
               style={{
                 width: '100%',
-                padding: '14px 8px',
-                borderRadius: 12,
-                fontSize: 15,
+                padding: '10px 8px',
+                borderRadius: 10,
+                fontSize: 14,
                 fontFamily: 'monospace',
                 fontWeight: 700,
                 letterSpacing: '0.12em',

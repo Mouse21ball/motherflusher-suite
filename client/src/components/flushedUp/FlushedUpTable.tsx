@@ -506,18 +506,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
           perspective: '1200px',
         }}
       >
-        {/* Dealer position — top center, UNO style */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
-          <motion.div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
-            style={{ background: 'rgba(240,184,41,0.15)', border: '2px solid rgba(240,184,41,0.5)' }}
-            animate={{ rotate: state.phase === 'dealing' ? 360 : 0 }}
-            transition={{ duration: 2, ease: 'linear' }}
-          >
-            <span className="text-amber-300 text-[10px] font-mono">D</span>
-          </motion.div>
-        </div>
-
+        {/* Detroit 2026-10-18: floating dealer marker removed — dealer shown only by D next to their name (was disconnected/confusing) */}
         {/* Detroit 2026-10-16: Flushed Up community UI removed — engine never deals community cards (dead code). */}
 
         {/* Center staging — pot as the centerpiece */}
