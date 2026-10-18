@@ -381,9 +381,9 @@ function PotStack({ amount }: { amount: number }) {
             transition={{ type: 'spring', stiffness: 400, damping: 22, delay: i * 0.03 }}
             className="absolute rounded-full"
             style={{
-              width: 30,
-              height: 30,
-              left: `calc(50% - 15px + ${xOff}px)`,
+              width: 22,
+              height: 22,
+              left: `calc(50% - 11px + ${xOff}px)`,
               bottom: `${6 + yOff * -1}px`,
               background: `radial-gradient(circle at 35% 30%, ${colors[i % 4]}, #92400E)`,
               border: '2px dashed rgba(255,255,255,0.5)',
