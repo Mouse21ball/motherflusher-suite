@@ -188,7 +188,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
 
         {/* Center — info pills */}
         <div className="flex items-center gap-4 flex-1 justify-center">
-          <PillGroup label="ANTES" value={`$${ante}`} />
+          <PillGroup label="MIN BET" value={`$${ante}`} />
           <PillGroup label="PLAYERS" value={`${activePlayers} / 4`} />
           <PillGroup label="POT" value={`$${pot}`} valueClass="text-sm font-bold text-[#C9A227]" />
         </div>

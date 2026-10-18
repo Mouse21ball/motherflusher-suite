@@ -341,9 +341,9 @@ function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 }; // hero
   // 3 opponents spread across the top
   const spots = [
-    { x: 14, y: 28 },
+    { x: 18, y: 28 }, // Detroit 2026-10-18: was 14% — cards clipped off left edge
     { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — clipped under status bar
-    { x: 86, y: 28 },
+    { x: 82, y: 28 }, // Detroit 2026-10-18: was 86% — symmetric with left
   ];
   return spots[(index - 1) % spots.length];
 }

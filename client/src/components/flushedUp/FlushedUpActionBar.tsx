@@ -54,7 +54,7 @@ function TutorialPanel() {
         {[
           { icon: <Layers3 size={18} />, label: 'DRAW UP TO 3', sub: 'Cards per round' },
           { icon: <Eraser size={18} />, label: 'DISCARD ANY', sub: 'Tap to select' },
-          { icon: <Spade size={18} />, label: 'MAKE A FLUSH', sub: '5 same-suit cards qualify; otherwise pot rolls over' },
+          { icon: <Spade size={18} />, label: 'MOST OF ONE SUIT WINS', sub: 'Best flush-ish hand takes the pot — no flush required' },
         ].map(step => (
           <div key={step.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ color:'#D946EF' }}>{step.icon}</span>
