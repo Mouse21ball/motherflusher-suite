@@ -300,8 +300,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   }, [liveState, myId, reduced, later, addFlight, removeFlight]);
 
   // Map live players to proto shape (hero first)
+  // Detroit 2026-10-19: support 5 seats (hero + 4 opponents), was hard-coded to 3
   const me = liveState.players.find(p => p.id === myId);
-  const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+  const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
   const ordered = me ? [me, ...others] : others;
 
   const players: ProtoPlayer[] = ordered.map((p, i) => ({
