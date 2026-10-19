@@ -339,10 +339,12 @@ export function maskStateForPlayer(state: GameState, forPlayerId: string): GameS
     discardPile: state.discardPile.map(() => ({ isHidden: true } as CardType)),
     players: state.players.map(p => {
       if (p.id === forPlayerId) return p;
-      // Detroit 2026-10-18 Stage 1: at showdown, reveal only non-folded players' cards.
-      // Folded/sitting-out players' hole cards stay masked — they were never entitled to win.
+      // Detroit 2026-10-18 Stage 1 (revised per ChatGPT review):
+      // At showdown, reveal cards ONLY for 'active' players (allowlist, not denylist).
+      // Only active players contested the pot and earned showdown revelation.
+      // Folded, sitting_out, and any unexpected/undefined status stay masked.
       if (isShowdown) {
-        if (p.status === 'folded' || p.status === 'sitting_out') {
+        if (p.status !== 'active') {
           return { ...p, cards: p.cards.map(() => ({ isHidden: true } as CardType)) };
         }
         return p;
