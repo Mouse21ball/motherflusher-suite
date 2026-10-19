@@ -339,7 +339,14 @@ export function maskStateForPlayer(state: GameState, forPlayerId: string): GameS
     discardPile: state.discardPile.map(() => ({ isHidden: true } as CardType)),
     players: state.players.map(p => {
       if (p.id === forPlayerId) return p;
-      if (isShowdown) return p; // all hands revealed at resolution
+      // Detroit 2026-10-18 Stage 1: at showdown, reveal only non-folded players' cards.
+      // Folded/sitting-out players' hole cards stay masked — they were never entitled to win.
+      if (isShowdown) {
+        if (p.status === 'folded' || p.status === 'sitting_out') {
+          return { ...p, cards: p.cards.map(() => ({ isHidden: true } as CardType)) };
+        }
+        return p;
+      }
       return { ...p, cards: p.cards.map(() => ({ isHidden: true } as CardType)) };
     }),
   };

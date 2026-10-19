@@ -364,7 +364,15 @@ export function maskStateForPlayer(
         // Hero always sees their own cards regardless of server-stored isHidden
         return { ...p, cards: p.cards.map(c => ({ ...c, isHidden: false })) };
       }
-      if (isShowdown) return p;
+      // Detroit 2026-10-18 Stage 1: at showdown, reveal only non-folded players' cards.
+      // Folded/sitting-out players' hole cards stay masked — they were never entitled to win.
+      // (Hero's own cards already returned unmasked above.)
+      if (isShowdown) {
+        if (p.status === 'folded' || p.status === 'sitting_out') {
+          return { ...p, cards: p.cards.map(() => ({ isHidden: true }) as CardType) };
+        }
+        return p;
+      }
       // Opponents: only show cards at public indices; hide everything else
       const publicIndices = publicCardIndicesPerPlayer[p.id] ?? [];
       return {
