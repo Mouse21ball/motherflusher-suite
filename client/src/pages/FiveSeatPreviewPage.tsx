@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BadugiTable } from "@/components/badugi/BadugiTable";
+import { BadugiActionBar } from "@/components/badugi/BadugiActionBar";
 import type { GameState } from "@/lib/poker/types";
 
 /**
@@ -91,29 +92,61 @@ export default function FiveSeatPreviewPage() {
 
   const state = buildMockState(phase);
   const isDrawPhase = phase.startsWith("draw");
+  const isShowdown = phase === "showdown";
+  const noop = () => {};
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#1a0f2e", overflow: "hidden" }}>
+    <div style={{ width: "100vw", height: "100vh", background: "#1a0f2e", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* Dev banner — only visible in preview */}
       <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, zIndex: 100,
         background: "rgba(255,180,0,0.9)", color: "#000",
         textAlign: "center", fontSize: 12, padding: "4px",
-        fontWeight: 700,
+        fontWeight: 700, flexShrink: 0,
       }}>
         DEV PREVIEW — 5-seat layout ({phase}) — not a real game
       </div>
-      <BadugiTable
-        state={state}
-        myId="hero1"
-        selectedCardIndices={isDrawPhase ? selected : []}
-        onCardClick={(i) => setSelected(s =>
-          s.includes(i) ? s.filter(x => x !== i) : [...s, i]
-        )}
-        isDrawPhase={isDrawPhase}
-        heroAvatarSrc={null}
-        heroFrameSrc={null}
-      />
+      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+        <BadugiTable
+          state={state}
+          myId="hero1"
+          selectedCardIndices={isDrawPhase ? selected : []}
+          onCardClick={(i) => setSelected(s =>
+            s.includes(i) ? s.filter(x => x !== i) : [...s, i]
+          )}
+          isDrawPhase={isDrawPhase}
+          heroAvatarSrc={null}
+          heroFrameSrc={null}
+        />
+      </div>
+      {/* Detroit 2026-10-19: actual phase-specific action bar — verify complete screen */}
+      {!isShowdown && (
+        <div style={{ flexShrink: 0 }}>
+          <BadugiActionBar
+            phase={phase.toUpperCase()}
+            isDrawPhase={isDrawPhase}
+            selectedCount={isDrawPhase ? selected.length : 0}
+            drawLimit={3}
+            isMyTurn={true}
+            chips={125430}
+            currentBet={100}
+            myBet={100}
+            pot={2450}
+            minBet={50}
+            ante={25}
+            humanCount={5}
+            openSeatsCount={0}
+            activeCount={4}
+            isClubTable={false}
+            locked={false}
+            myDeclaration={null}
+            myHasActed={false}
+            onStandPat={noop}
+            onDraw={noop}
+            onAction={noop}
+            onRebuy={noop}
+          />
+        </div>
+      )}
     </div>
   );
 }
