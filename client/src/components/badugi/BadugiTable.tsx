@@ -85,16 +85,21 @@ const POT_POS = { x: 50, y: 52 };
 const MUCK_POS = { x: 63, y: 44 };
 
 // ── Seat positioning ─────────────────────────────────────────────────────────
-// Landscape-first (Detroit 2026-10-13): opponents hug the top in a shallow arc,
-// hero at bottom, pot gets clear center space.
+// Detroit 2026-10-19: 5-seat asymmetric layout (1 hero + 4 opponents).
+// Geometry validated via mockups at 360×740, 375×667, 393×852.
+// - Opponents pulled inward (22%/78%) to prevent edge clipping
+// - Cards tuck below avatars, facing table center
+// - Slim at lower-right, clear of hero cards
+// - Hero has no avatar circle (matches concept)
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 88 }; // hero
-  // 3 opponents spread across the top
+  if (index === 0) return { x: 50, y: 72 }; // hero — label position, cards below
+  // 4 opponents: top-center (dealer), mid-left, mid-right, lower-right
   const spots = [
-    { x: 14, y: 28 },
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — clipped under status bar
-    { x: 86, y: 28 },
+    { x: 50, y: 18 }, // Opp 1: top-center (dealer)
+    { x: 22, y: 38 }, // Opp 2: mid-left (pulled in from edge)
+    { x: 78, y: 38 }, // Opp 3: mid-right (pulled in from edge)
+    { x: 78, y: 58 }, // Opp 4: lower-right (close to table edge)
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -695,8 +700,8 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         <div
                           className="rounded"
                           style={{
-                            width: p.isHero ? 48 : 20,
-                            height: p.isHero ? 68 : 30,
+                            width: p.isHero ? 56 : 20,
+                            height: p.isHero ? 80 : 30,
                             background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
                             border: '1px solid rgba(139,92,246,0.4)',
                           }}
@@ -715,11 +720,14 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                               ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
                               : 'none',
                             borderRadius: '6px',
+                            // Detroit 2026-10-19: ensure selected cards don't clip
+                            // 14px raise + 6% scale needs 20px clearance above
+                            marginTop: p.isHero ? '20px' : '0',
                           }}
                         >
                           <PlayingCard
                             card={card}
-                            className={p.isHero ? '!w-[48px] !h-[68px]' : '!w-[20px] !h-[30px]'}
+                            className={p.isHero ? '!w-[56px] !h-[80px]' : '!w-[20px] !h-[30px]'}
                           />
                         </div>
                       )}
