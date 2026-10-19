@@ -114,6 +114,56 @@ function runSuite(maskFn: typeof maskGeneric, engineName: string) {
     const masked = maskFn(mkShowdownState(), 'hero');
     assert(masked.deck.length === 0, 'M7 deck never exposed to clients');
   }
+
+  // M8: unexpected/undefined status values stay masked (allowlist safety)
+  // If a new status is added in the future, or status is corrupted,
+  // cards must NOT be revealed. Only 'active' earns revelation.
+  {
+    const state = mkShowdownState();
+    const weird = mkPlayer('opp-weird', 'active', [mkCard('A', 'spades')]);
+    (weird as any).status = 'disconnected'; // hypothetical future status
+    const undef = mkPlayer('opp-undef', 'active', [mkCard('K', 'hearts')]);
+    (undef as any).status = undefined;
+    const nulled = mkPlayer('opp-null', 'active', [mkCard('Q', 'diamonds')]);
+    (nulled as any).status = null;
+    state.players.push(weird, undef, nulled);
+
+    const masked = maskFn(state, 'hero');
+    const w = masked.players.find(p => p.id === 'opp-weird')!;
+    const u = masked.players.find(p => p.id === 'opp-undef')!;
+    const n = masked.players.find(p => p.id === 'opp-null')!;
+    assert(!hasRealCards(w.cards), 'M8 unknown status "disconnected" stays masked');
+    assert(!hasRealCards(u.cards), 'M8 undefined status stays masked');
+    assert(!hasRealCards(n.cards), 'M8 null status stays masked');
+  }
+
+  // M9: spectator never sees hero's or folded players' cards, only active
+  {
+    const state = mkShowdownState();
+    const masked = maskFn(state, '__spectator__');
+    const hero = masked.players.find(p => p.id === 'hero')!;
+    const sitting = masked.players.find(p => p.id === 'opp-sitting')!;
+    // Spectator is not the hero, so hero's cards are treated as opponent cards.
+    // Hero is 'active', so spectator SHOULD see them (they contested the pot).
+    assert(hasRealCards(hero.cards), 'M9 spectator sees hero cards (hero is active)');
+    assert(!hasRealCards(sitting.cards), 'M9 spectator does NOT see sitting_out cards');
+  }
+
+  // M10: serialized WebSocket snapshot contains no leaked card data
+  // Simulates what actually goes over the wire via JSON.stringify
+  {
+    const masked = maskFn(mkShowdownState(), 'hero');
+    const wireData = JSON.stringify(masked);
+    // Folded player's real cards were 10-spades and 9-hearts.
+    // These strings must NOT appear in the serialized payload.
+    assert(!wireData.includes('"rank":"10"'), 'M10 wire: folded 10-spades rank not serialized');
+    // Sitting-out player's cards were 8-clubs and 7-diamonds.
+    assert(!wireData.includes('"rank":"8"'), 'M10 wire: sitting_out 8-clubs rank not serialized');
+    // Active opponent's Q-clubs SHOULD be present (legitimate revelation).
+    assert(wireData.includes('"rank":"Q"'), 'M10 wire: active opponent Q-clubs IS serialized');
+    // Hero's A-spades SHOULD be present (own cards).
+    assert(wireData.includes('"rank":"A"'), 'M10 wire: hero A-spades IS serialized');
+  }
 }
 
 console.log('Showdown card-masking security suite');
