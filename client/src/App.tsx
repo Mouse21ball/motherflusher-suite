@@ -25,6 +25,10 @@ import Home from "@/pages/Home";
 import BadugiGame from "@/pages/BadugiGame";
 import ProtoUno from "@/pages/ProtoUno";
 import PracticeBadugiPage from "@/pages/PracticeBadugiPage";
+import FiveSeatPreviewPage from "@/pages/FiveSeatPreviewPage";
+// Detroit 2026-10-19: /dev/5seat route is DEV-only (see Router below).
+// The component is imported but the route is gated by import.meta.env.DEV,
+// so production builds never serve it.
 import FlushedUpGame from "@/pages/FlushedUpGame";
 import BoxChevyGame from "@/pages/BoxChevyGame";
 import Admin from "@/pages/Admin";
@@ -130,6 +134,9 @@ function Router() {
         <Route path="/bonus" component={BonusCenter}/>
         <Route path="/badugi" component={BadugiGame}/>
         <Route path="/practice/badugi" component={PracticeBadugiPage}/>
+        {/* Detroit 2026-10-19: dev-only 5-seat preview. Gated by import.meta.env.DEV —
+            this route does not exist in production builds. */}
+        {import.meta.env.DEV && <Route path="/dev/5seat" component={FiveSeatPreviewPage}/>}
         <Route path="/flushedup" component={FlushedUpGame}/>
         <Route path="/box-chevy" component={BoxChevyGame}/>
         <Route path="/ladyluck/history" component={LadyLuckHistory}/>
