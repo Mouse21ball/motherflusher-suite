@@ -94,6 +94,8 @@ export default function FiveSeatPreviewPage() {
   const isDrawPhase = phase.startsWith("draw");
   const isShowdown = phase === "showdown";
   const noop = () => {};
+  // Detroit 2026-10-19: action bar expects BET_2 format, not BET2
+  const barPhase = phase === "draw2" ? "DRAW_2" : phase === "bet2" ? "BET_2" : phase.toUpperCase();
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#1a0f2e", overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -122,7 +124,7 @@ export default function FiveSeatPreviewPage() {
       {!isShowdown && (
         <div style={{ flexShrink: 0 }}>
           <BadugiActionBar
-            phase={phase.toUpperCase()}
+            phase={barPhase}
             isDrawPhase={isDrawPhase}
             selectedCount={isDrawPhase ? selected.length : 0}
             drawLimit={3}
