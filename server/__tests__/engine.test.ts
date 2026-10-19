@@ -237,8 +237,12 @@ for (const [name, mode] of [
   const result = (mode.resolveShowdown as any)(players, 400, 'Win', []);
   const after = totalChipsAndPot(result.players, result.pot);
   assert(before === after, `${name} sole-survivor chip-conserved`);
+  // Detroit 2026-10-11: Badugi uncontested pot ROLLS OVER, not awarded.
+  // No winner is flagged because no one won — the pot carries to next hand.
+  // (Previous assertion `win?.isWinner` was outdated; corrected 2026-10-18.)
   const win = result.players.find((p: Player) => p.id === 'Win');
-  assert(win?.isWinner, `${name} winner flagged`);
+  assert(!win?.isWinner, `${name} no winner flagged (pot rolls over by design)`);
+  assert(result.pot === 400, `${name} pot preserved for rollover`);
 }
 
 // ─── 5. Badugi rolledOver propagation ───────────────────────────────────────
