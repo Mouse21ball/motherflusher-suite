@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { BadugiTable } from "@/components/badugi/BadugiTable";
 import { BadugiActionBar } from "@/components/badugi/BadugiActionBar";
+import { evaluateBadugi } from "@shared/modes/badugi";
 import type { GameState } from "@/lib/poker/types";
+import type { CardType } from "@shared/gameTypes";
 
 /**
  * Detroit 2026-10-19: Dev-only 5-seat Badugi layout preview.
  *
- * Renders the ACTUAL BadugiTable component with mock 5-player state.
+ * Renders the ACTUAL BadugiTable + BadugiActionBar with mock 5-player state.
  * No WebSocket, no database, no real game — pure visual verification.
+ *
+ * Privacy: folded players use status='folded' (matching production mapping).
+ * Their cards stay isHidden=true and are excluded from the showdown overlay.
+ *
+ * Winner: computed via the real evaluateBadugi(), never hard-coded.
  *
  * Access: /dev/5seat?phase=draw2 (draw2, bet2, showdown supported)
  * This route is gated by import.meta.env.DEV and never ships to production.
@@ -17,8 +24,103 @@ function mkCard(rank: string, suit: string, hidden = false) {
   return { rank, suit, isHidden: hidden } as any;
 }
 
+interface MockPlayer {
+  id: string;
+  name: string;
+  isHero: boolean;
+  chips: number;
+  bet: number;
+  status: string;
+  drewCount: number | null;
+  cards: any[];
+}
+
+function buildMockPlayers(isShowdown: boolean): MockPlayer[] {
+  return [
+    {
+      id: "hero1", name: "OG PLAYER", isHero: true,
+      chips: 125430, bet: isShowdown ? 0 : 100,
+      status: "active", drewCount: null,
+      cards: [
+        mkCard("A", "spades"), mkCard("4", "hearts"),
+        mkCard("7", "clubs"), mkCard("9", "diamonds"),
+      ],
+    },
+    {
+      id: "p2", name: "Razor", isHero: false,
+      chips: 3420, bet: isShowdown ? 0 : 100,
+      status: "active", drewCount: 1,
+      cards: [
+        mkCard("2", "spades", !isShowdown), mkCard("5", "hearts", !isShowdown),
+        mkCard("8", "clubs", !isShowdown), mkCard("J", "diamonds", !isShowdown),
+      ],
+    },
+    {
+      id: "p3", name: "Ghost", isHero: false,
+      chips: 2180, bet: isShowdown ? 0 : 100,
+      status: "active", drewCount: 2,
+      cards: [
+        mkCard("3", "spades", !isShowdown), mkCard("6", "hearts", !isShowdown),
+        mkCard("9", "clubs", !isShowdown), mkCard("K", "diamonds", !isShowdown),
+      ],
+    },
+    {
+      id: "p4", name: "QueenB", isHero: false,
+      chips: 5720, bet: isShowdown ? 0 : 100,
+      status: "active", drewCount: 0,
+      cards: [
+        mkCard("A", "hearts", !isShowdown), mkCard("2", "diamonds", !isShowdown),
+        mkCard("4", "clubs", !isShowdown), mkCard("7", "spades", !isShowdown),
+      ],
+    },
+    {
+      // Detroit 2026-10-19: folded player — status='folded' (not boolean).
+      // Cards stay hidden. Never revealed in overlay.
+      id: "p5", name: "SlimShadyFromTheWestSide", isHero: false,
+      chips: 3960, bet: 0,
+      status: "folded", drewCount: null,
+      cards: [
+        mkCard("5", "spades", true), mkCard("8", "hearts", true),
+        mkCard("Q", "clubs", true), mkCard("K", "spades", true),
+      ],
+    },
+  ];
+}
+
+/**
+ * Detroit 2026-10-19: compute winner via real Badugi rules.
+ * Lowest badugi wins; compare highest card first, then next lowest.
+ * Only active (non-folded) players are eligible.
+ */
+function computeWinner(players: MockPlayer[]): string | null {
+  const active = players.filter(p => p.status === "active");
+  let best: MockPlayer | null = null;
+  let bestValues: number[] | null = null;
+
+  for (const p of active) {
+    const cards = p.cards as CardType[];
+    const evalResult = evaluateBadugi(cards);
+    if (!evalResult?.isValidBadugi) continue;
+    // badugiRankValues is sorted desc; lower values win.
+    // Compare from highest card down: first difference decides.
+    const values = evalResult.badugiRankValues;
+    if (!best || !bestValues) {
+      best = p; bestValues = values;
+      continue;
+    }
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] < bestValues[i]) { best = p; bestValues = values; break; }
+      if (values[i] > bestValues[i]) break;
+    }
+  }
+  return best?.id ?? null;
+}
+
 function buildMockState(phase: string): GameState {
   const isShowdown = phase === "showdown";
+  const players = buildMockPlayers(isShowdown);
+  const winnerId = isShowdown ? computeWinner(players) : null;
+
   return {
     phase: phase.toUpperCase(),
     pot: isShowdown ? 5200 : 2450,
@@ -27,59 +129,11 @@ function buildMockState(phase: string): GameState {
     activePlayerId: isShowdown ? "" : "p3",
     dealerSeat: 1,
     activeSeat: 3,
-    players: [
-      {
-        id: "hero1", name: "OG PLAYER", isHero: true,
-        chips: 125430, bet: isShowdown ? 0 : 100,
-        folded: false, isWinner: isShowdown,
-        drewCount: null,
-        cards: [
-          mkCard("A", "spades"), mkCard("4", "hearts"),
-          mkCard("7", "clubs"), mkCard("9", "diamonds"),
-        ],
-      },
-      {
-        id: "p2", name: "Razor", isHero: false,
-        chips: 3420, bet: isShowdown ? 0 : 100,
-        folded: false, isWinner: false,
-        drewCount: 1,
-        cards: [
-          mkCard("2", "spades", !isShowdown), mkCard("5", "hearts", !isShowdown),
-          mkCard("8", "clubs", !isShowdown), mkCard("J", "diamonds", !isShowdown),
-        ],
-      },
-      {
-        id: "p3", name: "Ghost", isHero: false,
-        chips: 2180, bet: isShowdown ? 0 : 100,
-        folded: false, isWinner: false,
-        drewCount: 2,
-        cards: [
-          mkCard("3", "spades", !isShowdown), mkCard("6", "hearts", !isShowdown),
-          mkCard("9", "clubs", !isShowdown), mkCard("K", "diamonds", !isShowdown),
-        ],
-      },
-      {
-        id: "p4", name: "QueenB", isHero: false,
-        chips: 5720, bet: isShowdown ? 0 : 100,
-        folded: false, isWinner: false,
-        drewCount: 0,
-        cards: [
-          mkCard("A", "hearts", !isShowdown), mkCard("2", "diamonds", !isShowdown),
-          mkCard("4", "clubs", !isShowdown), mkCard("7", "spades", !isShowdown),
-        ],
-      },
-      {
-        // Long username to test truncation/wrapping
-        id: "p5", name: "SlimShadyFromTheWestSide", isHero: false,
-        chips: 3960, bet: 0,
-        folded: true, isWinner: false,
-        drewCount: null,
-        cards: [
-          mkCard("5", "spades", true), mkCard("8", "hearts", true),
-          mkCard("Q", "clubs", true), mkCard("K", "spades", true),
-        ],
-      },
-    ],
+    players: players.map(p => ({
+      ...p,
+      // isWinner set from real evaluation, not hard-coded
+      isWinner: p.id === winnerId,
+    })),
     celebration: { active: false, winnerName: "", amount: 0, cards: [], handLabel: "" },
     rake: { active: false, winnerIndex: -1, amount: 0 },
   } as unknown as GameState;
@@ -94,11 +148,16 @@ export default function FiveSeatPreviewPage() {
   const isDrawPhase = phase.startsWith("draw");
   const isShowdown = phase === "showdown";
   const noop = () => {};
-  // Detroit 2026-10-19: action bar expects BET_2 format, not BET2
   const barPhase = phase === "draw2" ? "DRAW_2" : phase === "bet2" ? "BET_2" : phase.toUpperCase();
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#1a0f2e", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div style={{
+      // Detroit 2026-10-19: dvh accounts for mobile browser chrome.
+      // Action bar gets reserved space; table flexes into the remainder.
+      width: "100vw", height: "100dvh",
+      background: "#1a0f2e", overflow: "hidden",
+      display: "flex", flexDirection: "column",
+    }}>
       {/* Dev banner — only visible in preview */}
       <div style={{
         background: "rgba(255,180,0,0.9)", color: "#000",
@@ -107,7 +166,7 @@ export default function FiveSeatPreviewPage() {
       }}>
         DEV PREVIEW — 5-seat layout ({phase}) — not a real game
       </div>
-      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+      <div style={{ flex: "1 1 0", position: "relative", minHeight: 0, overflow: "hidden" }}>
         <BadugiTable
           state={state}
           myId="hero1"
@@ -120,9 +179,9 @@ export default function FiveSeatPreviewPage() {
           heroFrameSrc={null}
         />
       </div>
-      {/* Detroit 2026-10-19: actual phase-specific action bar — verify complete screen */}
+      {/* Detroit 2026-10-19: action bar reserved — flex-shrink 0, always visible */}
       {!isShowdown && (
-        <div style={{ flexShrink: 0 }}>
+        <div style={{ flexShrink: 0, minHeight: "110px" }}>
           <BadugiActionBar
             phase={barPhase}
             isDrawPhase={isDrawPhase}

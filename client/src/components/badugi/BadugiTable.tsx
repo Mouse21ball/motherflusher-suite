@@ -81,8 +81,8 @@ interface ProtoState {
 }
 
 const DEALER_POS = { x: 50, y: 4 };
-const POT_POS = { x: 50, y: 52 };
-const MUCK_POS = { x: 63, y: 44 };
+const POT_POS = { x: 50, y: 42 }; // Detroit 2026-10-19: center of shorter oval
+const MUCK_POS = { x: 63, y: 36 };
 
 // ── Seat positioning ─────────────────────────────────────────────────────────
 // Detroit 2026-10-19: 5-seat asymmetric layout (1 hero + 4 opponents).
@@ -93,14 +93,14 @@ const MUCK_POS = { x: 63, y: 44 };
 // - Hero has no avatar circle (matches concept)
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 74 }; // hero — label position, cards below
-  // Detroit 2026-10-19: 4 opponents in distinct zones — top-center (dealer),
-  // mid-left, mid-right, lower-right. Kept clear of pot (50,50) and hero (50,74).
+  if (index === 0) return { x: 50, y: 78 }; // hero — below oval, above action bar
+  // Detroit 2026-10-19: 4 opponents ring the oval edge.
+  // Oval spans y 8-68%; pot at (50, 42). Seats sit on the rail.
   const spots = [
-    { x: 50, y: 16 }, // Opp 1: top-center (dealer)
-    { x: 20, y: 36 }, // Opp 2: mid-left
-    { x: 80, y: 36 }, // Opp 3: mid-right
-    { x: 80, y: 58 }, // Opp 4: lower-right — clear of pot, above hero zone
+    { x: 50, y: 14 }, // Opp 1: top-center (dealer) — top rail
+    { x: 16, y: 34 }, // Opp 2: mid-left — left rail
+    { x: 84, y: 34 }, // Opp 3: mid-right — right rail
+    { x: 84, y: 54 }, // Opp 4: lower-right — right rail, clear of pot
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -505,11 +505,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         }}
       >
         {/* Detroit 2026-10-19: wide purple-and-gold oval table — anchors all seats.
-            Opponents + pot live on the felt; hero sits at the bottom rail. */}
+            Wide and short: opponents ring the edge, pot at center, hero below.
+            v2: widened (2% margins), shortened (bottom 32%) per review. */}
         <div
           className="absolute pointer-events-none"
           style={{
-            left: '4%', right: '4%', top: '6%', bottom: '18%',
+            left: '2%', right: '2%', top: '8%', bottom: '32%',
             borderRadius: '50%',
             background: 'radial-gradient(ellipse at 50% 35%, #4c2a8a 0%, #3b1f6e 45%, #2a154f 100%)',
             border: '6px solid transparent',
@@ -521,7 +522,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         <div
           className="absolute pointer-events-none"
           style={{
-            left: '7%', right: '7%', top: '9.5%', bottom: '21.5%',
+            left: '5%', right: '5%', top: '11.5%', bottom: '35.5%',
             borderRadius: '50%',
             border: '2px solid rgba(201,162,39,0.35)',
           }}
@@ -540,7 +541,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         </div>
 
         {/* Center staging — pot as the centerpiece (UNO's pile position) */}
-        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+        <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <AnimatePresence>
             <motion.div
               initial={{ scale: 1.15 }}
@@ -788,48 +789,48 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           );
         })}
 
-        {/* Detroit 2026-10-19: showdown hand-reveal overlay — focused readable
-            panel showing each active player's hand large, instead of tiny
-            inline cards. Folded players excluded (cards stay hidden). */}
+        {/* Detroit 2026-10-19: showdown hand-reveal overlay — compact focused panel.
+            v2: reduced footprint (top 12%, max 40% height), smaller cards (32×46)
+            still readable. Folded players excluded — cards never revealed. */}
         {state.phase === 'showdown' && (
           <motion.div
-            className="absolute inset-x-2 top-[8%] z-30 rounded-2xl p-3"
+            className="absolute inset-x-3 top-[12%] z-30 rounded-xl p-2"
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
             style={{
-              background: 'rgba(15,8,30,0.92)',
+              background: 'rgba(15,8,30,0.94)',
               border: '2px solid rgba(201,162,39,0.6)',
               boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 24px rgba(201,162,39,0.2)',
               backdropFilter: 'blur(8px)',
-              maxHeight: '52%',
+              maxHeight: '40%',
               overflowY: 'auto',
             }}
           >
-            <div className="text-center text-amber-300 text-xs font-mono font-bold tracking-widest mb-2">
-              SHOWDOWN — ${state.pot.toLocaleString()} POT
+            <div className="text-center text-amber-300 text-[11px] font-mono font-bold tracking-widest mb-1.5">
+              SHOWDOWN — ${state.pot.toLocaleString()}
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {state.players.filter(p => !p.folded).map((p) => (
                 <div
                   key={`reveal-${p.id}`}
-                  className="flex items-center gap-2 rounded-xl px-2 py-1.5"
+                  className="flex items-center gap-2 rounded-lg px-2 py-1"
                   style={{
                     background: p.isWinner ? 'rgba(201,162,39,0.15)' : 'rgba(255,255,255,0.04)',
                     border: p.isWinner ? '1px solid rgba(201,162,39,0.7)' : '1px solid rgba(255,255,255,0.08)',
                   }}
                 >
-                  <div className="flex flex-col items-start shrink-0" style={{ minWidth: '64px', maxWidth: '76px' }}>
-                    <span className="text-[11px] font-mono font-bold text-white/90 truncate w-full" title={p.name}>
+                  <div className="flex flex-col items-start shrink-0" style={{ minWidth: '58px', maxWidth: '68px' }}>
+                    <span className="text-[10px] font-mono font-bold text-white/90 truncate w-full" title={p.name}>
                       {p.name}{p.isHero ? ' (YOU)' : ''}
                     </span>
                     {p.isWinner && (
-                      <span className="text-[9px] font-mono font-bold text-amber-300">★ WINNER</span>
+                      <span className="text-[8px] font-mono font-bold text-amber-300">★ WINNER</span>
                     )}
                   </div>
                   <div className="flex gap-1 flex-1 justify-center">
                     {p.cards.filter(c => !c.isHidden).map((card, ci) => (
-                      <PlayingCard key={ci} card={card} className="!w-[36px] !h-[52px]" />
+                      <PlayingCard key={ci} card={card} className="!w-[32px] !h-[46px]" />
                     ))}
                   </div>
                 </div>
