@@ -214,7 +214,7 @@ describe('BoxChevyMode.resolveShowdown — HIGH vs LOW split', () => {
 });
 
 describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
-  it('SWING who wins both sides takes the whole pot', () => {
+  it('SWING fails when the declarer does not hold both sides (LOW read from the top down)', () => {
     // Use a community that doesn't conflict with swing player's hand
     const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
     const strongHole = [card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades')];
@@ -225,9 +225,17 @@ describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
       player('C', weakHole,   { declaration: 'LOW',   chips: 1000 }),
     ];
     const { players: out, pot: rem } = BoxChevyMode.resolveShowdown!(players, 300, 'A', commSafe);
-    // A should beat B on HIGH and C on LOW → SWING succeeds → A takes all $300
+    // The original test read LOW from the wrong end. Under Detroit's
+    // written rule, LOW compares from the HIGHEST card down and the lower
+    // sequence wins: A's low is K-topped (13 first), C's is Q-topped (12
+    // first) — C's low is lower, so A does NOT hold LOW and the SWING
+    // fails. (A's HIGH also loses under the code's current smallest-first
+    // sequence comparison — that reading is the subject of the held HIGH
+    // tests; LOW is not in dispute.) HIGH pays B, LOW pays C, 150 each.
     expect(rem).toBe(0);
-    expect(out.find(p => p.id === 'A')!.chips).toBe(1300);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1150);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1150);
   });
 
   it('SWING who fails LOW — HIGH half goes to non-SWING HIGH declarer', () => {

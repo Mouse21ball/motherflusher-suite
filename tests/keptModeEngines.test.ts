@@ -39,7 +39,13 @@ describe('independent retained mode engines', () => {
     expect(BoxChevyEngine.drawCap).not.toBe(FlushedUpEngine.drawCap);
     const runtime = readFileSync(new URL('../server/genericEngine.ts', import.meta.url), 'utf8');
     expect(runtime).not.toContain("from '../shared/modes/");
-    expect(runtime).not.toMatch(/modeId\s*===\s*['"]/);
+    // No mode MECHANICS in the common runtime. The only permitted modeId
+    // comparisons are seat-cap policy (Detroit's per-mode table sizes):
+    // the broadcast trim guard and the maxPlayers defaults.
+    const modeIdLines = runtime.split('\n').filter(line => /modeId\s*===/.test(line));
+    for (const line of modeIdLines) {
+      expect(line).toMatch(/maxPlayers|defaultMax|players\.length > 4/);
+    }
     expect(getOrCreateTable('retired_mode', 'unsupported', true)).toBeNull();
   });
 
@@ -62,15 +68,19 @@ describe('independent retained mode engines', () => {
     }
   });
 
-  it('Flushed Up requires a flush for a fold win and rolls the net pot over for a non-flush', () => {
+  it('Flushed Up has no flush gate: any sole survivor can win uncontested (Detroit 2026-10-13)', () => {
     const invalid = player('sole', [...cards(['A', '3', '5', '7']), ...cards(['9'], 'spades')]);
-    expect(FlushedUpEngine.canWinUncontested!(invalid)).toBe(false);
+    // The gate is fully open — flush and non-flush alike.
+    expect(FlushedUpEngine.canWinUncontested!(invalid)).toBe(true);
     expect(FlushedUpEngine.canWinUncontested!(player('flush'))).toBe(true);
-    const next = FlushedUpEngine.resolveUncontested!({ ...state('BET_4'), players: [invalid], pot: 200 }, invalid, 190);
-    expect(next.phase).toBe('SHOWDOWN');
-    expect(next.pot).toBe(190);
-    expect(next.players[0].isWinner).not.toBe(true);
-    expect(next.messages.some(message => message.text.includes('$190 rolls over'))).toBe(true);
+    // The live uncontested path (genericEngine.resolveByFold -> mode
+    // resolver) awards the net pot to the non-flush survivor in full.
+    // FlushedUpEngine.resolveUncontested is unreachable in production
+    // since the gate opened; its rollover wrapper is legacy.
+    const result = FlushedUpEngine.mode.resolveShowdown([invalid], 190);
+    expect(result.pot).toBe(0);
+    expect(result.players[0].isWinner).toBe(true);
+    expect(result.players[0].chips).toBe(1190);
   });
 
   it('Flushed Up owns its 10-second fill, 2-second seating, and 3-second start schedule', () => {

@@ -88,7 +88,7 @@ afterEach(() => {
 });
 
 describe('Flushed Up generic-engine fold resolution', () => {
-  it('rolls over a lone non-flush after rake and preserves rollover at reset', async () => {
+  it('awards a lone non-flush the pot after rake; no rollover survives reset', async () => {
     vi.useFakeTimers();
     const table = makeTable([
       card('A', 'clubs'), card('K', 'clubs'), card('Q', 'clubs'), card('J', 'clubs'),
@@ -98,12 +98,17 @@ describe('Flushed Up generic-engine fold resolution', () => {
 
     expect(resolveByFold(table as never)).toBe(true);
 
+    // Detroit 2026-10-13: no flush gate — FlushedUpEngine.canWinUncontested
+    // is () => true, so the generic engine's flush-gate branch never fires
+    // and a lone non-flush survivor wins exactly like a flush survivor:
+    // pot 100, rake 5, net 95 paid out, nothing rolls over.
     expect(table.state.phase).toBe('SHOWDOWN');
     expect(table.resolvedPot).toBe(100);
-    expect(table.state.pot).toBe(95);
-    expect(table.state.players.find(player => player.id === 'sole')?.isWinner).toBeFalsy();
-    expect(table.state.players.find(player => player.id === 'sole')?.isLoser).toBe(true);
-    expect(table.state.winStreaks).toEqual({ sole: 2 });
+    expect(table.state.pot).toBe(0);
+    expect(table.state.players.find(player => player.id === 'sole')?.chips).toBe(995);
+    expect(table.state.players.find(player => player.id === 'sole')?.isWinner).toBe(true);
+    expect(table.state.players.find(player => player.id === 'sole')?.isLoser).toBeFalsy();
+    expect(table.state.winStreaks?.sole).toBe(3);
     expect(rakeLog).toHaveBeenCalledWith(expect.objectContaining({
       gameMode: 'flushed_up',
       grossPot: 100,
@@ -118,7 +123,7 @@ describe('Flushed Up generic-engine fold resolution', () => {
       : player);
     await resetToAnte(table as never);
     expect(table.state.phase).toBe('ANTE');
-    expect(table.state.pot).toBe(95);
+    expect(table.state.pot).toBe(0);
     expect(table.state.players.find(player => player.id === 'sole')?.isWinner).toBeUndefined();
   });
 
