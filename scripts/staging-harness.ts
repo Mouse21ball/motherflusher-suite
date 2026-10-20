@@ -265,13 +265,15 @@ async function probe() {
 }
 
 // ─── Scenarios ───────────────────────────────────────────────────────────────
-async function scenarioA() {
-  const t = `A5${R4}`;
-  const table = await makeTable(t, 5, { maxPlayers: 5, bots: false });
+async function scenarioA(n = 5) {
+  const t = `${n === 5 ? 'A5' : 'A4'}${R4}`;
+  const table = await makeTable(t, n, { maxPlayers: n, bots: false });
   const { clients } = table;
-  const [c0, c1, , , c4] = clients;
-  if (clients.some(c => c.seat === '__spectator__') || !c0.latest() || c0.latest().players.length < 5) {
-    record('A1 full hand lifecycle (5 clients)', 'BLOCKED', `seating failed: seats=${clients.map(c => c.seat).join(',')} rows=${c0.latest()?.players?.length}`);
+  const [c0, c1] = clients;
+  const c4 = clients[n - 1];
+  const A1 = `A1 full hand lifecycle (${n} clients)`;
+  if (clients.some(c => c.seat === '__spectator__') || !c0.latest() || c0.latest().players.length < n) {
+    record(A1, 'BLOCKED', `seating failed: seats=${clients.map(c => c.seat).join(',')} rows=${c0.latest()?.players?.length}`);
     table.stop(); clients.forEach(c => c.disconnect());
     return;
   }
@@ -279,21 +281,21 @@ async function scenarioA() {
   await spec.bootstrap();
   await spec.connect(t, true).catch(e => console.log('spectator join failed (D1 uses client frames only):', e.message));
 
-  // Hand 1: P5 folds at first bet (D1), P2 discards exactly [0,1] on DRAW_1 (A3), everyone else draws to a badugi.
-  table.startDrivers([{}, {
-    smartDraw: true,
-    drawDiscards: (ph, cards) => ph === 'DRAW_1' ? [0, 1] : badugiDiscards(cards),
-  }, { smartDraw: true }, { smartDraw: true }, { smartDraw: true, foldAtFirstBet: true }]);
+  // Hand 1: last seat folds at first bet (D1), P2 discards exactly [0,1] on DRAW_1 (A3), everyone else draws to a badugi.
+  const beh1: Behavior[] = clients.map(() => ({ smartDraw: true }));
+  beh1[1] = { smartDraw: true, drawDiscards: (ph, cards) => ph === 'DRAW_1' ? [0, 1] : badugiDiscards(cards) };
+  beh1[n - 1] = { smartDraw: true, foldAtFirstBet: true };
+  table.startDrivers(beh1);
 
   const pre = await c0.until(s => s.phase === 'ANTE' || s.phase.startsWith('DRAW') || s.phase.startsWith('BET'), 30000, 'hand1 start');
   const total0 = sumChips(pre) + (pre.pot ?? 0);
   const p2dealt = await c1.until(s => (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
   const p2Before = (c1.me(p2dealt)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
   const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN', 150000, 'hand1 showdown').catch(() => null);
-  if (!sdFirst) { record('A1 full hand lifecycle (5 clients)', 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
+  if (!sdFirst) { record(A1, 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
   await sleep(2500); // let payout/winner flags settle
   const sd = c0.latest();
-  record('A1 full hand lifecycle (5 clients)', 'PASS', `hand ${sd.handId} reached SHOWDOWN with 5 humans seated; full phase flow completed`);
+  record(A1, 'PASS', `hand ${sd.handId} reached SHOWDOWN with ${n} humans seated; full phase flow completed`);
 
   const total1 = sumChips(sd) + (sd.pot ?? 0);
   record('A2 chip accounting', total1 === total0 ? 'PASS' : 'FAIL',
@@ -306,7 +308,7 @@ async function scenarioA() {
 
   // D1: folder's pre-fold cards must never appear in other endpoints' raw frames
   const secret = ((c4 as any)._preFoldCards ?? []).map((x: any) => `"rank":"${x.rank}","suit":"${x.suit}"`);
-  const others = [c0, c1, clients[2], clients[3], ...(spec.states.length ? [spec] : [])];
+  const others = [...clients.slice(0, n - 1), ...(spec.states.length ? [spec] : [])];
   let leaks = 0;
   for (const oc of others) for (const f of oc.raw) for (const pat of secret) if (f.text.includes(pat)) leaks++;
   record('D1 showdown privacy (folded cards on the wire)', secret.length === 4 && leaks === 0 ? 'PASS' : 'FAIL',
@@ -330,9 +332,8 @@ async function scenarioA() {
 
   // Hand 2 (D3): four fold at first bet -> sole survivor / rollover handling + conservation
   const hand1Id = sd.handId;
-  table.startDrivers([{ smartDraw: true },
-    { smartDraw: true, foldAtFirstBet: true }, { smartDraw: true, foldAtFirstBet: true },
-    { smartDraw: true, foldAtFirstBet: true }, { smartDraw: true, foldAtFirstBet: true }]);
+  const beh2: Behavior[] = clients.map((_, i) => i === 0 ? { smartDraw: true } : { smartDraw: true, foldAtFirstBet: true });
+  table.startDrivers(beh2);
   const pre2 = await c0.until(s => (s.handId ?? 0) > hand1Id && s.phase !== 'SHOWDOWN', 30000, 'hand2 start').catch(() => c0.latest());
   const total2a = sumChips(pre2) + (pre2.pot ?? 0);
   const sd2 = await c0.until(s => s.phase === 'SHOWDOWN' && (s.handId ?? 0) > hand1Id, 150000, 'hand2 showdown').catch(() => null);
@@ -498,20 +499,26 @@ async function scenarioC5() {
   table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
+function writeResults(tag: string) {
+  writeFileSync('staging-results.json', JSON.stringify({ run: RUN, tag, at: new Date().toISOString(), results }, null, 2));
+  console.log('\n== SUMMARY ==');
+  for (const r of results) console.log(`${r.status.padEnd(7)} ${r.item} — ${r.evidence}`);
+  console.log(`\n${results.filter(r => r.status === 'PASS').length} PASS / ${results.filter(r => r.status === 'FAIL').length} FAIL / ${results.filter(r => r.status === 'BLOCKED').length} BLOCKED`);
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
+  if (mode === 'a4') { console.log(`\n== A-SCENARIO AT 4 SEATS (run ${RUN}) ==`); await scenarioA(4); writeResults('a4'); return; }
+  if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
-  await scenarioA();
+  await scenarioA(5);
   await scenarioB0();
   await scenarioB1();
   await scenarioB2();
   await Promise.all([scenarioC(30), scenarioC(90), scenarioC(179), scenarioC(181)]);
   await scenarioC5();
-  writeFileSync('staging-results.json', JSON.stringify({ run: RUN, at: new Date().toISOString(), results }, null, 2));
-  console.log('\n== SUMMARY ==');
-  for (const r of results) console.log(`${r.status.padEnd(7)} ${r.item} — ${r.evidence}`);
-  console.log(`\n${results.filter(r => r.status === 'PASS').length} PASS / ${results.filter(r => r.status === 'FAIL').length} FAIL / ${results.filter(r => r.status === 'BLOCKED').length} BLOCKED`);
+  writeResults('all');
 }
 
 main().then(() => process.exit(0)).catch(e => { console.error('HARNESS ERROR:', e); process.exit(1); });
