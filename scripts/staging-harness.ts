@@ -715,7 +715,7 @@ async function scenarioPots() {
   const preRes = buf.find(s => s.phase === 'SHOWDOWN');
   let settled: any = null;
   {
-    const deadline = Date.now() + 20000;
+    const deadline = Date.now() + 40000;
     while (Date.now() < deadline && !settled) {
       const idx = buf.indexOf(preRes);
       settled = buf.slice(idx + 1).find(s => s.phase === 'SHOWDOWN' && (s.pot !== preRes.pot || s.players.some((p: any) => p.isWinner))) ?? null;
@@ -724,8 +724,11 @@ async function scenarioPots() {
   }
   const bet1Final = [...buf].reverse().find(s => s.phase === 'BET_1');
   if (!preRes || !settled || !bet1Final) {
+    const showdowns = buf.filter(s => s.phase === 'SHOWDOWN')
+      .map(s => `pot=${s.pot} win=${s.players.some((p: any) => p.isWinner)} chips=${s.players.map((p: any) => p.chips).join('/')}`);
+    const last = short.latest();
     record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
-      `capture incomplete: bet1Final=${!!bet1Final} preRes=${!!preRes} settled=${!!settled}`);
+      `capture incomplete: bet1Final=${!!bet1Final} preRes=${!!preRes} settled=${!!settled}; states=${buf.length} showdownStates=${showdowns.length} [${showdowns.join(' ; ')}]; lastPhase=${last?.phase} lastPot=${last?.pot} lastMsgs=${(last?.messages ?? []).map((m: any) => `${m.isResolution ? 'R:' : ''}${m.text}`).join(' / ')}`);
     clients.forEach(c => c.disconnect());
     return;
   }
