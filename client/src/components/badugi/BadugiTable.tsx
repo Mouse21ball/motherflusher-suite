@@ -105,14 +105,18 @@ const MUCK_POS = { x: 63, y: 36 };
 // - Hero has no avatar circle (matches concept)
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 76 }; // hero — tightened (was 78)
+  if (index === 0) return { x: 50, y: 75.2 }; // hero — pulled up 0.8% (Detroit 2026-10-20 UI pass: tighter hero/instructions/controls stack; the full 1.5% was trimmed on collision-check evidence — at compact container heights it squeezed the taller two-line lower-right pod into the hero name row)
   // Detroit 2026-10-19: 4 opponents ring the oval edge.
   // Oval spans y 8-68%; pot at (50, 42). Seats sit on the rail.
+  // Detroit 2026-10-20 UI pass: side seats pulled inward (16/80 ->
+  // 18.5/81.5) so the ~118px pods AND their turn/winner glows stay
+  // inside the Galaxy safe width at ~360px CSS — the mid-left pod
+  // previously landed its panel edge at ~0px and clipped.
   const spots = [
     { x: 50, y: 14 }, // Opp 1: top-center (dealer) — top rail
-    { x: 16, y: 34 }, // Opp 2: mid-left — left rail
-    { x: 80, y: 34 }, // Opp 3: mid-right — right rail
-    { x: 80, y: 54 }, // Opp 4: lower-right — nudged inward for safe area
+    { x: 18.5, y: 34 }, // Opp 2: mid-left — left rail
+    { x: 81.5, y: 34 }, // Opp 3: mid-right — right rail
+    { x: 81.5, y: 54 }, // Opp 4: lower-right — nudged inward for safe area
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -602,10 +606,10 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         <div
           className="absolute pointer-events-none"
           style={{
-            left: '3%', right: '3%', top: '12%', bottom: '31.5%',
+            left: '3%', right: '3%', top: '12%', bottom: '30%',
             borderRadius: '50%',
-            background: 'linear-gradient(180deg, #1a0d33 0%, #120826 100%)',
-            boxShadow: '0 10px 32px rgba(0,0,0,0.7), 0 0 0 2px rgba(120,90,20,0.45)',
+            background: 'linear-gradient(180deg, #160b2b 0%, #0f0721 100%)',
+            boxShadow: '0 10px 32px rgba(0,0,0,0.7), 0 0 0 2px rgba(120,90,20,0.36)',
           }}
         />
         <div
@@ -621,11 +625,17 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
             background: `
               repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
               repeating-linear-gradient(-45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px),
-              radial-gradient(ellipse at 50% 78%, #553a96 0%, #402a75 38%, #2a1850 68%, #1c0f34 100%)
+              radial-gradient(ellipse at 50% 78%, #483184 0%, #372664 38%, #241544 68%, #190d2c 100%)
             `,
-            // Dimensional: near-edge highlight, far-edge falloff
+            // Dimensional: near-edge highlight, far-edge falloff.
+            // Detroit 2026-10-20 UI pass: felt gradient stops darkened
+            // ~15% and the near-edge highlight eased (0.14 -> 0.11) to
+            // reduce the table's visual dominance WITHOUT shrinking
+            // the footprint — seats sit on the container, so a smaller
+            // felt would leave pods floating off the surface (the look
+            // rejected 2026-10-19). Same geometry, quieter surface.
             boxShadow: `
-              inset 0 -3px 14px rgba(255,220,150,0.14),
+              inset 0 -3px 14px rgba(255,220,150,0.11),
               inset 0 14px 28px rgba(0,0,0,0.4),
               inset 0 0 60px rgba(0,0,0,0.3)
             `,
@@ -835,7 +845,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                       deadline. Same server-deadline bar as the opponent pods. */}
                   {turnRemainingMs != null && (
                     <div
-                      className="mt-1 h-[3px] w-[120px] rounded-full overflow-hidden"
+                      className="mt-0.5 h-[3px] w-[120px] rounded-full overflow-hidden"
                       style={{ background: 'rgba(255,255,255,0.12)' }}
                     >
                       {state.motionMode === 'full' && !reduced ? (
@@ -915,42 +925,52 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         ))}
                       </div>
                     </div>
-                    {/* Name + stack + FOLD plate */}
-                    <div className="flex items-center gap-1 mt-1" style={{ maxWidth: '100px' }}>
+                    {/* Name on its own line across the full pod width;
+                        chips + FOLD/DC plates on a second line below.
+                        Detroit 2026-10-20 UI pass: the old single row
+                        capped the name at 56px alongside unshrinkable
+                        chips + plates, crushing long names to ~8 chars
+                        and crowding the FOLD plate. Compact two-line
+                        treatment — name room nearly doubles (~100px)
+                        without widening the pod (widening would push
+                        the side pods back off the safe width). */}
+                    <div className="flex flex-col items-center mt-1" style={{ maxWidth: '100px' }}>
                       <span
-                        className="text-[10px] font-mono text-white/85 truncate"
-                        style={{ maxWidth: '56px' }}
+                        className="text-[10px] leading-tight font-mono text-white/85 truncate"
+                        style={{ maxWidth: '100px' }}
                         title={p.name}
                       >
                         {p.name}
                       </span>
-                      <span className="text-[10px] font-mono text-amber-200/90 shrink-0">
-                        {p.chips.toLocaleString()}
-                      </span>
-                      {p.folded && (
-                        <span
-                          className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
-                          style={{
-                            color: '#fca5a5',
-                            background: 'rgba(127,29,29,0.6)',
-                            border: '1px solid rgba(248,113,113,0.5)',
-                          }}
-                        >
-                          FOLD
+                      <div className="flex items-center gap-1 mt-px">
+                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                          {p.chips.toLocaleString()}
                         </span>
-                      )}
-                      {p.disconnected && (
-                        <span
-                          className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
-                          style={{
-                            color: '#cbd5e1',
-                            background: 'rgba(51,65,85,0.65)',
-                            border: '1px solid rgba(148,163,184,0.5)',
-                          }}
-                        >
-                          DC
-                        </span>
-                      )}
+                        {p.folded && (
+                          <span
+                            className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
+                            style={{
+                              color: '#fca5a5',
+                              background: 'rgba(127,29,29,0.6)',
+                              border: '1px solid rgba(248,113,113,0.5)',
+                            }}
+                          >
+                            FOLD
+                          </span>
+                        )}
+                        {p.disconnected && (
+                          <span
+                            className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
+                            style={{
+                              color: '#cbd5e1',
+                              background: 'rgba(51,65,85,0.65)',
+                              border: '1px solid rgba(148,163,184,0.5)',
+                            }}
+                          >
+                            DC
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {/* Bet — inside the pod */}
                     {p.bet > 0 && (
@@ -994,7 +1014,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               {/* Cards — hero big below; opponents handled in pod above */}
               {p.isHero && (
               <div
-                className="flex mt-1"
+                className="flex mt-0.5"
                 style={{ gap: '2px' }}
               >
                 <AnimatePresence>
@@ -1187,7 +1207,15 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%)' }}
+              style={{
+                // Detroit 2026-10-20 UI pass: dark scrim under the gold
+                // glow so table information (pot, pods, text) stops
+                // competing with the winning hand. Static layer — safe
+                // for reduced motion; overlay is pointer-events-none.
+                background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%), linear-gradient(rgba(5,2,15,0.55), rgba(5,2,15,0.55))',
+                backdropFilter: 'blur(2px)',
+                WebkitBackdropFilter: 'blur(2px)',
+              }}
             >
               {/* Coin fountain particles — full motion only (Detroit 2026-10-19 Stage 3).
                   Reduced/off skip the particle storm; the banner still shows. */}

@@ -242,7 +242,7 @@ export function BadugiFullPage({
           borderTop: '1px solid rgba(201,162,39,0.12)',
         }}>
           {serverProfile?.profileId && tableId && state.activePlayerId === myId && (
-            <div className="flex justify-end px-3 pt-1.5">
+            <div className="flex justify-end px-3 pt-1">
               <TimeBankButton
                 key={`${state.handId ?? 0}:${state.phase}:${state.activePlayerId ?? ''}`}
                 playerId={serverProfile.profileId}
