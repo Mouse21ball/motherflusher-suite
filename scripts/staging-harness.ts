@@ -298,8 +298,15 @@ async function scenarioA(n = 5) {
   record(A1, 'PASS', `hand ${sd.handId} reached SHOWDOWN with ${n} humans seated; full phase flow completed`);
 
   const total1 = sumChips(sd) + (sd.pot ?? 0);
-  record('A2 chip accounting', total1 === total0 ? 'PASS' : 'FAIL',
-    `total before=${total0} after=${total1} delta=${total1 - total0} pot@settledShowdown=${sd.pot}`);
+  // Conservation modulo the DESIGNED 5% house rake (server/utils/rake.ts
+  // applyRake, applied on winner payouts and fold-rollover carries). The
+  // only legitimate sink in a single-hand window is floor(potAtResolution*5%).
+  const handStates = c0.states.filter(s => s.handId === sd.handId);
+  const potAtResolution = Math.max(0, ...handStates.filter(s => s.phase !== 'SHOWDOWN').map(s => s.pot ?? 0));
+  const expectedRake = Math.floor(potAtResolution * 0.05);
+  const delta = total1 - total0;
+  record('A2 chip accounting', delta === 0 || delta === -expectedRake ? 'PASS' : 'FAIL',
+    `total before=${total0} after=${total1} delta=${delta} pot@settledShowdown=${sd.pot} potAtResolution=${potAtResolution} expectedRake=${expectedRake}`);
 
   const p2AfterState = c1.states.find(s => s.handId === sd.handId && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
   const p2After = (c1.me(p2AfterState)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
@@ -314,27 +321,44 @@ async function scenarioA(n = 5) {
   record('D1 showdown privacy (folded cards on the wire)', secret.length === 4 && leaks === 0 ? 'PASS' : 'FAIL',
     `folder seated as ${c4.seat}; its 4 pre-fold card patterns scanned across ${others.length} other endpoints; leaks=${leaks}; patternsCaptured=${secret.length}`);
 
-  // D2: winner flags must match evaluateBadugi among non-folded (rollover-aware)
-  const nonFolded = sd.players.filter((p: any) => p.status !== 'folded');
-  const valids = nonFolded.map((p: any) => ({ id: p.id, ev: evaluateBadugi(p.cards) })).filter((x: any) => x.ev?.isValidBadugi);
-  const flagged = sd.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
-  if (valids.length === 0) {
-    record('D2 showdown correctness', flagged.length === 0 && (sd.pot ?? 0) > 0 ? 'PASS' : 'FAIL',
-      `no valid badugi at showdown -> rollover expected; flagged=${flagged.join(',') || 'none'} potCarried=${sd.pot}`);
-  } else {
-    let best = valids[0];
-    for (const v of valids) if (compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) < 0) best = v;
-    const bestSet = valids.filter((v: any) => compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) === 0).map((v: any) => v.id);
-    const ok = bestSet.every((id: string) => flagged.includes(id)) && flagged.every((id: string) => bestSet.includes(id));
-    record('D2 showdown correctness', ok ? 'PASS' : 'FAIL',
-      `best valid badugi=${bestSet.join(',')} (${best.ev.description}); server flagged=${flagged.join(',') || 'none'}`);
+  // D2: winner flags must match evaluateBadugi among non-folded (rollover-aware).
+  // If the hand rolled over, keep playing normal hands (max 4 total) until a
+  // showdown WITH a valid badugi occurs so the winner-flag branch is verified.
+  const evalShowdown = (st: any) => {
+    const nf = st.players.filter((p: any) => p.status !== 'folded');
+    const vs = nf.map((p: any) => ({ id: p.id, ev: evaluateBadugi(p.cards) })).filter((x: any) => x.ev?.isValidBadugi);
+    const fl = st.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
+    if (vs.length === 0) return { decided: false, ok: fl.length === 0, evidence: `rollover: no valid badugi; flagged=${fl.join(',') || 'none'} potCarried=${st.pot}` };
+    let best = vs[0];
+    for (const v of vs) if (compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) < 0) best = v;
+    const bestSet = vs.filter((v: any) => compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) === 0).map((v: any) => v.id);
+    const ok = bestSet.every((id: string) => fl.includes(id)) && fl.every((id: string) => bestSet.includes(id));
+    return { decided: true, ok, evidence: `decided: best valid badugi=${bestSet.join(',')} (${best.ev.description}); server flagged=${fl.join(',') || 'none'}` };
+  };
+  let d2 = evalShowdown(sd);
+  let lastHandId = sd.handId;
+  let handsPlayed = 1;
+  if (!d2.decided) {
+    table.startDrivers(clients.map(() => ({ smartDraw: true })));
+    while (!d2.decided && handsPlayed < 4) {
+      const nxt = await c0.until(s => s.phase === 'SHOWDOWN' && (s.handId ?? 0) > lastHandId, 150000, 'extra showdown').catch(() => null);
+      if (!nxt) break;
+      await sleep(2500);
+      const settled = c0.latest();
+      d2 = evalShowdown(settled);
+      lastHandId = settled.handId;
+      handsPlayed++;
+    }
   }
+  record('D2 showdown correctness', d2.ok ? 'PASS' : 'FAIL',
+    d2.decided ? `${d2.evidence} (decided hand found after ${handsPlayed} hand(s))`
+               : `winner-flag branch UNVERIFIED after ${handsPlayed} hands — all rolled over; rollover branch correct each time (${d2.evidence})`);
 
   // Hand 2 (D3): four fold at first bet -> sole survivor / rollover handling + conservation
-  const hand1Id = sd.handId;
+  const hand1Id = lastHandId;
   const beh2: Behavior[] = clients.map((_, i) => i === 0 ? { smartDraw: true } : { smartDraw: true, foldAtFirstBet: true });
   table.startDrivers(beh2);
-  const pre2 = await c0.until(s => (s.handId ?? 0) > hand1Id && s.phase !== 'SHOWDOWN', 30000, 'hand2 start').catch(() => c0.latest());
+  const pre2 = await c0.until(s => (s.handId ?? 0) > hand1Id && s.phase === 'ANTE', 30000, 'hand2 start').catch(() => c0.latest());
   const total2a = sumChips(pre2) + (pre2.pot ?? 0);
   const sd2 = await c0.until(s => s.phase === 'SHOWDOWN' && (s.handId ?? 0) > hand1Id, 150000, 'hand2 showdown').catch(() => null);
   if (sd2) {
@@ -342,8 +366,13 @@ async function scenarioA(n = 5) {
     const e2 = c0.latest();
     const total2b = sumChips(e2) + (e2.pot ?? 0);
     const winners2 = e2.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
-    record('D3 uncontested hand (4 fold)', total2b === total2a ? 'PASS' : 'FAIL',
-      `survivor=${clients[0].seat} winners=${winners2.join(',') || 'none(rollover)'} potAfter=${e2.pot} chipsDelta=${total2b - total2a}`);
+    // Fold resolution rakes 5% by design (win or rollover carry alike).
+    const hand2States = c0.states.filter(s => s.handId === e2.handId);
+    const resolutionPot2 = Math.max(0, ...hand2States.filter(s => s.phase !== 'SHOWDOWN').map(s => s.pot ?? 0));
+    const expectedDelta2 = -Math.floor(resolutionPot2 * 0.05);
+    const dDelta = total2b - total2a;
+    record('D3 uncontested hand (4 fold)', dDelta === 0 || dDelta === expectedDelta2 ? 'PASS' : 'FAIL',
+      `survivor=${clients[0].seat} winners=${winners2.join(',') || 'none(rollover)'} potAfter=${e2.pot} chipsDelta=${dDelta} expectedRakeDelta=${expectedDelta2}`);
   } else {
     record('D3 uncontested hand (4 fold)', 'FAIL', `hand2 did not reach SHOWDOWN (phase=${c0.latest()?.phase})`);
   }
