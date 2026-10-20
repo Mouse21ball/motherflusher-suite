@@ -287,33 +287,40 @@ async function scenarioA(n = 5) {
   beh1[n - 1] = { smartDraw: true, foldAtFirstBet: true };
   table.startDrivers(beh1);
 
-  // Pin EVERY measurement to ONE hand: wait for a fresh ANTE, take its
-  // handId as H. (chips+pot is invariant during ANTE — antes only move
-  // chips stack->pot — so total0 is exact from any pre-resolution state
-  // of hand H. Earlier versions sampled across hand boundaries and the
-  // accounting windows straddled multiple resolutions.)
-  const pre = await c0.until(s => s.phase === 'ANTE', 30000, 'hand start');
-  const H = pre.handId;
-  const total0 = sumChips(pre) + (pre.pot ?? 0);
-  // Buffer scan, not latest(): the hand races ahead between polls, but every
-  // snapshot persists in c.states — the dealt state is in there even if it
-  // was never "latest" at a poll instant. Sampling failure must not abort
-  // the scenario: A3 records its own verdict.
-  let p2Before: string[] = [];
+  // Measure hand H RETROACTIVELY from the snapshot buffers. Live-edge
+  // polling kept losing the race (the hand completes while a check is
+  // still waiting for it). Buffers persist every snapshot, so: wait for
+  // hand H's SHOWDOWN to EXIST in c0's buffer, settle, then read every
+  // measurement out of the recorded stream for handId === H.
+  // (chips+pot is invariant during ANTE — antes only move chips
+  // stack->pot — so total0 is exact from hand H's ANTE state.)
+  let H: number | undefined;
   {
-    const deadline = Date.now() + 30000;
-    while (Date.now() < deadline && p2Before.length !== 4) {
-      const hit = c1.states.find(s => s.handId === H && (c1.me(s)?.cards?.length ?? 0) === 4);
-      if (hit) p2Before = (c1.me(hit)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline && H === undefined) {
+      const ante = c0.states.find(s => s.phase === 'ANTE');
+      if (ante) H = ante.handId;
       else await sleep(150);
     }
-    if (p2Before.length !== 4) console.log(`  (A3 sampling: no dealt state for hand ${H} in P2 buffer of ${c1.states.length} states; handIds present: ${[...new Set(c1.states.map(s => s.handId))].join(',')})`);
   }
-  const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN' && s.handId === H, 150000, 'hand showdown').catch(() => null);
-  if (!sdFirst) { record(A1, 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
+  if (H === undefined) { record(A1, 'FAIL', 'no ANTE state ever observed'); table.stop(); clients.forEach(c => c.disconnect()); return; }
+  const pre = c0.states.find(s => s.handId === H && s.phase === 'ANTE')!;
+  const total0 = sumChips(pre) + (pre.pot ?? 0);
+  let sdFirst: any = null;
+  {
+    const deadline = Date.now() + 240000;
+    while (Date.now() < deadline && !sdFirst) {
+      sdFirst = c0.states.find(s => s.handId === H && s.phase === 'SHOWDOWN') ?? null;
+      if (!sdFirst) await sleep(250);
+    }
+  }
+  if (!sdFirst) { record(A1, 'FAIL', `hand ${H} never reached SHOWDOWN in the recorded stream (latest phase=${c0.latest()?.phase})`); table.stop(); return; }
   await sleep(2500); // let payout/winner flags settle
-  const sd = c0.latest();
-  record(A1, 'PASS', `hand ${sd.handId} reached SHOWDOWN with ${n} humans seated; full phase flow completed`);
+  const sd = [...c0.states].reverse().find(s => s.handId === H) ?? sdFirst;
+  record(A1, 'PASS', `hand ${H} reached SHOWDOWN with ${n} humans seated; full phase flow completed`);
+  const dealtIdx = c1.states.findIndex(s => s.handId === H && (c1.me(s)?.cards?.length ?? 0) === 4);
+  const p2Before = dealtIdx >= 0 ? (c1.me(c1.states[dealtIdx])?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`) : [];
+  if (p2Before.length !== 4) console.log(`  (A3 sampling: P2 dealt state not found for hand ${H}; P2 statuses in hand: ${c1.states.filter(s => s.handId === H).map(s => c1.me(s)?.status).filter((v: any, i: number, a: any[]) => a.indexOf(v) === i).join(',')})`);
 
   const total1 = sumChips(sd) + (sd.pot ?? 0);
   // Conservation modulo the DESIGNED 5% house rake (server/utils/rake.ts
@@ -330,7 +337,7 @@ async function scenarioA(n = 5) {
   record('A2 chip accounting', a2ok ? 'PASS' : 'FAIL',
     `total before=${total0} after=${total1} delta=${delta} pot@settledShowdown=${sd.pot} potAtResolution=${potAtResolution} expectedRake=${expectedRake}`);
 
-  const p2AfterState = c1.states.find(s => s.handId === H && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
+  const p2AfterState = c1.states.slice(Math.max(0, dealtIdx)).find(s => s.handId === H && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
   const p2After = (c1.me(p2AfterState)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
   const keptSame = p2Before.length === 4 && p2After.length === 4 && p2After[2] === p2Before[2] && p2After[3] === p2Before[3];
   record('A3 draw mechanics (discard 2)', keptSame ? 'PASS' : 'FAIL', `before=${p2Before.join(' ')} after=${p2After.join(' ')}`);
