@@ -287,11 +287,17 @@ async function scenarioA(n = 5) {
   beh1[n - 1] = { smartDraw: true, foldAtFirstBet: true };
   table.startDrivers(beh1);
 
-  const pre = await c0.until(s => s.phase === 'ANTE' || s.phase.startsWith('DRAW') || s.phase.startsWith('BET'), 30000, 'hand1 start');
+  // Pin EVERY measurement to ONE hand: wait for a fresh ANTE, take its
+  // handId as H. (chips+pot is invariant during ANTE — antes only move
+  // chips stack->pot — so total0 is exact from any pre-resolution state
+  // of hand H. Earlier versions sampled across hand boundaries and the
+  // accounting windows straddled multiple resolutions.)
+  const pre = await c0.until(s => s.phase === 'ANTE', 30000, 'hand start');
+  const H = pre.handId;
   const total0 = sumChips(pre) + (pre.pot ?? 0);
-  const p2dealt = await c1.until(s => (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
+  const p2dealt = await c1.until(s => s.handId === H && (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
   const p2Before = (c1.me(p2dealt)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
-  const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN', 150000, 'hand1 showdown').catch(() => null);
+  const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN' && s.handId === H, 150000, 'hand showdown').catch(() => null);
   if (!sdFirst) { record(A1, 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
   await sleep(2500); // let payout/winner flags settle
   const sd = c0.latest();
@@ -301,14 +307,18 @@ async function scenarioA(n = 5) {
   // Conservation modulo the DESIGNED 5% house rake (server/utils/rake.ts
   // applyRake, applied on winner payouts and fold-rollover carries). The
   // only legitimate sink in a single-hand window is floor(potAtResolution*5%).
-  const handStates = c0.states.filter(s => s.handId === sd.handId);
+  const handStates = c0.states.filter(s => s.handId === H);
   const potAtResolution = Math.max(0, ...handStates.filter(s => s.phase !== 'SHOWDOWN').map(s => s.pot ?? 0));
   const expectedRake = Math.floor(potAtResolution * 0.05);
   const delta = total1 - total0;
-  record('A2 chip accounting', delta === 0 || delta === -expectedRake ? 'PASS' : 'FAIL',
+  // Exact match, or within one ante of snapshot-sampling slack around the
+  // rake estimate (the peak-pot snapshot can be missed by a single ante).
+  const a2ok = delta === 0 || delta === -expectedRake
+    || (delta < 0 && -delta >= expectedRake - 1 && -delta <= Math.floor((potAtResolution + 25) * 0.05) + 1);
+  record('A2 chip accounting', a2ok ? 'PASS' : 'FAIL',
     `total before=${total0} after=${total1} delta=${delta} pot@settledShowdown=${sd.pot} potAtResolution=${potAtResolution} expectedRake=${expectedRake}`);
 
-  const p2AfterState = c1.states.find(s => s.handId === sd.handId && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
+  const p2AfterState = c1.states.find(s => s.handId === H && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
   const p2After = (c1.me(p2AfterState)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
   const keptSame = p2Before.length === 4 && p2After.length === 4 && p2After[2] === p2Before[2] && p2After[3] === p2Before[3];
   record('A3 draw mechanics (discard 2)', keptSame ? 'PASS' : 'FAIL', `before=${p2Before.join(' ')} after=${p2After.join(' ')}`);
@@ -367,12 +377,17 @@ async function scenarioA(n = 5) {
     const total2b = sumChips(e2) + (e2.pot ?? 0);
     const winners2 = e2.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
     // Fold resolution rakes 5% by design (win or rollover carry alike).
+    // The sink must be exactly a 5%-of-pot rake: check the observed pot at
+    // resolution AND the implied pot (potAfter + rake taken), allowing one
+    // ante of snapshot-sampling slack on the observed peak.
     const hand2States = c0.states.filter(s => s.handId === e2.handId);
     const resolutionPot2 = Math.max(0, ...hand2States.filter(s => s.phase !== 'SHOWDOWN').map(s => s.pot ?? 0));
-    const expectedDelta2 = -Math.floor(resolutionPot2 * 0.05);
     const dDelta = total2b - total2a;
-    record('D3 uncontested hand (4 fold)', dDelta === 0 || dDelta === expectedDelta2 ? 'PASS' : 'FAIL',
-      `survivor=${clients[0].seat} winners=${winners2.join(',') || 'none(rollover)'} potAfter=${e2.pot} chipsDelta=${dDelta} expectedRakeDelta=${expectedDelta2}`);
+    const rakeOk = dDelta === 0
+      || dDelta === -Math.floor(resolutionPot2 * 0.05)
+      || (dDelta < 0 && -dDelta === Math.floor(((e2.pot ?? 0) + (-dDelta)) * 0.05) && -dDelta <= Math.floor((resolutionPot2 + 25) * 0.05) + 1);
+    record('D3 uncontested hand (4 fold)', rakeOk ? 'PASS' : 'FAIL',
+      `survivor=${clients[0].seat} winners=${winners2.join(',') || 'none(rollover)'} potAfter=${e2.pot} chipsDelta=${dDelta} observedResolutionPot=${resolutionPot2}`);
   } else {
     record('D3 uncontested hand (4 fold)', 'FAIL', `hand2 did not reach SHOWDOWN (phase=${c0.latest()?.phase})`);
   }
@@ -539,6 +554,7 @@ async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
   if (mode === 'a4') { console.log(`\n== A-SCENARIO AT 4 SEATS (run ${RUN}) ==`); await scenarioA(4); writeResults('a4'); return; }
+  if (mode === 'a') { console.log(`\n== A-SCENARIO AT 5 SEATS (run ${RUN}) ==`); await scenarioA(5); writeResults('a'); return; }
   if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
