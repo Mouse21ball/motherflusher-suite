@@ -548,6 +548,18 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
   const state = showdownBeatOverride && protoState.phase === 'showdown'
     ? { ...protoState, showdownBeat: showdownBeatOverride }
     : protoState;
+  // Detroit 2026-10-20: full-name reveal for truncated player names.
+  // A truncated name carries a dotted-underline cue; tapping it plates the
+  // complete username at the top-center of the table (see render below).
+  // Auto-dismisses after ~2.6s and clears whenever the phase changes, so a
+  // stale plate never hangs over a new hand.
+  const [nameReveal, setNameReveal] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!nameReveal) return;
+    const t = setTimeout(() => setNameReveal(null), 2600);
+    return () => clearTimeout(t);
+  }, [nameReveal]);
+  useEffect(() => { setNameReveal(null); }, [state.phase]);
   // Detroit 2026-10-15: coin fountain values computed once per celebration —
   // Math.random() during render teleported coins on every re-render.
   const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
@@ -935,10 +947,24 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         without widening the pod (widening would push
                         the side pods back off the safe width). */}
                     <div className="flex flex-col items-center mt-1" style={{ maxWidth: '100px' }}>
+                      {/* Detroit 2026-10-20: intentional truncation — when the
+                          name overflows (~16 chars at this size), it truncates
+                          with an ellipsis AND a dotted-underline cue; tapping
+                          it plates the full username at the top of the table.
+                          The FOLD/DC plates stay on their own line below,
+                          untouched by the reveal. */}
                       <span
                         className="text-[10px] leading-tight font-mono text-white/85 truncate"
-                        style={{ maxWidth: '100px' }}
+                        style={{
+                          maxWidth: '100px',
+                          ...(p.name.length > 16
+                            ? { textDecoration: 'underline dotted rgba(255,255,255,0.5)', textUnderlineOffset: '2px', cursor: 'pointer' }
+                            : {}),
+                        }}
                         title={p.name}
+                        onClick={p.name.length > 16
+                          ? () => setNameReveal(r => (r?.id === p.id ? null : { id: p.id, name: p.name }))
+                          : undefined}
                       >
                         {p.name}
                       </span>
@@ -1064,6 +1090,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         >
                           <PlayingCard
                             card={card}
+                            variant="premium"
                             className="!w-[56px] !h-[80px]"
                           />
                         </div>
@@ -1083,6 +1110,35 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
             </div>
           );
         })}
+
+        {/* Full-name plate — Detroit 2026-10-20: tapping a truncated name
+            (pod or showdown-comparison row) shows the complete username
+            here, top-center, where it can never clip off a screen edge the
+            way a pod-anchored bubble would at 360px. Pointer-events none:
+            it never blocks a game tap. */}
+        <AnimatePresence>
+          {nameReveal && (
+            <motion.div
+              key={nameReveal.id}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="absolute left-1/2 top-[6px] z-50 pointer-events-none"
+              style={{
+                x: '-50%',
+                background: 'rgba(10,5,25,0.92)',
+                border: '1px solid rgba(201,162,39,0.55)',
+                borderRadius: 999,
+                padding: '3px 12px',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span className="text-[11px] font-mono font-bold text-white/95">{nameReveal.name}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Detroit 2026-10-19 refinement: two-beat winner-first reveal.
             Beat 1 ('winner'): CINEMATIC SPOTLIGHT — the winner alone, large
@@ -1124,7 +1180,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                     transition={{ delay: noMotion ? 0 : 0.12 + ci * 0.1, duration: 0.3, ease: 'easeOut' }}
                     style={{ boxShadow: '0 0 18px rgba(240,184,41,0.45)', borderRadius: 7 }}
                   >
-                    <PlayingCard card={card} className="!w-[46px] !h-[66px]" />
+                    <PlayingCard card={card} variant="premium" className="!w-[46px] !h-[66px]" />
                   </motion.div>
                 ))}
               </div>
@@ -1180,7 +1236,16 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   }}
                 >
                   <div className="flex flex-col items-start shrink-0" style={{ minWidth: '58px', maxWidth: '68px' }}>
-                    <span className="text-[10px] font-mono font-bold text-white/90 truncate w-full" title={p.name}>
+                    <span
+                      className="text-[10px] font-mono font-bold text-white/90 truncate w-full"
+                      title={p.name}
+                      style={p.name.length > 11
+                        ? { textDecoration: 'underline dotted rgba(255,255,255,0.5)', textUnderlineOffset: '2px', cursor: 'pointer' }
+                        : undefined}
+                      onClick={p.name.length > 11
+                        ? () => setNameReveal(r => (r?.id === p.id ? null : { id: p.id, name: p.name }))
+                        : undefined}
+                    >
                       {p.name}{p.isHero ? ' (YOU)' : ''}
                     </span>
                     {p.isWinner && (
@@ -1189,7 +1254,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   </div>
                   <div className="flex gap-1 flex-1 justify-center">
                     {p.cards.filter(c => !c.isHidden).map((card, ci) => (
-                      <PlayingCard key={ci} card={card} className="!w-[32px] !h-[46px]" />
+                      <PlayingCard key={ci} card={card} variant="premium" density="mini" className="!w-[32px] !h-[46px]" />
                     ))}
                   </div>
                 </div>
