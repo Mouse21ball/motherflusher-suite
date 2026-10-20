@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useCelebrationMotion } from '../../lib/celebrationPreferences';
 import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
@@ -78,6 +79,9 @@ interface ProtoState {
   flights: Flight[];
   rake: RakeState;
   celebration: CelebrationState;
+  showdownBeat: 'winner' | 'all' | null;
+  setShowdownBeat: (beat: 'winner' | 'all' | null) => void;
+  motionMode: 'full' | 'reduced' | 'off';
 }
 
 const DEALER_POS = { x: 50, y: 4 };
@@ -99,8 +103,8 @@ function seatPosition(index: number): { x: number; y: number } {
   const spots = [
     { x: 50, y: 14 }, // Opp 1: top-center (dealer) — top rail
     { x: 16, y: 34 }, // Opp 2: mid-left — left rail
-    { x: 84, y: 34 }, // Opp 3: mid-right — right rail
-    { x: 84, y: 54 }, // Opp 4: lower-right — right rail, clear of pot
+    { x: 80, y: 34 }, // Opp 3: mid-right — right rail
+    { x: 80, y: 54 }, // Opp 4: lower-right — nudged inward for safe area
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -128,6 +132,12 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
   const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+  // Detroit 2026-10-19 Stage 3: two-beat winner-first reveal.
+  // 'winner' = only the winner's hand revealed; 'all' = all non-folded hands.
+  const [showdownBeat, setShowdownBeat] = useState<'winner' | 'all' | null>(null);
+  // Guard against duplicate celebrations if the effect re-fires for the same hand.
+  const celebrationHandId = useRef<number | undefined>(undefined);
+  const motionMode = useCelebrationMotion();
   // Staging: how many cards have visually landed per player this hand.
   // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
   const [landed, setLanded] = useState<Record<string, number>>({});
@@ -268,37 +278,73 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // SHOWDOWN → rake, celebration with winning hand (prototype: 2500ms, 3700ms, 9200ms)
+      // Detroit 2026-10-19 Stage 3: two-beat winner-first reveal with complete
+      // lifecycle (reveal → celebration → return). Beat 1 shows the winner's
+      // hand first; Beat 2 reveals all non-folded hands (or via SHOW ALL HANDS).
+      // Guarded by handId — re-fires for the same hand never double-celebrate.
+      // Motion: full = rake + coins + celebration; reduced = banner only;
+      // off = static panel, no timers.
       if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
-        const winner = liveState.players.find(p => (p as any).isWinner);
-        if (winner) {
-          const isHero = winner.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === winner.id) + 1;
-          // Evaluate the winning hand for display
-          let handLabel = '';
-          let winCards: { rank: string; suit: string }[] = [];
-          try {
-            const cards = (winner.cards ?? []).map(c => ({ ...c, isHidden: false }));
-            winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
-            handLabel = evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
-          } catch { /* evaluation failed, show cards without label */ }
-          later(2500, () => {
-            setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
-            sfx.chipRake();
-          });
-          later(3700, () => {
-            setRake({ active: false, winnerIndex: -1, amount: 0 });
-            setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
-            sfx.bigWin();
-          });
-          later(9200, () => {
-            setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
-          });
+        if (liveState.handId !== celebrationHandId.current) {
+          celebrationHandId.current = liveState.handId;
+          const winner = liveState.players.find(p => (p as any).isWinner);
+          if (winner) {
+            const isHero = winner.id === myId;
+            const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === winner.id) + 1;
+            // Evaluate the winning hand for display
+            let handLabel = '';
+            let winCards: { rank: string; suit: string }[] = [];
+            try {
+              const cards = (winner.cards ?? []).map(c => ({ ...c, isHidden: false }));
+              winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
+              handLabel = evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
+            } catch { /* evaluation failed, show cards without label */ }
+            // Beat 1: winner-first reveal (immediate, all motion modes)
+            setShowdownBeat('winner');
+            if (motionMode === 'off') {
+              // Static: no rake, no celebration timers — panel shows everything.
+              setShowdownBeat('all');
+            } else if (motionMode === 'reduced') {
+              // Reduced: no rake flight, no coins — short banner beat.
+              later(1200, () => setShowdownBeat('all'));
+              later(1800, () => {
+                setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
+              });
+              later(5000, () => {
+                setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+                setShowdownBeat(null);
+              });
+            } else {
+              // Full: rake → celebration → return (prototype timings).
+              later(2500, () => {
+                setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
+                sfx.chipRake();
+              });
+              later(3700, () => {
+                setRake({ active: false, winnerIndex: -1, amount: 0 });
+                setShowdownBeat('all');
+                setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
+                sfx.bigWin();
+              });
+              later(9200, () => {
+                setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+                setShowdownBeat(null);
+              });
+            }
+          }
         }
+      }
+      // Leaving SHOWDOWN: return to gameplay — clear all showdown state so a
+      // stale celebration can never linger or collide with the next hand.
+      if (curr.phase !== 'SHOWDOWN' && prev.phase === 'SHOWDOWN') {
+        timers.current.forEach(clearTimeout); timers.current = [];
+        setRake({ active: false, winnerIndex: -1, amount: 0 });
+        setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+        setShowdownBeat(null);
       }
     }
     prevRef.current = curr;
-  }, [liveState, myId, reduced, later, addFlight, removeFlight]);
+  }, [liveState, myId, reduced, motionMode, later, addFlight, removeFlight]);
 
   // Map live players to proto shape (hero first)
   // Detroit 2026-10-19: support 5 seats (hero + 4 opponents), was hard-coded to 3
@@ -339,6 +385,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     flights,
     rake,
     celebration,
+    showdownBeat,
+    setShowdownBeat,
+    motionMode,
   };
 }
 
@@ -497,6 +546,19 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
       backgroundRepeat: 'no-repeat',
     }}>
       {/* Detroit 2026-10-16: dark overlay removed for uniformity with Box Chevy */}
+      {/* Detroit 2026-10-19 Stage 4: cinematic lighting grade — unifies the
+          background, felt, and UI in the same dusk light. Vignette focuses the
+          table; warm gold wash from top (setting sun); cool purple lift at the
+          bottom. All CSS gradients, no blur filters (mobile perf). */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(10,4,24,0.42) 100%),
+            linear-gradient(to bottom, rgba(255,190,90,0.06) 0%, transparent 28%, transparent 72%, rgba(40,16,80,0.10) 100%)
+          `,
+        }}
+      />
       {/* Table — fixed camera (UNO keeps it still, cards do the dancing) — fills parent <main> */}
       <div
         className="flex-1 relative"
@@ -504,27 +566,41 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           perspective: '1200px', // UNO-style 3D depth (Detroit 2026-10-13)
         }}
       >
-        {/* Detroit 2026-10-19: wide purple-and-gold oval table — anchors all seats.
-            Wide and short: opponents ring the edge, pot at center, hero below.
-            v2: widened (2% margins), shortened (bottom 32%) per review. */}
+        {/* Detroit 2026-10-19 Stage 4: cinematic dusk lighting grade.
+            Warm gold from top (setting sun), cool purple from below.
+            pointer-events none, low opacity, no blur (mobile perf). */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,180,80,0.10) 0%, transparent 35%, transparent 65%, rgba(76,42,138,0.14) 100%)',
+            zIndex: 1,
+          }}
+        />
+        {/* Detroit 2026-10-19: premium casino table — restrained gold, subtle felt,
+            dimensional lighting. All CSS, no blur filters (mobile perf).
+            v3: refined felt texture, thinner rail, top-light/bottom-shadow. */}
         <div
           className="absolute pointer-events-none"
           style={{
             left: '2%', right: '2%', top: '8%', bottom: '32%',
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 50% 35%, #4c2a8a 0%, #3b1f6e 45%, #2a154f 100%)',
-            border: '6px solid transparent',
-            backgroundClip: 'padding-box',
-            boxShadow: '0 0 0 6px rgba(201,162,39,0.85), 0 0 40px rgba(201,162,39,0.25), inset 0 0 60px rgba(0,0,0,0.5)',
-          }}
-        />
-        {/* Inner gold trim line */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: '5%', right: '5%', top: '11.5%', bottom: '35.5%',
-            borderRadius: '50%',
-            border: '2px solid rgba(201,162,39,0.35)',
+            // Layered felt: base purple + subtle woven texture via repeating gradient
+            background: `
+              repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+              repeating-linear-gradient(-45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px),
+              radial-gradient(ellipse at 50% 30%, #553399 0%, #412673 40%, #2e1a56 70%, #221240 100%)
+            `,
+            // Dimensional: light from top (dusk sun), shadow at bottom
+            boxShadow: `
+              inset 0 2px 12px rgba(255,220,150,0.12),
+              inset 0 -18px 32px rgba(0,0,0,0.45),
+              inset 0 0 60px rgba(0,0,0,0.3),
+              0 4px 24px rgba(0,0,0,0.5)
+            `,
+            // Restrained gold rail: thin solid + inner pinline
+            border: '3px solid rgba(201,162,39,0.9)',
+            outline: '1px solid rgba(120,90,20,0.6)',
+            outlineOffset: '3px',
           }}
         />
 
@@ -789,9 +865,10 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           );
         })}
 
-        {/* Detroit 2026-10-19: showdown hand-reveal overlay — compact focused panel.
-            v2: reduced footprint (top 12%, max 40% height), smaller cards (32×46)
-            still readable. Folded players excluded — cards never revealed. */}
+        {/* Detroit 2026-10-19 Stage 3: two-beat winner-first reveal.
+            Beat 1 ('winner'): only the winner's hand revealed, others masked.
+            Beat 2 ('all'): all non-folded hands revealed — via timer or the
+            SHOW ALL HANDS button. Folded players never revealed (masking). */}
         {state.phase === 'showdown' && (
           <motion.div
             className="absolute inset-x-3 top-[12%] z-30 rounded-xl p-2"
@@ -811,7 +888,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               SHOWDOWN — ${state.pot.toLocaleString()}
             </div>
             <div className="flex flex-col gap-1.5">
-              {state.players.filter(p => !p.folded).map((p) => (
+              {state.players.filter(p => !p.folded && (state.showdownBeat !== 'winner' || p.isWinner)).map((p) => (
                 <div
                   key={`reveal-${p.id}`}
                   className="flex items-center gap-2 rounded-lg px-2 py-1"
@@ -836,6 +913,22 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                 </div>
               ))}
             </div>
+            {state.showdownBeat === 'winner' && (
+              <button
+                onClick={() => state.setShowdownBeat('all')}
+                data-testid="button-show-all-hands"
+                style={{
+                  width: '100%', marginTop: 8, padding: '10px 8px', borderRadius: 12,
+                  fontSize: 12, fontFamily: 'monospace', fontWeight: 700,
+                  letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer',
+                  background: 'rgba(20,14,0,0.9)', color: 'rgba(255,255,255,0.85)',
+                  border: '1px solid rgba(201,162,39,0.3)',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                SHOW ALL HANDS
+              </button>
+            )}
           </motion.div>
         )}
 
@@ -850,8 +943,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               transition={{ duration: 0.3 }}
               style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.15) 0%, transparent 70%)' }}
             >
-              {/* Coin fountain particles — values memoized so re-renders don't teleport coins */}
-              {coins.map((coin, i) => {
+              {/* Coin fountain particles — full motion only (Detroit 2026-10-19 Stage 3).
+                  Reduced/off skip the particle storm; the banner still shows. */}
+              {state.motionMode === 'full' && coins.map((coin, i) => {
                 return (
                   <motion.div
                     key={`coin-${i}`}

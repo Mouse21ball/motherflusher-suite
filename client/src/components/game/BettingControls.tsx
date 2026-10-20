@@ -22,18 +22,23 @@ interface BettingControlsProps {
 
 const buttonStyle: React.CSSProperties = {
   minWidth: 0,
-  minHeight: 44,
-  padding: '6px 4px',
-  borderRadius: 10,
+  minHeight: 48,
+  padding: '14px 8px',
+  borderRadius: 12,
   border: 'none',
-  background: 'rgba(45,27,105,.55)',
-  backdropFilter: 'blur(8px)',
-  color: '#FDE68A',
+  // Detroit 2026-10-19 Stage 2: unified with BadugiActionBar — gold primary base.
+  // Individual buttons override background for secondary/danger variants.
+  background: 'linear-gradient(135deg, #7a5500, #C9A227)',
+  color: '#fff',
   fontFamily: 'monospace',
-  fontSize: 13,
-  fontWeight: 800,
-  letterSpacing: '0.04em',
+  fontSize: 14,
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
   cursor: 'pointer',
+  boxShadow: '0 0 22px rgba(201,162,39,0.5), 0 4px 14px rgba(0,0,0,0.4)',
+  transition: 'opacity 0.15s, transform 0.1s',
+  outline: 'none',
   WebkitTapHighlightColor: 'transparent',
 };
 
@@ -97,18 +102,22 @@ export function BettingControls({
       </div>
 
       {/* One-line action row: FOLD | CHECK/CALL | RAISE | ALL IN */}
+      {/* Detroit 2026-10-19 Stage 2: unified hierarchy — CHECK/CALL primary (gold),
+          RAISE secondary (dark+gold border), FOLD muted danger, ALL IN danger. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
-        <button type="button" style={actionStyle} disabled={!canAct}
+        <button type="button"
+          style={{ ...actionStyle, background: 'rgba(20,14,0,0.9)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(201,162,39,0.3)', boxShadow: 'none' }}
+          disabled={!canAct}
           onClick={canAct ? () => onAction('fold') : undefined} data-testid="button-fold">
           FOLD
         </button>
-        <button type="button" style={{ ...actionStyle, color: '#fca5a5' }} disabled={!canAct}
+        <button type="button" style={actionStyle} disabled={!canAct}
           onClick={canAct ? () => onAction(getCheckCallAction(context)) : undefined}
           data-testid={context.callAmount === 0 ? 'button-check' : 'button-call'}>
           {callLabel}
         </button>
         <button type="button"
-          style={{ ...actionStyle, background: 'linear-gradient(135deg,#7a1010,#dc2626)', color: '#fff' }}
+          style={{ ...actionStyle, background: 'rgba(20,14,0,0.9)', color: '#FDE68A', border: '1px solid rgba(201,162,39,0.6)', boxShadow: '0 0 12px rgba(201,162,39,0.25)' }}
           disabled={!canAct} onClick={canAct ? () => setRaiseOpen(v => !v) : undefined}
           data-testid="button-raise-toggle">
           RAISE
