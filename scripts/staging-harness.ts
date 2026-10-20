@@ -295,8 +295,20 @@ async function scenarioA(n = 5) {
   const pre = await c0.until(s => s.phase === 'ANTE', 30000, 'hand start');
   const H = pre.handId;
   const total0 = sumChips(pre) + (pre.pot ?? 0);
-  const p2dealt = await c1.until(s => s.handId === H && (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
-  const p2Before = (c1.me(p2dealt)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
+  // Buffer scan, not latest(): the hand races ahead between polls, but every
+  // snapshot persists in c.states — the dealt state is in there even if it
+  // was never "latest" at a poll instant. Sampling failure must not abort
+  // the scenario: A3 records its own verdict.
+  let p2Before: string[] = [];
+  {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline && p2Before.length !== 4) {
+      const hit = c1.states.find(s => s.handId === H && (c1.me(s)?.cards?.length ?? 0) === 4);
+      if (hit) p2Before = (c1.me(hit)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
+      else await sleep(150);
+    }
+    if (p2Before.length !== 4) console.log(`  (A3 sampling: no dealt state for hand ${H} in P2 buffer of ${c1.states.length} states; handIds present: ${[...new Set(c1.states.map(s => s.handId))].join(',')})`);
+  }
   const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN' && s.handId === H, 150000, 'hand showdown').catch(() => null);
   if (!sdFirst) { record(A1, 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
   await sleep(2500); // let payout/winner flags settle
