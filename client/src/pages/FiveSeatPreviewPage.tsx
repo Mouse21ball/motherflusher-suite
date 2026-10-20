@@ -120,9 +120,13 @@ function buildMockState(phase: string): GameState {
   const isShowdown = phase === "showdown";
   const players = buildMockPlayers(isShowdown);
   const winnerId = isShowdown ? computeWinner(players) : null;
+  // Detroit 2026-10-19: engine phase format (DRAW_2/BET_2) — the table's
+  // mapPhase falls back to 'ante' for anything else, which made the status
+  // text wrong ("Ante up" during draw/bet phases).
+  const enginePhase = phase === "draw2" ? "DRAW_2" : phase === "bet2" ? "BET_2" : "SHOWDOWN";
 
   return {
-    phase: phase.toUpperCase(),
+    phase: enginePhase,
     pot: isShowdown ? 5200 : 2450,
     currentBet: 100,
     minBet: 50,
@@ -149,6 +153,9 @@ export default function FiveSeatPreviewPage() {
   const isShowdown = phase === "showdown";
   const noop = () => {};
   const barPhase = phase === "draw2" ? "DRAW_2" : phase === "bet2" ? "BET_2" : phase.toUpperCase();
+  // ?beat=winner / ?beat=all pins the showdown beat for screenshots
+  const beatParam = params.get("beat");
+  const beatOverride = beatParam === "winner" || beatParam === "all" ? beatParam : undefined;
 
   return (
     <div style={{
@@ -177,6 +184,7 @@ export default function FiveSeatPreviewPage() {
           isDrawPhase={isDrawPhase}
           heroAvatarSrc={null}
           heroFrameSrc={null}
+          showdownBeatOverride={beatOverride}
         />
       </div>
       {/* Detroit 2026-10-19: action bar reserved — flex-shrink 0, always visible */}
