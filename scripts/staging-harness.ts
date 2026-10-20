@@ -95,6 +95,7 @@ class Client {
     const tJson: any = await tRes.json().catch(() => ({}));
     if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}: ${JSON.stringify(tJson).slice(0, 200)}`);
     const sessionUUID = randomUUID();
+    (this as any).sessionUUID = sessionUUID;
     const ws = new WebSocket(`${WS_BASE}?ticket=${encodeURIComponent(tJson.ticket)}`);
     this.ws = ws;
     const opened = new Promise<void>((resolve, reject) => {
@@ -141,6 +142,16 @@ class Client {
     this.lastActionAt = Date.now();
   }
   disconnect() { try { this.ws?.close(); } catch {} this.ws = null; }
+
+  /** Formal table leave (rooms-level): releases the seat and clears the
+   * player's active-table record so they may join a different table. */
+  async leave(tableId: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    try {
+      this.ws.send(JSON.stringify({ type: 'leave', tableId, playerId: (this as any).sessionUUID }));
+      await sleep(800);
+    } catch {}
+  }
 
   async until(pred: (s: any) => boolean, ms = 20000, desc = ''): Promise<any> {
     const deadline = Date.now() + ms;
@@ -647,118 +658,175 @@ async function scenarioWire() {
 
 async function scenarioPots() {
   // Deliberately constructed side pot with unequal all-in commitments.
-  // SHORT buys in for 150, antes 25, then calls a 200 bet all-in (total
-  // contribution 150). Both big stacks call 200 (contribution 225 each).
-  // Expected contributions 150/225/225 -> tiers [450 (all three),
-  // 150 (big stacks)], pot 600, rake 30, net 570.
-  // Verifies: (1) the sidePots DISPLAYED on live snapshots equals the
-  // payout helper's tiers for that exact state; (2) the tier structure
-  // (count + eligible sets) is identical in the net-of-rake payout
-  // computation; (3) replaying the production resolver on the
-  // pre-resolution snapshot predicts every settled chip count EXACTLY.
+  // SHORT requests a 150 buy-in, which the server clamps to the table
+  // minimum (1000) in ensureBadugiSeatFunded/clampBuyIn — verified in
+  // code and in run MVGVDQ5G (SHORT seated at 1000). Big stacks take the
+  // default. Choreography (raise payload = desired total round bet):
+  //   BET_1: big1 raises to 200, everyone calls -> round bets 200 each.
+  //   BET_2: big1 raises to SHORT's all-in call amount (short.bet +
+  //          short.chips from the live snapshot); SHORT calls all-in;
+  //          big2 calls -> SHORT has committed his whole stack S,
+  //          bigs have committed S each in total.
+  //   BET_3: (after DECLARE) big1 bets 200, big2 calls, SHORT is all-in
+  //          and skipped -> bigs end at S+200.
+  // Expected human totalBets: SHORT = S; each big = S+200 (or S if that
+  // big was auto-folded at DECLARE — engine rule: no valid Badugi at
+  // declare entry = auto-fold — in which case his BET_3 bet never
+  // happens and the tiers simply reflect it; every check below is
+  // computed from the captured state, so it stays exact).
+  // A hand QUALIFIES only if it reaches a contested resolution: the
+  // first SHOWDOWN frame must be pre-resolution (pot > 0, no winner).
+  // A fold-win / declare-auto-fold hand produces a single already-
+  // settled frame — that is the game's designed uncontested path, not
+  // a settlement failure — so the attempt is discarded and retried on
+  // a fresh table (formal leave first, clearing the cross-table
+  // guard), up to 8 attempts. SHORT must be active with chips === 0
+  // in the pre-resolution frame and the frame must carry >= 2 tiers.
+  // Checks, all from the pre-resolution frame: (1) displayed sidePots
+  // deep-equals sidePotsForShowdown for that exact state; (2) tier
+  // count + eligible sets survive into the net-of-rake computation;
+  // (3) replaying BadugiMode.resolveShowdown on the pre-resolution
+  // players predicts every settled chip count EXACTLY.
   // No payout rules are touched — this only measures.
-  const t = `SP${R4}`;
   const short = new Client(`T${R4}SHORT`);
   const big1 = new Client(`T${R4}BIG1`);
   const big2 = new Client(`T${R4}BIG2`);
   for (const c of [short, big1, big2]) await c.bootstrap();
-  const rec = await createRecord(t, short.profileId, 4, false);
-  if (rec.status !== 201) console.log(`  (table record create -> ${rec.status} ${JSON.stringify(rec.body).slice(0, 120)})`);
-  await short.connect(t, false, 150);
-  await big1.connect(t);
-  await big2.connect(t);
-  const clients = [short, big1, big2];
-  let raised = false;
-  let started = false;
-  const actedKey = new Set<string>();
-  const callOrCheck = (c: Client, s: any, me: any) => {
-    if ((s.currentBet ?? 0) > (me.bet ?? 0)) c.action('call'); else c.action('check');
-  };
-  const loops = clients.map(c => (async () => {
-    while (true) {
-      const s = c.latest(); const me = s ? c.me(s) : null;
-      if (s && s.phase === 'SHOWDOWN') return;
-      if (s && me) {
-        if (s.phase === 'WAITING' && c === short && !started) { started = true; c.action('start'); }
-        else if (s.activePlayerId === c.seat) {
-          const key = `${s.handId}:${s.phase}:${c.seat}:${s.currentBet}`;
-          if (!actedKey.has(key)) {
-            actedKey.add(key);
-            if (s.phase === 'ANTE') c.action('ante');
-            else if (s.phase.startsWith('DRAW')) c.action('draw', badugiDiscards(me.cards ?? []));
-            else if (s.phase === 'BET_1') {
-              if (c === big1 && !raised) { raised = true; c.action('raise', 200); }
-              else callOrCheck(c, s, me);
+  const endings: string[] = [];
+
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const t = `SP${R4.slice(0, 3)}${attempt}`;
+    const rec = await createRecord(t, short.profileId, 4, false);
+    if (rec.status !== 201) console.log(`  (attempt ${attempt}: table record create -> ${rec.status})`);
+    const bufStart = short.states.length;
+    try {
+      await short.connect(t, false, 150);
+      await big1.connect(t);
+      await big2.connect(t);
+    } catch (e: any) {
+      endings.push(`attempt ${attempt}: connect failed (${String(e?.message ?? e).slice(0, 80)})`);
+      for (const c of [short, big1, big2]) c.disconnect();
+      await sleep(2000);
+      continue;
+    }
+    const clients = [short, big1, big2];
+    let raised1 = false;
+    let raised2 = false;
+    let bet3 = false;
+    let started = false;
+    const actedKey = new Set<string>();
+    const callOrCheck = (c: Client, s: any, me: any) => {
+      if ((s.currentBet ?? 0) > (me.bet ?? 0)) c.action('call'); else c.action('check');
+    };
+    const loops = clients.map(c => (async () => {
+      while (true) {
+        const s = c.latest(); const me = s ? c.me(s) : null;
+        if (s && s.phase === 'SHOWDOWN') return;
+        if (s && me) {
+          if (s.phase === 'WAITING' && c === short && !started) { started = true; c.action('start'); }
+          else if (s.activePlayerId === c.seat) {
+            const key = `${attempt}:${s.phase}:${c.seat}:${s.currentBet}:${me.chips}`;
+            if (!actedKey.has(key)) {
+              if (s.phase === 'ANTE') { actedKey.add(key); c.action('ante'); }
+              else if (s.phase.startsWith('DRAW')) { actedKey.add(key); c.action('draw', badugiDiscards(me.cards ?? [])); }
+              else if (s.phase === 'BET_1') {
+                if (c === big1 && !raised1) { raised1 = true; actedKey.add(key); c.action('raise', 200); }
+                else { actedKey.add(key); callOrCheck(c, s, me); }
+              } else if (s.phase === 'BET_2') {
+                if (c === big1 && !raised2) {
+                  const sRow = s.players.find((p: any) => p.id === short.seat);
+                  const target = (sRow?.bet ?? 0) + (sRow?.chips ?? 0);
+                  if (target > (s.currentBet ?? 0)) { raised2 = true; actedKey.add(key); c.action('raise', target); }
+                  else { actedKey.add(key); callOrCheck(c, s, me); }
+                } else { actedKey.add(key); callOrCheck(c, s, me); }
+              } else if (s.phase === 'BET_3') {
+                if (c === big1 && !bet3 && (s.currentBet ?? 0) === 0) { bet3 = true; actedKey.add(key); c.action('raise', 200); }
+                else { actedKey.add(key); callOrCheck(c, s, me); }
+              } else if (s.phase.startsWith('BET')) { actedKey.add(key); callOrCheck(c, s, me); }
+              else if (s.phase === 'DECLARE') { actedKey.add(key); c.action('declare', { declaration: 'LOW' }); }
             }
-            else if (s.phase.startsWith('BET')) callOrCheck(c, s, me);
-            else if (s.phase === 'DECLARE') c.action('declare', { declaration: 'LOW' });
           }
         }
+        await sleep(150);
       }
-      await sleep(150);
+    })());
+    const finished = await Promise.race([
+      Promise.all(loops).then(() => true),
+      sleep(150000).then(() => false),
+    ]);
+    const buf = () => short.states.slice(bufStart);
+    const leaveAll = async () => { for (const c of clients) { await c.leave(t); c.disconnect(); } await sleep(500); };
+    if (!finished) {
+      endings.push(`attempt ${attempt}: hand did not reach SHOWDOWN`);
+      await leaveAll();
+      continue;
     }
-  })());
-  const finished = await Promise.race([
-    Promise.all(loops).then(() => true),
-    sleep(240000).then(() => false),
-  ]);
-  if (!finished) {
-    const s = short.latest();
-    record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
-      `hand did not reach SHOWDOWN (phase=${s?.phase} totalBets=${(s?.players ?? []).map((p: any) => p.totalBet).join('/')})`);
-    clients.forEach(c => c.disconnect());
+    const preRes = buf().find(s => s.phase === 'SHOWDOWN' && s.pot > 0 && !s.players.some((p: any) => p.isWinner));
+    if (!preRes) {
+      endings.push(`attempt ${attempt}: uncontested ending (fold-win / declare auto-fold)`);
+      await leaveAll();
+      continue;
+    }
+    let settled: any = null;
+    {
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline && !settled) {
+        const b = buf();
+        const idx = b.indexOf(preRes);
+        settled = b.slice(idx + 1).find(s => s.phase === 'SHOWDOWN' && (s.pot !== preRes.pot || s.players.some((p: any) => p.isWinner))) ?? null;
+        if (!settled) await sleep(250);
+      }
+    }
+    if (!settled) {
+      const b = buf();
+      const showdowns = b.filter(s => s.phase === 'SHOWDOWN')
+        .map(s => `pot=${s.pot} win=${s.players.some((p: any) => p.isWinner)} chips=${s.players.map((p: any) => p.chips).join('/')}`);
+      record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
+        `attempt ${attempt}: contested showdown captured but settlement was never broadcast; showdownStates=${showdowns.length} [${showdowns.join(' ; ')}]; prior attempts: ${endings.join(' | ') || 'none'}`);
+      await leaveAll();
+      return;
+    }
+    const shortRow = preRes.players.find((p: any) => p.id === short.seat);
+    const tiers = Array.isArray(preRes.sidePots) ? preRes.sidePots : [];
+    const activeCount = preRes.players.filter((p: any) => p.status === 'active').length;
+    if (!shortRow || shortRow.status !== 'active' || shortRow.chips !== 0 || tiers.length < 2 || activeCount < 2) {
+      endings.push(`attempt ${attempt}: contested but shape off (shortStatus=${shortRow?.status} shortChips=${shortRow?.chips} tiers=${tiers.length} active=${activeCount})`);
+      await leaveAll();
+      continue;
+    }
+    // Qualifying hand — run the three checks on the pre-resolution state.
+    const wire = (ts: any[]) => ts.map(x => ({ amount: x.amount, eligiblePlayerIds: x.eligibleIds ?? x.eligiblePlayerIds }));
+    const nonFolded = (ps: any[]) => ps.filter(p => p.status !== 'folded').map(p => p.id);
+    const displayExpected = wire(sidePotsForShowdown(preRes.players, preRes.pot, nonFolded(preRes.players)));
+    const displayActual = wire(preRes.sidePots);
+    const displayOk = JSON.stringify(displayActual) === JSON.stringify(displayExpected);
+    const S = shortRow.totalBet;
+    const humans = preRes.players.filter((p: any) => p.presence === 'human');
+    const expectedBets = humans.map((p: any) => p.id === short.seat ? S : (p.status === 'active' ? S + 200 : S)).sort((a: number, b: number) => a - b);
+    const totalBets = humans.map((p: any) => p.totalBet).sort((a: number, b: number) => a - b);
+    const potSum = preRes.players.reduce((a: number, p: any) => a + (p.totalBet ?? 0), 0);
+    const contribOk = JSON.stringify(totalBets) === JSON.stringify(expectedBets) && preRes.pot === potSum && S > 0;
+    const gross = preRes.pot;
+    const winnerPot = gross - Math.floor(gross * 0.05);
+    const netTiers = wire(sidePotsForShowdown(preRes.players, winnerPot, nonFolded(preRes.players)));
+    const sets = (ts: any[]) => ts.map(x => [...x.eligiblePlayerIds].sort().join('+')).join(' | ');
+    const structureOk = displayExpected.length === netTiers.length && sets(displayExpected) === sets(netTiers);
+    const replay = BadugiMode.resolveShowdown(JSON.parse(JSON.stringify(preRes.players)), winnerPot, '__server__');
+    const chipMismatches = replay.players
+      .map((rp: any) => {
+        const sp = settled.players.find((p: any) => p.id === rp.id);
+        return sp && sp.chips !== rp.chips ? `${rp.id}: expected ${rp.chips} got ${sp.chips}` : null;
+      })
+      .filter(Boolean);
+    const payoutOk = chipMismatches.length === 0;
+    const ok = contribOk && displayOk && structureOk && payoutOk;
+    record('POTS side-pot display vs payout (unequal all-in)', ok ? 'PASS' : 'FAIL',
+      `attempt ${attempt}; contributions=${totalBets.join('/')} expected=${expectedBets.join('/')} pot=${gross} contribOk=${contribOk}; display tiers=${JSON.stringify(displayActual)} displayOk=${displayOk}; net tiers=${JSON.stringify(netTiers)} structureOk=${structureOk}; settled chips=${settled.players.map((p: any) => `${p.id}:${p.chips}`).join(' ')} payoutOk=${payoutOk}${chipMismatches.length ? ' mismatches: ' + chipMismatches.join('; ') : ''}; rolledOverAfter=${settled.pot}; prior attempts: ${endings.join(' | ') || 'none'}`);
+    await leaveAll();
     return;
   }
-  // Settlement: first SHOWDOWN state is pre-resolution; settlement lands
-  // ~2.5s later (pot changes and/or winners flagged).
-  const buf = short.states;
-  const preRes = buf.find(s => s.phase === 'SHOWDOWN');
-  let settled: any = null;
-  {
-    const deadline = Date.now() + 40000;
-    while (Date.now() < deadline && !settled) {
-      const idx = buf.indexOf(preRes);
-      settled = buf.slice(idx + 1).find(s => s.phase === 'SHOWDOWN' && (s.pot !== preRes.pot || s.players.some((p: any) => p.isWinner))) ?? null;
-      if (!settled) await sleep(250);
-    }
-  }
-  const bet1Final = [...buf].reverse().find(s => s.phase === 'BET_1');
-  if (!preRes || !settled || !bet1Final) {
-    const showdowns = buf.filter(s => s.phase === 'SHOWDOWN')
-      .map(s => `pot=${s.pot} win=${s.players.some((p: any) => p.isWinner)} chips=${s.players.map((p: any) => p.chips).join('/')}`);
-    const last = short.latest();
-    record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
-      `capture incomplete: bet1Final=${!!bet1Final} preRes=${!!preRes} settled=${!!settled}; states=${buf.length} showdownStates=${showdowns.length} [${showdowns.join(' ; ')}]; lastPhase=${last?.phase} lastPot=${last?.pot} lastMsgs=${(last?.messages ?? []).map((m: any) => `${m.isResolution ? 'R:' : ''}${m.text}`).join(' / ')}`);
-    clients.forEach(c => c.disconnect());
-    return;
-  }
-  const wire = (tiers: any[]) => tiers.map(x => ({ amount: x.amount, eligiblePlayerIds: x.eligibleIds ?? x.eligiblePlayerIds }));
-  const nonFolded = (ps: any[]) => ps.filter(p => p.status !== 'folded').map(p => p.id);
-  // (1) display == helper tiers for the captured live state
-  const displayExpected = wire(sidePotsForShowdown(bet1Final.players, bet1Final.pot, nonFolded(bet1Final.players)));
-  const displayActual = Array.isArray(bet1Final.sidePots) ? wire(bet1Final.sidePots) : null;
-  const displayOk = JSON.stringify(displayActual) === JSON.stringify(displayExpected);
-  const totalBets = bet1Final.players.map((p: any) => p.totalBet).sort((a: number, b: number) => a - b);
-  const contribOk = JSON.stringify(totalBets) === JSON.stringify([150, 225, 225]) && bet1Final.pot === 600;
-  // (2) structure survives into the net payout computation
-  const gross = preRes.pot;
-  const winnerPot = gross - Math.floor(gross * 0.05);
-  const netTiers = wire(sidePotsForShowdown(preRes.players, winnerPot, nonFolded(preRes.players)));
-  const sets = (tiers: any[]) => tiers.map(x => [...x.eligiblePlayerIds].sort().join('+')).join(' | ');
-  const structureOk = displayExpected.length === netTiers.length && sets(displayExpected) === sets(netTiers);
-  // (3) resolver replay predicts settled chips exactly
-  const replay = BadugiMode.resolveShowdown(JSON.parse(JSON.stringify(preRes.players)), winnerPot, '__server__');
-  const chipMismatches = replay.players
-    .map((rp: any) => {
-      const sp = settled.players.find((p: any) => p.id === rp.id);
-      return sp && sp.chips !== rp.chips ? `${rp.id}: expected ${rp.chips} got ${sp.chips}` : null;
-    })
-    .filter(Boolean);
-  const payoutOk = chipMismatches.length === 0;
-  const ok = contribOk && displayOk && structureOk && payoutOk;
-  record('POTS side-pot display vs payout (unequal all-in)', ok ? 'PASS' : 'FAIL',
-    `contributions=${totalBets.join('/')} pot=${bet1Final.pot} contribOk=${contribOk}; display tiers=${JSON.stringify(displayActual)} displayOk=${displayOk}; net tiers=${JSON.stringify(netTiers)} structureOk=${structureOk}; settled chips=${settled.players.map((p: any) => `${p.id}:${p.chips}`).join(' ')} payoutOk=${payoutOk}${chipMismatches.length ? ' mismatches: ' + chipMismatches.join('; ') : ''}; rolledOverAfter=${settled.pot}`);
-  clients.forEach(c => c.disconnect());
+  record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
+    `no qualifying contested side-pot hand in 8 attempts: ${endings.join(' | ')}`);
 }
 
 async function main() {
