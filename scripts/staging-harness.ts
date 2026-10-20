@@ -627,10 +627,16 @@ async function scenarioWire() {
   };
   scan(c0.raw);
   const seat1 = c1.seat;
+  const statesBeforeDc = c0.states.length;
   c1.disconnect();
-  await sleep(2000);
-  const afterStates = c0.states.slice(-5);
-  const dcSeen = afterStates.some(s => s.players.some((p: any) => p.id === seat1 && p.connected === false));
+  let dcSeen = false;
+  {
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline && !dcSeen) {
+      dcSeen = c0.states.slice(statesBeforeDc).some(s => s.players.some((p: any) => p.id === seat1 && p.connected === false));
+      if (!dcSeen) await sleep(250);
+    }
+  }
   const ok = rowsChecked > 50 && rowsOk === rowsChecked && dcSeen && spBad === 0;
   record('WIRE connected flag + sidePots shape', ok ? 'PASS' : 'FAIL',
     `player rows checked=${rowsChecked} withBooleanConnected=${rowsOk}; disconnected seat flagged in survivor's snapshots=${dcSeen}; frames carrying sidePots=${spFrames} malformed=${spBad}`);

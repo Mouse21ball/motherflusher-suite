@@ -1983,8 +1983,9 @@ export function getOrCreateBadugiTable(
 function registerWalletSpectator(table: AuthTable, sessionId: string, ws: WebSocket, name?: string) {
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
+    const specInitState = maskStateForPlayer(table.state, '__spectator__');
     ws.send(JSON.stringify({ type: 'badugi:init', playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__'), serverNow: Date.now() }));
+      state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -2122,12 +2123,13 @@ export async function addBadugiConnection(
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
     engineLog('SPECTATOR_JOIN', tableId, { count: table.spectators.size });
+    const specInitState = maskStateForPlayer(table.state, '__spectator__');
     try {
       ws.send(JSON.stringify({
         type: 'badugi:init',
         playerId: '__spectator__',
         role: 'spectator',
-        state: maskStateForPlayer(table.state, '__spectator__'),
+        state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) },
         serverNow: Date.now(),
       }));
     } catch {}
@@ -2305,11 +2307,12 @@ export async function addBadugiConnection(
 
   // Atomic init: seat assignment + masked snapshot + sessionStats in one message.
   // Client must process seat before it can correctly display cards.
+  const initState = maskStateForPlayer(table.state, seat);
   try {
     ws.send(JSON.stringify({
       type: 'badugi:init',
       playerId: seat,
-      state: maskStateForPlayer(table.state, seat),
+      state: { ...initState, players: enrichPlayersForWire(table, initState.players) },
       sessionStats: buildBadugiSessionStats(table, seat),
       crewId: table.crewId ?? null,
       serverNow: Date.now(),
@@ -2490,6 +2493,11 @@ async function removeBadugiDisconnect(tableId: string, sessionId: string, intent
     remaining: table.connections.size,
     intentional,
   });
+
+  // Notify remaining clients immediately — without this, opponents only
+  // learn of the disconnect on the next game action and presence-driven
+  // UI (the DC indicator) goes stale for up to a full turn timer.
+  broadcastState(table);
 }
 
 // ─── Per-recipient chat broadcast (respects block lists) ─────────────────────

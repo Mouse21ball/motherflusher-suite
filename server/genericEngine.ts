@@ -1683,8 +1683,9 @@ export function getOrCreateTable(
 function registerWalletSpectator(table: GenericTable, sessionId: string, ws: WebSocket, name?: string) {
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
+    const specInitState = maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer);
     ws.send(JSON.stringify({ type: 'mode:init', modeId: table.modeId, playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer), serverNow: Date.now() }));
+      state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -1837,12 +1838,13 @@ export async function addGenericConnection(
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
     engineLog('SPECTATOR_JOIN', `${modeId}:${tableId}`, { count: table.spectators.size });
     try {
+      const specInitState = maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer);
       ws.send(JSON.stringify({
         type: 'mode:init',
         playerId: '__spectator__',
         modeId,
         role: 'spectator',
-        state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
+        state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) },
         serverNow: Date.now(),
       }));
     } catch {}
@@ -2028,11 +2030,12 @@ export async function addGenericConnection(
   ) return null;
 
   try {
+    const initState = maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer);
     ws.send(JSON.stringify({
       type: 'mode:init',
       playerId: seat,
       modeId,
-      state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
+      state: { ...initState, players: enrichPlayersForWire(table, initState.players) },
       sessionStats: buildSessionStats(table, seat),
       crewId: table.crewId ?? null,
       serverNow: Date.now(),
@@ -2215,6 +2218,10 @@ async function removeGenericDisconnect(tableId: string, sessionId: string, inten
       remaining: table.connections.size,
       intentional,
     });
+    // Notify remaining clients immediately — without this, opponents only
+    // learn of the disconnect on the next game action and presence-driven
+    // UI (the DC indicator) goes stale for up to a full turn timer.
+    broadcastState(table);
     return;
   }
 }
