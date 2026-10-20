@@ -14,7 +14,8 @@
 import { WebSocket } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { evaluateBadugi } from '../shared/modes/badugi';
+import { evaluateBadugi, BadugiMode } from '../shared/modes/badugi';
+import { sidePotsForShowdown } from '../shared/engine/sidePots';
 
 const BASE = process.env.HARNESS_BASE || 'http://localhost:5000';
 if (/chainggangpoker\.com|replit\.app/.test(BASE) && !process.env.HARNESS_ALLOW_REMOTE) {
@@ -89,7 +90,7 @@ class Client {
     return { status: res.status, body: await res.json().catch(() => ({})) };
   }
 
-  async connect(tableId: string, spectate = false) {
+  async connect(tableId: string, spectate = false, buyinChips?: number) {
     const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': this.sessionToken } });
     const tJson: any = await tRes.json().catch(() => ({}));
     if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}: ${JSON.stringify(tJson).slice(0, 200)}`);
@@ -116,6 +117,7 @@ class Client {
     ws.send(JSON.stringify({
       type: 'join', tableId, modeId: 'badugi',
       ...(spectate ? { spectateOnly: true } : {}),
+      ...(buyinChips != null ? { buyinChips } : {}),
       playerId: sessionUUID, identityId: this.profileId, name: this.name, seatId: sessionUUID,
       isPrivate: true,
     }));
@@ -643,6 +645,119 @@ async function scenarioWire() {
   table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
+async function scenarioPots() {
+  // Deliberately constructed side pot with unequal all-in commitments.
+  // SHORT buys in for 150, antes 25, then calls a 200 bet all-in (total
+  // contribution 150). Both big stacks call 200 (contribution 225 each).
+  // Expected contributions 150/225/225 -> tiers [450 (all three),
+  // 150 (big stacks)], pot 600, rake 30, net 570.
+  // Verifies: (1) the sidePots DISPLAYED on live snapshots equals the
+  // payout helper's tiers for that exact state; (2) the tier structure
+  // (count + eligible sets) is identical in the net-of-rake payout
+  // computation; (3) replaying the production resolver on the
+  // pre-resolution snapshot predicts every settled chip count EXACTLY.
+  // No payout rules are touched — this only measures.
+  const t = `SP${R4}`;
+  const short = new Client(`T${R4}SHORT`);
+  const big1 = new Client(`T${R4}BIG1`);
+  const big2 = new Client(`T${R4}BIG2`);
+  for (const c of [short, big1, big2]) await c.bootstrap();
+  const rec = await createRecord(t, short.profileId, 4, false);
+  if (rec.status !== 201) console.log(`  (table record create -> ${rec.status} ${JSON.stringify(rec.body).slice(0, 120)})`);
+  await short.connect(t, false, 150);
+  await big1.connect(t);
+  await big2.connect(t);
+  const clients = [short, big1, big2];
+  let raised = false;
+  let started = false;
+  const actedKey = new Set<string>();
+  const callOrCheck = (c: Client, s: any, me: any) => {
+    if ((s.currentBet ?? 0) > (me.bet ?? 0)) c.send('call'); else c.send('check');
+  };
+  const loops = clients.map(c => (async () => {
+    while (true) {
+      const s = c.latest(); const me = s ? c.me(s) : null;
+      if (s && s.phase === 'SHOWDOWN') return;
+      if (s && me) {
+        if (s.phase === 'WAITING' && c === short && !started) { started = true; c.send('start'); }
+        else if (s.activePlayerId === c.seat) {
+          const key = `${s.handId}:${s.phase}:${c.seat}:${s.currentBet}`;
+          if (!actedKey.has(key)) {
+            actedKey.add(key);
+            if (s.phase === 'ANTE') c.send('ante');
+            else if (s.phase.startsWith('DRAW')) c.send('draw', badugiDiscards(me.cards ?? []));
+            else if (s.phase === 'BET_1') {
+              if (c === big1 && !raised) { raised = true; c.send('raise', 200); }
+              else callOrCheck(c, s, me);
+            }
+            else if (s.phase.startsWith('BET')) callOrCheck(c, s, me);
+            else if (s.phase === 'DECLARE') c.send('declare', { declaration: 'LOW' });
+          }
+        }
+      }
+      await sleep(150);
+    }
+  })());
+  const finished = await Promise.race([
+    Promise.all(loops).then(() => true),
+    sleep(240000).then(() => false),
+  ]);
+  if (!finished) {
+    const s = short.latest();
+    record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
+      `hand did not reach SHOWDOWN (phase=${s?.phase} totalBets=${(s?.players ?? []).map((p: any) => p.totalBet).join('/')})`);
+    clients.forEach(c => c.disconnect());
+    return;
+  }
+  // Settlement: first SHOWDOWN state is pre-resolution; settlement lands
+  // ~2.5s later (pot changes and/or winners flagged).
+  const buf = short.states;
+  const preRes = buf.find(s => s.phase === 'SHOWDOWN');
+  let settled: any = null;
+  {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline && !settled) {
+      const idx = buf.indexOf(preRes);
+      settled = buf.slice(idx + 1).find(s => s.phase === 'SHOWDOWN' && (s.pot !== preRes.pot || s.players.some((p: any) => p.isWinner))) ?? null;
+      if (!settled) await sleep(250);
+    }
+  }
+  const bet1Final = [...buf].reverse().find(s => s.phase === 'BET_1');
+  if (!preRes || !settled || !bet1Final) {
+    record('POTS side-pot display vs payout (unequal all-in)', 'FAIL',
+      `capture incomplete: bet1Final=${!!bet1Final} preRes=${!!preRes} settled=${!!settled}`);
+    clients.forEach(c => c.disconnect());
+    return;
+  }
+  const wire = (tiers: any[]) => tiers.map(x => ({ amount: x.amount, eligiblePlayerIds: x.eligibleIds ?? x.eligiblePlayerIds }));
+  const nonFolded = (ps: any[]) => ps.filter(p => p.status !== 'folded').map(p => p.id);
+  // (1) display == helper tiers for the captured live state
+  const displayExpected = wire(sidePotsForShowdown(bet1Final.players, bet1Final.pot, nonFolded(bet1Final.players)));
+  const displayActual = Array.isArray(bet1Final.sidePots) ? wire(bet1Final.sidePots) : null;
+  const displayOk = JSON.stringify(displayActual) === JSON.stringify(displayExpected);
+  const totalBets = bet1Final.players.map((p: any) => p.totalBet).sort((a: number, b: number) => a - b);
+  const contribOk = JSON.stringify(totalBets) === JSON.stringify([150, 225, 225]) && bet1Final.pot === 600;
+  // (2) structure survives into the net payout computation
+  const gross = preRes.pot;
+  const winnerPot = gross - Math.floor(gross * 0.05);
+  const netTiers = wire(sidePotsForShowdown(preRes.players, winnerPot, nonFolded(preRes.players)));
+  const sets = (tiers: any[]) => tiers.map(x => [...x.eligiblePlayerIds].sort().join('+')).join(' | ');
+  const structureOk = displayExpected.length === netTiers.length && sets(displayExpected) === sets(netTiers);
+  // (3) resolver replay predicts settled chips exactly
+  const replay = BadugiMode.resolveShowdown(JSON.parse(JSON.stringify(preRes.players)), winnerPot, '__server__');
+  const chipMismatches = replay.players
+    .map((rp: any) => {
+      const sp = settled.players.find((p: any) => p.id === rp.id);
+      return sp && sp.chips !== rp.chips ? `${rp.id}: expected ${rp.chips} got ${sp.chips}` : null;
+    })
+    .filter(Boolean);
+  const payoutOk = chipMismatches.length === 0;
+  const ok = contribOk && displayOk && structureOk && payoutOk;
+  record('POTS side-pot display vs payout (unequal all-in)', ok ? 'PASS' : 'FAIL',
+    `contributions=${totalBets.join('/')} pot=${bet1Final.pot} contribOk=${contribOk}; display tiers=${JSON.stringify(displayActual)} displayOk=${displayOk}; net tiers=${JSON.stringify(netTiers)} structureOk=${structureOk}; settled chips=${settled.players.map((p: any) => `${p.id}:${p.chips}`).join(' ')} payoutOk=${payoutOk}${chipMismatches.length ? ' mismatches: ' + chipMismatches.join('; ') : ''}; rolledOverAfter=${settled.pot}`);
+  clients.forEach(c => c.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -651,6 +766,7 @@ async function main() {
   if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
   if (mode === 'clock') { console.log(`\n== CLOCK SYNC (run ${RUN}) ==`); await scenarioClock(); writeResults('clock'); return; }
   if (mode === 'wire') { console.log(`\n== WIRE FIELDS (run ${RUN}) ==`); await scenarioWire(); writeResults('wire'); return; }
+  if (mode === 'pots') { console.log(`\n== SIDE POTS (run ${RUN}) ==`); await scenarioPots(); writeResults('pots'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
