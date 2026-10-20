@@ -1196,14 +1196,24 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
     };
   });
 
-  // Detroit 2026-10-15: Enforce 4-player max at hand end.
-  // Old tables may carry a 5th player through restores; trim here so it
-  // can't persist hand after hand. Keep humans first, then bots.
-  if (nextPlayers.length > 4) {
+  // Seat-count enforcement at hand end: respect the table's configured
+  // maxPlayers (Detroit 2026-10-20, superseding the 2026-10-15 hard 4-cap
+  // after the 2026-10-19 decision to restore 5-seat Badugi).
+  // Old tables may carry extra player rows through restores; trim here so
+  // they can't persist hand after hand. Keep humans first, then bots.
+  if (nextPlayers.length > table.maxPlayers) {
     const humans = nextPlayers.filter(p => p.presence === 'human');
     const others = nextPlayers.filter(p => p.presence !== 'human');
-    nextPlayers = [...humans, ...others].slice(0, 4);
-    console.log(`[badugi] Hand-end trim: ${basePlayers.length} → 4 players`);
+    nextPlayers = [...humans, ...others].slice(0, table.maxPlayers);
+    console.log(`[badugi] Hand-end trim: ${basePlayers.length} → ${table.maxPlayers} players`);
+  } else if (nextPlayers.length < table.maxPlayers) {
+    // Configured limit was raised above the current row count (e.g. host
+    // settings): open the new seats as fresh reserved slots for next hand.
+    const empty = table.crewId ? 'open' as const : 'reserved' as const;
+    for (let i = nextPlayers.length + 1; i <= table.maxPlayers; i++) {
+      nextPlayers.push({ id: `p${i}`, name: 'Open', presence: empty, chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false, isWinner: undefined, isLoser: undefined, score: undefined, autoFoldedAtDeclare: undefined });
+    }
+    console.log(`[badugi] Hand-end pad: ${basePlayers.length} → ${table.maxPlayers} players`);
   }
 
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
@@ -1743,11 +1753,14 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
 export async function initEngine(): Promise<void> {
   const restored = await loadPersistedTables();
   for (const { tableId, state, handId } of restored) {
-    // Detroit 2026-10-15: Enforce 4-player Badugi on restored tables.
-    // Old tables may have 5 players from before the 2026-10-13 fix.
-    if (state.players.length > 4) {
-      console.log(`[badugi] Trimming restored table ${tableId} from ${state.players.length} to 4 players`);
-      state.players = state.players.slice(0, 4);
+    // Restored tables keep their persisted seats up to the engine's seat
+    // capacity (Detroit 2026-10-20: 5-seat Badugi restored 2026-10-19; the
+    // 2026-10-15 hard 4-cap is superseded). Rows beyond capacity are corrupt
+    // state and are trimmed. The configured maxPlayers is re-applied from
+    // room settings on the first join (see getOrCreateBadugiTable).
+    if (state.players.length > SEAT_ORDER.length) {
+      console.log(`[badugi] Trimming restored table ${tableId} from ${state.players.length} to ${SEAT_ORDER.length} players`);
+      state.players = state.players.slice(0, SEAT_ORDER.length);
     }
     tables.set(tableId, {
       tableId,
@@ -1770,7 +1783,8 @@ export async function initEngine(): Promise<void> {
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
-      maxPlayers: 4,
+      // Restored seat count until room settings re-apply on first join.
+      maxPlayers: Math.min(SEAT_ORDER.length, Math.max(2, state.players.length)),
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(DEFAULT_STAKE_TIER_ID),
@@ -1902,21 +1916,34 @@ export function getOrCreateBadugiTable(
       t.stakeTier = getStakeTierId(options.stakeTier);
       t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
     }
-    // Detroit 2026-10-15: Force all Badugi tables to 4 players max.
-    // Runtime enforcement — trims on every table access, not just server boot.
-    // Keeps connected humans first, then bots.
-    if (t.state.players.length > 4 || t.maxPlayers > 4) {
-      t.maxPlayers = 4;
-      const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
-      if (!midHand) {
-        const humans = t.state.players.filter(p => p.presence === 'human');
-        const others = t.state.players.filter(p => p.presence !== 'human');
-        const trimmed = [...humans, ...others].slice(0, 4);
-        if (trimmed.length !== t.state.players.length) {
-          console.log(`[badugi] Runtime trim table ${tableId} from ${t.state.players.length} to 4 players`);
-          t.state.players = trimmed;
-        }
+    // Seat-count enforcement on every table access (Detroit 2026-10-20):
+    // respect the table's configured maxPlayers — fresh room options when
+    // provided, else the table's own setting. Supersedes the 2026-10-15
+    // hard 4-cap (5-seat Badugi was restored 2026-10-19). Rows are trimmed
+    // only between hands (connected humans first); missing slots are padded
+    // with fresh reserved seats so a raised limit takes effect immediately
+    // without a table rebuild.
+    const cap = options.maxPlayers ?? t.maxPlayers;
+    if (cap !== t.maxPlayers) t.maxPlayers = cap;
+    // Row-count changes happen ONLY between hands — a live hand's player
+    // set is never altered by an access.
+    const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
+    if (!midHand && t.state.players.length > cap) {
+      const humans = t.state.players.filter(p => p.presence === 'human');
+      const others = t.state.players.filter(p => p.presence !== 'human');
+      const trimmed = [...humans, ...others].slice(0, cap);
+      if (trimmed.length !== t.state.players.length) {
+        console.log(`[badugi] Runtime trim table ${tableId} from ${t.state.players.length} to ${cap} players`);
+        t.state.players = trimmed;
       }
+    } else if (!midHand && t.state.players.length < cap) {
+      const empty = t.crewId ? 'open' as const : 'reserved' as const;
+      const padded = [...t.state.players];
+      for (let i = padded.length + 1; i <= cap; i++) {
+        padded.push({ id: `p${i}`, name: 'Open', presence: empty, chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false });
+      }
+      console.log(`[badugi] Runtime pad table ${tableId} from ${t.state.players.length} to ${cap} players`);
+      t.state.players = padded;
     }
   }
   return tables.get(tableId)!;
