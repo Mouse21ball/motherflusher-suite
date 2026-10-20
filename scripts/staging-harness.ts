@@ -672,26 +672,26 @@ async function scenarioPots() {
   let started = false;
   const actedKey = new Set<string>();
   const callOrCheck = (c: Client, s: any, me: any) => {
-    if ((s.currentBet ?? 0) > (me.bet ?? 0)) c.send('call'); else c.send('check');
+    if ((s.currentBet ?? 0) > (me.bet ?? 0)) c.action('call'); else c.action('check');
   };
   const loops = clients.map(c => (async () => {
     while (true) {
       const s = c.latest(); const me = s ? c.me(s) : null;
       if (s && s.phase === 'SHOWDOWN') return;
       if (s && me) {
-        if (s.phase === 'WAITING' && c === short && !started) { started = true; c.send('start'); }
+        if (s.phase === 'WAITING' && c === short && !started) { started = true; c.action('start'); }
         else if (s.activePlayerId === c.seat) {
           const key = `${s.handId}:${s.phase}:${c.seat}:${s.currentBet}`;
           if (!actedKey.has(key)) {
             actedKey.add(key);
-            if (s.phase === 'ANTE') c.send('ante');
-            else if (s.phase.startsWith('DRAW')) c.send('draw', badugiDiscards(me.cards ?? []));
+            if (s.phase === 'ANTE') c.action('ante');
+            else if (s.phase.startsWith('DRAW')) c.action('draw', badugiDiscards(me.cards ?? []));
             else if (s.phase === 'BET_1') {
-              if (c === big1 && !raised) { raised = true; c.send('raise', 200); }
+              if (c === big1 && !raised) { raised = true; c.action('raise', 200); }
               else callOrCheck(c, s, me);
             }
             else if (s.phase.startsWith('BET')) callOrCheck(c, s, me);
-            else if (s.phase === 'DECLARE') c.send('declare', { declaration: 'LOW' });
+            else if (s.phase === 'DECLARE') c.action('declare', { declaration: 'LOW' });
           }
         }
       }
