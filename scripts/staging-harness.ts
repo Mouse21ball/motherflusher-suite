@@ -1,9 +1,11 @@
 /**
- * Staging-only Badugi multiplayer test harness (Detroit 2026-10-20).
+ * Staging-only Badugi multiplayer test harness v2 (Detroit 2026-10-20).
  *
  * Runs INSIDE the staging fork (or any dev server) against localhost so the
  * Replit dev shield is not in the path. Drives real guest clients through the
  * full production protocol: guest-init -> ws-ticket -> WS join -> badugi:action.
+ * Tables are created through the real client flow (POST /api/tables record,
+ * 6-char codes) before anyone joins.
  *
  * Usage: npx tsx scripts/staging-harness.ts probe|all
  * Writes staging-results.json in the cwd and prints a summary table.
@@ -21,6 +23,7 @@ if (/chainggangpoker\.com|replit\.app/.test(BASE) && !process.env.HARNESS_ALLOW_
 }
 const WS_BASE = BASE.replace(/^http/, 'ws') + '/ws';
 const RUN = Date.now().toString(36).toUpperCase();
+const R4 = RUN.slice(-4);
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 type Result = { item: string; status: 'PASS' | 'FAIL' | 'BLOCKED'; evidence: string };
@@ -28,6 +31,26 @@ const results: Result[] = [];
 function record(item: string, status: Result['status'], evidence: string) {
   results.push({ item, status, evidence });
   console.log(`[${status}] ${item} — ${evidence}`);
+}
+
+const RANK_VALUE: Record<string, number> = { A: 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13 };
+/** Discards that move a hand toward a made badugi: keep the lowest subset with distinct ranks and suits. */
+function badugiDiscards(cards: any[]): number[] {
+  const order = cards.map((c, i) => ({ i, v: RANK_VALUE[c.rank] ?? 99, suit: c.suit, rank: c.rank }))
+    .sort((a, b) => a.v - b.v);
+  const usedRanks = new Set<string>(); const usedSuits = new Set<string>(); const keep = new Set<number>();
+  for (const c of order) {
+    if (!usedRanks.has(c.rank) && !usedSuits.has(c.suit)) { keep.add(c.i); usedRanks.add(c.rank); usedSuits.add(c.suit); }
+  }
+  return cards.map((_, i) => i).filter(i => !keep.has(i));
+}
+/** Compare two valid badugis by descending rank values; lower wins. Returns -1/0/1. */
+function compareBadugi(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 99) - (b[i] ?? 99);
+    if (d !== 0) return d < 0 ? -1 : 1;
+  }
+  return 0;
 }
 
 // ─── Client ──────────────────────────────────────────────────────────────────
@@ -55,13 +78,6 @@ class Client {
     this.sessionToken = j.sessionToken;
     this.chipBalance = j.chipBalance;
     return j;
-  }
-
-  async timeBankStatus() {
-    const res = await fetch(`${BASE}/api/players/${this.profileId}/time-bank/status`, {
-      headers: { 'X-Session-Token': this.sessionToken },
-    });
-    return { status: res.status, body: await res.json().catch(() => ({})) };
   }
 
   async useTimeBank(tableId: string) {
@@ -103,7 +119,6 @@ class Client {
       playerId: sessionUUID, identityId: this.profileId, name: this.name, seatId: sessionUUID,
       isPrivate: true,
     }));
-    // Wait for init / first snapshot
     const deadline = Date.now() + 8000;
     while (Date.now() < deadline) {
       if (this.states.length > 0) return;
@@ -127,35 +142,43 @@ class Client {
 
   async until(pred: (s: any) => boolean, ms = 20000, desc = ''): Promise<any> {
     const deadline = Date.now() + ms;
-    let seen = this.states.length;
     while (Date.now() < deadline) {
       const s = this.latest();
       if (s && pred(s)) return s;
-      if (this.states.length !== seen) { seen = this.states.length; continue; }
       await sleep(100);
     }
     throw new Error(`until() timeout: ${desc} (last phase=${this.latest()?.phase})`);
   }
 }
 
-// Policy driver: acts for a client whenever it is their turn, per behavior.
+// ─── Table setup + policy driver ─────────────────────────────────────────────
 type Behavior = {
-  drawDiscards?: (phase: string) => number[];
+  drawDiscards?: (phase: string, cards: any[]) => number[];
+  smartDraw?: boolean;
   foldAtFirstBet?: boolean;
-  passive?: boolean;
+  passive?: boolean;             // never act at all
+  actOnlyAnteDeclare?: boolean;  // ante + declare, but let BET/DRAW turns expire
   declareAs?: string;
 };
-async function driveClient(c: Client, beh: Behavior, stopWhen: () => boolean) {
+
+async function createRecord(tableId: string, createdBy: string, maxPlayers: number, botsEnabled: boolean) {
+  const res = await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId, modeId: 'badugi', createdBy, maxPlayers, botsEnabled, isInviteOnly: true }),
+  });
+  const body = await res.json().catch(() => ({}));
+  return { status: res.status, body };
+}
+
+async function driveClient(c: Client, beh: Behavior, gen: () => number, myGen: number) {
   let folded = false;
-  while (!stopWhen()) {
+  while ((c as any)._gen === myGen) {
     const s = c.latest();
     await sleep(150);
     if (!s || c.ws?.readyState !== WebSocket.OPEN) continue;
     const me = c.me(s);
     if (!me) continue;
-    // Hand start / restart is host-agnostic: any seated human may send it,
-    // server rejects duplicates by phase. Only the first client does it.
-    if (s.phase === 'WAITING' && (c as any)._starter && !stopWhen()) {
+    if (s.phase === 'WAITING' && (c as any)._starter) {
       const key = `start:${s.handId ?? 0}:${Math.floor(Date.now() / 4000)}`;
       if (c.actedKey !== key) { c.actedKey = key; c.action('start'); }
       continue;
@@ -173,13 +196,21 @@ async function driveClient(c: Client, beh: Behavior, stopWhen: () => boolean) {
     const phase: string = s.phase;
     if (phase === 'ANTE') { c.actedKey = key; c.action('ante'); }
     else if (phase.startsWith('BET')) {
+      if (beh.actOnlyAnteDeclare) continue;
       c.actedKey = key;
-      if (beh.foldAtFirstBet && !folded) { folded = true; c.action('fold'); }
+      if (beh.foldAtFirstBet && !folded) {
+        folded = true;
+        (c as any)._preFoldCards = (me.cards ?? []).map((x: any) => ({ rank: x.rank, suit: x.suit }));
+        c.action('fold');
+      }
       else if ((me.bet ?? 0) >= (s.currentBet ?? 0)) c.action('check');
       else c.action('call');
     } else if (phase.startsWith('DRAW')) {
+      if (beh.actOnlyAnteDeclare) continue;
       c.actedKey = key;
-      c.action('draw', beh.drawDiscards ? beh.drawDiscards(phase) : []);
+      const discards = beh.drawDiscards ? beh.drawDiscards(phase, me.cards ?? [])
+        : beh.smartDraw ? badugiDiscards(me.cards ?? []) : [];
+      c.action('draw', discards);
     } else if (phase === 'DECLARE') {
       c.actedKey = key;
       c.action('declare', { declaration: beh.declareAs ?? 'LOW' });
@@ -187,185 +218,224 @@ async function driveClient(c: Client, beh: Behavior, stopWhen: () => boolean) {
   }
 }
 
-async function makeTable(tableId: string, n: number, behaviors: Behavior[] = []) {
+async function makeTable(tableId: string, n: number, opts: { maxPlayers?: number; bots?: boolean; record?: boolean } = {}) {
   const clients: Client[] = [];
   for (let i = 0; i < n; i++) {
-    const c = new Client(`T${RUN.slice(-4)}P${i + 1}`);
+    const c = new Client(`T${R4}P${i + 1}`);
     await c.bootstrap();
-    await c.connect(tableId);
     clients.push(c);
   }
+  if (opts.record !== false) {
+    const rec = await createRecord(tableId, clients[0].profileId, opts.maxPlayers ?? n, opts.bots ?? false);
+    if (rec.status !== 201) console.log(`  (table record create -> ${rec.status} ${JSON.stringify(rec.body).slice(0, 120)})`);
+  }
+  for (const c of clients) await c.connect(tableId);
   (clients[0] as any)._starter = true;
-  const drivers = clients.map((c, i) => driveClient(c, behaviors[i] ?? {}, () => (c as any)._stop === true));
-  return { clients, stop: () => { clients.forEach(c => { (c as any)._stop = true; }); } , drivers };
+  let gen = 1;
+  clients.forEach(c => { (c as any)._gen = gen; });
+  return {
+    clients,
+    startDrivers(behaviors: Behavior[]) {
+      gen++;
+      clients.forEach((c, i) => { (c as any)._gen = gen; driveClient(c, behaviors[i] ?? {}, () => gen, gen); });
+    },
+    stop() { gen++; clients.forEach(c => { (c as any)._gen = gen; }); },
+  };
 }
 
 const sumChips = (s: any) => (s?.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0);
 
 // ─── Probe ───────────────────────────────────────────────────────────────────
 async function probe() {
-  console.log(`\n== PROBE (run ${RUN}, base ${BASE}) ==`);
-  const t = `STGPROBE${RUN.slice(-4)}`;
-  const { clients, stop } = await makeTable(t, 5);
-  const c0 = clients[0];
-  console.log('guest chipBalance:', clients.map(c => c.chipBalance).join(', '));
-  const tb = await c0.timeBankStatus();
-  console.log('time-bank status:', tb.status, JSON.stringify(tb.body));
-  const s0 = c0.latest();
-  console.log(`seats: ${clients.map(c => c.seat).join(', ')} | players in state: ${s0.players.length} | phase=${s0.phase} | pot=${s0.pot}`);
-  console.log('player rows:', s0.players.map((p: any) => `${p.id}:${p.name}:chips=${p.chips}:presence=${p.presence}`).join(' | '));
-  const draw = await c0.until(s => s.phase.startsWith('DRAW') || s.phase.startsWith('BET'), 30000, 'first actionable phase')
-    .catch(e => { console.log('probe hand did not reach actionable phase:', e.message); return null; });
-  if (draw) {
-    console.log(`reached phase=${draw.phase} pot=${draw.pot} active=${draw.activePlayerId} turnDeadline=${draw.turnDeadline ?? 'null'}`);
-    const me = c0.me(draw);
-    console.log(`c0 cards visible to self: ${me?.cards?.length} cards, hidden flags: ${(me?.cards ?? []).map((x: any) => x.isHidden).join(',')}`);
-  }
-  stop();
-  clients.forEach(c => c.disconnect());
+  console.log(`\n== PROBE v2 (run ${RUN}, base ${BASE}) ==`);
+  // Table 1: real client flow — REST record (5 seats, no bots), then 5 joins.
+  const t1 = `PR${R4}`;
+  const a = await makeTable(t1, 5, { maxPlayers: 5, bots: false });
+  const s1 = a.clients[0].latest();
+  console.log(`WITH record:    seats=${a.clients.map(c => c.seat).join(',')} rows=${s1.players.length} phase=${s1.phase}`);
+  console.log('  rows:', s1.players.map((p: any) => `${p.id}:${p.presence}`).join(' | '));
+  a.stop(); a.clients.forEach(c => c.disconnect());
+  // Table 2: no record — direct joins only (v1 path that spectated the 5th).
+  const t2 = `PN${R4}`;
+  const b = await makeTable(t2, 5, { record: false });
+  const s2 = b.clients[0].latest();
+  console.log(`WITHOUT record: seats=${b.clients.map(c => c.seat).join(',')} rows=${s2.players.length} phase=${s2.phase}`);
+  b.stop(); b.clients.forEach(c => c.disconnect());
   console.log('== PROBE DONE ==');
 }
 
 // ─── Scenarios ───────────────────────────────────────────────────────────────
 async function scenarioA() {
-  const t = `STGA${RUN.slice(-4)}`;
-  // Hand 1: P5 folds at first bet (D1), P2 discards 2 on DRAW_1 (A3).
-  const beh: Behavior[] = [{}, { drawDiscards: (ph) => ph === 'DRAW_1' ? [0, 1] : [] }, {}, {}, { foldAtFirstBet: true }];
-  const { clients, stop } = await makeTable(t, 5, beh);
+  const t = `A5${R4}`;
+  const table = await makeTable(t, 5, { maxPlayers: 5, bots: false });
+  const { clients } = table;
   const [c0, c1, , , c4] = clients;
-  const spec = new Client(`T${RUN.slice(-4)}SPEC`);
+  if (clients.some(c => c.seat === '__spectator__') || !c0.latest() || c0.latest().players.length < 5) {
+    record('A1 full hand lifecycle (5 clients)', 'BLOCKED', `seating failed: seats=${clients.map(c => c.seat).join(',')} rows=${c0.latest()?.players?.length}`);
+    table.stop(); clients.forEach(c => c.disconnect());
+    return;
+  }
+  const spec = new Client(`T${R4}SPEC`);
   await spec.bootstrap();
-  await spec.connect(t, true).catch(e => console.log('spectator join failed (D1 falls back to client frames):', e.message));
+  await spec.connect(t, true).catch(e => console.log('spectator join failed (D1 uses client frames only):', e.message));
 
-  // A1: full hand to showdown
+  // Hand 1: P5 folds at first bet (D1), P2 discards exactly [0,1] on DRAW_1 (A3), everyone else draws to a badugi.
+  table.startDrivers([{}, {
+    smartDraw: true,
+    drawDiscards: (ph, cards) => ph === 'DRAW_1' ? [0, 1] : badugiDiscards(cards),
+  }, { smartDraw: true }, { smartDraw: true }, { smartDraw: true, foldAtFirstBet: true }]);
+
   const pre = await c0.until(s => s.phase === 'ANTE' || s.phase.startsWith('DRAW') || s.phase.startsWith('BET'), 30000, 'hand1 start');
   const total0 = sumChips(pre) + (pre.pot ?? 0);
-  const p2cardsBefore = await c1.until(s => (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
-  const p2Before = (c1.me(p2cardsBefore)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
-  const foldMoment = { t: 0 };
-  const sd = await c0.until(s => s.phase === 'SHOWDOWN', 120000, 'hand1 showdown').catch(e => null);
-  if (!sd) { record('A1 full hand lifecycle (5 clients)', 'FAIL', `hand did not reach SHOWDOWN: ${c0.latest()?.phase}`); stop(); return; }
-  record('A1 full hand lifecycle (5 clients)', 'PASS', `hand ${sd.handId} reached SHOWDOWN; phases flowed ante->draw/bet->declare->showdown`);
+  const p2dealt = await c1.until(s => (c1.me(s)?.cards?.length ?? 0) === 4, 20000, 'p2 dealt');
+  const p2Before = (c1.me(p2dealt)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
+  const sdFirst = await c0.until(s => s.phase === 'SHOWDOWN', 150000, 'hand1 showdown').catch(() => null);
+  if (!sdFirst) { record('A1 full hand lifecycle (5 clients)', 'FAIL', `hand did not reach SHOWDOWN (phase=${c0.latest()?.phase})`); table.stop(); return; }
+  await sleep(2500); // let payout/winner flags settle
+  const sd = c0.latest();
+  record('A1 full hand lifecycle (5 clients)', 'PASS', `hand ${sd.handId} reached SHOWDOWN with 5 humans seated; full phase flow completed`);
 
-  // A2: chip accounting (pot should be 0 after payout; rake reported if any)
-  await sleep(500);
-  const endState = c0.latest();
-  const total1 = sumChips(endState) + (endState.pot ?? 0);
-  const rake = (endState as any).rakeAmount ?? (endState as any).lastRake ?? null;
-  record('A2 chip accounting', total1 === total0 || rake != null && total0 - total1 === rake ? 'PASS' : 'FAIL',
-    `total before=${total0} after=${total1} delta=${total1 - total0} pot@showdown=${endState.pot} rakeField=${rake}`);
+  const total1 = sumChips(sd) + (sd.pot ?? 0);
+  record('A2 chip accounting', total1 === total0 ? 'PASS' : 'FAIL',
+    `total before=${total0} after=${total1} delta=${total1 - total0} pot@settledShowdown=${sd.pot}`);
 
-  // A3: P2 discarded 2 on DRAW_1 -> still 4 cards, kept cards unchanged
-  const p2AfterState = c1.states.find(s => s.phase === 'DRAW_2' || s.phase === 'BET_2') ?? c1.latest();
+  const p2AfterState = c1.states.find(s => s.handId === sd.handId && (s.phase === 'DRAW_2' || s.phase === 'BET_1')) ?? c1.latest();
   const p2After = (c1.me(p2AfterState)?.cards ?? []).map((x: any) => `${x.rank}${x.suit}`);
   const keptSame = p2Before.length === 4 && p2After.length === 4 && p2After[2] === p2Before[2] && p2After[3] === p2Before[3];
   record('A3 draw mechanics (discard 2)', keptSame ? 'PASS' : 'FAIL', `before=${p2Before.join(' ')} after=${p2After.join(' ')}`);
 
-  // D1: folded P5's cards must never appear in other clients' / spectator raw frames
-  const foldedCards = (c4.me(c4.states.find(s => s.phase === 'SHOWDOWN') ?? c4.latest())?.cards ?? []);
-  // P5's own view masks folded cards at showdown; use its last live view instead
-  const ownLive = [...c4.states].reverse().find(s => (c4.me(s)?.cards ?? []).some((x: any) => !x.isHidden));
-  const secret = (c4.me(ownLive)?.cards ?? []).map((x: any) => `"rank":"${x.rank}","suit":"${x.suit}"`);
+  // D1: folder's pre-fold cards must never appear in other endpoints' raw frames
+  const secret = ((c4 as any)._preFoldCards ?? []).map((x: any) => `"rank":"${x.rank}","suit":"${x.suit}"`);
   const others = [c0, c1, clients[2], clients[3], ...(spec.states.length ? [spec] : [])];
   let leaks = 0;
   for (const oc of others) for (const f of oc.raw) for (const pat of secret) if (f.text.includes(pat)) leaks++;
   record('D1 showdown privacy (folded cards on the wire)', secret.length === 4 && leaks === 0 ? 'PASS' : 'FAIL',
-    `folded player's 4 card patterns scanned in ${others.length} other endpoints' raw frames; leaks=${leaks}`);
+    `folder seated as ${c4.seat}; its 4 pre-fold card patterns scanned across ${others.length} other endpoints; leaks=${leaks}; patternsCaptured=${secret.length}`);
 
-  // D2: winner matches evaluateBadugi among non-folded
-  const revealed = sd.players.filter((p: any) => p.status !== 'folded');
-  let bestId: string | null = null; let bestVal = Infinity;
-  for (const p of revealed) {
-    const ev: any = evaluateBadugi(p.cards);
-    const v = ev?.value ?? ev?.rank ?? Infinity;
-    if (v < bestVal) { bestVal = v; bestId = p.id; }
-  }
+  // D2: winner flags must match evaluateBadugi among non-folded (rollover-aware)
+  const nonFolded = sd.players.filter((p: any) => p.status !== 'folded');
+  const valids = nonFolded.map((p: any) => ({ id: p.id, ev: evaluateBadugi(p.cards) })).filter((x: any) => x.ev?.isValidBadugi);
   const flagged = sd.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
-  record('D2 showdown correctness', flagged.includes(bestId) ? 'PASS' : 'FAIL',
-    `evaluateBadugi best=${bestId} (val ${bestVal}); server flagged winner(s)=${flagged.join(',') || 'none'}`);
+  if (valids.length === 0) {
+    record('D2 showdown correctness', flagged.length === 0 && (sd.pot ?? 0) > 0 ? 'PASS' : 'FAIL',
+      `no valid badugi at showdown -> rollover expected; flagged=${flagged.join(',') || 'none'} potCarried=${sd.pot}`);
+  } else {
+    let best = valids[0];
+    for (const v of valids) if (compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) < 0) best = v;
+    const bestSet = valids.filter((v: any) => compareBadugi(v.ev.badugiRankValues, best.ev.badugiRankValues) === 0).map((v: any) => v.id);
+    const ok = bestSet.every((id: string) => flagged.includes(id)) && flagged.every((id: string) => bestSet.includes(id));
+    record('D2 showdown correctness', ok ? 'PASS' : 'FAIL',
+      `best valid badugi=${bestSet.join(',')} (${best.ev.description}); server flagged=${flagged.join(',') || 'none'}`);
+  }
 
-  // Hand 2 (D3): four fold at first bet -> sole survivor handling
-  stop();
-  clients.forEach(c => { (c as any)._stop = false; });
-  const beh2: Behavior[] = [{}, { foldAtFirstBet: true }, { foldAtFirstBet: true }, { foldAtFirstBet: true }, { foldAtFirstBet: true }];
-  const drivers2 = clients.map((c, i) => { (c as any)._starter = i === 0; return driveClient(c, beh2[i], () => (c as any)._stop === true); });
-  const pre2 = await c0.until(s => (s.handId ?? 0) > (sd.handId ?? 0) && s.phase !== 'SHOWDOWN', 30000, 'hand2 start').catch(() => c0.latest());
+  // Hand 2 (D3): four fold at first bet -> sole survivor / rollover handling + conservation
+  const hand1Id = sd.handId;
+  table.startDrivers([{ smartDraw: true },
+    { smartDraw: true, foldAtFirstBet: true }, { smartDraw: true, foldAtFirstBet: true },
+    { smartDraw: true, foldAtFirstBet: true }, { smartDraw: true, foldAtFirstBet: true }]);
+  const pre2 = await c0.until(s => (s.handId ?? 0) > hand1Id && s.phase !== 'SHOWDOWN', 30000, 'hand2 start').catch(() => c0.latest());
   const total2a = sumChips(pre2) + (pre2.pot ?? 0);
-  const sd2 = await c0.until(s => s.phase === 'SHOWDOWN' && (s.handId ?? 0) > (sd.handId ?? 0), 120000, 'hand2 showdown').catch(() => null);
+  const sd2 = await c0.until(s => s.phase === 'SHOWDOWN' && (s.handId ?? 0) > hand1Id, 150000, 'hand2 showdown').catch(() => null);
   if (sd2) {
-    await sleep(500);
+    await sleep(2500);
     const e2 = c0.latest();
     const total2b = sumChips(e2) + (e2.pot ?? 0);
     const winners2 = e2.players.filter((p: any) => p.isWinner).map((p: any) => p.id);
-    record('D3 uncontested hand (4 fold)', total2b === total2a || (e2.pot ?? 0) >= 0 ? 'PASS' : 'FAIL',
+    record('D3 uncontested hand (4 fold)', total2b === total2a ? 'PASS' : 'FAIL',
       `survivor=${clients[0].seat} winners=${winners2.join(',') || 'none(rollover)'} potAfter=${e2.pot} chipsDelta=${total2b - total2a}`);
   } else {
     record('D3 uncontested hand (4 fold)', 'FAIL', `hand2 did not reach SHOWDOWN (phase=${c0.latest()?.phase})`);
   }
-  clients.forEach(c => { (c as any)._stop = true; c.disconnect(); });
+  table.stop();
+  clients.forEach(c => c.disconnect());
   spec.disconnect();
 }
 
+async function scenarioB0() {
+  // Stall probe: target NEVER acts (not even ante). Does the engine auto-act
+  // the ANTE turn at the deadline, or does the hand sit in ANTE forever?
+  const t = `B0${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [target, partner] = table.clients;
+  table.startDrivers([{ passive: true }, {}]);
+  const t0 = Date.now();
+  const timeline: string[] = [];
+  let lastPhase = ''; let lastActed: any = null; let left = false;
+  while (Date.now() - t0 < 80000) {
+    const s = target.latest();
+    if (s) {
+      const me = target.me(s);
+      const sig = `${s.phase}|${me?.hasActed}|${me?.status}|active=${s.activePlayerId}`;
+      if (sig !== lastActed) {
+        timeline.push(`+${((Date.now() - t0) / 1000).toFixed(1)}s ${sig} deadline=${s.turnDeadline ?? 'null'}`);
+        lastActed = sig;
+      }
+      if (s.phase !== 'ANTE' && s.phase !== 'WAITING') { left = true; break; }
+      lastPhase = s.phase;
+    }
+    await sleep(250);
+  }
+  record('B0 ANTE idle-stall probe (passive player)', left ? 'PASS' : 'FAIL',
+    `hand ${left ? 'left ANTE' : 'STILL IN ANTE after 80s'}; timeline: ${timeline.slice(0, 8).join(' ; ')}`);
+  table.stop(); table.clients.forEach(c => c.disconnect());
+}
+
+async function reachActionTurn(target: Client, label: string) {
+  return target.until(s => s.activePlayerId === target.seat && s.turnDeadline != null &&
+    (s.phase.startsWith('BET') || s.phase.startsWith('DRAW')), 90000, label);
+}
+
 async function scenarioB1() {
-  const t = `STGB1${RUN.slice(-4)}`;
-  const { clients, stop } = await makeTable(t, 2, [{ passive: true }, {}]);
-  const [target] = clients;
+  const t = `B1${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [target] = table.clients;
+  table.startDrivers([{ actOnlyAnteDeclare: true }, {}]);
   try {
-    const turn = await target.until(s => s.activePlayerId === target.seat && s.turnDeadline != null &&
-      (s.phase.startsWith('BET') || s.phase.startsWith('DRAW')), 60000, 'target turn with deadline');
+    const turn = await reachActionTurn(target, 'target action turn');
     const D = turn.turnDeadline as number;
     const seenAt = Date.now();
-    const advanced = await target.until(s => s.activePlayerId !== target.seat || s.phase !== turn.phase, 45000, 'auto-action advance');
-    const advAt = Date.now();
-    const delta = advAt - D;
+    await target.until(s => s.activePlayerId !== target.seat || s.phase !== turn.phase, 45000, 'auto-action advance');
+    const delta = Date.now() - D;
     record('B1 timer expiry vs server deadline', delta >= -2000 && delta <= 3000 ? 'PASS' : 'FAIL',
-      `deadline armed ~${D - seenAt}ms after first seen; auto-advance at deadline ${delta >= 0 ? '+' : ''}${delta}ms (same-host clock)`);
+      `turn=${turn.phase} deadline was ${D - seenAt}ms out when first seen; auto-advance at deadline ${delta >= 0 ? '+' : ''}${delta}ms (same-host clock)`);
   } catch (e: any) { record('B1 timer expiry vs server deadline', 'FAIL', e.message); }
-  stop(); clients.forEach(c => c.disconnect());
+  table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
 async function scenarioB2() {
-  const t = `STGB2${RUN.slice(-4)}`;
-  const { clients, stop } = await makeTable(t, 2, [{ passive: true }, {}]);
-  const [target] = clients;
+  const t = `B2${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [target] = table.clients;
+  table.startDrivers([{ actOnlyAnteDeclare: true }, {}]);
   try {
-    const turn = await target.until(s => s.activePlayerId === target.seat && s.turnDeadline != null &&
-      (s.phase.startsWith('BET') || s.phase.startsWith('DRAW')), 60000, 'target turn');
+    const turn = await reachActionTurn(target, 'target action turn');
     const D = turn.turnDeadline as number;
     const use = await target.useTimeBank(t);
     if (use.status !== 200) {
       record('B2 time-bank extension (+20s)', 'BLOCKED', `use endpoint -> ${use.status} ${JSON.stringify(use.body).slice(0, 160)}`);
     } else {
-      const ext = await target.until(s => s.turnDeadline != null && s.turnDeadline > D + 15000, 8000, 'extended deadline in state')
-        .catch(() => null);
+      const ext = await target.until(s => s.turnDeadline != null && s.turnDeadline > D + 15000, 8000, 'extended deadline in state').catch(() => null);
       if (!ext) {
         record('B2 time-bank extension (+20s)', 'FAIL', `endpoint 200 but state deadline never moved (stayed ${target.latest()?.turnDeadline}, was ${D})`);
       } else {
         const newD = ext.turnDeadline as number;
-        await sleep(Math.max(0, D - Date.now()) + 2000); // step past ORIGINAL deadline
+        await sleep(Math.max(0, D - Date.now()) + 2000);
         const still = target.latest();
         const stillMine = still?.activePlayerId === target.seat && still?.phase === ext.phase;
         record('B2 time-bank extension (+20s)', stillMine ? 'PASS' : 'FAIL',
           `deadline ${D} -> ${newD} (+${newD - D}ms); at original deadline +2s turn still target's: ${stillMine}`);
-        target.action((still?.phase ?? '').startsWith('DRAW') ? 'draw' : (target.me(still)?.bet ?? 0) >= (still?.currentBet ?? 0) ? 'check' : 'call',
-          (still?.phase ?? '').startsWith('DRAW') ? [] : undefined);
       }
     }
   } catch (e: any) { record('B2 time-bank extension (+20s)', 'FAIL', e.message); }
-  stop(); clients.forEach(c => c.disconnect());
+  table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
 async function scenarioC(waitSec: number) {
   const label = `C reconnect ${waitSec}s`;
-  const t = `STGC${waitSec}${RUN.slice(-3)}`;
-  const target = new Client(`T${RUN.slice(-4)}C${waitSec}`);
-  const partner = new Client(`T${RUN.slice(-4)}CP${waitSec}`);
-  await target.bootstrap(); await partner.bootstrap();
-  await target.connect(t); await partner.connect(t);
-  (partner as any)._starter = true;
-  const stopFlag = () => (target as any)._stop === true;
-  const d1 = driveClient(partner, {}, stopFlag);
-  const d0 = driveClient(target, {}, stopFlag);
+  const t = `${waitSec === 179 ? 'E9' : waitSec === 181 ? 'E1' : 'C' + Math.floor(waitSec / 10)}${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [target, partner] = table.clients;
+  table.startDrivers([{}, {}]);
   try {
     const inHand = await target.until(s => s.phase.startsWith('BET') || s.phase.startsWith('DRAW'), 60000, 'mid-hand');
     const seatBefore = target.seat;
@@ -375,7 +445,6 @@ async function scenarioC(waitSec: number) {
     await sleep(waitSec * 1000);
     const partnerView = partner.latest();
     const seatRowDuring = partnerView?.players?.find((p: any) => p.id === seatBefore);
-    // Reconnect: fresh ticket + session, same profile identity
     await target.connect(t);
     await sleep(600);
     const back = target.latest();
@@ -391,39 +460,33 @@ async function scenarioC(waitSec: number) {
       record(label, sameSeat && cardsMatch && chipsMatch ? 'PASS' : 'FAIL',
         `seat ${seatBefore}->${target.seat}; handLive=${handLive}; cardsMatch=${cardsMatch}; chips(myView=${myRow?.chips} partnerView=${partnerRowNow?.chips}) match=${chipsMatch}; during-absence row: ${seatRowDuring ? `status=${seatRowDuring.status} presence=${seatRowDuring.presence}` : 'GONE'}`);
     } else {
-      const released = !seatRowDuring || seatRowDuring.presence === 'bot' || (partnerView?.players?.length ?? 0) < 5;
+      const released = !seatRowDuring || seatRowDuring.status === 'sitting_out' || seatRowDuring.presence === 'reserved' || seatRowDuring.presence === 'bot';
       const noDup = rows.length <= 1;
       record(label, released && noDup ? 'PASS' : 'FAIL',
         `seat during absence: ${seatRowDuring ? `status=${seatRowDuring.status} presence=${seatRowDuring.presence} chips=${seatRowDuring.chips}` : 'GONE (released)'}; rejoin seat=${target.seat} rowsForOldSeat=${rows.length}; rejoin phase=${back?.phase}`);
     }
   } catch (e: any) { record(label, 'FAIL', e.message); }
-  (target as any)._stop = true;
-  target.disconnect(); partner.disconnect();
+  table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
 async function scenarioC5() {
   const label = 'C5 reconnect with nearly-expired turn';
-  const t = `STGC5${RUN.slice(-4)}`;
-  const target = new Client(`T${RUN.slice(-4)}C5`);
-  const partner = new Client(`T${RUN.slice(-4)}C5P`);
-  await target.bootstrap(); await partner.bootstrap();
-  await target.connect(t); await partner.connect(t);
-  (partner as any)._starter = true;
-  const stopFlag = () => (target as any)._stop === true;
-  const d1 = driveClient(partner, {}, stopFlag);
+  const t = `C5${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [target, partner] = table.clients;
+  table.startDrivers([{ actOnlyAnteDeclare: true }, {}]);
   try {
-    const turn = await target.until(s => s.activePlayerId === target.seat && s.turnDeadline != null &&
-      (s.phase.startsWith('BET') || s.phase.startsWith('DRAW')), 90000, 'target turn');
+    const turn = await reachActionTurn(target, 'target action turn');
     const D = turn.turnDeadline as number;
     const phaseAtCut = turn.phase;
     await sleep(Math.max(0, D - 6000 - Date.now()));
     target.disconnect();
+    (target as any)._gen = -1; // stop target driver from acting after reconnect
     await sleep(Math.max(0, D - 2500 - Date.now()));
     await target.connect(t);
     const back = target.latest();
     const backD = back?.turnDeadline ?? null;
     const deadlineKept = backD != null && Math.abs(backD - D) <= 300;
-    // Stay passive; the ORIGINAL deadline should auto-act the turn
     let autoDelta: number | null = null;
     try {
       await target.until(s => s.activePlayerId !== target.seat || s.phase !== phaseAtCut, 12000, 'auto-act at original deadline');
@@ -432,15 +495,15 @@ async function scenarioC5() {
     record(label, deadlineKept && autoDelta != null && autoDelta >= -1500 && autoDelta <= 3500 ? 'PASS' : 'FAIL',
       `original deadline ${D}; after reconnect turnDeadline=${backD} (kept=${deadlineKept}); auto-advance at ${autoDelta == null ? 'never' : (autoDelta >= 0 ? '+' : '') + autoDelta + 'ms'} vs original deadline`);
   } catch (e: any) { record(label, 'FAIL', e.message); }
-  (target as any)._stop = true;
-  target.disconnect(); partner.disconnect();
+  table.stop(); table.clients.forEach(c => c.disconnect());
 }
 
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
-  console.log(`\n== FULL SUITE (run ${RUN}, base ${BASE}) ==`);
+  console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA();
+  await scenarioB0();
   await scenarioB1();
   await scenarioB2();
   await Promise.all([scenarioC(30), scenarioC(90), scenarioC(179), scenarioC(181)]);
