@@ -35,6 +35,9 @@ export interface Player {
   avatarUrl?: string;
   presence?: PlayerPresence;
   identityId?: string;
+  /** Wire-only (set by the engines' broadcast enrichment; never persisted):
+   *  whether this seat currently has a live socket connection. */
+  connected?: boolean;
   chips: number;
   bet: number;
   totalBet?: number;
@@ -145,6 +148,10 @@ export interface GameState {
    *  Null/undefined when no timer is armed (waiting/showdown/bot turns).
    *  Client uses this to render a countdown; server enforces auto-action. */
   turnDeadline?: number | null;
+  /** Display-only side-pot tiers (set on outbound masked states by the
+   *  engines when contributions diverge). Computed with the same helper
+   *  the payout path uses; never an input to resolution. */
+  sidePots?: { amount: number; eligiblePlayerIds: string[] }[];
 }
 
 // ─── GameMode interface ───────────────────────────────────────────────────────

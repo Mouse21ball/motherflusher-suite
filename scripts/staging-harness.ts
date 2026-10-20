@@ -600,6 +600,43 @@ async function scenarioClock() {
   table.stop(); table.clients.forEach(c => c.disconnect()); spec.disconnect();
 }
 
+async function scenarioWire() {
+  // Wire-field verification for the UI integrations: every snapshot's player
+  // rows must carry a boolean `connected`; after a client disconnects, the
+  // remaining client's snapshots must show that seat connected=false.
+  // sidePots is conditional (only when contributions diverge): any frame
+  // carrying it must be well-formed — tiers sum exactly to the pot and
+  // every tier has eligible players (it is computed by the payout helper).
+  const t = `WR${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [c0, c1] = table.clients;
+  table.startDrivers([{}, {}]);
+  await sleep(6000);
+  let rowsChecked = 0; let rowsOk = 0; let spFrames = 0; let spBad = 0;
+  const scan = (raw: { text: string }[]) => {
+    for (const f of raw) {
+      let m: any; try { m = JSON.parse(f.text); } catch { continue; }
+      const s = m.state; if (!s || !Array.isArray(s.players)) continue;
+      for (const p of s.players) { rowsChecked++; if (typeof p.connected === 'boolean') rowsOk++; }
+      if (Array.isArray(s.sidePots)) {
+        spFrames++;
+        const sum = s.sidePots.reduce((a: number, x: any) => a + (x.amount ?? 0), 0);
+        if (s.sidePots.length < 2 || sum !== s.pot || s.sidePots.some((x: any) => !Array.isArray(x.eligiblePlayerIds) || x.eligiblePlayerIds.length === 0)) spBad++;
+      }
+    }
+  };
+  scan(c0.raw);
+  const seat1 = c1.seat;
+  c1.disconnect();
+  await sleep(2000);
+  const afterStates = c0.states.slice(-5);
+  const dcSeen = afterStates.some(s => s.players.some((p: any) => p.id === seat1 && p.connected === false));
+  const ok = rowsChecked > 50 && rowsOk === rowsChecked && dcSeen && spBad === 0;
+  record('WIRE connected flag + sidePots shape', ok ? 'PASS' : 'FAIL',
+    `player rows checked=${rowsChecked} withBooleanConnected=${rowsOk}; disconnected seat flagged in survivor's snapshots=${dcSeen}; frames carrying sidePots=${spFrames} malformed=${spBad}`);
+  table.stop(); table.clients.forEach(c => c.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -607,6 +644,7 @@ async function main() {
   if (mode === 'a') { console.log(`\n== A-SCENARIO AT 5 SEATS (run ${RUN}) ==`); await scenarioA(5); writeResults('a'); return; }
   if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
   if (mode === 'clock') { console.log(`\n== CLOCK SYNC (run ${RUN}) ==`); await scenarioClock(); writeResults('clock'); return; }
+  if (mode === 'wire') { console.log(`\n== WIRE FIELDS (run ${RUN}) ==`); await scenarioWire(); writeResults('wire'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();

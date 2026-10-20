@@ -31,6 +31,8 @@ import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
 import { apiUrl } from '@/lib/apiConfig';
+import { TimeBankButton } from '@/components/game/TimeBankButton';
+import { serverNowMs } from '@/lib/clockSync';
 
 const MODE_ID = 'badugi';
 
@@ -239,6 +241,18 @@ export function BadugiFullPage({
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
           borderTop: '1px solid rgba(201,162,39,0.12)',
         }}>
+          {serverProfile?.profileId && tableId && state.activePlayerId === myId && (
+            <div className="flex justify-end px-3 pt-1.5">
+              <TimeBankButton
+                key={`${state.handId ?? 0}:${state.phase}:${state.activePlayerId ?? ''}`}
+                playerId={serverProfile.profileId}
+                tableId={tableId}
+                modeId={MODE_ID}
+                isMyTurn={state.activePlayerId === myId}
+                timerRemainingMs={state.turnDeadline != null ? Math.max(0, state.turnDeadline - serverNowMs()) : undefined}
+              />
+            </div>
+          )}
           <BadugiActionBar
             phase={state.phase} isDrawPhase={!effectiveSpectator && isDrawPhase}
             selectedCount={selectedCardIndices.length} drawLimit={drawLimit}

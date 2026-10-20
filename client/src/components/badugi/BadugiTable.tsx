@@ -41,6 +41,8 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null; // null = hasn't drawn yet
   isWinner: boolean;
+  /** Human seat with no live socket (server `connected` wire field). */
+  disconnected: boolean;
 }
 
 // A transient animated element flying across the table
@@ -79,6 +81,8 @@ interface ProtoState {
   // Server-authoritative turn deadline (epoch ms) from GameState.turnDeadline.
   // Null when the server has no timer armed (bot turns, non-interactive phases).
   turnDeadline: number | null;
+  // Display-only side-pot tiers from the server (null when a single pot).
+  sidePots: { amount: number; eligiblePlayerIds: string[] }[] | null;
   handNumber: number;
   flights: Flight[];
   rake: RakeState;
@@ -373,6 +377,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     isWinner: !!(p as any).isWinner,
+    disconnected: (p as any).presence === 'human' && (p as any).connected === false,
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -383,6 +388,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     phase: mapPhase(liveState.phase),
     players,
     pot: liveState.pot,
+    sidePots: liveState.sidePots ?? null,
     dealerSeat: dealerPlayerIdx >= 0 ? ordered.findIndex(p => p.id === liveState.players[dealerPlayerIdx].id) : 0,
     activeSeat: activeIdx,
     turnDeadline: liveState.turnDeadline ?? null,
@@ -647,6 +653,11 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               {/* Visual chip stack — grows in tiers with the pot, capped (Detroit 2026-10-13) */}
               <PotStack amount={state.pot} />
               <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
+              {state.sidePots && state.sidePots.length > 1 && (
+                <div className="text-amber-200/70 text-[11px] font-mono mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                  {state.sidePots.map((t, i) => `${i === 0 ? 'MAIN' : state.sidePots!.length > 2 ? `SIDE ${i}` : 'SIDE'} $${t.amount.toLocaleString()}`).join(' · ')}
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
           {/* Muck pile — face-down discards stack here */}
@@ -926,6 +937,18 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                           }}
                         >
                           FOLD
+                        </span>
+                      )}
+                      {p.disconnected && (
+                        <span
+                          className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
+                          style={{
+                            color: '#cbd5e1',
+                            background: 'rgba(51,65,85,0.65)',
+                            border: '1px solid rgba(148,163,184,0.5)',
+                          }}
+                        >
+                          DC
                         </span>
                       )}
                     </div>

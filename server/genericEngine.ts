@@ -13,6 +13,7 @@ import { applyRake } from './utils/rake';
 import { applyGenericDraw } from './utils/genericDraw';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
+import { sidePotsForShowdown } from '../shared/engine/sidePots';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import {
@@ -345,6 +346,17 @@ function makeInitialState(tableId: string, isClubTable = false, minBet = 50): Ga
 // publicCardIndicesPerPlayer: maps playerId → card indices that are face-up for ALL players.
 // Public visibility metadata is generic wire masking, not mode mechanics.
 
+// Display-only side-pot tiers for outbound states, computed with the same
+// sidePotsForShowdown helper the payout path uses so the breakdown can
+// never diverge from the money. Present only when contributions diverge
+// (>1 tier). Never fed back into resolution; stripped from inbound state
+// by construction (masked copies are per-send only).
+function sidePotsForDisplay(state: GameState): { amount: number; eligiblePlayerIds: string[] }[] | undefined {
+  const eligibleIds = state.players.filter(p => p.status !== 'folded').map(p => p.id);
+  const tiers = sidePotsForShowdown(state.players, state.pot ?? 0, eligibleIds);
+  return tiers.length > 1 ? tiers.map(t => ({ amount: t.amount, eligiblePlayerIds: t.eligibleIds })) : undefined;
+}
+
 export function maskStateForPlayer(
   state: GameState,
   forPlayerId: string,
@@ -353,8 +365,10 @@ export function maskStateForPlayer(
   const isShowdown = state.phase === 'SHOWDOWN';
   const publicState = { ...state };
   delete publicState.seatStreakOwners;
+  const displaySidePots = sidePotsForDisplay(state);
   return {
     ...publicState,
+    sidePots: displaySidePots,
     deck: [],
     // Wire-only card backs: never serialize ranks/suits before the board reveals them.
     // The authoritative state keeps the real cards for evaluation and later reveals.
@@ -743,6 +757,18 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
   afterHumanAction(table, false);
 }
 
+// Wire enrichment for outbound snapshots: attach identityId (seat→profile
+// UUID, for the block feature) and `connected` (live socket presence, for
+// the opponent disconnect indicator). Presentation-only — the enriched rows
+// are per-send copies and are never written back into table.state.
+function enrichPlayersForWire(table: GenericTable, players: Player[]): Player[] {
+  return players.map(p => {
+    const iid = table.seatToIdentityId.get(p.id);
+    const connected = table.connections.get(p.id)?.readyState === 1;
+    return { ...p, ...(iid ? { identityId: iid } : {}), connected };
+  });
+}
+
 function broadcastState(table: GenericTable): void {
   // Detroit 2026-10-15: Force Flushed Up and Box Chevy tables to 4 players max (same as Badugi).
   // Trims on every broadcast so 5-player tables can't persist.
@@ -779,10 +805,7 @@ function broadcastState(table: GenericTable): void {
       // Enrich players with identityId so client can resolve seat→UUID for block feature
       const enrichedState = {
         ...personalState,
-        players: personalState.players.map(p => {
-          const iid = table.seatToIdentityId.get(p.id);
-          return iid ? { ...p, identityId: iid } : p;
-        }),
+        players: enrichPlayersForWire(table, personalState.players),
       };
       ws.send(JSON.stringify({
         type: 'mode:snapshot',
@@ -797,7 +820,7 @@ function broadcastState(table: GenericTable): void {
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView, serverNow: Date.now() }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
@@ -2237,7 +2260,7 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
       }
       ws.send(JSON.stringify({
         type: 'mode:snapshot',
-        state: personalState,
+        state: { ...personalState, players: enrichPlayersForWire(table, personalState.players) },
         sessionStats: buildSessionStats(table, recipientSeat),
         serverNow: Date.now(),
       }));
@@ -2249,7 +2272,7 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView, serverNow: Date.now() }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
 
