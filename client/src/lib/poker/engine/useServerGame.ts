@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { reportTableConnection } from '../../tableConnectionHealth';
+import { noteServerNow } from '../../clockSync';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
@@ -264,6 +265,7 @@ export function useServerBadugi(tableId: string, buyinChips?: number) {
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
+          noteServerNow((msg as { serverNow?: unknown }).serverNow);
           if (msg.type === 'leave:complete') {
             const pending = pendingLeaveRef.current;
             if (pending) {

@@ -559,12 +559,54 @@ function writeResults(tag: string) {
   console.log(`\n${results.filter(r => r.status === 'PASS').length} PASS / ${results.filter(r => r.status === 'FAIL').length} FAIL / ${results.filter(r => r.status === 'BLOCKED').length} BLOCKED`);
 }
 
+async function scenarioClock() {
+  // Clock-sync protocol verification: every init/snapshot envelope (players
+  // AND spectator) must carry a numeric serverNow close to the host clock,
+  // including the init delivered after a reconnect. (Device-side offset math
+  // is 3 lines in client/src/lib/clockSync.ts — typechecked; the skewed-
+  // device visual check belongs to phone QA, which this cannot fake.)
+  const t = `CK${R4}`;
+  const table = await makeTable(t, 2, { maxPlayers: 4, bots: true });
+  const [c0] = table.clients;
+  const spec = new Client(`T${R4}CKS`);
+  await spec.bootstrap();
+  await spec.connect(t, true).catch(() => {});
+  table.startDrivers([{}, {}]);
+  await sleep(6000);
+  const check = (frames: { t: number; text: string }[]) => {
+    let total = 0; let withNow = 0; let maxDrift = 0;
+    for (const f of frames) {
+      let m: any; try { m = JSON.parse(f.text); } catch { continue; }
+      if (m.type === 'badugi:init' || m.type === 'badugi:snapshot') {
+        total++;
+        if (typeof m.serverNow === 'number') { withNow++; maxDrift = Math.max(maxDrift, Math.abs(m.serverNow - f.t)); }
+      }
+    }
+    return { total, withNow, maxDrift };
+  };
+  const a = check(c0.raw);
+  const b = check(spec.raw);
+  c0.disconnect();
+  await sleep(1500);
+  const rawBefore = c0.raw.length;
+  await c0.connect(t);
+  await sleep(1000);
+  const re = check(c0.raw.slice(rawBefore));
+  const ok = a.total >= 3 && a.withNow === a.total && a.maxDrift < 3000
+    && (b.total === 0 || b.withNow === b.total)
+    && re.total >= 1 && re.withNow === re.total;
+  record('CLK serverNow envelope (players, spectator, reconnect)', ok ? 'PASS' : 'FAIL',
+    `player frames=${a.total} withServerNow=${a.withNow} maxDriftMs=${a.maxDrift}; spectator frames=${b.total} withServerNow=${b.withNow}; post-reconnect frames=${re.total} withServerNow=${re.withNow}`);
+  table.stop(); table.clients.forEach(c => c.disconnect()); spec.disconnect();
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
   if (mode === 'a4') { console.log(`\n== A-SCENARIO AT 4 SEATS (run ${RUN}) ==`); await scenarioA(4); writeResults('a4'); return; }
   if (mode === 'a') { console.log(`\n== A-SCENARIO AT 5 SEATS (run ${RUN}) ==`); await scenarioA(5); writeResults('a'); return; }
   if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
+  if (mode === 'clock') { console.log(`\n== CLOCK SYNC (run ${RUN}) ==`); await scenarioClock(); writeResults('clock'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();

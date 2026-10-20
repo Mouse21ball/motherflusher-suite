@@ -601,6 +601,7 @@ function broadcastState(table: AuthTable): void {
         type: 'badugi:snapshot',
         state: enrichedState,
         sessionStats: buildBadugiSessionStats(table, playerId),
+        serverNow: Date.now(),
       }));
     } catch { /* ignore closed socket race */ }
   }
@@ -609,7 +610,7 @@ function broadcastState(table: AuthTable): void {
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
-      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView, serverNow: Date.now() }));
     } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
@@ -1960,7 +1961,7 @@ function registerWalletSpectator(table: AuthTable, sessionId: string, ws: WebSoc
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
     ws.send(JSON.stringify({ type: 'badugi:init', playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__') }));
+      state: maskStateForPlayer(table.state, '__spectator__'), serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -2104,6 +2105,7 @@ export async function addBadugiConnection(
         playerId: '__spectator__',
         role: 'spectator',
         state: maskStateForPlayer(table.state, '__spectator__'),
+        serverNow: Date.now(),
       }));
     } catch {}
     broadcastState(table);
@@ -2287,6 +2289,7 @@ export async function addBadugiConnection(
       state: maskStateForPlayer(table.state, seat),
       sessionStats: buildBadugiSessionStats(table, seat),
       crewId: table.crewId ?? null,
+      serverNow: Date.now(),
     }));
   } catch { /* ws may have already closed */ }
 
@@ -2508,6 +2511,7 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
         type: 'badugi:snapshot',
         state: personalState,
         sessionStats: buildBadugiSessionStats(table, recipientSeat),
+        serverNow: Date.now(),
       }));
     } catch { /* ignore closed socket race */ }
   }
@@ -2517,7 +2521,7 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
-      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView, serverNow: Date.now() }));
     } catch {}
   }
 

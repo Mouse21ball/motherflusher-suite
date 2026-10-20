@@ -17,6 +17,7 @@ import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBadugi } from '@shared/modes/badugi';
+import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -724,7 +725,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           // deadline is armed (bot turn / non-interactive phase) — no bar is
           // shown rather than animating a fabricated duration.
           const turnRemainingMs = isActive && state.turnDeadline != null
-            ? Math.max(0, Math.min(30_000, state.turnDeadline - Date.now()))
+            ? Math.max(0, Math.min(30_000, state.turnDeadline - serverNowMs()))
             : null;
           return (
             <div

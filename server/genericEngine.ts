@@ -788,6 +788,7 @@ function broadcastState(table: GenericTable): void {
         type: 'mode:snapshot',
         state: enrichedState,
         sessionStats: buildSessionStats(table, playerId),
+        serverNow: Date.now(),
       }));
     } catch {}
   }
@@ -796,7 +797,7 @@ function broadcastState(table: GenericTable): void {
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView, serverNow: Date.now() }));
     } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
@@ -1660,7 +1661,7 @@ function registerWalletSpectator(table: GenericTable, sessionId: string, ws: Web
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
     ws.send(JSON.stringify({ type: 'mode:init', modeId: table.modeId, playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer) }));
+      state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer), serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -1819,6 +1820,7 @@ export async function addGenericConnection(
         modeId,
         role: 'spectator',
         state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
+        serverNow: Date.now(),
       }));
     } catch {}
     broadcastState(table);
@@ -2010,6 +2012,7 @@ export async function addGenericConnection(
       state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
       sessionStats: buildSessionStats(table, seat),
       crewId: table.crewId ?? null,
+      serverNow: Date.now(),
     }));
   } catch {}
 
@@ -2236,6 +2239,7 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
         type: 'mode:snapshot',
         state: personalState,
         sessionStats: buildSessionStats(table, recipientSeat),
+        serverNow: Date.now(),
       }));
     } catch {}
   }
@@ -2245,7 +2249,7 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView, serverNow: Date.now() }));
     } catch {}
   }
 
