@@ -105,6 +105,13 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
 const BADUGI_TURN_TIMEOUT_MS = 30_000;
 
 const BADUGI_INTERACTIVE_PHASES = new Set<GamePhase>([
+  // 'ANTE' added 2026-10-20 (Defect V-2): without it no turn timer was ever
+  // armed during ANTE on this engine, so a connected-but-idle first-to-act
+  // player froze the table on "Ante up" indefinitely (verified live on
+  // staging: deadline stayed null, hand stuck in ANTE 80s+). The timeout
+  // handler's ANTE branch (auto-ante) already existed but could never fire.
+  // Matches the generic engine, which has armed ANTE since 2026-10-16.
+  'ANTE',
   'BET_1', 'BET_2', 'BET_3', 'BET_4',
   'DRAW_1', 'DRAW_2', 'DRAW_3',
   'DECLARE',
