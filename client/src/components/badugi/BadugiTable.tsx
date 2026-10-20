@@ -576,26 +576,38 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
             zIndex: 1,
           }}
         />
-        {/* Detroit 2026-10-19: premium casino table — restrained gold, subtle felt,
-            dimensional lighting. All CSS, no blur filters (mobile perf).
-            v3: refined felt texture, thinner rail, top-light/bottom-shadow. */}
+        {/* Detroit 2026-10-19 Hybrid A+B: perspective table SURFACE only.
+            Dimensional feel from silhouette + layered edge + lighting —
+            NEVER transforms on pods, cards, text, or buttons (they stay flat).
+            The offset dark ellipse below reads as the table's near edge/side,
+            giving a viewed-from-above-at-angle feel without touching children. */}
+        {/* Table side/edge — offset dark ellipse = near-edge thickness */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: '1.5%', right: '1.5%', top: '10%', bottom: '29.5%',
+            borderRadius: '50%',
+            background: 'linear-gradient(180deg, #1a0d33 0%, #120826 100%)',
+            boxShadow: '0 10px 32px rgba(0,0,0,0.7), 0 0 0 2px rgba(120,90,20,0.5)',
+          }}
+        />
         <div
           className="absolute pointer-events-none"
           style={{
             left: '2%', right: '2%', top: '8%', bottom: '32%',
             borderRadius: '50%',
             // Layered felt: base purple + subtle woven texture via repeating gradient
+            // Perspective light: brighter at near edge (bottom), dimmer far (top)
             background: `
               repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
               repeating-linear-gradient(-45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px),
-              radial-gradient(ellipse at 50% 30%, #553399 0%, #412673 40%, #2e1a56 70%, #221240 100%)
+              radial-gradient(ellipse at 50% 78%, #5d3aa3 0%, #472c80 38%, #2e1a56 68%, #1e1038 100%)
             `,
-            // Dimensional: light from top (dusk sun), shadow at bottom
+            // Dimensional: near-edge highlight, far-edge falloff
             boxShadow: `
-              inset 0 2px 12px rgba(255,220,150,0.12),
-              inset 0 -18px 32px rgba(0,0,0,0.45),
-              inset 0 0 60px rgba(0,0,0,0.3),
-              0 4px 24px rgba(0,0,0,0.5)
+              inset 0 -3px 14px rgba(255,220,150,0.16),
+              inset 0 14px 28px rgba(0,0,0,0.4),
+              inset 0 0 60px rgba(0,0,0,0.3)
             `,
             // Restrained gold rail: thin solid + inner pinline
             border: '3px solid rgba(201,162,39,0.9)',
@@ -747,62 +759,133 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   transition={{ duration: 0.3 }}
                 />
               )}
-              <div className="flex items-center gap-1.5" style={{ maxWidth: p.isHero ? 'none' : '110px' }}>
-                {/* Detroit 2026-10-16: avatar with cosmetic border */}
-                <AvatarWithFrame
-                  avatarSrc={p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : ((p as any).avatarUrl || getAvatarForSeat(i + 1))}
-                  frameSrc={p.isHero ? heroFrameSrc : null}
-                  initials={getAvatarInitials(p.name)}
-                  initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 40} // Detroit 2026-10-19: slightly smaller for 5-seat fit
-                />
-                {isDealer && <span className="text-amber-300 text-[10px] font-mono shrink-0">D</span>}
-                {/* Detroit 2026-10-19: constrained label — ellipsis, chip count always visible below */}
-                <span
-                  className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'} ${p.isHero ? '' : 'truncate'}`}
-                  style={p.isHero ? undefined : { maxWidth: '64px' }}
-                  title={p.name}
-                >
-                  {p.name}
-                </span>
-                {/* Detroit 2026-10-19: clear folded indicator — pill badge, cards stay hidden */}
-                {p.folded && (
-                  <span
-                    className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                    style={{
-                      color: '#fca5a5',
-                      background: 'rgba(127,29,29,0.6)',
-                      border: '1px solid rgba(248,113,113,0.5)',
-                    }}
+              {p.isHero ? (
+                <>
+                  {/* HERO — vertical: avatar+name row, chips, big cards below */}
+                  <div className="flex items-center gap-1.5">
+                    <AvatarWithFrame
+                      avatarSrc={heroAvatarSrc || getAvatarForSeat(0)}
+                      frameSrc={heroFrameSrc}
+                      initials={getAvatarInitials(p.name)}
+                      initialsColor="#FDE68A"
+                      size={52}
+                    />
+                    {isDealer && <span className="text-amber-300 text-[10px] font-mono shrink-0">D</span>}
+                    <span className="text-xs font-mono text-amber-200 font-bold">
+                      {p.name}
+                    </span>
+                    {p.folded && (
+                      <span
+                        className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          color: '#fca5a5',
+                          background: 'rgba(127,29,29,0.6)',
+                          border: '1px solid rgba(248,113,113,0.5)',
+                        }}
+                      >
+                        FOLD
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
+                  {p.bet > 0 && (
+                    <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-amber-300 text-[10px] font-mono mt-0.5"
+                    >
+                      ${p.bet}
+                    </motion.div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* OPPONENT POD — Detroit 2026-10-19 Hybrid B architecture:
+                      horizontal pod per PokerBros/Zynga pattern. Avatar + cards
+                      tucked beside it on ONE row (saves ~35px vertical/seat),
+                      name+stack plate below. Flat — no transforms on pod/cards. */}
+                  <div className="flex items-center gap-1">
+                    <AvatarWithFrame
+                      avatarSrc={(p as any).avatarUrl || getAvatarForSeat(i + 1)}
+                      frameSrc={null}
+                      initials={getAvatarInitials(p.name)}
+                      initialsColor="#FDE68A"
+                      size={36}
+                    />
+                    {/* Tucked card backs beside avatar — small, overlapping */}
+                    <div className="flex" style={{ marginLeft: 2 }}>
+                      {p.cards.map((card, ci) => (
+                        <div
+                          key={`${p.id}-tuck${ci}`}
+                          className="rounded-sm"
+                          style={{
+                            width: 16, height: 23,
+                            marginLeft: ci > 0 ? -7 : 0,
+                            background: card.isHidden
+                              ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)'
+                              : '#fffdf7',
+                            border: '1px solid rgba(139,92,246,0.5)',
+                            color: '#1e293b',
+                            fontSize: 8, fontWeight: 800,
+                            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+                            paddingTop: 1,
+                          }}
+                        >
+                          {!card.isHidden && card.rank}
+                        </div>
+                      ))}
+                    </div>
+                    {isDealer && <span className="text-amber-300 text-[9px] font-mono shrink-0">D</span>}
+                  </div>
+                  {/* Name + stack plate */}
+                  <div
+                    className="flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-md"
+                    style={{ background: 'rgba(10,5,25,0.65)', maxWidth: '104px' }}
                   >
-                    FOLD
-                  </span>
-                )}
-              </div>
-              <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
-              {p.bet > 0 && (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-amber-300 text-[10px] font-mono mt-0.5"
-                >
-                  ${p.bet}
-                </motion.div>
+                    <span
+                      className="text-[10px] font-mono text-white/85 truncate"
+                      style={{ maxWidth: '58px' }}
+                      title={p.name}
+                    >
+                      {p.name}
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-200/90 shrink-0">
+                      {p.chips.toLocaleString()}
+                    </span>
+                    {p.folded && (
+                      <span
+                        className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0"
+                        style={{
+                          color: '#fca5a5',
+                          background: 'rgba(127,29,29,0.6)',
+                          border: '1px solid rgba(248,113,113,0.5)',
+                        }}
+                      >
+                        FOLD
+                      </span>
+                    )}
+                  </div>
+                  {p.bet > 0 && (
+                    <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-amber-300 text-[10px] font-mono mt-0.5"
+                    >
+                      ${p.bet}
+                    </motion.div>
+                  )}
+                </>
               )}
-              {/* Cards — UNO ratio: opponents tiny tight fan, hero big */}
+              {/* Cards — hero big below; opponents handled in pod above */}
+              {p.isHero && (
               <div
                 className="flex mt-1"
-                style={!p.isHero
-                  ? { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' }
-                  : { gap: '2px' }
-                }
+                style={{ gap: '2px' }}
               >
                 <AnimatePresence>
                   {p.cards.map((card, ci) => {
-                    // Fan rotation for opponents (UNO-style tight fan)
-                    const fanAngle = !p.isHero && p.cards.length > 1
-                      ? (ci - (p.cards.length - 1) / 2) * 10
-                      : 0;
+                    // Hero cards only (opponents render in the pod above)
+                    const fanAngle = 0;
                     return (
                     <motion.div
                       key={`${p.id}-c${ci}`}
@@ -819,34 +902,34 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         <div
                           className="rounded"
                           style={{
-                            width: p.isHero ? 56 : 20,
-                            height: p.isHero ? 80 : 30,
+                            width: 56,
+                            height: 80,
                             background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
                             border: '1px solid rgba(139,92,246,0.4)',
                           }}
                         />
                       ) : (
                         <div
-                          onClick={p.isHero && isDrawPhase ? () => onCardClick(ci) : undefined}
+                          onClick={isDrawPhase ? () => onCardClick(ci) : undefined}
                           style={{
-                            cursor: p.isHero && isDrawPhase ? 'pointer' : 'default',
-                            transform: p.isHero && selectedCardIndices.includes(ci)
+                            cursor: isDrawPhase ? 'pointer' : 'default',
+                            transform: selectedCardIndices.includes(ci)
                               ? 'translateY(-14px) scale(1.06)'
                               : 'none',
                             transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
                             // Neon glow when selected — premium discard highlight
-                            boxShadow: p.isHero && selectedCardIndices.includes(ci)
+                            boxShadow: selectedCardIndices.includes(ci)
                               ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
                               : 'none',
                             borderRadius: '6px',
                             // Detroit 2026-10-19: ensure selected cards don't clip
                             // 14px raise + 6% scale needs 20px clearance above
-                            marginTop: p.isHero ? '20px' : '0',
+                            marginTop: '20px',
                           }}
                         >
                           <PlayingCard
                             card={card}
-                            className={p.isHero ? '!w-[56px] !h-[80px]' : '!w-[20px] !h-[30px]'}
+                            className="!w-[56px] !h-[80px]"
                           />
                         </div>
                       )}
@@ -855,6 +938,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   })}
                 </AnimatePresence>
               </div>
+              )}
               {/* Draw badge */}
               {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
                 <div className="text-purple-300 text-[10px] font-mono mt-1">
