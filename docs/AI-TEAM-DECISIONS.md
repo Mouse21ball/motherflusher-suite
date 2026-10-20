@@ -73,3 +73,25 @@
 **Evidence:** Staging probe B0 — a connected-but-idle first-to-act player: `turnDeadline` stayed null and the hand froze in ANTE for 80s+. Root cause: `BADUGI_INTERACTIVE_PHASES` omitted `ANTE`, so the existing auto-ante timeout branch could never fire.
 
 **Owner:** Milo. Approved by Detroit (dev branch only).
+
+## 2026-10-20: Clock synchronization — serverNow on the snapshot envelope
+
+**Decision:** Snapshot/init envelopes from both engines carry `serverNow` (server epoch ms at send). It is deliberately NOT a GameState field: GameState is persisted/restored, and a stale epoch inside it would be a bug. Clients keep `clockOffsetMs = serverNow - clientNow` (recomputed per snapshot) and render turn deadlines against the corrected clock. The server remains the sole authority; this corrects display only, and is backward-compatible (no serverNow → offset 0 → previous behavior).
+
+**Evidence:** Staging protocol check — 26/26 player frames, 24/24 spectator frames, 6/6 post-reconnect frames carried serverNow; max drift 2ms.
+
+**Owner:** Milo. Approved by Detroit as part of the 2026-10-20 sequence (dev branch only).
+
+## 2026-10-20: Disconnects broadcast immediately (both engines)
+
+**Decision:** `removeBadugiDisconnect` / `removeGenericDisconnect` broadcast state immediately after removing a connection. Previously neither did (the spectator branches did), so opponents learned of a disconnect only on the next game action — up to a full turn timer later — making any presence-driven UI (the new DC pod indicator, driven by the `connected` wire field added the same day) unreliable.
+
+**Evidence:** Staging wire check before the fix: disconnect flag never appeared in the survivor's snapshots. After: flagged immediately; 120/120 player rows carry a boolean `connected` (init frames enriched as well).
+
+**Owner:** Milo. Approved scope: UI integrations, 2026-10-20 sequence (dev branch only).
+
+## 2026-10-20: Test-expectation updates; Box Chevy HIGH held
+
+**Decision:** 9 outdated test expectations were rewritten to current shipped rules (Flushed Up no-flush-gate ×5 incl. the resolveByFold path, practice source assertions ×2, keptModeEngines mechanics scan narrowed to ban mode mechanics while allowing seat-cap policy ×1, Box Chevy SWING ×1 — its LOW side was read from the wrong end). Wheel evaluator naming assertions aligned to the sequence-string names; wheel VALUE-ordering assertions and the 6 Box Chevy HIGH/side-pot/history tests are HELD unchanged pending Detroit's HIGH-comparison ruling (current code compares the 10-card HIGH sequence smallest-first, per his 2026-10-13 written rule; the held tests encode standard highest-first). Suite after updates: 542 passed / 8 failed (all held) / 30 skipped.
+
+**Owner:** Milo. Approved by Detroit (updates independent of the HIGH ruling only).
