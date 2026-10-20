@@ -75,6 +75,9 @@ interface ProtoState {
   pot: number;
   dealerSeat: number;
   activeSeat: number;
+  // Server-authoritative turn deadline (epoch ms) from GameState.turnDeadline.
+  // Null when the server has no timer armed (bot turns, non-interactive phases).
+  turnDeadline: number | null;
   handNumber: number;
   flights: Flight[];
   rake: RakeState;
@@ -381,6 +384,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     pot: liveState.pot,
     dealerSeat: dealerPlayerIdx >= 0 ? ordered.findIndex(p => p.id === liveState.players[dealerPlayerIdx].id) : 0,
     activeSeat: activeIdx,
+    turnDeadline: liveState.turnDeadline ?? null,
     handNumber: liveState.handId ?? 1,
     flights,
     rake,
@@ -625,17 +629,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           }}
         />
 
-        {/* Dealer position — top center, UNO style */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
-          <motion.div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
-            style={{ background: 'rgba(240,184,41,0.15)', border: '2px solid rgba(240,184,41,0.5)' }}
-            animate={{ rotate: state.phase === 'dealing' ? 360 : 0 }}
-            transition={{ duration: 2, ease: 'linear' }}
-          >
-            <span className="text-amber-300 text-[10px] font-mono">D</span>
-          </motion.div>
-        </div>
+        {/* Detroit 2026-10-20: floating dealer "D" marker REMOVED — the
+            avatar-attached pod badge is the single dealer indicator.
+            DEALER_POS remains only as the deal-flight origin point. */}
 
         {/* Center staging — pot as the centerpiece (UNO's pile position) */}
         <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
@@ -724,6 +720,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           const pos = seatPosition(i);
           const isActive = i === state.activeSeat && (state.phase.startsWith('bet') || state.phase.startsWith('draw') || state.phase === 'declare');
           const isDealer = i === state.dealerSeat;
+          // Time left on the SERVER's turn clock for this seat. Null when no
+          // deadline is armed (bot turn / non-interactive phase) — no bar is
+          // shown rather than animating a fabricated duration.
+          const turnRemainingMs = isActive && state.turnDeadline != null
+            ? Math.max(0, Math.min(30_000, state.turnDeadline - Date.now()))
+            : null;
           return (
             <div
               key={p.id}
@@ -815,6 +817,28 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                     >
                       ${p.bet}
                     </motion.div>
+                  )}
+                  {/* Hero turn timer — Detroit 2026-10-20: the hero previously had
+                      NO countdown anywhere while the server auto-acts at the
+                      deadline. Same server-deadline bar as the opponent pods. */}
+                  {turnRemainingMs != null && (
+                    <div
+                      className="mt-1 h-[3px] w-[120px] rounded-full overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.12)' }}
+                    >
+                      {state.motionMode === 'full' && !reduced ? (
+                        <motion.div
+                          key={state.turnDeadline}
+                          className="h-full rounded-full"
+                          style={{ background: '#F0B829', transformOrigin: 'left' }}
+                          initial={{ scaleX: turnRemainingMs / 30_000 }}
+                          animate={{ scaleX: 0 }}
+                          transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
+                        />
+                      ) : (
+                        <div className="h-full w-full" style={{ background: '#F0B829' }} />
+                      )}
+                    </div>
                   )}
                 </>
               ) : (
@@ -915,20 +939,25 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                       </motion.div>
                     )}
                     {/* Active-turn timer — depleting gold bar on the pod's bottom
-                        edge. Presents the existing 30s turn clock. Full motion:
+                        edge, driven by the SERVER's turnDeadline (epoch ms), not
+                        a fixed client duration: it starts at the true remaining
+                        fraction, and keying on the deadline restarts it correctly
+                        on a new turn or a time-bank extension. Rendered only when
+                        the server has a timer armed for this seat. Full motion:
                         animated depletion; reduced/off: static bar (no motion). */}
-                    {isActive && (
+                    {turnRemainingMs != null && (
                       <div
                         className="absolute left-2 right-2 bottom-0.5 h-[3px] rounded-full overflow-hidden"
                         style={{ background: 'rgba(255,255,255,0.12)' }}
                       >
                         {state.motionMode === 'full' && !reduced ? (
                           <motion.div
+                            key={state.turnDeadline}
                             className="h-full rounded-full"
                             style={{ background: '#F0B829', transformOrigin: 'left' }}
-                            initial={{ scaleX: 1 }}
+                            initial={{ scaleX: turnRemainingMs / 30_000 }}
                             animate={{ scaleX: 0 }}
-                            transition={{ duration: 30, ease: 'linear' }}
+                            transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
                           />
                         ) : (
                           <div className="h-full w-full" style={{ background: '#F0B829' }} />

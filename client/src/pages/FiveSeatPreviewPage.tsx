@@ -116,6 +116,11 @@ function computeWinner(players: MockPlayer[]): string | null {
   return best?.id ?? null;
 }
 
+// Stable per page-load: the mock's server-style turn deadline. Module scope
+// so re-renders (e.g. card taps) don't reset the clock — mirrors how a real
+// deadline arrives once per turn from the server.
+const PREVIEW_TURN_DEADLINE = Date.now() + 30_000;
+
 function buildMockState(phase: string): GameState {
   const isShowdown = phase === "showdown";
   const players = buildMockPlayers(isShowdown);
@@ -131,6 +136,7 @@ function buildMockState(phase: string): GameState {
     currentBet: 100,
     minBet: 50,
     activePlayerId: isShowdown ? "" : "p3",
+    turnDeadline: isShowdown ? null : PREVIEW_TURN_DEADLINE,
     dealerSeat: 1,
     activeSeat: 3,
     players: players.map(p => ({
