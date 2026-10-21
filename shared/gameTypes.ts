@@ -51,6 +51,15 @@ export interface Player {
   // Display-only: how many cards this player drew on their last draw action.
   // Used by the client to animate discards/draws. Reset each hand.
   lastDrawCount?: number;
+  // Monotonic per-hand draw-transaction counter (Detroit 2026-10-20):
+  // incremented on EVERY draw action, including stand-pat, for humans and
+  // bots alike. Clients key draw animations to (handId, playerId, drawSeq)
+  // so a draw animates exactly once and state snapshots can never replay it.
+  drawSeq?: number;
+  // Why this player is folded, stamped at the exact fold site so every fold
+  // is traceable to a player action or a documented server rule:
+  // 'player-fold' | 'declare-fold' | 'timeout' | 'declare-auto-invalid'.
+  foldReason?: string;
   // Badugi: set when the engine auto-folds a player at DECLARE for holding no
   // valid badugi (distinct from a voluntary fold). On a rollover (no valid hand
   // anywhere), these players are still in for the next hand.

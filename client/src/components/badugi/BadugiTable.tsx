@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCelebrationMotion } from '../../lib/celebrationPreferences';
 import { PlayingCard } from '@/components/game/Card';
+import { baselineSeqs, detectDrawTransactions, replacedIndices } from './flightPlan';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
@@ -40,6 +41,8 @@ interface ProtoPlayer {
   isHero: boolean;
   folded: boolean;
   drewCount: number | null; // null = hasn't drawn yet
+  /** Server-stamped fold provenance (gameTypes.Player.foldReason). */
+  foldReason: string | null;
   isWinner: boolean;
   /** Human seat with no live socket (server `connected` wire field). */
   disconnected: boolean;
@@ -153,10 +156,17 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   // Staging: how many cards have visually landed per player this hand.
   // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
   const [landed, setLanded] = useState<Record<string, number>>({});
+  // Detroit 2026-10-20 (Bug 1/2 fix): draw animations are keyed to the
+  // server's per-hand drawSeq transactions (see flightPlan.ts). drawSeqsRef
+  // holds the seqs already animated/baselined for the current hand;
+  // drawHidden stages the hero's replaced slots (hidden until their
+  // replacement flight lands) so kept cards are never disturbed.
+  const drawSeqsRef = useRef<Map<string, number>>(new Map());
+  const [drawHidden, setDrawHidden] = useState<Record<string, number[]>>({});
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; heroCards: { rank: string; suit: string }[] | null } | null>(null);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -174,20 +184,32 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     setFlights(s => s.filter(f => f.id !== id));
   }, []);
 
-  // Drive flights from live state diffs (prototype timing, verbatim)
+  // Drive flights from live state diffs (prototype timing, verbatim).
+  //
+  // Detroit 2026-10-20 (Bug 1/2 fix): draw/deal animations are keyed to
+  // server transactions, never to snapshot shape. A draw animates only when
+  // a player's drawSeq increments (stamped server-side on every accepted
+  // draw, humans + bots, stand-pat included); the previous key,
+  // `${phase}:${lastDrawCount}`, replayed the same draw on every phase
+  // change because lastDrawCount persists for the rest of the hand. The
+  // deal animates on the handId transition, once, across ALL seats.
   useEffect(() => {
     if (reduced) return;
     const prev = prevRef.current;
+    const heroNow = liveState.players.find(p => p.id === myId);
     const curr = {
       handId: liveState.handId,
       phase: liveState.phase,
       bets: Object.fromEntries(liveState.players.map(p => [p.id, p.bet])),
-      // Key draws by phase+count so same-count draws in different rounds still animate
-      draws: Object.fromEntries(liveState.players.map(p => [p.id, `${liveState.phase}:${(p as any).lastDrawCount ?? 'x'}`])),
+      heroCards: heroNow ? heroNow.cards.map(c => ({ rank: c.rank, suit: c.suit })) : null,
     };
 
-    if (prev) {
-      // NEW HAND → 16-card deal (prototype: 160ms apart, 0.32s flight each).
+    if (!prev) {
+      // Baseline (mount / reconnect): record the current draw transactions
+      // as already-seen, so state that predates this client never animates.
+      drawSeqsRef.current = baselineSeqs(liveState.players);
+    } else {
+      // NEW HAND → deal (prototype: 160ms apart, 0.32s flight each).
       // Cards are staged: they only appear in the hand when their flight lands.
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
@@ -198,9 +220,14 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         const reset: Record<string, number> = {};
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
-        // 16 cards, one every 160ms, seat order 0→1→2→3 repeating
-        for (let i = 0; i < 16; i++) {
-          const seatIdx = i % 4;
+        setDrawHidden({});
+        // Per-hand drawSeq restarts server-side — baseline this snapshot.
+        drawSeqsRef.current = baselineSeqs(liveState.players);
+        // Every seated player × 4 cards, seats round-robin (the old loop
+        // hardcoded 16 flights over 4 seats and starved the 5th seat).
+        const totalCards = ordered.length * 4;
+        for (let i = 0; i < totalCards; i++) {
+          const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
           const isHero = seatIdx === 0;
@@ -244,21 +271,39 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // DRAWS → discards to muck, replacements from dealer (prototype timing)
-      // Keyed by phase+count so repeat same-count draws in later rounds still fire.
-      for (const p of liveState.players) {
-        const prevD = prev.draws[p.id];
-        const currD = curr.draws[p.id];
-        const currCount = parseInt(currD.split(':')[1] || '0', 10);
-        if (currD !== prevD && !isNaN(currCount) && currCount > 0) {
+      // DRAWS → discards to muck, replacements from dealer (prototype timing).
+      // Detroit 2026-10-20 (Bug 1/2 fix): planned ONLY from drawSeq
+      // transactions (flightPlan.ts) — a snapshot that changes no seq plans
+      // nothing, so timers, bets, phase changes and duplicate broadcasts can
+      // never replay a draw. Stand-pat (count 0) records the transaction and
+      // flies nothing.
+      if (!isNewHand) {
+        const { transactions, seqs } = detectDrawTransactions(drawSeqsRef.current, liveState.players);
+        drawSeqsRef.current = seqs;
+        for (const tx of transactions) {
+          if (tx.count <= 0) continue;
+          const p = liveState.players.find(x => x.id === tx.playerId);
+          if (!p) continue;
           const isHero = p.id === myId;
           const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
           const pos = seatPosition(Math.max(0, seatIdx));
-          // Detroit 2026-10-15: stage replacement cards — hide the drawn slots
-          // until their flights land (was showing new cards instantly).
-          const keptCount = 4 - currCount;
-          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
-          for (let d = 0; d < currCount; d++) {
+          // Slot-faithful staging for the hero: hide exactly the slots whose
+          // card identity changed (diff of pre/post hands — the server
+          // replaces in place at the discarded indices). Kept cards never
+          // move, vanish, or change. If the diff disagrees with the count
+          // (stale baseline), skip staging rather than show a wrong hand —
+          // flights still fly and the true hand stays on screen.
+          const heroIdxs = isHero && prev.heroCards && curr.heroCards
+            ? replacedIndices(prev.heroCards, curr.heroCards)
+            : [];
+          const stageHero = isHero && heroIdxs.length === tx.count;
+          if (stageHero) {
+            setDrawHidden(prevH => ({ ...prevH, [p.id]: heroIdxs }));
+          } else if (!isHero) {
+            // Opponents' cards are masked — stage their backs by count.
+            setLanded(prevLanded => ({ ...prevLanded, [p.id]: 4 - tx.count }));
+          }
+          for (let d = 0; d < tx.count; d++) {
             const fid = addFlight({
               kind: 'muck',
               fromX: pos.x, fromY: pos.y - 6,
@@ -268,8 +313,8 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             later(d * 120 + 350, () => removeFlight(fid));
           }
           sfx.dealSingle();
-          later(currCount * 120 + 400, () => {
-            for (let d = 0; d < currCount; d++) {
+          later(tx.count * 120 + 400, () => {
+            for (let d = 0; d < tx.count; d++) {
               const dfid = addFlight({
                 kind: 'card',
                 fromX: DEALER_POS.x, fromY: DEALER_POS.y,
@@ -280,10 +325,18 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
               // Replacement card lands in hand when its flight completes
               later(d * 120 + 320, () => {
                 removeFlight(dfid);
-                setLanded(prevLanded => ({
-                  ...prevLanded,
-                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 4),
-                }));
+                if (stageHero) {
+                  const slot = heroIdxs[d];
+                  setDrawHidden(prevH => ({
+                    ...prevH,
+                    [p.id]: (prevH[p.id] ?? []).filter(x => x !== slot),
+                  }));
+                } else if (!isHero) {
+                  setLanded(prevLanded => ({
+                    ...prevLanded,
+                    [p.id]: Math.min((prevLanded[p.id] ?? (4 - tx.count)) + 1, 4),
+                  }));
+                }
               });
             }
           });
@@ -373,12 +426,17 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
     // Detroit 2026-10-15: opponents reveal at showdown if they didn't fold.
     // Detroit 2026-10-16: folded hero hides too (was showing face-up).
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map((c, ci) => ({
       ...c,
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (mapPhase(liveState.phase) === 'showdown' ? false : true)),
+      // Detroit 2026-10-20: a hero slot staged by an in-flight draw
+      // transaction shows as a back until its replacement flight lands.
+      isHidden: p.status === 'folded' ? true
+        : (drawHidden[p.id] ?? []).includes(ci) ? true
+        : (i === 0 ? c.isHidden : (mapPhase(liveState.phase) === 'showdown' ? false : true)),
     })),
     isHero: i === 0,
     folded: p.status === 'folded',
+    foldReason: (p as any).foldReason ?? null,
     drewCount: (p as any).lastDrawCount ?? null,
     isWinner: !!(p as any).isWinner,
     disconnected: (p as any).presence === 'human' && (p as any).connected === false,
@@ -838,7 +896,10 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                           border: '1px solid rgba(248,113,113,0.5)',
                         }}
                       >
-                        FOLD
+                        {/* Detroit 2026-10-20 (Bug 3): a declare auto-fold is
+                            a server rule, not a player action — the plate
+                            says so instead of impersonating a voluntary fold. */}
+                        {p.foldReason === 'declare-auto-invalid' ? 'NO BADUGI' : 'FOLD'}
                       </span>
                     )}
                   </div>
@@ -981,7 +1042,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                               border: '1px solid rgba(248,113,113,0.5)',
                             }}
                           >
-                            FOLD
+                            {p.foldReason === 'declare-auto-invalid' ? 'NO BADUGI' : 'FOLD'}
                           </span>
                         )}
                         {p.disconnected && (

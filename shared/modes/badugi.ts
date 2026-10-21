@@ -106,7 +106,7 @@ export const BadugiMode: GameMode = {
       const evaluation = evaluateBadugi(cards);
 
       if (evaluation?.isValidBadugi) {
-        newPlayers[bIdx] = { ...bot, hasActed: true };
+        newPlayers[bIdx] = { ...bot, hasActed: true, lastDrawCount: 0, drawSeq: (bot.drawSeq ?? 0) + 1 };
         message = `${bot.name} stood pat`;
       } else {
         let maxDraws = 3;
@@ -149,11 +149,11 @@ export const BadugiMode: GameMode = {
             }
             newCards[idx] = { ...newDeck.shift()!, isHidden: true };
           });
-          newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true };
+          newPlayers[bIdx] = { ...bot, cards: newCards, hasActed: true, lastDrawCount: toDiscard.length, drawSeq: (bot.drawSeq ?? 0) + 1 };
           discardPile = newDiscard;
           message = `${bot.name} discarded ${toDiscard.length} card${toDiscard.length > 1 ? 's' : ''}`;
         } else {
-          newPlayers[bIdx] = { ...bot, hasActed: true };
+          newPlayers[bIdx] = { ...bot, hasActed: true, lastDrawCount: 0, drawSeq: (bot.drawSeq ?? 0) + 1 };
           message = `${bot.name} stood pat`;
         }
       }
@@ -169,7 +169,7 @@ export const BadugiMode: GameMode = {
       if (declaration === 'FOLD') {
         // Bot with no valid badugi — same as the human auto-fold: still in for
         // a rollover hand (autoFoldedAtDeclare), unlike a voluntary fold.
-        newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true };
+        newPlayers[bIdx] = { ...bot, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true, foldReason: 'declare-auto-invalid' };
         message = `${bot.name} declared FOLD`;
       } else {
         newPlayers[bIdx] = { ...bot, declaration, hasActed: true };

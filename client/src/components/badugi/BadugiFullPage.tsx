@@ -127,8 +127,11 @@ export function BadugiFullPage({
   }, []);
 
   const handleStandPat = useCallback(() => {
+    // Detroit 2026-10-20 (Bug 3): send IMMEDIATELY. The old 50ms delayed
+    // send composed the action at tap time but delivered it later — a
+    // stale-submission window if the phase moved in between.
     setSelectedCardIndices([]);
-    setTimeout(() => handleAction('draw', []), 50);
+    handleAction('draw', []);
     lock();
   }, [handleAction, lock]);
 
@@ -136,10 +139,12 @@ export function BadugiFullPage({
     // Detroit 2026-10-15: SWAP requires at least 1 selected card.
     // Button is disabled at 0, but guard here too — never send an empty swap.
     if (selectedCardIndices.length === 0) return;
-    setTimeout(() => {
-      handleAction('draw', selectedCardIndices);
-      setSelectedCardIndices([]);
-    }, 280);
+    // Detroit 2026-10-20 (Bug 3): send IMMEDIATELY (was a 280ms delayed
+    // send — same stale-submission window as stand-pat). The action lock
+    // still prevents double-taps; the server also rejects a second draw
+    // from a player who has already acted this round.
+    handleAction('draw', selectedCardIndices);
+    setSelectedCardIndices([]);
     lock();
   }, [selectedCardIndices, handleAction, lock]);
 

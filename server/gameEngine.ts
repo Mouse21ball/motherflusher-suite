@@ -863,7 +863,7 @@ function advanceToNextPhase(table: AuthTable): void {
       if (p.status !== 'active') continue;
       const ev = evaluateBadugi(p.cards);
       if (!ev?.isValidBadugi) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true };
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true, foldReason: 'declare-auto-invalid' };
         foldMsgs.push(`${p.name} has no Badugi — auto-folded`);
         anyAutoFolded = true;
       }
@@ -990,12 +990,13 @@ function resolveShowdown(table: AuthTable): void {
     const winnerIds = result.players.filter(p => p.isWinner).map(p => p.id);
     scheduleBotBanter(table, winnerIds, () => broadcastState(table));
 
-    // Auto-advance to next hand after 2.5 seconds
+    // Auto-advance to next hand after the showdown dwell (Bug 4 fix:
+    // the result must stay readable — see SHOWDOWN_DWELL_MS).
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 2500);
+    }, SHOWDOWN_DWELL_MS);
     } finally {
       resolvePending();
       if (table.showdownResolvePromise === pending) table.showdownResolvePromise = undefined;
@@ -1077,7 +1078,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
       setTimeout(() => {
         if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
         advanceAfterSettlement(table);
-      }, 2500);
+      }, FOLD_RESOLUTION_DWELL_MS);
       return true;
     }
 
@@ -1122,7 +1123,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 2500);
+    }, FOLD_RESOLUTION_DWELL_MS);
     return true;
   }
 
@@ -1145,7 +1146,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 1500);
+    }, FOLD_RESOLUTION_DWELL_MS);
     return true;
   }
 
@@ -1153,6 +1154,15 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
 }
 
 // ─── Reset after showdown ─────────────────────────────────────────────────────
+
+// Detroit 2026-10-20 (Bug 4): how long the resolved SHOWDOWN stays on screen
+// before the next hand is dealt. The contested dwell was ~650ms resolve +
+// 1500ms — shorter than the client's winner-first reveal needs just to reach
+// the comparison beat (3.7s), so players saw a flash instead of the result.
+// 6000ms post-resolution keeps winner + comparison readable end to end;
+// fold resolutions have no comparison to read, so they get a shorter dwell.
+const SHOWDOWN_DWELL_MS = 6000;
+const FOLD_RESOLUTION_DWELL_MS = 4000;
 
 function advanceAfterSettlement(table: AuthTable): void {
   const handId = table.handId;
@@ -1223,6 +1233,9 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
       isLoser: undefined,
       score: undefined,
       autoFoldedAtDeclare: undefined,
+      lastDrawCount: undefined,
+      drawSeq: undefined,
+      foldReason: undefined,
       status: nextHandStatus(p, newChips, isRollover),
     };
   });
@@ -1685,7 +1698,7 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
       } else {
         table.state = addMsg({
           ...s,
-          players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', hasActed: true } : p),
+          players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', hasActed: true, foldReason: 'timeout' } : p),
           turnDeadline: null,
         }, `${player.name} timed out — auto-fold`);
       }
@@ -1700,7 +1713,7 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
       // Auto-fold on declare timeout
       table.state = addMsg({
         ...s,
-        players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', declaration: null, hasActed: true } : p),
+        players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', declaration: null, hasActed: true, foldReason: 'timeout' } : p),
         turnDeadline: null,
       }, `${player.name} timed out — auto-fold on declare`);
     } else if (phase === 'ANTE') {
@@ -2714,7 +2727,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
         table.state = addMsg({
           ...s,
           players: s.players.map(p =>
-            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p
+            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true, foldReason: 'declare-fold' } : p
           ),
         }, `${me.name} declared FOLD`);
       } else {
@@ -2781,7 +2794,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     if (action === 'fold' && s.phase.startsWith('BET')) {
       table.state = addMsg({
         ...s,
-        players: s.players.map(p => p.id === playerId ? { ...p, status: 'folded', hasActed: true } : p),
+        players: s.players.map(p => p.id === playerId ? { ...p, status: 'folded', hasActed: true, foldReason: 'player-fold' } : p),
       }, 'You folded');
       engineLog('ACTION', tableId, { player: playerId, action: 'fold', accepted: true, phase: s.phase });
       table.actionLock = false;
@@ -2872,6 +2885,15 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── draw ──────────────────────────────────────────────────────────────────
     if (action === 'draw' && s.phase.startsWith('DRAW')) {
+      // Detroit 2026-10-20: one draw per player per round, hard guard.
+      // A duplicated or stale draw submission (double-tap, delayed resend)
+      // must never replace a second set of cards.
+      const meDraw = s.players.find(p => p.id === playerId);
+      if (meDraw?.hasActed) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: 'already_acted', phase: s.phase });
+        table.actionLock = false;
+        return 'You already acted this round.';
+      }
       const result = applyBadugiDraw(s, playerId, payload);
       if (!result.ok) {
         engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: result.reason, phase: s.phase });
@@ -2880,9 +2902,10 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       }
       const msg = result.count === 0 ? 'You stood pat' : `You discarded ${result.count} card${result.count > 1 ? 's' : ''}`;
       engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: result.count, phase: s.phase });
-      // Tag the drawing player with their draw count for client animation
+      // Tag the drawing player with their draw count for client animation,
+      // plus the per-hand transaction sequence the client dedupes on.
       const playersWithDrawCount = result.players.map(p =>
-        p.id === playerId ? { ...p, lastDrawCount: result.count } : p
+        p.id === playerId ? { ...p, lastDrawCount: result.count, drawSeq: (p.drawSeq ?? 0) + 1 } : p
       );
       table.state = addMsg({ ...s, players: playersWithDrawCount, deck: result.deck, discardPile: result.discardPile }, msg);
       table.actionLock = false;
