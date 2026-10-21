@@ -1699,7 +1699,7 @@ function registerWalletSpectator(table: GenericTable, sessionId: string, ws: Web
   try {
     const specInitState = maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer);
     ws.send(JSON.stringify({ type: 'mode:init', modeId: table.modeId, playerId: '__spectator__', role: 'spectator',
-      state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
+      state: { ...specInitState, handId: table.handId, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -1858,7 +1858,7 @@ export async function addGenericConnection(
         playerId: '__spectator__',
         modeId,
         role: 'spectator',
-        state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) },
+        state: { ...specInitState, handId: table.handId, players: enrichPlayersForWire(table, specInitState.players) },
         serverNow: Date.now(),
       }));
     } catch {}
@@ -2049,7 +2049,13 @@ export async function addGenericConnection(
       type: 'mode:init',
       playerId: seat,
       modeId,
-      state: { ...initState, players: enrichPlayersForWire(table, initState.players) },
+      // handId rides along exactly as broadcast snapshots carry it
+      // (snapshot serializer spreads table.handId into the state). The
+      // init payload used to omit it, so a reconnecting client's first
+      // state had handId undefined — harmless to the client, but the
+      // wire was inconsistent and hand-tracking checks sampled a
+      // missing field (found 2026-10-21 via the fu5/bc5 harnesses).
+      state: { ...initState, handId: table.handId, players: enrichPlayersForWire(table, initState.players) },
       sessionStats: buildSessionStats(table, seat),
       crewId: table.crewId ?? null,
       serverNow: Date.now(),
