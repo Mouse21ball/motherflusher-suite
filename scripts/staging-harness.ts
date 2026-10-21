@@ -1178,7 +1178,7 @@ class GClient {
     if (!res.ok) throw new Error(`guest-init ${res.status}`);
     this.sessionToken = j.sessionToken;
   }
-  async connectMode(tableId: string, modeId: string) {
+  async connectMode(tableId: string, modeId: string, buyinChips?: number) {
     const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': this.sessionToken } });
     const tJson: any = await tRes.json().catch(() => ({}));
     if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}`);
@@ -1200,6 +1200,7 @@ class GClient {
       type: 'join', tableId, modeId,
       playerId: this.pid, identityId: this.profileId, name: this.name, seatId: this.pid,
       isPrivate: false,
+      ...(buyinChips !== undefined ? { buyinChips } : {}),
     }));
     // Wait for a FRESH state from this connection — on a reconnect the
     // array already holds the previous connection's states.
@@ -1483,38 +1484,67 @@ async function scenarioBc5() {
 
 async function scenarioFu5() {
   const MODE = 'flushed_up';
+  const sig = (cards: any[]) => (cards ?? []).map((c: any) => `${c.rank}|${c.suit}`);
+  const createTable = async (tid: string, host: GClient) => {
+    const r = await fetch(`${BASE}/api/tables`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tableId: tid, modeId: MODE, hostId: host.profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+    });
+    console.log(`  (fu record create ${tid} -> ${r.status})`);
+  };
+  const listEntry = async (tid: string) => (await (await fetch(`${BASE}/api/tables`)).json().catch(() => [])).find((x: any) => x.tableId === tid);
+
+  // ── Table A: full five-player hand, draws, reconnect ──────────────────────
   const t = `F5${R4}`;
   const clients: GClient[] = [];
   for (let i = 0; i < 5; i++) { const g = new GClient(`F5${R4}P${i + 1}`); await g.bootstrap(); clients.push(g); }
-  // Record via a Badugi-Client-shaped helper is Badugi-specific; create the
-  // record directly (same REST contract POST /api/tables uses).
-  const recRes = await fetch(`${BASE}/api/tables`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: clients[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
-  });
-  console.log(`  (fu record create -> ${recRes.status})`);
+  await createTable(t, clients[0]);
   for (const g of clients) await g.connectMode(t, MODE);
   await sleep(800);
   const s0 = clients[0].latest();
   const humans = (s0?.players ?? []).filter((p: any) => p.presence === 'human').length;
   record('FU5 five humans seated', humans === 5 ? 'PASS' : 'FAIL',
     `players=${(s0?.players ?? []).map((p: any) => `${p.name}:${p.presence}`).join(', ')}`);
-  const listRes = await fetch(`${BASE}/api/tables`);
-  const all: any[] = await listRes.json().catch(() => []);
-  const entry = all.find((x: any) => x.tableId === t);
+  const entry = await listEntry(t);
   record('FU5 lobby count 5/5', (entry && entry.playerCount === 5 && entry.maxPlayers === 5) ? 'PASS' : 'FAIL',
     `entry=${JSON.stringify(entry ?? null)}`);
 
-  // Drive one full hand: starter starts; everyone antes; bets check/call;
-  // draws stand pat (identity not under test here — seats + settlement are).
   const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  const drawLog: { g: GClient; handId: number; phase: string; indices: number[]; pre: string[]; stateIdx: number; preSeq: number }[] = [];
+  const drawsSent = new Map<string, number>();
   const acted = new Map<string, string>();
-  const deadline = Date.now() + 240000;
-  let showdown: any = null;
-  while (Date.now() < deadline) {
-    const s = clients[0].latest();
+  let playDealId: number | null = null;
+  let reconnectDone = false; let reconnectOk = false; let reconnectDetail = '';
+  let showdownA: any = null;
+  const deadlineA = Date.now() + 300000;
+
+  while (Date.now() < deadlineA) {
+    const s = freshestOf(clients);
     if (!s) { await sleep(200); continue; }
-    if (s.phase === 'SHOWDOWN') { showdown = s; break; }
+    if (s.phase === 'DEAL' && playDealId === null) playDealId = s.handId;
+    if (s.phase === 'SHOWDOWN' && playDealId !== null && (s.handId === playDealId || s.handId === playDealId + 1)) { showdownA = s; break; }
+    // Reconnect clients[2] during DRAW_2 of the play hand.
+    if (!reconnectDone && playDealId !== null && s.handId === playDealId && s.phase === 'DRAW_2') {
+      reconnectDone = true;
+      const g = clients[2];
+      const origSeat = g.seat;
+      const beforeState = g.latest();
+      const beforeCards = sig(beforeState?.players?.find((p: any) => p.id === origSeat)?.cards);
+      const statesBefore = g.states.length;
+      g.disconnect();
+      await sleep(1200);
+      await g.connectMode(t, MODE).catch(() => null);
+      const fresh = g.states.slice(statesBefore);
+      const after = fresh[fresh.length - 1];
+      const meAfter = after?.players?.find((p: any) => p.id === origSeat);
+      const afterCards = sig(meAfter?.cards);
+      const seatBack = g.seat === origSeat;
+      const humanBack = !!meAfter && meAfter.presence === 'human' && meAfter.name === g.name;
+      reconnectOk = fresh.length > 0 && !!after && after.handId === beforeState.handId && seatBack && humanBack
+        && JSON.stringify(afterCards) === JSON.stringify(beforeCards);
+      reconnectDetail = `fresh=${fresh.length} sameHand=${!!after && after.handId === beforeState.handId} seatBack=${seatBack} humanBack=${humanBack} cardsSame=${JSON.stringify(afterCards) === JSON.stringify(beforeCards)}`;
+      console.log(`  [fu5] reconnect: ${reconnectDetail}`);
+    }
     for (const g of clients) {
       const gs = g.latest(); if (!gs) continue;
       const me = gs.players.find((p: any) => p.id === g.seat); if (!me) continue;
@@ -1525,51 +1555,171 @@ async function scenarioFu5() {
         acted.set(g.seat!, key); g.act('ante', null, t, MODE);
       } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed) {
         g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, t, MODE);
-        await sleep(120);
+        await sleep(100);
       } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed) {
-        // Smart swap: drop off-best-suit cards up to the round cap.
         const suits: Record<string, number> = {};
         (me.cards ?? []).forEach((cd: any) => { suits[cd.suit] = (suits[cd.suit] ?? 0) + 1; });
         const best = Object.entries(suits).sort((a, b) => b[1] - a[1])[0]?.[0];
         const idx = (me.cards ?? []).map((cd: any, i: number) => (cd.suit !== best ? i : -1)).filter((i: number) => i >= 0).slice(0, caps[gs.phase] ?? 0);
+        drawLog.push({ g, handId: gs.handId, phase: gs.phase, indices: idx, pre: sig(me.cards), stateIdx: g.states.length, preSeq: me.drawSeq ?? 0 });
+        drawsSent.set(`${gs.handId}:${g.seat}`, (drawsSent.get(`${gs.handId}:${g.seat}`) ?? 0) + 1);
         g.act('draw', idx, t, MODE);
-        await sleep(120);
+        await sleep(100);
       }
     }
     await sleep(200);
   }
-  if (showdown) {
-    const atShow = showdown.players.filter((p: any) => p.presence === 'human').length;
-    const totalIn = showdown.players.reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (showdown.pot ?? 0);
-    record('FU5 full hand to showdown, nobody trimmed', atShow === 5 ? 'PASS' : 'FAIL',
-      `humans at showdown=${atShow} pot=${showdown.pot} chips+pot=${totalIn}`);
-    // Settlement: wait for the hand to close, then check chip conservation.
-    await sleep(9000);
-    const after = clients[0].latest();
-    const totalAfter = (after?.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (after?.phase === 'WAITING' ? 0 : (after?.pot ?? 0));
-    const startTotal = 5 * (s0?.players?.[0]?.chips && s0.players[0].chips > 0 ? 10000 : 10000);
-    record('FU5 settlement conserves chips (rake aside)', (totalAfter <= startTotal && totalAfter >= startTotal - 3000) ? 'PASS' : 'FAIL',
-      `totalAfter=${totalAfter} (start ${startTotal}, rake explains the gap)`);
-  } else {
-    record('FU5 full hand to showdown, nobody trimmed', 'FAIL', 'no showdown within deadline');
+
+  const allA: any[] = clients.flatMap(g => g.states);
+  const playStates = playDealId === null ? [] : allA.filter(x => x.handId === playDealId || x.handId === playDealId - 1);
+  const longestTimeline = clients.reduce((a, b) => (b.states.length > a.states.length ? b : a), clients[0]).states
+    .filter(x => playDealId !== null && (x.handId === playDealId || x.handId === playDealId - 1));
+  const phaseSeq = [...new Set(longestTimeline.map((x: any) => x.phase))].filter(p => p !== 'WAITING');
+  const expectedSeq = ['ANTE', 'DEAL', 'BET_1', 'DRAW_1', 'BET_2', 'DRAW_2', 'BET_3', 'DRAW_3', 'BET_4', 'SHOWDOWN'];
+  record('FU5 phase order preserved (bet before draw, 4 bet rounds)', JSON.stringify(phaseSeq) === JSON.stringify(expectedSeq) ? 'PASS' : 'FAIL',
+    `seen=${phaseSeq.join(' -> ')}`);
+  record('FU5 full hand to showdown, nobody trimmed', (showdownA && showdownA.players.filter((p: any) => p.presence === 'human').length === 5) ? 'PASS' : 'FAIL',
+    showdownA ? `humans at showdown=${showdownA.players.filter((p: any) => p.presence === 'human').length} pot=${showdownA.pot}` : 'no showdown captured');
+  // Draw replacement exactness + drawSeq contract, from each actor's own view.
+  let drawViolations = 0; let seqViolations = 0; const drawNotes: string[] = [];
+  for (const d of drawLog) {
+    const after = d.g.states.slice(d.stateIdx).find(x => x.handId === d.handId && ((x.players.find((p: any) => p.id === d.g.seat)?.drawSeq ?? 0) > d.preSeq));
+    if (!after) { drawViolations++; drawNotes.push(`${d.g.name} ${d.phase}: no post-draw state`); continue; }
+    const meAfter = after.players.find((p: any) => p.id === d.g.seat);
+    if ((meAfter.drawSeq ?? 0) !== d.preSeq + 1) { seqViolations++; drawNotes.push(`${d.g.name} ${d.phase}: seq ${d.preSeq}->${meAfter.drawSeq}`); }
+    const post = sig(meAfter.cards);
+    for (let i = 0; i < 5; i++) {
+      if (d.indices.includes(i)) { if (post[i] === d.pre[i]) { drawViolations++; drawNotes.push(`${d.g.name} ${d.phase} slot ${i}: replaced card identical`); } }
+      else if (post[i] !== d.pre[i]) { drawViolations++; drawNotes.push(`${d.g.name} ${d.phase} slot ${i}: KEPT card changed ${d.pre[i]}->${post[i]}`); }
+    }
   }
+  record('FU5 draw replacements exact (kept slots byte-identical)', (drawViolations === 0 && drawLog.length >= 10) ? 'PASS' : 'FAIL',
+    `draws checked=${drawLog.length} violations=${drawViolations} ${drawNotes.slice(0, 3).join('; ')}`);
+  record('FU5 drawSeq increments exactly once per accepted draw', (seqViolations === 0 && drawLog.length >= 10) ? 'PASS' : 'FAIL',
+    `seq violations=${seqViolations} ${drawNotes.slice(0, 3).join('; ')}`);
+  // Card-leak mask scan: opponents hidden before showdown; folded stay hidden at showdown.
+  let leakViolations = 0; let leakChecks = 0;
+  for (const g of clients) {
+    for (const st of g.states) {
+      if (playDealId === null || (st.handId !== playDealId && st.handId !== playDealId - 1)) continue;
+      for (const p of st.players) {
+        if (p.id === g.seat) continue;
+        leakChecks++;
+        const mustHide = st.phase !== 'SHOWDOWN' || p.status === 'folded';
+        if (mustHide && (p.cards ?? []).some((c: any) => c.isHidden !== true)) leakViolations++;
+      }
+    }
+  }
+  record('FU5 no opponent card leak (hidden pre-showdown; folded stay hidden)', (leakViolations === 0 && leakChecks > 100) ? 'PASS' : 'FAIL',
+    `checks=${leakChecks} violations=${leakViolations}`);
+  record('FU5 reconnect mid-hand restores the player (persistent ID, fresh states)', reconnectOk ? 'PASS' : 'FAIL',
+    `attempted=${reconnectDone} ${reconnectDetail}`);
+  // Settlement conservation for table A.
+  await sleep(9000);
+  let totalsA: number | null = null;
+  for (const g of clients) {
+    const idx = g.states.findIndex(x => playDealId !== null && x.handId === playDealId && x.phase === 'SHOWDOWN');
+    if (idx < 0) continue;
+    const settled = g.states.slice(idx + 1).find(x => x.phase === 'WAITING' || (playDealId !== null && x.handId > playDealId));
+    if (settled) { totalsA = (settled.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (settled.pot ?? 0); break; }
+  }
+  record('FU5 settlement conserves chips (rake aside)', (totalsA !== null && totalsA <= 50000 && totalsA >= 47000) ? 'PASS' : 'FAIL',
+    `totalAfter=${totalsA} (start 50000)`);
   clients.forEach(g => g.disconnect());
+
+  // ── Table B: short-stack side pot ─────────────────────────────────────────
+  const tB = `F9${R4}`;
+  const squad: GClient[] = [];
+  for (let i = 0; i < 5; i++) { const g = new GClient(`F9${R4}P${i + 1}`); await g.bootstrap(); squad.push(g); }
+  await createTable(tB, squad[0]);
+  for (let i = 0; i < 4; i++) await squad[i].connectMode(tB, MODE);
+  await squad[4].connectMode(tB, MODE, 1000);
+  await sleep(800);
+  const shorty = squad[4];
+  const sB0 = shorty.latest();
+  const shortStack = sB0?.players?.find((p: any) => p.id === shorty.seat)?.chips;
+  record('FU5 short stack seated at $1,000 buy-in', shortStack === 1000 ? 'PASS' : 'FAIL', `chips=${shortStack}`);
+  const actedB = new Map<string, string>();
+  let showdownB: any = null; let dealIdB: number | null = null;
+  const deadlineB = Date.now() + 240000;
+  while (Date.now() < deadlineB) {
+    const s = freshestOf(squad);
+    if (!s) { await sleep(200); continue; }
+    if (s.phase === 'DEAL' && dealIdB === null) dealIdB = s.handId;
+    if (s.phase === 'SHOWDOWN' && dealIdB !== null && (s.handId === dealIdB || s.handId === dealIdB + 1)) { showdownB = s; break; }
+    for (const g of squad) {
+      const gs = g.latest(); if (!gs) continue;
+      const me = gs.players.find((p: any) => p.id === g.seat); if (!me) continue;
+      const key = `${gs.handId}:${gs.phase}:${gs.activePlayerId}`;
+      if (gs.phase === 'WAITING' && g === squad[0] && actedB.get('start') !== `${gs.handId}`) {
+        actedB.set('start', `${gs.handId}`); g.act('start', null, tB, MODE);
+      } else if (gs.phase === 'ANTE' && !me.hasActed && actedB.get(g.seat!) !== key) {
+        actedB.set(g.seat!, key); g.act('ante', null, tB, MODE);
+      } else if (gs.phase === 'BET_1' && gs.activePlayerId === g.seat && !me.hasActed) {
+        if (g === shorty) g.act('raise', 1000, tB, MODE); // all-in: $25 ante + $975
+        else g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, tB, MODE);
+        await sleep(100);
+      } else if (gs.phase === 'BET_2' && gs.activePlayerId === g.seat && !me.hasActed) {
+        if (g === squad[0]) g.act('raise', 200, tB, MODE);
+        else g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, tB, MODE);
+        await sleep(100);
+      } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed) {
+        g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, tB, MODE);
+        await sleep(100);
+      } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed) {
+        g.act('draw', [], tB, MODE);
+        await sleep(100);
+      }
+    }
+    await sleep(200);
+  }
+  let sidePotOk = false; let sidePotDetail = 'no showdown';
+  if (showdownB) {
+    const shortRow = showdownB.players.find((p: any) => p.id === shorty.seat);
+    const potB = showdownB.pot ?? 0;
+    const bets = showdownB.players.map((p: any) => p.totalBet ?? 0);
+    const eligibleGross = bets.reduce((a: number, b: number) => a + Math.min(b, shortRow.totalBet ?? 0), 0);
+    const structural = Math.max(...bets) > (shortRow.totalBet ?? 0) && potB === bets.reduce((a: number, b: number) => a + b, 0);
+    await sleep(9000);
+    let settledB: any = null;
+    for (const g of squad) {
+      const idx = g.states.findIndex(x => dealIdB !== null && x.handId === dealIdB && x.phase === 'SHOWDOWN');
+      if (idx < 0) continue;
+      settledB = g.states.slice(idx + 1).find(x => x.phase === 'WAITING' || (dealIdB !== null && x.handId > dealIdB));
+      if (settledB) break;
+    }
+    if (settledB) {
+      const rake = Math.floor(potB * 0.05);
+      const deltas = showdownB.players.map((p: any) => (settledB.players.find((q: any) => q.id === p.id)?.chips ?? 0) - (p.chips ?? 0));
+      const distTotal = deltas.reduce((a: number, b: number) => a + b, 0);
+      const shortDelta = deltas[showdownB.players.findIndex((p: any) => p.id === shorty.seat)];
+      const shortWon = !!shortRow.isWinner;
+      const capOk = shortWon ? shortDelta <= eligibleGross : shortDelta === 0;
+      sidePotOk = structural && distTotal === potB - rake && capOk;
+      sidePotDetail = `pot=${potB} bets=${bets.join('/')} eligibleGross=${eligibleGross} distributed=${distTotal} expected=${potB - rake} shortDelta=${shortDelta} shortWon=${shortWon} structural=${structural}`;
+    } else sidePotDetail = 'no settled state';
+  }
+  record('FU5 side pot: short stack capped at eligible portion, exact distribution', sidePotOk ? 'PASS' : 'FAIL', sidePotDetail);
+  squad.forEach(g => g.disconnect());
 
   // Partial table: 3 humans -> 3/5.
   const t2 = `F3${R4}`;
   const trio: GClient[] = [];
   for (let i = 0; i < 3; i++) { const g = new GClient(`F3${R4}P${i + 1}`); await g.bootstrap(); trio.push(g); }
-  await fetch(`${BASE}/api/tables`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tableId: t2, modeId: MODE, hostId: trio[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
-  });
+  await createTable(t2, trio[0]);
   for (const g of trio) await g.connectMode(t2, MODE);
   await sleep(800);
-  const list2 = await (await fetch(`${BASE}/api/tables`)).json().catch(() => []);
-  const entry2 = list2.find((x: any) => x.tableId === t2);
+  const entry2 = await listEntry(t2);
   record('FU5 partial table 3/5', (entry2 && entry2.playerCount === 3 && entry2.maxPlayers === 5) ? 'PASS' : 'FAIL',
     `entry=${JSON.stringify(entry2 ?? null)}`);
   trio.forEach(g => g.disconnect());
+}
+
+// Freshest snapshot across a client set (the bc5 lesson: never key phase
+// decisions to one possibly-stale client).
+function freshestOf(set: GClient[]): any {
+  const g = set.reduce((a, b) => (b.states.length > a.states.length ? b : a), set[0]);
+  return g?.latest();
 }
 
 async function main() {
