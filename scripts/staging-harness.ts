@@ -1159,6 +1159,10 @@ async function scenarioPhase1() {
 // table with 3 humans must read 3/5.
 class GClient {
   profileId = randomUUID();
+  // The server derives the seat from the join's playerId, and the real
+  // client persists it across reconnects — so must we (a fresh playerId
+  // per connect lands as a spectator at a full table, by design).
+  pid = randomUUID();
   sessionToken = '';
   name: string;
   ws: WebSocket | null = null;
@@ -1178,7 +1182,7 @@ class GClient {
     const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': this.sessionToken } });
     const tJson: any = await tRes.json().catch(() => ({}));
     if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}`);
-    const sessionUUID = randomUUID();
+    const statesBefore = this.states.length;
     const ws = new WebSocket(`${WS_BASE}?ticket=${encodeURIComponent(tJson.ticket)}`);
     this.ws = ws;
     const opened = new Promise<void>((resolve, reject) => {
@@ -1194,11 +1198,13 @@ class GClient {
     await opened;
     ws.send(JSON.stringify({
       type: 'join', tableId, modeId,
-      playerId: sessionUUID, identityId: this.profileId, name: this.name, seatId: sessionUUID,
+      playerId: this.pid, identityId: this.profileId, name: this.name, seatId: this.pid,
       isPrivate: false,
     }));
+    // Wait for a FRESH state from this connection — on a reconnect the
+    // array already holds the previous connection's states.
     const deadline = Date.now() + 8000;
-    while (Date.now() < deadline) { if (this.states.length > 0) return; await sleep(100); }
+    while (Date.now() < deadline) { if (this.states.length > statesBefore) return; await sleep(100); }
     throw new Error('no mode snapshot after join');
   }
   latest(): any { return this.states[this.states.length - 1]; }
@@ -1314,6 +1320,9 @@ async function scenarioBc5() {
       if (!foldSurvivorSeat) console.log('  [bc5] fold hand: no unmade survivor candidate yet');
     }
     // Reconnect during the play hand's DECLARE, once a declaration exists.
+    // Verdict uses ONLY states from the new connection, and requires the
+    // seat to come back as the human's own (same seat id, presence human,
+    // own name) — not merely a consistent board.
     if (playDealId !== null && s.handId === playDealId && s.phase === 'DECLARE' && !reconnectDone) {
       const withDecl = s.players.filter((p: any) => ['HIGH', 'LOW', 'SWING'].includes(p.declaration));
       if (withDecl.length >= 1) {
@@ -1321,15 +1330,22 @@ async function scenarioBc5() {
         const beforeSig = bcCommSig(s);
         const beforeDecl = s.players.map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
         const g = clients[1];
+        const origSeat = g.seat;
         const beforeCards = (g.latest()?.players?.find((p: any) => p.id === g.seat)?.cards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
+        const statesBefore = g.states.length;
         g.disconnect();
         await sleep(1200);
         await g.connectMode(t, MODE).catch(() => null);
-        const after = g.latest();
-        const afterCards = (after?.players?.find((p: any) => p.id === g.seat)?.cards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
+        const fresh = g.states.slice(statesBefore);
+        const after = fresh[fresh.length - 1];
+        const meAfter = after?.players?.find((p: any) => p.id === origSeat);
+        const afterCards = (meAfter?.cards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
         const afterDecl = (after?.players ?? []).map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
-        reconnectOk = !!after && after.handId === s.handId && bcCommSig(after) === beforeSig && afterCards === beforeCards && afterDecl === beforeDecl;
-        reconnectDetail = `sameHand=${!!after && after.handId === s.handId} board=${bcCommSig(after) === beforeSig} cards=${afterCards === beforeCards} decl=${afterDecl === beforeDecl}`;
+        const seatBack = g.seat === origSeat;
+        const humanBack = !!meAfter && meAfter.presence === 'human' && meAfter.name === g.name;
+        reconnectOk = fresh.length > 0 && !!after && after.handId === s.handId && seatBack && humanBack
+          && bcCommSig(after) === beforeSig && afterCards === beforeCards && afterDecl === beforeDecl;
+        reconnectDetail = `fresh=${fresh.length} sameHand=${!!after && after.handId === s.handId} seatBack=${seatBack} humanBack=${humanBack} board=${bcCommSig(after) === beforeSig} cards=${afterCards === beforeCards} decl=${afterDecl === beforeDecl}`;
         console.log(`  [bc5] reconnect: ${reconnectDetail}`);
       }
     }
@@ -1389,10 +1405,14 @@ async function scenarioBc5() {
     hand1Show ? `humans at showdown=${hand1Show.players.filter((p: any) => p.presence === 'human').length} pot=${hand1Show.pot}` : `no showdown in play hand; phases=${phasesSeen.join(',')}`);
   let totals: number | null = null;
   if (hand1Show && playDealId !== null) {
-    const owner = clients.reduce((a, b) => (b.states.filter(x => x.handId === playDealId && x.phase === 'SHOWDOWN').length > a.states.filter(x => x.handId === playDealId && x.phase === 'SHOWDOWN').length ? b : a), clients[0]);
-    const idx = owner.states.findIndex(x => x.handId === playDealId && x.phase === 'SHOWDOWN');
-    const settled = owner.states.slice(idx).find(x => x.phase === 'WAITING');
-    if (settled) totals = (settled.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (settled.pot ?? 0);
+    // First post-showdown WAITING (or next-hand) state on ANY client's
+    // timeline: chips there already reflect settlement.
+    outer: for (const g of clients) {
+      const idx = g.states.findIndex(x => x.handId === playDealId && x.phase === 'SHOWDOWN');
+      if (idx < 0) continue;
+      const settled = g.states.slice(idx + 1).find(x => x.phase === 'WAITING' || x.handId > playDealId);
+      if (settled) { totals = (settled.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (settled.pot ?? 0); break outer; }
+    }
   }
   record('BC5 settlement conserves chips (rake aside)', (totals !== null && totals <= 50000 && totals >= 46000) ? 'PASS' : 'FAIL',
     `totalAfter=${totals} (start 50000; chips + carried pot)`);
@@ -1426,8 +1446,23 @@ async function scenarioBc5() {
   record('BC5 DECLARE auto-folds unmade players (ruling 1)', (sweepObservations > 0 && sweepBad === 0 && sweepMsg) ? 'PASS' : 'FAIL',
     `observations=${sweepObservations} violations=${sweepBad} autoFoldMsg=${sweepMsg} ${sweepNames.join(', ')}`);
   record('BC5 lone unmade survivor — pot rolls over (ruling 2)', (foldResolved && rolloverPotSeen !== null && rolloverPotSeen > 0) ? 'PASS' : 'FAIL', foldDetail || 'fold hand never resolved');
-  record('BC5 rollover amount carried into next hand intact', (rolloverCarried !== null && rolloverPotSeen !== null && rolloverCarried === rolloverPotSeen) ? 'PASS' : 'FAIL',
-    `potAtShowdown=${rolloverPotSeen} potAtNextWaiting=${rolloverCarried}`);
+  // Rollover carry, history-based: in the NEXT real hand's first DEAL-or-
+  // later state, pot minus the antes posted (sum of totalBet) must equal
+  // the rolled amount exactly. The in-loop WAITING capture is the fallback.
+  let carryFromHistory: number | null = null;
+  if (rolloverPotSeen !== null && playDealId !== null) {
+    const dealIds = [...scriptByDealId.keys()].sort((a, b) => a - b);
+    const foldDealId = dealIds.find(d => scriptByDealId.get(d) === 'fold');
+    const nextDealId = foldDealId !== undefined ? dealIds[dealIds.indexOf(foldDealId) + 1] : undefined;
+    if (nextDealId !== undefined) {
+      const st = allStates.find(x => x.handId === nextDealId && x.phase !== 'ANTE' && x.phase !== 'WAITING');
+      if (st) carryFromHistory = (st.pot ?? 0) - (st.players ?? []).reduce((a: number, p: any) => a + (p.totalBet ?? 0), 0);
+    }
+  }
+  const carryOk = (rolloverCarried !== null && rolloverPotSeen !== null && rolloverCarried === rolloverPotSeen)
+    || (carryFromHistory !== null && rolloverPotSeen !== null && carryFromHistory === rolloverPotSeen);
+  record('BC5 rollover amount carried into next hand intact', carryOk ? 'PASS' : 'FAIL',
+    `potAtShowdown=${rolloverPotSeen} potAtNextWaiting=${rolloverCarried} carryFromHistory=${carryFromHistory}`);
   clients.forEach(g => g.disconnect());
 
   // Partial table: 3 humans -> 3/5.
