@@ -770,23 +770,10 @@ function enrichPlayersForWire(table: GenericTable, players: Player[]): Player[] 
 }
 
 function broadcastState(table: GenericTable): void {
-  // Detroit 2026-10-15: Force Box Chevy tables to 4 players max.
-  // Trims on every broadcast so 5-player tables can't persist.
-  // Detroit 2026-10-21: Badugi and Flushed Up are 5-seat games and are
-  // NOT trimmed; only Box Chevy keeps the 4 cap (its separate design
-  // phase is still pending Detroit's approval).
-  if (table.modeId === 'box_chevy' && table.state.players.length > 4) {
-    const midHand = table.state.phase !== 'WAITING' && table.state.phase !== 'SHOWDOWN';
-    if (!midHand) {
-      const humans = table.state.players.filter(p => (p as any).presence === 'human');
-      const others = table.state.players.filter(p => (p as any).presence !== 'human');
-      const trimmed = [...humans, ...others].slice(0, 4);
-      if (trimmed.length !== table.state.players.length) {
-        console.log(`[${table.modeId}] Runtime trim table ${table.tableId} from ${table.state.players.length} to 4 players`);
-        table.state.players = trimmed as typeof table.state.players;
-      }
-    }
-  }
+  // Detroit 2026-10-21: all generic modes are five-seat games now.
+  // The 2026-10-15 Box Chevy broadcast trim (cut any 5th seat between
+  // hands) is REMOVED — Box Chevy's five-seat phase was approved with
+  // its own design (mockup v3, b9d8d5e0), so no mode trims here.
   const spectatorCount = table.spectators.size;
   const stateWithMeta = {
     ...table.state, handId: table.handId,
@@ -1058,7 +1045,7 @@ export function resolveByFold(table: GenericTable): boolean {
     // Flushed Up requires a qualifying flush even when every opponent folds.
     // Resolve a lone non-flush through the mode's normal showdown path so its
     // post-rake pot rolls over instead of being awarded as a fold win.
-    if (table.engine.canWinUncontested && !table.engine.canWinUncontested(winner)) {
+    if (table.engine.canWinUncontested && !table.engine.canWinUncontested(winner, s)) {
       table.resolvedPot = pot;
       const { winnerPot, rake } = applyRake(pot);
       if (rake > 0) {
@@ -1619,12 +1606,10 @@ export function getOrCreateTable(
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
-    // Detroit 2026-10-15: Flushed Up and Box Chevy max 4 players.
-    // Detroit 2026-10-21 (Phase 1 / P3): Badugi is 5.
-    // Detroit 2026-10-21 (Flushed Up phase): Flushed Up is 5 too — Detroit
-    // authorized extending the approved five-seat presentation to it.
-    // Box Chevy REMAINS 4 pending its separate design phase.
-    const defaultMax = modeId === 'box_chevy' ? 4 : 5;
+    // Detroit 2026-10-21: every generic mode seats 5 — Badugi (Phase 1),
+    // Flushed Up (its five-seat phase), and Box Chevy (its own approved
+    // five-seat phase, mockup v3). The 2026-10-15 four-seat caps are gone.
+    const defaultMax = 5;
     const maxPlayers  = options.maxPlayers  ?? defaultMax;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
@@ -2968,9 +2953,8 @@ export async function initGenericEngine(): Promise<void> {
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt: 0, // join window closed for restored tables
       isPrivate: false,
-      // Detroit 2026-10-16: respect 4-player cap on restored tables (was hardcoded 5).
-      // Detroit 2026-10-21: Badugi and Flushed Up restore at 5; Box Chevy stays 4.
-      maxPlayers: modeId === 'box_chevy' ? 4 : 5,
+      // Restored tables seat 5 in every generic mode (Detroit 2026-10-21).
+      maxPlayers: 5,
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(undefined),

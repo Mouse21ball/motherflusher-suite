@@ -23,16 +23,28 @@ describe('Badugi capacity defaults (P3)', () => {
     expect(body).not.toMatch(/options\.maxPlayers\s+\?\? 4/);
   });
 
-  it('generic engine caps only Box Chevy at 4 (Badugi + Flushed Up are 5)', () => {
-    // Detroit 2026-10-21: Flushed Up joined Badugi at 5 in its own phase;
-    // Box Chevy keeps the 4 cap pending its separate design phase.
-    expect(generic).toContain("const defaultMax = modeId === 'box_chevy' ? 4 : 5;");
-    expect(generic).toContain("maxPlayers: modeId === 'box_chevy' ? 4 : 5,");
-    expect(generic).toContain("if (table.modeId === 'box_chevy' && table.state.players.length > 4) {");
-    // No capacity expression may single Badugi or Flushed Up out for 4.
-    expect(generic).not.toMatch(/modeId === 'badugi'\) \? 4/);
-    expect(generic).not.toMatch(/modeId === 'flushed_up'\) \? 4/);
-    expect(generic).not.toMatch(/=== 'flushed_up'\) \? 4 : 5/);
+  it('generic engine seats 5 in every mode — no four-cap survives anywhere', () => {
+    // Detroit 2026-10-21: Box Chevy's own five-seat phase removed the
+    // last 4 caps (factory default, restore path, broadcast trim).
+    expect(generic).toContain('const defaultMax = 5;');
+    expect(generic).toContain('maxPlayers: 5,');
+    expect(generic).not.toContain("modeId === 'box_chevy' ? 4");
+    expect(generic).not.toContain('table.state.players.length > 4');
+    expect(generic).not.toMatch(/modeId === '(badugi|flushed_up|box_chevy)'\) \? 4/);
+  });
+
+  it('Box Chevy table renders and deals to a fifth seat', () => {
+    const bc = readFileSync(resolve(__dirname, '../client/src/components/boxChevy/BoxChevyTable.tsx'), 'utf8');
+    // Both opponent slices admit 4 others (proto render + deal driver).
+    expect(bc.match(/\.slice\(0, 4\)/g)?.length).toBe(2);
+    expect(bc).not.toContain('.slice(0, 3)');
+    // Deal flights follow the actual seat count for hole cards.
+    expect(bc).toContain('const holeFlights = ordered.length * 5;');
+    // Approved mockup v3 spots: side pods lifted clear of the board.
+    expect(bc).toContain('{ x: 14, y: 27.5 }');
+    expect(bc).toContain('{ x: 86, y: 27.5 }');
+    expect(bc).toContain('{ x: 27.5, y: 16.5 }');
+    expect(bc).toContain('{ x: 72.5, y: 16.5 }');
   });
 
   it('Flushed Up table renders and deals to a fifth seat', () => {

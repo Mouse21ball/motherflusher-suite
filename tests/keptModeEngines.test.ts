@@ -61,6 +61,26 @@ describe('independent retained mode engines', () => {
     expect(before.players[1].status).toBe('active');
   });
 
+  it('Box Chevy lone survivor collects only with a made hand (Detroit 2026-10-21, ruling 2)', () => {
+    const s = state('BET_2');
+    // 'valid' holds A-3-5-7-9 against the 2-4-6-8-10 board: 10 unique ranks.
+    expect(BoxChevyEngine.canWinUncontested!(s.players[0], s)).toBe(true);
+    // 'invalid' holds a 10 that duplicates the board's 10 — no made hand.
+    expect(BoxChevyEngine.canWinUncontested!(s.players[1], s)).toBe(false);
+  });
+
+  it('Box Chevy uncontested resolution rolls the post-rake pot over when the survivor is unmade', () => {
+    const survivor = player('invalid', cards(['A', '3', '5', '7', '10']));
+    const folded = { ...player('gone'), status: 'folded' as const };
+    const s: GameState = { ...state('BET_2'), players: [survivor, folded], pot: 1000 };
+    const result = BoxChevyEngine.resolveUncontested!(s, survivor, 950);
+    expect(result.phase).toBe('SHOWDOWN');
+    expect(result.pot).toBe(950);
+    expect(result.players.every(p => !p.isWinner)).toBe(true);
+    expect(result.players[0].chips).toBe(1000);
+    expect(result.messages.some(m => m.text.includes('pot rolls over'))).toBe(true);
+  });
+
   it('Box Chevy leaves repairable hands alone during all draw and bet rounds', () => {
     for (const phase of ['DRAW_1', 'DRAW_2', 'DRAW_3', 'BET_1', 'BET_2', 'BET_3'] as const) {
       const current = state(phase);

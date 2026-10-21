@@ -6,7 +6,7 @@ export interface ModeEngine {
   mode: GameMode;
   drawCap(phase: string): number | null;
   onPhaseEnter?(state: GameState, addMessage: (state: GameState, text: string) => GameState): GameState;
-  canWinUncontested?(player: Player): boolean;
+  canWinUncontested?(player: Player, state: GameState): boolean;
   resolveUncontested?(state: GameState, winner: Player, netPot: number): GameState;
   scheduleBotFill?(key: string, host: BotFillHost): void;
 }
