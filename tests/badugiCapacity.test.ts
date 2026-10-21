@@ -55,9 +55,11 @@ describe('Badugi capacity defaults (P3)', () => {
     // Deal loop follows the actual seat count, not a hardcoded 20/4.
     expect(fu).toContain('const totalCards = ordered.length * 5;');
     expect(fu).toContain('const seatIdx = i % ordered.length;');
-    // Four opponent spots in the arc.
-    expect(fu).toContain('{ x: 16, y: 30 }');
-    expect(fu).toContain('{ x: 84, y: 30 }');
+    // Four opponent spots in the arc. (Coordinates updated 2026-10-21:
+    // Detroit's Galaxy QA P1 repair widened the arc for phone widths —
+    // see tests/flushedUpPresentation.pins.test.ts.)
+    expect(fu).toContain('{ x: 14, y: 29 }');
+    expect(fu).toContain('{ x: 86, y: 29 }');
   });
 
   it('both engines expose occupied-seat counts for the lobby X/Y display', () => {
