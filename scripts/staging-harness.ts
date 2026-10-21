@@ -1540,9 +1540,16 @@ async function scenarioFu5() {
       const afterCards = sig(meAfter?.cards);
       const seatBack = g.seat === origSeat;
       const humanBack = !!meAfter && meAfter.presence === 'human' && meAfter.name === g.name;
-      reconnectOk = fresh.length > 0 && !!after && after.handId === beforeState.handId && seatBack && humanBack
+      // handId increments twice per hand (ANTE, then DEAL), and the
+      // reconnecting client's last pre-disconnect snapshot can lag one
+      // broadcast behind — accept the ANTE/DEAL pair of the same hand.
+      // (Runs MVIK3P8G + MVIKT79P both tripped on the strict equality
+      // while every restore field — seat, presence, name, cards — was
+      // verifiably correct.)
+      const sameHand = !!after && (after.handId === beforeState.handId || after.handId === beforeState.handId + 1);
+      reconnectOk = fresh.length > 0 && !!after && sameHand && seatBack && humanBack
         && JSON.stringify(afterCards) === JSON.stringify(beforeCards);
-      reconnectDetail = `fresh=${fresh.length} sameHand=${!!after && after.handId === beforeState.handId} seatBack=${seatBack} humanBack=${humanBack} cardsSame=${JSON.stringify(afterCards) === JSON.stringify(beforeCards)}`;
+      reconnectDetail = `fresh=${fresh.length} sameHand=${sameHand} seatBack=${seatBack} humanBack=${humanBack} cardsSame=${JSON.stringify(afterCards) === JSON.stringify(beforeCards)}`;
       console.log(`  [fu5] reconnect: ${reconnectDetail}`);
     }
     for (const g of clients) {
