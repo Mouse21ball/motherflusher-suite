@@ -3,8 +3,9 @@
  *
  * Rebuilt on Badugi/Flushed Up's flight engine (option A — full rebuild).
  * Same flight engine, same staging, same premium touches — driven by live GameState.
- * 5 hole cards per hand (20 deal flights), THEN 5 community cards dealt the same
- * way as a hand — from the dealer, staggered flights, staged until they land.
+ * 5 hole cards per seated player (25 deal flights at a full five-seat
+ * table), THEN 5 community cards dealt the same way as a hand — from the
+ * dealer, staggered flights, staged until they land.
  * Single animation/sound system — no duplicates.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -158,12 +159,15 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     };
 
     if (prev) {
-      // NEW HAND → 20 hole cards, THEN 5 community cards (Detroit 2026-10-15:
-      // community dealt the same way as a hand — staggered flights from dealer).
+      // NEW HAND → 5 hole cards per seated player, THEN 5 community cards
+      // (Detroit 2026-10-15: community dealt the same way as a hand —
+      // staggered flights from dealer).
+      // Detroit 2026-10-21: five-seat phase — the flight count follows the
+      // actual seat count (was hardcoded 20 cards over 4 seats).
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
         const me = liveState.players.find(p => p.id === myId);
-        const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+        const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
         const ordered = me ? [me, ...others] : others;
         const reset: Record<string, number> = {};
         for (const p of ordered) reset[p.id] = 0;
@@ -172,8 +176,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         // Detroit 2026-10-16: clear celebration + rake so they don't bleed into the new hand.
         setCelebration(emptyCelebration());
         setRake({ active: false, winnerIndex: -1, amount: 0 });
-        for (let i = 0; i < 20; i++) {
-          const seatIdx = i % 4;
+        const holeFlights = ordered.length * 5;
+        for (let i = 0; i < holeFlights; i++) {
+          const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
           const isHero = seatIdx === 0;
@@ -195,7 +200,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             });
           });
         }
-        const commStart = 20 * 160 + 200; // Detroit 2026-10-16: tightened from 400ms — was a visible pause
+        const commStart = holeFlights * 160 + 200; // Detroit 2026-10-16: tightened from 400ms — was a visible pause
         for (let c = 0; c < 5; c++) {
           later(commStart + c * 160, () => {
             const fid = addFlight({
@@ -361,7 +366,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   }, [liveState, myId, reduced, later, addFlight, removeFlight]);
 
   const me = liveState.players.find(p => p.id === myId);
-  const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+  const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
   const ordered = me ? [me, ...others] : others;
 
   const showdownPhase = mapPhase(liveState.phase) === 'showdown';
@@ -401,10 +406,16 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
 
 function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 };
+  // Detroit 2026-10-21: approved mockup v3 (b9d8d5e0) five-seat arc —
+  // four opponent spots. Side pods sit at 14% / 86% and are LIFTED to
+  // 27.5% so their backs, plates, and badges stay inside the Galaxy
+  // A15 safe area AND clear the community-card row below them (the
+  // board must remain fully readable at all times).
   const spots = [
-    { x: 14, y: 28 },
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — name clipped under status bar
-    { x: 86, y: 28 },
+    { x: 14, y: 27.5 },
+    { x: 27.5, y: 16.5 },
+    { x: 72.5, y: 16.5 },
+    { x: 86, y: 27.5 },
   ];
   return spots[(index - 1) % spots.length];
 }
