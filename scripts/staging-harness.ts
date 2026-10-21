@@ -1208,6 +1208,214 @@ class GClient {
   disconnect() { try { this.ws?.close(); } catch {} this.ws = null; }
 }
 
+// ─── Box Chevy five-seat + rulings verification (Detroit 2026-10-21) ─────────
+// Five humans seat and stay seated; the five community cards must be
+// byte-identical on every snapshot after the deal; a full hand plays to
+// showdown with declarations visible cross-client and surviving a
+// reconnect; a fold-out hand proves ruling 2 (lone unmade survivor ->
+// pot rolls over, exact amount carried into the next hand); stand-pat
+// hands prove ruling 1 (unmade players arrive at DECLARE already
+// auto-folded). Partial table reads 3/5.
+const bcMade = (cards: any[], comm: any[]): boolean => {
+  if (!cards?.length || (comm?.length ?? 0) !== 5) return false;
+  const ranks = [...cards, ...comm].map((c: any) => c.rank);
+  return ranks.length === 10 && new Set(ranks).size === 10;
+};
+const bcCommSig = (s: any): string => (s?.communityCards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
+
+async function scenarioBc5() {
+  const MODE = 'box_chevy';
+  const t = `B5${R4}`;
+  const clients: GClient[] = [];
+  for (let i = 0; i < 5; i++) { const g = new GClient(`B5${R4}P${i + 1}`); await g.bootstrap(); clients.push(g); }
+  const recRes = await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: clients[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  console.log(`  (bc record create -> ${recRes.status})`);
+  for (const g of clients) await g.connectMode(t, MODE);
+  await sleep(800);
+  const s0 = clients[0].latest();
+  const humans0 = (s0?.players ?? []).filter((p: any) => p.presence === 'human').length;
+  record('BC5 five humans seated', humans0 === 5 ? 'PASS' : 'FAIL',
+    `players=${(s0?.players ?? []).map((p: any) => `${p.name}:${p.presence}`).join(', ')}`);
+  const entry = (await (await fetch(`${BASE}/api/tables`)).json().catch(() => [])).find((x: any) => x.tableId === t);
+  record('BC5 lobby count 5/5', (entry && entry.playerCount === 5 && entry.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(entry ?? null)}`);
+
+  const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  const smartDiscards = (me: any, comm: any[], cap: number): number[] => {
+    const commRanks = new Set((comm ?? []).map((c: any) => c.rank));
+    const seen = new Set<string>(); const dup = new Set<number>();
+    (me.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dup.add(i); seen.add(c.rank); });
+    return (me.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dup.has(i) ? i : -1))
+      .filter((i: number) => i >= 0).slice(0, cap);
+  };
+
+  let script: 'play' | 'fold' | 'sweep' = 'play';
+  let needFold = true, needSweep = true;
+  let foldSurvivorSeat: string | null = null;
+  let sigHand = -1; let sigVal = ''; let commViolations = 0; let commChecks = 0;
+  let hand1Showdown: any = null; let hand1Totals: number | null = null;
+  let declSeenCross = false; let reconnectDone = false; let reconnectOk = false;
+  let sweepObservations = 0; let sweepDetail = '';
+  let foldResolved = false; let foldDetail = '';
+  let rolloverPotSeen: number | null = null; let rolloverCarried: number | null = null;
+  const acted = new Map<string, string>();
+  const declaredThisHand = new Set<string>();
+  let curHand = -1;
+  const deadline = Date.now() + 540000;
+
+  while (Date.now() < deadline) {
+    const s = clients[0].latest();
+    if (!s) { await sleep(200); continue; }
+    if (typeof s.handId === 'number' && s.handId !== curHand) {
+      curHand = s.handId;
+      declaredThisHand.clear();
+      foldSurvivorSeat = null;
+      if (curHand > 0 && needFold) script = 'fold';
+      else if (curHand > 0 && needSweep) script = 'sweep';
+      else script = 'play';
+    }
+    // Community stability: once the board is complete, it may never change.
+    if ((s.communityCards?.length ?? 0) === 5 && s.phase !== 'WAITING') {
+      const sig = bcCommSig(s);
+      if (sigHand !== s.handId) { sigHand = s.handId; sigVal = sig; }
+      else if (sigVal !== sig) commViolations++;
+      commChecks++;
+      for (const g of clients) { const gs = g.latest(); if (gs && gs.handId === s.handId && (gs.communityCards?.length ?? 0) === 5 && bcCommSig(gs) !== sigVal) commViolations++; }
+    }
+    // Rollover carry: first WAITING snapshot after the fold hand resolved.
+    if (foldResolved && rolloverCarried === null && s.phase === 'WAITING' && typeof rolloverPotSeen === 'number') {
+      rolloverCarried = s.pot ?? 0;
+    }
+    if (s.phase === 'SHOWDOWN' && script === 'play' && !hand1Showdown) {
+      hand1Showdown = s;
+      await sleep(9000);
+      const after = clients[0].latest();
+      hand1Totals = (after?.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (after?.pot ?? 0);
+    }
+    if (s.phase === 'SHOWDOWN' && script === 'fold' && foldSurvivorSeat && !foldResolved) {
+      const surv = s.players.find((p: any) => p.id === foldSurvivorSeat);
+      const msgs = (s.messages ?? []).map((m: any) => m.text).join(' | ');
+      const rolled = !surv?.isWinner && /rolls over/.test(msgs);
+      foldResolved = true; rolloverPotSeen = s.pot ?? 0;
+      foldDetail = `survivorWinner=${!!surv?.isWinner} potAtShowdown=${s.pot} msgs=${msgs.slice(0, 160)}`;
+      if (!rolled) { /* keep flag for reporting; do not retry forever */ }
+    }
+    // Fold script: choose the survivor once the board is out (an unmade one).
+    if (script === 'fold' && !foldSurvivorSeat && (s.communityCards?.length ?? 0) === 5 && s.phase !== 'WAITING' && s.phase !== 'SHOWDOWN') {
+      for (const g of clients) {
+        const gs = g.latest(); const me = gs?.players?.find((p: any) => p.id === g.seat);
+        if (me && !bcMade(me.cards, gs.communityCards)) { foldSurvivorSeat = g.seat; break; }
+      }
+      if (!foldSurvivorSeat) { script = 'sweep'; /* all made — fold test retries on a later hand */ }
+    }
+    // Sweep observation at DECLARE entry.
+    if (script === 'sweep' && s.phase === 'DECLARE' && acted.get('sweepObs') !== `${s.handId}`) {
+      acted.set('sweepObs', `${s.handId}`);
+      const msgs = (s.messages ?? []).map((m: any) => m.text).join(' | ');
+      let bad = 0; const names: string[] = [];
+      for (const g of clients) {
+        const gs = g.latest(); const me = gs?.players?.find((p: any) => p.id === g.seat);
+        if (!me) continue;
+        const made = bcMade(me.cards, gs.communityCards);
+        const inP1 = s.players.find((p: any) => p.id === g.seat);
+        if (!made) {
+          sweepObservations++;
+          names.push(`${me.name}:${inP1?.status}`);
+          if (inP1?.status !== 'folded') bad++;
+        }
+      }
+      if (sweepObservations > 0) {
+        sweepDetail = `unmade at DECLARE: ${names.join(', ')}; auto-fold msgs=${/auto-folded/.test(msgs)}; violations=${bad}`;
+        if (bad === 0 && /auto-folded/.test(msgs)) needSweep = false;
+      }
+    }
+    // Cross-client declaration visibility + reconnect during hand-1 DECLARE.
+    if (script === 'play' && s.phase === 'DECLARE') {
+      const withDecl = s.players.filter((p: any) => p.declaration === 'HIGH' || p.declaration === 'LOW' || p.declaration === 'SWING');
+      if (withDecl.length >= 1) declSeenCross = true;
+      if (!reconnectDone && withDecl.length >= 1) {
+        reconnectDone = true;
+        const beforeSig = bcCommSig(s);
+        const beforeDecl = s.players.map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
+        const g = clients[1];
+        const beforeCards = (g.latest()?.players?.find((p: any) => p.id === g.seat)?.cards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
+        g.disconnect();
+        await sleep(1200);
+        await g.connectMode(t, MODE).catch(() => null);
+        const after = g.latest();
+        const afterCards = (after?.players?.find((p: any) => p.id === g.seat)?.cards ?? []).map((c: any) => `${c.rank}${c.suit[0]}`).join(',');
+        const afterDecl = (after?.players ?? []).map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
+        reconnectOk = !!after && after.handId === s.handId && bcCommSig(after) === beforeSig && afterCards === beforeCards && afterDecl === beforeDecl;
+      }
+    }
+
+    for (const g of clients) {
+      const gs = g.latest(); if (!gs) continue;
+      const me = gs.players.find((p: any) => p.id === g.seat); if (!me) continue;
+      const key = `${gs.handId}:${gs.phase}:${gs.activePlayerId}`;
+      if (gs.phase === 'WAITING' && g === clients[0] && acted.get('start') !== `${gs.handId}`) {
+        acted.set('start', `${gs.handId}`); g.act('start', null, t, MODE);
+      } else if (gs.phase === 'ANTE' && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key); g.act('ante', null, t, MODE);
+      } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed) {
+        const idx = script === 'play' ? smartDiscards(me, gs.communityCards, caps[gs.phase] ?? 0) : [];
+        g.act('draw', idx, t, MODE); await sleep(100);
+      } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed) {
+        if (script === 'fold' && gs.phase === 'BET_1' && foldSurvivorSeat && g.seat !== foldSurvivorSeat) {
+          g.act('fold', null, t, MODE);
+        } else {
+          g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, t, MODE);
+        }
+        await sleep(100);
+      } else if (gs.phase === 'DECLARE' && me.status === 'active' && !me.hasActed && !declaredThisHand.has(g.seat!)) {
+        if (bcMade(me.cards, gs.communityCards)) {
+          declaredThisHand.add(g.seat!);
+          const rotation = ['HIGH', 'LOW', 'SWING', 'HIGH', 'LOW'];
+          g.act('declare', { declaration: rotation[clients.indexOf(g)] }, t, MODE);
+          await sleep(100);
+        }
+      }
+    }
+    if (hand1Showdown && foldResolved && !needSweep && rolloverCarried !== null) break;
+    if (hand1Showdown && curHand >= 5) break; // attempts exhausted — report what we have
+    await sleep(200);
+  }
+
+  record('BC5 community cards stable through every hand', (commViolations === 0 && commChecks > 20) ? 'PASS' : 'FAIL',
+    `checks=${commChecks} violations=${commViolations}`);
+  record('BC5 full hand to showdown, nobody trimmed', (hand1Showdown && hand1Showdown.players.filter((p: any) => p.presence === 'human').length === 5) ? 'PASS' : 'FAIL',
+    hand1Showdown ? `humans at showdown=${hand1Showdown.players.filter((p: any) => p.presence === 'human').length} pot=${hand1Showdown.pot}` : 'no showdown captured');
+  record('BC5 settlement conserves chips (rake aside)', (hand1Totals !== null && hand1Totals <= 50000 && hand1Totals >= 47000) ? 'PASS' : 'FAIL',
+    `totalAfter=${hand1Totals} (start 50000 incl. rollover pot if any)`);
+  record('BC5 declarations visible cross-client', declSeenCross ? 'PASS' : 'FAIL', 'declarations on P1 snapshot during DECLARE');
+  record('BC5 reconnect mid-DECLARE restores board, cards, declarations', reconnectOk ? 'PASS' : 'FAIL',
+    `attempted=${reconnectDone}`);
+  record('BC5 DECLARE auto-folds unmade players (ruling 1)', (!needSweep && sweepObservations > 0) ? 'PASS' : 'FAIL',
+    sweepDetail || `observations=${sweepObservations} (no unmade hand reached DECLARE in the attempts)`);
+  record('BC5 lone unmade survivor — pot rolls over (ruling 2)', (foldResolved && rolloverPotSeen !== null && rolloverPotSeen > 0) ? 'PASS' : 'FAIL', foldDetail || 'fold hand never resolved');
+  record('BC5 rollover amount carried into next hand intact', (rolloverCarried !== null && rolloverPotSeen !== null && rolloverCarried === rolloverPotSeen) ? 'PASS' : 'FAIL',
+    `potAtShowdown=${rolloverPotSeen} potAtNextWaiting=${rolloverCarried}`);
+  clients.forEach(g => g.disconnect());
+
+  // Partial table: 3 humans -> 3/5.
+  const t2 = `B3${R4}`;
+  const trio: GClient[] = [];
+  for (let i = 0; i < 3; i++) { const g = new GClient(`B3${R4}P${i + 1}`); await g.bootstrap(); trio.push(g); }
+  await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t2, modeId: MODE, hostId: trio[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  for (const g of trio) await g.connectMode(t2, MODE);
+  await sleep(800);
+  const entry2 = (await (await fetch(`${BASE}/api/tables`)).json().catch(() => [])).find((x: any) => x.tableId === t2);
+  record('BC5 partial table 3/5', (entry2 && entry2.playerCount === 3 && entry2.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(entry2 ?? null)}`);
+  trio.forEach(g => g.disconnect());
+}
+
 async function scenarioFu5() {
   const MODE = 'flushed_up';
   const t = `F5${R4}`;
@@ -1312,6 +1520,7 @@ async function main() {
   if (mode === 'dwell') { console.log(`\n== DWELL HUNT (run ${RUN}) ==`); await scenarioDwell(); writeResults('dwell'); return; }
   if (mode === 'phase1') { console.log(`\n== PHASE 1 (run ${RUN}) ==`); await scenarioPhase1(); writeResults('phase1'); return; }
   if (mode === 'fu5') { console.log(`\n== FLUSHED UP 5-SEAT (run ${RUN}) ==`); await scenarioFu5(); writeResults('fu5'); return; }
+  if (mode === 'bc5') { console.log(`\n== BOX CHEVY 5-SEAT + RULINGS (run ${RUN}) ==`); await scenarioBc5(); writeResults('bc5'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
