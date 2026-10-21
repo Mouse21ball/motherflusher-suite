@@ -1549,7 +1549,7 @@ async function scenarioFu5() {
       const sameHand = !!after && (after.handId === beforeState.handId || after.handId === beforeState.handId + 1);
       reconnectOk = fresh.length > 0 && !!after && sameHand && seatBack && humanBack
         && JSON.stringify(afterCards) === JSON.stringify(beforeCards);
-      reconnectDetail = `fresh=${fresh.length} sameHand=${sameHand} seatBack=${seatBack} humanBack=${humanBack} cardsSame=${JSON.stringify(afterCards) === JSON.stringify(beforeCards)}`;
+      reconnectDetail = `fresh=${fresh.length} sameHand=${sameHand} handIds=${beforeState.handId}->${after?.handId} seatBack=${seatBack} humanBack=${humanBack} cardsSame=${JSON.stringify(afterCards) === JSON.stringify(beforeCards)}`;
       console.log(`  [fu5] reconnect: ${reconnectDetail}`);
     }
     for (const g of clients) {
