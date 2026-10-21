@@ -999,6 +999,51 @@ async function scenarioDrawQa() {
   table2.stop(); table2.clients.forEach(c => c.disconnect());
 }
 
+
+// ─── Contested-showdown dwell hunt (Detroit 2026-10-20, Bug 4) ──────────────
+// Plays hands until a CONTESTED showdown occurs (>=2 active players at
+// SHOWDOWN — the path that shows the comparison panel) and measures how
+// long SHOWDOWN stays up. Lone-survivor endings take the shorter
+// fold-resolution dwell and are skipped. The observer's starter flag is
+// dropped at the first non-WAITING phase so no 'restart' override can cut
+// a dwell short; hands chain on the server timer alone after that.
+async function scenarioDwell() {
+  const t = `DW${R4}`;
+  const table = await makeTable(t, 5, { maxPlayers: 5, bots: false });
+  const { clients } = table;
+  const obs = clients[0];
+  table.startDrivers([{ smartDraw: true }, { smartDraw: true }, { smartDraw: true }, { smartDraw: true }, { smartDraw: true }]);
+  const deadline = Date.now() + 8 * 60 * 1000;
+  let handsSeen = 0;
+  let lastShowHandId = -1;
+  while (Date.now() < deadline) {
+    const s = await obs.until((x: any) => x.phase === 'SHOWDOWN' && (x.handId ?? 0) > lastShowHandId, 90000, 'a showdown').catch(() => null);
+    if (!s) break;
+    (obs as any)._starter = false;
+    lastShowHandId = s.handId ?? lastShowHandId;
+    handsSeen++;
+    const active = s.players.filter((p: any) => p.status === 'active').length;
+    const showAt = Date.now();
+    await obs.until((x: any) => x.phase !== 'SHOWDOWN', 30000, 'showdown ends').catch(() => null);
+    const dwell = Date.now() - showAt;
+    console.log(`  dwell hand ${handsSeen}: activeAtShowdown=${active} dwell=${dwell}ms`);
+    if (active >= 2 && dwell >= 5200) {
+      record('DQ contested showdown dwell', 'PASS', `contested (active=${active}) dwell=${dwell}ms on showdown ${handsSeen}`);
+      table.stop(); clients.forEach(c => c.disconnect());
+      return;
+    }
+    if (active >= 2 && dwell < 5200 && handsSeen > 1) {
+      record('DQ contested showdown dwell', 'FAIL', `contested (active=${active}) dwell=${dwell}ms on showdown ${handsSeen} (starter override already off — genuine short dwell)`);
+      table.stop(); clients.forEach(c => c.disconnect());
+      return;
+    }
+    // active<2: lone-survivor path (shorter dwell by design) — keep hunting.
+    // active>=2 but short on showdown 1: possible restart race — starter is off now, keep hunting.
+  }
+  record('DQ contested showdown dwell', 'FAIL', `no clean contested showdown measured in ${handsSeen} showdowns within 8 minutes`);
+  table.stop(); clients.forEach(c => c.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -1009,6 +1054,7 @@ async function main() {
   if (mode === 'wire') { console.log(`\n== WIRE FIELDS (run ${RUN}) ==`); await scenarioWire(); writeResults('wire'); return; }
   if (mode === 'pots') { console.log(`\n== SIDE POTS (run ${RUN}) ==`); await scenarioPots(); writeResults('pots'); return; }
   if (mode === 'drawqa') { console.log(`\n== DRAW QA (run ${RUN}) ==`); await scenarioDrawQa(); writeResults('drawqa'); return; }
+  if (mode === 'dwell') { console.log(`\n== DWELL HUNT (run ${RUN}) ==`); await scenarioDwell(); writeResults('dwell'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
