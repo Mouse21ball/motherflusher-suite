@@ -1205,6 +1205,9 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
       isWinner: undefined,
       isLoser: undefined,
       score: undefined,
+      // Per-hand draw-animation counters restart with the hand.
+      lastDrawCount: undefined,
+      drawSeq: 0,
       status: (isRollover
         ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out')
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
@@ -1474,6 +1477,25 @@ function executeBotAction(table: GenericTable, botId: string): void {
     }
 
     engineLog('BOT', `${table.modeId}:${table.tableId}`, { bot: botId, action: message ?? '?', phase: table.state.phase });
+
+    // Draw-animation transaction stamp for bot draws (same contract as
+    // the human draw branch): count = slots whose card identity changed.
+    if (table.state.phase.startsWith('DRAW')) {
+      const oldBot = table.state.players.find(p => p.id === botId);
+      const newBot = newState.players.find(p => p.id === botId);
+      if (oldBot && newBot && newBot.hasActed) {
+        const changed = newBot.cards.filter((c, i) => {
+          const o = oldBot.cards[i];
+          return !o || o.rank !== c.rank || o.suit !== c.suit;
+        }).length;
+        newState = {
+          ...newState,
+          players: newState.players.map(p => p.id === botId
+            ? { ...p, lastDrawCount: changed, drawSeq: (oldBot.drawSeq ?? 0) + 1 }
+            : p),
+        };
+      }
+    }
 
     table.state = newState;
     table.actionLock = false;
@@ -2710,7 +2732,21 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       const player = newPlayers[playerIdx];
       const drawn = applyGenericDraw(player.cards, s.deck, s.discardPile || [], payload, drawCap);
       if (!drawn.ok) { table.actionLock = false; return; }
-      newPlayers[playerIdx] = { ...player, cards: drawn.cards, hasActed: true };
+      // Draw-animation transaction stamp (Detroit 2026-10-21, Flushed Up
+      // Phase 3 — the Badugi architecture): every accepted draw, stand-pat
+      // included, bumps the per-hand monotonic drawSeq and records the
+      // count, so clients animate each draw exactly once and reconnects
+      // never replay flights. The legacy engine has stamped these since
+      // the Badugi P1 fixes; generic modes never did, which left the
+      // Flushed Up / Box Chevy flight drivers keyed on a field that was
+      // always undefined.
+      newPlayers[playerIdx] = {
+        ...player,
+        cards: drawn.cards,
+        hasActed: true,
+        lastDrawCount: drawn.count,
+        drawSeq: (player.drawSeq ?? 0) + 1,
+      };
       const newState = {
         ...s,
         players: newPlayers,

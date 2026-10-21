@@ -118,10 +118,15 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   // Staging: how many cards have visually landed per player this hand.
   // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
   const [landed, setLanded] = useState<Record<string, number>>({});
+  // Slot-faithful hero staging (Detroit 2026-10-21, Phase 3 — the Badugi
+  // architecture): slots the hero discarded, held face-down until each
+  // replacement flight lands. Kept slots are never touched, so kept cards
+  // cannot jump, vanish, or swap places mid-animation.
+  const [staged, setStaged] = useState<Record<string, number[]>>({});
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; seqs: Record<string, number>; cards: Record<string, string[]> } | null>(null);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -147,8 +152,13 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       handId: liveState.handId,
       phase: liveState.phase,
       bets: Object.fromEntries(liveState.players.map(p => [p.id, p.bet])),
-      // Key draws by phase+count so same-count draws in different rounds still animate
-      draws: Object.fromEntries(liveState.players.map(p => [p.id, `${liveState.phase}:${(p as any).lastDrawCount ?? 'x'}`])),
+      // Draw transactions keyed on the server's per-hand monotonic drawSeq
+      // (stamped on every accepted draw since the Phase 3 engine fix).
+      // The previous phase:lastDrawCount key could never fire for generic
+      // modes — the engine never set lastDrawCount — and its phase
+      // component made it replay-prone besides.
+      seqs: Object.fromEntries(liveState.players.map(p => [p.id, (p as any).drawSeq ?? 0])),
+      cards: Object.fromEntries(liveState.players.map(p => [p.id, (p.cards ?? []).map(c => `${c.rank}|${c.suit}`)])),
     };
 
     if (prev) {
@@ -166,6 +176,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         const reset: Record<string, number> = {};
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
+        setStaged({});
         // 5 cards per seated player, one every 160ms, round-robin by seat
         const totalCards = ordered.length * 5;
         for (let i = 0; i < totalCards; i++) {
@@ -214,49 +225,69 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       }
 
       // DRAWS → discards to muck, replacements from dealer (prototype timing)
-      // Keyed by phase+count so repeat same-count draws in later rounds still fire.
+      // Fires exactly once per accepted draw: only when the player's
+      // drawSeq increments by one within the same hand. First snapshot of
+      // a hand is the baseline (prev === null or hand changed), so a
+      // reconnect never replays a completed draw. Replaced slots come
+      // from diffing the player's cards slot-by-slot against the
+      // previous snapshot — the hero's kept cards are never re-staged.
       for (const p of liveState.players) {
-        const prevD = prev.draws[p.id];
-        const currD = curr.draws[p.id];
-        const currCount = parseInt(currD.split(':')[1] || '0', 10);
-        if (currD !== prevD && !isNaN(currCount) && currCount > 0) {
-          const isHero = p.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
-          const pos = seatPosition(Math.max(0, seatIdx));
-          // Detroit 2026-10-15: stage replacement cards — hide the drawn slots
-          // until their flights land (was showing new cards instantly).
-          const keptCount = 5 - currCount;
-          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
-          for (let d = 0; d < currCount; d++) {
-            const fid = addFlight({
-              kind: 'muck',
-              fromX: pos.x, fromY: pos.y - 6,
-              toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
-              label: '', faceDown: true, duration: 0.35, toHero: false,
+        const prevSeq = prev.seqs[p.id] ?? 0;
+        const currSeq = curr.seqs[p.id] ?? 0;
+        if (prev.handId !== curr.handId || currSeq !== prevSeq + 1) continue;
+        const count = (p as any).lastDrawCount ?? 0;
+        if (count <= 0) continue; // stand-pat: transaction recorded, nothing to fly
+        const isHero = p.id === myId;
+        const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
+        const pos = seatPosition(Math.max(0, seatIdx));
+        const prevCards = prev.cards[p.id] ?? [];
+        const currCards = curr.cards[p.id] ?? [];
+        const replaced = currCards.map((c, i) => (prevCards[i] !== undefined && prevCards[i] !== c ? i : -1)).filter(i => i >= 0);
+        const slots = isHero && replaced.length === count ? replaced : Array.from({ length: count }, (_, d) => d);
+        if (isHero) {
+          // Stage exactly the discarded slots face-down until they land.
+          setStaged(prevStaged => ({ ...prevStaged, [p.id]: slots }));
+        } else {
+          // Opponent cards are backs — count staging is visually exact.
+          setLanded(prevLanded => ({ ...prevLanded, [p.id]: 5 - count }));
+        }
+        for (let d = 0; d < count; d++) {
+          const fid = addFlight({
+            kind: 'muck',
+            fromX: pos.x, fromY: pos.y - 6,
+            toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
+            label: '', faceDown: true, duration: 0.35, toHero: false,
+          });
+          later(d * 120 + 350, () => removeFlight(fid));
+        }
+        sfx.dealSingle();
+        later(count * 120 + 400, () => {
+          for (let d = 0; d < count; d++) {
+            const dfid = addFlight({
+              kind: 'card',
+              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+              toX: pos.x, toY: pos.y - 6,
+              label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
-            later(d * 120 + 350, () => removeFlight(fid));
-          }
-          sfx.dealSingle();
-          later(currCount * 120 + 400, () => {
-            for (let d = 0; d < currCount; d++) {
-              const dfid = addFlight({
-                kind: 'card',
-                fromX: DEALER_POS.x, fromY: DEALER_POS.y,
-                toX: pos.x, toY: pos.y - 6,
-                label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
-              });
-              if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-              // Replacement card lands in hand when its flight completes
-              later(d * 120 + 320, () => {
-                removeFlight(dfid);
+            if (isHero) sfx.dealSelf(); else sfx.dealSingle();
+            // Replacement card lands in hand when its flight completes
+            later(d * 120 + 320, () => {
+              removeFlight(dfid);
+              if (isHero) {
+                const slot = slots[d];
+                setStaged(prevStaged => ({
+                  ...prevStaged,
+                  [p.id]: (prevStaged[p.id] ?? []).filter(sIdx => sIdx !== slot),
+                }));
+              } else {
                 setLanded(prevLanded => ({
                   ...prevLanded,
-                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 5),
+                  [p.id]: Math.min((prevLanded[p.id] ?? 5 - count) + 1, 5),
                 }));
-              });
-            }
-          });
-        }
+              }
+            });
+          }
+        });
       }
 
       // SHOWDOWN → rake, celebration with winning hand (prototype: 2500ms, 3700ms, 9200ms)
@@ -314,10 +345,17 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     // Staging: only show cards that have landed from deal flights.
     // Falls back to all cards if staging didn't run (e.g. reconnect mid-hand).
     // Detroit 2026-10-16: folded players hide at showdown; non-folded opponents reveal.
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
-      ...c,
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
-    })),
+    // Phase 3: while the hero's draw flights are in the air, exactly the
+    // discarded slots render face-down in place; kept slots stay face-up.
+    cards: (i === 0 && (staged[p.id]?.length ?? 0) > 0
+      ? p.cards.map((c, slot) => ({
+          ...c,
+          isHidden: p.status === 'folded' ? true : (staged[p.id].includes(slot) ? true : c.isHidden),
+        }))
+      : p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
+          ...c,
+          isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
+        }))),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
