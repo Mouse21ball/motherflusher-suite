@@ -26,6 +26,7 @@ import BadugiGame from "@/pages/BadugiGame";
 import ProtoUno from "@/pages/ProtoUno";
 import PracticeBadugiPage from "@/pages/PracticeBadugiPage";
 import FiveSeatPreviewPage from "@/pages/FiveSeatPreviewPage";
+import BoxChevyFiveSeatMockupPage from "@/pages/BoxChevyFiveSeatMockupPage";
 // Detroit 2026-10-19: /dev/5seat route is DEV-only (see Router below).
 // The component is imported but the route is gated by import.meta.env.DEV,
 // so production builds never serve it.
@@ -137,6 +138,8 @@ function Router() {
         {/* Detroit 2026-10-19: dev-only 5-seat preview. Gated by import.meta.env.DEV —
             this route does not exist in production builds. */}
         {import.meta.env.DEV && <Route path="/dev/5seat" component={FiveSeatPreviewPage}/>}
+        {/* Detroit 2026-10-21: dev-only Box Chevy 5-seat DESIGN MOCKUP (proposal, not a game). */}
+        {import.meta.env.DEV && <Route path="/dev/bc5seat" component={BoxChevyFiveSeatMockupPage}/>}
         <Route path="/flushedup" component={FlushedUpGame}/>
         <Route path="/box-chevy" component={BoxChevyGame}/>
         <Route path="/ladyluck/history" component={LadyLuckHistory}/>
