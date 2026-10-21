@@ -939,11 +939,19 @@ async function scenarioDrawQa() {
   record('DQ table auto-fold provenance visible', 'PASS', `players stamped declare-auto-invalid this hand: ${anyAuto.join(', ') || '(none)'}`);
 
   // SHOWDOWN dwell: first SHOWDOWN frame -> next hand's first non-SHOWDOWN frame.
+  // The hero is this table's starter and the generic driver auto-sends
+  // 'restart' during SHOWDOWN — a protocol-level manual override that skips
+  // the dwell by design (no shipped client exposes it; the action bar is
+  // hidden during SHOWDOWN). Disable the starter flag BEFORE showdown so
+  // the measurement observes the server dwell timer, which is what real
+  // players experience. Restored after the measurement for hand 2.
+  (hero as any)._starter = false;
   const sShow = await hero.until((x: any) => x.phase === 'SHOWDOWN', 60000, 'SHOWDOWN reached');
   const showAt = Date.now();
   const hadWinner = sShow.players.some((p: any) => p.isWinner);
   await hero.until((x: any) => x.phase !== 'SHOWDOWN', 30000, 'showdown ends');
   const dwell = Date.now() - showAt;
+  (hero as any)._starter = true;
   const expectMs = hadWinner ? 5200 : 3200;
   record('DQ showdown dwell', dwell >= expectMs ? 'PASS' : 'FAIL',
     `dwell=${dwell}ms (winner=${hadWinner}, expected >= ${expectMs}ms)`);
