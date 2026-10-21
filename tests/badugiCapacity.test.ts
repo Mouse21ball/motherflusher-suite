@@ -23,13 +23,29 @@ describe('Badugi capacity defaults (P3)', () => {
     expect(body).not.toMatch(/options\.maxPlayers\s+\?\? 4/);
   });
 
-  it('generic engine no longer caps Badugi at 4 anywhere', () => {
-    expect(generic).toContain("const defaultMax = (modeId === 'flushed_up' || modeId === 'box_chevy') ? 4 : 5;");
-    // No capacity expression may single Badugi out for 4: not the factory
-    // default, not the restore path, not the broadcast trim guard.
+  it('generic engine caps only Box Chevy at 4 (Badugi + Flushed Up are 5)', () => {
+    // Detroit 2026-10-21: Flushed Up joined Badugi at 5 in its own phase;
+    // Box Chevy keeps the 4 cap pending its separate design phase.
+    expect(generic).toContain("const defaultMax = modeId === 'box_chevy' ? 4 : 5;");
+    expect(generic).toContain("maxPlayers: modeId === 'box_chevy' ? 4 : 5,");
+    expect(generic).toContain("if (table.modeId === 'box_chevy' && table.state.players.length > 4) {");
+    // No capacity expression may single Badugi or Flushed Up out for 4.
     expect(generic).not.toMatch(/modeId === 'badugi'\) \? 4/);
-    expect(generic).not.toMatch(/table\.modeId === 'badugi'\) && table\.state\.players\.length > 4/);
-    expect(generic).not.toMatch(/=== 'badugi'\) \? 4 : 5/);
+    expect(generic).not.toMatch(/modeId === 'flushed_up'\) \? 4/);
+    expect(generic).not.toMatch(/=== 'flushed_up'\) \? 4 : 5/);
+  });
+
+  it('Flushed Up table renders and deals to a fifth seat', () => {
+    const fu = readFileSync(resolve(__dirname, '../client/src/components/flushedUp/FlushedUpTable.tsx'), 'utf8');
+    // Both opponent slices admit 4 others (proto render + deal driver).
+    expect(fu.match(/\.slice\(0, 4\)/g)?.length).toBe(2);
+    expect(fu).not.toContain('.slice(0, 3)');
+    // Deal loop follows the actual seat count, not a hardcoded 20/4.
+    expect(fu).toContain('const totalCards = ordered.length * 5;');
+    expect(fu).toContain('const seatIdx = i % ordered.length;');
+    // Four opponent spots in the arc.
+    expect(fu).toContain('{ x: 16, y: 30 }');
+    expect(fu).toContain('{ x: 84, y: 30 }');
   });
 
   it('both engines expose occupied-seat counts for the lobby X/Y display', () => {

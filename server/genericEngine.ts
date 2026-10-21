@@ -770,11 +770,12 @@ function enrichPlayersForWire(table: GenericTable, players: Player[]): Player[] 
 }
 
 function broadcastState(table: GenericTable): void {
-  // Detroit 2026-10-15: Force Flushed Up and Box Chevy tables to 4 players max.
+  // Detroit 2026-10-15: Force Box Chevy tables to 4 players max.
   // Trims on every broadcast so 5-player tables can't persist.
-  // Detroit 2026-10-21 (Phase 1 / P3): Badugi removed — its capacity is 5;
-  // trimming it here would silently cut the fifth seat.
-  if ((table.modeId === 'flushed_up' || table.modeId === 'box_chevy') && table.state.players.length > 4) {
+  // Detroit 2026-10-21: Badugi and Flushed Up are 5-seat games and are
+  // NOT trimmed; only Box Chevy keeps the 4 cap (its separate design
+  // phase is still pending Detroit's approval).
+  if (table.modeId === 'box_chevy' && table.state.players.length > 4) {
     const midHand = table.state.phase !== 'WAITING' && table.state.phase !== 'SHOWDOWN';
     if (!midHand) {
       const humans = table.state.players.filter(p => (p as any).presence === 'human');
@@ -1619,10 +1620,11 @@ export function getOrCreateTable(
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
     // Detroit 2026-10-15: Flushed Up and Box Chevy max 4 players.
-    // Detroit 2026-10-21 (Phase 1 / P3): Badugi is 5 — its 4 here was the
-    // same stale default removed from the legacy engine; Badugi normally
-    // runs on the legacy engine, this aligns the fallback path.
-    const defaultMax = (modeId === 'flushed_up' || modeId === 'box_chevy') ? 4 : 5;
+    // Detroit 2026-10-21 (Phase 1 / P3): Badugi is 5.
+    // Detroit 2026-10-21 (Flushed Up phase): Flushed Up is 5 too — Detroit
+    // authorized extending the approved five-seat presentation to it.
+    // Box Chevy REMAINS 4 pending its separate design phase.
+    const defaultMax = modeId === 'box_chevy' ? 4 : 5;
     const maxPlayers  = options.maxPlayers  ?? defaultMax;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
@@ -2967,8 +2969,8 @@ export async function initGenericEngine(): Promise<void> {
       joinWindowEndsAt: 0, // join window closed for restored tables
       isPrivate: false,
       // Detroit 2026-10-16: respect 4-player cap on restored tables (was hardcoded 5).
-      // Detroit 2026-10-21 (Phase 1 / P3): Badugi restored at its real capacity, 5.
-      maxPlayers: (modeId === 'flushed_up' || modeId === 'box_chevy') ? 4 : 5,
+      // Detroit 2026-10-21: Badugi and Flushed Up restore at 5; Box Chevy stays 4.
+      maxPlayers: modeId === 'box_chevy' ? 4 : 5,
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(undefined),

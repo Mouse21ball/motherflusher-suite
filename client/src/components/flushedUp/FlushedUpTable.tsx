@@ -152,22 +152,24 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     };
 
     if (prev) {
-      // NEW HAND → 20-card deal (5 cards × 4 players, prototype: 160ms apart, 0.32s flight each).
+      // NEW HAND → full deal (5 cards × seated players, prototype: 160ms apart, 0.32s flight each).
       // Cards are staged: they only appear in the hand when their flight lands.
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
       if (isNewHand) {
         const me = liveState.players.find(p => p.id === myId);
-        // Detroit 2026-10-15: slice to 3 others to match render (was unsliced —
-        // a 5th player would get zero deal flights and mis-targeted bet flights).
-        const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+        // Detroit 2026-10-21 (five-seat phase): up to 4 others — the slice
+        // and the deal loop below now follow the actual seat count instead
+        // of the old hardcoded four-player table.
+        const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
         const ordered = me ? [me, ...others] : others;
         // Reset staging: no cards visible until flights land
         const reset: Record<string, number> = {};
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
-        // 20 cards, one every 160ms, seat order 0→1→2→3 repeating
-        for (let i = 0; i < 20; i++) {
-          const seatIdx = i % 4;
+        // 5 cards per seated player, one every 160ms, round-robin by seat
+        const totalCards = ordered.length * 5;
+        for (let i = 0; i < totalCards; i++) {
+          const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
           const isHero = seatIdx === 0;
@@ -296,8 +298,10 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   }, [liveState, myId, reduced, later, addFlight, removeFlight]);
 
   // Map live players to proto shape (hero first)
+  // Detroit 2026-10-21 (five-seat phase): render up to 4 opponents (was 3 —
+  // a fifth seated player was previously invisible).
   const me = liveState.players.find(p => p.id === myId);
-  const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+  const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
   const ordered = me ? [me, ...others] : others;
   // Detroit 2026-10-16: reveal non-folded opponents at showdown (was hardcoded hidden).
   const showdownPhase = mapPhase(liveState.phase) === 'showdown';
@@ -343,11 +347,16 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
 
 function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 }; // hero
-  // 3 opponents spread across the top
+  // Detroit 2026-10-21 (five-seat phase): 4 opponents in the same shallow
+  // arc family as the approved Badugi five-seat layout — side seats low,
+  // center pair high. Previous 3-spot arc wrapped modulo, which stacked a
+  // fourth opponent on top of the first. Spots stay inside the Galaxy
+  // safe width (opponent fans are ~68px wide, centers ≥22% apart).
   const spots = [
-    { x: 18, y: 28 }, // Detroit 2026-10-18: was 14% — cards clipped off left edge
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — clipped under status bar
-    { x: 82, y: 28 }, // Detroit 2026-10-18: was 86% — symmetric with left
+    { x: 16, y: 30 },
+    { x: 38, y: 17.5 },
+    { x: 62, y: 17.5 },
+    { x: 84, y: 30 },
   ];
   return spots[(index - 1) % spots.length];
 }
