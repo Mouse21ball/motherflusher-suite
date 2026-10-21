@@ -138,7 +138,7 @@ function BoxChevyGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -337,6 +337,7 @@ function BoxChevyGameUI() {
         onLeave={leaveToLobby}
         tableId={tableId}
         humanCount={humanCount}
+        maxPlayers={tableSettings?.maxPlayers}
         onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
         spectating={effectiveSpectator}

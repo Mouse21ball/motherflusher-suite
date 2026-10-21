@@ -52,4 +52,15 @@ describe('Badugi capacity defaults (P3)', () => {
     expect(legacy).toContain("playerCount: table.state.players.filter(p => p.presence === 'human' || p.presence === 'bot').length");
     expect(generic).toContain("playerCount: table.state.players.filter(p => p.presence === 'human' || p.presence === 'bot').length");
   });
+
+  it('the in-game PLAYERS pill takes its denominator from room settings, never a literal', () => {
+    const bar = readFileSync(resolve(__dirname, '../client/src/components/game/GameStatusBar.tsx'), 'utf8');
+    expect(bar).not.toContain('`${activePlayers} / 4`');
+    expect(bar).toContain('maxPlayers && maxPlayers > 0 ? `${activePlayers} / ${maxPlayers}` : `${activePlayers}`');
+    // All three table pages wire their authoritative table settings through.
+    for (const page of ['../client/src/components/badugi/BadugiFullPage.tsx', '../client/src/pages/FlushedUpGame.tsx', '../client/src/pages/BoxChevyGame.tsx']) {
+      const src = readFileSync(resolve(__dirname, page), 'utf8');
+      expect(src, `${page} must pass maxPlayers to GameStatusBar`).toContain('maxPlayers={tableSettings?.maxPlayers}');
+    }
+  });
 });

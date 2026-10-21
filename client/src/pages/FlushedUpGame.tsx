@@ -180,6 +180,7 @@ function FlushedUpGameUI() {
     sessionStats,
     lastWsAt,
     lastWsType,
+    tableSettings,
     isClubTable,
     kickedByHost,
     leaveAndSettle,
@@ -367,6 +368,7 @@ function FlushedUpGameUI() {
         onLeave={leaveToLobby}
         tableId={tableId}
         humanCount={humanCount}
+        maxPlayers={tableSettings?.maxPlayers}
         onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
         spectating={effectiveSpectator}

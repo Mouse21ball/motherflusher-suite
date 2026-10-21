@@ -59,6 +59,7 @@ export interface BadugiFullPageProps {
 export function BadugiFullPage({
   state, handleAction, actionError, requestRebuy, myId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
+  tableSettings,
 }: BadugiFullPageProps) {
   const { background: tableBackground } = useTableBackground();
   const analyticsChipsBefore = useHandAnalytics(state, myId, tableId, 'badugi');
@@ -209,7 +210,7 @@ export function BadugiFullPage({
         stripes={serverProfile?.stripes ?? 0} phase={state.phase}
         onLeave={leaveToLobby}
         sessionStats={effectiveSpectator ? undefined : sessionStats}
-        tableId={tableId} humanCount={humanCount}
+        tableId={tableId} humanCount={humanCount} maxPlayers={tableSettings?.maxPlayers}
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
         spectating={effectiveSpectator}
