@@ -147,7 +147,12 @@ export const FLUSHED_UP_SPEC: TutorialSpec = {
       body: 'Ante is $25, you get five cards. Three hearts already — the J♦ and 4♣ are dead weight. Your whole game is turning this into four or five hearts.',
       heroCards: [c('3', H), c('7', H), c('J', D), c('4', C), c('K', H)],
       heroLabel: 'YOUR HAND — THREE HEARTS',
-      note: 'You draw three times, swapping up to 3 cards, then 2, then 1 — same rhythm as Badugi.',
+      note: 'Flushed Up bets BEFORE each draw: you price the hand as dealt, then improve it. Three draws, swapping up to 3 cards, then 2, then 1.',
+    },
+    {
+      id: 'betting', phase: 'BETTING', title: 'Bet First, Then Draw',
+      body: 'First betting round happens on the hand exactly as dealt — three hearts and hope. Try the buttons — simulation only, no chips move. Then the draws start.',
+      actions: BETTING_ACTIONS,
     },
     {
       id: 'draw1', phase: 'DRAW 1 OF 3', title: 'Feed the Suit',
@@ -158,11 +163,6 @@ export const FLUSHED_UP_SPEC: TutorialSpec = {
         buttonLabel: 'SWAP CARDS',
         afterText: 'Every heart you add makes the group bigger. Five of a suit is a flush — the strongest hand at this table.',
       },
-    },
-    {
-      id: 'betting', phase: 'BETTING', title: 'Betting Between Draws',
-      body: 'Betting rounds sit between the draws, same as Badugi. Try the buttons — simulation only, no chips move. A big suit group is worth building a pot with.',
-      actions: BETTING_ACTIONS,
     },
     {
       id: 'draws23', phase: 'DRAWS 2 AND 3', title: 'Caps Shrink: 3, 2, 1',
