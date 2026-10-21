@@ -38,17 +38,21 @@ interface MockOpp {
 }
 
 // Pod centers (percent of stage), hero excluded. Detroit 2026-10-21:
-// the first cut anchored the side pods at 4% / 96% (the Badugi table's
-// spot values) — but a Badugi pod's plate hangs off its anchor, while
-// this mockup centers the whole 86px pod on the anchor, which pushed
-// Razor and Slim halfway off his Galaxy's edges. Side pods move in to
-// 14% / 86% so pod + backs + badge row sit fully inside the A15 safe
-// area (~7px margin at 360px wide). Nothing else moves.
+// v1 anchored the side pods at 4% / 96% (the Badugi table's spot
+// values) — but a Badugi pod's plate hangs off its anchor, while this
+// mockup centers the whole 86px pod on the anchor, which pushed Razor
+// and Slim halfway off his Galaxy's edges. v2 moved them in to
+// 14% / 86% — inside the safe area, but at y=35% their badge rows
+// overlapped the outermost community cards (2♣ / J♣), and Box Chevy's
+// board must stay fully readable. v3 keeps x at 14% / 86% and lifts
+// the side pods to y=27.5%: pod + backs + badge bottom (~34%) clears
+// the community row's top edge (~36.5%) with room to spare, while the
+// pods stay clear of the top pods above them. Nothing else moves.
 const OPPS: MockOpp[] = [
-  { name: 'Razor', chips: 3420, bet: 100, declaration: 'LOW', pos: { x: 14, y: 35 } },
+  { name: 'Razor', chips: 3420, bet: 100, declaration: 'LOW', pos: { x: 14, y: 27.5 } },
   { name: 'Ghost', chips: 2180, bet: 100, isTurn: true, pos: { x: 27.5, y: 16.5 } },
   { name: 'QueenB', chips: 5720, bet: 100, declaration: 'SWING', pos: { x: 72.5, y: 16.5 } },
-  { name: 'SlimShadyFromTheWestSide', chips: 3960, bet: 0, folded: true, pos: { x: 86, y: 35 } },
+  { name: 'SlimShadyFromTheWestSide', chips: 3960, bet: 0, folded: true, pos: { x: 86, y: 27.5 } },
 ];
 
 const DECL_STYLE: Record<string, { color: string; bg: string }> = {
