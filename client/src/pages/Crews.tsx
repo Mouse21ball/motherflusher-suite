@@ -35,6 +35,8 @@ interface ChipRequest {
 }
 interface LiveTable {
   tableId: string; modeId: string; humanCount: number;
+  /** Occupied seats (humans + bots) from live server state (Phase 1 / P3). */
+  playerCount?: number;
   phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string; stakeTier?: StakeTierId;
 }
 
@@ -735,7 +737,7 @@ function TablesTab({ crew, playerId, isOwnerOrAgent }: {
                   </div>
                   <span className="font-mono text-xs font-bold"
                         style={{ color: isFull ? '#ef4444' : '#10b981' }}>
-                    {table.humanCount}/{table.maxPlayers}
+                    {(table.playerCount ?? table.humanCount)}/{table.maxPlayers}
                   </span>
                 </div>
                 <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }} data-testid={`text-club-stakes-${table.tableId}`}>

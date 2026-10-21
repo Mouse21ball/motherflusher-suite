@@ -61,6 +61,18 @@ export function detectDrawTransactions(
   return { transactions, seqs };
 }
 
+/**
+ * Declaration visibility (Detroit 2026-10-21, Phase 1 / P1): a HIGH/LOW
+ * badge is shown ONLY for a server-authoritative declaration already
+ * present in game state. The server sets `declaration` on the player
+ * record when the declaration is accepted (and the table announces it),
+ * so a badge can never leak a hidden declaration or be inferred from
+ * cards. 'FOLD', null, and anything else render no badge.
+ */
+export function declarationBadge(declaration: string | null | undefined): 'HIGH' | 'LOW' | null {
+  return declaration === 'HIGH' || declaration === 'LOW' ? declaration : null;
+}
+
 export interface CardIdentity {
   rank: string;
   suit: string;

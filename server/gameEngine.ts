@@ -1851,13 +1851,17 @@ export async function initEngine(): Promise<void> {
 
 // Returns summary info for all PUBLIC tables that currently have at least one
 // active WebSocket connection. Private tables are excluded from the live listing.
-export function getActiveBadugiTables(): { tableId: string; humanCount: number; phase: string; handId: number }[] {
-  const result: { tableId: string; humanCount: number; phase: string; handId: number }[] = [];
+export function getActiveBadugiTables(): { tableId: string; humanCount: number; playerCount: number; phase: string; handId: number }[] {
+  const result: { tableId: string; humanCount: number; playerCount: number; phase: string; handId: number }[] = [];
   for (const [tableId, table] of Array.from(tables.entries())) {
     if (table.connections.size > 0 && !table.isPrivate) {
       result.push({
         tableId,
         humanCount: table.humanSeats.size,
+        // Detroit 2026-10-21 (Phase 1 / P3): occupied seats (humans + bots)
+        // from live state — the lobby's X/Y numerator, so a full
+        // bot-filled table reads 5/5, not 1/5.
+        playerCount: table.state.players.filter(p => p.presence === 'human' || p.presence === 'bot').length,
         phase: table.state.phase,
         handId: table.handId,
       });
@@ -1904,8 +1908,13 @@ export function getOrCreateBadugiTable(
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): AuthTable {
   if (!tables.has(tableId)) {
-    // Detroit 2026-10-13: Badugi uses 4 players to match prototype layout.
-    const maxPlayers  = options.maxPlayers  ?? 4;
+    // Detroit 2026-10-21 (Phase 1 / P3): Badugi capacity is 5. The old
+    // `?? 4` default was a leftover of the 2026-10-13 four-player era,
+    // superseded by the five-seat restoration (2026-10-19/20) — tables the
+    // engine created first were capped at 4 while seating 5, which is how
+    // the game could display "5/4 players". Rooms and table records
+    // already default to 5; the engine now matches.
+    const maxPlayers  = options.maxPlayers  ?? 5;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;

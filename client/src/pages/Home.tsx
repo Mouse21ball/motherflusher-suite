@@ -146,6 +146,8 @@ interface LiveTableEntry {
   tableId:      string;
   modeId:       string;
   humanCount:   number;
+  /** Occupied seats (humans + bots) from live server state (Phase 1 / P3). */
+  playerCount?: number;
   phase:        string;
   maxPlayers:   number;
   isInviteOnly: boolean;
@@ -255,7 +257,7 @@ function LiveTablesSection({ onJoin }: { onJoin: (modeId: string, tableId: strin
                 <span className="font-mono text-[9px] text-white/25" data-testid={`text-live-table-code-${table.tableId}`}>{table.tableId}</span>
               </div>
                <span className="font-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
-                {table.humanCount}/{table.maxPlayers} · {phaseLabel(table.phase)}
+                {(table.playerCount ?? table.humanCount)}/{table.maxPlayers} · {phaseLabel(table.phase)}
               </span>
                <span className="font-mono" style={{ fontSize: 10, color: 'rgba(201,162,39,0.78)' }} data-testid={`text-live-stakes-${table.tableId}`}>
                  {(() => { const tier = STAKE_TIERS.find(t => t.id === getStakeTierId(table.stakeTier))!; return `${tier.label} · ${tier.minBet} BB`; })()}
@@ -947,7 +949,7 @@ export default function Home() {
                       {info.icon && <img src={info.icon} alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: `drop-shadow(0 0 5px ${info.color}55)` }} />}
                       <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: info.color }}>{info.name}</span>
                       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.68)' }} data-testid={`text-live-players-${table.tableId}`}>
-                        {table.humanCount}/{table.maxPlayers} players
+                        {(table.playerCount ?? table.humanCount)}/{table.maxPlayers} players
                       </span>
                       {info.stakes && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{info.stakes}</span>}
                       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.70)' }} data-testid={`text-live-stakes-${table.tableId}`}>

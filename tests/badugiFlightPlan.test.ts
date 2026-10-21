@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baselineSeqs, detectDrawTransactions, replacedIndices } from '../client/src/components/badugi/flightPlan';
+import { baselineSeqs, declarationBadge, detectDrawTransactions, replacedIndices } from '../client/src/components/badugi/flightPlan';
 
 /**
  * Detroit 2026-10-20 (Bug 1): the animation dedup contract. A draw
@@ -61,6 +61,21 @@ describe('flightPlan draw-transaction detection', () => {
       expect(r.transactions).toEqual([{ playerId: 'p1', count, seq }]);
       seqs = r.seqs;
     }
+  });
+});
+
+describe('flightPlan declarationBadge (Phase 1 / P1)', () => {
+  it('shows a badge only for a server-set HIGH or LOW declaration', () => {
+    expect(declarationBadge('HIGH')).toBe('HIGH');
+    expect(declarationBadge('LOW')).toBe('LOW');
+  });
+
+  it('never badges a fold, an undeclared player, or unknown values', () => {
+    expect(declarationBadge('FOLD')).toBeNull();
+    expect(declarationBadge(null)).toBeNull();
+    expect(declarationBadge(undefined)).toBeNull();
+    expect(declarationBadge('')).toBeNull();
+    expect(declarationBadge('high')).toBeNull();
   });
 });
 

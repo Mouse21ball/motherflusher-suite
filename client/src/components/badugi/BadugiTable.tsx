@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCelebrationMotion } from '../../lib/celebrationPreferences';
 import { PlayingCard } from '@/components/game/Card';
-import { baselineSeqs, detectDrawTransactions, replacedIndices } from './flightPlan';
+import { baselineSeqs, declarationBadge, detectDrawTransactions, replacedIndices } from './flightPlan';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
@@ -43,6 +43,8 @@ interface ProtoPlayer {
   drewCount: number | null; // null = hasn't drawn yet
   /** Server-stamped fold provenance (gameTypes.Player.foldReason). */
   foldReason: string | null;
+  /** Server-authoritative declaration ('HIGH' | 'LOW' | 'FOLD' | null). */
+  declaration: string | null;
   isWinner: boolean;
   /** Human seat with no live socket (server `connected` wire field). */
   disconnected: boolean;
@@ -437,6 +439,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     isHero: i === 0,
     folded: p.status === 'folded',
     foldReason: (p as any).foldReason ?? null,
+    declaration: p.declaration ?? null,
     drewCount: (p as any).lastDrawCount ?? null,
     isWinner: !!(p as any).isWinner,
     disconnected: (p as any).presence === 'human' && (p as any).connected === false,
@@ -524,6 +527,26 @@ function PotStack({ amount }: { amount: number }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * HIGH/LOW declaration badge (Detroit 2026-10-21, Phase 1 / P1).
+ * HIGH = gold, LOW = sky — distinct at a glance. Rendered only when
+ * declarationBadge() returns a value, i.e. only for a server-set
+ * declaration already present in game state.
+ */
+function DeclarationBadge({ badge, small }: { badge: 'HIGH' | 'LOW'; small?: boolean }) {
+  const isHigh = badge === 'HIGH';
+  return (
+    <span
+      className={`${small ? 'text-[8px] px-1 py-px' : 'text-[9px] px-1.5 py-0.5'} font-mono font-bold rounded-full shrink-0`}
+      style={isHigh
+        ? { color: '#fcd34d', background: 'rgba(201,162,39,0.22)', border: '1px solid rgba(201,162,39,0.6)' }
+        : { color: '#7dd3fc', background: 'rgba(56,189,248,0.16)', border: '1px solid rgba(56,189,248,0.5)' }}
+    >
+      {badge}
+    </span>
   );
 }
 
@@ -902,6 +925,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         {p.foldReason === 'declare-auto-invalid' ? 'NO BADUGI' : 'FOLD'}
                       </span>
                     )}
+                    {declarationBadge(p.declaration) && (
+                      <DeclarationBadge badge={declarationBadge(p.declaration)!} />
+                    )}
                   </div>
                   <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
                   {p.bet > 0 && (
@@ -1044,6 +1070,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                           >
                             {p.foldReason === 'declare-auto-invalid' ? 'NO BADUGI' : 'FOLD'}
                           </span>
+                        )}
+                        {declarationBadge(p.declaration) && (
+                          <DeclarationBadge badge={declarationBadge(p.declaration)!} small />
                         )}
                         {p.disconnected && (
                           <span
@@ -1229,8 +1258,11 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               <div className="text-amber-300 text-[10px] font-mono font-bold tracking-[0.3em]">
                 ★ WINNER ★
               </div>
-              <div className="text-white text-xl font-black tracking-wide mt-1 text-center" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}>
-                {winner.name}{winner.isHero ? ' (YOU)' : ''}
+              <div className="text-white text-xl font-black tracking-wide mt-1 text-center flex items-center justify-center gap-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}>
+                <span>{winner.name}{winner.isHero ? ' (YOU)' : ''}</span>
+                {declarationBadge(winner.declaration) && (
+                  <DeclarationBadge badge={declarationBadge(winner.declaration)!} />
+                )}
               </div>
               <div className="flex gap-1.5 mt-2.5">
                 {winner.cards.filter(c => !c.isHidden).map((card, ci) => (
@@ -1311,6 +1343,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                     </span>
                     {p.isWinner && (
                       <span className="text-[8px] font-mono font-bold text-amber-300">★ WINNER</span>
+                    )}
+                    {declarationBadge(p.declaration) && (
+                      <DeclarationBadge badge={declarationBadge(p.declaration)!} small />
                     )}
                   </div>
                   <div className="flex gap-1 flex-1 justify-center">
