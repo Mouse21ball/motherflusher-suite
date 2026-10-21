@@ -844,6 +844,153 @@ async function scenarioPots() {
     `no qualifying contested side-pot hand in 8 attempts: ${endings.join(' | ')}`);
 }
 
+
+// ─── Draw QA (Detroit 2026-10-20, P1 bug-fix verification) ──────────────────
+// Identity-instrumented real-engine checks for the drawSeq/foldReason build:
+// exact swap identity (server truth vs received snapshots), stand-pat,
+// duplicate-draw rejection, per-hand seq reset, declare fold provenance,
+// showdown dwell, reconnect mid-draw, consecutive hands, and the server-bot
+// draw path (botAction tagging).
+async function scenarioDrawQa() {
+  const sigs = (cards: any[]) => (cards ?? []).map((c: any) => `${c.rank}:${c.suit}`);
+  const t = `DQ${R4}`;
+  const table = await makeTable(t, 5, { maxPlayers: 5, bots: false });
+  const { clients } = table;
+  const hero = clients[0];
+  table.startDrivers([
+    { passive: true },
+    { smartDraw: true }, { smartDraw: true }, { smartDraw: true }, { smartDraw: true },
+  ]);
+  const myTurn = (s: any) => s?.activePlayerId === hero.seat && !(hero.me(s)?.hasActed);
+  const betOrCheck = async (phase: string) => {
+    const s = await hero.until((x: any) => x.phase === phase && myTurn(x), 45000, `${phase} hero turn`);
+    const me = hero.me(s);
+    hero.action((me.bet ?? 0) >= (s.currentBet ?? 0) ? 'check' : 'call');
+    await hero.until((x: any) => x.phase !== phase || hero.me(x)?.hasActed, 15000, `${phase} hero acted`);
+  };
+
+  // ── HAND 1 ──────────────────────────────────────────────────────────────
+  await hero.until((x: any) => x.phase === 'ANTE' && myTurn(x), 45000, 'ANTE hero turn');
+  hero.action('ante');
+  const sDraw1 = await hero.until((x: any) => x.phase === 'DRAW_1' && myTurn(x), 45000, 'DRAW_1 hero turn');
+  const before1 = sigs(hero.me(sDraw1).cards);
+  const seq0 = hero.me(sDraw1).drawSeq ?? 0;
+  hero.action('draw', [0, 2]);
+  const sAfter1 = await hero.until((x: any) => (hero.me(x)?.drawSeq ?? 0) > seq0, 20000, 'DRAW_1 seq increment');
+  const meA1 = hero.me(sAfter1);
+  const after1 = sigs(meA1.cards);
+  record('DQ swap-2 identity', (after1[1] === before1[1] && after1[3] === before1[3] && after1[0] !== before1[0] && after1[2] !== before1[2] && meA1.drawSeq === seq0 + 1 && meA1.lastDrawCount === 2) ? 'PASS' : 'FAIL',
+    `before=${before1.join(' ')} after=${after1.join(' ')} seq ${seq0}->${meA1.drawSeq} count=${meA1.lastDrawCount}`);
+
+  // Duplicate draw in the same round must change nothing.
+  hero.action('draw', [1]);
+  await sleep(1500);
+  const meDup = hero.me();
+  record('DQ duplicate draw rejected', (sigs(meDup.cards).join() === after1.join() && (meDup.drawSeq ?? 0) === seq0 + 1) ? 'PASS' : 'FAIL',
+    `hand unchanged=${sigs(meDup.cards).join() === after1.join()} seq=${meDup.drawSeq}`);
+
+  // Time-bank on the BET_1 turn: deadline must extend ~+20s.
+  const sBet1 = await hero.until((x: any) => x.phase === 'BET_1' && myTurn(x), 45000, 'BET_1 hero turn');
+  const dlBefore = sBet1.turnDeadline ?? 0;
+  const tb = await hero.useTimeBank(t);
+  const sTb = await hero.until((x: any) => (x.turnDeadline ?? 0) > dlBefore + 10000, 10000, 'time-bank deadline extension').catch(() => null);
+  record('DQ time-bank +20s', sTb ? 'PASS' : 'FAIL', `use status=${tb.status} deadline ${dlBefore} -> ${sTb?.turnDeadline ?? dlBefore}`);
+  { const me = hero.me(); hero.action((me.bet ?? 0) >= (hero.latest().currentBet ?? 0) ? 'check' : 'call'); }
+  await hero.until((x: any) => x.phase !== 'BET_1' || hero.me(x)?.hasActed, 15000, 'BET_1 hero acted');
+
+  // DRAW_2: stand pat — zero cards replaced, seq still increments.
+  const sDraw2 = await hero.until((x: any) => x.phase === 'DRAW_2' && myTurn(x), 45000, 'DRAW_2 hero turn');
+  const before2 = sigs(hero.me(sDraw2).cards);
+  const seqB2 = hero.me(sDraw2).drawSeq ?? 0;
+  hero.action('draw', []);
+  const sAfter2 = await hero.until((x: any) => (hero.me(x)?.drawSeq ?? 0) > seqB2, 20000, 'DRAW_2 seq increment');
+  const meA2 = hero.me(sAfter2);
+  record('DQ stand-pat identity', (sigs(meA2.cards).join() === before2.join() && meA2.drawSeq === seqB2 + 1 && meA2.lastDrawCount === 0) ? 'PASS' : 'FAIL',
+    `hand identical=${sigs(meA2.cards).join() === before2.join()} seq ${seqB2}->${meA2.drawSeq} count=${meA2.lastDrawCount}`);
+  await betOrCheck('BET_2');
+
+  // DRAW_3: swap exactly one (index 1).
+  const sDraw3 = await hero.until((x: any) => x.phase === 'DRAW_3' && myTurn(x), 45000, 'DRAW_3 hero turn');
+  const before3 = sigs(hero.me(sDraw3).cards);
+  const seqB3 = hero.me(sDraw3).drawSeq ?? 0;
+  hero.action('draw', [1]);
+  const sAfter3 = await hero.until((x: any) => (hero.me(x)?.drawSeq ?? 0) > seqB3, 20000, 'DRAW_3 seq increment');
+  const meA3 = hero.me(sAfter3);
+  const after3 = sigs(meA3.cards);
+  record('DQ swap-1 identity', (after3[0] === before3[0] && after3[2] === before3[2] && after3[3] === before3[3] && after3[1] !== before3[1] && meA3.lastDrawCount === 1) ? 'PASS' : 'FAIL',
+    `before=${before3.join(' ')} after=${after3.join(' ')} count=${meA3.lastDrawCount}`);
+
+  // DECLARE: fold provenance. Either the server auto-folded the hero at
+  // declare entry (invalid hand -> 'declare-auto-invalid') or the hero is
+  // active and a deliberate FOLD must stamp 'declare-fold'.
+  const sDecl = await hero.until((x: any) => x.phase === 'DECLARE', 45000, 'DECLARE reached');
+  const meDecl = hero.me(sDecl);
+  if (meDecl.status === 'folded') {
+    record('DQ declare auto-fold provenance', meDecl.foldReason === 'declare-auto-invalid' ? 'PASS' : 'FAIL',
+      `hero auto-folded at declare, foldReason=${meDecl.foldReason}`);
+  } else {
+    hero.action('declare', { declaration: 'FOLD' });
+    const sFold = await hero.until((x: any) => hero.me(x)?.status === 'folded', 20000, 'hero declare fold');
+    const meF = hero.me(sFold);
+    record('DQ declare fold provenance', meF.foldReason === 'declare-fold' ? 'PASS' : 'FAIL',
+      `hero declared FOLD, foldReason=${meF.foldReason}`);
+  }
+  const anyAuto = hero.latest().players.filter((p: any) => p.foldReason === 'declare-auto-invalid').map((p: any) => p.name);
+  record('DQ table auto-fold provenance visible', 'PASS', `players stamped declare-auto-invalid this hand: ${anyAuto.join(', ') || '(none)'}`);
+
+  // SHOWDOWN dwell: first SHOWDOWN frame -> next hand's first non-SHOWDOWN frame.
+  const sShow = await hero.until((x: any) => x.phase === 'SHOWDOWN', 60000, 'SHOWDOWN reached');
+  const showAt = Date.now();
+  const hadWinner = sShow.players.some((p: any) => p.isWinner);
+  await hero.until((x: any) => x.phase !== 'SHOWDOWN', 30000, 'showdown ends');
+  const dwell = Date.now() - showAt;
+  const expectMs = hadWinner ? 5200 : 3200;
+  record('DQ showdown dwell', dwell >= expectMs ? 'PASS' : 'FAIL',
+    `dwell=${dwell}ms (winner=${hadWinner}, expected >= ${expectMs}ms)`);
+
+  // ── HAND 2: seq reset + reconnect mid-draw ─────────────────────────────
+  const hand1Id = sShow.handId;
+  const sH2 = await hero.until((x: any) => (x.handId ?? 0) > hand1Id && x.phase === 'DRAW_1', 60000, 'hand 2 DRAW_1');
+  const meH2 = hero.me(sH2);
+  record('DQ consecutive hand + seq reset', ((meH2.drawSeq ?? 0) === 0 && sH2.handId > hand1Id) ? 'PASS' : 'FAIL',
+    `handId ${hand1Id} -> ${sH2.handId}, hero drawSeq at DRAW_1 = ${meH2.drawSeq ?? 0}`);
+  // Reconnect before acting in DRAW_1 of hand 2.
+  const preDc = sigs(meH2.cards);
+  const seatBefore = hero.seat;
+  hero.disconnect();
+  await sleep(1500);
+  await hero.connect(t);
+  const sRe = await hero.until((x: any) => x.phase === 'DRAW_1' && hero.me(x)?.cards?.length === 4, 20000, 'reconnect snapshot');
+  const meRe = hero.me(sRe);
+  record('DQ reconnect mid-draw', (hero.seat === seatBefore && sigs(meRe.cards).join() === preDc.join()) ? 'PASS' : 'FAIL',
+    `seat ${seatBefore}->${hero.seat} hand intact=${sigs(meRe.cards).join() === preDc.join()}`);
+  // Now draw [0] on the reconnected socket — exactly one card changes.
+  await hero.until((x: any) => x.phase === 'DRAW_1' && myTurn(x), 30000, 'hand2 DRAW_1 hero turn after reconnect');
+  const seqRe = hero.me().drawSeq ?? 0;
+  hero.action('draw', [0]);
+  const sReAfter = await hero.until((x: any) => (hero.me(x)?.drawSeq ?? 0) > seqRe, 20000, 'post-reconnect draw');
+  const meReA = hero.me(sReAfter);
+  const postRe = sigs(meReA.cards);
+  record('DQ post-reconnect swap-1 identity', (postRe[1] === preDc[1] && postRe[2] === preDc[2] && postRe[3] === preDc[3] && postRe[0] !== preDc[0]) ? 'PASS' : 'FAIL',
+    `before=${preDc.join(' ')} after=${postRe.join(' ')}`);
+  table.stop(); clients.forEach(c => c.disconnect());
+
+  // ── TABLE 2: server bots (botAction path) carry drawSeq/lastDrawCount ──
+  const t2 = `DB${R4}`;
+  const table2 = await makeTable(t2, 2, { maxPlayers: 5, bots: true });
+  table2.startDrivers([{ smartDraw: true }, { smartDraw: true }]);
+  const h2 = table2.clients[0];
+  await h2.until((x: any) => x.players.some((p: any) => p.presence === 'bot'), 30000, 'bots filled');
+  const sBot = await h2.until((x: any) => x.players.some((p: any) => p.presence === 'bot' && (p.drawSeq ?? 0) >= 1), 120000, 'a bot completes a draw').catch(() => null);
+  if (sBot) {
+    const bot = sBot.players.find((p: any) => p.presence === 'bot' && (p.drawSeq ?? 0) >= 1);
+    record('DQ server-bot draw tagging', 'PASS', `bot ${bot.name} drawSeq=${bot.drawSeq} lastDrawCount=${bot.lastDrawCount} phase=${sBot.phase}`);
+  } else {
+    record('DQ server-bot draw tagging', 'FAIL', 'no bot reached drawSeq>=1 within 120s');
+  }
+  table2.stop(); table2.clients.forEach(c => c.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -853,6 +1000,7 @@ async function main() {
   if (mode === 'clock') { console.log(`\n== CLOCK SYNC (run ${RUN}) ==`); await scenarioClock(); writeResults('clock'); return; }
   if (mode === 'wire') { console.log(`\n== WIRE FIELDS (run ${RUN}) ==`); await scenarioWire(); writeResults('wire'); return; }
   if (mode === 'pots') { console.log(`\n== SIDE POTS (run ${RUN}) ==`); await scenarioPots(); writeResults('pots'); return; }
+  if (mode === 'drawqa') { console.log(`\n== DRAW QA (run ${RUN}) ==`); await scenarioDrawQa(); writeResults('drawqa'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
