@@ -127,6 +127,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
   const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; seqs: Record<string, number>; cards: Record<string, string[]> } | null>(null);
+  // Live hand/phase for fire-time guards: celebration timers scheduled at
+  // showdown must not activate after the table has moved to the next hand
+  // (P1 repair — the winner overlay used to land on the next deal).
+  const liveRef = useRef<{ handId?: number; phase: string }>({ handId: undefined, phase: '' });
+  liveRef.current = { handId: liveState.handId, phase: liveState.phase };
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -162,6 +167,18 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     };
 
     if (prev) {
+      // Hand over (P1 repair): the winner moment belongs to the hand that
+      // produced it — clear celebration, rake, and any leftover draw
+      // staging the moment the table leaves showdown, and never let
+      // draw staging force hero cards face-down at showdown.
+      if (curr.phase !== 'SHOWDOWN' && prev.phase === 'SHOWDOWN') {
+        setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+        setRake({ active: false, winnerIndex: -1, amount: 0 });
+        setStaged({});
+      }
+      if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
+        setStaged({});
+      }
       // NEW HAND → full deal (5 cards × seated players, prototype: 160ms apart, 0.32s flight each).
       // Cards are staged: they only appear in the hand when their flight lands.
       const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
@@ -306,11 +323,15 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
             handLabel = evaluateFlushedUpHand(cards as Parameters<typeof evaluateFlushedUpHand>[0])?.description ?? '';
           } catch { /* evaluation failed, show cards without label */ }
+          const scheduledHandId = liveState.handId;
+          const stillThisShowdown = () => liveRef.current.handId === scheduledHandId && liveRef.current.phase === 'SHOWDOWN';
           later(2500, () => {
+            if (!stillThisShowdown()) return;
             setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
             sfx.chipRake();
           });
           later(3700, () => {
+            if (!stillThisShowdown()) return;
             setRake({ active: false, winnerIndex: -1, amount: 0 });
             // Split pot: name all winners
             const winnerName = winners.length > 1
@@ -385,16 +406,20 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
 
 function seatPosition(index: number): { x: number; y: number } {
   if (index === 0) return { x: 50, y: 88 }; // hero
-  // Detroit 2026-10-21 (five-seat phase): 4 opponents in the same shallow
-  // arc family as the approved Badugi five-seat layout — side seats low,
-  // center pair high. Previous 3-spot arc wrapped modulo, which stacked a
-  // fourth opponent on top of the first. Spots stay inside the Galaxy
-  // safe width (opponent fans are ~68px wide, centers ≥22% apart).
+  // Detroit 2026-10-21 P1 repair (Galaxy QA): the five-seat arc from the
+  // first pass (16/38/62/84) only worked at desktop widths — pod content
+  // is ~150px wide (avatar + name in a row), and at a Galaxy-width stage
+  // (~390px) the top pair's centers are ~94px apart, so the pods
+  // overlapped and the side pods clipped the edges. Geometry now follows
+  // the phone-proven Box Chevy v3 family: side pods at 14/86 lifted
+  // clear, top pair widened to 29.5/70.5 (41% apart ≈ 160px at 390px),
+  // and opponent labels stack under the avatar (see pod render) so pod
+  // width is driven by the card fan (~100-114px), not the name row.
   const spots = [
-    { x: 16, y: 30 },
-    { x: 38, y: 17.5 },
-    { x: 62, y: 17.5 },
-    { x: 84, y: 30 },
+    { x: 14, y: 29 },
+    { x: 29.5, y: 15.5 },
+    { x: 70.5, y: 15.5 },
+    { x: 86, y: 29 },
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -592,16 +617,23 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                   key={`rakechip-${i}`}
                   className="absolute z-20 rounded-full pointer-events-none"
                   style={{
-                    left: '50%', top: '52%',
                     width: 26, height: 26,
                     background: 'radial-gradient(circle at 35% 30%, #FBBF24, #92400E)',
                     border: '2px dashed rgba(255,255,255,0.5)',
                     boxShadow: '0 0 12px rgba(245,158,11,0.6)',
                   }}
-                  initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  // P1 repair: fly to the winner's actual seat position.
+                  // The old math converted percent seat coordinates at a
+                  // hardcoded 3.5px per percent, which is only true on a
+                  // ~350px stage — chips clustered mid-table at every
+                  // real size. Animate left/top in percent, the same
+                  // pattern the card flights use.
+                  initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                   animate={{
-                    x: `calc(-50% + ${(wpos.x - 50) * 3.5 + (i - flyCount / 2) * 8}px)`,
-                    y: `calc(-50% + ${(wpos.y - 52) * 3.5 + (i % 3) * 6}px)`,
+                    left: `${wpos.x}%`,
+                    top: `${wpos.y}%`,
+                    x: '-50%',
+                    y: '-50%',
                     scale: 0.6,
                     opacity: 0.9,
                   }}
@@ -610,11 +642,12 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
               ))}
               <motion.div
                 className="absolute z-20 flex flex-col items-center pointer-events-none"
-                style={{ left: '50%', top: '52%' }}
-                initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                 animate={{
-                  x: `calc(-50% + ${(wpos.x - 50) * 3.5}px)`,
-                  y: `calc(-50% + ${(wpos.y - 52) * 3.5}px)`,
+                  left: `${wpos.x}%`,
+                  top: `${wpos.y}%`,
+                  x: '-50%',
+                  y: '-50%',
                   scale: 0.7,
                   opacity: 0.9,
                 }}
@@ -683,22 +716,50 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                   transition={{ duration: 0.3 }}
                 />
               )}
-              <div className="flex items-center gap-1.5">
-                {/* Detroit 2026-10-16: avatar with cosmetic border */}
-                <AvatarWithFrame
-                  avatarSrc={p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : ((p as any).avatarUrl || getAvatarForSeat(i + 1))}
-                  frameSrc={p.isHero ? heroFrameSrc : null}
-                  initials={getAvatarInitials(p.name)}
-                  initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44} // Detroit 2026-10-16: uniform with Box Chevy
-                />
-                {isDealer && <span className="text-amber-300 text-[10px] font-mono">D</span>}
-                <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
-                  {p.name}
-                </span>
-                {p.folded && <span className="text-red-400/70 text-[10px] font-mono">FOLD</span>}
-              </div>
-              <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
+              {p.isHero ? (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <AvatarWithFrame
+                      avatarSrc={heroAvatarSrc || getAvatarForSeat(0)}
+                      frameSrc={heroFrameSrc}
+                      initials={getAvatarInitials(p.name)}
+                      initialsColor="#FDE68A"
+                      size={52}
+                    />
+                    {isDealer && <span className="text-amber-300 text-[10px] font-mono">D</span>}
+                    <span className="text-xs font-mono text-amber-200 font-bold">
+                      {p.name}
+                    </span>
+                    {p.folded && <span className="text-red-400/70 text-[10px] font-mono">FOLD</span>}
+                  </div>
+                  <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
+                </>
+              ) : (
+                <>
+                  {/* Opponents: stacked compact plate (P1 repair) — the
+                      name no longer sits beside the avatar, so pod width
+                      is the card fan's width, not the name row's. */}
+                  <div className="relative">
+                    <AvatarWithFrame
+                      avatarSrc={(p as any).avatarUrl || getAvatarForSeat(i + 1)}
+                      frameSrc={null}
+                      initials={getAvatarInitials(p.name)}
+                      initialsColor="#FDE68A"
+                      size={44}
+                    />
+                    {isDealer && (
+                      <span className="absolute -right-1.5 -top-1 w-4 h-4 rounded-full bg-amber-400 text-black text-[9px] font-mono font-bold flex items-center justify-center">D</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1" style={{ maxWidth: 96 }}>
+                    <span className="text-[11px] font-mono text-white/85 truncate">
+                      {p.name}
+                    </span>
+                    {p.folded && <span className="text-red-400/80 text-[9px] font-mono shrink-0">FOLD</span>}
+                  </div>
+                  <div className="text-white/55 text-[10px] font-mono">${p.chips.toLocaleString()}</div>
+                </>
+              )}
               {p.bet > 0 && (
                 <motion.div
                   initial={{ scale: 0.5, opacity: 0 }}
@@ -714,7 +775,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                 className="flex mt-1"
                 style={!p.isHero
                   ? (state.phase === 'showdown' && !p.folded
-                      ? { gap: '3px' }
+                      ? { gap: '0px' }
                       : { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' })
                   : { gap: '2px' }
                 }
@@ -724,6 +785,11 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                     const fanAngle = !p.isHero && p.cards.length > 1
                       ? (ci - (p.cards.length - 1) / 2) * 8
                       : 0;
+                    // Showdown reveal fans cascade with a -14px overlap
+                    // (P1 repair): five 34px cards side by side are 182px
+                    // wide and piled into the neighbouring pods at phone
+                    // widths; cascaded they span ~114px and stay readable.
+                    const cascade = !p.isHero && state.phase === 'showdown' && !p.folded && ci > 0;
                     return (
                     <motion.div
                       key={`${p.id}-c${ci}`}
@@ -734,7 +800,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                         duration: state.phase === 'showdown' ? 0.15 : 0.2,
                         ease: 'easeOut',
                       }}
-                      style={{ transformOrigin: 'bottom center' }}
+                      style={{ transformOrigin: 'bottom center', marginLeft: cascade ? -14 : 0 }}
                     >
                       {card.isHidden ? (
                         <div
