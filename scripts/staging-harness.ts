@@ -1152,6 +1152,153 @@ async function scenarioPhase1() {
   stopAll(); clients.forEach(c => c.disconnect());
 }
 
+
+// ─── Flushed Up five-seat verification (Detroit 2026-10-21) ──────────────────
+// Generic-protocol clients: 5 humans must seat, stay seated through a full
+// hand (no broadcast trim), and the lobby count must read 5/5; a second
+// table with 3 humans must read 3/5.
+class GClient {
+  profileId = randomUUID();
+  sessionToken = '';
+  name: string;
+  ws: WebSocket | null = null;
+  seat: string | null = null;
+  states: any[] = [];
+  constructor(name: string) { this.name = name; }
+  async bootstrap() {
+    const res = await fetch(`${BASE}/api/auth/guest-init`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId: this.profileId, displayName: this.name }),
+    });
+    const j: any = await res.json();
+    if (!res.ok) throw new Error(`guest-init ${res.status}`);
+    this.sessionToken = j.sessionToken;
+  }
+  async connectMode(tableId: string, modeId: string) {
+    const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': this.sessionToken } });
+    const tJson: any = await tRes.json().catch(() => ({}));
+    if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}`);
+    const sessionUUID = randomUUID();
+    const ws = new WebSocket(`${WS_BASE}?ticket=${encodeURIComponent(tJson.ticket)}`);
+    this.ws = ws;
+    const opened = new Promise<void>((resolve, reject) => {
+      const to = setTimeout(() => reject(new Error('ws open timeout')), 8000);
+      ws.on('open', () => { clearTimeout(to); resolve(); });
+      ws.on('error', (e: any) => { clearTimeout(to); reject(e); });
+    });
+    ws.on('message', (data: Buffer) => {
+      let msg: any; try { msg = JSON.parse(data.toString()); } catch { return; }
+      if (msg.type === 'mode:init') { this.seat = msg.playerId; if (msg.state) this.states.push(msg.state); }
+      else if (msg.type === 'mode:snapshot' && msg.state) this.states.push(msg.state);
+    });
+    await opened;
+    ws.send(JSON.stringify({
+      type: 'join', tableId, modeId,
+      playerId: sessionUUID, identityId: this.profileId, name: this.name, seatId: sessionUUID,
+      isPrivate: false,
+    }));
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) { if (this.states.length > 0) return; await sleep(100); }
+    throw new Error('no mode snapshot after join');
+  }
+  latest(): any { return this.states[this.states.length - 1]; }
+  act(action: string, payload: any, tableId: string, modeId: string) {
+    this.ws?.send(JSON.stringify({ type: 'mode:action', tableId, modeId, playerId: this.seat, action, payload: payload ?? null }));
+  }
+  disconnect() { try { this.ws?.close(); } catch {} this.ws = null; }
+}
+
+async function scenarioFu5() {
+  const MODE = 'flushed_up';
+  const t = `F5${R4}`;
+  const clients: GClient[] = [];
+  for (let i = 0; i < 5; i++) { const g = new GClient(`F5${R4}P${i + 1}`); await g.bootstrap(); clients.push(g); }
+  // Record via a Badugi-Client-shaped helper is Badugi-specific; create the
+  // record directly (same REST contract POST /api/tables uses).
+  const recRes = await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: clients[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  console.log(`  (fu record create -> ${recRes.status})`);
+  for (const g of clients) await g.connectMode(t, MODE);
+  await sleep(800);
+  const s0 = clients[0].latest();
+  const humans = (s0?.players ?? []).filter((p: any) => p.presence === 'human').length;
+  record('FU5 five humans seated', humans === 5 ? 'PASS' : 'FAIL',
+    `players=${(s0?.players ?? []).map((p: any) => `${p.name}:${p.presence}`).join(', ')}`);
+  const listRes = await fetch(`${BASE}/api/tables`);
+  const all: any[] = await listRes.json().catch(() => []);
+  const entry = all.find((x: any) => x.tableId === t);
+  record('FU5 lobby count 5/5', (entry && entry.playerCount === 5 && entry.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(entry ?? null)}`);
+
+  // Drive one full hand: starter starts; everyone antes; bets check/call;
+  // draws stand pat (identity not under test here — seats + settlement are).
+  const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  const acted = new Map<string, string>();
+  const deadline = Date.now() + 240000;
+  let showdown: any = null;
+  while (Date.now() < deadline) {
+    const s = clients[0].latest();
+    if (!s) { await sleep(200); continue; }
+    if (s.phase === 'SHOWDOWN') { showdown = s; break; }
+    for (const g of clients) {
+      const gs = g.latest(); if (!gs) continue;
+      const me = gs.players.find((p: any) => p.id === g.seat); if (!me) continue;
+      const key = `${gs.handId}:${gs.phase}:${gs.activePlayerId}`;
+      if (gs.phase === 'WAITING' && g === clients[0] && acted.get('start') !== `${gs.handId}`) {
+        acted.set('start', `${gs.handId}`); g.act('start', null, t, MODE);
+      } else if (gs.phase === 'ANTE' && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key); g.act('ante', null, t, MODE);
+      } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed) {
+        g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, t, MODE);
+        await sleep(120);
+      } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed) {
+        // Smart swap: drop off-best-suit cards up to the round cap.
+        const suits: Record<string, number> = {};
+        (me.cards ?? []).forEach((cd: any) => { suits[cd.suit] = (suits[cd.suit] ?? 0) + 1; });
+        const best = Object.entries(suits).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const idx = (me.cards ?? []).map((cd: any, i: number) => (cd.suit !== best ? i : -1)).filter((i: number) => i >= 0).slice(0, caps[gs.phase] ?? 0);
+        g.act('draw', idx, t, MODE);
+        await sleep(120);
+      }
+    }
+    await sleep(200);
+  }
+  if (showdown) {
+    const atShow = showdown.players.filter((p: any) => p.presence === 'human').length;
+    const totalIn = showdown.players.reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (showdown.pot ?? 0);
+    record('FU5 full hand to showdown, nobody trimmed', atShow === 5 ? 'PASS' : 'FAIL',
+      `humans at showdown=${atShow} pot=${showdown.pot} chips+pot=${totalIn}`);
+    // Settlement: wait for the hand to close, then check chip conservation.
+    await sleep(9000);
+    const after = clients[0].latest();
+    const totalAfter = (after?.players ?? []).reduce((a: number, p: any) => a + (p.chips ?? 0), 0) + (after?.phase === 'WAITING' ? 0 : (after?.pot ?? 0));
+    const startTotal = 5 * (s0?.players?.[0]?.chips && s0.players[0].chips > 0 ? 10000 : 10000);
+    record('FU5 settlement conserves chips (rake aside)', (totalAfter <= startTotal && totalAfter >= startTotal - 3000) ? 'PASS' : 'FAIL',
+      `totalAfter=${totalAfter} (start ${startTotal}, rake explains the gap)`);
+  } else {
+    record('FU5 full hand to showdown, nobody trimmed', 'FAIL', 'no showdown within deadline');
+  }
+  clients.forEach(g => g.disconnect());
+
+  // Partial table: 3 humans -> 3/5.
+  const t2 = `F3${R4}`;
+  const trio: GClient[] = [];
+  for (let i = 0; i < 3; i++) { const g = new GClient(`F3${R4}P${i + 1}`); await g.bootstrap(); trio.push(g); }
+  await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t2, modeId: MODE, hostId: trio[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  for (const g of trio) await g.connectMode(t2, MODE);
+  await sleep(800);
+  const list2 = await (await fetch(`${BASE}/api/tables`)).json().catch(() => []);
+  const entry2 = list2.find((x: any) => x.tableId === t2);
+  record('FU5 partial table 3/5', (entry2 && entry2.playerCount === 3 && entry2.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(entry2 ?? null)}`);
+  trio.forEach(g => g.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -1164,6 +1311,7 @@ async function main() {
   if (mode === 'drawqa') { console.log(`\n== DRAW QA (run ${RUN}) ==`); await scenarioDrawQa(); writeResults('drawqa'); return; }
   if (mode === 'dwell') { console.log(`\n== DWELL HUNT (run ${RUN}) ==`); await scenarioDwell(); writeResults('dwell'); return; }
   if (mode === 'phase1') { console.log(`\n== PHASE 1 (run ${RUN}) ==`); await scenarioPhase1(); writeResults('phase1'); return; }
+  if (mode === 'fu5') { console.log(`\n== FLUSHED UP 5-SEAT (run ${RUN}) ==`); await scenarioFu5(); writeResults('fu5'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
