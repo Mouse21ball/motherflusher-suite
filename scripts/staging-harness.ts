@@ -1044,6 +1044,114 @@ async function scenarioDwell() {
   table.stop(); clients.forEach(c => c.disconnect());
 }
 
+
+// ─── Phase 1 verification (Detroit 2026-10-21: P3 counts + P1 declarations) ──
+async function connectPublic(c: Client, tableId: string) {
+  const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': c.sessionToken } });
+  const tJson: any = await tRes.json().catch(() => ({}));
+  if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}`);
+  const sessionUUID = randomUUID();
+  (c as any).sessionUUID = sessionUUID;
+  const ws = new WebSocket(`${WS_BASE}?ticket=${encodeURIComponent(tJson.ticket)}`);
+  c.ws = ws;
+  const opened = new Promise<void>((resolve, reject) => {
+    const to = setTimeout(() => reject(new Error('ws open timeout')), 8000);
+    ws.on('open', () => { clearTimeout(to); resolve(); });
+    ws.on('error', (e: any) => { clearTimeout(to); reject(e); });
+  });
+  ws.on('message', (data: Buffer) => {
+    const text = data.toString();
+    c.raw.push({ t: Date.now(), text });
+    let msg: any; try { msg = JSON.parse(text); } catch { return; }
+    if (msg.type === 'badugi:init') { c.seat = msg.playerId; if (msg.state) c.states.push(msg.state); }
+    else if (msg.type === 'badugi:snapshot' && msg.state) c.states.push(msg.state);
+  });
+  await opened;
+  ws.send(JSON.stringify({
+    type: 'join', tableId, modeId: 'badugi',
+    playerId: sessionUUID, identityId: c.profileId, name: c.name, seatId: sessionUUID,
+    isPrivate: false,
+  }));
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) { if (c.states.length > 0) return; await sleep(100); }
+  throw new Error('no snapshot after public join');
+}
+
+async function scenarioPhase1() {
+  const t = `P1${R4}`;
+  const clients: Client[] = [];
+  for (let i = 0; i < 5; i++) { const c = new Client(`P1${R4}P${i + 1}`); await c.bootstrap(); clients.push(c); }
+  const rec = await createRecord(t, clients[0].profileId, 5, false);
+  console.log(`  (public record create -> ${rec.status})`);
+  // (createRecord posts isInviteOnly:true; flip it public via a fresh record is
+  //  not supported — the engine isPrivate flag comes from the join, which is
+  //  what getActiveBadugiTables filters on, so public joins suffice.)
+
+  let gen = 1;
+  clients.forEach(c => { (c as any)._gen = gen; });
+  (clients[0] as any)._starter = true;
+  const startAll = (behaviors: Behavior[]) => { gen++; const g = gen; clients.forEach((c, i) => { (c as any)._gen = g; driveClient(c, behaviors[i] ?? {}, () => g, g); }); };
+  const stopAll = () => { gen++; clients.forEach(c => { (c as any)._gen = gen; }); };
+  const listEntry = async () => {
+    const res = await fetch(`${BASE}/api/tables`);
+    const all: any[] = await res.json().catch(() => []);
+    return all.find((x: any) => x.tableId === t);
+  };
+
+  // Occupied counts: 3 seated -> 3/5, then 5 seated -> 5/5.
+  for (let i = 0; i < 3; i++) await connectPublic(clients[i], t);
+  await sleep(600);
+  const e3 = await listEntry();
+  record('P1 count partial 3/5', (e3 && e3.playerCount === 3 && e3.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(e3 ?? null)}`);
+  for (let i = 3; i < 5; i++) await connectPublic(clients[i], t);
+  await sleep(600);
+  const e5 = await listEntry();
+  record('P1 count full 5/5', (e5 && e5.playerCount === 5 && e5.maxPlayers === 5) ? 'PASS' : 'FAIL',
+    `entry=${JSON.stringify(e5 ?? null)}`);
+
+  // Declarations: nobody carries HIGH/LOW before DECLARE; after declarations
+  // land, every other client sees them; they survive a reconnect.
+  startAll([
+    { smartDraw: true, declareAs: 'LOW' },
+    { smartDraw: true, declareAs: 'HIGH' },
+    { smartDraw: true, declareAs: 'HIGH' },
+    { smartDraw: true, declareAs: 'LOW' },
+    { smartDraw: true, declareAs: 'HIGH' },
+  ]);
+  let verified = false;
+  for (let hand = 0; hand < 3 && !verified; hand++) {
+    const sDecl = await clients[1].until((x: any) => x.phase === 'DECLARE', 90000, 'DECLARE reached').catch(() => null);
+    if (!sDecl) break;
+    const earlyDeclared = sDecl.players.filter((p: any) => p.declaration === 'HIGH' || p.declaration === 'LOW').length;
+    const sLate = await clients[1].until((x: any) => (x.phase === 'BET_3' || x.phase === 'SHOWDOWN')
+      && x.players.some((p: any) => p.declaration === 'HIGH' || p.declaration === 'LOW'), 60000, 'declarations visible').catch(() => null);
+    if (!sLate) continue;
+    const seenByOther = sLate.players
+      .filter((p: any) => p.declaration === 'HIGH' || p.declaration === 'LOW')
+      .map((p: any) => `${p.name}:${p.declaration}`);
+    // Consistency: the declarer's own view matches what others see.
+    const declarer = sLate.players.find((p: any) => p.declaration === 'HIGH' || p.declaration === 'LOW');
+    const ownerClient = clients.find(c => c.seat === declarer.id);
+    const ownerView = ownerClient?.latest()?.players?.find((p: any) => p.id === declarer.id)?.declaration;
+    record('P1 declarations visible cross-client', (seenByOther.length >= 1 && ownerView === declarer.declaration) ? 'PASS' : 'FAIL',
+      `at DECLARE entry declared=${earlyDeclared}; visible to P2: ${seenByOther.join(', ') || '(none)'}; owner view=${ownerView}`);
+    // Reconnect persistence (same hand if the window allows).
+    const before = clients[1].latest().players.map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
+    clients[1].disconnect();
+    await sleep(1200);
+    await connectPublic(clients[1], t).catch(() => null);
+    const afterState = clients[1].latest();
+    const after = (afterState?.players ?? []).map((p: any) => `${p.id}:${p.declaration ?? '-'}`).join('|');
+    const sameHand = afterState && sLate.handId === afterState.handId && (afterState.phase === 'BET_3' || afterState.phase === 'SHOWDOWN' || afterState.phase === 'DECLARE');
+    record('P1 declarations survive reconnect', (sameHand && after === before) ? 'PASS' : 'FAIL',
+      `sameHand=${!!sameHand} before=${before} after=${after}`);
+    verified = true;
+  }
+  if (!verified) record('P1 declarations visible cross-client', 'FAIL', 'no hand with visible declarations in 3 hands');
+  stopAll(); clients.forEach(c => c.disconnect());
+}
+
 async function main() {
   const mode = process.argv[2] || 'probe';
   if (mode === 'probe') { await probe(); return; }
@@ -1055,6 +1163,7 @@ async function main() {
   if (mode === 'pots') { console.log(`\n== SIDE POTS (run ${RUN}) ==`); await scenarioPots(); writeResults('pots'); return; }
   if (mode === 'drawqa') { console.log(`\n== DRAW QA (run ${RUN}) ==`); await scenarioDrawQa(); writeResults('drawqa'); return; }
   if (mode === 'dwell') { console.log(`\n== DWELL HUNT (run ${RUN}) ==`); await scenarioDwell(); writeResults('dwell'); return; }
+  if (mode === 'phase1') { console.log(`\n== PHASE 1 (run ${RUN}) ==`); await scenarioPhase1(); writeResults('phase1'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
