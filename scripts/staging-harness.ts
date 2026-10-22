@@ -1957,117 +1957,127 @@ async function scenarioChipsTrace() {
 // next hand reachable without leaving; FAIL with LOCKOUT in the
 // detail = the bug reproduced (expected on pre-fix builds).
 async function scenarioRebuyFix() {
-  console.log('\n== REBUY LOCKOUT REPRODUCTION (run ' + RUN + ') ==');
+  console.log('\n== REBUY LOCKOUT REPRODUCTION v2 (run ' + RUN + ') ==');
   const MODE = 'box_chevy';
   const t = 'RB' + RUN.slice(0, 4);
-  const hero = new GClient(t + 'H');
-  await hero.bootstrap();
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const folder = new GClient(t + 'F');
+  const keeper = new GClient(t + 'K');
+  await folder.bootstrap();
+  await keeper.bootstrap();
   const recRes = await fetch(`${BASE}/api/tables`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: hero.profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: folder.profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
   });
   console.log(`  (rebuyfix record create -> ${recRes.status})`);
-  await hero.connectMode(t, MODE);
-  const me = (s: any) => s?.players.find((p: any) => p.id === hero.seat);
-  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  await folder.connectMode(t, MODE);
+  await keeper.connectMode(t, MODE);
+  const row = (s: any, g: GClient) => s?.players.find((p: any) => p.id === g.seat);
+  const drawIdx = (s: any, m: any): number[] => {
+    const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+    const commRanks = new Set((s.communityCards ?? []).map((c: any) => c.rank));
+    const seen = new Set<string>(); const dupIdx = new Set<number>();
+    (m.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dupIdx.add(i); seen.add(c.rank); });
+    return (m.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dupIdx.has(i) ? i : -1))
+      .filter((i: number) => i >= 0).slice(0, caps[s.phase] ?? 0);
+  };
+  const drive = (g: GClient, foldThisHand: boolean) => {
+    const s = g.latest();
+    if (!s) return;
+    const m = row(s, g);
+    if (!m || s.activePlayerId !== g.seat || m.status !== 'active') return;
+    if (foldThisHand && s.phase.startsWith('BET')) { g.act('fold', null, t, MODE); return; }
+    if (s.phase === 'ANTE') g.act('ante', null, t, MODE);
+    else if (s.phase.startsWith('BET')) g.act(s.currentBet > (m.bet ?? 0) ? 'call' : 'check', null, t, MODE);
+    else if (s.phase.startsWith('DRAW')) g.act('draw', drawIdx(s, m), t, MODE);
+    else if (s.phase === 'DECLARE') {
+      if (bcMade(m.cards ?? [], s.communityCards ?? [])) g.act('declare', { declaration: 'HIGH' }, t, MODE);
+    }
+  };
 
-  for (let i = 0; i < 40 && hero.latest()?.phase !== 'WAITING'; i++) await sleep(250);
-  hero.act('start', null, t, MODE);
+  for (let i = 0; i < 40 && folder.latest()?.phase !== 'WAITING'; i++) await sleep(250);
+  keeper.act('start', null, t, MODE);
 
   const deadline = Date.now() + 480_000;
-  let realHands = 0;
-  let qualifyingAttempts = 0;
   let lastDealId = -1;
-  let handRole: 'fold' | 'play' = 'play';
-  let heroFoldedThisHand = false;
-  let sawShowdownThisHand = false;
+  let handsDone = 0;
+  let foldThisHand = false;
+  let folderFolded = false;
+  let sawShowdown = false;
+  let rolloverHand = false;
+  let waitingSince = 0;
+  let probedWaitingHand = -1;
 
-  while (Date.now() < deadline && qualifyingAttempts < 8) {
-    const s = hero.latest();
+  const finish = (verdict: string, detail: string) => {
+    record('REBUYFIX funded hero survives rollover settle', verdict, detail);
+    folder.disconnect();
+    keeper.disconnect();
+  };
+
+  while (Date.now() < deadline && handsDone < 10) {
+    const s = folder.latest() ?? keeper.latest();
     if (!s) { await sleep(300); continue; }
-    const m = me(s);
-    if (!m) { await sleep(300); continue; }
+    const fRow = row(s, folder);
 
     if (s.phase === 'DEAL' && s.handId !== lastDealId) {
-      // Terminal observation B: the previous hand was a qualifying
-      // fold hand that reached showdown, and a NEW hand has now been
-      // dealt with the hero active in it — the settle reactivated
-      // him and the table moved on without any lockout.
-      if (heroFoldedThisHand && sawShowdownThisHand && m.status === 'active') {
-        record('REBUYFIX funded hero survives rollover settle',
-          'PASS', `no lockout — hero active and dealt into the next hand (dealId=${s.handId}) after folding a rollover hand`);
-        hero.close();
+      // A new hand was dealt: if the folder was folded at the end of a
+      // rollover hand, THIS snapshot is the verdict.
+      if (lastDealId !== -1 && folderFolded && rolloverHand) {
+        if (fRow && fRow.status === 'active' && (fRow.cards?.length ?? 0) === 5) {
+          finish('PASS', `no lockout — folder reactivated and dealt into hand ${s.handId} after folding a rollover hand (chips=${fRow.chips})`);
+        } else {
+          finish('FAIL', `LOCKOUT REPRODUCED — next hand ${s.handId} is running but the funded folder is parked: status=${fRow?.status} cards=${fRow?.cards?.length ?? 0} chips=${fRow?.chips}`);
+        }
         return;
       }
       lastDealId = s.handId;
-      realHands++;
-      heroFoldedThisHand = false;
-      sawShowdownThisHand = false;
+      folderFolded = false;
+      sawShowdown = false;
+      rolloverHand = false;
       const ranks = (s.communityCards ?? []).map((c: any) => c.rank);
-      const communityPair = ranks.length === 5 && new Set(ranks).size < ranks.length;
-      handRole = communityPair ? 'fold' : 'play';
-      if (communityPair) {
-        qualifyingAttempts++;
-        console.log(`  [rebuyfix] qualifying hand ${qualifyingAttempts} dealId=${s.handId} community=${ranks.join(',')} (pair → all unmade)`);
-      }
+      foldThisHand = ranks.length === 5 && new Set(ranks).size < ranks.length;
+      if (foldThisHand) console.log(`  [rebuyfix] hand ${s.handId}: community paired (${ranks.join(',')}) — folder folds, keeper plays`);
     }
-    if (s.phase === 'SHOWDOWN') sawShowdownThisHand = true;
+    if (s.phase === 'SHOWDOWN') {
+      sawShowdown = true;
+      if (fRow?.status === 'folded') folderFolded = true;
+      if ((s.messages ?? []).some((msg: any) => /rolls over|Rebuy before starting/.test(msg.text))) rolloverHand = true;
+    }
+    if (s.phase === 'WAITING') {
+      if ((s.pot ?? 0) > 0) rolloverHand = true;
+      if (sawShowdown) { handsDone++; sawShowdown = false; }
+      // Post-hand WAITING with the folder parked: probe a start.
+      if (handsDone >= 1 && folderFolded && fRow && probedWaitingHand !== lastDealId) {
+        if (waitingSince === 0) waitingSince = Date.now();
+        if (Date.now() - waitingSince > 3000) {
+          probedWaitingHand = lastDealId;
+          const statusBefore = fRow.status;
+          const chipsBefore = fRow.chips;
+          const errMark = folder.errors.length;
+          folder.act('start', null, t, MODE);
+          await sleep(3500);
+          const s2 = folder.latest();
+          const rejection = folder.errors.slice(errMark).find(e => /Rebuy before starting/.test(e.message));
+          if (statusBefore === 'sitting_out' && chipsBefore > 0 && rejection && s2?.phase === 'WAITING') {
+            finish('FAIL', `LOCKOUT REPRODUCED — folder parked sitting_out with ${chipsBefore} chips after a rollover settle; start rejected: "${rejection.message}"`);
+          } else if (row(s2, folder)?.status === 'active' || (s2 && s2.phase !== 'WAITING')) {
+            finish('PASS', `folder active after rollover settle (status=${row(s2, folder)?.status}, phase=${s2?.phase}, chips=${chipsBefore})`);
+          } else {
+            finish('FAIL', `unexpected WAITING state: folderStatus=${statusBefore} chips=${chipsBefore} rejection=${rejection?.message ?? 'none'} phaseAfter=${s2?.phase}`);
+          }
+          return;
+        }
+      }
+    } else {
+      waitingSince = 0;
+      if (s.phase === 'ANTE' && sawShowdown) { handsDone++; sawShowdown = false; }
+    }
 
-    // Terminal observation A: rollover settle left the table in WAITING.
-    if (s.phase === 'WAITING' && realHands >= 1 && heroFoldedThisHand && sawShowdownThisHand) {
-      const statusAfterSettle = m.status;
-      const chipsAfterSettle = m.chips;
-      const potCarried = s.pot;
-      console.log(`  [rebuyfix] rollover settle in WAITING: heroStatus=${statusAfterSettle} heroChips=${chipsAfterSettle} potCarried=${potCarried}`);
-      const errMark = hero.errors.length;
-      hero.act('start', null, t, MODE);
-      await sleep(3500);
-      const s2 = hero.latest();
-      const rejection = hero.errors.slice(errMark).find(e => /Rebuy before starting/.test(e.message));
-      const phaseAfterStart = s2?.phase;
-      if (statusAfterSettle === 'sitting_out' && rejection && phaseAfterStart === 'WAITING') {
-        record('REBUYFIX funded hero survives rollover settle',
-          'FAIL', `LOCKOUT REPRODUCED — hero parked sitting_out with ${chipsAfterSettle} chips, pot carried ${potCarried}, start rejected: "${rejection.message}"`);
-      } else if (statusAfterSettle === 'active') {
-        record('REBUYFIX funded hero survives rollover settle',
-          'PASS', `hero active at settle (chips=${chipsAfterSettle}), phase after start attempt=${phaseAfterStart}`);
-      } else {
-        record('REBUYFIX funded hero survives rollover settle',
-          'FAIL', `unexpected state: status=${statusAfterSettle} phaseAfterStart=${phaseAfterStart} rejection=${rejection?.message ?? 'none'}`);
-      }
-      hero.close();
-      return;
-    }
-
-    if (s.activePlayerId === hero.seat && m.status === 'active') {
-      if (handRole === 'fold' && s.phase.startsWith('BET')) {
-        hero.act('fold', null, t, MODE);
-        heroFoldedThisHand = true;
-        await sleep(400);
-        continue;
-      }
-      if (s.phase === 'ANTE') hero.act('ante', null, t, MODE);
-      else if (s.phase.startsWith('BET')) hero.act(s.currentBet > (m.bet ?? 0) ? 'call' : 'check', null, t, MODE);
-      else if (s.phase.startsWith('DRAW')) {
-        const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
-        const commRanks = new Set((s.communityCards ?? []).map((c: any) => c.rank));
-        const seen = new Set<string>(); const dupIdx = new Set<number>();
-        (m.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dupIdx.add(i); seen.add(c.rank); });
-        const idx = (m.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dupIdx.has(i) ? i : -1))
-          .filter((i: number) => i >= 0).slice(0, caps[s.phase] ?? 0);
-        hero.act('draw', idx, t, MODE);
-      }
-      else if (s.phase === 'DECLARE') {
-        if (bcMade(m.cards ?? [], s.communityCards ?? [])) hero.act('declare', { declaration: 'HIGH' }, t, MODE);
-      }
-      await sleep(350);
-      continue;
-    }
+    drive(folder, foldThisHand);
+    drive(keeper, false);
     await sleep(300);
   }
-  record('REBUYFIX funded hero survives rollover settle', 'BLOCKED',
-    `no terminal rollover configuration in ${qualifyingAttempts} qualifying hands (${realHands} real hands)`);
-  hero.close();
+  finish('BLOCKED', `no decisive rollover configuration in ${handsDone} completed hands`);
 }
 
 // ─── sdqa: showdown summary verification (Detroit 2026-10-22) ───────────────
@@ -2192,7 +2202,7 @@ async function scenarioSdqa() {
           if (!reconnectTried) {
             reconnectTried = true;
             const seatBefore = hero.seat;
-            hero.close();
+            hero.disconnect();
             await sleep(600);
             await hero.connectMode(t, mode, undefined, true);
             const s2 = hero.latest();
@@ -2238,7 +2248,7 @@ async function scenarioSdqa() {
       }
       await sleep(300);
     }
-    hero.close();
+    hero.disconnect();
     return { verified, problems, reconnectOk };
   }
 
