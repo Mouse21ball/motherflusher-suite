@@ -2127,7 +2127,7 @@ async function scenarioBcChain() {
   let curDeal = -1;
   let showdownSeenFor = -1;
   let statesAtShowdown = 0;
-  let qualifiedFor = -1;
+  let lastShowdownSnap: any = null;
   let handsCompleted = 0;
   let rollovers = 0;
   let qualified = 0;
@@ -2174,25 +2174,33 @@ async function scenarioBcChain() {
     }
 
     // Settle transition for the current hand: read the SETTLE BROADCAST
-    // itself (first post-showdown snapshot in the recorded stream) —
-    // its pot is the pristine carry, before any next-hand ante lands.
+    // itself (first ANTE/WAITING snapshot in the recorded stream after
+    // this hand's showdown began) — its pot is the pristine carry,
+    // before any next-hand ante lands. NOTE: the settle state carries
+    // handId = dealId + 1 (the next hand's ANTE id), never the deal
+    // id — keying the search on handId equality was bcchain v1's bug
+    // (53 hands chained live while every counter read 0).
     if (showdownSeenFor === curDeal && curDeal > 0) {
       const states = (clients[0] as any).states as any[];
-      const settleSnap = states.slice(statesAtShowdown).find(x => x.handId === curDeal && x.phase !== 'SHOWDOWN');
+      const settleSnap = states.slice(statesAtShowdown).find(x => x.phase === 'ANTE' || x.phase === 'WAITING');
       if (settleSnap) {
         handsCompleted++;
         if ((settleSnap.pot ?? 0) > 0) { rollovers++; console.log(`  [bcchain] hand ${handIdx + 1} settled: ROLLOVER pot=${settleSnap.pot}`); }
         else console.log(`  [bcchain] hand ${handIdx + 1} settled: pot awarded`);
+        // Qualification is scored from the LAST showdown snapshot:
+        // the first carries no winners and no summary yet (sdqa's
+        // diagnostic), the settled one carries both.
+        if (lastShowdownSnap && ((lastShowdownSnap.players ?? []).some((p: any) => p.isWinner) || ((lastShowdownSnap as any).showdownSummary?.awards?.length ?? 0) > 0)) qualified++;
         showdownSeenFor = -1;
+        lastShowdownSnap = null;
       }
     }
-    if (s.phase === 'SHOWDOWN' && curDeal > 0 && showdownSeenFor !== curDeal) {
-      showdownSeenFor = curDeal;
-      statesAtShowdown = ((clients[0] as any).states as any[]).length;
-      if (qualifiedFor !== curDeal && ((s.players ?? []).some((p: any) => p.isWinner) || ((s as any).showdownSummary?.awards?.length ?? 0) > 0)) {
-        qualifiedFor = curDeal;
-        qualified++;
+    if (s.phase === 'SHOWDOWN' && curDeal > 0) {
+      if (showdownSeenFor !== curDeal) {
+        showdownSeenFor = curDeal;
+        statesAtShowdown = ((clients[0] as any).states as any[]).length;
       }
+      lastShowdownSnap = s;
     }
 
     // Folder continuation: in the hand AFTER the fold hand, the folder
