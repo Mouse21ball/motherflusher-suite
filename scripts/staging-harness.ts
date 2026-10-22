@@ -1999,6 +1999,7 @@ async function scenarioRebuyFix() {
   keeper.act('start', null, t, MODE);
 
   const deadline = Date.now() + 480_000;
+  let lastStartSent = Date.now();
   let lastDealId = -1;
   let handsDone = 0;
   let foldThisHand = false;
@@ -2046,6 +2047,13 @@ async function scenarioRebuyFix() {
     if (s.phase === 'WAITING') {
       if ((s.pot ?? 0) > 0) rolloverHand = true;
       if (sawShowdown) { handsDone++; sawShowdown = false; }
+      // Keep the table moving: re-send start while WAITING (a single
+      // start is silently dropped when it lands before funding or
+      // the join window completes — the bc5/fu5/chipstrace pattern).
+      if (Date.now() - lastStartSent > 5000) {
+        lastStartSent = Date.now();
+        keeper.act('start', null, t, MODE);
+      }
       // Post-hand WAITING with the folder parked: probe a start.
       if (handsDone >= 1 && folderFolded && fRow && probedWaitingHand !== lastDealId) {
         if (waitingSince === 0) waitingSince = Date.now();
@@ -2108,6 +2116,7 @@ async function scenarioSdqa() {
     let reconnectOk = false;
     let reconnectTried = false;
     let lastDealId = -1;
+    let lastStartSent = 0;
     let entryDiagPrinted = false;
     const deadline = Date.now() + 360_000;
     const seenHands = new Set<number>();
@@ -2118,6 +2127,16 @@ async function scenarioSdqa() {
       const m = me(s);
       if (!m) { await sleep(300); continue; }
       if (s.phase === 'DEAL' && s.handId !== lastDealId) lastDealId = s.handId;
+
+      // Tables do not reliably auto-start from a single start (the
+      // first often lands before funding/join-window completes and is
+      // dropped silently) — every long-standing scenario re-sends
+      // start while WAITING. sdqa v1 never sent it at all and sat in
+      // WAITING forever (fork run MVJPOM85: zero showdowns observed).
+      if (s.phase === 'WAITING' && Date.now() - lastStartSent > 5000) {
+        lastStartSent = Date.now();
+        hero.act('start', null, t, mode);
+      }
 
       if (s.phase === 'SHOWDOWN' && !seenHands.has(s.handId)) {
         // Wait for the resolved snapshot (summary attached at resolve).
