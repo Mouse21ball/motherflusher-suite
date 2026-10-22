@@ -159,7 +159,7 @@ function convertReservedToBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
+        ? makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -169,6 +169,22 @@ function convertReservedToBots(table: GenericTable): void {
 // Quick-fill: immediately seat bots up to the human-count-aware cap.
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
+/** Seat a bot WITH its stack at a LOBBY conversion (reserved seat →
+ *  bot, between hands). makeBotPlayer spreads the seat as-is, and the
+ *  seat template starts p1 at chips 0 (genericEngine makeInitialPlayers)
+ *  — a bot converting onto p1 inherited 0 and broadcast it for the whole
+ *  pre-hand window (chipstrace MVJEJZ7F: 81 snapshots at 0) until the
+ *  hand-start sync restocked it to 10,000. Funding at conversion with
+ *  that same standard stack is value-neutral — identical chips when
+ *  the hand starts, so no hand's accounting changes; the 0 simply
+ *  never shows. LOBBY SITES ONLY: the mid-hand takeover conversions
+ *  (leave/disconnect handoffs) deliberately keep the seat's real stack,
+ *  including a legitimate all-in 0. */
+function makeFundedBotPlayer(p: Player, name: string, status?: Player['status']): Player {
+  const bot = makeBotPlayer(p, name, status);
+  return bot.chips > 0 ? bot : { ...bot, chips: 10000 };
+}
+
 function quickFillBots(table: GenericTable): void {
   console.log(`[quickFillBots] tableId: ${table.tableId} crewId: ${table.crewId ?? 'none'} botsEnabled: ${table.botsEnabled}`);
   if (table.crewId) return;
@@ -186,7 +202,7 @@ function quickFillBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return makeBotPlayer(p, getBotName(table.tableId, p.id), 'active');
+      return makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active');
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -211,7 +227,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
+        ? makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
