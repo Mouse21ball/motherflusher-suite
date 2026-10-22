@@ -164,7 +164,15 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       // staggered flights from dealer).
       // Detroit 2026-10-21: five-seat phase — the flight count follows the
       // actual seat count (was hardcoded 20 cards over 4 seats).
-      const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
+      // The generic engine increments handId TWICE per hand (entering
+      // ANTE, then again in dealCards), so a bare handId change fires
+      // this block at ANTE — before any cards exist — and again at
+      // DEAL: the deal animation played twice (Detroit Galaxy QA,
+      // 2026-10-21). Gate on the DEAL phase: exactly one authoritative
+      // deal animation per hand, keyed by the dealt hand's id. Works
+      // whether or not the ANTE snapshot is coalesced away, and a
+      // reconnect mid-hand never replays (no id change into DEAL).
+      const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId && curr.phase === 'DEAL';
       if (isNewHand) {
         const me = liveState.players.find(p => p.id === myId);
         const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
