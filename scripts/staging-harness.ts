@@ -2096,7 +2096,7 @@ async function scenarioRebuyFix() {
 // fold (a designated funded human folds; they must be dealt the next hand).
 async function scenarioBcChain() {
   const MODE = 'box_chevy';
-  const t = tid('K5');
+  const t = `K5${R4}`;
   const clients: GClient[] = [];
   for (let i = 0; i < 5; i++) { const g = new GClient(RUN, i + 1); await g.bootstrap(); clients.push(g); }
   try {
