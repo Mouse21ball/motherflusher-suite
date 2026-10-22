@@ -1012,6 +1012,11 @@ function resolveShowdown(table: GenericTable): void {
       players: result.players,
       winStreaks: confirmedWinStreaks(s, result.players),
       pot: result.pot,
+      // Structured showdown summary (Detroit 2026-10-22): stamped
+      // with the settled hand's id here, where the engine owns it.
+      // Lives only for this SHOWDOWN — settleAndResetToAnte clears
+      // it when the next hand begins.
+      showdownSummary: result.summary ? { ...result.summary, handId: table.handId } : null,
       messages: [
         ...s.messages,
         ...result.messages.map(text => ({ id: makeId(), text, time: Date.now(), isResolution: true })),
@@ -1224,8 +1229,19 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
       // Per-hand draw-animation counters restart with the hand.
       lastDrawCount: undefined,
       drawSeq: 0,
+      // Rollover repair (Detroit 2026-10-22): the old branch parked
+      // everyone who wasn't active — including a funded human who
+      // merely FOLDED the hand. With no other funded human active,
+      // the table then sat in WAITING and start was rejected with
+      // "Rebuy before starting a new hand." at a healthy stack. A
+      // folded player was parked, not sitting out by choice:
+      // reactivate a funded human with chips, exactly like the
+      // normal branch. Players already sitting_out (sat the hand
+      // out, disconnected, unfunded) stay parked; bots unchanged.
       status: (isRollover
-        ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out')
+        ? ((p.status === 'active' && newChips > 0)
+          || (p.presence === 'human' && p.status === 'folded' && newChips > 0 && table.fundedSeats.has(p.id))
+          ? 'active' : 'sitting_out')
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
     };
   });
@@ -1320,6 +1336,7 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
     phase: canStartHand ? 'ANTE' : 'WAITING',
     currentBet: 0,
     raisesThisRound: 0,
+    showdownSummary: null,
     heroChipChange: undefined,
     activePlayerId: canStartHand ? nextPlayers[firstActIdx].id : null,
     players: nextPlayers,

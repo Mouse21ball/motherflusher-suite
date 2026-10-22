@@ -20,6 +20,7 @@ import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
+import type { ShowdownSummary } from '@shared/modes/showdownSummary';
 import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -73,7 +74,21 @@ interface WinnerInfo {
   amount: number;
   cards: { rank: string; suit: string }[];
   handLabel: string;
-  side: 'HIGH' | 'LOW' | 'SWING' | 'SOLE';
+  side: 'HIGH' | 'LOW' | 'SWING' | 'SOLE' | 'BOTH';
+  /** Authoritative payout from the server's showdown summary
+   *  (Detroit 2026-10-22). Rendered when present; the legacy
+   *  `amount` field is a client estimate and is never displayed. */
+  exactAmount?: number;
+  /** The settlement's own reason text for this award. */
+  reason?: string;
+}
+
+interface CelebrationAudit {
+  headline: string;
+  community: { rank: string; suit: string }[];
+  comparisons: string[];
+  declarations: { name: string; text: string }[];
+  rollover: number;
 }
 
 interface CelebrationState {
@@ -83,6 +98,8 @@ interface CelebrationState {
   lowWinner: WinnerInfo | null;
   // Single winner (swing or sole survivor)
   soleWinner: WinnerInfo | null;
+  // Showdown audit from the server summary (Detroit 2026-10-22)
+  audit: CelebrationAudit | null;
 }
 
 interface ProtoState {
@@ -131,7 +148,7 @@ function mapPhase(livePhase: string): ProtoPhase {
 }
 
 function emptyCelebration(): CelebrationState {
-  return { active: false, highWinner: null, lowWinner: null, soleWinner: null };
+  return { active: false, highWinner: null, lowWinner: null, soleWinner: null, audit: null };
 }
 
 function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
@@ -144,6 +161,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
   const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
+  // Freshest live state for timer callbacks (the showdown summary
+  // lands ~650ms after the phase flips; builders read it from here,
+  // fenced by handId).
+  const liveRef = useRef(liveState);
+  liveRef.current = liveState;
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -303,6 +325,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
         const winners = liveState.players.filter(p => (p as any).isWinner);
         const comm = (liveState.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
+        const scheduledHandId = liveState.handId;
         if (winners.length > 0) {
           const evals = new Map(winners.map(w => {
             const hole = (w.cards ?? []).map(c => ({ ...c, isHidden: false }));
@@ -374,10 +397,81 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           });
           later(3700, () => {
             setRake({ active: false, winnerIndex: -1, amount: 0 });
-            setCelebration({ active: true, highWinner, lowWinner, soleWinner });
+            // Server summary first (Detroit 2026-10-22): exact
+            // payouts, sides, and reasons come from the settlement
+            // itself. Fallback (fold-win direct awards carry no
+            // summary): the client-derived build above, unchanged.
+            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
+            if (sum && sum.handId === scheduledHandId && sum.modeId === 'boxchevy') {
+              const livePlayers = (liveRef.current as any).players as any[];
+              const byId = new Map(livePlayers.map(p => [p.id, p]));
+              const infoFor = (a: ShowdownSummary['awards'][number], side: WinnerInfo['side']): WinnerInfo => {
+                const p = byId.get(a.playerId);
+                return {
+                  name: p?.name ?? a.playerId,
+                  amount: a.amount,
+                  exactAmount: a.amount,
+                  cards: (p?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit })),
+                  handLabel: sum.entries.find(e => e.playerId === a.playerId)?.description ?? '',
+                  side,
+                  reason: a.reason,
+                };
+              };
+              let hi: WinnerInfo | null = null;
+              let lo: WinnerInfo | null = null;
+              let sole: WinnerInfo | null = null;
+              for (const a of sum.awards) {
+                if (a.part === 'HIGH') hi = infoFor(a, 'HIGH');
+                else if (a.part === 'LOW') lo = infoFor(a, 'LOW');
+                else if (a.part === 'SWING') sole = infoFor(a, 'SWING');
+                else if (a.part === 'HIGH + LOW') sole = infoFor(a, 'BOTH');
+                else sole = infoFor(a, 'SOLE');
+              }
+              const usedReasons = new Set(sum.awards.map(a => a.reason));
+              const audit: CelebrationAudit = {
+                headline: sum.headline,
+                community: comm.map(c => ({ rank: c.rank, suit: c.suit })),
+                comparisons: sum.comparisons.filter(c => !usedReasons.has(c)),
+                declarations: (sum.declarations ?? []).map(d => ({
+                  name: byId.get(d.playerId)?.name ?? d.playerId,
+                  text: d.declaration && d.outcome === 'declared' ? d.declaration : d.outcome,
+                })),
+                rollover: sum.rollover,
+              };
+              setCelebration({ active: true, highWinner: hi, lowWinner: lo, soleWinner: sole, audit });
+            } else {
+              setCelebration({ active: true, highWinner, lowWinner, soleWinner, audit: null });
+            }
             sfx.bigWin();
           });
           later(9000, () => { // Detroit 2026-10-16: reduced from 12s — 9s is enough to read two hands
+            setCelebration(emptyCelebration());
+          });
+        } else if (liveState.pot > 0) {
+          // No winners at entry: a contested hand that will resolve
+          // to a rollover (nobody qualified) still gets its audit —
+          // built purely from the server summary when it lands.
+          later(3700, () => {
+            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
+            if (!sum || sum.handId !== scheduledHandId || sum.modeId !== 'boxchevy') return;
+            const livePlayers = (liveRef.current as any).players as any[];
+            const byId = new Map(livePlayers.map(p => [p.id, p]));
+            setCelebration({
+              active: true, highWinner: null, lowWinner: null, soleWinner: null,
+              audit: {
+                headline: sum.headline,
+                community: comm.map(c => ({ rank: c.rank, suit: c.suit })),
+                comparisons: sum.comparisons,
+                declarations: (sum.declarations ?? []).map(d => ({
+                  name: byId.get(d.playerId)?.name ?? d.playerId,
+                  text: d.declaration && d.outcome === 'declared' ? d.declaration : d.outcome,
+                })),
+                rollover: sum.rollover,
+              },
+            });
+            sfx.bigWin();
+          });
+          later(9000, () => {
             setCelebration(emptyCelebration());
           });
         }
@@ -952,6 +1046,48 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     <WinnerBlock winner={state.celebration.lowWinner} />
                   </div>
                 )}
+
+                {/* Showdown audit — server summary (Detroit 2026-10-22):
+                    community in fixed order, decisive comparisons,
+                    declarations, and any rollover. */}
+                {state.celebration.audit && (
+                  <div className="mt-5 flex flex-col items-center" data-testid="bc-showdown-audit">
+                    {!state.celebration.highWinner && !state.celebration.lowWinner && !state.celebration.soleWinner && (
+                      <div className="text-amber-200 text-base font-bold font-mono text-center max-w-[320px]">
+                        {state.celebration.audit.headline}
+                      </div>
+                    )}
+                    <div className="mt-3 text-white/50 text-[9px] font-mono tracking-widest">COMMUNITY</div>
+                    <div className="mt-1 flex gap-1.5">
+                      {state.celebration.audit.community.map((c, i) => (
+                        <PlayingCard
+                          key={`audit-comm-${i}`}
+                          card={{ rank: c.rank as any, suit: c.suit as any, isHidden: false }}
+                          className="!w-[32px] !h-[44px]"
+                        />
+                      ))}
+                    </div>
+                    {state.celebration.audit.comparisons.map((line, i) => (
+                      <div key={`audit-cmp-${i}`} className="mt-2 max-w-[330px] text-center text-amber-100/90 text-[11px] leading-snug font-mono">
+                        {line}
+                      </div>
+                    ))}
+                    {state.celebration.audit.declarations.length > 0 && (
+                      <div className="mt-3 flex flex-col items-center gap-0.5">
+                        {state.celebration.audit.declarations.map((d, i) => (
+                          <div key={`audit-decl-${i}`} className="text-white/70 text-[10px] font-mono">
+                            <span className="text-white/90 font-semibold">{d.name}</span> — {d.text}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {state.celebration.audit.rollover > 0 && (
+                      <div className="mt-2 text-amber-300 text-[11px] font-mono font-bold">
+                        ${state.celebration.audit.rollover.toLocaleString()} ROLLS OVER
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             </motion.div>
           )}
@@ -982,7 +1118,11 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
     >
       <div>
         <span className="text-white text-xl font-bold font-mono">{winner.name}</span>
-        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots. */}
+        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots.
+            Detroit 2026-10-22: the exact payout returns, sourced from the server's showdown summary. */}
+        {winner.exactAmount !== undefined && (
+          <span className="text-amber-300 text-xl font-mono ml-3">+${winner.exactAmount.toLocaleString()}</span>
+        )}
       </div>
       {winner.side !== 'SOLE' && (
         <div className={`text-xs font-mono tracking-widest mt-1 ${
@@ -990,7 +1130,7 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
           winner.side === 'LOW' ? 'text-green-300' :
           'text-purple-300'
         }`}>
-          {winner.side === 'SWING' ? 'SWING — TAKES BOTH' : `${winner.side} HAND`}
+          {winner.side === 'SWING' ? 'SWING — TAKES BOTH' : winner.side === 'BOTH' ? 'HIGH + LOW — BOTH SIDES' : `${winner.side} HAND`}
         </div>
       )}
       {winner.cards.length > 0 && (
@@ -1015,6 +1155,11 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
       {winner.handLabel && (
         <div className="mt-2 text-amber-200 text-sm font-mono tracking-widest">
           {winner.handLabel}
+        </div>
+      )}
+      {winner.reason && (
+        <div className="mt-1.5 max-w-[320px] text-center text-amber-100/85 text-[11px] leading-snug font-mono">
+          {winner.reason}
         </div>
       )}
     </motion.div>

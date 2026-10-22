@@ -17,6 +17,7 @@ import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
+import type { ShowdownSummary } from '@shared/modes/showdownSummary';
 import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -67,6 +68,10 @@ interface CelebrationState {
   // Winning hand shown WITH the celebration (Detroit 2026-10-15)
   cards: { rank: string; suit: string }[];
   handLabel: string;
+  // Showdown audit (Detroit 2026-10-22): decisive comparison text +
+  // the other eligible revealed hands, from the server summary.
+  comparison: string;
+  others: { name: string; cards: { rank: string; suit: string }[]; description: string }[];
 }
 
 interface ProtoState {
@@ -82,6 +87,9 @@ interface ProtoState {
   /** Server turn deadline (epoch ms) for the active seat, from the
    *  snapshot — drives the per-pod timer bars (Badugi pattern). */
   turnDeadline: number | null;
+  /** Structured showdown summary from the server's settlement
+   *  (Detroit 2026-10-22); null outside a resolved showdown. */
+  summary: ShowdownSummary | null;
 }
 
 // Key table positions (percentages) — same as Badugi
@@ -119,7 +127,7 @@ function mapPhase(livePhase: string): ProtoPhase {
 function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
-  const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+  const [celebration, setCelebration] = useState<CelebrationState>({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
   // Staging: how many cards have visually landed per player this hand.
   // Cards from liveState are held back and revealed as deal flights land (prototype behavior).
   const [landed, setLanded] = useState<Record<string, number>>({});
@@ -177,7 +185,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       // staging the moment the table leaves showdown, and never let
       // draw staging force hero cards face-down at showdown.
       if (curr.phase !== 'SHOWDOWN' && prev.phase === 'SHOWDOWN') {
-        setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+        setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
         setRake({ active: false, winnerIndex: -1, amount: 0 });
         setStaged({});
       }
@@ -346,15 +354,48 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           later(3700, () => {
             if (!stillThisShowdown()) return;
             setRake({ active: false, winnerIndex: -1, amount: 0 });
-            // Split pot: name all winners
-            const winnerName = winners.length > 1
-              ? `SPLIT — ${winners.map(w => w.name).join(' & ')}`
-              : winner.name;
-            setCelebration({ active: true, winnerName, amount: liveState.pot, cards: winCards, handLabel });
+            // Server summary first (Detroit 2026-10-22): winner,
+            // payout, and classification come from the settlement
+            // itself — never re-derived here. It lands ~650ms after
+            // showdown entry, so read the freshest state, fenced to
+            // this hand. Fallback (fold-win direct awards carry no
+            // summary): the entry-time values, as before.
+            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
+            if (sum && sum.handId === scheduledHandId && sum.awards.length > 0) {
+              const livePlayers = (liveRef.current as any).players as any[];
+              const byId = new Map(livePlayers.map(p => [p.id, p]));
+              const first = sum.awards[0];
+              const firstPlayer = byId.get(first.playerId);
+              const sumCards = (firstPlayer?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
+              const sumName = sum.awards.length > 1
+                ? `SPLIT — ${sum.awards.map(a => byId.get(a.playerId)?.name ?? a.playerId).join(' & ')}`
+                : (firstPlayer?.name ?? first.playerId);
+              const sumAmount = sum.awards.reduce((s, a) => s + a.amount, 0);
+              const sumLabel = sum.awards.length > 1 ? (sum.comparisons[0] ?? '') : first.reason;
+              const sumOthers = sum.entries
+                .filter(e => e.playerId !== first.playerId)
+                .map(e => ({
+                  name: byId.get(e.playerId)?.name ?? e.playerId,
+                  cards: (byId.get(e.playerId)?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit })),
+                  description: e.description,
+                }));
+              setCelebration({
+                active: true, winnerName: sumName, amount: sumAmount,
+                cards: sumCards, handLabel: sumLabel,
+                comparison: sum.awards.length > 1 ? '' : (sum.comparisons[0] ?? ''),
+                others: sumOthers,
+              });
+            } else {
+              // Split pot: name all winners
+              const winnerName = winners.length > 1
+                ? `SPLIT — ${winners.map(w => w.name).join(' & ')}`
+                : winner.name;
+              setCelebration({ active: true, winnerName, amount: liveState.pot, cards: winCards, handLabel, comparison: "", others: [] });
+            }
             sfx.bigWin();
           });
           later(9200, () => {
-            setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
+            setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
           });
         }
       }
@@ -411,6 +452,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     celebration,
     communityCards: (liveState.communityCards ?? []).map(c => ({ ...c, isHidden: false })),
     turnDeadline: (liveState as any).turnDeadline ?? null,
+    summary: (liveState as any).showdownSummary ?? null,
   };
 }
 
@@ -1040,6 +1082,44 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                         {state.celebration.handLabel}
                       </div>
                     )}
+                  </motion.div>
+                )}
+                {/* Decisive comparison (server summary, 2026-10-22) */}
+                {state.celebration.comparison && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="mt-3 max-w-[320px] text-center text-amber-100/90 text-[11px] leading-snug font-mono"
+                    data-testid="fu-showdown-comparison"
+                  >
+                    {state.celebration.comparison}
+                  </motion.div>
+                )}
+                {/* Other eligible revealed hands (folded hands never appear) */}
+                {state.celebration.others.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    className="mt-3 flex flex-col items-center gap-1.5"
+                    data-testid="fu-showdown-others"
+                  >
+                    {state.celebration.others.map((o, i) => (
+                      <div key={`other-${i}`} className="flex items-center gap-2 rounded-full bg-black/45 px-3 py-1">
+                        <span className="text-white/85 text-[11px] font-semibold max-w-[84px] truncate">{o.name}</span>
+                        <span className="flex">
+                          {o.cards.map((c, ci) => (
+                            <PlayingCard
+                              key={ci}
+                              card={{ rank: c.rank as any, suit: c.suit as any, isHidden: false }}
+                              className="!w-[20px] !h-[28px]"
+                            />
+                          ))}
+                        </span>
+                        <span className="text-white/65 text-[10px] font-mono">{o.description}</span>
+                      </div>
+                    ))}
                   </motion.div>
                 )}
               </motion.div>

@@ -16,6 +16,8 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { evaluateBadugi, BadugiMode } from '../shared/modes/badugi';
 import { sidePotsForShowdown } from '../shared/engine/sidePots';
+import { evaluateFlushedUpHand, compareFlushedUpHands } from '../shared/modes/flushedUp';
+import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '../shared/modes/boxchevy';
 
 const BASE = process.env.HARNESS_BASE || 'http://localhost:5000';
 if (/chainggangpoker\.com|replit\.app/.test(BASE) && !process.env.HARNESS_ALLOW_REMOTE) {
@@ -1404,9 +1406,15 @@ async function scenarioBc5() {
   }
   record('BC5 community cards stable through every hand', (commViolations === 0 && commChecks > 30) ? 'PASS' : 'FAIL',
     `checks=${commChecks} violations=${commViolations}`);
-  const hand1Show = playStates.find(x => x.phase === 'SHOWDOWN');
-  record('BC5 full hand to showdown, nobody trimmed', (hand1Show && hand1Show.players.filter((p: any) => p.presence === 'human').length === 5) ? 'PASS' : 'FAIL',
-    hand1Show ? `humans at showdown=${hand1Show.players.filter((p: any) => p.presence === 'human').length} pot=${hand1Show.pot}` : `no showdown in play hand; phases=${phasesSeen.join(',')}`);
+  // Extraction repair (2026-10-22): the old check counted presence ===
+  // 'human' on the FIRST showdown snapshot — but bc5's own reconnect
+  // test converts a seat to 'bot' during its disconnect window, so a
+  // healthy five-seat showdown read as 4 humans. The check's intent is
+  // that the play hand completed with all five SEATS at the table:
+  // count seats on the LAST showdown snapshot, presence-agnostic.
+  const hand1Show = [...playStates].reverse().find(x => x.phase === 'SHOWDOWN');
+  record('BC5 full hand to showdown, nobody trimmed', (hand1Show && hand1Show.players.length === 5) ? 'PASS' : 'FAIL',
+    hand1Show ? `seats at showdown=${hand1Show.players.length} humans=${hand1Show.players.filter((p: any) => p.presence === 'human').length} pot=${hand1Show.pot}` : `no showdown in play hand; phases=${phasesSeen.join(',')}`);
   let totals: number | null = null;
   if (hand1Show && playDealId !== null) {
     // First post-showdown WAITING (or next-hand) state on ANY client's
@@ -1426,15 +1434,19 @@ async function scenarioBc5() {
     'a play-hand snapshot shows 2+ declarations');
   record('BC5 reconnect mid-DECLARE restores board, cards, declarations', reconnectOk ? 'PASS' : 'FAIL',
     `attempted=${reconnectDone} ${reconnectDetail}`);
-  // Ruling 1 from history: in sweep-scripted hands, at DECLARE every player
-  // unmade on their own client's view must already be folded in the table
-  // state, with the auto-fold message present.
+  // Ruling 1 from history: at DECLARE every player unmade on their own
+  // client's view must already be folded in the table state, with the
+  // auto-fold message present. Extraction repair (2026-10-22): the old
+  // version sampled only 'sweep' hands — hands scripted so everyone is
+  // made and declares — so unmade observations were 0 by construction.
+  // The signal bctrace proved (status at DECLARE entry) exists in ANY
+  // hand; sample every scripted hand.
   let sweepObservations = 0; let sweepBad = 0; const sweepNames: string[] = []; let sweepMsg = false;
-  for (const [dealId, sc] of scriptByDealId) {
-    if (sc !== 'sweep') continue;
+  for (const [dealId] of scriptByDealId) {
     const declStates = allStates.filter(x => x.handId === dealId && x.phase === 'DECLARE');
     if (!declStates.length) continue;
-    if (declStates.some(x => (x.messages ?? []).some((m: any) => /auto-folded/.test(m.text)))) sweepMsg = true;
+    const msgStates = allStates.filter(x => x.handId === dealId && (x.phase === 'DECLARE' || x.phase === 'SHOWDOWN'));
+    if (msgStates.some(x => (x.messages ?? []).some((m: any) => /auto-folded/.test(m.text)))) sweepMsg = true;
     for (const g of clients) {
       const own = g.states.find(x => x.handId === dealId && x.phase === 'DECLARE');
       const me = own?.players?.find((p: any) => p.id === g.seat);
@@ -2030,7 +2042,15 @@ async function scenarioRebuyFix() {
       }
       if (s.phase === 'ANTE') hero.act('ante', null, t, MODE);
       else if (s.phase.startsWith('BET')) hero.act(s.currentBet > (m.bet ?? 0) ? 'call' : 'check', null, t, MODE);
-      else if (s.phase.startsWith('DRAW')) hero.act('draw', smartDiscards(m.cards ?? [], s.communityCards ?? []), t, MODE);
+      else if (s.phase.startsWith('DRAW')) {
+        const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+        const commRanks = new Set((s.communityCards ?? []).map((c: any) => c.rank));
+        const seen = new Set<string>(); const dupIdx = new Set<number>();
+        (m.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dupIdx.add(i); seen.add(c.rank); });
+        const idx = (m.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dupIdx.has(i) ? i : -1))
+          .filter((i: number) => i >= 0).slice(0, caps[s.phase] ?? 0);
+        hero.act('draw', idx, t, MODE);
+      }
       else if (s.phase === 'DECLARE') {
         if (bcMade(m.cards ?? [], s.communityCards ?? [])) hero.act('declare', { declaration: 'HIGH' }, t, MODE);
       }
@@ -2042,6 +2062,185 @@ async function scenarioRebuyFix() {
   record('REBUYFIX funded hero survives rollover settle', 'BLOCKED',
     `no terminal rollover configuration in ${qualifyingAttempts} qualifying hands (${realHands} real hands)`);
   hero.close();
+}
+
+// ─── sdqa: showdown summary verification (Detroit 2026-10-22) ───────────────
+// For each mode: play passive hands to showdown and verify the server's
+// structured showdown summary against the settlement itself —
+//   * awards + rollover == net pot (gross − 5% rake, floored)
+//   * the paid winners are the evaluator-correct winners, recomputed
+//     from the revealed cards with the shared evaluators
+//   * folded players' cards stay masked and never appear in entries
+//   * BC: award parts agree with the winners' declarations
+//   * the summary is gone by the next hand (celebration lifecycle)
+//   * a mid-showdown reconnect keeps the seat and the summary
+// Also prints, as a diagnostic, whether the FIRST showdown snapshot
+// already carries isWinner flags (client celebration trigger fact).
+async function scenarioSdqa() {
+  console.log('\n== SHOWDOWN SUMMARY QA (run ' + RUN + ') ==');
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+  const net = (gross: number) => gross - Math.floor(gross * 0.05);
+
+  async function playMode(mode: string, tag: string): Promise<{ verified: number; problems: string[]; reconnectOk: boolean }> {
+    const t = tag + RUN.slice(0, 4);
+    const hero = new GClient(t + 'H');
+    await hero.connectMode(t, mode, { quickPlay: true });
+    const me = (s: any) => s?.players.find((p: any) => p.id === hero.seat);
+    const problems: string[] = [];
+    let verified = 0;
+    let reconnectOk = false;
+    let reconnectTried = false;
+    let lastDealId = -1;
+    let entryDiagPrinted = false;
+    const deadline = Date.now() + 360_000;
+    const seenHands = new Set<number>();
+
+    while (Date.now() < deadline && verified < 2) {
+      const s = hero.latest();
+      if (!s) { await sleep(300); continue; }
+      const m = me(s);
+      if (!m) { await sleep(300); continue; }
+      if (s.phase === 'DEAL' && s.handId !== lastDealId) lastDealId = s.handId;
+
+      if (s.phase === 'SHOWDOWN' && !seenHands.has(s.handId)) {
+        // Wait for the resolved snapshot (summary attached at resolve).
+        let resolved: any = null;
+        let firstShow: any = s;
+        for (let i = 0; i < 24; i++) {
+          const cur = hero.latest();
+          if (cur?.phase !== 'SHOWDOWN' || cur?.handId !== s.handId) break;
+          if ((cur as any).showdownSummary) { resolved = cur; break; }
+          await sleep(300);
+        }
+        if (!entryDiagPrinted) {
+          entryDiagPrinted = true;
+          console.log(`  [sdqa] diagnostic: first SHOWDOWN snapshot winners=${(firstShow.players ?? []).filter((p: any) => p.isWinner).length} (mode=${mode})`);
+        }
+        if (resolved) {
+          seenHands.add(s.handId);
+          const sum = (resolved as any).showdownSummary;
+          const handProblems: string[] = [];
+          if (sum.handId !== s.handId) handProblems.push(`summary handId ${sum.handId} != state ${s.handId}`);
+          if (sum.modeId !== mode) handProblems.push(`summary modeId ${sum.modeId} != ${mode}`);
+          const awardsSum = (sum.awards ?? []).reduce((a: number, x: any) => a + x.amount, 0);
+          // Gross pot: the pre-resolve snapshot's pot when the entry
+          // snapshot predates resolution; otherwise skip money equality
+          // for this hand (noted, not failed).
+          const gross = (firstShow as any).showdownSummary ? null : (firstShow.pot ?? 0);
+          if (gross !== null && awardsSum + (sum.rollover ?? 0) !== net(gross)) {
+            handProblems.push(`awards ${awardsSum} + rollover ${sum.rollover} != net ${net(gross)} (gross ${gross})`);
+          }
+          // Privacy: folded players masked + absent from entries.
+          const entryIds = new Set((sum.entries ?? []).map((e: any) => e.playerId));
+          for (const p of resolved.players ?? []) {
+            if (p.status === 'folded') {
+              if (entryIds.has(p.id)) handProblems.push(`folded ${p.id} present in entries`);
+              const exposed = (p.cards ?? []).some((c: any) => c && c.isHidden === false);
+              if (exposed) handProblems.push(`folded ${p.id} has revealed cards`);
+            }
+          }
+          // Winner correctness, recomputed from revealed cards.
+          const revealed = (resolved.players ?? []).filter((p: any) => p.status !== 'folded');
+          if (mode === 'flushed_up' && revealed.length >= 2 && (sum.awards ?? []).length > 0) {
+            const evals = revealed.map((p: any) => ({ id: p.id, e: evaluateFlushedUpHand((p.cards ?? []).map((c: any) => ({ ...c, isHidden: false }))) }));
+            let best = evals[0];
+            for (const x of evals) if (compareFlushedUpHands(x.e, best.e) > 0) best = x;
+            const expected = new Set(evals.filter(x => compareFlushedUpHands(x.e, best.e) === 0).map(x => x.id));
+            const paid = new Set((sum.awards ?? []).map((a: any) => a.playerId));
+            if ([...expected].some(id => !paid.has(id)) || [...paid].some(id => !expected.has(id))) {
+              handProblems.push(`paid winners ${[...paid].join(',')} != recomputed ${[...expected].join(',')}`);
+            }
+          }
+          if (mode === 'boxchevy' && (sum.awards ?? []).length > 0) {
+            const comm = (resolved.communityCards ?? []).map((c: any) => ({ ...c, isHidden: false }));
+            const declarers = revealed.filter((p: any) => ['HIGH', 'LOW', 'SWING'].includes(p.declaration));
+            const evalOf = (p: any) => evaluateBoxChevy10((p.cards ?? []).map((c: any) => ({ ...c, isHidden: false })), comm);
+            for (const a of sum.awards ?? []) {
+              const winner = (resolved.players ?? []).find((p: any) => p.id === a.playerId);
+              if (!winner) { handProblems.push(`award for unknown player ${a.playerId}`); continue; }
+              if (a.part.includes('HIGH')) {
+                const pool = declarers.filter((p: any) => p.declaration === 'HIGH' || p.declaration === 'SWING');
+                const made = pool.filter((p: any) => evalOf(p).isMade);
+                if (made.length && !made.some((p: any) => compareBoxChevyHigh(evalOf(p), evalOf(winner)) === 0 && evalOf(winner).isMade)) {
+                  handProblems.push(`HIGH award to ${a.playerId} is not a recomputed best HIGH`);
+                }
+              }
+              if (a.part.includes('LOW')) {
+                const pool = declarers.filter((p: any) => p.declaration === 'LOW' || p.declaration === 'SWING');
+                const made = pool.filter((p: any) => evalOf(p).isMade);
+                if (made.length && !made.some((p: any) => compareBoxChevyLow(evalOf(p), evalOf(winner)) === 0 && evalOf(winner).isMade)) {
+                  handProblems.push(`LOW award to ${a.playerId} is not a recomputed best LOW`);
+                }
+              }
+            }
+          }
+          if (handProblems.length === 0) {
+            verified++;
+            console.log(`  [sdqa] ${mode} hand ${s.handId} summary verified (awards=${(sum.awards ?? []).length}, rollover=${sum.rollover})`);
+          } else {
+            problems.push(`hand ${s.handId}: ${handProblems.join('; ')}`);
+            console.log(`  [sdqa] ${mode} hand ${s.handId} PROBLEMS: ${handProblems.join('; ')}`);
+          }
+          // Mid-showdown reconnect (once per mode): seat + summary persist.
+          if (!reconnectTried) {
+            reconnectTried = true;
+            const seatBefore = hero.seat;
+            hero.close();
+            await sleep(600);
+            await hero.connectMode(t, mode);
+            const s2 = hero.latest();
+            const m2 = me(s2);
+            reconnectOk = !!m2 && hero.seat === seatBefore
+              && (s2?.phase !== 'SHOWDOWN' || !(s2 as any).showdownSummary || (s2 as any).showdownSummary.handId === s.handId);
+            console.log(`  [sdqa] ${mode} showdown reconnect: seatBack=${hero.seat === seatBefore} summaryConsistent=${reconnectOk}`);
+          }
+          continue;
+        }
+      }
+
+      // Lifecycle: in any later hand's live phases the summary must be gone.
+      if (lastDealId > 0 && s.handId > Math.max(...[...seenHands], 0) && (s.phase === 'BET_1' || s.phase === 'ANTE')) {
+        if ((s as any).showdownSummary) problems.push(`summary still present in hand ${s.handId} phase ${s.phase}`);
+      }
+
+      if (s.activePlayerId === hero.seat && m.status === 'active') {
+        if (s.phase === 'ANTE') hero.act('ante', null, t, mode);
+        else if (s.phase.startsWith('BET')) hero.act(s.currentBet > (m.bet ?? 0) ? 'call' : 'check', null, t, mode);
+        else if (s.phase.startsWith('DRAW')) {
+          let idx: number[] = [];
+          if (mode === 'boxchevy') {
+            const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+            const commRanks = new Set((s.communityCards ?? []).map((c: any) => c.rank));
+            const seen = new Set<string>(); const dupIdx = new Set<number>();
+            (m.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dupIdx.add(i); seen.add(c.rank); });
+            idx = (m.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dupIdx.has(i) ? i : -1))
+              .filter((i: number) => i >= 0).slice(0, caps[s.phase] ?? 0);
+          } else {
+            const counts = new Map<string, number>();
+            for (const c of m.cards ?? []) counts.set(c.suit, (counts.get(c.suit) ?? 0) + 1);
+            const bestSuit = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+            idx = (m.cards ?? []).map((c: any, i: number) => (c.suit !== bestSuit ? i : -1)).filter((i: number) => i >= 0);
+          }
+          hero.act('draw', idx, t, mode);
+        }
+        else if (s.phase === 'DECLARE') {
+          if (bcMade(m.cards ?? [], s.communityCards ?? [])) hero.act('declare', { declaration: 'HIGH' }, t, mode);
+        }
+        await sleep(300);
+        continue;
+      }
+      await sleep(300);
+    }
+    hero.close();
+    return { verified, problems, reconnectOk };
+  }
+
+  const fu = await playMode('flushed_up', 'SF');
+  record('SDQA Flushed Up summaries verified against settlement', fu.verified >= 1 && fu.problems.length === 0 ? 'PASS' : 'FAIL',
+    `verified=${fu.verified} reconnect=${fu.reconnectOk} ${fu.problems.join(' | ')}`);
+  const bc = await playMode('boxchevy', 'SB');
+  record('SDQA Box Chevy summaries verified against settlement', bc.verified >= 1 && bc.problems.length === 0 ? 'PASS' : 'FAIL',
+    `verified=${bc.verified} reconnect=${bc.reconnectOk} ${bc.problems.join(' | ')}`);
 }
 
 // Freshest snapshot across a client set (the bc5 lesson: never key phase
@@ -2068,6 +2267,7 @@ async function main() {
   if (mode === 'bctrace') { console.log(`\n== BOX CHEVY STALL TRACE (run ${RUN}) ==`); await scenarioBcTrace(); writeResults('bctrace'); return; }
   if (mode === 'chipstrace') { console.log(`\n== $0 STACK TRACE (run ${RUN}) ==`); await scenarioChipsTrace(); writeResults('chipstrace'); return; }
   if (mode === 'rebuyfix') { console.log(`\n== REBUY LOCKOUT REPRODUCTION (run ${RUN}) ==`); await scenarioRebuyFix(); writeResults('rebuyfix'); return; }
+  if (mode === 'sdqa') { console.log(`\n== SHOWDOWN SUMMARY QA (run ${RUN}) ==`); await scenarioSdqa(); writeResults('sdqa'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();

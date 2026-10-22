@@ -373,15 +373,53 @@ export const BoxChevyMode: GameMode = {
     );
     const sidePots = sidePotsForShowdown(finalPlayers, pot, active.map(p => p.id));
 
+    // Declarations audit (Detroit 2026-10-22): who reached DECLARE and
+    // what became of them, from the authoritative input states.
+    const declarations = players
+      .filter(p => p.cards.length > 0 || p.declaration != null)
+      .map(p => ({
+        playerId: p.id,
+        declaration: p.declaration ?? null,
+        outcome:
+          p.declaration === 'HIGH' || p.declaration === 'LOW' || p.declaration === 'SWING' ? 'declared'
+          : p.declaration === 'FOLD' ? 'timed out — folded'
+          : (p as any).foldReason === 'declare-auto-invalid' ? 'auto-folded (no made hand)'
+          : p.status === 'folded' ? 'folded before declare'
+          : 'in hand',
+      }));
+
     if (active.length === 0) {
-      return { players: finalPlayers, pot, messages: ['No declarers — pot rolls over'] };
+      return {
+        players: finalPlayers, pot, messages: ['No declarers — pot rolls over'],
+        summary: {
+          modeId: 'boxchevy',
+          headline: `No declarers — $${pot} rolls over`,
+          awards: [],
+          entries: [],
+          comparisons: ['No player could declare — every remaining hand was unmade or folded at DECLARE, so the whole pot rolls to the next hand.'],
+          declarations,
+          rollover: pot,
+        },
+      };
     }
     if (active.length === 1) {
       const sole = active[0];
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
       finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
       messages.push(`${sole.name} wins $${pot} — last one standing`);
-      return { players: finalPlayers, pot: 0, messages };
+      const soleEval = evaluateBoxChevy10(sole.cards, comm);
+      return {
+        players: finalPlayers, pot: 0, messages,
+        summary: {
+          modeId: 'boxchevy',
+          headline: `${sole.name} wins $${pot} — last one standing`,
+          awards: [{ playerId: sole.id, amount: pot, part: 'SOLE', reason: `Last one standing — the only player who declared ${sole.declaration ?? ''}`.trim() }],
+          entries: [{ playerId: sole.id, description: soleEval.desc, made: soleEval.isMade }],
+          comparisons: [],
+          declarations,
+          rollover: 0,
+        },
+      };
     }
 
     const evalMap = new Map<string, BoxChevy10Eval>();
@@ -435,7 +473,82 @@ export const BoxChevyMode: GameMode = {
     const awardedPot = Object.values(deltas).reduce((s, v) => s + v, 0);
     const remainingPot = pot - awardedPot;
     if (remainingPot > 0) messages.push(`No qualifying hands — $${remainingPot} rolls over`);
-    return { players: result, pot: remainingPot, messages };
+
+    // Structured summary (Detroit 2026-10-22) — from this settlement's
+    // own resolution: deltas, winner sets, and the approved comparators.
+    const nameOf = (id: string) => finalPlayers.find(p => p.id === id)?.name ?? id;
+    const partReason = (part: 'HIGH' | 'LOW'): string | null => {
+      const pool = active.filter(p =>
+        part === 'HIGH'
+          ? (p.declaration === 'HIGH' || p.declaration === 'SWING')
+          : (p.declaration === 'LOW' || p.declaration === 'SWING'));
+      const made = pool.filter(p => evalMap.get(p.id)!.isMade);
+      if (pool.length === 0) return null;
+      if (made.length === 0) return `${part}: no made hand among the ${part} declarers — that side does not pay.`;
+      const winners = part === 'HIGH' ? findHighWinners(pool) : findLowWinners(pool);
+      if (winners.length === 0) return null;
+      const w = evalMap.get(winners[0].id)!;
+      if (winners.length > 1) return `${part}: tied — identical 10-card sequences (${w.desc}) — split.`;
+      const rest = made.filter(p => p.id !== winners[0].id);
+      if (rest.length === 0) return `${part}: ${nameOf(winners[0].id)} holds the only made ${part} hand (${w.desc}).`;
+      const cmp = part === 'HIGH' ? compareBoxChevyHigh : compareBoxChevyLow;
+      let runner = rest[0];
+      for (const p of rest) if (cmp(evalMap.get(p.id)!, evalMap.get(runner.id)!) > 0) runner = p;
+      const r = evalMap.get(runner.id)!;
+      const seqW = part === 'HIGH' ? w.highSeq : w.lowSeq;
+      const seqR = part === 'HIGH' ? r.highSeq : r.lowSeq;
+      let i = 0;
+      while (i < 10 && seqW[i] === seqR[i]) i++;
+      const where = part === 'HIGH' ? `card ${i + 1} from the bottom` : `card ${i + 1} from the top`;
+      const verb = part === 'HIGH' ? 'over' : 'under';
+      return `${part}: ${nameOf(winners[0].id)} (${w.desc}) beats ${nameOf(runner.id)} (${r.desc}) — decided at ${where}: ${rankLabel(seqW[i])} ${verb} ${rankLabel(seqR[i])}.`;
+    };
+    const highReason = partReason('HIGH');
+    const lowReason = partReason('LOW');
+    const comparisons: string[] = [];
+    if (highReason) comparisons.push(highReason);
+    if (lowReason) comparisons.push(lowReason);
+    const scoopIds = [...resolution.scoopWinnerIds];
+    for (const id of scoopIds) {
+      comparisons.push(`SWING: ${nameOf(id)} is the sole best HIGH and the sole best LOW — takes both sides.`);
+    }
+    if (remainingPot > 0) {
+      comparisons.push(`No qualifying hand for the remaining $${remainingPot} — it rolls over to the next hand.`);
+    }
+    const awards = Object.entries(deltas).map(([id, amount]) => {
+      const parts: string[] = [];
+      if (resolution.scoopWinnerIds.has(id)) parts.push('SWING');
+      else {
+        if (resolution.highWinnerIds.has(id)) parts.push('HIGH');
+        if (resolution.lowWinnerIds.has(id)) parts.push('LOW');
+      }
+      const part = parts.join(' + ') || 'POT';
+      const reason =
+        part === 'SWING' ? `Sole best HIGH and sole best LOW (declared SWING).`
+        : part === 'HIGH' ? (highReason ?? 'Best HIGH hand.')
+        : part === 'LOW' ? (lowReason ?? 'Best LOW hand.')
+        : [highReason, lowReason].filter(Boolean).join(' ');
+      return { playerId: id, amount, part, reason };
+    });
+    const winnerNames = awards.map(a => nameOf(a.playerId));
+    const headline =
+      awards.length === 1
+        ? (awards[0].part === 'SWING' ? `${winnerNames[0]} SWINGS $${awards[0].amount}` : `${winnerNames[0]} wins $${awards[0].amount}`)
+        : `Split pot — ${winnerNames.join(' & ')}`;
+    const summary = {
+      modeId: 'boxchevy',
+      headline,
+      awards,
+      entries: active.map(p => ({
+        playerId: p.id,
+        description: evalMap.get(p.id)!.desc,
+        made: evalMap.get(p.id)!.isMade,
+      })),
+      comparisons,
+      declarations,
+      rollover: remainingPot,
+    };
+    return { players: result, pot: remainingPot, messages, summary };
   },
 
   getNextPhase: undefined,

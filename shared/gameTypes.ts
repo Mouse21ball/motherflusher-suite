@@ -161,6 +161,12 @@ export interface GameState {
    *  engines when contributions diverge). Computed with the same helper
    *  the payout path uses; never an input to resolution. */
   sidePots?: { amount: number; eligiblePlayerIds: string[] }[];
+  /** Structured showdown summary, built by the mode's resolveShowdown
+   *  from its settlement result (Detroit 2026-10-22). Present only
+   *  during SHOWDOWN; cleared when the next hand begins. Display data
+   *  only — never an input to resolution. See
+   *  shared/modes/showdownSummary.ts. */
+  showdownSummary?: import('./modes/showdownSummary').ShowdownSummary | null;
 }
 
 // ─── GameMode interface ───────────────────────────────────────────────────────
@@ -202,7 +208,7 @@ export interface GameMode {
     pot: number,
     myId: string,
     communityCards?: CardType[]
-  ) => { players: Player[]; pot: number; messages: string[] };
+  ) => { players: Player[]; pot: number; messages: string[]; summary?: Omit<import('./modes/showdownSummary').ShowdownSummary, 'handId'> };
 
   getNextPhase?: (currentPhase: GamePhase, state: GameState) => GamePhase | null;
   checkAutoStay?: (state: GameState, playerId: string) => boolean;
