@@ -1961,6 +1961,7 @@ async function scenarioRebuyFix() {
   const MODE = 'boxchevy';
   const t = 'RB' + RUN.slice(0, 4);
   const hero = new GClient(t + 'H');
+  await hero.bootstrap();
   await hero.connectMode(t, MODE);
   const me = (s: any) => s?.players.find((p: any) => p.id === hero.seat);
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -2084,7 +2085,8 @@ async function scenarioSdqa() {
   async function playMode(mode: string, tag: string): Promise<{ verified: number; problems: string[]; reconnectOk: boolean }> {
     const t = tag + RUN.slice(0, 4);
     const hero = new GClient(t + 'H');
-    await hero.connectMode(t, mode, { quickPlay: true });
+    await hero.bootstrap();
+    await hero.connectMode(t, mode, undefined, true);
     const me = (s: any) => s?.players.find((p: any) => p.id === hero.seat);
     const problems: string[] = [];
     let verified = 0;
@@ -2187,7 +2189,7 @@ async function scenarioSdqa() {
             const seatBefore = hero.seat;
             hero.close();
             await sleep(600);
-            await hero.connectMode(t, mode);
+            await hero.connectMode(t, mode, undefined, true);
             const s2 = hero.latest();
             const m2 = me(s2);
             reconnectOk = !!m2 && hero.seat === seatBefore
