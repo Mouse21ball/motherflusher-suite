@@ -2088,6 +2088,160 @@ async function scenarioRebuyFix() {
   finish('BLOCKED', `no decisive rollover configuration in ${handsDone} completed hands`);
 }
 
+// ─── bcchain: 10-hand continuity without a second START (Detroit 2026-10-22) ─
+// Five humans, one table. 'start' is sent only to open the FIRST hand —
+// never again. Detroit's stabilization requirement: a seated table must
+// chain hands on its own through settles, including no-winner rollovers.
+// Scripts cycle play / sweep (stand pat — hunts all-unmade rollovers) /
+// fold (a designated funded human folds; they must be dealt the next hand).
+async function scenarioBcChain() {
+  const MODE = 'box_chevy';
+  const t = tid('K5');
+  const clients: GClient[] = [];
+  for (let i = 0; i < 5; i++) { const g = new GClient(RUN, i + 1); await g.bootstrap(); clients.push(g); }
+  try {
+    await api('POST', '/api/tables', clients[0], { tableId: t, modeId: MODE, hostId: clients[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false });
+  } catch { /* record exists or not — same as bc5 */ }
+  for (const g of clients) await g.connectMode(t, MODE);
+
+  const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  const drawIdx = (me: any, comm: any[], cap: number) => {
+    const commRanks = new Set(comm.map((c: any) => c.rank));
+    const counts = new Map<string, number>();
+    for (const c of me.cards) counts.set(c.rank, (counts.get(c.rank) ?? 0) + 1);
+    const idx: number[] = [];
+    me.cards.forEach((c: any, i: number) => {
+      if (idx.length >= cap) return;
+      if (commRanks.has(c.rank) || (counts.get(c.rank) ?? 0) > 1) idx.push(i);
+    });
+    return idx;
+  };
+
+  const scripts = ['play', 'sweep', 'fold', 'sweep', 'play', 'sweep', 'play', 'sweep', 'fold', 'sweep'];
+  const acted = new Map<string, string>();
+  const seenDeals = new Set<number>();
+  let firstDealSeen = false;
+  let lastStartSent = 0;
+  let startsPreGame = 0;
+  let handIdx = -1;
+  let curDeal = -1;
+  let showdownSeenFor = -1;
+  let statesAtShowdown = 0;
+  let qualifiedFor = -1;
+  let handsCompleted = 0;
+  let rollovers = 0;
+  let qualified = 0;
+  let folderSeat: string | null = null;
+  let folderClient: GClient | null = null;
+  let foldDealId = -1;
+  let folderDealtNext: boolean | null = null;
+  let waitingSince: number | null = null;
+  let maxWaitingMs = 0;
+  let lastPhaseKey = '';
+  let lastPhaseAt = Date.now();
+  const deadline = Date.now() + 780_000;
+
+  while (Date.now() < deadline && handsCompleted < 10) {
+    const s = clients[0].latest();
+    if (!s) { await sleep(250); continue; }
+    const phaseKey = `${s.handId}:${s.phase}:${s.activePlayerId}`;
+    if (phaseKey !== lastPhaseKey) { lastPhaseKey = phaseKey; lastPhaseAt = Date.now(); }
+    else if (Date.now() - lastPhaseAt > 60000 && s.phase !== 'WAITING' && s.phase !== 'SHOWDOWN') {
+      console.log(`  [bcchain] STALL 60s at ${phaseKey}`);
+      break;
+    }
+
+    if (s.phase === 'WAITING') {
+      if (!firstDealSeen) {
+        if (Date.now() - lastStartSent > 4000) { lastStartSent = Date.now(); startsPreGame++; clients[0].act('start', null, t, MODE); }
+      } else if (waitingSince === null) waitingSince = Date.now();
+    } else if (waitingSince !== null) {
+      maxWaitingMs = Math.max(maxWaitingMs, Date.now() - waitingSince);
+      waitingSince = null;
+    }
+
+    if (s.phase === 'DEAL' && !seenDeals.has(s.handId)) {
+      seenDeals.add(s.handId);
+      firstDealSeen = true;
+      curDeal = s.handId;
+      handIdx++;
+      if (scripts[handIdx % scripts.length] === 'fold') {
+        folderClient = clients[4];
+        folderSeat = folderClient.seat;
+        foldDealId = s.handId;
+      }
+      console.log(`  [bcchain] hand ${handIdx + 1} dealId=${s.handId} script=${scripts[handIdx % scripts.length]}`);
+    }
+
+    // Settle transition for the current hand: read the SETTLE BROADCAST
+    // itself (first post-showdown snapshot in the recorded stream) —
+    // its pot is the pristine carry, before any next-hand ante lands.
+    if (showdownSeenFor === curDeal && curDeal > 0) {
+      const states = (clients[0] as any).states as any[];
+      const settleSnap = states.slice(statesAtShowdown).find(x => x.handId === curDeal && x.phase !== 'SHOWDOWN');
+      if (settleSnap) {
+        handsCompleted++;
+        if ((settleSnap.pot ?? 0) > 0) { rollovers++; console.log(`  [bcchain] hand ${handIdx + 1} settled: ROLLOVER pot=${settleSnap.pot}`); }
+        else console.log(`  [bcchain] hand ${handIdx + 1} settled: pot awarded`);
+        showdownSeenFor = -1;
+      }
+    }
+    if (s.phase === 'SHOWDOWN' && curDeal > 0 && showdownSeenFor !== curDeal) {
+      showdownSeenFor = curDeal;
+      statesAtShowdown = ((clients[0] as any).states as any[]).length;
+      if (qualifiedFor !== curDeal && ((s.players ?? []).some((p: any) => p.isWinner) || ((s as any).showdownSummary?.awards?.length ?? 0) > 0)) {
+        qualifiedFor = curDeal;
+        qualified++;
+      }
+    }
+
+    // Folder continuation: in the hand AFTER the fold hand, the folder
+    // must be dealt five cards of their own.
+    if (folderClient && foldDealId > 0 && curDeal > foldDealId && folderDealtNext === null) {
+      const fs = folderClient.latest();
+      const meF = fs?.players?.find((p: any) => p.id === folderSeat);
+      if (fs && fs.handId >= curDeal && meF) {
+        folderDealtNext = (meF.cards?.length ?? 0) === 5 && meF.status !== 'sitting_out';
+        console.log(`  [bcchain] folder continuation: dealt=${folderDealtNext} status=${meF.status} cards=${meF.cards?.length ?? 0}`);
+      }
+    }
+
+    const script = scripts[Math.max(0, handIdx) % scripts.length];
+    for (const g of clients) {
+      const gs = g.latest(); if (!gs) continue;
+      const me = gs.players.find((p: any) => p.id === g.seat); if (!me) continue;
+      const key = `${gs.handId}:${gs.phase}:${gs.activePlayerId}`;
+      if (gs.phase === 'ANTE' && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key); g.act('ante', null, t, MODE);
+      } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key);
+        const idx = script === 'play' ? drawIdx(me, gs.communityCards, caps[gs.phase] ?? 0) : [];
+        g.act('draw', idx, t, MODE);
+      } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key);
+        if (script === 'fold' && gs.phase === 'BET_1' && folderSeat && g.seat === folderSeat) g.act('fold', null, t, MODE);
+        else if ((gs.currentBet ?? 0) > (me.bet ?? 0)) g.act('call', null, t, MODE);
+        else g.act('check', null, t, MODE);
+      } else if (gs.phase === 'DECLARE' && gs.activePlayerId === g.seat && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key);
+        if (bcMade(me.cards, gs.communityCards)) g.act('declare', 'HIGH', t, MODE);
+      }
+    }
+    await sleep(200);
+  }
+
+  record('BCCHAIN 10 consecutive hands without a second START',
+    handsCompleted >= 10 ? 'PASS' : 'FAIL',
+    `hands=${handsCompleted} startsPreGame=${startsPreGame} maxWaitingMs=${maxWaitingMs}`);
+  record('BCCHAIN at least 3 no-winner rollover transitions',
+    rollovers >= 3 ? 'PASS' : 'FAIL', `rollovers=${rollovers}`);
+  record('BCCHAIN at least 2 qualifying showdowns',
+    qualified >= 2 ? 'PASS' : 'FAIL', `qualified=${qualified}`);
+  record('BCCHAIN folded funded human is dealt the next hand',
+    folderDealtNext === true ? 'PASS' : 'FAIL', `folderDealtNext=${folderDealtNext}`);
+  for (const g of clients) g.disconnect();
+}
+
 // ─── sdqa: showdown summary verification (Detroit 2026-10-22) ───────────────
 // For each mode: play passive hands to showdown and verify the server's
 // structured showdown summary against the settlement itself —
@@ -2304,6 +2458,7 @@ async function main() {
   if (mode === 'chipstrace') { console.log(`\n== $0 STACK TRACE (run ${RUN}) ==`); await scenarioChipsTrace(); writeResults('chipstrace'); return; }
   if (mode === 'rebuyfix') { console.log(`\n== REBUY LOCKOUT REPRODUCTION (run ${RUN}) ==`); await scenarioRebuyFix(); writeResults('rebuyfix'); return; }
   if (mode === 'sdqa') { console.log(`\n== SHOWDOWN SUMMARY QA (run ${RUN}) ==`); await scenarioSdqa(); writeResults('sdqa'); return; }
+  if (mode === 'bcchain') { console.log(`\n== BC CONTINUITY CHAIN (run ${RUN}) ==`); await scenarioBcChain(); writeResults('bcchain'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();

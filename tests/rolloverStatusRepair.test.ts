@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CardType, GameState, Player } from '../shared/gameTypes';
 import { BoxChevyMode } from '../shared/modes/boxchevy';
 import { BoxChevyEngine } from '../server/boxChevyEngine';
-import { resetToAnte } from '../server/genericEngine';
+import { getOrCreateTable, handleGenericAction, resetToAnte } from '../server/genericEngine';
 import { storage } from '../server/storage';
 
 function card(rank: string, suit: string): CardType {
@@ -109,7 +109,11 @@ describe('rollover settle status repair', () => {
     expect((table.state.messages ?? []).some(m => /Rebuy before starting/.test(m.text))).toBe(false);
   });
 
-  it('leaves a folded BOT parked (bot behavior unchanged)', async () => {
+  it('reactivates a folded BOT participant too (stabilization participant rule)', async () => {
+    // The first repair reactivated only the human, which silenced the
+    // zero-active safety and stranded the table with one eligible
+    // player (Detroit's Galaxy session, 2026-10-22). A bot that was
+    // dealt into the hand is a participant, not a sit-out.
     vi.useFakeTimers();
     mockStorage();
     const table = makeTable([
@@ -118,8 +122,48 @@ describe('rollover settle status repair', () => {
       makePlayer('botB', 'bot', 'folded', 10000),
     ], { pot: 500, funded: ['hero'] });
     await resetToAnte(table as never);
-    expect(table.state.players.find(p => p.id === 'botB')!.status).toBe('sitting_out');
+    expect(table.state.players.find(p => p.id === 'botB')!.status).toBe('active');
     expect(table.state.players.find(p => p.id === 'hero')!.status).toBe('active');
+  });
+
+  it("Detroit's exact case: hero + both bots folded in a 758 rollover — table continues to ANTE", async () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const table = makeTable([
+      makePlayer('hero', 'human', 'folded', 9975),
+      makePlayer('botA', 'bot', 'folded', 10000),
+      makePlayer('botB', 'bot', 'folded', 10000),
+    ], { pot: 758, funded: ['hero'] });
+    await resetToAnte(table as never);
+    expect(table.state.phase).toBe('ANTE');
+    for (const p of table.state.players) expect(p.status).toBe('active');
+  });
+
+  it('a bot that SAT OUT the rollover hand stays parked', async () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const table = makeTable([
+      makePlayer('hero', 'human', 'folded', 9975),
+      makePlayer('botA', 'bot', 'folded', 10000),
+      makePlayer('botB', 'bot', 'sitting_out', 10000),
+    ], { pot: 500, funded: ['hero'] });
+    await resetToAnte(table as never);
+    expect(table.state.players.find(p => p.id === 'botB')!.status).toBe('sitting_out');
+    expect(table.state.phase).toBe('ANTE');
+  });
+
+  it('a busted participant bot is restocked AND reactivated', async () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const table = makeTable([
+      makePlayer('hero', 'human', 'folded', 9975),
+      makePlayer('botA', 'bot', 'folded', 0),
+      makePlayer('botB', 'bot', 'folded', 10000),
+    ], { pot: 500, funded: ['hero'] });
+    await resetToAnte(table as never);
+    const botA = table.state.players.find(p => p.id === 'botA')!;
+    expect(botA.chips).toBe(10000);
+    expect(botA.status).toBe('active');
   });
 
   it('leaves a human who SAT OUT the hand parked (intentional sit-out respected)', async () => {
@@ -146,6 +190,21 @@ describe('rollover settle status repair', () => {
     expect(table.state.players.find(p => p.id === 'hero')!.status).toBe('sitting_out');
   });
 
+  it('zero-active safety no longer overrides an intentional sit-out (bots recover, human stays parked)', async () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const table = makeTable([
+      makePlayer('hero', 'human', 'sitting_out', 9975),
+      makePlayer('botA', 'bot', 'folded', 10000),
+      makePlayer('botB', 'bot', 'folded', 10000),
+    ], { pot: 500, funded: ['hero'] });
+    await resetToAnte(table as never);
+    expect(table.state.players.find(p => p.id === 'hero')!.status).toBe('sitting_out');
+    expect(table.state.players.find(p => p.id === 'botA')!.status).toBe('active');
+    // No funded human active → the table waits rather than dealing.
+    expect(table.state.phase).toBe('WAITING');
+  });
+
   it('normal (winner) settle behavior is unchanged: folded players reactivate', async () => {
     vi.useFakeTimers();
     mockStorage();
@@ -157,5 +216,48 @@ describe('rollover settle status repair', () => {
     await resetToAnte(table as never);
     expect(table.state.players.find(p => p.id === 'hero')!.status).toBe('active');
     expect(table.state.players.find(p => p.id === 'botB')!.status).toBe('active');
+  });
+});
+
+describe('stranded WAITING table healing (start path)', () => {
+  let seq = 0;
+  function strandedTable(funded: string[]) {
+    const tableId = `HEAL${(seq++).toString().padStart(2, '0')}X`;
+    const t = getOrCreateTable('box_chevy', tableId, false, true, { maxPlayers: 5, botsEnabled: true })!;
+    const players = [
+      makePlayer('hero', 'human', 'sitting_out', 9975),
+      makePlayer('b1', 'bot', 'sitting_out', 10000),
+      makePlayer('b2', 'bot', 'sitting_out', 10000),
+    ];
+    (t as any).state = {
+      tableId, phase: 'WAITING', pot: 758, currentBet: 0, minBet: 25, activePlayerId: null,
+      players, communityCards: [], messages: [], chatMessages: [], deck: [], discardPile: [], raisesThisRound: 0, winStreaks: {},
+    };
+    (t as any).fundedSeats = new Set(funded);
+    (t as any).seatToIdentityId = new Map([['hero', 'identity-hero']]);
+    (t as any).humanSeats = new Set(['hero']);
+    (t as any).sessionToSeat = new Map([['sess-hero', 'hero']]);
+    return t;
+  }
+
+  it('a funded tapper heals the table (own seat + parked bots) and the hand starts', () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const t = strandedTable(['hero']);
+    const r = handleGenericAction(t.tableId, 'sess-hero', 'start', undefined);
+    expect(r).toBeUndefined();
+    expect(t.state.phase).toBe('ANTE');
+    for (const p of t.state.players) expect(p.status).toBe('active');
+    expect(t.state.pot).toBe(758);
+  });
+
+  it('an UNFUNDED tapper is still refused — no healing without funding', () => {
+    vi.useFakeTimers();
+    mockStorage();
+    const t = strandedTable([]);
+    const r = handleGenericAction(t.tableId, 'sess-hero', 'start', undefined);
+    expect(r).toBe('Rebuy before starting a new hand.');
+    expect(t.state.phase).toBe('WAITING');
+    expect(t.state.players.find(p => p.id === 'hero')!.status).toBe('sitting_out');
   });
 });

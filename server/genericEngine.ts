@@ -166,6 +166,32 @@ function convertReservedToBots(table: GenericTable): void {
   table.joinWindowEndsAt = 0;
 }
 
+// Stranded-table healing (Detroit 2026-10-22): tables parked by the
+// pre-repair settle semantics can hold funded, chipped players at
+// 'sitting_out' with no path back in. Before the eligibility checks
+// on the start paths, restore exactly the seats the eligibility rule
+// itself accepts: parked BOT seats with chips (same gates as seat
+// conversion — botsEnabled, non-club), and the requesting human's
+// own seat when funded with chips (their DEAL ME IN tap is the
+// opt-in). Nobody else is touched: other humans' sit-outs, unfunded
+// seats, and chip-less seats stay parked.
+function healStrandedSeats(table: GenericTable, requestingSeatId?: string): void {
+  let changed = false;
+  const players = table.state.players.map(p => {
+    if (p.status !== 'sitting_out' || p.chips <= 0) return p;
+    if (p.presence === 'bot' && table.botsEnabled && !table.crewId) {
+      changed = true;
+      return { ...p, status: 'active' as PlayerStatus };
+    }
+    if (requestingSeatId && p.id === requestingSeatId && p.presence === 'human' && table.fundedSeats.has(p.id)) {
+      changed = true;
+      return { ...p, status: 'active' as PlayerStatus };
+    }
+    return p;
+  });
+  if (changed) table.state = { ...table.state, players };
+}
+
 // Quick-fill: immediately seat bots up to the human-count-aware cap.
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
@@ -309,6 +335,7 @@ function autoStartHand(table: GenericTable): void {
     }, 100);
     return;
   }
+  healStrandedSeats(table);
   if (!hasFundedHuman(table.state.players, table.fundedSeats)) return;
   convertReservedToBots(table);
   const freshPlayers = table.state.players;
@@ -1229,33 +1256,42 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
       // Per-hand draw-animation counters restart with the hand.
       lastDrawCount: undefined,
       drawSeq: 0,
-      // Rollover repair (Detroit 2026-10-22): the old branch parked
-      // everyone who wasn't active — including a funded human who
-      // merely FOLDED the hand. With no other funded human active,
-      // the table then sat in WAITING and start was rejected with
-      // "Rebuy before starting a new hand." at a healthy stack. A
-      // folded player was parked, not sitting out by choice:
-      // reactivate a funded human with chips, exactly like the
-      // normal branch. Players already sitting_out (sat the hand
-      // out, disconnected, unfunded) stay parked; bots unchanged.
+      // Rollover participant rule (Detroit 2026-10-22, stabilization
+      // package): a player who was DEALT INTO the completed hand
+      // (status 'folded' or 'active' at settle — folded, auto-folded,
+      // or still live) and still has chips returns to 'active' for
+      // the next hand, human or bot. Humans must also be funded
+      // (fundedSeats); a bot's stack is its funding (restocked
+      // above). Players at 'sitting_out' when the hand settled did
+      // not participate — intentional sit-outs, disconnected seats,
+      // and unfunded players stay parked. The first version of this
+      // repair reactivated only the human, which silenced the
+      // zero-active safety below and stranded the table in WAITING
+      // with one eligible player (Galaxy, 2026-10-22: hero active,
+      // bots parked, "At least two active players are required").
       status: (isRollover
-        ? ((p.status === 'active' && newChips > 0)
-          || (p.presence === 'human' && p.status === 'folded' && newChips > 0 && table.fundedSeats.has(p.id))
+        ? ((p.status === 'folded' || p.status === 'active') && newChips > 0
+          && (p.presence === 'bot' || (p.presence === 'human' && table.fundedSeats.has(p.id)))
           ? 'active' : 'sitting_out')
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
     };
   });
 
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
-  // If the previous hand resolved with everyone folded, the rollover branch
-  // above produces all `sitting_out` and the next hand would stall in ANTE.
-  // Detect this and fall back to non-rollover semantics: any seat with chips
-  // becomes active again so the table can deal a fresh hand.
+  // Same eligibility rule as the participant rule above, applied as a
+  // backstop: BOT seats with chips reactivate (a bot carries no
+  // sit-out intent, and a live table should not die because every
+  // participant busted or the only human is unfunded). Humans are
+  // NEVER force-reactivated here — an intentional sit-out or an
+  // unfunded seat stays parked even when nobody else is active
+  // (the previous version of this safety reactivated sat-out humans).
+  // canStartNextHand still requires a funded human, so a bots-only
+  // recovery waits in WAITING for a funded human instead of dealing.
   if (isRollover && !nextPlayers.some(p => p.status === 'active')) {
-    console.log(`[CGP][server] reset:no-active-after-rollover ${table.modeId}:${table.tableId} — reactivating eligible seats`);
+    console.log(`[CGP][server] reset:no-active-after-rollover ${table.modeId}:${table.tableId} — reactivating eligible bot seats`);
     nextPlayers = nextPlayers.map(p => ({
       ...p,
-      status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+      status: (p.presence === 'bot' && p.chips > 0 ? 'active' : p.status) as PlayerStatus,
     }));
   }
 
@@ -2535,7 +2571,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         table.actionLock = false;
         return;
       }
-      if (!hasFundedHuman(s.players, table.fundedSeats)) {
+      healStrandedSeats(table, playerId);
+      if (!hasFundedHuman(table.state.players, table.fundedSeats)) {
         table.actionLock = false;
         return 'Rebuy before starting a new hand.';
       }

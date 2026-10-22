@@ -127,7 +127,7 @@ export function getHeroHandValidity(
 
   const evaluation = evaluateBoxChevy(holeCards, communityCards);
   if (evaluation.isMade) {
-    return { status: 'valid', label: '✓ MADE HAND · 10 UNIQUE RANKS', detail: '', isValid: true, ...base };
+    return { status: 'valid', label: '✓ MADE HAND', detail: '', isValid: true, ...base };
   }
 
   // Not made: classify every duplicate honestly. Community-internal
@@ -137,24 +137,31 @@ export function getHeroHandValidity(
   const unfixable = duplicates.filter(d => d.unfixable);
   const capLeft = drawCapacityLeftFor(phase);
   const canStillFix = unfixable.length === 0 && discardsToFix <= capLeft && capLeft > 0;
+  // The exact hole cards to throw away: for a rank the board holds,
+  // every hole copy goes; for a hole-only pair, all but one go.
+  const throwRanks: string[] = [];
+  for (const d of duplicates) {
+    for (let i = 0; i < d.discardsNeeded; i++) throwRanks.push(d.rank);
+  }
+  // Live badge label: ONE compact instruction (Detroit 2026-10-22).
+  // The full explanation stays in `detail` for the tutorial and the
+  // declare-auto-fold notice — the evaluation itself is unchanged.
   let detail: string;
+  let label: string;
   if (unfixable.length > 0) {
     const names = unfixable.map(d => RANK_WORD[d.rank] ?? d.rank).join(' + ');
     detail = `BOARD HAS TWO ${names} — NO DRAW CAN FIX THIS HAND`;
+    label = 'NO MADE HAND — BOARD PAIR';
   } else if (!canStillFix) {
     detail = `NEEDS ${discardsToFix} DISCARD${discardsToFix === 1 ? '' : 'S'} — ONLY ${capLeft} LEFT`;
+    label = 'NO MADE HAND — OUT OF DRAWS';
   } else {
-    // The exact hole cards to throw away: for a rank the board holds,
-    // every hole copy goes; for a hole-only pair, all but one go.
-    const throwRanks: string[] = [];
-    for (const d of duplicates) {
-      for (let i = 0; i < d.discardsNeeded; i++) throwRanks.push(d.rank);
-    }
     detail = `DISCARD YOUR ${throwRanks.join(' + ')} — ${discardsToFix === 1 ? 'THAT FIXES IT' : 'THOSE FIX IT'}`;
+    label = `NO MADE HAND — DISCARD ${throwRanks.join(' + ')}`;
   }
   return {
     status: 'invalid',
-    label: '✗ NO MADE HAND · DUPLICATE RANK',
+    label,
     detail,
     isValid: false,
     duplicates,

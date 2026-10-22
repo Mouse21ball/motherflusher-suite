@@ -76,7 +76,10 @@ describe('Box Chevy — DECLARE honesty + qualification comms', () => {
   it('the in-table validity badge exists and uses the shared evaluator', () => {
     expect(bcTable).toContain('data-testid="box-chevy-validity-badge"');
     expect(bcTable).toContain("getHeroHandValidity('boxchevy', liveState.phase");
-    expect(bcTable).toContain('validity.detail');
+    // Stabilization (Detroit 2026-10-22): the in-table badge renders
+    // the compact label only — the detail span was removed.
+    expect(bcTable).toContain('validity.label');
+    expect(bcTable).not.toContain('{validity.detail}');
   });
 });
 

@@ -81,14 +81,40 @@ interface WinnerInfo {
   exactAmount?: number;
   /** The settlement's own reason text for this award. */
   reason?: string;
+  /** Summary-driven showdown winners only (Detroit 2026-10-22,
+   *  stabilization): the qualifying TEN cards — five hole + five
+   *  community — in the winning side's approved comparison order
+   *  (HIGH ascending, LOW descending; SWING carries both rows).
+   *  Pure presentation of showdown-snapshot data; community cards
+   *  are flagged so the two sources stay distinguishable. */
+  tenRows?: { label?: string; cards: { rank: string; suit: string; community: boolean }[] }[];
 }
 
 interface CelebrationAudit {
-  headline: string;
-  community: { rank: string; suit: string }[];
-  comparisons: string[];
-  declarations: { name: string; text: string }[];
+  /** Server-authoritative rollover amount for a no-winner hand.
+   *  The celebration renders ONLY this for no-winner hands
+   *  (Detroit 2026-10-22: no WINNER banner, no roster, no
+   *  explanatory paragraphs on the main screen). */
   rollover: number;
+}
+
+/** Box Chevy rank values for presentation ordering (Ace = 1,
+ *  King = 13 — the approved comparison values). */
+const BC_RANK_VALUE: Record<string, number> = {
+  A: 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13,
+};
+
+function orderedTen(
+  hole: { rank: string; suit: string }[],
+  comm: { rank: string; suit: string }[],
+  dir: 'asc' | 'desc',
+): { rank: string; suit: string; community: boolean }[] {
+  const all = [
+    ...hole.map(c => ({ ...c, community: false })),
+    ...comm.map(c => ({ ...c, community: true })),
+  ];
+  all.sort((a, b) => (BC_RANK_VALUE[a.rank] - BC_RANK_VALUE[b.rank]) * (dir === 'asc' ? 1 : -1));
+  return all;
 }
 
 interface CelebrationState {
@@ -407,14 +433,27 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
               const byId = new Map(livePlayers.map(p => [p.id, p]));
               const infoFor = (a: ShowdownSummary['awards'][number], side: WinnerInfo['side']): WinnerInfo => {
                 const p = byId.get(a.playerId);
+                const hole = (p?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
+                const commCards = comm.map(c => ({ rank: c.rank, suit: c.suit }));
+                const asc = orderedTen(hole, commCards, 'asc');
+                const desc = orderedTen(hole, commCards, 'desc');
+                const declaration = sum.declarations?.find(d => d.playerId === a.playerId)?.declaration ?? null;
+                let tenRows: WinnerInfo['tenRows'];
+                if (side === 'HIGH') tenRows = [{ cards: asc }];
+                else if (side === 'LOW') tenRows = [{ cards: desc }];
+                else if (side === 'SWING' || side === 'BOTH') tenRows = [{ label: 'HIGH', cards: asc }, { label: 'LOW', cards: desc }];
+                else if (declaration === 'LOW') tenRows = [{ cards: desc }];
+                else if (declaration === 'SWING') tenRows = [{ label: 'HIGH', cards: asc }, { label: 'LOW', cards: desc }];
+                else tenRows = [{ cards: asc }];
                 return {
                   name: p?.name ?? a.playerId,
                   amount: a.amount,
                   exactAmount: a.amount,
-                  cards: (p?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit })),
+                  cards: hole,
                   handLabel: sum.entries.find(e => e.playerId === a.playerId)?.description ?? '',
                   side,
                   reason: a.reason,
+                  tenRows,
                 };
               };
               let hi: WinnerInfo | null = null;
@@ -427,17 +466,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
                 else if (a.part === 'HIGH + LOW') sole = infoFor(a, 'BOTH');
                 else sole = infoFor(a, 'SOLE');
               }
-              const usedReasons = new Set(sum.awards.map(a => a.reason));
-              const audit: CelebrationAudit = {
-                headline: sum.headline,
-                community: comm.map(c => ({ rank: c.rank, suit: c.suit })),
-                comparisons: sum.comparisons.filter(c => !usedReasons.has(c)),
-                declarations: (sum.declarations ?? []).map(d => ({
-                  name: byId.get(d.playerId)?.name ?? d.playerId,
-                  text: d.declaration && d.outcome === 'declared' ? d.declaration : d.outcome,
-                })),
-                rollover: sum.rollover,
-              };
+              const audit: CelebrationAudit = { rollover: sum.rollover };
               setCelebration({ active: true, highWinner: hi, lowWinner: lo, soleWinner: sole, audit });
             } else {
               setCelebration({ active: true, highWinner, lowWinner, soleWinner, audit: null });
@@ -458,16 +487,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             const byId = new Map(livePlayers.map(p => [p.id, p]));
             setCelebration({
               active: true, highWinner: null, lowWinner: null, soleWinner: null,
-              audit: {
-                headline: sum.headline,
-                community: comm.map(c => ({ rank: c.rank, suit: c.suit })),
-                comparisons: sum.comparisons,
-                declarations: (sum.declarations ?? []).map(d => ({
-                  name: byId.get(d.playerId)?.name ?? d.playerId,
-                  text: d.declaration && d.outcome === 'declared' ? d.declaration : d.outcome,
-                })),
-                rollover: sum.rollover,
-              },
+              audit: { rollover: sum.rollover },
             });
             sfx.bigWin();
           });
@@ -877,11 +897,10 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                       <span className="text-[10px] font-mono font-bold tracking-wide" style={{ color: validity.status === 'valid' ? '#6ee7b7' : validity.status === 'invalid' ? '#fca5a5' : 'rgba(255,255,255,0.75)' }}>
                         {validity.label}
                       </span>
-                      {validity.detail && (
-                        <span className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {validity.detail}
-                        </span>
-                      )}
+                      {/* Detail text intentionally NOT rendered in-table
+                          (Detroit 2026-10-22): the compact label is the
+                          whole live instruction; the long explanation
+                          lives in the tutorial + auto-fold notice. */}
                     </div>
                   )}
                 </>
@@ -1007,17 +1026,37 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                 transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1] }}
                 className="text-center max-h-full overflow-y-auto px-4"
               >
-                <div
-                  className="font-black tracking-wider"
-                  style={{
-                    fontSize: 'clamp(40px, 10vw, 72px)',
-                    color: '#FDE68A',
-                    textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
-                    WebkitTextStroke: '2px #92400E',
-                  }}
-                >
-                  WINNER
-                </div>
+                {(state.celebration.soleWinner || state.celebration.highWinner || state.celebration.lowWinner) && (
+                  <div
+                    className="font-black tracking-wider"
+                    style={{
+                      fontSize: 'clamp(40px, 10vw, 72px)',
+                      color: '#FDE68A',
+                      textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
+                      WebkitTextStroke: '2px #92400E',
+                    }}
+                  >
+                    WINNER
+                  </div>
+                )}
+
+                {/* No-winner rollover (Detroit 2026-10-22): ONE concise
+                    authoritative line — no WINNER banner, no roster,
+                    no explanatory paragraphs. */}
+                {state.celebration.audit && !state.celebration.soleWinner && !state.celebration.highWinner && !state.celebration.lowWinner && (
+                  <div
+                    data-testid="bc-no-winner"
+                    className="font-black tracking-wider text-center"
+                    style={{
+                      fontSize: 'clamp(22px, 6vw, 34px)',
+                      color: '#FDE68A',
+                      textShadow: '0 0 24px rgba(245,158,11,0.6), 0 3px 0 #92400E, 0 6px 18px rgba(0,0,0,0.6)',
+                      WebkitTextStroke: '1px #92400E',
+                    }}
+                  >
+                    {`NO WINNER — $${state.celebration.audit.rollover.toLocaleString()} ROLLS OVER`}
+                  </div>
+                )}
 
                 {state.celebration.soleWinner && (
                   <WinnerBlock winner={state.celebration.soleWinner} />
@@ -1047,47 +1086,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   </div>
                 )}
 
-                {/* Showdown audit — server summary (Detroit 2026-10-22):
-                    community in fixed order, decisive comparisons,
-                    declarations, and any rollover. */}
-                {state.celebration.audit && (
-                  <div className="mt-5 flex flex-col items-center" data-testid="bc-showdown-audit">
-                    {!state.celebration.highWinner && !state.celebration.lowWinner && !state.celebration.soleWinner && (
-                      <div className="text-amber-200 text-base font-bold font-mono text-center max-w-[320px]">
-                        {state.celebration.audit.headline}
-                      </div>
-                    )}
-                    <div className="mt-3 text-white/50 text-[9px] font-mono tracking-widest">COMMUNITY</div>
-                    <div className="mt-1 flex gap-1.5">
-                      {state.celebration.audit.community.map((c, i) => (
-                        <PlayingCard
-                          key={`audit-comm-${i}`}
-                          card={{ rank: c.rank as any, suit: c.suit as any, isHidden: false }}
-                          className="!w-[32px] !h-[44px]"
-                        />
-                      ))}
-                    </div>
-                    {state.celebration.audit.comparisons.map((line, i) => (
-                      <div key={`audit-cmp-${i}`} className="mt-2 max-w-[330px] text-center text-amber-100/90 text-[11px] leading-snug font-mono">
-                        {line}
-                      </div>
-                    ))}
-                    {state.celebration.audit.declarations.length > 0 && (
-                      <div className="mt-3 flex flex-col items-center gap-0.5">
-                        {state.celebration.audit.declarations.map((d, i) => (
-                          <div key={`audit-decl-${i}`} className="text-white/70 text-[10px] font-mono">
-                            <span className="text-white/90 font-semibold">{d.name}</span> — {d.text}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {state.celebration.audit.rollover > 0 && (
-                      <div className="mt-2 text-amber-300 text-[11px] font-mono font-bold">
-                        ${state.celebration.audit.rollover.toLocaleString()} ROLLS OVER
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </motion.div>
             </motion.div>
           )}
@@ -1133,7 +1132,35 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
           {winner.side === 'SWING' ? 'SWING — TAKES BOTH' : winner.side === 'BOTH' ? 'HIGH + LOW — BOTH SIDES' : `${winner.side} HAND`}
         </div>
       )}
-      {winner.cards.length > 0 && (
+      {winner.tenRows && winner.tenRows.length > 0 ? (
+        <div className="mt-3 flex flex-col items-center gap-1.5">
+          {winner.tenRows.map((row, ri) => (
+            <div key={`tenrow-${ri}`} className="flex flex-col items-center">
+              {row.label && (
+                <div className="text-white/50 text-[9px] font-mono tracking-widest mb-0.5">{row.label}</div>
+              )}
+              <div className="flex gap-1">
+                {row.cards.map((card, i) => (
+                  <div
+                    key={`tencard-${ri}-${i}`}
+                    style={{
+                      boxShadow: '0 0 12px rgba(253,230,138,0.35), 0 6px 16px rgba(0,0,0,0.5)',
+                      borderRadius: '5px',
+                      border: card.community ? '2px solid rgba(148,163,184,0.75)' : '2px solid rgba(253,230,138,0.85)',
+                    }}
+                  >
+                    <PlayingCard
+                      card={{ rank: card.rank as any, suit: card.suit as any, isHidden: false }}
+                      className="!w-[28px] !h-[39px]"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="text-white/40 text-[8px] font-mono tracking-widest">GOLD = HOLE · GREY = BOARD</div>
+        </div>
+      ) : winner.cards.length > 0 && (
         <div className="mt-3 flex gap-1.5">
           {winner.cards.map((card, i) => (
             <div

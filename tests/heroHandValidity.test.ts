@@ -45,7 +45,10 @@ describe('hero live validity indicators', () => {
     const invalid = getHeroHandValidity('boxchevy', 'DECLARE', boxHole, duplicateCommunity)!;
     expect(invalid.status).toBe('invalid');
     expect(invalid.isValid).toBe(evaluateBoxChevy(boxHole, duplicateCommunity).isMade);
-    expect(invalid.label).toContain('DUPLICATE RANK');
+    // Compact label contract (Detroit 2026-10-22): at DECLARE no
+    // draws remain, so a fixable-on-paper duplicate reads OUT OF
+    // DRAWS; the evaluation assertions above are unchanged.
+    expect(invalid.label).toContain('NO MADE HAND');
   });
 
   it('gates all three indicators to live bet/draw/declaration phases only', () => {
