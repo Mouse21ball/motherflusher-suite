@@ -19,6 +19,8 @@ import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
+import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
+import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,10 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null;
   declaration: string | null;
+  /** Server-stamped fold reason ('declare-auto-invalid' = the
+   *  no-made-hand auto-fold) — drives the pod plate text. */
+  foldReason: string | null;
+  isWinner: boolean;
   avatarUrl?: string;
 }
 
@@ -89,17 +95,24 @@ interface ProtoState {
   rake: RakeState;
   celebration: CelebrationState;
   communityCards: CardType[];
+  /** Server turn deadline (epoch ms) for the active seat — drives the
+   *  per-pod timer bars (Badugi pattern). */
+  turnDeadline: number | null;
 }
 
-// Key table positions (percentages) — same as Badugi/Flushed Up
+// Key table positions (percentages) — Detroit 2026-10-22 correction
+// plan: center-aware layout. The community block (label + cards + pot
+// pill) owns a reserved center band at 50.5%; the pot pill sits at its
+// base (~57%). Flights target these anchors.
 const DEALER_POS = { x: 50, y: 4 };
-const POT_POS = { x: 50, y: 52 };
-const MUCK_POS = { x: 63, y: 44 };
-const COMMUNITY_POS = { x: 50, y: 42 }; // Detroit 2026-10-16: was 38% — cards sat too high
+const POT_POS = { x: 50, y: 57 };
+const MUCK_POS = { x: 63, y: 47 };
+const COMMUNITY_POS = { x: 50, y: 49.7 };
 
-// Card sizes — hero bigger (5 cards need to fit)
-const HERO_CARD_W = 56;
-const HERO_CARD_H = 78;
+// Card sizes — hero bigger (5 cards need to fit); community cards are
+// mini (32x44) so the five-card row fits its reserved band at 360px.
+const HERO_CARD_W = 52;
+const HERO_CARD_H = 74;
 const OPP_CARD_W = 20;
 const OPP_CARD_H = 30;
 
@@ -214,7 +227,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             const fid = addFlight({
               kind: 'card',
               fromX: DEALER_POS.x, fromY: DEALER_POS.y,
-              toX: COMMUNITY_POS.x + (c - 2) * 11, toY: COMMUNITY_POS.y,
+              toX: COMMUNITY_POS.x + (c - 2) * 10.3, toY: COMMUNITY_POS.y,
               label: '', faceDown: false, duration: 0.32, toHero: false,
             });
             sfx.dealSingle();
@@ -392,6 +405,8 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     declaration: (p as any).declaration ?? null,
+    foldReason: (p as any).foldReason ?? null,
+    isWinner: !!(p as any).isWinner,
     avatarUrl: (p as any).avatarUrl ?? undefined,
   }));
 
@@ -409,21 +424,24 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     rake,
     celebration,
     communityCards: (liveState.communityCards ?? []).slice(0, commLanded === -1 ? (liveState.communityCards ?? []).length : commLanded).map(c => ({ ...c, isHidden: false })),
+    turnDeadline: (liveState as any).turnDeadline ?? null,
   };
 }
 
 function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 88 };
-  // Detroit 2026-10-21: approved mockup v3 (b9d8d5e0) five-seat arc —
-  // four opponent spots. Side pods sit at 14% / 86% and are LIFTED to
-  // 27.5% so their backs, plates, and badges stay inside the Galaxy
-  // A15 safe area AND clear the community-card row below them (the
-  // board must remain fully readable at all times).
+  if (index === 0) return { x: 50, y: 80 }; // hero — below the center band
+  // Detroit 2026-10-22 (correction plan): center-aware ring variant.
+  // Badugi's oval ring cannot host Box Chevy: its mid/lower pods sit
+  // exactly where the five community cards must live. Opponents take a
+  // top pair + mid pair ABOVE the reserved community band (50.5%), the
+  // hero sits below it. Pod structure, tiles, plates, and timer bars
+  // are Badugi's; only the seat geography is center-aware. Geometry
+  // budget verified at 360x740 and 393x852 stage equivalents.
   const spots = [
-    { x: 14, y: 27.5 },
-    { x: 27.5, y: 16.5 },
-    { x: 72.5, y: 16.5 },
-    { x: 86, y: 27.5 },
+    { x: 27, y: 10.5 },   // Opp 1: top-left
+    { x: 73, y: 10.5 },   // Opp 2: top-right
+    { x: 18.5, y: 30.5 }, // Opp 3: mid-left
+    { x: 81.5, y: 30.5 }, // Opp 4: mid-right
   ];
   return spots[(index - 1) % spots.length];
 }
@@ -485,6 +503,14 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
     delay: Math.random() * 0.3,
   })), [state.celebration.active]);
   const bg = getSelectedBackground();
+  // Hero qualification state for the in-table validity badge — the same
+  // shared evaluator family the server's auto-fold rule uses
+  // (evaluateBoxChevy10.isMade), so the badge can never disagree with
+  // the DECLARE outcome. Null outside the visible hand phases.
+  const heroLive = liveState.players.find(p => p.id === myId);
+  const validity = heroLive
+    ? getHeroHandValidity('boxchevy', liveState.phase, heroLive.cards ?? [], liveState.communityCards ?? [])
+    : null;
 
   return (
     <div className="h-full flex flex-col relative" style={{
@@ -495,52 +521,49 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
     }}>
       {/* Detroit 2026-10-16: dark overlay removed — was reading as a "box" around the table */}
       <div className="flex-1 relative" style={{ perspective: '1200px' }}>
-        <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
-          <motion.div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
-            style={{ background: 'rgba(240,184,41,0.15)', border: '2px solid rgba(240,184,41,0.5)' }}
-            animate={{ rotate: state.phase === 'dealing' ? 360 : 0 }}
-            transition={{ duration: 2, ease: 'linear' }}
-          >
-            <span className="text-amber-300 text-[10px] font-mono">D</span>
-          </motion.div>
-        </div>
+        {/* Floating dealer marker removed (Badugi/FU precedent): the
+            dealer is the D badge on the dealer's avatar corner. */}
 
-        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+        {/* Center band (reserved): COMMUNITY label + five mini cards +
+            pot pill, one block centered at 50.5%. Detroit 2026-10-22:
+            the old layout floated the community row at 42% and the pot
+            at 52% on the same axis with no reserved bands, so the pot
+            amount crowded the cards' lower edge. The pill keeps the pot
+            compact inside the band — and visible during WAITING, which
+            ruling 2's rollover depends on. */}
+        <div className="absolute left-1/2 top-[50.5%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ gap: 4 }}>
+          {state.communityCards.length > 0 && (
+            <div className="text-white/40 text-[9px] font-mono tracking-widest">COMMUNITY</div>
+          )}
+          <div className="flex" style={{ gap: 5 }}>
+            <AnimatePresence>
+              {state.communityCards.map((card, i) => (
+                <motion.div
+                  key={`comm-${i}`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <PlayingCard card={card} className="!w-[32px] !h-[44px]" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
           <AnimatePresence>
             <motion.div
+              key={`pot-${state.pot}`}
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="text-center"
+              className="rounded-full px-3 py-1 font-mono font-bold text-amber-200 whitespace-nowrap"
+              style={{ background: 'rgba(20,10,40,0.88)', border: '1px solid rgba(240,184,41,0.55)', fontSize: 12, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
             >
-              <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
+              POT ${state.pot.toLocaleString()}
             </motion.div>
           </AnimatePresence>
-          {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
-            <div className="mt-1 text-white/30 text-[10px] font-mono">🂠 muck</div>
-          )}
         </div>
-
-        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '42%' }}>
-          <AnimatePresence>
-            {state.communityCards.map((card, i) => (
-              <motion.div
-                key={`comm-${i}`}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <PlayingCard card={card} className="!w-[44px] !h-[62px]" />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-        {state.communityCards.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(42% - 18px)' }}>
-            COMMUNITY
-          </div>
+        {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-mono" style={{ top: 'calc(50.5% + 50px)' }}>🂠 muck</div>
         )}
 
         {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
@@ -561,7 +584,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     border: '2px dashed rgba(255,255,255,0.5)',
                     boxShadow: '0 0 12px rgba(245,158,11,0.6)',
                   }}
-                  initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  initial={{ left: '50%', top: '57%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                   animate={{
                     left: `${wpos.x}%`, top: `${wpos.y}%`,
                     x: `calc(-50% + ${(i - flyCount / 2) * 8}px)`,
@@ -581,122 +604,274 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           // Detroit 2026-10-16: avatars with cosmetic borders on every seat.
           const avatarSrc = p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : (p.avatarUrl || getAvatarForSeat(i + 1));
           const frameSrc = p.isHero ? heroFrameSrc : null;
+          // Server-deadline turn timer (Badugi pattern) — visible on the
+          // armed seat, hero included, so a DECLARE/bet wait always
+          // shows its own clock instead of reading as a stall.
+          const turnRemainingMs = i === state.activeSeat && state.turnDeadline != null
+            ? Math.max(0, Math.min(30_000, state.turnDeadline - serverNowMs()))
+            : null;
+          const timerBar = (inPanel: boolean) => turnRemainingMs == null ? null : inPanel ? (
+            <div className="absolute left-2 right-2 bottom-0.5 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {!reduced ? (
+                <motion.div
+                  key={state.turnDeadline}
+                  className="h-full rounded-full"
+                  style={{ background: '#F0B829', transformOrigin: 'left' }}
+                  initial={{ scaleX: turnRemainingMs / 30_000 }}
+                  animate={{ scaleX: 0 }}
+                  transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
+                />
+              ) : (
+                <div className="h-full w-full" style={{ background: '#F0B829' }} />
+              )}
+            </div>
+          ) : (
+            <div className="mt-0.5 h-[3px] w-[120px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {!reduced ? (
+                <motion.div
+                  key={state.turnDeadline}
+                  className="h-full rounded-full"
+                  style={{ background: '#F0B829', transformOrigin: 'left' }}
+                  initial={{ scaleX: turnRemainingMs / 30_000 }}
+                  animate={{ scaleX: 0 }}
+                  transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
+                />
+              ) : (
+                <div className="h-full w-full" style={{ background: '#F0B829' }} />
+              )}
+            </div>
+          );
+          const foldPlate = p.folded ? (
+            <span className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0" style={{ color: '#fca5a5', background: 'rgba(127,29,29,0.6)', border: '1px solid rgba(248,113,113,0.5)' }}>
+              {p.foldReason === 'declare-auto-invalid' ? 'NO MADE HAND' : 'FOLD'}
+            </span>
+          ) : null;
+          const declarationPill = p.declaration ? (
+            <span className={`text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0 ${
+              p.declaration === 'HIGH' ? 'text-blue-300 bg-blue-500/20' :
+              p.declaration === 'LOW' ? 'text-green-300 bg-green-500/20' :
+              p.declaration === 'SWING' ? 'text-purple-300 bg-purple-500/20' :
+              'text-white/40 bg-white/10'
+            }`}>
+              {p.declaration}
+            </span>
+          ) : null;
           return (
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
               style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
             >
-              <div className="relative">
-                <AvatarWithFrame
-                  avatarSrc={avatarSrc}
-                  frameSrc={frameSrc}
-                  initials={getAvatarInitials(p.name)}
-                  initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44}
-                />
-                {isActive && (
+              {/* Active turn — premium layered glow (Badugi/FU pattern) */}
+              {isActive && (
+                <>
                   <motion.div
-                    className="absolute inset-0 rounded-full pointer-events-none"
+                    className="absolute -inset-4 rounded-2xl pointer-events-none"
+                    style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.25) 0%, transparent 70%)', filter: 'blur(8px)' }}
+                    animate={{ opacity: [0.5, 1, 0.5], scale: [0.95, 1.05, 0.95] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <motion.div
+                    className="absolute -inset-2 rounded-xl pointer-events-none"
                     style={{
-                      border: '2px solid rgba(240,184,41,0.9)',
-                      boxShadow: '0 0 12px rgba(240,184,41,0.6)',
+                      border: '1.5px solid transparent',
+                      background: 'linear-gradient(135deg, rgba(240,184,41,0.8), rgba(240,184,41,0.1), rgba(255,220,100,0.8)) border-box',
+                      WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                      WebkitMaskComposite: 'xor',
+                      maskComposite: 'exclude',
                     }}
                     animate={{ opacity: [0.6, 1, 0.6] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
                   />
-                )}
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                {state.dealerSeat === i && (
-                  <span className="text-amber-300 text-[10px] font-mono font-bold">D</span>
-                )}
-                <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
-                  {p.name}
-                </span>
-                {p.folded && <span className="text-red-400/70 text-[10px] font-mono">FOLD</span>}
-              </div>
-              <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
-              {p.bet > 0 && (
+                </>
+              )}
+              {p.isWinner && state.phase === 'showdown' && (
                 <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-amber-300 text-[10px] font-mono mt-0.5"
-                >
-                  ${p.bet}
-                </motion.div>
+                  className="absolute -inset-3 rounded-2xl pointer-events-none"
+                  style={{ border: '3px solid rgba(240,184,41,0.9)', boxShadow: '0 0 30px rgba(240,184,41,0.5)' }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                />
               )}
-              {p.declaration && state.phase !== 'showdown' && (
-                <div className={`text-[10px] font-mono font-bold mt-0.5 px-1.5 py-0.5 rounded ${
-                  p.declaration === 'HIGH' ? 'text-blue-300 bg-blue-500/20' :
-                  p.declaration === 'LOW' ? 'text-green-300 bg-green-500/20' :
-                  p.declaration === 'SWING' ? 'text-purple-300 bg-purple-500/20' :
-                  'text-white/40'
-                }`}>
-                  {p.declaration}
-                </div>
-              )}
-              <div
-                className="flex mt-1"
-                style={!p.isHero
-                  ? { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' }
-                  : { gap: '2px' }
-                }
-              >
-                <AnimatePresence>
-                  {p.cards.map((card, ci) => {
-                    const fanAngle = !p.isHero && p.cards.length > 1
-                      ? (ci - (p.cards.length - 1) / 2) * 8
-                      : 0;
-                    return (
-                    <motion.div
-                      key={`${p.id}-c${ci}`}
-                      initial={false}
-                      animate={{ opacity: 1, scale: 1, rotate: fanAngle }}
-                      exit={{ opacity: 0, scale: 0.6 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
-                      style={{ transformOrigin: 'bottom center' }}
-                    >
-                      {card.isHidden ? (
-                        <div
-                          className="rounded"
-                          style={{
-                            width: p.isHero ? HERO_CARD_W : OPP_CARD_W,
-                            height: p.isHero ? HERO_CARD_H : OPP_CARD_H,
-                            background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
-                            border: '1px solid rgba(139,92,246,0.4)',
-                          }}
-                        />
-                      ) : (
-                        <div
-                          onClick={p.isHero && isDrawPhase ? () => onCardClick(ci) : undefined}
-                          style={{
-                            cursor: p.isHero && isDrawPhase ? 'pointer' : 'default',
-                            transform: p.isHero && selectedCardIndices.includes(ci)
-                              ? 'translateY(-14px) scale(1.06)'
-                              : 'none',
-                            transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                            boxShadow: p.isHero && selectedCardIndices.includes(ci)
-                              ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
-                              : 'none',
-                            borderRadius: '6px',
-                          }}
-                        >
-                          <PlayingCard
-                            card={card}
-                            className={p.isHero ? '!w-[56px] !h-[78px]' : '!w-[20px] !h-[30px]'}
-                          />
-                        </div>
+              {p.isHero ? (
+                <>
+                  {/* HERO — Badugi structure: avatar (dealer badge on its
+                      corner) + name row, chips, bet, timer; cards below;
+                      validity badge under the cards. */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative shrink-0">
+                      <AvatarWithFrame
+                        avatarSrc={avatarSrc}
+                        frameSrc={frameSrc}
+                        initials={getAvatarInitials(p.name)}
+                        initialsColor="#FDE68A"
+                        size={52}
+                      />
+                      {state.dealerSeat === i && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
                       )}
-                    </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-              {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
-                <div className="text-purple-300 text-[10px] font-mono mt-1">
-                  {p.drewCount === 0 ? 'KEPT CARDS' : `DREW ${p.drewCount}`}
-                </div>
+                    </div>
+                    <span className="text-xs font-mono text-amber-200 font-bold">{p.name}</span>
+                    {foldPlate}
+                    {declarationPill}
+                  </div>
+                  {/* Chips + bet share one line — the center-aware
+                      layout buys back the vertical room the community
+                      band and validity badge need (budget-verified). */}
+                  <div className="text-white/50 text-[10px] font-mono">
+                    {p.chips.toLocaleString()}
+                    {p.bet > 0 && <span className="text-amber-300"> · ${p.bet} bet</span>}
+                  </div>
+                  {timerBar(false)}
+                  <div className="flex mt-0.5" style={{ gap: '2px' }}>
+                    <AnimatePresence>
+                      {p.cards.map((card, ci) => (
+                        <motion.div
+                          key={`${p.id}-c${ci}`}
+                          initial={false}
+                          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                          exit={{ opacity: 0, scale: 0.6 }}
+                          transition={{ duration: 0.2, ease: 'easeOut' }}
+                          style={{ transformOrigin: 'bottom center' }}
+                        >
+                          {card.isHidden ? (
+                            <div
+                              className="rounded"
+                              style={{
+                                width: HERO_CARD_W, height: HERO_CARD_H,
+                                background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
+                                border: '1px solid rgba(139,92,246,0.4)',
+                              }}
+                            />
+                          ) : (
+                            <div
+                              onClick={isDrawPhase ? () => onCardClick(ci) : undefined}
+                              style={{
+                                cursor: isDrawPhase ? 'pointer' : 'default',
+                                transform: selectedCardIndices.includes(ci)
+                                  ? 'translateY(-14px) scale(1.06)'
+                                  : 'none',
+                                transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                boxShadow: selectedCardIndices.includes(ci)
+                                  ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
+                                  : 'none',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              <PlayingCard card={card} className={`!w-[${HERO_CARD_W}px] !h-[${HERO_CARD_H}px]`} />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                  {/* Validity badge — the missing in-table qualification
+                      signal (correction plan P0-2): live from the first
+                      bet round, names the duplicate ranks, and never
+                      recommends an impossible repair. */}
+                  {validity && (
+                    <div
+                      data-testid="box-chevy-validity-badge"
+                      className="mt-1 flex flex-col items-center rounded-xl px-3 py-1"
+                      style={{
+                        maxWidth: 300,
+                        background: validity.status === 'valid' ? 'rgba(6,78,59,0.78)' : validity.status === 'invalid' ? 'rgba(127,29,29,0.78)' : 'rgba(30,41,59,0.78)',
+                        border: `1px solid ${validity.status === 'valid' ? 'rgba(52,211,153,0.55)' : validity.status === 'invalid' ? 'rgba(248,113,113,0.55)' : 'rgba(148,163,184,0.4)'}`,
+                      }}
+                    >
+                      <span className="text-[10px] font-mono font-bold tracking-wide" style={{ color: validity.status === 'valid' ? '#6ee7b7' : validity.status === 'invalid' ? '#fca5a5' : 'rgba(255,255,255,0.75)' }}>
+                        {validity.label}
+                      </span>
+                      {validity.detail && (
+                        <span className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                          {validity.detail}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* OPPONENT POD — Badugi's contained panel: avatar +
+                      hole-card TILES, name line, chips + plates line
+                      (FOLD / NO MADE HAND / declaration), bet, timer. */}
+                  <div
+                    className="relative flex flex-col items-center rounded-xl px-2 pt-1.5 pb-1"
+                    style={{ background: 'rgba(10,5,25,0.55)', border: '1px solid rgba(255,255,255,0.07)', minWidth: '92px' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className="relative shrink-0">
+                        <AvatarWithFrame
+                          avatarSrc={avatarSrc}
+                          frameSrc={null}
+                          initials={getAvatarInitials(p.name)}
+                          initialsColor="#FDE68A"
+                          size={36}
+                        />
+                        {state.dealerSeat === i && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
+                        )}
+                      </div>
+                      <div className="flex" style={{ marginLeft: 3 }}>
+                        {p.cards.map((card, ci) => (
+                          <div
+                            key={`${p.id}-tile${ci}`}
+                            className="rounded-sm"
+                            style={{
+                              width: 17, height: 24,
+                              marginLeft: ci > 0 ? -6 : 0,
+                              background: card.isHidden
+                                ? 'linear-gradient(150deg, #4b2a8f 0%, #2c1660 100%)'
+                                : '#fffdf7',
+                              border: '1px solid rgba(201,162,39,0.6)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.45)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {card.isHidden
+                              ? <span style={{ color: 'rgba(240,184,41,0.9)', fontSize: 7 }}>◆</span>
+                              : (
+                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                                  <span style={{ fontSize: 8, fontWeight: 800, color: '#1e293b' }}>{card.rank}</span>
+                                  <span style={{ fontSize: 7, color: card.suit === 'hearts' || card.suit === 'diamonds' ? '#dc2626' : '#1e293b' }}>
+                                    {card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'}
+                                  </span>
+                                </span>
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center mt-1" style={{ maxWidth: '100px' }}>
+                      <span className="text-[10px] leading-tight font-mono text-white/85 truncate" style={{ maxWidth: '100px' }}>
+                        {p.name}
+                      </span>
+                      <div className="flex items-center gap-1 mt-px">
+                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                          {p.chips.toLocaleString()}
+                        </span>
+                        {foldPlate}
+                        {declarationPill}
+                      </div>
+                    </div>
+                    {p.bet > 0 && (
+                      <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="text-amber-300 text-[10px] font-mono"
+                      >
+                        ${p.bet}
+                      </motion.div>
+                    )}
+                    {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[8px] font-mono font-bold px-1 py-px rounded-full" style={{ color: '#e9d5ff', background: 'rgba(88,28,135,0.85)', border: '1px solid rgba(192,132,252,0.5)' }}>
+                        {p.drewCount === 0 ? 'KEPT' : `DREW ${p.drewCount}`}
+                      </span>
+                    )}
+                    {timerBar(true)}
+                  </div>
+                </>
               )}
             </div>
           );

@@ -344,7 +344,9 @@ function BoxChevyGameUI() {
       />
 
       {!effectiveSpectator && (
-        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 12px 0' }}>
+          <PersonalChipGiftPanel inline tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        </div>
       )}
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
@@ -405,6 +407,8 @@ function BoxChevyGameUI() {
           humanCount={humanCount}
           declaration={me?.declaration ?? null}
           myHasActed={!!me?.declaration}
+          heroStatus={me?.status ?? 'active'}
+          heroFoldReason={me?.foldReason ?? null}
           onFold={handleFold}
           onCheck={handleCheck}
           onCall={handleCall}

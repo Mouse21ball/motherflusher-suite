@@ -14,9 +14,14 @@ interface PersonalChipGiftPanelProps {
   myId: string;
   players: GiftPlayer[];
   onGiftSuccess?: () => void;
+  /** Render in the page flow instead of as a fixed overlay. The fixed
+   *  variant (top-24, left-3) sat on top of table geometry on phone
+   *  widths (Detroit 2026-10-22) — Flushed Up and Box Chevy pages pass
+   *  inline and host the panel in a slim strip under the status bar. */
+  inline?: boolean;
 }
 
-export function PersonalChipGiftPanel({ tableId, modeId, myId, players, onGiftSuccess }: PersonalChipGiftPanelProps) {
+export function PersonalChipGiftPanel({ tableId, modeId, myId, players, onGiftSuccess, inline }: PersonalChipGiftPanelProps) {
   const recipients = players.filter(player => player.id !== myId && player.presence === 'human');
   const [recipientSeatId, setRecipientSeatId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +63,9 @@ export function PersonalChipGiftPanel({ tableId, modeId, myId, players, onGiftSu
   if (!tableId || recipients.length === 0) return null;
 
   return (
-    <details className="fixed left-3 top-24 z-30 max-w-[calc(100vw-24px)] rounded-lg border border-amber-400/25 bg-black/85 p-2 text-xs text-white shadow-lg">
+    <details className={inline
+      ? 'relative max-w-[calc(100vw-24px)] rounded-lg border border-amber-400/25 bg-black/85 p-1.5 text-xs text-white shadow-lg'
+      : 'fixed left-3 top-24 z-30 max-w-[calc(100vw-24px)] rounded-lg border border-amber-400/25 bg-black/85 p-2 text-xs text-white shadow-lg'}>
       <summary className="cursor-pointer select-none font-mono text-amber-200">🎁 Gift 100 chips</summary>
       <div className="mt-2 flex items-center gap-2">
         <select

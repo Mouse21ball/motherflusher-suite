@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eraser, Layers3, Spade } from 'lucide-react';
+import { BettingControls } from '@/components/game/BettingControls';
 
 interface FlushedUpActionBarProps {
   phase: string;
@@ -12,6 +13,7 @@ interface FlushedUpActionBarProps {
   currentBet: number;
   myBet: number;
   pot: number;
+  minBet: number;
   ante: number;
   humanCount: number;
   openSeatsCount: number;
@@ -74,7 +76,7 @@ function TutorialPanel() {
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export function FlushedUpActionBar({
   phase, isDrawPhase, selectedCount, isMyTurn,
-  chips, currentBet, myBet, pot,
+  chips, currentBet, myBet, pot, minBet,
   ante, humanCount, openSeatsCount, activeCount, isClubTable, locked,
   onStay, onDraw, onAction, onRebuy,
 }: FlushedUpActionBarProps) {
@@ -91,10 +93,6 @@ export function FlushedUpActionBar({
   }, [phase, isMyTurn, locked, onAction]);
 
   const canAct = isMyTurn && !locked;
-  const callAmount = currentBet - myBet;
-  const canCheck = callAmount === 0;
-  const raiseAmount = Math.max(callAmount > 0 ? callAmount * 2 : 50, 50);
-
   const isBetPhase = phase.startsWith('BET_');
   const isWaiting = phase === 'WAITING';
   const canStart = activeCount >= 2 && chips > 0;
@@ -133,37 +131,6 @@ export function FlushedUpActionBar({
     opacity: (canAct && (selectedCount > 0 || true)) ? 1 : 0.5,
   };
 
-  const foldBtn: React.CSSProperties = {
-    ...btnBase,
-    flex: 0.7,
-    background: 'rgba(30,10,10,0.85)',
-    color: canAct ? 'rgba(255,120,120,0.9)' : 'rgba(255,255,255,0.2)',
-    border: '1px solid rgba(200,50,50,0.25)',
-    opacity: canAct ? 1 : 0.5,
-  };
-
-  const checkCallBtn: React.CSSProperties = {
-    ...btnBase,
-    background: canAct
-      ? 'linear-gradient(135deg, #1a0a3d, #2d0f6e)'
-      : 'rgba(20,10,35,0.5)',
-    color: canAct ? '#c084fc' : 'rgba(255,255,255,0.2)',
-    border: '1px solid rgba(217,70,239,0.3)',
-    boxShadow: canAct ? '0 0 10px rgba(217,70,239,0.25)' : 'none',
-    opacity: canAct ? 1 : 0.5,
-  };
-
-  const raiseBtn: React.CSSProperties = {
-    ...btnBase,
-    flex: 0.9,
-    background: canAct
-      ? 'linear-gradient(135deg, #6d28d9, #9333ea)'
-      : 'rgba(50,20,80,0.5)',
-    color: canAct ? '#fff' : 'rgba(255,255,255,0.2)',
-    boxShadow: canAct ? '0 0 14px rgba(217,70,239,0.4)' : 'none',
-    opacity: canAct && chips > raiseAmount ? 1 : 0.4,
-  };
-
   return (
     <div className="yard-action-bar" style={{ width: '100%' }}>
       {/* ── Action buttons ───────────────────────────────────────────── */}
@@ -197,32 +164,23 @@ export function FlushedUpActionBar({
           </div>
         )}
         {isBetPhase && chips > 0 && isMyTurn && (
-          <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
-            <button
-              style={foldBtn}
-              disabled={!canAct}
-              onClick={canAct ? () => onAction('fold') : undefined}
-              data-testid="button-fold"
-            >
-              FOLD
-            </button>
-            <button
-              style={checkCallBtn}
-              disabled={!canAct}
-              onClick={canAct ? () => onAction(canCheck ? 'check' : 'call', canCheck ? 0 : callAmount) : undefined}
-              data-testid={canCheck ? 'button-check' : 'button-call'}
-            >
-              {canCheck ? 'CHECK' : `CALL ${callAmount}`}
-            </button>
-            <button
-              style={raiseBtn}
-              disabled={!canAct || chips <= raiseAmount}
-              onClick={(canAct && chips > raiseAmount) ? () => onAction('raise', raiseAmount) : undefined}
-              data-testid="button-raise"
-            >
-              RAISE
-            </button>
-          </div>
+          /* Shared BettingControls — the same component Badugi uses
+             (Detroit 2026-10-22): one-row fold / check·call / raise,
+             RAISE opens a slider + presets popup with raise-TO
+             semantics and legality checks. Replaces the old fixed
+             raise (max(call×2, 50) sent as a raise-by figure, which
+             computed to a bare call whenever the hero already had
+             chips in the pot). BettingControls itself is unmodified. */
+          <BettingControls
+            isMyTurn={isMyTurn}
+            locked={locked}
+            chips={chips}
+            currentBet={currentBet}
+            myBet={myBet}
+            pot={pot}
+            minBet={minBet}
+            onAction={onAction}
+          />
         )}
 
         {/* Waiting phase */}

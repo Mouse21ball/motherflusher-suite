@@ -57,6 +57,14 @@ export interface BoxChevyActionBarProps {
   humanCount: number;
   declaration?: string | null;
   myHasActed?: boolean;
+  /** Authoritative hero status from the snapshot ('active' | 'folded' |
+   *  'sitting_out'). The DECLARE panel keys off this — never off
+   *  hasActed, which cannot distinguish declared / auto-folded /
+   *  timed-out / voluntarily folded. */
+  heroStatus?: string;
+  /** Server-stamped fold reason ('declare-auto-invalid' for the
+   *  no-made-hand auto-fold at DECLARE). */
+  heroFoldReason?: string | null;
   onFold: () => void;
   onCheck: () => void;
   onCall: () => void;
@@ -74,9 +82,11 @@ export function BoxChevyActionBar({
   phase, isMyTurn, pot, currentBet, heroChips, heroBet, raisesThisRound,
   selectedCards, maxSelect, communityCards, heroCards,
   humanCount, declaration, myHasActed,
+  heroStatus, heroFoldReason,
   onFold, onCheck, onCall, onRaise, onDraw, onStandPat, onDeclare,
   onAnte, onDeal, onRebuy, actionLocked,
 }: BoxChevyActionBarProps) {
+  void myHasActed; // superseded by heroStatus/heroFoldReason for DECLARE honesty
   const [raiseAmt, setRaiseAmt] = useState(50);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
@@ -266,9 +276,14 @@ export function BoxChevyActionBar({
           </div>
         )}
 
-        {/* DECLARE phase */}
+        {/* DECLARE phase — branch order is authoritative-state-first
+            (Detroit 2026-10-22): a real declaration, then the three
+            distinct folded states (auto-fold / timeout / voluntary),
+            then the transient unmade notice, then the legal buttons.
+            hasActed alone cannot tell these apart: an auto-folded hero
+            has acted without ever declaring. */}
         {isDeclare && (
-          myHasActed ? (
+          declaration === 'HIGH' || declaration === 'LOW' || declaration === 'SWING' ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{
@@ -276,13 +291,29 @@ export function BoxChevyActionBar({
                 color: declaration === 'HIGH' ? '#F97316' : declaration === 'LOW' ? '#86efac' : '#fbbf24',
                 textShadow: declaration === 'HIGH' ? `0 0 16px ${B(0.7)}` : declaration === 'LOW' ? `0 0 16px ${G(0.7)}` : `0 0 16px ${Am(0.7)}`,
               }}>
-                {declaration ?? '—'}
+                {declaration}
               </div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>Waiting for others…</div>
+            </div>
+          ) : heroStatus === 'folded' ? (
+            <div role="alert" data-testid="box-chevy-declare-folded" style={{ textAlign: 'center', padding: '12px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em', color: 'rgba(252,165,165,0.95)' }}>
+                {heroFoldReason === 'declare-auto-invalid'
+                  ? 'AUTO-FOLDED — NO MADE HAND'
+                  : declaration === 'FOLD'
+                    ? 'TIMED OUT — FOLDED'
+                    : 'YOU FOLDED'}
+              </div>
+              {heroFoldReason === 'declare-auto-invalid' && validity?.detail ? (
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.05em' }}>{validity.detail}</div>
+              ) : declaration === 'FOLD' ? (
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.05em' }}>No declaration was made before the clock ran out.</div>
+              ) : null}
               <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.08em' }}>Waiting for others…</div>
             </div>
           ) : !cardsKnown || !isMade ? (
             <div role="alert" data-testid="box-chevy-declare-invalid" style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', letterSpacing: '0.06em' }}>
-              {!cardsKnown ? 'HAND VALIDITY UNAVAILABLE — WAIT FOR ALL CARDS' : 'NO MADE HAND — YOU WILL BE AUTO-FOLDED'}
+              {!cardsKnown ? 'HAND VALIDITY UNAVAILABLE — WAIT FOR ALL CARDS' : `NO MADE HAND — AUTO-FOLDING${validity?.detail ? ` · ${validity.detail}` : ''}`}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -15,7 +15,12 @@ export const BoxChevyEngine: ModeEngine = {
     const players = state.players.map(player => {
       if (player.status !== 'active' || hasMadeHand(player.cards, state.communityCards ?? [])) return player;
       messages.push(`${player.name} has no made hand — auto-folded`);
-      return { ...player, status: 'folded' as const, declaration: null, hasActed: true };
+      // Stamp the reason exactly like the Badugi engine does
+      // (foldReason 'declare-auto-invalid' + autoFoldedAtDeclare) so
+      // clients can render an honest plate/panel ("NO MADE HAND")
+      // instead of a generic fold. Metadata only — the fold itself,
+      // its timing, and the made-hand rule are unchanged.
+      return { ...player, status: 'folded' as const, declaration: null, hasActed: true, autoFoldedAtDeclare: true, foldReason: 'declare-auto-invalid' };
     });
     if (!messages.length) return state;
     let next = { ...state, players };

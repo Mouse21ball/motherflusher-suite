@@ -1,37 +1,37 @@
-// Flushed Up phone-presentation repair pins (Detroit Galaxy QA P1,
-// 2026-10-21). The five-seat layout from the first pass only worked at
-// desktop widths: ~150px-wide pods (avatar + name in a row) sat on
-// percentage centers ~94px apart at Galaxy widths and overlapped; the
-// 182px showdown reveal fans piled into neighbouring pods; TWO winner
-// celebrations fired for the same showdown (the app-global BIG POT host
-// plus the table's own), the table's celebration could activate into
-// the NEXT hand, and the rake flight aimed with a hardcoded
-// 3.5px-per-percent conversion that is wrong at every real stage size.
-// These pins lock the repair's load-bearing source facts.
+// Flushed Up phone-presentation pins. Original P1 repair 2026-10-21
+// (widened arc, cascaded fans); SUPERSEDED 2026-10-22 by Detroit's
+// coordinated correction plan: Flushed Up adopts the approved Badugi
+// oval ring and Badugi's contained opponent pod (cards as in-pod mini
+// tiles), because the arc + fans still overlapped and ran off-screen
+// on his Galaxy retest. The celebration/rake/staging pins below are
+// unchanged from the P1 repair — those fixes carry forward.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 
 const table = readFileSync('client/src/components/flushedUp/FlushedUpTable.tsx', 'utf8');
 const celebrations = readFileSync('client/src/components/celebrations/celebrationService.ts', 'utf8');
 
-describe('Flushed Up phone presentation (P1 repair pins)', () => {
-  it('seat arc uses the widened phone geometry, not the desktop-only arc', () => {
-    expect(table).toContain('{ x: 29.5, y: 15.5 }');
-    expect(table).toContain('{ x: 70.5, y: 15.5 }');
-    expect(table).toContain('{ x: 14, y: 29 }');
-    expect(table).toContain('{ x: 86, y: 29 }');
-    expect(table).not.toContain('{ x: 38, y: 17.5 }');
-    expect(table).not.toContain('{ x: 62, y: 17.5 }');
+describe('Flushed Up phone presentation (correction plan pins)', () => {
+  it('seat map is the approved Badugi oval ring, hero at 75.2', () => {
+    expect(table).toContain("if (index === 0) return { x: 50, y: 75.2 }");
+    expect(table).toContain('{ x: 50, y: 14 }');
+    expect(table).toContain('{ x: 18.5, y: 34 }');
+    expect(table).toContain('{ x: 81.5, y: 34 }');
+    expect(table).toContain('{ x: 81.5, y: 54 }');
+    expect(table).not.toContain('{ x: 29.5, y: 15.5 }');
+    expect(table).not.toContain('{ x: 14, y: 29 }');
   });
 
-  it('opponent labels stack in a bounded plate instead of a wide name row', () => {
-    expect(table).toContain('maxWidth: 96');
+  it('opponent pods are Badugi-style contained panels with a bounded name line', () => {
+    expect(table).toContain("background: 'rgba(10,5,25,0.55)'");
+    expect(table).toContain("maxWidth: '100px'");
     expect(table).toContain('truncate');
   });
 
-  it('showdown reveal fans cascade with overlap instead of spanning 182px', () => {
-    expect(table).toContain('marginLeft: cascade ? -14 : 0');
-    expect(table).not.toContain("? { gap: '3px' }");
+  it('opponent cards are in-pod mini tiles — no showdown fans remain', () => {
+    expect(table).toContain('marginLeft: ci > 0 ? -6 : 0');
+    expect(table).not.toContain('OPP_SHOWDOWN');
+    expect(table).not.toContain('marginLeft: cascade');
   });
 
   it('rake flights aim at the winner seat in percent, not 3.5px-per-percent', () => {

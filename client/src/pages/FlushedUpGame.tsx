@@ -375,7 +375,9 @@ function FlushedUpGameUI() {
       />
 
       {!effectiveSpectator && (
-        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 12px 0' }}>
+          <PersonalChipGiftPanel inline tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        </div>
       )}
 
       {/* ── Spectator / join-confirm banners ─────────────────────── */}
@@ -433,6 +435,7 @@ function FlushedUpGameUI() {
             currentBet={state.currentBet}
             myBet={me?.bet ?? 0}
             pot={state.pot}
+            minBet={state.minBet ?? 50}
             ante={25}
             humanCount={humanCount}
             openSeatsCount={isClubTable ? 0 : openSeatsCount}

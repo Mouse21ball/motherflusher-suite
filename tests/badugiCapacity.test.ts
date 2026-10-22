@@ -40,11 +40,12 @@ describe('Badugi capacity defaults (P3)', () => {
     expect(bc).not.toContain('.slice(0, 3)');
     // Deal flights follow the actual seat count for hole cards.
     expect(bc).toContain('const holeFlights = ordered.length * 5;');
-    // Approved mockup v3 spots: side pods lifted clear of the board.
-    expect(bc).toContain('{ x: 14, y: 27.5 }');
-    expect(bc).toContain('{ x: 86, y: 27.5 }');
-    expect(bc).toContain('{ x: 27.5, y: 16.5 }');
-    expect(bc).toContain('{ x: 72.5, y: 16.5 }');
+    // Center-aware spots (2026-10-22 correction plan): top pair + mid
+    // pair above the reserved community band.
+    expect(bc).toContain('{ x: 27, y: 10.5 }');
+    expect(bc).toContain('{ x: 73, y: 10.5 }');
+    expect(bc).toContain('{ x: 18.5, y: 30.5 }');
+    expect(bc).toContain('{ x: 81.5, y: 30.5 }');
   });
 
   it('Flushed Up table renders and deals to a fifth seat', () => {
@@ -55,11 +56,10 @@ describe('Badugi capacity defaults (P3)', () => {
     // Deal loop follows the actual seat count, not a hardcoded 20/4.
     expect(fu).toContain('const totalCards = ordered.length * 5;');
     expect(fu).toContain('const seatIdx = i % ordered.length;');
-    // Four opponent spots in the arc. (Coordinates updated 2026-10-21:
-    // Detroit's Galaxy QA P1 repair widened the arc for phone widths —
-    // see tests/flushedUpPresentation.pins.test.ts.)
-    expect(fu).toContain('{ x: 14, y: 29 }');
-    expect(fu).toContain('{ x: 86, y: 29 }');
+    // Four opponent spots on the Badugi oval ring (2026-10-22
+    // correction plan — see tests/flushedUpPresentation.pins.test.ts).
+    expect(fu).toContain('{ x: 50, y: 14 }');
+    expect(fu).toContain('{ x: 81.5, y: 54 }');
   });
 
   it('both engines expose occupied-seat counts for the lobby X/Y display', () => {
