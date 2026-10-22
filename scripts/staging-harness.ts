@@ -1958,10 +1958,15 @@ async function scenarioChipsTrace() {
 // detail = the bug reproduced (expected on pre-fix builds).
 async function scenarioRebuyFix() {
   console.log('\n== REBUY LOCKOUT REPRODUCTION (run ' + RUN + ') ==');
-  const MODE = 'boxchevy';
+  const MODE = 'box_chevy';
   const t = 'RB' + RUN.slice(0, 4);
   const hero = new GClient(t + 'H');
   await hero.bootstrap();
+  const recRes = await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: hero.profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  console.log(`  (rebuyfix record create -> ${recRes.status})`);
   await hero.connectMode(t, MODE);
   const me = (s: any) => s?.players.find((p: any) => p.id === hero.seat);
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -2153,7 +2158,7 @@ async function scenarioSdqa() {
               handProblems.push(`paid winners ${[...paid].join(',')} != recomputed ${[...expected].join(',')}`);
             }
           }
-          if (mode === 'boxchevy' && (sum.awards ?? []).length > 0) {
+          if (mode === 'box_chevy' && (sum.awards ?? []).length > 0) {
             const comm = (resolved.communityCards ?? []).map((c: any) => ({ ...c, isHidden: false }));
             const declarers = revealed.filter((p: any) => ['HIGH', 'LOW', 'SWING'].includes(p.declaration));
             const evalOf = (p: any) => evaluateBoxChevy10((p.cards ?? []).map((c: any) => ({ ...c, isHidden: false })), comm);
@@ -2210,7 +2215,7 @@ async function scenarioSdqa() {
         else if (s.phase.startsWith('BET')) hero.act(s.currentBet > (m.bet ?? 0) ? 'call' : 'check', null, t, mode);
         else if (s.phase.startsWith('DRAW')) {
           let idx: number[] = [];
-          if (mode === 'boxchevy') {
+          if (mode === 'box_chevy') {
             const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
             const commRanks = new Set((s.communityCards ?? []).map((c: any) => c.rank));
             const seen = new Set<string>(); const dupIdx = new Set<number>();
@@ -2240,7 +2245,7 @@ async function scenarioSdqa() {
   const fu = await playMode('flushed_up', 'SF');
   record('SDQA Flushed Up summaries verified against settlement', fu.verified >= 1 && fu.problems.length === 0 ? 'PASS' : 'FAIL',
     `verified=${fu.verified} reconnect=${fu.reconnectOk} ${fu.problems.join(' | ')}`);
-  const bc = await playMode('boxchevy', 'SB');
+  const bc = await playMode('box_chevy', 'SB');
   record('SDQA Box Chevy summaries verified against settlement', bc.verified >= 1 && bc.problems.length === 0 ? 'PASS' : 'FAIL',
     `verified=${bc.verified} reconnect=${bc.reconnectOk} ${bc.problems.join(' | ')}`);
 }

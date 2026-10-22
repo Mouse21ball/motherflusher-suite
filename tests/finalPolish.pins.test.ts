@@ -27,7 +27,7 @@ describe('Rollover status repair', () => {
 describe('Showdown summary plumbing', () => {
   it('both generic modes build summaries from their settlements', () => {
     expect(fuMode).toContain("modeId: 'flushed_up'");
-    expect(bcMode).toContain("modeId: 'boxchevy'");
+    expect(bcMode).toContain("modeId: 'box_chevy'");
     expect(bcMode).toContain('resolveSwingSidePots');
   });
 

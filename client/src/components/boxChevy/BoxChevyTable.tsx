@@ -402,7 +402,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             // itself. Fallback (fold-win direct awards carry no
             // summary): the client-derived build above, unchanged.
             const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
-            if (sum && sum.handId === scheduledHandId && sum.modeId === 'boxchevy') {
+            if (sum && sum.handId === scheduledHandId && sum.modeId === 'box_chevy') {
               const livePlayers = (liveRef.current as any).players as any[];
               const byId = new Map(livePlayers.map(p => [p.id, p]));
               const infoFor = (a: ShowdownSummary['awards'][number], side: WinnerInfo['side']): WinnerInfo => {
@@ -453,7 +453,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           // built purely from the server summary when it lands.
           later(3700, () => {
             const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
-            if (!sum || sum.handId !== scheduledHandId || sum.modeId !== 'boxchevy') return;
+            if (!sum || sum.handId !== scheduledHandId || sum.modeId !== 'box_chevy') return;
             const livePlayers = (liveRef.current as any).players as any[];
             const byId = new Map(livePlayers.map(p => [p.id, p]));
             setCelebration({

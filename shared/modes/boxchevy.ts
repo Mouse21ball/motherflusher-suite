@@ -392,7 +392,7 @@ export const BoxChevyMode: GameMode = {
       return {
         players: finalPlayers, pot, messages: ['No declarers — pot rolls over'],
         summary: {
-          modeId: 'boxchevy',
+          modeId: 'box_chevy',
           headline: `No declarers — $${pot} rolls over`,
           awards: [],
           entries: [],
@@ -411,7 +411,7 @@ export const BoxChevyMode: GameMode = {
       return {
         players: finalPlayers, pot: 0, messages,
         summary: {
-          modeId: 'boxchevy',
+          modeId: 'box_chevy',
           headline: `${sole.name} wins $${pot} — last one standing`,
           awards: [{ playerId: sole.id, amount: pot, part: 'SOLE', reason: `Last one standing — the only player who declared ${sole.declaration ?? ''}`.trim() }],
           entries: [{ playerId: sole.id, description: soleEval.desc, made: soleEval.isMade }],
@@ -536,7 +536,7 @@ export const BoxChevyMode: GameMode = {
         ? (awards[0].part === 'SWING' ? `${winnerNames[0]} SWINGS $${awards[0].amount}` : `${winnerNames[0]} wins $${awards[0].amount}`)
         : `Split pot — ${winnerNames.join(' & ')}`;
     const summary = {
-      modeId: 'boxchevy',
+      modeId: 'box_chevy',
       headline,
       awards,
       entries: active.map(p => ({
