@@ -1178,7 +1178,7 @@ class GClient {
     if (!res.ok) throw new Error(`guest-init ${res.status}`);
     this.sessionToken = j.sessionToken;
   }
-  async connectMode(tableId: string, modeId: string, buyinChips?: number) {
+  async connectMode(tableId: string, modeId: string, buyinChips?: number, quickPlay?: boolean) {
     const tRes = await fetch(`${BASE}/api/auth/ws-ticket`, { headers: { 'X-Session-Token': this.sessionToken } });
     const tJson: any = await tRes.json().catch(() => ({}));
     if (!tRes.ok || !tJson.ticket) throw new Error(`ws-ticket ${tRes.status}`);
@@ -1201,6 +1201,7 @@ class GClient {
       playerId: this.pid, identityId: this.profileId, name: this.name, seatId: this.pid,
       isPrivate: false,
       ...(buyinChips !== undefined ? { buyinChips } : {}),
+      ...(quickPlay ? { quickPlay: true } : {}),
     }));
     // Wait for a FRESH state from this connection — on a reconnect the
     // array already holds the previous connection's states.
@@ -1722,6 +1723,212 @@ async function scenarioFu5() {
   trio.forEach(g => g.disconnect());
 }
 
+// ─── Box Chevy stall trace (Detroit 2026-10-22, correction plan P0-5) ───────
+// Timed server traces BEFORE any engine conclusion: (A) a hero who idles
+// at a BET turn — how long until the server resolves it, and how; (B) a
+// MADE hero who never declares — how long DECLARE holds, the deadline
+// armed at entry, and the timeout outcome; (C) an UNMADE hero at DECLARE
+// — whether the auto-fold is already applied in the first DECLARE
+// snapshot and what message the state carries.
+async function scenarioBcTrace() {
+  const MODE = 'box_chevy';
+  const t = `BT${R4}`;
+  const clients: GClient[] = [];
+  for (let i = 0; i < 3; i++) { const g = new GClient(`BT${R4}P${i + 1}`); await g.bootstrap(); clients.push(g); }
+  const recRes = await fetch(`${BASE}/api/tables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tableId: t, modeId: MODE, hostId: clients[0].profileId, maxPlayers: 5, botsEnabled: false, isInviteOnly: false }),
+  });
+  console.log(`  (bctrace record create -> ${recRes.status})`);
+  for (const g of clients) await g.connectMode(t, MODE);
+  await sleep(800);
+  const hero = clients[0];
+  const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  const smartDiscards = (me: any, comm: any[], cap: number): number[] => {
+    const commRanks = new Set((comm ?? []).map((c: any) => c.rank));
+    const seen = new Set<string>(); const dup = new Set<number>();
+    (me.cards ?? []).forEach((c: any, i: number) => { if (seen.has(c.rank)) dup.add(i); seen.add(c.rank); });
+    return (me.cards ?? []).map((c: any, i: number) => (commRanks.has(c.rank) || dup.has(i) ? i : -1))
+      .filter((i: number) => i >= 0).slice(0, cap);
+  };
+  const seenDealIds = new Set<number>();
+  let realHands = 0;
+  // Case A: bet idle (first real hand only)
+  let betIdleArmed = true, betIdleStart = 0, betIdleHand = -1;
+  let betIdleResult = '';
+  // Case B: made hero never declares
+  let declareArmed = true, declareStart = 0, declareHand = -1, declareDeadlineMs: number | null = null;
+  let declareResult = '';
+  // Case C: unmade hero at DECLARE entry
+  let unmadeChecked = false;
+  let unmadeResult = '';
+  const acted = new Map<string, string>();
+  const startSentAt = new Map<string, number>();
+  const deadline = Date.now() + 510000;
+  const freshest = () => clients.reduce((a, b) => (b.states.length > a.states.length ? b : a), clients[0]);
+  let prevPhase = ''; let prevHand = -1;
+
+  while (Date.now() < deadline) {
+    const s = freshest().latest();
+    if (!s) { await sleep(200); continue; }
+    if (s.phase === 'DEAL' && !seenDealIds.has(s.handId)) { seenDealIds.add(s.handId); realHands++; console.log(`  [bctrace] real hand ${realHands} dealId=${s.handId}`); }
+    const heroState = s.players?.find((p: any) => p.id === hero.seat);
+    const msgs = (s.messages ?? []).map((m: any) => m.text as string);
+
+    // Case B/C bookkeeping on DECLARE transitions for the hero's hand.
+    if (s.phase === 'DECLARE' && prevPhase !== 'DECLARE') {
+      if (heroState && heroState.status === 'active' && bcMade(heroState.cards, s.communityCards)) {
+        if (declareArmed) {
+          declareArmed = false; declareStart = Date.now(); declareHand = s.handId;
+          declareDeadlineMs = typeof s.turnDeadline === 'number' ? s.turnDeadline - Date.now() : null;
+          console.log(`  [bctrace] DECLARE entered hand=${s.handId} hero MADE, will not declare; turnDeadline in ${declareDeadlineMs}ms active=${s.activePlayerId}`);
+        }
+      } else if (!unmadeChecked && heroState) {
+        unmadeChecked = true;
+        const firstDecl = hero.latest()?.phase === 'DECLARE' ? hero.latest() : s;
+        const meFirst = firstDecl?.players?.find((p: any) => p.id === hero.seat);
+        const autoMsg = msgs.find(m => m.includes('no made hand') || m.includes('auto-fold')) ?? '';
+        unmadeResult = `heroStatusAtDeclareEntry=${meFirst?.status} hasActed=${meFirst?.hasActed} autoFoldMsg=${autoMsg ? 'present' : 'ABSENT'} hand=${s.handId}`;
+        console.log(`  [bctrace] unmade case: ${unmadeResult}`);
+      }
+    }
+    if (prevPhase === 'DECLARE' && s.phase !== 'DECLARE' && declareHand === prevHand) {
+      const dur = ((Date.now() - declareStart) / 1000).toFixed(1);
+      const timeoutMsg = msgs.find(m => m.includes('times out')) ?? '';
+      declareResult = `declareHeldSeconds=${dur} heroStatus=${heroState?.status} heroDeclaration=${heroState?.declaration ?? 'null'} timeoutMsg=${timeoutMsg ? 'present' : 'ABSENT'} deadlineArmedMs=${declareDeadlineMs}`;
+      console.log(`  [bctrace] declare case resolved: ${declareResult}`);
+      declareHand = -1;
+    }
+    // Case A resolution: hero's turn passed without him acting.
+    if (betIdleStart > 0 && heroState) {
+      const stillMyTurn = s.activePlayerId === hero.seat && s.phase.startsWith('BET');
+      if (!stillMyTurn || heroState.hasActed || heroState.status === 'folded') {
+        const dur = ((Date.now() - betIdleStart) / 1000).toFixed(1);
+        const timeoutMsg = msgs.find(m => m.includes('times out')) ?? '';
+        betIdleResult = `idleSeconds=${dur} heroStatus=${heroState.status} hasActed=${heroState.hasActed} timeoutMsg=${timeoutMsg ? `present: "${timeoutMsg.slice(0, 60)}"` : 'ABSENT'}`;
+        console.log(`  [bctrace] bet idle resolved: ${betIdleResult}`);
+        betIdleStart = 0;
+      }
+    }
+
+    for (const g of clients) {
+      const gs = g.latest(); if (!gs) continue;
+      const me = gs.players?.find((p: any) => p.id === g.seat); if (!me) continue;
+      const key = `${gs.handId}:${gs.phase}:${gs.activePlayerId}`;
+      const isHero = g === hero;
+      if (gs.phase === 'WAITING' && isHero) {
+        const last = startSentAt.get(`${gs.handId}`) ?? 0;
+        if (Date.now() - last > 10000) { startSentAt.set(`${gs.handId}`, Date.now()); g.act('start', null, t, MODE); }
+      } else if (gs.phase === 'ANTE' && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key); g.act('ante', null, t, MODE);
+      } else if (gs.phase.startsWith('BET') && gs.activePlayerId === g.seat && !me.hasActed) {
+        if (isHero && betIdleArmed && realHands === 1) {
+          // Case A: idle on purpose — record the start once.
+          if (betIdleStart === 0) { betIdleStart = Date.now(); betIdleHand = gs.handId; console.log(`  [bctrace] bet idle begins hand=${gs.handId} phase=${gs.phase} deadlineIn=${typeof gs.turnDeadline === 'number' ? gs.turnDeadline - Date.now() : 'n/a'}ms`); }
+          continue;
+        }
+        if (betIdleArmed && isHero && betIdleStart === 0 && realHands > 1) betIdleArmed = false;
+        g.act(gs.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, t, MODE);
+        await sleep(80);
+      } else if (gs.phase.startsWith('DRAW') && gs.activePlayerId === g.seat && !me.hasActed) {
+        g.act('draw', smartDiscards(me, gs.communityCards, caps[gs.phase] ?? 0), t, MODE);
+        await sleep(80);
+      } else if (gs.phase === 'DECLARE' && me.status === 'active' && !me.hasActed) {
+        if (isHero && declareHand === gs.handId) continue; // Case B: never declare.
+        if (bcMade(me.cards, gs.communityCards)) { g.act('declare', { declaration: 'HIGH' }, t, MODE); await sleep(80); }
+      }
+    }
+    prevPhase = s.phase; prevHand = s.handId;
+    if (betIdleResult && declareResult && unmadeChecked) break;
+    if (realHands >= 9) break;
+    await sleep(200);
+  }
+  record('BCTRACE bet-phase idle resolves via server timeout', betIdleResult ? 'PASS' : 'BLOCKED', betIdleResult || 'case never armed');
+  record('BCTRACE made hero never declares: DECLARE hold + outcome', declareResult ? 'PASS' : 'BLOCKED', declareResult || 'no made-hero hand occurred in the window');
+  record('BCTRACE unmade hero at DECLARE entry (auto-fold state + message)', unmadeResult ? 'PASS' : 'BLOCKED', unmadeResult || 'no unmade-hero DECLARE occurred');
+}
+
+// ─── $0 stack broadcast trace (Detroit 2026-10-22, correction plan P2) ──────
+// One human at a quick-play Flushed Up table (bots fill). Scans EVERY
+// snapshot for chips === 0 seats and classifies each event: at-join
+// (seat's first snapshot), all-in (chips committed this hand), settlement
+// window (opens at/after SHOWDOWN of the same hand), or other. Decides
+// whether the server-side restock adjustment is warranted.
+async function scenarioChipsTrace() {
+  const MODE = 'flushed_up';
+  const t = `CT${R4}`;
+  const g = new GClient(`CT${R4}P1`);
+  await g.bootstrap();
+  await g.connectMode(t, MODE, undefined, true);
+  await sleep(1000);
+  const s0 = g.latest();
+  console.log(`  [chipstrace] seated: ${(s0?.players ?? []).map((p: any) => `${p.name}:${p.presence}:${p.chips}`).join(', ')}`);
+  const caps: Record<string, number> = { DRAW_1: 3, DRAW_2: 2, DRAW_3: 1 };
+  void caps;
+  const seenDealIds = new Set<number>();
+  let realHands = 0;
+  const acted = new Map<string, string>();
+  const startSentAt = new Map<string, number>();
+  const deadline = Date.now() + 270000;
+  while (Date.now() < deadline && realHands < 6) {
+    const s = g.latest(); if (!s) { await sleep(200); continue; }
+    if (s.phase === 'DEAL' && !seenDealIds.has(s.handId)) { seenDealIds.add(s.handId); realHands++; console.log(`  [chipstrace] hand ${realHands} dealId=${s.handId}`); }
+    const me = s.players?.find((p: any) => p.id === g.seat);
+    const key = `${s.handId}:${s.phase}:${s.activePlayerId}`;
+    if (me) {
+      if (s.phase === 'WAITING') {
+        const last = startSentAt.get(`${s.handId}`) ?? 0;
+        if (Date.now() - last > 10000) { startSentAt.set(`${s.handId}`, Date.now()); g.act('start', null, t, MODE); }
+      } else if (s.phase === 'ANTE' && !me.hasActed && acted.get(g.seat!) !== key) {
+        acted.set(g.seat!, key); g.act('ante', null, t, MODE);
+      } else if (s.phase.startsWith('BET') && s.activePlayerId === g.seat && !me.hasActed) {
+        g.act(s.currentBet > (me.bet ?? 0) ? 'call' : 'check', null, t, MODE); await sleep(80);
+      } else if (s.phase.startsWith('DRAW') && s.activePlayerId === g.seat && !me.hasActed) {
+        g.act('draw', [], t, MODE); await sleep(80);
+      }
+    }
+    await sleep(200);
+  }
+  // Scan the full snapshot history for zero-stack events.
+  type ZeroEvent = { seat: string; name: string; presence: string; kind: string; openedPhase: string; handId: any; snapshots: number; prevChips: number | null; nextChips: number | null; totalBetAtOpen: number };
+  const events: ZeroEvent[] = [];
+  const lastChips = new Map<string, number>();
+  const firstSeen = new Set<string>();
+  const open = new Map<string, ZeroEvent & { count: number }>();
+  const phasesByHand = new Map<any, string[]>();
+  for (const st of g.states) {
+    const arr = phasesByHand.get(st.handId) ?? []; if (!arr.includes(st.phase)) { arr.push(st.phase); phasesByHand.set(st.handId, arr); }
+    for (const p of st.players ?? []) {
+      const id = p.id as string;
+      const chips = p.chips ?? 0;
+      const isFirst = !firstSeen.has(id); firstSeen.add(id);
+      if (chips === 0 && !open.has(id)) {
+        const prev = lastChips.get(id) ?? null;
+        let kind = 'other';
+        if (isFirst) kind = 'at-join';
+        else if ((p.totalBet ?? 0) > 0 || (p.bet ?? 0) > 0) kind = 'all-in (chips committed)';
+        else if (st.phase === 'SHOWDOWN' || (phasesByHand.get(st.handId) ?? []).includes('SHOWDOWN')) kind = 'settlement window';
+        open.set(id, { seat: id, name: p.name, presence: p.presence, kind, openedPhase: st.phase, handId: st.handId, snapshots: 0, prevChips: prev, nextChips: null, totalBetAtOpen: p.totalBet ?? 0, count: 0 });
+      }
+      const ev = open.get(id);
+      if (ev) {
+        if (chips === 0) { ev.count++; }
+        else { ev.snapshots = ev.count; ev.nextChips = chips; events.push({ ...ev }); open.delete(id); }
+      }
+      lastChips.set(id, chips);
+    }
+  }
+  for (const ev of open.values()) { ev.snapshots = ev.count; events.push({ ...ev }); }
+  const byKind = new Map<string, number>();
+  for (const e of events) byKind.set(e.kind, (byKind.get(e.kind) ?? 0) + 1);
+  const summary = [...byKind.entries()].map(([k, v]) => `${k}=${v}`).join(' ') || 'none';
+  console.log(`  [chipstrace] snapshots=${g.states.length} hands=${realHands} zeroEvents=${events.length} (${summary})`);
+  for (const e of events.slice(0, 8)) console.log(`  [chipstrace] zero: ${e.name} (${e.presence}) kind=${e.kind} phase=${e.openedPhase} hand=${e.handId} snapsAtZero=${e.snapshots} prev=${e.prevChips} next=${e.nextChips} totalBetAtOpen=${e.totalBetAtOpen}`);
+  record('CHIPSTRACE zero-stack events classified', 'PASS',
+    `snapshots=${g.states.length} hands=${realHands} events=${events.length} (${summary})` +
+    (events[0] ? ` | first: ${events[0].name} kind=${events[0].kind} phase=${events[0].openedPhase} snapsAtZero=${events[0].snapshots} prev=${events[0].prevChips} next=${events[0].nextChips}` : ''));
+}
+
 // Freshest snapshot across a client set (the bc5 lesson: never key phase
 // decisions to one possibly-stale client).
 function freshestOf(set: GClient[]): any {
@@ -1743,6 +1950,8 @@ async function main() {
   if (mode === 'phase1') { console.log(`\n== PHASE 1 (run ${RUN}) ==`); await scenarioPhase1(); writeResults('phase1'); return; }
   if (mode === 'fu5') { console.log(`\n== FLUSHED UP 5-SEAT (run ${RUN}) ==`); await scenarioFu5(); writeResults('fu5'); return; }
   if (mode === 'bc5') { console.log(`\n== BOX CHEVY 5-SEAT + RULINGS (run ${RUN}) ==`); await scenarioBc5(); writeResults('bc5'); return; }
+  if (mode === 'bctrace') { console.log(`\n== BOX CHEVY STALL TRACE (run ${RUN}) ==`); await scenarioBcTrace(); writeResults('bctrace'); return; }
+  if (mode === 'chipstrace') { console.log(`\n== $0 STACK TRACE (run ${RUN}) ==`); await scenarioChipsTrace(); writeResults('chipstrace'); return; }
   console.log(`\n== FULL SUITE v2 (run ${RUN}, base ${BASE}) ==`);
   await scenarioA(5);
   await scenarioB0();
