@@ -20,6 +20,7 @@ import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
+import { seatPosition, dealerFlightOrigin } from './dealerOrigin';
 import type { ShowdownSummary } from '@shared/modes/showdownSummary';
 import { serverNowMs } from '@/lib/clockSync';
 
@@ -147,7 +148,6 @@ interface ProtoState {
 // plan: center-aware layout. The community block (label + cards + pot
 // pill) owns a reserved center band at 50.5%; the pot pill sits at its
 // base (~57%). Flights target these anchors.
-const DEALER_POS = { x: 50, y: 4 };
 const POT_POS = { x: 50, y: 57 };
 const MUCK_POS = { x: 63, y: 47 };
 const COMMUNITY_POS = { x: 50, y: 49.7 };
@@ -220,6 +220,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     };
 
     if (prev) {
+      // Card flights originate at the CURRENT dealer's rendered seat
+      // (Detroit 2026-10-24) — computed fresh from this snapshot so a
+      // rotated button between hands moves the origin with it. Same
+      // percent space / parent container as the flight destinations.
+      const flightOrigin = dealerFlightOrigin(liveState.players as any, myId);
       // NEW HAND → 5 hole cards per seated player, THEN 5 community cards
       // (Detroit 2026-10-15: community dealt the same way as a hand —
       // staggered flights from dealer).
@@ -255,7 +260,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             const pos = seatPosition(seatIdx);
             const fid = addFlight({
               kind: 'card',
-              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
               toX: pos.x, toY: pos.y - 6,
               label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
@@ -274,7 +279,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           later(commStart + c * 160, () => {
             const fid = addFlight({
               kind: 'card',
-              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
               toX: COMMUNITY_POS.x + (c - 2) * 10.3, toY: COMMUNITY_POS.y,
               label: '', faceDown: false, duration: 0.32, toHero: false,
             });
@@ -330,7 +335,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             for (let d = 0; d < currCount; d++) {
               const dfid = addFlight({
                 kind: 'card',
-                fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+                fromX: flightOrigin.x, fromY: flightOrigin.y,
                 toX: pos.x, toY: pos.y - 6,
                 label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
               });
@@ -540,24 +545,6 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     communityCards: (liveState.communityCards ?? []).slice(0, commLanded === -1 ? (liveState.communityCards ?? []).length : commLanded).map(c => ({ ...c, isHidden: false })),
     turnDeadline: (liveState as any).turnDeadline ?? null,
   };
-}
-
-function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 80 }; // hero — below the center band
-  // Detroit 2026-10-22 (correction plan): center-aware ring variant.
-  // Badugi's oval ring cannot host Box Chevy: its mid/lower pods sit
-  // exactly where the five community cards must live. Opponents take a
-  // top pair + mid pair ABOVE the reserved community band (50.5%), the
-  // hero sits below it. Pod structure, tiles, plates, and timer bars
-  // are Badugi's; only the seat geography is center-aware. Geometry
-  // budget verified at 360x740 and 393x852 stage equivalents.
-  const spots = [
-    { x: 27, y: 10.5 },   // Opp 1: top-left
-    { x: 73, y: 10.5 },   // Opp 2: top-right
-    { x: 18.5, y: 30.5 }, // Opp 3: mid-left
-    { x: 81.5, y: 30.5 }, // Opp 4: mid-right
-  ];
-  return spots[(index - 1) % spots.length];
 }
 
 function FlightView({ flight }: { flight: Flight }) {
@@ -1093,16 +1080,11 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
         </AnimatePresence>
       </div>
 
-      <div className="pb-6 text-center text-white/40 text-xs font-mono">
-        {state.phase === 'ante' && 'Ante up — $25 each…'}
-        {state.phase === 'dealing' && 'Dealing hands… then community cards…'}
-        {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3') && 'Chips flying to the pot…'}
-        {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
-        {state.phase === 'declare' && 'Declare HIGH, LOW, or SWING…'}
-        {state.phase === 'showdown' && !state.rake.active && !state.celebration.active && 'Showdown — high vs low'}
-        {state.phase === 'showdown' && state.rake.active && 'Raking it in…'}
-        {state.phase === 'showdown' && state.celebration.active && 'Takes it down!'}
-      </div>
+      {/* Detroit 2026-10-24: the full-width phase caption strip that
+          used to render here is REMOVED — it had no allocated region,
+          stretched across the lower game area, and clipped at the
+          screen edges; every line duplicated the status bar, the
+          action bar, or the validity badge. */}
     </div>
   );
 }

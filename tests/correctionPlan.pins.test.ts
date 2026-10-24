@@ -9,6 +9,9 @@ const fuTable = readFileSync('client/src/components/flushedUp/FlushedUpTable.tsx
 const fuBar = readFileSync('client/src/components/flushedUp/FlushedUpActionBar.tsx', 'utf8');
 const fuPage = readFileSync('client/src/pages/FlushedUpGame.tsx', 'utf8');
 const bcTable = readFileSync('client/src/components/boxChevy/BoxChevyTable.tsx', 'utf8');
+// 2026-10-24: seatPosition moved verbatim into dealerOrigin.ts (dealer
+// flight origins); the geometry literals are pinned there now.
+const bcSeats = readFileSync('client/src/components/boxChevy/dealerOrigin.ts', 'utf8');
 const bcBar = readFileSync('client/src/components/boxChevy/BoxChevyActionBar.tsx', 'utf8');
 const bcPage = readFileSync('client/src/pages/BoxChevyGame.tsx', 'utf8');
 const bcEngine = readFileSync('server/boxChevyEngine.ts', 'utf8');
@@ -85,11 +88,13 @@ describe('Box Chevy — DECLARE honesty + qualification comms', () => {
 
 describe('Box Chevy — center-aware layout', () => {
   it('seat map: top pair + mid pair above the band, hero at 80', () => {
-    expect(bcTable).toContain("if (index === 0) return { x: 50, y: 80 }");
-    expect(bcTable).toContain('{ x: 27, y: 10.5 }');
-    expect(bcTable).toContain('{ x: 73, y: 10.5 }');
-    expect(bcTable).toContain('{ x: 18.5, y: 30.5 }');
-    expect(bcTable).toContain('{ x: 81.5, y: 30.5 }');
+    expect(bcSeats).toContain("if (index === 0) return { x: 50, y: 80 }");
+    expect(bcSeats).toContain('{ x: 27, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 73, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 18.5, y: 30.5 }');
+    expect(bcSeats).toContain('{ x: 81.5, y: 30.5 }');
+    // The table consumes the shared map — no private copy drifts back.
+    expect(bcTable).toContain("from './dealerOrigin'");
   });
 
   it('community band is one reserved block with mini cards + pot pill', () => {

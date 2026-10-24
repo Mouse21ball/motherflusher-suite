@@ -138,7 +138,7 @@ function BoxChevyGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -291,6 +291,30 @@ function BoxChevyGameUI() {
 
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
+
+  // Detroit 2026-10-24: ENTRY GATE. Until a valid authoritative server
+  // snapshot has been received and applied (hasAuthoritativeState),
+  // render ONLY a clean loading state. The hook's seeded state is a
+  // local fixture (demo names, placeholder cards, wrong min bet) and
+  // must never be painted as a live table — not even for one frame.
+  // Session/reconnect recovery is untouched: a reconnect re-applies a
+  // snapshot the same way, and once the gate has opened it never
+  // closes again for this mount.
+  if (!hasAuthoritativeState) {
+    return (
+      <div style={{
+        height: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 14,
+        backgroundColor: '#0a1628',
+        backgroundImage: `url('${yardBackdrop}')`,
+        backgroundSize: 'cover', backgroundPosition: 'center top',
+        color: ACT, fontFamily: 'monospace',
+      }} data-mode={MODE_ID} data-testid="bc-loading">
+        <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '0.14em', color: '#dbeafe' }}>BOX CHEVY</div>
+        <div className="animate-pulse" style={{ fontSize: 12, letterSpacing: '0.08em', opacity: 0.85 }}>Connecting to table…</div>
+      </div>
+    );
+  }
 
   // Detroit 2026-10-15: BoxChevyShowdown removed — the in-table celebration
   // in BoxChevyTable owns the winner moment (two winners: high + low).
