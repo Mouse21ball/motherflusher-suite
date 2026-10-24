@@ -140,6 +140,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   // message (lastWsAt) is NOT sufficient: control messages arrive
   // before any table state does.
   const [hasAuthoritativeState, setHasAuthoritativeState] = useState(false);
+  // Connection lifecycle epoch (Detroit 2026-10-24, Safeguard B):
+  // increments on EVERY accepted mode:init — the initial connect and
+  // each reconnect. Animation systems use it to recognize a hydration
+  // snapshot (fresh state after (re)connect) and baseline silently,
+  // instead of replaying whatever changed while disconnected.
+  const [initCount, setInitCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [retiredMode, setRetiredMode] = useState<{
     modeId: string;
@@ -372,6 +378,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             // FULL replace — no merge.
             setState(msg.state as GameState);
             setHasAuthoritativeState(true);
+            setInitCount(c => c + 1);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as SessionStats;
               sessionStatsRef.current = ss;
@@ -645,5 +652,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
+  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, initCount, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }

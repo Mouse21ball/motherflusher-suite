@@ -97,13 +97,15 @@ describe('Box Chevy — center-aware layout', () => {
     expect(bcTable).toContain("from './dealerOrigin'");
   });
 
-  it('community band is one reserved block with mini cards + pot pill', () => {
-    expect(bcTable).toContain('top-[50.5%]');
-    expect(bcTable).toContain('!w-[32px] !h-[44px]');
+  it('community band is one reserved block with cards + pot pill', () => {
+    // Detroit 2026-10-24 (final polish P2): the band rides +25px via
+    // COMMUNITY_BAND_TOP and the cards are 36x50 (budget verified in
+    // tests/bcCommunityGeometry.test.ts) — supersedes the 50.5%/32x44
+    // literals pinned here in the correction plan.
+    expect(bcTable).toContain('top: COMMUNITY_BAND_TOP');
+    expect(bcTable).toContain('!w-[36px] !h-[50px]');
     expect(bcTable).toContain('POT ${state.pot.toLocaleString()}');
-    // The community row itself is mini; the only remaining 44x62 cards
-    // are the celebration overlay's winner hands (not table geometry).
-    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[32px] !h-[44px]" />');
+    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[36px] !h-[50px]" />');
   });
 
   it('per-pod server-deadline timer bars (hero included)', () => {

@@ -20,7 +20,17 @@ import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
 import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
-import { seatPosition, dealerFlightOrigin } from './dealerOrigin';
+import {
+  seatPosition, dealerFlightOrigin,
+  COMMUNITY_POS, COMMUNITY_SPREAD, POT_POS, MUCK_POS,
+  COMMUNITY_BAND_TOP, MUCK_LABEL_TOP,
+} from './dealerOrigin';
+import {
+  celebrationFromSummary, settlementReady, summaryForHand,
+} from './celebrationPlan';
+import type { WinnerInfo, CelebrationAudit } from './celebrationPlan';
+import { planDrawFlights, seedDrawBaseline, planChipFlights } from './flightPlan';
+import type { HeroDrawTx } from './flightPlan';
 import type { ShowdownSummary } from '@shared/modes/showdownSummary';
 import { serverNowMs } from '@/lib/clockSync';
 
@@ -70,53 +80,9 @@ interface RakeState {
   amount: number;
 }
 
-interface WinnerInfo {
-  name: string;
-  amount: number;
-  cards: { rank: string; suit: string }[];
-  handLabel: string;
-  side: 'HIGH' | 'LOW' | 'SWING' | 'SOLE' | 'BOTH';
-  /** Authoritative payout from the server's showdown summary
-   *  (Detroit 2026-10-22). Rendered when present; the legacy
-   *  `amount` field is a client estimate and is never displayed. */
-  exactAmount?: number;
-  /** The settlement's own reason text for this award. */
-  reason?: string;
-  /** Summary-driven showdown winners only (Detroit 2026-10-22,
-   *  stabilization): the qualifying TEN cards — five hole + five
-   *  community — in the winning side's approved comparison order
-   *  (HIGH ascending, LOW descending; SWING carries both rows).
-   *  Pure presentation of showdown-snapshot data; community cards
-   *  are flagged so the two sources stay distinguishable. */
-  tenRows?: { label?: string; cards: { rank: string; suit: string; community: boolean }[] }[];
-}
-
-interface CelebrationAudit {
-  /** Server-authoritative rollover amount for a no-winner hand.
-   *  The celebration renders ONLY this for no-winner hands
-   *  (Detroit 2026-10-22: no WINNER banner, no roster, no
-   *  explanatory paragraphs on the main screen). */
-  rollover: number;
-}
-
-/** Box Chevy rank values for presentation ordering (Ace = 1,
- *  King = 13 — the approved comparison values). */
-const BC_RANK_VALUE: Record<string, number> = {
-  A: 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13,
-};
-
-function orderedTen(
-  hole: { rank: string; suit: string }[],
-  comm: { rank: string; suit: string }[],
-  dir: 'asc' | 'desc',
-): { rank: string; suit: string; community: boolean }[] {
-  const all = [
-    ...hole.map(c => ({ ...c, community: false })),
-    ...comm.map(c => ({ ...c, community: true })),
-  ];
-  all.sort((a, b) => (BC_RANK_VALUE[a.rank] - BC_RANK_VALUE[b.rank]) * (dir === 'asc' ? 1 : -1));
-  return all;
-}
+// WinnerInfo / CelebrationAudit / orderedTen moved to
+// celebrationPlan.ts (Detroit 2026-10-24) — the pure, unit-tested
+// summary→celebration mapping lives there now.
 
 interface CelebrationState {
   active: boolean;
@@ -144,16 +110,11 @@ interface ProtoState {
   turnDeadline: number | null;
 }
 
-// Key table positions (percentages) — Detroit 2026-10-22 correction
-// plan: center-aware layout. The community block (label + cards + pot
-// pill) owns a reserved center band at 50.5%; the pot pill sits at its
-// base (~57%). Flights target these anchors.
-const POT_POS = { x: 50, y: 57 };
-const MUCK_POS = { x: 63, y: 47 };
-const COMMUNITY_POS = { x: 50, y: 49.7 };
+// Table anchors (community band, pot, muck) live in dealerOrigin.ts
+// (Detroit 2026-10-24 polish: band +25px, community cards 36x50,
+// budget pinned by tests/bcCommunityGeometry.test.ts).
 
-// Card sizes — hero bigger (5 cards need to fit); community cards are
-// mini (32x44) so the five-card row fits its reserved band at 360px.
+// Card sizes — hero bigger (5 cards need to fit).
 const HERO_CARD_W = 52;
 const HERO_CARD_H = 74;
 const OPP_CARD_W = 20;
@@ -177,21 +138,45 @@ function emptyCelebration(): CelebrationState {
   return { active: false, highWinner: null, lowWinner: null, soleWinner: null, audit: null };
 }
 
-function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
+function useLiveProtoState(
+  liveState: GameState,
+  myId: string,
+  hydrationEpoch: number = 0,
+  heroDrawTx: HeroDrawTx | null = null,
+): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
   const [celebration, setCelebration] = useState<CelebrationState>(emptyCelebration);
   const [landed, setLanded] = useState<Record<string, number>>({});
   const [commLanded, setCommLanded] = useState(-1); // -1 = not staged yet (reconnect fallback shows all)
+  // Hero draw staging (Detroit 2026-10-24, Safeguard C): the exact
+  // discarded slots, held face-down until their replacement flights
+  // land. Kept slots are never in this list — they never animate.
+  const [heroDrawHidden, setHeroDrawHidden] = useState<number[]>([]);
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number> } | null>(null);
   // Freshest live state for timer callbacks (the showdown summary
   // lands ~650ms after the phase flips; builders read it from here,
   // fenced by handId).
   const liveRef = useRef(liveState);
   liveRef.current = liveState;
+  // Connection lifecycle (Safeguard B): the hook's init epoch. A new
+  // epoch = a (re)connection hydrated fresh state — its first snapshot
+  // is a baseline, never a source of animation flights.
+  const epochPropRef = useRef(hydrationEpoch);
+  epochPropRef.current = hydrationEpoch;
+  const epochSeenRef = useRef(hydrationEpoch);
+  const heroTxRef = useRef(heroDrawTx);
+  heroTxRef.current = heroDrawTx;
+  // Per-hand drawSeq baselines for the draw planner.
+  const drawBaseRef = useRef<{ handId: number | undefined; seqs: Map<string, number> }>({ handId: undefined, seqs: new Map() });
+  // Celebration readiness (Safeguard A): a SHOWDOWN entry arms this;
+  // the presentation starts only when authoritative settled data for
+  // the SAME handId exists — never merely because time elapsed.
+  const pendingCelebRef = useRef<{ handId: number; enteredAt: number; grossPot: number; started: boolean } | null>(null);
+  const celebHandRef = useRef<number | null>(null);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -209,6 +194,54 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     setFlights(s => s.filter(f => f.id !== id));
   }, []);
 
+  // Client-derived celebration for settlements that carry NO server
+  // summary (fold-win direct awards). Built from the SETTLED state at
+  // presentation time — never from the SHOWDOWN entry snapshot, which
+  // is winnerless for contested hands (Detroit 2026-10-24).
+  const buildClientCelebration = useCallback((state: GameState, grossPot: number): { highWinner: WinnerInfo | null; lowWinner: WinnerInfo | null; soleWinner: WinnerInfo | null } | null => {
+    const winners = state.players.filter(p => (p as any).isWinner);
+    if (winners.length === 0) return null;
+    const comm = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
+    const evals = new Map(winners.map(w => {
+      const hole = (w.cards ?? []).map(c => ({ ...c, isHidden: false }));
+      return [w.id, evaluateBoxChevy10(hole as any, comm as any)];
+    }));
+    const decl = (w: any) => (w as any).declaration as string | null;
+    const highPool = winners.filter(w => decl(w) === 'HIGH' || decl(w) === 'SWING');
+    const lowPool = winners.filter(w => decl(w) === 'LOW' || decl(w) === 'SWING');
+    let bestHighEval: any = null;
+    const highTied: any[] = [];
+    for (const w of highPool) {
+      const e = evals.get(w.id)!;
+      if (!bestHighEval || compareBoxChevyHigh(e, bestHighEval) > 0) { bestHighEval = e; highTied.length = 0; highTied.push(w); }
+      else if (compareBoxChevyHigh(e, bestHighEval) === 0) { highTied.push(w); }
+    }
+    let bestLowEval: any = null;
+    const lowTied: any[] = [];
+    for (const w of lowPool) {
+      const e = evals.get(w.id)!;
+      if (!bestLowEval || compareBoxChevyLow(e, bestLowEval) > 0) { bestLowEval = e; lowTied.length = 0; lowTied.push(w); }
+      else if (compareBoxChevyLow(e, bestLowEval) === 0) { lowTied.push(w); }
+    }
+    const buildInfo = (w: any, side: WinnerInfo['side']): WinnerInfo => {
+      const hole = (w.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
+      const e = evals.get(w.id)!;
+      return { name: w.name, amount: Math.floor(grossPot / winners.length), cards: hole, handLabel: e.desc, side };
+    };
+    const tieName = (tied: any[]) => tied.map(w => w.name).join(' & ');
+    let highWinner: WinnerInfo | null = null;
+    let lowWinner: WinnerInfo | null = null;
+    let soleWinner: WinnerInfo | null = null;
+    if (highTied.length > 0 && lowTied.length > 0 && highTied[0].id === lowTied[0].id && highTied.length === 1 && lowTied.length === 1) {
+      soleWinner = buildInfo(highTied[0], 'SWING');
+    } else {
+      if (highTied.length > 0) { const info = buildInfo(highTied[0], 'HIGH'); info.name = tieName(highTied); highWinner = info; }
+      if (lowTied.length > 0) { const info = buildInfo(lowTied[0], 'LOW'); info.name = tieName(lowTied); lowWinner = info; }
+      if (!highWinner && !lowWinner && winners.length > 0) soleWinner = buildInfo(winners[0], 'SOLE');
+    }
+    return { highWinner, lowWinner, soleWinner };
+  }, []);
+
   useEffect(() => {
     if (reduced) return;
     const prev = prevRef.current;
@@ -216,15 +249,66 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       handId: liveState.handId,
       phase: liveState.phase,
       bets: Object.fromEntries(liveState.players.map(p => [p.id, p.bet])),
-      draws: Object.fromEntries(liveState.players.map(p => [p.id, `${liveState.phase}:${(p as any).lastDrawCount ?? 'x'}`])),
+    };
+    // Hydration = this snapshot arrived under a NEW connection epoch
+    // (mount, reconnect). It reseeds baselines and never schedules
+    // flights — lifecycle state, not a timing heuristic (Safeguard B).
+    const hydration = epochPropRef.current !== epochSeenRef.current;
+    if (hydration) epochSeenRef.current = epochPropRef.current;
+    if (hydration || drawBaseRef.current.handId !== liveState.handId) {
+      drawBaseRef.current = { handId: liveState.handId, seqs: seedDrawBaseline(liveState.players as any) };
+    }
+
+    // Card flights originate at the CURRENT dealer's rendered seat
+    // (Detroit 2026-10-24) — computed fresh from this snapshot so a
+    // rotated button between hands moves the origin with it. Same
+    // percent space / parent container as the flight destinations.
+    const flightOrigin = dealerFlightOrigin(liveState.players as any, myId);
+
+    // Celebration presentation (Safeguard A): starts ONLY from
+    // authoritative settled data for the armed hand. The approved
+    // minimum timings (rake 2500 / build 3700 from SHOWDOWN entry)
+    // are preserved; a late settlement delays the start, never the
+    // reverse. Every callback is fenced by handId.
+    const startCelebration = (pend: { handId: number; enteredAt: number; grossPot: number; started: boolean }) => {
+      pend.started = true;
+      const handId = pend.handId;
+      const elapsed = Date.now() - pend.enteredAt;
+      later(Math.max(0, 2500 - elapsed), () => {
+        const st: any = liveRef.current;
+        if (st.handId !== handId) return;
+        const sum = summaryForHand(st, handId);
+        const rakeWinnerId = sum?.awards[0]?.playerId ?? st.players.find((p: any) => p.isWinner)?.id;
+        if (!rakeWinnerId) return;
+        const meP = st.players.find((p: any) => p.id === myId);
+        const orderedP = meP ? [meP, ...st.players.filter((p: any) => p.id !== myId).slice(0, 4)] : st.players;
+        const seatIdx = orderedP.findIndex((p: any) => p.id === rakeWinnerId);
+        setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: Math.max(0, pend.grossPot - (sum ? sum.rollover : 0)) });
+        sfx.chipRake();
+      });
+      later(Math.max(0, 3700 - elapsed), () => {
+        const st: any = liveRef.current;
+        if (st.handId !== handId) return;
+        setRake({ active: false, winnerIndex: -1, amount: 0 });
+        const sum = summaryForHand(st, handId);
+        if (sum) {
+          setCelebration({ active: true, ...celebrationFromSummary(sum, st.players, st.communityCards ?? []) });
+        } else {
+          const built = buildClientCelebration(st, pend.grossPot);
+          if (!built) return; // nothing truthful to show — never fabricate a no-winner
+          setCelebration({ active: true, ...built, audit: null });
+        }
+        celebHandRef.current = handId;
+        sfx.bigWin();
+        later(5300, () => {
+          // Clear ONLY this hand's celebration — a newer hand's
+          // celebration is never killed by a stale timer.
+          if (celebHandRef.current === handId) { celebHandRef.current = null; setCelebration(emptyCelebration()); }
+        });
+      });
     };
 
-    if (prev) {
-      // Card flights originate at the CURRENT dealer's rendered seat
-      // (Detroit 2026-10-24) — computed fresh from this snapshot so a
-      // rotated button between hands moves the origin with it. Same
-      // percent space / parent container as the flight destinations.
-      const flightOrigin = dealerFlightOrigin(liveState.players as any, myId);
+    if (prev && !hydration) {
       // NEW HAND → 5 hole cards per seated player, THEN 5 community cards
       // (Detroit 2026-10-15: community dealt the same way as a hand —
       // staggered flights from dealer).
@@ -247,6 +331,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
         setCommLanded(0);
+        setHeroDrawHidden([]);
+        pendingCelebRef.current = null;
+        celebHandRef.current = null;
         // Detroit 2026-10-16: clear celebration + rake so they don't bleed into the new hand.
         setCelebration(emptyCelebration());
         setRake({ active: false, winnerIndex: -1, amount: 0 });
@@ -280,7 +367,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             const fid = addFlight({
               kind: 'card',
               fromX: flightOrigin.x, fromY: flightOrigin.y,
-              toX: COMMUNITY_POS.x + (c - 2) * 10.3, toY: COMMUNITY_POS.y,
+              toX: COMMUNITY_POS.x + (c - 2) * COMMUNITY_SPREAD, toY: COMMUNITY_POS.y,
               label: '', faceDown: false, duration: 0.32, toHero: false,
             });
             sfx.dealSingle();
@@ -292,218 +379,115 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // BETS + ANTES → chips fly
-      for (const p of liveState.players) {
-        const betInc = (curr.bets[p.id] ?? 0) - (prev.bets[p.id] ?? 0);
-        if (betInc > 0 && (curr.phase.startsWith('BET') || curr.phase === 'ANTE')) {
-          const isHero = p.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
-          const pos = seatPosition(Math.max(0, seatIdx));
-          const fid = addFlight({
-            kind: 'chip',
-            fromX: pos.x, fromY: pos.y - 4,
-            toX: POT_POS.x, toY: POT_POS.y,
-            label: `$${betInc}`, faceDown: false, duration: 0.45, toHero: false,
-          });
-          sfx.betPlace();
-          later(450, () => removeFlight(fid));
-        }
+      // BETS + ANTES → chips fly. The planner (Safeguard B) allows
+      // ONLY genuine positive contributions: never on hydration,
+      // never outside ANTE/BET phases, never across a phase change.
+      const chipPlans = planChipFlights(
+        { phase: prev.phase, bets: new Map(Object.entries(prev.bets)) },
+        { phase: curr.phase, bets: new Map(Object.entries(curr.bets)) },
+        false, // hydration snapshots never reach this block
+      );
+      for (const plan of chipPlans) {
+        const isHero = plan.playerId === myId;
+        const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === plan.playerId) + 1;
+        const pos = seatPosition(Math.max(0, seatIdx));
+        const fid = addFlight({
+          kind: 'chip',
+          fromX: pos.x, fromY: pos.y - 4,
+          toX: POT_POS.x, toY: POT_POS.y,
+          label: `$${plan.amount}`, faceDown: false, duration: 0.45, toHero: false,
+        });
+        sfx.betPlace();
+        later(450, () => removeFlight(fid));
       }
 
-      // DRAWS → discards to muck, replacements from dealer
-      for (const p of liveState.players) {
-        const prevD = prev.draws[p.id];
-        const currD = curr.draws[p.id];
-        const currCount = parseInt(currD.split(':')[1] || '0', 10);
-        if (currD !== prevD && !isNaN(currCount) && currCount > 0) {
-          const isHero = p.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
-          const pos = seatPosition(Math.max(0, seatIdx));
-          const keptCount = 5 - currCount;
-          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
-          for (let d = 0; d < currCount; d++) {
-            const fid = addFlight({
-              kind: 'muck',
-              fromX: pos.x, fromY: pos.y - 6,
-              toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
-              label: '', faceDown: true, duration: 0.35, toHero: false,
+      // DRAWS → discards to muck, replacements from dealer. The
+      // planner (Safeguards B + C) keys on the server's drawSeq:
+      // exactly one sequence per accepted draw; phase transitions
+      // and refreshes plan nothing. Hero staging is slot-faithful
+      // via the client's own draw transaction.
+      const { plans: drawPlans, baseline: nextDrawBase } = planDrawFlights(
+        drawBaseRef.current.seqs, liveState.players as any, myId, heroTxRef.current,
+      );
+      drawBaseRef.current.seqs = nextDrawBase;
+      for (const plan of drawPlans) {
+        const isHero = plan.playerId === myId;
+        const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === plan.playerId) + 1;
+        const pos = seatPosition(Math.max(0, seatIdx));
+        const flightSlots: (number | null)[] = plan.slots ?? Array.from({ length: plan.count }, () => null);
+        if (plan.slots) {
+          // Hero: flip exactly the discarded slots face-down. Kept
+          // slots are untouched — they never hide, move, or re-fly.
+          setHeroDrawHidden(plan.slots);
+        } else if (!isHero) {
+          // Opponents (masked backs): count staging, as before.
+          setLanded(prevLanded => ({ ...prevLanded, [plan.playerId]: 5 - plan.count }));
+        }
+        for (let d = 0; d < flightSlots.length; d++) {
+          const fid = addFlight({
+            kind: 'muck',
+            fromX: pos.x, fromY: pos.y - 6,
+            toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
+            label: '', faceDown: true, duration: 0.35, toHero: false,
+          });
+          later(d * 120 + 350, () => removeFlight(fid));
+        }
+        sfx.dealSingle();
+        later(plan.count * 120 + 400, () => {
+          flightSlots.forEach((slot, d) => {
+            const dfid = addFlight({
+              kind: 'card',
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
+              toX: pos.x, toY: pos.y - 6,
+              label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
-            later(d * 120 + 350, () => removeFlight(fid));
-          }
-          sfx.dealSingle();
-          later(currCount * 120 + 400, () => {
-            for (let d = 0; d < currCount; d++) {
-              const dfid = addFlight({
-                kind: 'card',
-                fromX: flightOrigin.x, fromY: flightOrigin.y,
-                toX: pos.x, toY: pos.y - 6,
-                label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
-              });
-              if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-              later(d * 120 + 320, () => {
-                removeFlight(dfid);
+            if (isHero) sfx.dealSelf(); else sfx.dealSingle();
+            later(d * 120 + 320, () => {
+              removeFlight(dfid);
+              if (slot !== null) {
+                setHeroDrawHidden(h => h.filter(s => s !== slot));
+              } else if (!isHero) {
                 setLanded(prevLanded => ({
                   ...prevLanded,
-                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 5),
+                  [plan.playerId]: Math.min((prevLanded[plan.playerId] ?? 5 - plan.count) + 1, 5),
                 }));
-              });
-            }
+              }
+            });
           });
-        }
+        });
       }
 
-      // SHOWDOWN → rake, two-winner celebration
-      if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
-        const winners = liveState.players.filter(p => (p as any).isWinner);
-        const comm = (liveState.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
-        const scheduledHandId = liveState.handId;
-        if (winners.length > 0) {
-          const evals = new Map(winners.map(w => {
-            const hole = (w.cards ?? []).map(c => ({ ...c, isHidden: false }));
-            return [w.id, evaluateBoxChevy10(hole as any, comm as any)];
-          }));
-          const decl = (w: any) => (w as any).declaration as string | null;
-          const highPool = winners.filter(w => decl(w) === 'HIGH' || decl(w) === 'SWING');
-          const lowPool = winners.filter(w => decl(w) === 'LOW' || decl(w) === 'SWING');
-          // Detroit 2026-10-16: collect ALL tied winners, not just the first.
-          let bestHighEval: any = null;
-          const highTied: any[] = [];
-          for (const w of highPool) {
-            const e = evals.get(w.id)!;
-            if (!bestHighEval || compareBoxChevyHigh(e, bestHighEval) > 0) {
-              bestHighEval = e; highTied.length = 0; highTied.push(w);
-            } else if (compareBoxChevyHigh(e, bestHighEval) === 0) {
-              highTied.push(w);
-            }
-          }
-          let bestLowEval: any = null;
-          const lowTied: any[] = [];
-          for (const w of lowPool) {
-            const e = evals.get(w.id)!;
-            if (!bestLowEval || compareBoxChevyLow(e, bestLowEval) > 0) {
-              bestLowEval = e; lowTied.length = 0; lowTied.push(w);
-            } else if (compareBoxChevyLow(e, bestLowEval) === 0) {
-              lowTied.push(w);
-            }
-          }
-          const buildInfo = (w: any, side: WinnerInfo['side']): WinnerInfo => {
-            const hole = (w.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
-            const e = evals.get(w.id)!;
-            return {
-              name: w.name,
-              amount: Math.floor(liveState.pot / winners.length),
-              cards: hole,
-              handLabel: e.desc,
-              side,
-            };
-          };
-          let highWinner: WinnerInfo | null = null;
-          let lowWinner: WinnerInfo | null = null;
-          let soleWinner: WinnerInfo | null = null;
-          // Detroit 2026-10-16: tied winners share the celebration (names joined).
-          const tieName = (tied: any[]) => tied.map(w => w.name).join(' & ');
-          if (highTied.length > 0 && lowTied.length > 0 && highTied[0].id === lowTied[0].id && highTied.length === 1 && lowTied.length === 1) {
-            soleWinner = buildInfo(highTied[0], 'SWING');
-          } else {
-            if (highTied.length > 0) {
-              const info = buildInfo(highTied[0], 'HIGH');
-              info.name = tieName(highTied);
-              highWinner = info;
-            }
-            if (lowTied.length > 0) {
-              const info = buildInfo(lowTied[0], 'LOW');
-              info.name = tieName(lowTied);
-              lowWinner = info;
-            }
-            if (!highWinner && !lowWinner && winners.length > 0) {
-              soleWinner = buildInfo(winners[0], 'SOLE');
-            }
-          }
-          const firstWinner = highTied[0] ?? lowTied[0] ?? winners[0];
-          const isHero = firstWinner.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === firstWinner.id) + 1;
-          later(2500, () => {
-            setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
-            sfx.chipRake();
-          });
-          later(3700, () => {
-            setRake({ active: false, winnerIndex: -1, amount: 0 });
-            // Server summary first (Detroit 2026-10-22): exact
-            // payouts, sides, and reasons come from the settlement
-            // itself. Fallback (fold-win direct awards carry no
-            // summary): the client-derived build above, unchanged.
-            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
-            if (sum && sum.handId === scheduledHandId && sum.modeId === 'box_chevy') {
-              const livePlayers = (liveRef.current as any).players as any[];
-              const byId = new Map(livePlayers.map(p => [p.id, p]));
-              const infoFor = (a: ShowdownSummary['awards'][number], side: WinnerInfo['side']): WinnerInfo => {
-                const p = byId.get(a.playerId);
-                const hole = (p?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
-                const commCards = comm.map(c => ({ rank: c.rank, suit: c.suit }));
-                const asc = orderedTen(hole, commCards, 'asc');
-                const desc = orderedTen(hole, commCards, 'desc');
-                const declaration = sum.declarations?.find(d => d.playerId === a.playerId)?.declaration ?? null;
-                let tenRows: WinnerInfo['tenRows'];
-                if (side === 'HIGH') tenRows = [{ cards: asc }];
-                else if (side === 'LOW') tenRows = [{ cards: desc }];
-                else if (side === 'SWING' || side === 'BOTH') tenRows = [{ label: 'HIGH', cards: asc }, { label: 'LOW', cards: desc }];
-                else if (declaration === 'LOW') tenRows = [{ cards: desc }];
-                else if (declaration === 'SWING') tenRows = [{ label: 'HIGH', cards: asc }, { label: 'LOW', cards: desc }];
-                else tenRows = [{ cards: asc }];
-                return {
-                  name: p?.name ?? a.playerId,
-                  amount: a.amount,
-                  exactAmount: a.amount,
-                  cards: hole,
-                  handLabel: sum.entries.find(e => e.playerId === a.playerId)?.description ?? '',
-                  side,
-                  reason: a.reason,
-                  tenRows,
-                };
-              };
-              let hi: WinnerInfo | null = null;
-              let lo: WinnerInfo | null = null;
-              let sole: WinnerInfo | null = null;
-              for (const a of sum.awards) {
-                if (a.part === 'HIGH') hi = infoFor(a, 'HIGH');
-                else if (a.part === 'LOW') lo = infoFor(a, 'LOW');
-                else if (a.part === 'SWING') sole = infoFor(a, 'SWING');
-                else if (a.part === 'HIGH + LOW') sole = infoFor(a, 'BOTH');
-                else sole = infoFor(a, 'SOLE');
-              }
-              const audit: CelebrationAudit = { rollover: sum.rollover };
-              setCelebration({ active: true, highWinner: hi, lowWinner: lo, soleWinner: sole, audit });
-            } else {
-              setCelebration({ active: true, highWinner, lowWinner, soleWinner, audit: null });
-            }
-            sfx.bigWin();
-          });
-          later(9000, () => { // Detroit 2026-10-16: reduced from 12s — 9s is enough to read two hands
-            setCelebration(emptyCelebration());
-          });
-        } else if (liveState.pot > 0) {
-          // No winners at entry: a contested hand that will resolve
-          // to a rollover (nobody qualified) still gets its audit —
-          // built purely from the server summary when it lands.
-          later(3700, () => {
-            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
-            if (!sum || sum.handId !== scheduledHandId || sum.modeId !== 'box_chevy') return;
-            const livePlayers = (liveRef.current as any).players as any[];
-            const byId = new Map(livePlayers.map(p => [p.id, p]));
-            setCelebration({
-              active: true, highWinner: null, lowWinner: null, soleWinner: null,
-              audit: { rollover: sum.rollover },
-            });
-            sfx.bigWin();
-          });
-          later(9000, () => {
-            setCelebration(emptyCelebration());
-          });
-        }
-      }
     }
+
+    // ── Celebration arming + readiness (Safeguard A) ──
+    // A SHOWDOWN entry ARMS the presentation; it does not choose a
+    // branch. A winnerless entry snapshot is an UNRESOLVED hand, not
+    // a no-winner settlement. The presentation starts when settled
+    // data for this handId exists (summary or settled winner flags),
+    // with an 8s fallback that can only build from settled winners —
+    // if none exist by then, nothing renders rather than a false
+    // NO WINNER.
+    if (curr.phase === 'SHOWDOWN' && prev?.phase !== 'SHOWDOWN' && curr.handId !== undefined) {
+      const armed = { handId: curr.handId, enteredAt: Date.now(), grossPot: liveState.pot, started: false };
+      pendingCelebRef.current = armed;
+      later(8000, () => {
+        if (pendingCelebRef.current !== armed || armed.started) return;
+        const st: any = liveRef.current;
+        if (st.phase !== 'SHOWDOWN' || st.handId !== armed.handId) return;
+        if (st.players.some((p: any) => p.isWinner)) startCelebration(armed);
+      });
+    }
+    const pend = pendingCelebRef.current;
+    if (pend && !pend.started && curr.phase === 'SHOWDOWN' && curr.handId === pend.handId
+        && settlementReady(liveState as any, pend.handId)) {
+      startCelebration(pend);
+    }
+    if (pend && curr.handId !== pend.handId && curr.phase !== 'SHOWDOWN') {
+      pendingCelebRef.current = null;
+    }
+
     prevRef.current = curr;
-  }, [liveState, myId, reduced, later, addFlight, removeFlight]);
+  }, [liveState, myId, reduced, later, addFlight, removeFlight, buildClientCelebration]);
 
   const me = liveState.players.find(p => p.id === myId);
   const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
@@ -515,10 +499,13 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     name: p.name,
     chips: p.chips,
     bet: p.bet,
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map((c, ci) => ({
       ...c,
       // Detroit 2026-10-16: folded players (including hero) hide cards at showdown.
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
+      // Detroit 2026-10-24: hero slots mid-draw-replacement also render
+      // face-down — ONLY the discarded slots (heroDrawHidden); kept
+      // slots are never hidden by draw staging.
+      isHidden: p.status === 'folded' ? true : (i === 0 ? (c.isHidden || heroDrawHidden.includes(ci)) : (showdownPhase ? false : true)),
     })),
     isHero: i === 0,
     folded: p.status === 'folded',
@@ -548,7 +535,11 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
 }
 
 function FlightView({ flight }: { flight: Flight }) {
-  const size = flight.kind === 'card'
+  // Detroit 2026-10-24 (Safeguard B): the gold COIN visual is reserved
+  // for chip flights only. Discards ('muck') are cards — they render as
+  // face-down card backs, never as coins.
+  const isCardVisual = flight.kind === 'card' || flight.kind === 'muck';
+  const size = isCardVisual
     ? (flight.toHero ? { w: HERO_CARD_W, h: HERO_CARD_H } : { w: 20, h: 30 })
     : { w: 26, h: 26 };
   return (
@@ -559,7 +550,7 @@ function FlightView({ flight }: { flight: Flight }) {
       animate={{ left: `${flight.toX}%`, top: `${flight.toY}%` }}
       transition={{ duration: flight.duration, ease: [0.3, 0.7, 0.4, 1] }}
     >
-      {flight.kind === 'card' ? (
+      {isCardVisual ? (
         <div
           className="rounded"
           style={{
@@ -592,11 +583,15 @@ interface BoxChevyTableProps {
   isDrawPhase: boolean;
   heroAvatarSrc?: string | null;
   heroFrameSrc?: string | null;
+  /** Connection lifecycle epoch from useServerMode (Safeguard B). */
+  hydrationEpoch?: number;
+  /** The hero's latest draw transaction (Safeguard C). */
+  heroDrawTx?: HeroDrawTx | null;
 }
 
-export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc }: BoxChevyTableProps) {
+export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc, hydrationEpoch, heroDrawTx }: BoxChevyTableProps) {
   const reduced = useReducedMotion();
-  const state = useLiveProtoState(liveState, myId);
+  const state = useLiveProtoState(liveState, myId, hydrationEpoch ?? 0, heroDrawTx ?? null);
   const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
     angle: (i / 24) * Math.PI * 2,
     dist: 120 + Math.random() * 80,
@@ -632,7 +627,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
             amount crowded the cards' lower edge. The pill keeps the pot
             compact inside the band — and visible during WAITING, which
             ruling 2's rollover depends on. */}
-        <div className="absolute left-1/2 top-[50.5%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ gap: 4 }}>
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ gap: 4, top: COMMUNITY_BAND_TOP }}>
           {state.communityCards.length > 0 && (
             <div className="text-white/40 text-[9px] font-mono tracking-widest">COMMUNITY</div>
           )}
@@ -644,8 +639,18 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2 }}
+                  // Detroit 2026-10-24 (P2 premium polish): restrained
+                  // gold edging + soft depth on the enlarged 36x50
+                  // community cards. Wrapper only — card art untouched.
+                  style={{
+                    borderRadius: 5,
+                    border: '1px solid rgba(240,184,41,0.6)',
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.55), 0 0 6px rgba(240,184,41,0.18)',
+                    overflow: 'hidden',
+                    lineHeight: 0,
+                  }}
                 >
-                  <PlayingCard card={card} className="!w-[32px] !h-[44px]" />
+                  <PlayingCard card={card} className="!w-[36px] !h-[50px]" />
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -664,7 +669,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           </AnimatePresence>
         </div>
         {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-mono" style={{ top: 'calc(50.5% + 50px)' }}>🂠 muck</div>
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-mono" style={{ top: MUCK_LABEL_TOP }}>🂠 muck</div>
         )}
 
         {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
@@ -685,7 +690,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     border: '2px dashed rgba(255,255,255,0.5)',
                     boxShadow: '0 0 12px rgba(245,158,11,0.6)',
                   }}
-                  initial={{ left: '50%', top: '57%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  initial={{ left: '50%', top: `${POT_POS.y}%`, x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                   animate={{
                     left: `${wpos.x}%`, top: `${wpos.y}%`,
                     x: `calc(-50% + ${(i - flyCount / 2) * 8}px)`,
@@ -1103,6 +1108,9 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
             Detroit 2026-10-22: the exact payout returns, sourced from the server's showdown summary. */}
         {winner.exactAmount !== undefined && (
           <span className="text-amber-300 text-xl font-mono ml-3">+${winner.exactAmount.toLocaleString()}</span>
+        )}
+        {winner.amountText !== undefined && (
+          <span className="text-amber-300 text-sm font-mono ml-3">{winner.amountText}</span>
         )}
       </div>
       {winner.side !== 'SOLE' && (

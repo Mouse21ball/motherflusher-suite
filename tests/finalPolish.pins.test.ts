@@ -57,6 +57,11 @@ describe('Showdown presentation (summary-driven)', () => {
     // the audit roster/paragraphs left the main celebration; the
     // no-winner line is pinned in stabilization.pins.test.ts.
     expect(bcTable).toContain('data-testid="bc-no-winner"');
-    expect(bcTable).toContain('(liveRef.current as any).showdownSummary');
+    // Detroit 2026-10-24 (final polish repairs): the summary is read
+    // through the readiness-gated celebrationPlan accessors (handId-
+    // fenced) rather than inline at a fixed delay.
+    expect(bcTable).toContain('summaryForHand(st, handId)');
+    const bcPlan = readFileSync('client/src/components/boxChevy/celebrationPlan.ts', 'utf8');
+    expect(bcPlan).toContain('sum.handId === handId');
   });
 });

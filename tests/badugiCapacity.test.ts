@@ -35,8 +35,10 @@ describe('Badugi capacity defaults (P3)', () => {
 
   it('Box Chevy table renders and deals to a fifth seat', () => {
     const bc = readFileSync(resolve(__dirname, '../client/src/components/boxChevy/BoxChevyTable.tsx'), 'utf8');
-    // Both opponent slices admit 4 others (proto render + deal driver).
-    expect(bc.match(/\.slice\(0, 4\)/g)?.length).toBe(2);
+    // Opponent slices admit 4 others (proto render + deal driver;
+    // 2026-10-24: the celebration rake ordering is a third — all must
+    // admit the full four opponents).
+    expect(bc.match(/\.slice\(0, 4\)/g)?.length).toBe(3);
     expect(bc).not.toContain('.slice(0, 3)');
     // Deal flights follow the actual seat count for hole cards.
     expect(bc).toContain('const holeFlights = ordered.length * 5;');

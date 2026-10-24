@@ -57,3 +57,24 @@ export function dealerFlightOrigin(players: SeatPlayer[], myId: string): SeatPoi
   const seat = seatPosition(dealerSeatIndex(players, myId));
   return { x: seat.x, y: seat.y - 6 };
 }
+
+// ─── Community band anchors (Detroit 2026-10-24, final polish P2) ───
+// The band (COMMUNITY label + five cards + pot pill) moved DOWN 25px
+// from its approved 50.5% center and the cards grew 32×44 → 36×50.
+// The shift is +3.4% on the percent anchors (25px at 740px height,
+// 29px at 852px — inside the approved 20–30px band at both Galaxy
+// sizes) and an exact +25px calc on the band itself. Nothing else
+// moved: seats, hero, controls are untouched. Clearance budget is
+// pinned by tests/bcCommunityGeometry.test.ts.
+export const COMMUNITY_BAND_TOP = 'calc(50.5% + 25px)';
+export const COMMUNITY_CARD_W = 36;
+export const COMMUNITY_CARD_H = 50;
+/** Flight target for community cards: the rendered card-row center. */
+export const COMMUNITY_POS: SeatPoint = { x: 50, y: 53.1 };
+/** Horizontal pitch (% of table width) between community flight targets. */
+export const COMMUNITY_SPREAD = 10.9;
+/** Chip-flight target: the pot pill (rides with the band). */
+export const POT_POS: SeatPoint = { x: 50, y: 60.4 };
+/** Muck flight target / label anchor (rides with the band). */
+export const MUCK_POS: SeatPoint = { x: 63, y: 50.4 };
+export const MUCK_LABEL_TOP = 'calc(50.5% + 78px)';

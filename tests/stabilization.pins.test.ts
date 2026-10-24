@@ -35,10 +35,14 @@ describe('stabilization pins', () => {
   });
 
   it('celebration: winners carry ordered ten-card rows (HIGH asc, LOW desc, SWING both)', () => {
+    // Detroit 2026-10-24: the summary→celebration mapping (incl.
+    // orderedTen) moved to the pure celebrationPlan.ts; the table
+    // still renders tenRows.
+    const bcPlan = read('client/src/components/boxChevy/celebrationPlan.ts');
     const bcTable = read('client/src/components/boxChevy/BoxChevyTable.tsx');
     expect(bcTable).toContain('tenRows');
-    expect(bcTable).toContain("orderedTen(hole, commCards, 'asc')");
-    expect(bcTable).toContain("orderedTen(hole, commCards, 'desc')");
+    expect(bcPlan).toContain("orderedTen(hole, commCards, 'asc')");
+    expect(bcPlan).toContain("orderedTen(hole, commCards, 'desc')");
   });
 
   it('badge: compact one-line labels; long labels retired; evaluation strings untouched', () => {

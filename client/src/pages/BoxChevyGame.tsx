@@ -138,7 +138,7 @@ function BoxChevyGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, initCount, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -223,16 +223,27 @@ function BoxChevyGameUI() {
     handleControlAction('raise', amt);
   }, [handleControlAction]);
 
+  // The hero's draw transaction (Detroit 2026-10-24, Safeguard C):
+  // the exact indices submitted, bound to the drawSeq the accepted
+  // draw produces — the table stages/animates exactly these slots.
+  const [heroDrawTx, setHeroDrawTx] = useState<{ seq: number; indices: number[] } | null>(null);
+  const recordDrawTx = useCallback((indices: number[]) => {
+    const meNow = state.players.find(p => p.id === myId);
+    setHeroDrawTx({ seq: ((meNow as any)?.drawSeq ?? 0) + 1, indices });
+  }, [state, myId]);
+
   const handleDraw = useCallback(() => {
     const indices = Array.from(selectedCards).sort((a, b) => a - b);
+    recordDrawTx(indices);
     handleControlAction('draw', indices);
     setSelectedCards(new Set());
-  }, [selectedCards, handleControlAction]);
+  }, [selectedCards, handleControlAction, recordDrawTx]);
 
   const handleStandPat = useCallback(() => {
+    recordDrawTx([]);
     handleControlAction('draw', []);
     setSelectedCards(new Set());
-  }, [handleControlAction]);
+  }, [handleControlAction, recordDrawTx]);
 
   const handleDeclare = useCallback((d: 'HIGH' | 'LOW' | 'SWING') => {
     handleControlAction('declare', d);
@@ -383,6 +394,8 @@ function BoxChevyGameUI() {
             onCardClick={handleCardClick}
             heroAvatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
             heroFrameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
+            hydrationEpoch={initCount}
+            heroDrawTx={heroDrawTx}
           />
         </FriendSeatActions>
 
