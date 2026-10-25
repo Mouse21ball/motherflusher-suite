@@ -33,10 +33,18 @@ describe('Flushed Up — Badugi experience convergence', () => {
     expect(fuTable).toContain('timerBar(false)');
   });
 
-  it('raise selection is the shared BettingControls, used as-is', () => {
-    expect(fuBar).toContain("import { BettingControls } from '@/components/game/BettingControls'");
-    expect(fuBar).toContain('<BettingControls');
-    expect(fuBar).toContain('minBet={minBet}');
+  // Superseded for Flushed Up by Detroit 2026-10-25: FU gets Box
+  // Chevy-style bet-any-amount entry in its own bar (slider + exact
+  // typed amount). The shared BettingControls component stays frozen
+  // (pinned below) and Badugi still uses it; only FU's usage changed.
+  it('FU raise entry is in-bar slider + exact amount, on bettingMath legality', () => {
+    expect(fuBar).not.toContain("from '@/components/game/BettingControls'");
+    expect(fuBar).not.toContain('<BettingControls');
+    expect(fuBar).toContain("from '@/components/game/bettingMath'");
+    expect(fuBar).toContain('createBettingContext');
+    expect(fuBar).toContain('canRaiseTo');
+    expect(fuBar).toContain('data-testid="input-raise-slider"');
+    expect(fuBar).toContain('data-testid="input-raise-amount"');
     expect(fuPage).toContain('minBet={state.minBet ?? 50}');
   });
 

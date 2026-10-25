@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eraser, Layers3, Spade } from 'lucide-react';
-import { BettingControls } from '@/components/game/BettingControls';
+import {
+  createBettingContext, canRaiseTo, parseRaiseTo, suggestedRaiseTo,
+  getCheckCallAction, getAllInAction,
+} from '@/components/game/bettingMath';
 
 interface FlushedUpActionBarProps {
   phase: string;
@@ -94,6 +97,28 @@ export function FlushedUpActionBar({
 
   const canAct = isMyTurn && !locked;
   const isBetPhase = phase.startsWith('BET_');
+
+  // Bet-any-amount entry (Detroit 2026-10-25): Box Chevy-style, in the
+  // bar — a slider plus an exact typed amount, replacing the shared
+  // BettingControls popup for Flushed Up only. Legality comes from the
+  // same bettingMath the shared component uses (raise-TO semantics:
+  // min = current bet + min bet, max = the hero's whole stack), so the
+  // amounts offered here are exactly the amounts the server accepts.
+  // BettingControls itself is unmodified; Badugi still uses it.
+  const betCtx = useMemo(
+    () => createBettingContext({ currentBet, myBet, chips, pot, minBet }),
+    [currentBet, myBet, chips, pot, minBet],
+  );
+  const [raiseText, setRaiseText] = useState('');
+  useEffect(() => {
+    if (isBetPhase) setRaiseText(String(suggestedRaiseTo(betCtx)));
+    // Reset the dial whenever the betting situation changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentBet, myBet, chips]);
+  const raiseTo = parseRaiseTo(raiseText);
+  const validRaise = canRaiseTo(raiseTo, betCtx);
+  const canRaiseAtAll = betCtx.maxRaiseTo > betCtx.currentBet;
+  const allIn = getAllInAction(betCtx);
   const isWaiting = phase === 'WAITING';
   const canStart = activeCount >= 2 && chips > 0;
 
@@ -164,23 +189,84 @@ export function FlushedUpActionBar({
           </div>
         )}
         {isBetPhase && chips > 0 && isMyTurn && (
-          /* Shared BettingControls — the same component Badugi uses
-             (Detroit 2026-10-22): one-row fold / check·call / raise,
-             RAISE opens a slider + presets popup with raise-TO
-             semantics and legality checks. Replaces the old fixed
-             raise (max(call×2, 50) sent as a raise-by figure, which
-             computed to a bare call whenever the hero already had
-             chips in the pot). BettingControls itself is unmodified. */
-          <BettingControls
-            isMyTurn={isMyTurn}
-            locked={locked}
-            chips={chips}
-            currentBet={currentBet}
-            myBet={myBet}
-            pot={pot}
-            minBet={minBet}
-            onAction={onAction}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {canRaiseAtAll && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(240,171,252,0.8)', letterSpacing: '0.1em' }}>
+                    {currentBet > 0 ? 'RAISE TO' : 'BET AMOUNT'}
+                  </span>
+                  <span style={{ fontSize: 16, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A' }}>
+                    ${raiseTo?.toLocaleString() ?? '—'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="range"
+                    min={Math.min(betCtx.minRaiseTo, betCtx.maxRaiseTo)}
+                    max={betCtx.maxRaiseTo}
+                    step={5}
+                    value={raiseTo ?? betCtx.minRaiseTo}
+                    onChange={e => setRaiseText(e.target.value)}
+                    aria-label="Raise amount"
+                    data-testid="input-raise-slider"
+                    style={{ flex: 1, accentColor: '#D946EF' }}
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={raiseText}
+                    onChange={e => setRaiseText(e.target.value.replace(/[^0-9]/g, '').slice(0, 9))}
+                    aria-label="Exact raise amount"
+                    data-testid="input-raise-amount"
+                    style={{
+                      width: 76, padding: '8px 6px', borderRadius: 8, textAlign: 'right',
+                      background: 'rgba(20,12,40,0.9)', color: '#FDE68A',
+                      border: '1px solid rgba(217,70,239,0.4)',
+                      fontFamily: 'monospace', fontSize: 13, fontWeight: 700, outline: 'none',
+                    }}
+                  />
+                </div>
+              </>
+            )}
+            <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
+              <button
+                style={{ ...btnBase, background: 'rgba(20,12,40,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: '1px solid rgba(217,70,239,0.3)', opacity: canAct ? 1 : 0.5 }}
+                disabled={!canAct}
+                onClick={canAct ? () => onAction('fold') : undefined}
+                data-testid="button-fold"
+              >
+                FOLD
+              </button>
+              <button
+                style={{ ...btnBase, background: canAct ? 'linear-gradient(135deg, #86198F, #D946EF)' : 'rgba(60,30,90,0.5)', color: canAct ? '#fff' : 'rgba(255,255,255,0.25)', opacity: canAct ? 1 : 0.5 }}
+                disabled={!canAct}
+                onClick={canAct ? () => onAction(getCheckCallAction(betCtx)) : undefined}
+                data-testid={betCtx.callAmount === 0 ? 'button-check' : 'button-call'}
+              >
+                {betCtx.callAmount === 0 ? 'CHECK' : `CALL $${betCtx.payableCall.toLocaleString()}`}
+              </button>
+              {canRaiseAtAll && (
+                <button
+                  style={{ ...btnBase, background: 'rgba(20,12,40,0.9)', color: '#F0ABFC', border: '1px solid rgba(217,70,239,0.6)', opacity: canAct && validRaise ? 1 : 0.45 }}
+                  disabled={!canAct || !validRaise}
+                  onClick={canAct && validRaise ? () => onAction('raise', raiseTo) : undefined}
+                  data-testid="button-raise"
+                >
+                  {currentBet > 0 ? 'RAISE' : 'BET'} ${raiseTo?.toLocaleString() ?? '—'}
+                </button>
+              )}
+              <button
+                style={{ ...btnBase, background: 'linear-gradient(135deg,#4a0b0b,#991b1b)', color: '#fff', opacity: canAct ? 1 : 0.5 }}
+                disabled={!canAct}
+                onClick={canAct ? () => onAction(allIn.action, allIn.amount) : undefined}
+                data-testid="button-all-in"
+              >
+                ALL IN
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Waiting phase */}

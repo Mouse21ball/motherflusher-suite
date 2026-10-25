@@ -18,6 +18,10 @@ import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateFlushedUpHand } from '@shared/modes/flushedUp';
 import type { ShowdownSummary } from '@shared/modes/showdownSummary';
+import {
+  fuSettlementReady, summaryForHand, firstWinnerId, seatIndexOf,
+  celebrationFromSummary, celebrationFromWinners,
+} from './celebrationPlan';
 import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -143,8 +147,17 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
   // Live hand/phase for fire-time guards: celebration timers scheduled at
   // showdown must not activate after the table has moved to the next hand
   // (P1 repair — the winner overlay used to land on the next deal).
-  const liveRef = useRef<{ handId?: number; phase: string }>({ handId: undefined, phase: '' });
-  liveRef.current = { handId: liveState.handId, phase: liveState.phase };
+  const liveRef = useRef<{ handId?: number; phase: string; players: GameState['players']; pot: number; showdownSummary: ShowdownSummary | null }>({ handId: undefined, phase: '', players: [], pot: 0, showdownSummary: null });
+  liveRef.current = {
+    handId: liveState.handId,
+    phase: liveState.phase,
+    players: liveState.players,
+    pot: liveState.pot,
+    showdownSummary: (liveState as any).showdownSummary ?? null,
+  };
+  // Hand whose celebration is currently on screen — fences the timed
+  // clear so a late timer can never wipe a newer hand's moment.
+  const celebHandRef = useRef<number | undefined>(undefined);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -328,76 +341,69 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         });
       }
 
-      // SHOWDOWN → rake, celebration with winning hand (prototype: 2500ms, 3700ms, 9200ms)
-      // Detroit 2026-10-15: split pots celebrate ALL winners, not just the first.
+      // SHOWDOWN → rake, celebration with winning hand (prototype timing:
+      // rake 2500ms, celebration 3700ms, clear 5500ms after build).
+      // Detroit 2026-10-25: the celebration is SETTLEMENT-GATED. The old
+      // code required winners on the showdown ENTRY snapshot — which the
+      // engine sends winnerless by design (phase first, settlement
+      // ~650ms later) — so most showdowns never celebrated at all; its
+      // summary branch was dead besides (it read the summary off a ref
+      // that never carried it). Now: arm at entry, build only when
+      // celebrationPlan says settled data for THIS hand exists. Minimum
+      // presentation timing is preserved; late settlement delays it.
       if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
-        const winners = liveState.players.filter(p => (p as any).isWinner);
-        if (winners.length > 0) {
-          const winner = winners[0];
-          const isHero = winner.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === winner.id) + 1;
-          // Evaluate the winning hand for display (Flushed Up)
-          let handLabel = '';
-          let winCards: { rank: string; suit: string }[] = [];
-          try {
-            const cards = (winner.cards ?? []).map(c => ({ ...c, isHidden: false }));
-            winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
-            handLabel = evaluateFlushedUpHand(cards as Parameters<typeof evaluateFlushedUpHand>[0])?.description ?? '';
-          } catch { /* evaluation failed, show cards without label */ }
-          const scheduledHandId = liveState.handId;
-          const stillThisShowdown = () => liveRef.current.handId === scheduledHandId && liveRef.current.phase === 'SHOWDOWN';
-          later(2500, () => {
-            if (!stillThisShowdown()) return;
-            setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
-            sfx.chipRake();
-          });
-          later(3700, () => {
-            if (!stillThisShowdown()) return;
-            setRake({ active: false, winnerIndex: -1, amount: 0 });
-            // Server summary first (Detroit 2026-10-22): winner,
-            // payout, and classification come from the settlement
-            // itself — never re-derived here. It lands ~650ms after
-            // showdown entry, so read the freshest state, fenced to
-            // this hand. Fallback (fold-win direct awards carry no
-            // summary): the entry-time values, as before.
-            const sum = (liveRef.current as any).showdownSummary as ShowdownSummary | null;
-            if (sum && sum.handId === scheduledHandId && sum.awards.length > 0) {
-              const livePlayers = (liveRef.current as any).players as any[];
-              const byId = new Map(livePlayers.map(p => [p.id, p]));
-              const first = sum.awards[0];
-              const firstPlayer = byId.get(first.playerId);
-              const sumCards = (firstPlayer?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
-              const sumName = sum.awards.length > 1
-                ? `SPLIT — ${sum.awards.map(a => byId.get(a.playerId)?.name ?? a.playerId).join(' & ')}`
-                : (firstPlayer?.name ?? first.playerId);
-              const sumAmount = sum.awards.reduce((s, a) => s + a.amount, 0);
-              const sumLabel = sum.awards.length > 1 ? (sum.comparisons[0] ?? '') : first.reason;
-              const sumOthers = sum.entries
-                .filter(e => e.playerId !== first.playerId)
-                .map(e => ({
-                  name: byId.get(e.playerId)?.name ?? e.playerId,
-                  cards: (byId.get(e.playerId)?.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit })),
-                  description: e.description,
-                }));
-              setCelebration({
-                active: true, winnerName: sumName, amount: sumAmount,
-                cards: sumCards, handLabel: sumLabel,
-                comparison: sum.awards.length > 1 ? '' : (sum.comparisons[0] ?? ''),
-                others: sumOthers,
-              });
-            } else {
-              // Split pot: name all winners
-              const winnerName = winners.length > 1
-                ? `SPLIT — ${winners.map(w => w.name).join(' & ')}`
-                : winner.name;
-              setCelebration({ active: true, winnerName, amount: liveState.pot, cards: winCards, handLabel, comparison: "", others: [] });
+        const entryHandId = liveState.handId;
+        let rakeFired = false;
+        let built = false;
+        const stillThisShowdown = () =>
+          liveRef.current.handId === entryHandId && liveRef.current.phase === 'SHOWDOWN';
+        const settledNow = () => fuSettlementReady(liveRef.current, entryHandId);
+        const fireRake = () => {
+          const st = liveRef.current;
+          const wid = firstWinnerId(st, entryHandId);
+          if (!wid) return;
+          rakeFired = true;
+          setRake({ active: true, winnerIndex: seatIndexOf(st.players, myId, wid), amount: st.pot });
+          sfx.chipRake();
+        };
+        const build = () => {
+          const st = liveRef.current;
+          const sum = summaryForHand(st, entryHandId);
+          const c = sum
+            ? celebrationFromSummary(sum, st.players)
+            : celebrationFromWinners(st.players, st.pot);
+          if (!c) return;
+          built = true;
+          celebHandRef.current = entryHandId;
+          setRake({ active: false, winnerIndex: -1, amount: 0 });
+          setCelebration({ active: true, ...c });
+          sfx.bigWin();
+          later(5500, () => {
+            if (celebHandRef.current === entryHandId) {
+              setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
             }
-            sfx.bigWin();
           });
-          later(9200, () => {
-            setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
-          });
-        }
+        };
+        later(2500, () => {
+          if (!stillThisShowdown() || rakeFired) return;
+          if (settledNow()) fireRake();
+        });
+        const attempt = (n: number) => {
+          if (!stillThisShowdown() || built) return;
+          if (!settledNow()) {
+            // Settlement normally lands ~650ms after entry; poll
+            // briefly instead of guessing. Cap ≈ 3700 + 14×450 ≈ 10s.
+            if (n < 14) later(450, () => attempt(n + 1));
+            return;
+          }
+          if (!rakeFired) {
+            fireRake();
+            later(900, () => { if (stillThisShowdown() && !built) build(); });
+          } else {
+            build();
+          }
+        };
+        later(3700, () => attempt(0));
       }
     }
     prevRef.current = curr;
