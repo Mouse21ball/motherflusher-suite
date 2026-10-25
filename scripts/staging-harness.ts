@@ -2255,8 +2255,16 @@ async function scenarioBcChain() {
 // structured showdown summary against the settlement itself —
 //   * awards + rollover == net pot (gross − 5% rake, floored)
 //   * the paid winners are the evaluator-correct winners, recomputed
-//     from the revealed cards with the shared evaluators
+//     from the revealed cards with the shared evaluators — SIDE-POT
+//     AWARE (2026-10-25): the summary's paid set is the union of the
+//     per-pot winners, so the recompute tiers the pot from totalBet
+//     exactly like the server does. The old single-best-hand model
+//     false-failed any hand where an all-in (or an unmatched final
+//     bet) tiered the pot.
 //   * folded players' cards stay masked and never appear in entries
+//     (the observing hero's OWN seat is exempt — a player always sees
+//     their own cards, folded or not; that is the masking rule, not
+//     a leak. The old check flagged the hero's own folded seat.)
 //   * BC: award parts agree with the winners' declarations
 //   * the summary is gone by the next hand (celebration lifecycle)
 //   * a mid-showdown reconnect keeps the seat and the summary
@@ -2333,6 +2341,7 @@ async function scenarioSdqa() {
           for (const p of resolved.players ?? []) {
             if (p.status === 'folded') {
               if (entryIds.has(p.id)) handProblems.push(`folded ${p.id} present in entries`);
+              if (p.id === hero.seat) continue; // own cards are always visible to their owner
               const exposed = (p.cards ?? []).some((c: any) => c && c.isHidden === false);
               if (exposed) handProblems.push(`folded ${p.id} has revealed cards`);
             }
@@ -2340,10 +2349,22 @@ async function scenarioSdqa() {
           // Winner correctness, recomputed from revealed cards.
           const revealed = (resolved.players ?? []).filter((p: any) => p.status !== 'folded');
           if (mode === 'flushed_up' && revealed.length >= 2 && (sum.awards ?? []).length > 0) {
-            const evals = revealed.map((p: any) => ({ id: p.id, e: evaluateFlushedUpHand((p.cards ?? []).map((c: any) => ({ ...c, isHidden: false }))) }));
-            let best = evals[0];
-            for (const x of evals) if (compareFlushedUpHands(x.e, best.e) > 0) best = x;
-            const expected = new Set(evals.filter(x => compareFlushedUpHands(x.e, best.e) === 0).map(x => x.id));
+            // Side-pot aware recompute (2026-10-25): tier the pot from
+            // totalBet exactly like the server (sidePotsForShowdown),
+            // take the best hand inside each pot's eligible set, and
+            // union the per-pot winners. A weaker hand legitimately
+            // wins a lower tier when the best hand never matched it.
+            const evalOf = new Map(revealed.map((p: any) => [p.id, evaluateFlushedUpHand((p.cards ?? []).map((c: any) => ({ ...c, isHidden: false })))]));
+            const contributed = (resolved.players ?? []).reduce((a: number, p: any) => a + (p.totalBet || 0), 0);
+            const pots = sidePotsForShowdown(resolved.players ?? [], contributed, revealed.map((p: any) => p.id));
+            const expected = new Set<string>();
+            for (const pot of pots) {
+              const pool = pot.eligibleIds.filter(id => evalOf.has(id));
+              if (pool.length === 0) continue;
+              let best = evalOf.get(pool[0])!;
+              for (const id of pool) if (compareFlushedUpHands(evalOf.get(id)!, best) > 0) best = evalOf.get(id)!;
+              for (const id of pool) if (compareFlushedUpHands(evalOf.get(id)!, best) === 0) expected.add(id);
+            }
             const paid = new Set((sum.awards ?? []).map((a: any) => a.playerId));
             if ([...expected].some(id => !paid.has(id)) || [...paid].some(id => !expected.has(id))) {
               handProblems.push(`paid winners ${[...paid].join(',')} != recomputed ${[...expected].join(',')}`);
