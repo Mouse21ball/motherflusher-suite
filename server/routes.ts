@@ -988,6 +988,7 @@ export async function registerRoutes(
           tableId:      t.tableId,
           modeId:       "badugi",
           humanCount:   t.humanCount,
+          playerCount:  t.playerCount,
           phase:        t.phase,
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
@@ -1003,6 +1004,7 @@ export async function registerRoutes(
           tableId:      t.tableId,
           modeId:       t.modeId,
           humanCount:   t.humanCount,
+          playerCount:  t.playerCount,
           phase:        t.phase,
           maxPlayers:   rec?.maxPlayers  ?? 5,
           isInviteOnly: rec?.isInviteOnly ?? false,
@@ -1010,7 +1012,7 @@ export async function registerRoutes(
           stakeTier:    rec?.stakeTier ?? DEFAULT_STAKE_TIER_ID,
         };
       });
-    let all: Array<{ tableId: string; modeId: string; humanCount: number; phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string; stakeTier: StakeTierId }> = [
+    let all: Array<{ tableId: string; modeId: string; humanCount: number; playerCount: number; phase: string; maxPlayers: number; isInviteOnly: boolean; crewId?: string; stakeTier: StakeTierId }> = [
       ...badugi,
       ...generic.sort((a, b) => b.humanCount - a.humanCount),
     ];
@@ -1026,6 +1028,7 @@ export async function registerRoutes(
           tableId:      tid,
           modeId:       rec.modeId,
           humanCount:   0,
+          playerCount:  0,
           phase:        'WAITING',
           maxPlayers:   rec.maxPlayers,
           isInviteOnly: rec.isInviteOnly ?? false,

@@ -31,6 +31,8 @@ import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
 import { apiUrl } from '@/lib/apiConfig';
+import { TimeBankButton } from '@/components/game/TimeBankButton';
+import { serverNowMs } from '@/lib/clockSync';
 
 const MODE_ID = 'badugi';
 
@@ -57,6 +59,7 @@ export interface BadugiFullPageProps {
 export function BadugiFullPage({
   state, handleAction, actionError, requestRebuy, myId, tableId, role,
   sessionStats, lastWsAt, isClubTable = false, kickedByHost, leaveAndSettle,
+  tableSettings,
 }: BadugiFullPageProps) {
   const { background: tableBackground } = useTableBackground();
   const analyticsChipsBefore = useHandAnalytics(state, myId, tableId, 'badugi');
@@ -125,8 +128,11 @@ export function BadugiFullPage({
   }, []);
 
   const handleStandPat = useCallback(() => {
+    // Detroit 2026-10-20 (Bug 3): send IMMEDIATELY. The old 50ms delayed
+    // send composed the action at tap time but delivered it later — a
+    // stale-submission window if the phase moved in between.
     setSelectedCardIndices([]);
-    setTimeout(() => handleAction('draw', []), 50);
+    handleAction('draw', []);
     lock();
   }, [handleAction, lock]);
 
@@ -134,10 +140,12 @@ export function BadugiFullPage({
     // Detroit 2026-10-15: SWAP requires at least 1 selected card.
     // Button is disabled at 0, but guard here too — never send an empty swap.
     if (selectedCardIndices.length === 0) return;
-    setTimeout(() => {
-      handleAction('draw', selectedCardIndices);
-      setSelectedCardIndices([]);
-    }, 280);
+    // Detroit 2026-10-20 (Bug 3): send IMMEDIATELY (was a 280ms delayed
+    // send — same stale-submission window as stand-pat). The action lock
+    // still prevents double-taps; the server also rejects a second draw
+    // from a player who has already acted this round.
+    handleAction('draw', selectedCardIndices);
+    setSelectedCardIndices([]);
     lock();
   }, [selectedCardIndices, handleAction, lock]);
 
@@ -202,7 +210,7 @@ export function BadugiFullPage({
         stripes={serverProfile?.stripes ?? 0} phase={state.phase}
         onLeave={leaveToLobby}
         sessionStats={effectiveSpectator ? undefined : sessionStats}
-        tableId={tableId} humanCount={humanCount}
+        tableId={tableId} humanCount={humanCount} maxPlayers={tableSettings?.maxPlayers}
         onOpenChat={!effectiveSpectator ? () => setChatOpen(true) : undefined}
         chatUnread={chatUnread}
         spectating={effectiveSpectator}
@@ -239,6 +247,18 @@ export function BadugiFullPage({
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
           borderTop: '1px solid rgba(201,162,39,0.12)',
         }}>
+          {serverProfile?.profileId && tableId && state.activePlayerId === myId && (
+            <div className="flex justify-end px-3 pt-1">
+              <TimeBankButton
+                key={`${state.handId ?? 0}:${state.phase}:${state.activePlayerId ?? ''}`}
+                playerId={serverProfile.profileId}
+                tableId={tableId}
+                modeId={MODE_ID}
+                isMyTurn={state.activePlayerId === myId}
+                timerRemainingMs={state.turnDeadline != null ? Math.max(0, state.turnDeadline - serverNowMs()) : undefined}
+              />
+            </div>
+          )}
           <BadugiActionBar
             phase={state.phase} isDrawPhase={!effectiveSpectator && isDrawPhase}
             selectedCount={selectedCardIndices.length} drawLimit={drawLimit}

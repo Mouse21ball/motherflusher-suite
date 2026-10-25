@@ -15,6 +15,7 @@ import { engineLog } from './engineLog';
 import { applyRake } from './utils/rake';
 import { applyBadugiDraw } from './utils/badugiDraw';
 import { takeAnte } from '../shared/engine/botUtils';
+import { sidePotsForShowdown } from '../shared/engine/sidePots';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import { scheduleSave, loadPersistedTables, deletePersistedTable } from './tablePersistence';
@@ -105,6 +106,13 @@ function addMsg(state: GameState, text: string, isResolution = false): GameState
 const BADUGI_TURN_TIMEOUT_MS = 30_000;
 
 const BADUGI_INTERACTIVE_PHASES = new Set<GamePhase>([
+  // 'ANTE' added 2026-10-20 (Defect V-2): without it no turn timer was ever
+  // armed during ANTE on this engine, so a connected-but-idle first-to-act
+  // player froze the table on "Ante up" indefinitely (verified live on
+  // staging: deadline stayed null, hand stuck in ANTE 80s+). The timeout
+  // handler's ANTE branch (auto-ante) already existed but could never fire.
+  // Matches the generic engine, which has armed ANTE since 2026-10-16.
+  'ANTE',
   'BET_1', 'BET_2', 'BET_3', 'BET_4',
   'DRAW_1', 'DRAW_2', 'DRAW_3',
   'DECLARE',
@@ -327,12 +335,25 @@ function makeInitialState(tableId: string, isClubTable = false, minBet = 50, pla
 // Canonical state has all cards face-up (server sees everything).
 // When broadcasting to a player, hide all opponents' cards except at SHOWDOWN.
 
+// Display-only side-pot tiers for outbound states, computed with the same
+// sidePotsForShowdown helper the payout path uses so the breakdown can
+// never diverge from the money. Present only when contributions diverge
+// (>1 tier). Never fed back into resolution; stripped from inbound state
+// by construction (masked copies are per-send only).
+function sidePotsForDisplay(state: GameState): { amount: number; eligiblePlayerIds: string[] }[] | undefined {
+  const eligibleIds = state.players.filter(p => p.status !== 'folded').map(p => p.id);
+  const tiers = sidePotsForShowdown(state.players, state.pot ?? 0, eligibleIds);
+  return tiers.length > 1 ? tiers.map(t => ({ amount: t.amount, eligiblePlayerIds: t.eligibleIds })) : undefined;
+}
+
 export function maskStateForPlayer(state: GameState, forPlayerId: string): GameState {
   const isShowdown = state.phase === 'SHOWDOWN';
   const publicState = { ...state };
   delete publicState.seatStreakOwners;
+  const displaySidePots = sidePotsForDisplay(state);
   return {
     ...publicState,
+    sidePots: displaySidePots,
     deck: [],                // never expose the deck to clients
     // Discards have no owner metadata. Keep their count, but never send their
     // identities, even at showdown: discarded cards are not revealed there.
@@ -564,6 +585,18 @@ function buildBadugiSessionStats(table: AuthTable, seatId: string): {
 
 // ─── Broadcast + persist ──────────────────────────────────────────────────────
 
+// Wire enrichment for outbound snapshots: attach identityId (seat→profile
+// UUID, for the block feature) and `connected` (live socket presence, for
+// the opponent disconnect indicator). Presentation-only — the enriched rows
+// are per-send copies and are never written back into table.state.
+function enrichPlayersForWire(table: AuthTable, players: Player[]): Player[] {
+  return players.map(p => {
+    const iid = table.seatToIdentityId.get(p.id);
+    const connected = table.connections.get(p.id)?.readyState === 1;
+    return { ...p, ...(iid ? { identityId: iid } : {}), connected };
+  });
+}
+
 function broadcastState(table: AuthTable): void {
   const spectatorCount = table.spectators.size;
   const stateWithMeta = {
@@ -585,15 +618,13 @@ function broadcastState(table: AuthTable): void {
       // Enrich players with identityId so client can resolve seat→UUID for block feature
       const enrichedState = {
         ...personalState,
-        players: personalState.players.map(p => {
-          const iid = table.seatToIdentityId.get(p.id);
-          return iid ? { ...p, identityId: iid } : p;
-        }),
+        players: enrichPlayersForWire(table, personalState.players),
       };
       ws.send(JSON.stringify({
         type: 'badugi:snapshot',
         state: enrichedState,
         sessionStats: buildBadugiSessionStats(table, playerId),
+        serverNow: Date.now(),
       }));
     } catch { /* ignore closed socket race */ }
   }
@@ -602,7 +633,7 @@ function broadcastState(table: AuthTable): void {
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
-      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
@@ -832,7 +863,7 @@ function advanceToNextPhase(table: AuthTable): void {
       if (p.status !== 'active') continue;
       const ev = evaluateBadugi(p.cards);
       if (!ev?.isValidBadugi) {
-        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true };
+        declPlayers[i] = { ...p, status: 'folded', declaration: null, hasActed: true, autoFoldedAtDeclare: true, foldReason: 'declare-auto-invalid' };
         foldMsgs.push(`${p.name} has no Badugi — auto-folded`);
         anyAutoFolded = true;
       }
@@ -959,12 +990,13 @@ function resolveShowdown(table: AuthTable): void {
     const winnerIds = result.players.filter(p => p.isWinner).map(p => p.id);
     scheduleBotBanter(table, winnerIds, () => broadcastState(table));
 
-    // Auto-advance to next hand after 2.5 seconds
+    // Auto-advance to next hand after the showdown dwell (Bug 4 fix:
+    // the result must stay readable — see SHOWDOWN_DWELL_MS).
     const fenced2 = table.handId;
     setTimeout(() => {
       if (table.handId !== fenced2 || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 2500);
+    }, SHOWDOWN_DWELL_MS);
     } finally {
       resolvePending();
       if (table.showdownResolvePromise === pending) table.showdownResolvePromise = undefined;
@@ -1046,7 +1078,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
       setTimeout(() => {
         if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
         advanceAfterSettlement(table);
-      }, 2500);
+      }, FOLD_RESOLUTION_DWELL_MS);
       return true;
     }
 
@@ -1091,7 +1123,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 2500);
+    }, FOLD_RESOLUTION_DWELL_MS);
     return true;
   }
 
@@ -1114,7 +1146,7 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
     setTimeout(() => {
       if (table.handId !== fenced || table.state.phase !== 'SHOWDOWN') return;
       advanceAfterSettlement(table);
-    }, 1500);
+    }, FOLD_RESOLUTION_DWELL_MS);
     return true;
   }
 
@@ -1122,6 +1154,15 @@ function resolveByFoldBadugi(table: AuthTable): boolean {
 }
 
 // ─── Reset after showdown ─────────────────────────────────────────────────────
+
+// Detroit 2026-10-20 (Bug 4): how long the resolved SHOWDOWN stays on screen
+// before the next hand is dealt. The contested dwell was ~650ms resolve +
+// 1500ms — shorter than the client's winner-first reveal needs just to reach
+// the comparison beat (3.7s), so players saw a flash instead of the result.
+// 6000ms post-resolution keeps winner + comparison readable end to end;
+// fold resolutions have no comparison to read, so they get a shorter dwell.
+const SHOWDOWN_DWELL_MS = 6000;
+const FOLD_RESOLUTION_DWELL_MS = 4000;
 
 function advanceAfterSettlement(table: AuthTable): void {
   const handId = table.handId;
@@ -1192,18 +1233,31 @@ async function settleAndResetToAnte(table: AuthTable): Promise<void> {
       isLoser: undefined,
       score: undefined,
       autoFoldedAtDeclare: undefined,
+      lastDrawCount: undefined,
+      drawSeq: undefined,
+      foldReason: undefined,
       status: nextHandStatus(p, newChips, isRollover),
     };
   });
 
-  // Detroit 2026-10-15: Enforce 4-player max at hand end.
-  // Old tables may carry a 5th player through restores; trim here so it
-  // can't persist hand after hand. Keep humans first, then bots.
-  if (nextPlayers.length > 4) {
+  // Seat-count enforcement at hand end: respect the table's configured
+  // maxPlayers (Detroit 2026-10-20, superseding the 2026-10-15 hard 4-cap
+  // after the 2026-10-19 decision to restore 5-seat Badugi).
+  // Old tables may carry extra player rows through restores; trim here so
+  // they can't persist hand after hand. Keep humans first, then bots.
+  if (nextPlayers.length > table.maxPlayers) {
     const humans = nextPlayers.filter(p => p.presence === 'human');
     const others = nextPlayers.filter(p => p.presence !== 'human');
-    nextPlayers = [...humans, ...others].slice(0, 4);
-    console.log(`[badugi] Hand-end trim: ${basePlayers.length} → 4 players`);
+    nextPlayers = [...humans, ...others].slice(0, table.maxPlayers);
+    console.log(`[badugi] Hand-end trim: ${basePlayers.length} → ${table.maxPlayers} players`);
+  } else if (nextPlayers.length < table.maxPlayers) {
+    // Configured limit was raised above the current row count (e.g. host
+    // settings): open the new seats as fresh reserved slots for next hand.
+    const empty = table.crewId ? 'open' as const : 'reserved' as const;
+    for (let i = nextPlayers.length + 1; i <= table.maxPlayers; i++) {
+      nextPlayers.push({ id: `p${i}`, name: 'Open', presence: empty, chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false, isWinner: undefined, isLoser: undefined, score: undefined, autoFoldedAtDeclare: undefined });
+    }
+    console.log(`[badugi] Hand-end pad: ${basePlayers.length} → ${table.maxPlayers} players`);
   }
 
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
@@ -1644,7 +1698,7 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
       } else {
         table.state = addMsg({
           ...s,
-          players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', hasActed: true } : p),
+          players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', hasActed: true, foldReason: 'timeout' } : p),
           turnDeadline: null,
         }, `${player.name} timed out — auto-fold`);
       }
@@ -1659,7 +1713,7 @@ function autoActOnTimeoutBadugi(table: AuthTable, seat: string): void {
       // Auto-fold on declare timeout
       table.state = addMsg({
         ...s,
-        players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', declaration: null, hasActed: true } : p),
+        players: s.players.map(p => p.id === seat ? { ...p, status: 'folded', declaration: null, hasActed: true, foldReason: 'timeout' } : p),
         turnDeadline: null,
       }, `${player.name} timed out — auto-fold on declare`);
     } else if (phase === 'ANTE') {
@@ -1743,11 +1797,14 @@ function afterHumanAction(table: AuthTable, wasRaise = false): void {
 export async function initEngine(): Promise<void> {
   const restored = await loadPersistedTables();
   for (const { tableId, state, handId } of restored) {
-    // Detroit 2026-10-15: Enforce 4-player Badugi on restored tables.
-    // Old tables may have 5 players from before the 2026-10-13 fix.
-    if (state.players.length > 4) {
-      console.log(`[badugi] Trimming restored table ${tableId} from ${state.players.length} to 4 players`);
-      state.players = state.players.slice(0, 4);
+    // Restored tables keep their persisted seats up to the engine's seat
+    // capacity (Detroit 2026-10-20: 5-seat Badugi restored 2026-10-19; the
+    // 2026-10-15 hard 4-cap is superseded). Rows beyond capacity are corrupt
+    // state and are trimmed. The configured maxPlayers is re-applied from
+    // room settings on the first join (see getOrCreateBadugiTable).
+    if (state.players.length > SEAT_ORDER.length) {
+      console.log(`[badugi] Trimming restored table ${tableId} from ${state.players.length} to ${SEAT_ORDER.length} players`);
+      state.players = state.players.slice(0, SEAT_ORDER.length);
     }
     tables.set(tableId, {
       tableId,
@@ -1770,7 +1827,8 @@ export async function initEngine(): Promise<void> {
       disconnectTimers: new Map(),
       joinWindowEndsAt: 0, // window already closed for restored tables
       isPrivate: false,
-      maxPlayers: 4,
+      // Restored seat count until room settings re-apply on first join.
+      maxPlayers: Math.min(SEAT_ORDER.length, Math.max(2, state.players.length)),
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(DEFAULT_STAKE_TIER_ID),
@@ -1793,13 +1851,17 @@ export async function initEngine(): Promise<void> {
 
 // Returns summary info for all PUBLIC tables that currently have at least one
 // active WebSocket connection. Private tables are excluded from the live listing.
-export function getActiveBadugiTables(): { tableId: string; humanCount: number; phase: string; handId: number }[] {
-  const result: { tableId: string; humanCount: number; phase: string; handId: number }[] = [];
+export function getActiveBadugiTables(): { tableId: string; humanCount: number; playerCount: number; phase: string; handId: number }[] {
+  const result: { tableId: string; humanCount: number; playerCount: number; phase: string; handId: number }[] = [];
   for (const [tableId, table] of Array.from(tables.entries())) {
     if (table.connections.size > 0 && !table.isPrivate) {
       result.push({
         tableId,
         humanCount: table.humanSeats.size,
+        // Detroit 2026-10-21 (Phase 1 / P3): occupied seats (humans + bots)
+        // from live state — the lobby's X/Y numerator, so a full
+        // bot-filled table reads 5/5, not 1/5.
+        playerCount: table.state.players.filter(p => p.presence === 'human' || p.presence === 'bot').length,
         phase: table.state.phase,
         handId: table.handId,
       });
@@ -1846,8 +1908,13 @@ export function getOrCreateBadugiTable(
   options: { maxPlayers?: number; botsEnabled?: boolean; crewId?: string; stakeTier?: StakeTierId } = {}
 ): AuthTable {
   if (!tables.has(tableId)) {
-    // Detroit 2026-10-13: Badugi uses 4 players to match prototype layout.
-    const maxPlayers  = options.maxPlayers  ?? 4;
+    // Detroit 2026-10-21 (Phase 1 / P3): Badugi capacity is 5. The old
+    // `?? 4` default was a leftover of the 2026-10-13 four-player era,
+    // superseded by the five-seat restoration (2026-10-19/20) — tables the
+    // engine created first were capped at 4 while seating 5, which is how
+    // the game could display "5/4 players". Rooms and table records
+    // already default to 5; the engine now matches.
+    const maxPlayers  = options.maxPlayers  ?? 5;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
     const joinWindowEndsAt = isPrivate || quickPlay ? 0 : Date.now() + JOIN_WINDOW_MS;
@@ -1902,21 +1969,34 @@ export function getOrCreateBadugiTable(
       t.stakeTier = getStakeTierId(options.stakeTier);
       t.state = { ...t.state, minBet: getStakeTier(t.stakeTier).minBet };
     }
-    // Detroit 2026-10-15: Force all Badugi tables to 4 players max.
-    // Runtime enforcement — trims on every table access, not just server boot.
-    // Keeps connected humans first, then bots.
-    if (t.state.players.length > 4 || t.maxPlayers > 4) {
-      t.maxPlayers = 4;
-      const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
-      if (!midHand) {
-        const humans = t.state.players.filter(p => p.presence === 'human');
-        const others = t.state.players.filter(p => p.presence !== 'human');
-        const trimmed = [...humans, ...others].slice(0, 4);
-        if (trimmed.length !== t.state.players.length) {
-          console.log(`[badugi] Runtime trim table ${tableId} from ${t.state.players.length} to 4 players`);
-          t.state.players = trimmed;
-        }
+    // Seat-count enforcement on every table access (Detroit 2026-10-20):
+    // respect the table's configured maxPlayers — fresh room options when
+    // provided, else the table's own setting. Supersedes the 2026-10-15
+    // hard 4-cap (5-seat Badugi was restored 2026-10-19). Rows are trimmed
+    // only between hands (connected humans first); missing slots are padded
+    // with fresh reserved seats so a raised limit takes effect immediately
+    // without a table rebuild.
+    const cap = options.maxPlayers ?? t.maxPlayers;
+    if (cap !== t.maxPlayers) t.maxPlayers = cap;
+    // Row-count changes happen ONLY between hands — a live hand's player
+    // set is never altered by an access.
+    const midHand = t.state.phase !== 'WAITING' && t.state.phase !== 'SHOWDOWN';
+    if (!midHand && t.state.players.length > cap) {
+      const humans = t.state.players.filter(p => p.presence === 'human');
+      const others = t.state.players.filter(p => p.presence !== 'human');
+      const trimmed = [...humans, ...others].slice(0, cap);
+      if (trimmed.length !== t.state.players.length) {
+        console.log(`[badugi] Runtime trim table ${tableId} from ${t.state.players.length} to ${cap} players`);
+        t.state.players = trimmed;
       }
+    } else if (!midHand && t.state.players.length < cap) {
+      const empty = t.crewId ? 'open' as const : 'reserved' as const;
+      const padded = [...t.state.players];
+      for (let i = padded.length + 1; i <= cap; i++) {
+        padded.push({ id: `p${i}`, name: 'Open', presence: empty, chips: 10000, bet: 0, totalBet: 0, cards: [], status: 'sitting_out', isDealer: false, declaration: null, hasActed: false });
+      }
+      console.log(`[badugi] Runtime pad table ${tableId} from ${t.state.players.length} to ${cap} players`);
+      t.state.players = padded;
     }
   }
   return tables.get(tableId)!;
@@ -1925,8 +2005,9 @@ export function getOrCreateBadugiTable(
 function registerWalletSpectator(table: AuthTable, sessionId: string, ws: WebSocket, name?: string) {
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
+    const specInitState = maskStateForPlayer(table.state, '__spectator__');
     ws.send(JSON.stringify({ type: 'badugi:init', playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__') }));
+      state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -2064,12 +2145,14 @@ export async function addBadugiConnection(
     // Table full — register as spectator
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
     engineLog('SPECTATOR_JOIN', tableId, { count: table.spectators.size });
+    const specInitState = maskStateForPlayer(table.state, '__spectator__');
     try {
       ws.send(JSON.stringify({
         type: 'badugi:init',
         playerId: '__spectator__',
         role: 'spectator',
-        state: maskStateForPlayer(table.state, '__spectator__'),
+        state: { ...specInitState, players: enrichPlayersForWire(table, specInitState.players) },
+        serverNow: Date.now(),
       }));
     } catch {}
     broadcastState(table);
@@ -2246,13 +2329,15 @@ export async function addBadugiConnection(
 
   // Atomic init: seat assignment + masked snapshot + sessionStats in one message.
   // Client must process seat before it can correctly display cards.
+  const initState = maskStateForPlayer(table.state, seat);
   try {
     ws.send(JSON.stringify({
       type: 'badugi:init',
       playerId: seat,
-      state: maskStateForPlayer(table.state, seat),
+      state: { ...initState, players: enrichPlayersForWire(table, initState.players) },
       sessionStats: buildBadugiSessionStats(table, seat),
       crewId: table.crewId ?? null,
+      serverNow: Date.now(),
     }));
   } catch { /* ws may have already closed */ }
 
@@ -2430,6 +2515,11 @@ async function removeBadugiDisconnect(tableId: string, sessionId: string, intent
     remaining: table.connections.size,
     intentional,
   });
+
+  // Notify remaining clients immediately — without this, opponents only
+  // learn of the disconnect on the next game action and presence-driven
+  // UI (the DC indicator) goes stale for up to a full turn timer.
+  broadcastState(table);
 }
 
 // ─── Per-recipient chat broadcast (respects block lists) ─────────────────────
@@ -2472,8 +2562,9 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
       }
       ws.send(JSON.stringify({
         type: 'badugi:snapshot',
-        state: personalState,
+        state: { ...personalState, players: enrichPlayersForWire(table, personalState.players) },
         sessionStats: buildBadugiSessionStats(table, recipientSeat),
+        serverNow: Date.now(),
       }));
     } catch { /* ignore closed socket race */ }
   }
@@ -2483,7 +2574,7 @@ async function broadcastChatFiltered(table: AuthTable, senderSeat: string): Prom
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__');
-      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'badugi:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
 
@@ -2645,7 +2736,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
         table.state = addMsg({
           ...s,
           players: s.players.map(p =>
-            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true } : p
+            p.id === playerId ? { ...p, status: 'folded', declaration: null, hasActed: true, foldReason: 'declare-fold' } : p
           ),
         }, `${me.name} declared FOLD`);
       } else {
@@ -2712,7 +2803,7 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
     if (action === 'fold' && s.phase.startsWith('BET')) {
       table.state = addMsg({
         ...s,
-        players: s.players.map(p => p.id === playerId ? { ...p, status: 'folded', hasActed: true } : p),
+        players: s.players.map(p => p.id === playerId ? { ...p, status: 'folded', hasActed: true, foldReason: 'player-fold' } : p),
       }, 'You folded');
       engineLog('ACTION', tableId, { player: playerId, action: 'fold', accepted: true, phase: s.phase });
       table.actionLock = false;
@@ -2803,6 +2894,15 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
 
     // ── draw ──────────────────────────────────────────────────────────────────
     if (action === 'draw' && s.phase.startsWith('DRAW')) {
+      // Detroit 2026-10-20: one draw per player per round, hard guard.
+      // A duplicated or stale draw submission (double-tap, delayed resend)
+      // must never replace a second set of cards.
+      const meDraw = s.players.find(p => p.id === playerId);
+      if (meDraw?.hasActed) {
+        engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: 'already_acted', phase: s.phase });
+        table.actionLock = false;
+        return 'You already acted this round.';
+      }
       const result = applyBadugiDraw(s, playerId, payload);
       if (!result.ok) {
         engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: false, reason: result.reason, phase: s.phase });
@@ -2811,9 +2911,10 @@ export function handleBadugiAction(tableId: string, playerId: string, action: st
       }
       const msg = result.count === 0 ? 'You stood pat' : `You discarded ${result.count} card${result.count > 1 ? 's' : ''}`;
       engineLog('ACTION', tableId, { player: playerId, action: 'draw', accepted: true, count: result.count, phase: s.phase });
-      // Tag the drawing player with their draw count for client animation
+      // Tag the drawing player with their draw count for client animation,
+      // plus the per-hand transaction sequence the client dedupes on.
       const playersWithDrawCount = result.players.map(p =>
-        p.id === playerId ? { ...p, lastDrawCount: result.count } : p
+        p.id === playerId ? { ...p, lastDrawCount: result.count, drawSeq: (p.drawSeq ?? 0) + 1 } : p
       );
       table.state = addMsg({ ...s, players: playersWithDrawCount, deck: result.deck, discardPile: result.discardPile }, msg);
       table.actionLock = false;

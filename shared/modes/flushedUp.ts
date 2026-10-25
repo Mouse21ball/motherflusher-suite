@@ -297,7 +297,18 @@ export const FlushedUpMode: GameMode = {
       const idx = finalPlayers.findIndex(p => p.id === sole.id);
       finalPlayers[idx] = { ...finalPlayers[idx], chips: finalPlayers[idx].chips + pot, isWinner: true };
       messages.push(`${finalPlayers[idx].name} wins $${pot} (last player standing)`);
-      return { players: finalPlayers, pot: 0, messages };
+      const soleEval = (finalPlayers[idx].score as FlushedUpEval | undefined) ?? evaluateFlushedUpHand(finalPlayers[idx].cards);
+      return {
+        players: finalPlayers, pot: 0, messages,
+        summary: {
+          modeId: 'flushed_up',
+          headline: `${finalPlayers[idx].name} wins $${pot} — last player standing`,
+          awards: [{ playerId: sole.id, amount: pot, part: 'SOLE', reason: 'Last player standing — every other player folded.' }],
+          entries: [{ playerId: sole.id, description: soleEval.description }],
+          comparisons: [],
+          rollover: 0,
+        },
+      };
     }
 
     const deltas: Record<string, number> = {};
@@ -371,6 +382,54 @@ export const FlushedUpMode: GameMode = {
       messages.push(`No qualifying hands — $${rolledOver} rolls over!`);
     }
 
-    return { players: finalPlayers, pot: rolledOver, messages };
+    // Structured summary (Detroit 2026-10-22) — from this settlement's
+    // own deltas and the shared comparator; the decisive comparison is
+    // spelled out when the top two hands share a category.
+    const nameOf = (id: string) => finalPlayers.find(p => p.id === id)?.name ?? id;
+    const evalOf = (p: Player) => (p.score as FlushedUpEval | undefined) ?? evaluateFlushedUpHand(p.cards);
+    const entries = finalPlayers
+      .filter(p => p.status !== 'folded')
+      .map(p => ({ playerId: p.id, description: evalOf(p).description }));
+    const comparisons: string[] = [];
+    const winnerIds = [...winnerSet];
+    if (winnerIds.length > 1) {
+      const desc = evalOf(finalPlayers.find(p => p.id === winnerIds[0])!).description;
+      comparisons.push(`Identical best hands (${desc}) — the pot is split.`);
+    } else if (winnerIds.length === 1) {
+      const w = evalOf(finalPlayers.find(p => p.id === winnerIds[0])!);
+      const losers = finalPlayers.filter(p => p.status !== 'folded' && !winnerSet.has(p.id));
+      if (losers.length > 0) {
+        let bestLoser = losers[0];
+        for (const p of losers) if (compareFlushedUpHands(evalOf(p), evalOf(bestLoser)) > 0) bestLoser = p;
+        const l = evalOf(bestLoser);
+        if (w.suitCount !== l.suitCount) {
+          comparisons.push(`${w.description} beats ${l.description} — decided by suit count: ${w.suitCount} cards to ${l.suitCount}. More cards in the suit wins.`);
+        } else {
+          let i = 0;
+          while (i < Math.min(w.rankValues.length, l.rankValues.length) && w.rankValues[i] === l.rankValues[i]) i++;
+          comparisons.push(`${w.description} beats ${l.description} — same ${w.suitCount}-card suit, decided at card ${i + 1}: ${rankLabel(w.rankValues[i])} over ${rankLabel(l.rankValues[i])}.`);
+        }
+      }
+    }
+    if (rolledOver > 0) {
+      comparisons.push(`No eligible hand for $${rolledOver} of the pot — it rolls over to the next hand.`);
+    }
+    const summary = {
+      modeId: 'flushed_up',
+      headline:
+        winnerIds.length === 1
+          ? `${nameOf(winnerIds[0])} wins $${deltas[winnerIds[0]]} with ${evalOf(finalPlayers.find(p => p.id === winnerIds[0])!).description}`
+          : `Split pot — ${winnerIds.map(nameOf).join(' & ')}`,
+      awards: winnerIds.map(id => ({
+        playerId: id,
+        amount: deltas[id],
+        part: winnerIds.length > 1 ? 'SPLIT' : 'POT',
+        reason: evalOf(finalPlayers.find(p => p.id === id)!).description,
+      })),
+      entries,
+      comparisons,
+      rollover: rolledOver,
+    };
+    return { players: finalPlayers, pot: rolledOver, messages, summary };
   },
 };

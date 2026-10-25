@@ -8,6 +8,13 @@ interface CardProps {
   onClick?: () => void;
   selectable?: boolean;
   selected?: boolean;
+  /** Face design. 'premium' = CGP premium face (Badugi, Detroit 2026-10-20).
+      Default 'classic' — every other mode's cards render exactly as before. */
+  variant?: 'classic' | 'premium';
+  /** Premium only: 'mini' renders the top-left index alone (no center pip,
+      no bottom-right index) for miniature cards such as the showdown
+      comparison rows, where the full face crowds. */
+  density?: 'full' | 'mini';
 }
 
 /* ── Proper SVG suit icons — no Unicode symbols ─────────────────────────── */
@@ -57,7 +64,7 @@ function SmallSuit({ suit }: { suit: string }) {
 
 const isRedSuit = (suit: string) => suit === 'hearts' || suit === 'diamonds';
 
-export function PlayingCard({ card, className, onClick, selectable, selected, isSelfHidden }: CardProps & { isSelfHidden?: boolean }) {
+export function PlayingCard({ card, className, onClick, selectable, selected, isSelfHidden, variant = 'classic', density = 'full' }: CardProps & { isSelfHidden?: boolean }) {
   if (!card || (card.isHidden && !isSelfHidden)) {
     const themeClass = getDeckThemeClass(getDeckTheme());
     return (
@@ -82,6 +89,66 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
 
   const isRed = isRedSuit(card.suit);
   const rankColor = isRed ? '#CC1122' : '#18181E';
+
+  /* ── Premium face (Badugi — Detroit 2026-10-20) ──────────────────────────
+     One reusable design at two densities. Full: crisp top-left index, ONE
+     restrained center suit (34% of card width — the classic 52% pip is
+     what crowded small cards), and a smaller rotated bottom-right index.
+     Mini: the top-left index alone, so a 32×46 comparison card stays
+     instantly readable. Same rank/suit data, same colors — presentation
+     only; values, evaluation, and masking are untouched. */
+  if (variant === 'premium') {
+    const mini = density === 'mini';
+    return (
+      <div
+        className={cn(
+          "w-12 h-16 sm:w-16 sm:h-24 playing-card-premium shrink-0 relative overflow-hidden transition-all duration-200",
+          selectable && "cursor-pointer active:scale-[0.97]",
+          selected && "card-selected",
+          isSelfHidden && "opacity-55 saturate-[0.4]",
+          className
+        )}
+        onClick={onClick}
+      >
+        {/* Restrained top light — softer than the classic gloss */}
+        <div className="card-premium-highlight" />
+
+        {/* Top-left index — the only index on mini cards */}
+        <div
+          className="absolute flex flex-col items-center leading-none"
+          style={{ top: mini ? 2 : 4, left: mini ? 3 : 4, gap: 1 }}
+        >
+          <span className="card-premium-rank" style={{ color: rankColor, fontSize: mini ? 11 : 13 }}>
+            {card.rank}
+          </span>
+          <SuitIcon suit={card.suit} size={mini ? 10 : 11} />
+        </div>
+
+        {!mini && (
+          <>
+            {/* One elegant center suit — sized as a share of the card so it
+                proportions correctly at hero (56px) and spotlight (46px) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="card-premium-pip" style={{ width: '34%' }}>
+                <SuitIcon suit={card.suit} size={99} />
+              </div>
+            </div>
+
+            {/* Bottom-right index — rotated, deliberately restrained */}
+            <div
+              className="absolute flex flex-col items-center leading-none rotate-180"
+              style={{ bottom: 4, right: 4, gap: 1, opacity: 0.92 }}
+            >
+              <span className="card-premium-rank" style={{ color: rankColor, fontSize: 10 }}>
+                {card.rank}
+              </span>
+              <SuitIcon suit={card.suit} size={9} />
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

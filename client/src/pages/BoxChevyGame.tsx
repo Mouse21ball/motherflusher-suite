@@ -138,7 +138,7 @@ function BoxChevyGameUI() {
 
   useEffect(() => { trackModePlay(MODE_ID); saveRecentTable(tableId); }, [tableId]);
 
-  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, isClubTable, kickedByHost, leaveAndSettle } =
+  const { state, handleAction, requestRebuy, actionError, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, initCount, tableSettings, isClubTable, kickedByHost, leaveAndSettle } =
     useServerMode(tableId, ENGINE_ID);
 
   void sessionStats; void lastWsType;
@@ -223,16 +223,27 @@ function BoxChevyGameUI() {
     handleControlAction('raise', amt);
   }, [handleControlAction]);
 
+  // The hero's draw transaction (Detroit 2026-10-24, Safeguard C):
+  // the exact indices submitted, bound to the drawSeq the accepted
+  // draw produces — the table stages/animates exactly these slots.
+  const [heroDrawTx, setHeroDrawTx] = useState<{ seq: number; indices: number[] } | null>(null);
+  const recordDrawTx = useCallback((indices: number[]) => {
+    const meNow = state.players.find(p => p.id === myId);
+    setHeroDrawTx({ seq: ((meNow as any)?.drawSeq ?? 0) + 1, indices });
+  }, [state, myId]);
+
   const handleDraw = useCallback(() => {
     const indices = Array.from(selectedCards).sort((a, b) => a - b);
+    recordDrawTx(indices);
     handleControlAction('draw', indices);
     setSelectedCards(new Set());
-  }, [selectedCards, handleControlAction]);
+  }, [selectedCards, handleControlAction, recordDrawTx]);
 
   const handleStandPat = useCallback(() => {
+    recordDrawTx([]);
     handleControlAction('draw', []);
     setSelectedCards(new Set());
-  }, [handleControlAction]);
+  }, [handleControlAction, recordDrawTx]);
 
   const handleDeclare = useCallback((d: 'HIGH' | 'LOW' | 'SWING') => {
     handleControlAction('declare', d);
@@ -292,6 +303,30 @@ function BoxChevyGameUI() {
   const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
 
+  // Detroit 2026-10-24: ENTRY GATE. Until a valid authoritative server
+  // snapshot has been received and applied (hasAuthoritativeState),
+  // render ONLY a clean loading state. The hook's seeded state is a
+  // local fixture (demo names, placeholder cards, wrong min bet) and
+  // must never be painted as a live table — not even for one frame.
+  // Session/reconnect recovery is untouched: a reconnect re-applies a
+  // snapshot the same way, and once the gate has opened it never
+  // closes again for this mount.
+  if (!hasAuthoritativeState) {
+    return (
+      <div style={{
+        height: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 14,
+        backgroundColor: '#0a1628',
+        backgroundImage: `url('${yardBackdrop}')`,
+        backgroundSize: 'cover', backgroundPosition: 'center top',
+        color: ACT, fontFamily: 'monospace',
+      }} data-mode={MODE_ID} data-testid="bc-loading">
+        <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '0.14em', color: '#dbeafe' }}>BOX CHEVY</div>
+        <div className="animate-pulse" style={{ fontSize: 12, letterSpacing: '0.08em', opacity: 0.85 }}>Connecting to table…</div>
+      </div>
+    );
+  }
+
   // Detroit 2026-10-15: BoxChevyShowdown removed — the in-table celebration
   // in BoxChevyTable owns the winner moment (two winners: high + low).
 
@@ -337,13 +372,16 @@ function BoxChevyGameUI() {
         onLeave={leaveToLobby}
         tableId={tableId}
         humanCount={humanCount}
+        maxPlayers={tableSettings?.maxPlayers}
         onOpenChat={() => setChatOpen(true)}
         chatUnread={chatUnread}
         spectating={effectiveSpectator}
       />
 
       {!effectiveSpectator && (
-        <PersonalChipGiftPanel tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 12px 0' }}>
+          <PersonalChipGiftPanel inline tableId={tableId} modeId={ENGINE_ID} myId={myId} players={state.players} onGiftSuccess={refetchProfile} />
+        </div>
       )}
 
       <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px' }}>
@@ -356,6 +394,8 @@ function BoxChevyGameUI() {
             onCardClick={handleCardClick}
             heroAvatarSrc={resolveAvatarSrc(serverProfile?.equippedAvatarId, serverProfile?.avatarId)}
             heroFrameSrc={serverProfile?.equippedFrameId ? `/cosmetics/frames/${serverProfile.equippedFrameId.replace(/_/g, '-')}.png` : null}
+            hydrationEpoch={initCount}
+            heroDrawTx={heroDrawTx}
           />
         </FriendSeatActions>
 
@@ -404,6 +444,8 @@ function BoxChevyGameUI() {
           humanCount={humanCount}
           declaration={me?.declaration ?? null}
           myHasActed={!!me?.declaration}
+          heroStatus={me?.status ?? 'active'}
+          heroFoldReason={me?.foldReason ?? null}
           onFold={handleFold}
           onCheck={handleCheck}
           onCall={handleCall}

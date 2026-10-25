@@ -289,6 +289,53 @@ body.non-game-readable [style*="color: rgba(157,125,200,0."] {
   height: 13px;
 }
 
+/* ── Premium card face — Badugi (Detroit 2026-10-20) ─────────────────────────
+   Opt-in via PlayingCard variant="premium"; classic faces (other modes) are
+   untouched. Refined ivory surface, subtle gold edging as an inset ring (no
+   layout shift), restrained depth. The center pip is a single suit at 34% of
+   card width; density="mini" drops the pip and the bottom-right index. */
+.playing-card-premium {
+  background: linear-gradient(155deg, #fffef9 0%, #faf5ea 52%, #f1e9d7 100%);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 162, 39, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(120, 96, 30, 0.16),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+/* Softer top light than the classic gloss (0.4 alpha over 35%) */
+.card-premium-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 8px 8px 0 0;
+  pointer-events: none;
+}
+
+.card-premium-rank {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.card-premium-pip {
+  opacity: 0.96;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+.card-premium-pip svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 /* ── DECK THEMES ─────────────────────────────────────────────────────────── */
 
 /* Classic (default) — branded card-back image with gold border */

@@ -35,6 +35,9 @@ export interface Player {
   avatarUrl?: string;
   presence?: PlayerPresence;
   identityId?: string;
+  /** Wire-only (set by the engines' broadcast enrichment; never persisted):
+   *  whether this seat currently has a live socket connection. */
+  connected?: boolean;
   chips: number;
   bet: number;
   totalBet?: number;
@@ -48,6 +51,15 @@ export interface Player {
   // Display-only: how many cards this player drew on their last draw action.
   // Used by the client to animate discards/draws. Reset each hand.
   lastDrawCount?: number;
+  // Monotonic per-hand draw-transaction counter (Detroit 2026-10-20):
+  // incremented on EVERY draw action, including stand-pat, for humans and
+  // bots alike. Clients key draw animations to (handId, playerId, drawSeq)
+  // so a draw animates exactly once and state snapshots can never replay it.
+  drawSeq?: number;
+  // Why this player is folded, stamped at the exact fold site so every fold
+  // is traceable to a player action or a documented server rule:
+  // 'player-fold' | 'declare-fold' | 'timeout' | 'declare-auto-invalid'.
+  foldReason?: string;
   // Badugi: set when the engine auto-folds a player at DECLARE for holding no
   // valid badugi (distinct from a voluntary fold). On a rollover (no valid hand
   // anywhere), these players are still in for the next hand.
@@ -145,6 +157,16 @@ export interface GameState {
    *  Null/undefined when no timer is armed (waiting/showdown/bot turns).
    *  Client uses this to render a countdown; server enforces auto-action. */
   turnDeadline?: number | null;
+  /** Display-only side-pot tiers (set on outbound masked states by the
+   *  engines when contributions diverge). Computed with the same helper
+   *  the payout path uses; never an input to resolution. */
+  sidePots?: { amount: number; eligiblePlayerIds: string[] }[];
+  /** Structured showdown summary, built by the mode's resolveShowdown
+   *  from its settlement result (Detroit 2026-10-22). Present only
+   *  during SHOWDOWN; cleared when the next hand begins. Display data
+   *  only — never an input to resolution. See
+   *  shared/modes/showdownSummary.ts. */
+  showdownSummary?: import('./modes/showdownSummary').ShowdownSummary | null;
 }
 
 // ─── GameMode interface ───────────────────────────────────────────────────────
@@ -186,7 +208,7 @@ export interface GameMode {
     pot: number,
     myId: string,
     communityCards?: CardType[]
-  ) => { players: Player[]; pot: number; messages: string[] };
+  ) => { players: Player[]; pot: number; messages: string[]; summary?: Omit<import('./modes/showdownSummary').ShowdownSummary, 'handId'> };
 
   getNextPhase?: (currentPhase: GamePhase, state: GameState) => GamePhase | null;
   checkAutoStay?: (state: GameState, playerId: string) => boolean;

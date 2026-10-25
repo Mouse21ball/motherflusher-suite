@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { reportTableConnection } from '../../tableConnectionHealth';
+import { noteServerNow } from '../../clockSync';
 import type { GameState } from '@shared/gameTypes';
 import { createInitialState } from './useGameEngine';
 import { ensurePlayerIdentity } from '../../persistence';
@@ -131,6 +132,20 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }));
   const [sessionStats, setSessionStats] = useState<SessionStats>(DEFAULT_SESSION_STATS);
   const [lastWsAt, setLastWsAt] = useState<number | null>(null);
+  // Detroit 2026-10-24: true only after a VALID authoritative server
+  // snapshot (mode:init with a players array, or a mode:snapshot
+  // carrying one) has been received AND applied to state. Pages gate
+  // their first render on this — the seeded initial state is a local
+  // fixture and must never be painted as a live table. A bare WS
+  // message (lastWsAt) is NOT sufficient: control messages arrive
+  // before any table state does.
+  const [hasAuthoritativeState, setHasAuthoritativeState] = useState(false);
+  // Connection lifecycle epoch (Detroit 2026-10-24, Safeguard B):
+  // increments on EVERY accepted mode:init — the initial connect and
+  // each reconnect. Animation systems use it to recognize a hydration
+  // snapshot (fresh state after (re)connect) and baseline silently,
+  // instead of replaying whatever changed while disconnected.
+  const [initCount, setInitCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [retiredMode, setRetiredMode] = useState<{
     modeId: string;
@@ -266,6 +281,7 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
       ws.onmessage = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data as string);
+          noteServerNow((msg as { serverNow?: unknown }).serverNow);
           if (msg.type === 'leave:complete') {
             const pending = pendingLeaveRef.current;
             if (pending) {
@@ -361,6 +377,8 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             }
             // FULL replace — no merge.
             setState(msg.state as GameState);
+            setHasAuthoritativeState(true);
+            setInitCount(c => c + 1);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as SessionStats;
               sessionStatsRef.current = ss;
@@ -370,8 +388,12 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
             return;
           }
           if (msg.type === 'mode:snapshot') {
+            // Accept only a well-formed table snapshot (same bar as
+            // mode:init): a players array must be present.
+            if (!msg.state || !Array.isArray((msg.state as GameState).players)) return;
             // FULL replace — no merge.
             setState(msg.state as GameState);
+            setHasAuthoritativeState(true);
             if (msg.sessionStats) {
               const ss = msg.sessionStats as SessionStats;
               sessionStatsRef.current = ss;
@@ -630,5 +652,5 @@ export function useServerMode(tableId: string, modeId: string, buyinChips?: numb
   }, []);
 
   useAuthoritativeCelebrations(state, modeId, lastWsType);
-  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
+  return { state, handleAction, actionError, retiredMode, myId, role, sessionStats, lastWsAt, lastWsType, hasAuthoritativeState, initCount, hostId, tableSettings, isClubTable, sendHostAction, kickedByHost, leaveAndSettle, requestRebuy };
 }

@@ -3,8 +3,9 @@
  *
  * Rebuilt on Badugi/Flushed Up's flight engine (option A — full rebuild).
  * Same flight engine, same staging, same premium touches — driven by live GameState.
- * 5 hole cards per hand (20 deal flights), THEN 5 community cards dealt the same
- * way as a hand — from the dealer, staggered flights, staged until they land.
+ * 5 hole cards per seated player (25 deal flights at a full five-seat
+ * table), THEN 5 community cards dealt the same way as a hand — from the
+ * dealer, staggered flights, staged until they land.
  * Single animation/sound system — no duplicates.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,6 +19,20 @@ import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
 import type { GameState } from '@/lib/poker/types';
 import { evaluateBoxChevy10, compareBoxChevyHigh, compareBoxChevyLow } from '@shared/modes/boxchevy';
+import { getHeroHandValidity } from '@shared/modes/heroHandValidity';
+import {
+  seatPosition, dealerFlightOrigin,
+  COMMUNITY_POS, COMMUNITY_SPREAD, POT_POS, MUCK_POS,
+  COMMUNITY_BAND_TOP, MUCK_LABEL_TOP,
+} from './dealerOrigin';
+import {
+  celebrationFromSummary, settlementReady, summaryForHand,
+} from './celebrationPlan';
+import type { WinnerInfo, CelebrationAudit } from './celebrationPlan';
+import { planDrawFlights, seedDrawBaseline, planChipFlights } from './flightPlan';
+import type { HeroDrawTx } from './flightPlan';
+import type { ShowdownSummary } from '@shared/modes/showdownSummary';
+import { serverNowMs } from '@/lib/clockSync';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +55,10 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null;
   declaration: string | null;
+  /** Server-stamped fold reason ('declare-auto-invalid' = the
+   *  no-made-hand auto-fold) — drives the pod plate text. */
+  foldReason: string | null;
+  isWinner: boolean;
   avatarUrl?: string;
 }
 
@@ -61,13 +80,9 @@ interface RakeState {
   amount: number;
 }
 
-interface WinnerInfo {
-  name: string;
-  amount: number;
-  cards: { rank: string; suit: string }[];
-  handLabel: string;
-  side: 'HIGH' | 'LOW' | 'SWING' | 'SOLE';
-}
+// WinnerInfo / CelebrationAudit / orderedTen moved to
+// celebrationPlan.ts (Detroit 2026-10-24) — the pure, unit-tested
+// summary→celebration mapping lives there now.
 
 interface CelebrationState {
   active: boolean;
@@ -76,6 +91,8 @@ interface CelebrationState {
   lowWinner: WinnerInfo | null;
   // Single winner (swing or sole survivor)
   soleWinner: WinnerInfo | null;
+  // Showdown audit from the server summary (Detroit 2026-10-22)
+  audit: CelebrationAudit | null;
 }
 
 interface ProtoState {
@@ -88,17 +105,18 @@ interface ProtoState {
   rake: RakeState;
   celebration: CelebrationState;
   communityCards: CardType[];
+  /** Server turn deadline (epoch ms) for the active seat — drives the
+   *  per-pod timer bars (Badugi pattern). */
+  turnDeadline: number | null;
 }
 
-// Key table positions (percentages) — same as Badugi/Flushed Up
-const DEALER_POS = { x: 50, y: 4 };
-const POT_POS = { x: 50, y: 52 };
-const MUCK_POS = { x: 63, y: 44 };
-const COMMUNITY_POS = { x: 50, y: 42 }; // Detroit 2026-10-16: was 38% — cards sat too high
+// Table anchors (community band, pot, muck) live in dealerOrigin.ts
+// (Detroit 2026-10-24 polish: band +25px, community cards 36x50,
+// budget pinned by tests/bcCommunityGeometry.test.ts).
 
-// Card sizes — hero bigger (5 cards need to fit)
-const HERO_CARD_W = 56;
-const HERO_CARD_H = 78;
+// Card sizes — hero bigger (5 cards need to fit).
+const HERO_CARD_W = 52;
+const HERO_CARD_H = 74;
 const OPP_CARD_W = 20;
 const OPP_CARD_H = 30;
 
@@ -117,19 +135,48 @@ function mapPhase(livePhase: string): ProtoPhase {
 }
 
 function emptyCelebration(): CelebrationState {
-  return { active: false, highWinner: null, lowWinner: null, soleWinner: null };
+  return { active: false, highWinner: null, lowWinner: null, soleWinner: null, audit: null };
 }
 
-function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
+function useLiveProtoState(
+  liveState: GameState,
+  myId: string,
+  hydrationEpoch: number = 0,
+  heroDrawTx: HeroDrawTx | null = null,
+): ProtoState {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [rake, setRake] = useState<RakeState>({ active: false, winnerIndex: -1, amount: 0 });
   const [celebration, setCelebration] = useState<CelebrationState>(emptyCelebration);
   const [landed, setLanded] = useState<Record<string, number>>({});
   const [commLanded, setCommLanded] = useState(-1); // -1 = not staged yet (reconnect fallback shows all)
+  // Hero draw staging (Detroit 2026-10-24, Safeguard C): the exact
+  // discarded slots, held face-down until their replacement flights
+  // land. Kept slots are never in this list — they never animate.
+  const [heroDrawHidden, setHeroDrawHidden] = useState<number[]>([]);
   const reduced = useReducedMotion();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const flightId = useRef(0);
-  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number>; draws: Record<string, string | undefined> } | null>(null);
+  const prevRef = useRef<{ handId?: number; phase: string; bets: Record<string, number> } | null>(null);
+  // Freshest live state for timer callbacks (the showdown summary
+  // lands ~650ms after the phase flips; builders read it from here,
+  // fenced by handId).
+  const liveRef = useRef(liveState);
+  liveRef.current = liveState;
+  // Connection lifecycle (Safeguard B): the hook's init epoch. A new
+  // epoch = a (re)connection hydrated fresh state — its first snapshot
+  // is a baseline, never a source of animation flights.
+  const epochPropRef = useRef(hydrationEpoch);
+  epochPropRef.current = hydrationEpoch;
+  const epochSeenRef = useRef(hydrationEpoch);
+  const heroTxRef = useRef(heroDrawTx);
+  heroTxRef.current = heroDrawTx;
+  // Per-hand drawSeq baselines for the draw planner.
+  const drawBaseRef = useRef<{ handId: number | undefined; seqs: Map<string, number> }>({ handId: undefined, seqs: new Map() });
+  // Celebration readiness (Safeguard A): a SHOWDOWN entry arms this;
+  // the presentation starts only when authoritative settled data for
+  // the SAME handId exists — never merely because time elapsed.
+  const pendingCelebRef = useRef<{ handId: number; enteredAt: number; grossPot: number; started: boolean } | null>(null);
+  const celebHandRef = useRef<number | null>(null);
 
   const later = useCallback((ms: number, fn: () => void) => {
     timers.current.push(setTimeout(fn, ms));
@@ -147,6 +194,54 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     setFlights(s => s.filter(f => f.id !== id));
   }, []);
 
+  // Client-derived celebration for settlements that carry NO server
+  // summary (fold-win direct awards). Built from the SETTLED state at
+  // presentation time — never from the SHOWDOWN entry snapshot, which
+  // is winnerless for contested hands (Detroit 2026-10-24).
+  const buildClientCelebration = useCallback((state: GameState, grossPot: number): { highWinner: WinnerInfo | null; lowWinner: WinnerInfo | null; soleWinner: WinnerInfo | null } | null => {
+    const winners = state.players.filter(p => (p as any).isWinner);
+    if (winners.length === 0) return null;
+    const comm = (state.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
+    const evals = new Map(winners.map(w => {
+      const hole = (w.cards ?? []).map(c => ({ ...c, isHidden: false }));
+      return [w.id, evaluateBoxChevy10(hole as any, comm as any)];
+    }));
+    const decl = (w: any) => (w as any).declaration as string | null;
+    const highPool = winners.filter(w => decl(w) === 'HIGH' || decl(w) === 'SWING');
+    const lowPool = winners.filter(w => decl(w) === 'LOW' || decl(w) === 'SWING');
+    let bestHighEval: any = null;
+    const highTied: any[] = [];
+    for (const w of highPool) {
+      const e = evals.get(w.id)!;
+      if (!bestHighEval || compareBoxChevyHigh(e, bestHighEval) > 0) { bestHighEval = e; highTied.length = 0; highTied.push(w); }
+      else if (compareBoxChevyHigh(e, bestHighEval) === 0) { highTied.push(w); }
+    }
+    let bestLowEval: any = null;
+    const lowTied: any[] = [];
+    for (const w of lowPool) {
+      const e = evals.get(w.id)!;
+      if (!bestLowEval || compareBoxChevyLow(e, bestLowEval) > 0) { bestLowEval = e; lowTied.length = 0; lowTied.push(w); }
+      else if (compareBoxChevyLow(e, bestLowEval) === 0) { lowTied.push(w); }
+    }
+    const buildInfo = (w: any, side: WinnerInfo['side']): WinnerInfo => {
+      const hole = (w.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
+      const e = evals.get(w.id)!;
+      return { name: w.name, amount: Math.floor(grossPot / winners.length), cards: hole, handLabel: e.desc, side };
+    };
+    const tieName = (tied: any[]) => tied.map(w => w.name).join(' & ');
+    let highWinner: WinnerInfo | null = null;
+    let lowWinner: WinnerInfo | null = null;
+    let soleWinner: WinnerInfo | null = null;
+    if (highTied.length > 0 && lowTied.length > 0 && highTied[0].id === lowTied[0].id && highTied.length === 1 && lowTied.length === 1) {
+      soleWinner = buildInfo(highTied[0], 'SWING');
+    } else {
+      if (highTied.length > 0) { const info = buildInfo(highTied[0], 'HIGH'); info.name = tieName(highTied); highWinner = info; }
+      if (lowTied.length > 0) { const info = buildInfo(lowTied[0], 'LOW'); info.name = tieName(lowTied); lowWinner = info; }
+      if (!highWinner && !lowWinner && winners.length > 0) soleWinner = buildInfo(winners[0], 'SOLE');
+    }
+    return { highWinner, lowWinner, soleWinner };
+  }, []);
+
   useEffect(() => {
     if (reduced) return;
     const prev = prevRef.current;
@@ -154,26 +249,97 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
       handId: liveState.handId,
       phase: liveState.phase,
       bets: Object.fromEntries(liveState.players.map(p => [p.id, p.bet])),
-      draws: Object.fromEntries(liveState.players.map(p => [p.id, `${liveState.phase}:${(p as any).lastDrawCount ?? 'x'}`])),
+    };
+    // Hydration = this snapshot arrived under a NEW connection epoch
+    // (mount, reconnect). It reseeds baselines and never schedules
+    // flights — lifecycle state, not a timing heuristic (Safeguard B).
+    const hydration = epochPropRef.current !== epochSeenRef.current;
+    if (hydration) epochSeenRef.current = epochPropRef.current;
+    if (hydration || drawBaseRef.current.handId !== liveState.handId) {
+      drawBaseRef.current = { handId: liveState.handId, seqs: seedDrawBaseline(liveState.players as any) };
+    }
+
+    // Card flights originate at the CURRENT dealer's rendered seat
+    // (Detroit 2026-10-24) — computed fresh from this snapshot so a
+    // rotated button between hands moves the origin with it. Same
+    // percent space / parent container as the flight destinations.
+    const flightOrigin = dealerFlightOrigin(liveState.players as any, myId);
+
+    // Celebration presentation (Safeguard A): starts ONLY from
+    // authoritative settled data for the armed hand. The approved
+    // minimum timings (rake 2500 / build 3700 from SHOWDOWN entry)
+    // are preserved; a late settlement delays the start, never the
+    // reverse. Every callback is fenced by handId.
+    const startCelebration = (pend: { handId: number; enteredAt: number; grossPot: number; started: boolean }) => {
+      pend.started = true;
+      const handId = pend.handId;
+      const elapsed = Date.now() - pend.enteredAt;
+      later(Math.max(0, 2500 - elapsed), () => {
+        const st: any = liveRef.current;
+        if (st.handId !== handId) return;
+        const sum = summaryForHand(st, handId);
+        const rakeWinnerId = sum?.awards[0]?.playerId ?? st.players.find((p: any) => p.isWinner)?.id;
+        if (!rakeWinnerId) return;
+        const meP = st.players.find((p: any) => p.id === myId);
+        const orderedP = meP ? [meP, ...st.players.filter((p: any) => p.id !== myId).slice(0, 4)] : st.players;
+        const seatIdx = orderedP.findIndex((p: any) => p.id === rakeWinnerId);
+        setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: Math.max(0, pend.grossPot - (sum ? sum.rollover : 0)) });
+        sfx.chipRake();
+      });
+      later(Math.max(0, 3700 - elapsed), () => {
+        const st: any = liveRef.current;
+        if (st.handId !== handId) return;
+        setRake({ active: false, winnerIndex: -1, amount: 0 });
+        const sum = summaryForHand(st, handId);
+        if (sum) {
+          setCelebration({ active: true, ...celebrationFromSummary(sum, st.players, st.communityCards ?? []) });
+        } else {
+          const built = buildClientCelebration(st, pend.grossPot);
+          if (!built) return; // nothing truthful to show — never fabricate a no-winner
+          setCelebration({ active: true, ...built, audit: null });
+        }
+        celebHandRef.current = handId;
+        sfx.bigWin();
+        later(5300, () => {
+          // Clear ONLY this hand's celebration — a newer hand's
+          // celebration is never killed by a stale timer.
+          if (celebHandRef.current === handId) { celebHandRef.current = null; setCelebration(emptyCelebration()); }
+        });
+      });
     };
 
-    if (prev) {
-      // NEW HAND → 20 hole cards, THEN 5 community cards (Detroit 2026-10-15:
-      // community dealt the same way as a hand — staggered flights from dealer).
-      const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId;
+    if (prev && !hydration) {
+      // NEW HAND → 5 hole cards per seated player, THEN 5 community cards
+      // (Detroit 2026-10-15: community dealt the same way as a hand —
+      // staggered flights from dealer).
+      // Detroit 2026-10-21: five-seat phase — the flight count follows the
+      // actual seat count (was hardcoded 20 cards over 4 seats).
+      // The generic engine increments handId TWICE per hand (entering
+      // ANTE, then again in dealCards), so a bare handId change fires
+      // this block at ANTE — before any cards exist — and again at
+      // DEAL: the deal animation played twice (Detroit Galaxy QA,
+      // 2026-10-21). Gate on the DEAL phase: exactly one authoritative
+      // deal animation per hand, keyed by the dealt hand's id. Works
+      // whether or not the ANTE snapshot is coalesced away, and a
+      // reconnect mid-hand never replays (no id change into DEAL).
+      const isNewHand = prev.handId !== undefined && curr.handId !== undefined && prev.handId !== curr.handId && curr.phase === 'DEAL';
       if (isNewHand) {
         const me = liveState.players.find(p => p.id === myId);
-        const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+        const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
         const ordered = me ? [me, ...others] : others;
         const reset: Record<string, number> = {};
         for (const p of ordered) reset[p.id] = 0;
         setLanded(reset);
         setCommLanded(0);
+        setHeroDrawHidden([]);
+        pendingCelebRef.current = null;
+        celebHandRef.current = null;
         // Detroit 2026-10-16: clear celebration + rake so they don't bleed into the new hand.
         setCelebration(emptyCelebration());
         setRake({ active: false, winnerIndex: -1, amount: 0 });
-        for (let i = 0; i < 20; i++) {
-          const seatIdx = i % 4;
+        const holeFlights = ordered.length * 5;
+        for (let i = 0; i < holeFlights; i++) {
+          const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
           const isHero = seatIdx === 0;
@@ -181,7 +347,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             const pos = seatPosition(seatIdx);
             const fid = addFlight({
               kind: 'card',
-              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
               toX: pos.x, toY: pos.y - 6,
               label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
@@ -195,13 +361,13 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
             });
           });
         }
-        const commStart = 20 * 160 + 200; // Detroit 2026-10-16: tightened from 400ms — was a visible pause
+        const commStart = holeFlights * 160 + 200; // Detroit 2026-10-16: tightened from 400ms — was a visible pause
         for (let c = 0; c < 5; c++) {
           later(commStart + c * 160, () => {
             const fid = addFlight({
               kind: 'card',
-              fromX: DEALER_POS.x, fromY: DEALER_POS.y,
-              toX: COMMUNITY_POS.x + (c - 2) * 11, toY: COMMUNITY_POS.y,
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
+              toX: COMMUNITY_POS.x + (c - 2) * COMMUNITY_SPREAD, toY: COMMUNITY_POS.y,
               label: '', faceDown: false, duration: 0.32, toHero: false,
             });
             sfx.dealSingle();
@@ -213,155 +379,118 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
         }
       }
 
-      // BETS + ANTES → chips fly
-      for (const p of liveState.players) {
-        const betInc = (curr.bets[p.id] ?? 0) - (prev.bets[p.id] ?? 0);
-        if (betInc > 0 && (curr.phase.startsWith('BET') || curr.phase === 'ANTE')) {
-          const isHero = p.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
-          const pos = seatPosition(Math.max(0, seatIdx));
-          const fid = addFlight({
-            kind: 'chip',
-            fromX: pos.x, fromY: pos.y - 4,
-            toX: POT_POS.x, toY: POT_POS.y,
-            label: `$${betInc}`, faceDown: false, duration: 0.45, toHero: false,
-          });
-          sfx.betPlace();
-          later(450, () => removeFlight(fid));
-        }
+      // BETS + ANTES → chips fly. The planner (Safeguard B) allows
+      // ONLY genuine positive contributions: never on hydration,
+      // never outside ANTE/BET phases, never across a phase change.
+      const chipPlans = planChipFlights(
+        { phase: prev.phase, bets: new Map(Object.entries(prev.bets)) },
+        { phase: curr.phase, bets: new Map(Object.entries(curr.bets)) },
+        false, // hydration snapshots never reach this block
+      );
+      for (const plan of chipPlans) {
+        const isHero = plan.playerId === myId;
+        const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === plan.playerId) + 1;
+        const pos = seatPosition(Math.max(0, seatIdx));
+        const fid = addFlight({
+          kind: 'chip',
+          fromX: pos.x, fromY: pos.y - 4,
+          toX: POT_POS.x, toY: POT_POS.y,
+          label: `$${plan.amount}`, faceDown: false, duration: 0.45, toHero: false,
+        });
+        sfx.betPlace();
+        later(450, () => removeFlight(fid));
       }
 
-      // DRAWS → discards to muck, replacements from dealer
-      for (const p of liveState.players) {
-        const prevD = prev.draws[p.id];
-        const currD = curr.draws[p.id];
-        const currCount = parseInt(currD.split(':')[1] || '0', 10);
-        if (currD !== prevD && !isNaN(currCount) && currCount > 0) {
-          const isHero = p.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === p.id) + 1;
-          const pos = seatPosition(Math.max(0, seatIdx));
-          const keptCount = 5 - currCount;
-          setLanded(prevLanded => ({ ...prevLanded, [p.id]: keptCount }));
-          for (let d = 0; d < currCount; d++) {
-            const fid = addFlight({
-              kind: 'muck',
-              fromX: pos.x, fromY: pos.y - 6,
-              toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
-              label: '', faceDown: true, duration: 0.35, toHero: false,
+      // DRAWS → discards to muck, replacements from dealer. The
+      // planner (Safeguards B + C) keys on the server's drawSeq:
+      // exactly one sequence per accepted draw; phase transitions
+      // and refreshes plan nothing. Hero staging is slot-faithful
+      // via the client's own draw transaction.
+      const { plans: drawPlans, baseline: nextDrawBase } = planDrawFlights(
+        drawBaseRef.current.seqs, liveState.players as any, myId, heroTxRef.current,
+      );
+      drawBaseRef.current.seqs = nextDrawBase;
+      for (const plan of drawPlans) {
+        const isHero = plan.playerId === myId;
+        const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === plan.playerId) + 1;
+        const pos = seatPosition(Math.max(0, seatIdx));
+        const flightSlots: (number | null)[] = plan.slots ?? Array.from({ length: plan.count }, () => null);
+        if (plan.slots) {
+          // Hero: flip exactly the discarded slots face-down. Kept
+          // slots are untouched — they never hide, move, or re-fly.
+          setHeroDrawHidden(plan.slots);
+        } else if (!isHero) {
+          // Opponents (masked backs): count staging, as before.
+          setLanded(prevLanded => ({ ...prevLanded, [plan.playerId]: 5 - plan.count }));
+        }
+        for (let d = 0; d < flightSlots.length; d++) {
+          const fid = addFlight({
+            kind: 'muck',
+            fromX: pos.x, fromY: pos.y - 6,
+            toX: MUCK_POS.x + d * 1.5, toY: MUCK_POS.y,
+            label: '', faceDown: true, duration: 0.35, toHero: false,
+          });
+          later(d * 120 + 350, () => removeFlight(fid));
+        }
+        sfx.dealSingle();
+        later(plan.count * 120 + 400, () => {
+          flightSlots.forEach((slot, d) => {
+            const dfid = addFlight({
+              kind: 'card',
+              fromX: flightOrigin.x, fromY: flightOrigin.y,
+              toX: pos.x, toY: pos.y - 6,
+              label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
             });
-            later(d * 120 + 350, () => removeFlight(fid));
-          }
-          sfx.dealSingle();
-          later(currCount * 120 + 400, () => {
-            for (let d = 0; d < currCount; d++) {
-              const dfid = addFlight({
-                kind: 'card',
-                fromX: DEALER_POS.x, fromY: DEALER_POS.y,
-                toX: pos.x, toY: pos.y - 6,
-                label: '', faceDown: !isHero, duration: 0.32, toHero: isHero,
-              });
-              if (isHero) sfx.dealSelf(); else sfx.dealSingle();
-              later(d * 120 + 320, () => {
-                removeFlight(dfid);
+            if (isHero) sfx.dealSelf(); else sfx.dealSingle();
+            later(d * 120 + 320, () => {
+              removeFlight(dfid);
+              if (slot !== null) {
+                setHeroDrawHidden(h => h.filter(s => s !== slot));
+              } else if (!isHero) {
                 setLanded(prevLanded => ({
                   ...prevLanded,
-                  [p.id]: Math.min((prevLanded[p.id] ?? keptCount) + 1, 5),
+                  [plan.playerId]: Math.min((prevLanded[plan.playerId] ?? 5 - plan.count) + 1, 5),
                 }));
-              });
-            }
+              }
+            });
           });
-        }
+        });
       }
 
-      // SHOWDOWN → rake, two-winner celebration
-      if (curr.phase === 'SHOWDOWN' && prev.phase !== 'SHOWDOWN') {
-        const winners = liveState.players.filter(p => (p as any).isWinner);
-        const comm = (liveState.communityCards ?? []).map(c => ({ ...c, isHidden: false }));
-        if (winners.length > 0) {
-          const evals = new Map(winners.map(w => {
-            const hole = (w.cards ?? []).map(c => ({ ...c, isHidden: false }));
-            return [w.id, evaluateBoxChevy10(hole as any, comm as any)];
-          }));
-          const decl = (w: any) => (w as any).declaration as string | null;
-          const highPool = winners.filter(w => decl(w) === 'HIGH' || decl(w) === 'SWING');
-          const lowPool = winners.filter(w => decl(w) === 'LOW' || decl(w) === 'SWING');
-          // Detroit 2026-10-16: collect ALL tied winners, not just the first.
-          let bestHighEval: any = null;
-          const highTied: any[] = [];
-          for (const w of highPool) {
-            const e = evals.get(w.id)!;
-            if (!bestHighEval || compareBoxChevyHigh(e, bestHighEval) > 0) {
-              bestHighEval = e; highTied.length = 0; highTied.push(w);
-            } else if (compareBoxChevyHigh(e, bestHighEval) === 0) {
-              highTied.push(w);
-            }
-          }
-          let bestLowEval: any = null;
-          const lowTied: any[] = [];
-          for (const w of lowPool) {
-            const e = evals.get(w.id)!;
-            if (!bestLowEval || compareBoxChevyLow(e, bestLowEval) > 0) {
-              bestLowEval = e; lowTied.length = 0; lowTied.push(w);
-            } else if (compareBoxChevyLow(e, bestLowEval) === 0) {
-              lowTied.push(w);
-            }
-          }
-          const buildInfo = (w: any, side: WinnerInfo['side']): WinnerInfo => {
-            const hole = (w.cards ?? []).map((c: any) => ({ rank: c.rank, suit: c.suit }));
-            const e = evals.get(w.id)!;
-            return {
-              name: w.name,
-              amount: Math.floor(liveState.pot / winners.length),
-              cards: hole,
-              handLabel: e.desc,
-              side,
-            };
-          };
-          let highWinner: WinnerInfo | null = null;
-          let lowWinner: WinnerInfo | null = null;
-          let soleWinner: WinnerInfo | null = null;
-          // Detroit 2026-10-16: tied winners share the celebration (names joined).
-          const tieName = (tied: any[]) => tied.map(w => w.name).join(' & ');
-          if (highTied.length > 0 && lowTied.length > 0 && highTied[0].id === lowTied[0].id && highTied.length === 1 && lowTied.length === 1) {
-            soleWinner = buildInfo(highTied[0], 'SWING');
-          } else {
-            if (highTied.length > 0) {
-              const info = buildInfo(highTied[0], 'HIGH');
-              info.name = tieName(highTied);
-              highWinner = info;
-            }
-            if (lowTied.length > 0) {
-              const info = buildInfo(lowTied[0], 'LOW');
-              info.name = tieName(lowTied);
-              lowWinner = info;
-            }
-            if (!highWinner && !lowWinner && winners.length > 0) {
-              soleWinner = buildInfo(winners[0], 'SOLE');
-            }
-          }
-          const firstWinner = highTied[0] ?? lowTied[0] ?? winners[0];
-          const isHero = firstWinner.id === myId;
-          const seatIdx = isHero ? 0 : liveState.players.filter(x => x.id !== myId).findIndex(x => x.id === firstWinner.id) + 1;
-          later(2500, () => {
-            setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
-            sfx.chipRake();
-          });
-          later(3700, () => {
-            setRake({ active: false, winnerIndex: -1, amount: 0 });
-            setCelebration({ active: true, highWinner, lowWinner, soleWinner });
-            sfx.bigWin();
-          });
-          later(9000, () => { // Detroit 2026-10-16: reduced from 12s — 9s is enough to read two hands
-            setCelebration(emptyCelebration());
-          });
-        }
-      }
     }
+
+    // ── Celebration arming + readiness (Safeguard A) ──
+    // A SHOWDOWN entry ARMS the presentation; it does not choose a
+    // branch. A winnerless entry snapshot is an UNRESOLVED hand, not
+    // a no-winner settlement. The presentation starts when settled
+    // data for this handId exists (summary or settled winner flags),
+    // with an 8s fallback that can only build from settled winners —
+    // if none exist by then, nothing renders rather than a false
+    // NO WINNER.
+    if (curr.phase === 'SHOWDOWN' && prev?.phase !== 'SHOWDOWN' && curr.handId !== undefined) {
+      const armed = { handId: curr.handId, enteredAt: Date.now(), grossPot: liveState.pot, started: false };
+      pendingCelebRef.current = armed;
+      later(8000, () => {
+        if (pendingCelebRef.current !== armed || armed.started) return;
+        const st: any = liveRef.current;
+        if (st.phase !== 'SHOWDOWN' || st.handId !== armed.handId) return;
+        if (st.players.some((p: any) => p.isWinner)) startCelebration(armed);
+      });
+    }
+    const pend = pendingCelebRef.current;
+    if (pend && !pend.started && curr.phase === 'SHOWDOWN' && curr.handId === pend.handId
+        && settlementReady(liveState as any, pend.handId)) {
+      startCelebration(pend);
+    }
+    if (pend && curr.handId !== pend.handId && curr.phase !== 'SHOWDOWN') {
+      pendingCelebRef.current = null;
+    }
+
     prevRef.current = curr;
-  }, [liveState, myId, reduced, later, addFlight, removeFlight]);
+  }, [liveState, myId, reduced, later, addFlight, removeFlight, buildClientCelebration]);
 
   const me = liveState.players.find(p => p.id === myId);
-  const others = liveState.players.filter(p => p.id !== myId).slice(0, 3);
+  const others = liveState.players.filter(p => p.id !== myId).slice(0, 4);
   const ordered = me ? [me, ...others] : others;
 
   const showdownPhase = mapPhase(liveState.phase) === 'showdown';
@@ -370,15 +499,20 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     name: p.name,
     chips: p.chips,
     bet: p.bet,
-    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map(c => ({
+    cards: p.cards.slice(0, landed[p.id] ?? p.cards.length).map((c, ci) => ({
       ...c,
       // Detroit 2026-10-16: folded players (including hero) hide cards at showdown.
-      isHidden: p.status === 'folded' ? true : (i === 0 ? c.isHidden : (showdownPhase ? false : true)),
+      // Detroit 2026-10-24: hero slots mid-draw-replacement also render
+      // face-down — ONLY the discarded slots (heroDrawHidden); kept
+      // slots are never hidden by draw staging.
+      isHidden: p.status === 'folded' ? true : (i === 0 ? (c.isHidden || heroDrawHidden.includes(ci)) : (showdownPhase ? false : true)),
     })),
     isHero: i === 0,
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     declaration: (p as any).declaration ?? null,
+    foldReason: (p as any).foldReason ?? null,
+    isWinner: !!(p as any).isWinner,
     avatarUrl: (p as any).avatarUrl ?? undefined,
   }));
 
@@ -396,21 +530,16 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     rake,
     celebration,
     communityCards: (liveState.communityCards ?? []).slice(0, commLanded === -1 ? (liveState.communityCards ?? []).length : commLanded).map(c => ({ ...c, isHidden: false })),
+    turnDeadline: (liveState as any).turnDeadline ?? null,
   };
 }
 
-function seatPosition(index: number): { x: number; y: number } {
-  if (index === 0) return { x: 50, y: 88 };
-  const spots = [
-    { x: 14, y: 28 },
-    { x: 50, y: 17 }, // Detroit 2026-10-16: was 14% — name clipped under status bar
-    { x: 86, y: 28 },
-  ];
-  return spots[(index - 1) % spots.length];
-}
-
 function FlightView({ flight }: { flight: Flight }) {
-  const size = flight.kind === 'card'
+  // Detroit 2026-10-24 (Safeguard B): the gold COIN visual is reserved
+  // for chip flights only. Discards ('muck') are cards — they render as
+  // face-down card backs, never as coins.
+  const isCardVisual = flight.kind === 'card' || flight.kind === 'muck';
+  const size = isCardVisual
     ? (flight.toHero ? { w: HERO_CARD_W, h: HERO_CARD_H } : { w: 20, h: 30 })
     : { w: 26, h: 26 };
   return (
@@ -421,7 +550,7 @@ function FlightView({ flight }: { flight: Flight }) {
       animate={{ left: `${flight.toX}%`, top: `${flight.toY}%` }}
       transition={{ duration: flight.duration, ease: [0.3, 0.7, 0.4, 1] }}
     >
-      {flight.kind === 'card' ? (
+      {isCardVisual ? (
         <div
           className="rounded"
           style={{
@@ -454,11 +583,15 @@ interface BoxChevyTableProps {
   isDrawPhase: boolean;
   heroAvatarSrc?: string | null;
   heroFrameSrc?: string | null;
+  /** Connection lifecycle epoch from useServerMode (Safeguard B). */
+  hydrationEpoch?: number;
+  /** The hero's latest draw transaction (Safeguard C). */
+  heroDrawTx?: HeroDrawTx | null;
 }
 
-export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc }: BoxChevyTableProps) {
+export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onCardClick, isDrawPhase, heroAvatarSrc, heroFrameSrc, hydrationEpoch, heroDrawTx }: BoxChevyTableProps) {
   const reduced = useReducedMotion();
-  const state = useLiveProtoState(liveState, myId);
+  const state = useLiveProtoState(liveState, myId, hydrationEpoch ?? 0, heroDrawTx ?? null);
   const coins = useMemo(() => Array.from({ length: 24 }).map((_, i) => ({
     angle: (i / 24) * Math.PI * 2,
     dist: 120 + Math.random() * 80,
@@ -466,6 +599,14 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
     delay: Math.random() * 0.3,
   })), [state.celebration.active]);
   const bg = getSelectedBackground();
+  // Hero qualification state for the in-table validity badge — the same
+  // shared evaluator family the server's auto-fold rule uses
+  // (evaluateBoxChevy10.isMade), so the badge can never disagree with
+  // the DECLARE outcome. Null outside the visible hand phases.
+  const heroLive = liveState.players.find(p => p.id === myId);
+  const validity = heroLive
+    ? getHeroHandValidity('boxchevy', liveState.phase, heroLive.cards ?? [], liveState.communityCards ?? [])
+    : null;
 
   return (
     <div className="h-full flex flex-col relative" style={{
@@ -476,52 +617,59 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
     }}>
       {/* Detroit 2026-10-16: dark overlay removed — was reading as a "box" around the table */}
       <div className="flex-1 relative" style={{ perspective: '1200px' }}>
-        <div className="absolute left-1/2 -translate-x-1/2 top-1 flex flex-col items-center">
-          <motion.div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
-            style={{ background: 'rgba(240,184,41,0.15)', border: '2px solid rgba(240,184,41,0.5)' }}
-            animate={{ rotate: state.phase === 'dealing' ? 360 : 0 }}
-            transition={{ duration: 2, ease: 'linear' }}
-          >
-            <span className="text-amber-300 text-[10px] font-mono">D</span>
-          </motion.div>
-        </div>
+        {/* Floating dealer marker removed (Badugi/FU precedent): the
+            dealer is the D badge on the dealer's avatar corner. */}
 
-        <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+        {/* Center band (reserved): COMMUNITY label + five mini cards +
+            pot pill, one block centered at 50.5%. Detroit 2026-10-22:
+            the old layout floated the community row at 42% and the pot
+            at 52% on the same axis with no reserved bands, so the pot
+            amount crowded the cards' lower edge. The pill keeps the pot
+            compact inside the band — and visible during WAITING, which
+            ruling 2's rollover depends on. */}
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ gap: 4, top: COMMUNITY_BAND_TOP }}>
+          {state.communityCards.length > 0 && (
+            <div className="text-white/40 text-[9px] font-mono tracking-widest">COMMUNITY</div>
+          )}
+          <div className="flex" style={{ gap: 5 }}>
+            <AnimatePresence>
+              {state.communityCards.map((card, i) => (
+                <motion.div
+                  key={`comm-${i}`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  // Detroit 2026-10-24 (P2 premium polish): restrained
+                  // gold edging + soft depth on the enlarged 36x50
+                  // community cards. Wrapper only — card art untouched.
+                  style={{
+                    borderRadius: 5,
+                    border: '1px solid rgba(240,184,41,0.6)',
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.55), 0 0 6px rgba(240,184,41,0.18)',
+                    overflow: 'hidden',
+                    lineHeight: 0,
+                  }}
+                >
+                  <PlayingCard card={card} className="!w-[36px] !h-[50px]" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
           <AnimatePresence>
             <motion.div
+              key={`pot-${state.pot}`}
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="text-center"
+              className="rounded-full px-3 py-1 font-mono font-bold text-amber-200 whitespace-nowrap"
+              style={{ background: 'rgba(20,10,40,0.88)', border: '1px solid rgba(240,184,41,0.55)', fontSize: 12, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
             >
-              <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
+              POT ${state.pot.toLocaleString()}
             </motion.div>
           </AnimatePresence>
-          {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
-            <div className="mt-1 text-white/30 text-[10px] font-mono">🂠 muck</div>
-          )}
         </div>
-
-        <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5" style={{ top: '42%' }}>
-          <AnimatePresence>
-            {state.communityCards.map((card, i) => (
-              <motion.div
-                key={`comm-${i}`}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <PlayingCard card={card} className="!w-[44px] !h-[62px]" />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-        {state.communityCards.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 text-white/40 text-[9px] font-mono tracking-widest" style={{ top: 'calc(42% - 18px)' }}>
-            COMMUNITY
-          </div>
+        {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && (
+          <div className="absolute left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-mono" style={{ top: MUCK_LABEL_TOP }}>🂠 muck</div>
         )}
 
         {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
@@ -542,7 +690,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     border: '2px dashed rgba(255,255,255,0.5)',
                     boxShadow: '0 0 12px rgba(245,158,11,0.6)',
                   }}
-                  initial={{ left: '50%', top: '52%', x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                  initial={{ left: '50%', top: `${POT_POS.y}%`, x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
                   animate={{
                     left: `${wpos.x}%`, top: `${wpos.y}%`,
                     x: `calc(-50% + ${(i - flyCount / 2) * 8}px)`,
@@ -562,122 +710,273 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           // Detroit 2026-10-16: avatars with cosmetic borders on every seat.
           const avatarSrc = p.isHero ? (heroAvatarSrc || getAvatarForSeat(0)) : (p.avatarUrl || getAvatarForSeat(i + 1));
           const frameSrc = p.isHero ? heroFrameSrc : null;
+          // Server-deadline turn timer (Badugi pattern) — visible on the
+          // armed seat, hero included, so a DECLARE/bet wait always
+          // shows its own clock instead of reading as a stall.
+          const turnRemainingMs = i === state.activeSeat && state.turnDeadline != null
+            ? Math.max(0, Math.min(30_000, state.turnDeadline - serverNowMs()))
+            : null;
+          const timerBar = (inPanel: boolean) => turnRemainingMs == null ? null : inPanel ? (
+            <div className="absolute left-2 right-2 bottom-0.5 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {!reduced ? (
+                <motion.div
+                  key={state.turnDeadline}
+                  className="h-full rounded-full"
+                  style={{ background: '#F0B829', transformOrigin: 'left' }}
+                  initial={{ scaleX: turnRemainingMs / 30_000 }}
+                  animate={{ scaleX: 0 }}
+                  transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
+                />
+              ) : (
+                <div className="h-full w-full" style={{ background: '#F0B829' }} />
+              )}
+            </div>
+          ) : (
+            <div className="mt-0.5 h-[3px] w-[120px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {!reduced ? (
+                <motion.div
+                  key={state.turnDeadline}
+                  className="h-full rounded-full"
+                  style={{ background: '#F0B829', transformOrigin: 'left' }}
+                  initial={{ scaleX: turnRemainingMs / 30_000 }}
+                  animate={{ scaleX: 0 }}
+                  transition={{ duration: turnRemainingMs / 1000, ease: 'linear' }}
+                />
+              ) : (
+                <div className="h-full w-full" style={{ background: '#F0B829' }} />
+              )}
+            </div>
+          );
+          const foldPlate = p.folded ? (
+            <span className="text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0" style={{ color: '#fca5a5', background: 'rgba(127,29,29,0.6)', border: '1px solid rgba(248,113,113,0.5)' }}>
+              {p.foldReason === 'declare-auto-invalid' ? 'NO MADE HAND' : 'FOLD'}
+            </span>
+          ) : null;
+          const declarationPill = p.declaration ? (
+            <span className={`text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0 ${
+              p.declaration === 'HIGH' ? 'text-blue-300 bg-blue-500/20' :
+              p.declaration === 'LOW' ? 'text-green-300 bg-green-500/20' :
+              p.declaration === 'SWING' ? 'text-purple-300 bg-purple-500/20' :
+              'text-white/40 bg-white/10'
+            }`}>
+              {p.declaration}
+            </span>
+          ) : null;
           return (
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
               style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
             >
-              <div className="relative">
-                <AvatarWithFrame
-                  avatarSrc={avatarSrc}
-                  frameSrc={frameSrc}
-                  initials={getAvatarInitials(p.name)}
-                  initialsColor="#FDE68A"
-                  size={p.isHero ? 52 : 44}
-                />
-                {isActive && (
+              {/* Active turn — premium layered glow (Badugi/FU pattern) */}
+              {isActive && (
+                <>
                   <motion.div
-                    className="absolute inset-0 rounded-full pointer-events-none"
+                    className="absolute -inset-4 rounded-2xl pointer-events-none"
+                    style={{ background: 'radial-gradient(ellipse at center, rgba(240,184,41,0.25) 0%, transparent 70%)', filter: 'blur(8px)' }}
+                    animate={{ opacity: [0.5, 1, 0.5], scale: [0.95, 1.05, 0.95] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <motion.div
+                    className="absolute -inset-2 rounded-xl pointer-events-none"
                     style={{
-                      border: '2px solid rgba(240,184,41,0.9)',
-                      boxShadow: '0 0 12px rgba(240,184,41,0.6)',
+                      border: '1.5px solid transparent',
+                      background: 'linear-gradient(135deg, rgba(240,184,41,0.8), rgba(240,184,41,0.1), rgba(255,220,100,0.8)) border-box',
+                      WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
+                      WebkitMaskComposite: 'xor',
+                      maskComposite: 'exclude',
                     }}
                     animate={{ opacity: [0.6, 1, 0.6] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
                   />
-                )}
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                {state.dealerSeat === i && (
-                  <span className="text-amber-300 text-[10px] font-mono font-bold">D</span>
-                )}
-                <span className={`text-xs font-mono ${p.isHero ? 'text-amber-200 font-bold' : 'text-white/80'}`}>
-                  {p.name}
-                </span>
-                {p.folded && <span className="text-red-400/70 text-[10px] font-mono">FOLD</span>}
-              </div>
-              <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
-              {p.bet > 0 && (
+                </>
+              )}
+              {p.isWinner && state.phase === 'showdown' && (
                 <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-amber-300 text-[10px] font-mono mt-0.5"
-                >
-                  ${p.bet}
-                </motion.div>
+                  className="absolute -inset-3 rounded-2xl pointer-events-none"
+                  style={{ border: '3px solid rgba(240,184,41,0.9)', boxShadow: '0 0 30px rgba(240,184,41,0.5)' }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                />
               )}
-              {p.declaration && state.phase !== 'showdown' && (
-                <div className={`text-[10px] font-mono font-bold mt-0.5 px-1.5 py-0.5 rounded ${
-                  p.declaration === 'HIGH' ? 'text-blue-300 bg-blue-500/20' :
-                  p.declaration === 'LOW' ? 'text-green-300 bg-green-500/20' :
-                  p.declaration === 'SWING' ? 'text-purple-300 bg-purple-500/20' :
-                  'text-white/40'
-                }`}>
-                  {p.declaration}
-                </div>
-              )}
-              <div
-                className="flex mt-1"
-                style={!p.isHero
-                  ? { transform: 'rotateX(18deg)', transformStyle: 'preserve-3d', gap: '-8px' }
-                  : { gap: '2px' }
-                }
-              >
-                <AnimatePresence>
-                  {p.cards.map((card, ci) => {
-                    const fanAngle = !p.isHero && p.cards.length > 1
-                      ? (ci - (p.cards.length - 1) / 2) * 8
-                      : 0;
-                    return (
-                    <motion.div
-                      key={`${p.id}-c${ci}`}
-                      initial={false}
-                      animate={{ opacity: 1, scale: 1, rotate: fanAngle }}
-                      exit={{ opacity: 0, scale: 0.6 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
-                      style={{ transformOrigin: 'bottom center' }}
-                    >
-                      {card.isHidden ? (
-                        <div
-                          className="rounded"
-                          style={{
-                            width: p.isHero ? HERO_CARD_W : OPP_CARD_W,
-                            height: p.isHero ? HERO_CARD_H : OPP_CARD_H,
-                            background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
-                            border: '1px solid rgba(139,92,246,0.4)',
-                          }}
-                        />
-                      ) : (
-                        <div
-                          onClick={p.isHero && isDrawPhase ? () => onCardClick(ci) : undefined}
-                          style={{
-                            cursor: p.isHero && isDrawPhase ? 'pointer' : 'default',
-                            transform: p.isHero && selectedCardIndices.includes(ci)
-                              ? 'translateY(-14px) scale(1.06)'
-                              : 'none',
-                            transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                            boxShadow: p.isHero && selectedCardIndices.includes(ci)
-                              ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
-                              : 'none',
-                            borderRadius: '6px',
-                          }}
-                        >
-                          <PlayingCard
-                            card={card}
-                            className={p.isHero ? '!w-[56px] !h-[78px]' : '!w-[20px] !h-[30px]'}
-                          />
-                        </div>
+              {p.isHero ? (
+                <>
+                  {/* HERO — Badugi structure: avatar (dealer badge on its
+                      corner) + name row, chips, bet, timer; cards below;
+                      validity badge under the cards. */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative shrink-0">
+                      <AvatarWithFrame
+                        avatarSrc={avatarSrc}
+                        frameSrc={frameSrc}
+                        initials={getAvatarInitials(p.name)}
+                        initialsColor="#FDE68A"
+                        size={52}
+                      />
+                      {state.dealerSeat === i && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
                       )}
-                    </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-              {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
-                <div className="text-purple-300 text-[10px] font-mono mt-1">
-                  {p.drewCount === 0 ? 'KEPT CARDS' : `DREW ${p.drewCount}`}
-                </div>
+                    </div>
+                    <span className="text-xs font-mono text-amber-200 font-bold">{p.name}</span>
+                    {foldPlate}
+                    {declarationPill}
+                  </div>
+                  {/* Chips + bet share one line — the center-aware
+                      layout buys back the vertical room the community
+                      band and validity badge need (budget-verified). */}
+                  <div className="text-white/50 text-[10px] font-mono">
+                    {p.chips.toLocaleString()}
+                    {p.bet > 0 && <span className="text-amber-300"> · ${p.bet} bet</span>}
+                  </div>
+                  {timerBar(false)}
+                  <div className="flex mt-0.5" style={{ gap: '2px' }}>
+                    <AnimatePresence>
+                      {p.cards.map((card, ci) => (
+                        <motion.div
+                          key={`${p.id}-c${ci}`}
+                          initial={false}
+                          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                          exit={{ opacity: 0, scale: 0.6 }}
+                          transition={{ duration: 0.2, ease: 'easeOut' }}
+                          style={{ transformOrigin: 'bottom center' }}
+                        >
+                          {card.isHidden ? (
+                            <div
+                              className="rounded"
+                              style={{
+                                width: HERO_CARD_W, height: HERO_CARD_H,
+                                background: 'linear-gradient(135deg, #2d1b69, #1a0f2e)',
+                                border: '1px solid rgba(139,92,246,0.4)',
+                              }}
+                            />
+                          ) : (
+                            <div
+                              onClick={isDrawPhase ? () => onCardClick(ci) : undefined}
+                              style={{
+                                cursor: isDrawPhase ? 'pointer' : 'default',
+                                transform: selectedCardIndices.includes(ci)
+                                  ? 'translateY(-14px) scale(1.06)'
+                                  : 'none',
+                                transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                boxShadow: selectedCardIndices.includes(ci)
+                                  ? '0 0 16px rgba(255,215,0,0.9), 0 0 32px rgba(255,180,0,0.5), 0 -4px 12px rgba(255,220,100,0.4)'
+                                  : 'none',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              <PlayingCard card={card} className={`!w-[${HERO_CARD_W}px] !h-[${HERO_CARD_H}px]`} />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                  {/* Validity badge — the missing in-table qualification
+                      signal (correction plan P0-2): live from the first
+                      bet round, names the duplicate ranks, and never
+                      recommends an impossible repair. */}
+                  {validity && (
+                    <div
+                      data-testid="box-chevy-validity-badge"
+                      className="mt-1 flex flex-col items-center rounded-xl px-3 py-1"
+                      style={{
+                        maxWidth: 300,
+                        background: validity.status === 'valid' ? 'rgba(6,78,59,0.78)' : validity.status === 'invalid' ? 'rgba(127,29,29,0.78)' : 'rgba(30,41,59,0.78)',
+                        border: `1px solid ${validity.status === 'valid' ? 'rgba(52,211,153,0.55)' : validity.status === 'invalid' ? 'rgba(248,113,113,0.55)' : 'rgba(148,163,184,0.4)'}`,
+                      }}
+                    >
+                      <span className="text-[10px] font-mono font-bold tracking-wide" style={{ color: validity.status === 'valid' ? '#6ee7b7' : validity.status === 'invalid' ? '#fca5a5' : 'rgba(255,255,255,0.75)' }}>
+                        {validity.label}
+                      </span>
+                      {/* Detail text intentionally NOT rendered in-table
+                          (Detroit 2026-10-22): the compact label is the
+                          whole live instruction; the long explanation
+                          lives in the tutorial + auto-fold notice. */}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* OPPONENT POD — Badugi's contained panel: avatar +
+                      hole-card TILES, name line, chips + plates line
+                      (FOLD / NO MADE HAND / declaration), bet, timer. */}
+                  <div
+                    className="relative flex flex-col items-center rounded-xl px-2 pt-1.5 pb-1"
+                    style={{ background: 'rgba(10,5,25,0.55)', border: '1px solid rgba(255,255,255,0.07)', minWidth: '92px' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className="relative shrink-0">
+                        <AvatarWithFrame
+                          avatarSrc={avatarSrc}
+                          frameSrc={null}
+                          initials={getAvatarInitials(p.name)}
+                          initialsColor="#FDE68A"
+                          size={36}
+                        />
+                        {state.dealerSeat === i && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
+                        )}
+                      </div>
+                      <div className="flex" style={{ marginLeft: 3 }}>
+                        {p.cards.map((card, ci) => (
+                          <div
+                            key={`${p.id}-tile${ci}`}
+                            className="rounded-sm"
+                            style={{
+                              width: 17, height: 24,
+                              marginLeft: ci > 0 ? -6 : 0,
+                              background: card.isHidden
+                                ? 'linear-gradient(150deg, #4b2a8f 0%, #2c1660 100%)'
+                                : '#fffdf7',
+                              border: '1px solid rgba(201,162,39,0.6)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.45)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {card.isHidden
+                              ? <span style={{ color: 'rgba(240,184,41,0.9)', fontSize: 7 }}>◆</span>
+                              : (
+                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                                  <span style={{ fontSize: 8, fontWeight: 800, color: '#1e293b' }}>{card.rank}</span>
+                                  <span style={{ fontSize: 7, color: card.suit === 'hearts' || card.suit === 'diamonds' ? '#dc2626' : '#1e293b' }}>
+                                    {card.suit === 'hearts' ? '♥' : card.suit === 'diamonds' ? '♦' : card.suit === 'clubs' ? '♣' : '♠'}
+                                  </span>
+                                </span>
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center mt-1" style={{ maxWidth: '100px' }}>
+                      <span className="text-[10px] leading-tight font-mono text-white/85 truncate" style={{ maxWidth: '100px' }}>
+                        {p.name}
+                      </span>
+                      <div className="flex items-center gap-1 mt-px">
+                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                          {p.chips.toLocaleString()}
+                        </span>
+                        {foldPlate}
+                        {declarationPill}
+                      </div>
+                    </div>
+                    {p.bet > 0 && (
+                      <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="text-amber-300 text-[10px] font-mono"
+                      >
+                        ${p.bet}
+                      </motion.div>
+                    )}
+                    {p.drewCount !== null && (state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && !p.folded && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[8px] font-mono font-bold px-1 py-px rounded-full" style={{ color: '#e9d5ff', background: 'rgba(88,28,135,0.85)', border: '1px solid rgba(192,132,252,0.5)' }}>
+                        {p.drewCount === 0 ? 'KEPT' : `DREW ${p.drewCount}`}
+                      </span>
+                    )}
+                    {timerBar(true)}
+                  </div>
+                </>
               )}
             </div>
           );
@@ -719,17 +1018,37 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                 transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1] }}
                 className="text-center max-h-full overflow-y-auto px-4"
               >
-                <div
-                  className="font-black tracking-wider"
-                  style={{
-                    fontSize: 'clamp(40px, 10vw, 72px)',
-                    color: '#FDE68A',
-                    textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
-                    WebkitTextStroke: '2px #92400E',
-                  }}
-                >
-                  WINNER
-                </div>
+                {(state.celebration.soleWinner || state.celebration.highWinner || state.celebration.lowWinner) && (
+                  <div
+                    className="font-black tracking-wider"
+                    style={{
+                      fontSize: 'clamp(40px, 10vw, 72px)',
+                      color: '#FDE68A',
+                      textShadow: '0 0 40px rgba(245,158,11,0.8), 0 4px 0 #92400E, 0 8px 24px rgba(0,0,0,0.6)',
+                      WebkitTextStroke: '2px #92400E',
+                    }}
+                  >
+                    WINNER
+                  </div>
+                )}
+
+                {/* No-winner rollover (Detroit 2026-10-22): ONE concise
+                    authoritative line — no WINNER banner, no roster,
+                    no explanatory paragraphs. */}
+                {state.celebration.audit && !state.celebration.soleWinner && !state.celebration.highWinner && !state.celebration.lowWinner && (
+                  <div
+                    data-testid="bc-no-winner"
+                    className="font-black tracking-wider text-center"
+                    style={{
+                      fontSize: 'clamp(22px, 6vw, 34px)',
+                      color: '#FDE68A',
+                      textShadow: '0 0 24px rgba(245,158,11,0.6), 0 3px 0 #92400E, 0 6px 18px rgba(0,0,0,0.6)',
+                      WebkitTextStroke: '1px #92400E',
+                    }}
+                  >
+                    {`NO WINNER — $${state.celebration.audit.rollover.toLocaleString()} ROLLS OVER`}
+                  </div>
+                )}
 
                 {state.celebration.soleWinner && (
                   <WinnerBlock winner={state.celebration.soleWinner} />
@@ -758,22 +1077,19 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     <WinnerBlock winner={state.celebration.lowWinner} />
                   </div>
                 )}
+
+
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="pb-6 text-center text-white/40 text-xs font-mono">
-        {state.phase === 'ante' && 'Ante up — $25 each…'}
-        {state.phase === 'dealing' && 'Dealing hands… then community cards…'}
-        {(state.phase === 'bet1' || state.phase === 'bet2' || state.phase === 'bet3') && 'Chips flying to the pot…'}
-        {(state.phase === 'draw1' || state.phase === 'draw2' || state.phase === 'draw3') && 'Discards to the muck — fresh cards from the dealer'}
-        {state.phase === 'declare' && 'Declare HIGH, LOW, or SWING…'}
-        {state.phase === 'showdown' && !state.rake.active && !state.celebration.active && 'Showdown — high vs low'}
-        {state.phase === 'showdown' && state.rake.active && 'Raking it in…'}
-        {state.phase === 'showdown' && state.celebration.active && 'Takes it down!'}
-      </div>
+      {/* Detroit 2026-10-24: the full-width phase caption strip that
+          used to render here is REMOVED — it had no allocated region,
+          stretched across the lower game area, and clipped at the
+          screen edges; every line duplicated the status bar, the
+          action bar, or the validity badge. */}
     </div>
   );
 }
@@ -788,7 +1104,14 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
     >
       <div>
         <span className="text-white text-xl font-bold font-mono">{winner.name}</span>
-        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots. */}
+        {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots.
+            Detroit 2026-10-22: the exact payout returns, sourced from the server's showdown summary. */}
+        {winner.exactAmount !== undefined && (
+          <span className="text-amber-300 text-xl font-mono ml-3">+${winner.exactAmount.toLocaleString()}</span>
+        )}
+        {winner.amountText !== undefined && (
+          <span className="text-amber-300 text-sm font-mono ml-3">{winner.amountText}</span>
+        )}
       </div>
       {winner.side !== 'SOLE' && (
         <div className={`text-xs font-mono tracking-widest mt-1 ${
@@ -796,10 +1119,38 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
           winner.side === 'LOW' ? 'text-green-300' :
           'text-purple-300'
         }`}>
-          {winner.side === 'SWING' ? 'SWING — TAKES BOTH' : `${winner.side} HAND`}
+          {winner.side === 'SWING' ? 'SWING — TAKES BOTH' : winner.side === 'BOTH' ? 'HIGH + LOW — BOTH SIDES' : `${winner.side} HAND`}
         </div>
       )}
-      {winner.cards.length > 0 && (
+      {winner.tenRows && winner.tenRows.length > 0 ? (
+        <div className="mt-3 flex flex-col items-center gap-1.5">
+          {winner.tenRows.map((row, ri) => (
+            <div key={`tenrow-${ri}`} className="flex flex-col items-center">
+              {row.label && (
+                <div className="text-white/50 text-[9px] font-mono tracking-widest mb-0.5">{row.label}</div>
+              )}
+              <div className="flex gap-1">
+                {row.cards.map((card, i) => (
+                  <div
+                    key={`tencard-${ri}-${i}`}
+                    style={{
+                      boxShadow: '0 0 12px rgba(253,230,138,0.35), 0 6px 16px rgba(0,0,0,0.5)',
+                      borderRadius: '5px',
+                      border: card.community ? '2px solid rgba(148,163,184,0.75)' : '2px solid rgba(253,230,138,0.85)',
+                    }}
+                  >
+                    <PlayingCard
+                      card={{ rank: card.rank as any, suit: card.suit as any, isHidden: false }}
+                      className="!w-[28px] !h-[39px]"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="text-white/40 text-[8px] font-mono tracking-widest">GOLD = HOLE · GREY = BOARD</div>
+        </div>
+      ) : winner.cards.length > 0 && (
         <div className="mt-3 flex gap-1.5">
           {winner.cards.map((card, i) => (
             <div
@@ -821,6 +1172,11 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
       {winner.handLabel && (
         <div className="mt-2 text-amber-200 text-sm font-mono tracking-widest">
           {winner.handLabel}
+        </div>
+      )}
+      {winner.reason && (
+        <div className="mt-1.5 max-w-[320px] text-center text-amber-100/85 text-[11px] leading-snug font-mono">
+          {winner.reason}
         </div>
       )}
     </motion.div>

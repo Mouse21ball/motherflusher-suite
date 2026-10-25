@@ -13,6 +13,7 @@ import { applyRake } from './utils/rake';
 import { applyGenericDraw } from './utils/genericDraw';
 import { availableStreakSeat, claimSeatStreak, confirmedWinStreaks, releaseSeatStreak } from './utils/tableWinStreaks';
 import { takeAnte } from '../shared/engine/botUtils';
+import { sidePotsForShowdown } from '../shared/engine/sidePots';
 import { actionableBettingPlayerId } from '../shared/engine/bettingTurns';
 import { canStartNextHand, hasFundedHuman } from '../shared/tableStartEligibility';
 import {
@@ -158,16 +159,58 @@ function convertReservedToBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p =>
       p.presence === 'reserved'
-        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
+        ? makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
   table.joinWindowEndsAt = 0;
 }
 
+// Stranded-table healing (Detroit 2026-10-22): tables parked by the
+// pre-repair settle semantics can hold funded, chipped players at
+// 'sitting_out' with no path back in. Before the eligibility checks
+// on the start paths, restore exactly the seats the eligibility rule
+// itself accepts: parked BOT seats with chips (same gates as seat
+// conversion — botsEnabled, non-club), and the requesting human's
+// own seat when funded with chips (their DEAL ME IN tap is the
+// opt-in). Nobody else is touched: other humans' sit-outs, unfunded
+// seats, and chip-less seats stay parked.
+function healStrandedSeats(table: GenericTable, requestingSeatId?: string): void {
+  let changed = false;
+  const players = table.state.players.map(p => {
+    if (p.status !== 'sitting_out' || p.chips <= 0) return p;
+    if (p.presence === 'bot' && table.botsEnabled && !table.crewId) {
+      changed = true;
+      return { ...p, status: 'active' as PlayerStatus };
+    }
+    if (requestingSeatId && p.id === requestingSeatId && p.presence === 'human' && table.fundedSeats.has(p.id)) {
+      changed = true;
+      return { ...p, status: 'active' as PlayerStatus };
+    }
+    return p;
+  });
+  if (changed) table.state = { ...table.state, players };
+}
+
 // Quick-fill: immediately seat bots up to the human-count-aware cap.
 // 1 human → 2 bots; 2 humans → 1 bot; 3+ humans → 0 bots.
 // Remaining reserved seats stay open so real players can join at any time.
+/** Seat a bot WITH its stack at a LOBBY conversion (reserved seat →
+ *  bot, between hands). makeBotPlayer spreads the seat as-is, and the
+ *  seat template starts p1 at chips 0 (genericEngine makeInitialPlayers)
+ *  — a bot converting onto p1 inherited 0 and broadcast it for the whole
+ *  pre-hand window (chipstrace MVJEJZ7F: 81 snapshots at 0) until the
+ *  hand-start sync restocked it to 10,000. Funding at conversion with
+ *  that same standard stack is value-neutral — identical chips when
+ *  the hand starts, so no hand's accounting changes; the 0 simply
+ *  never shows. LOBBY SITES ONLY: the mid-hand takeover conversions
+ *  (leave/disconnect handoffs) deliberately keep the seat's real stack,
+ *  including a legitimate all-in 0. */
+function makeFundedBotPlayer(p: Player, name: string, status?: Player['status']): Player {
+  const bot = makeBotPlayer(p, name, status);
+  return bot.chips > 0 ? bot : { ...bot, chips: 10000 };
+}
+
 function quickFillBots(table: GenericTable): void {
   console.log(`[quickFillBots] tableId: ${table.tableId} crewId: ${table.crewId ?? 'none'} botsEnabled: ${table.botsEnabled}`);
   if (table.crewId) return;
@@ -185,7 +228,7 @@ function quickFillBots(table: GenericTable): void {
     ...table.state,
     players: table.state.players.map(p => {
       if (p.presence !== 'reserved' || !fillIds.has(p.id)) return p;
-      return makeBotPlayer(p, getBotName(table.tableId, p.id), 'active');
+      return makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active');
     }),
   };
   table.joinWindowEndsAt = 0;
@@ -210,7 +253,7 @@ function convertOneReservedToBot(table: GenericTable): boolean {
     ...table.state,
     players: table.state.players.map(p =>
       p.id === first.id
-        ? makeBotPlayer(p, getBotName(table.tableId, p.id), 'active')
+        ? makeFundedBotPlayer(p, getBotName(table.tableId, p.id), 'active')
         : p
     ),
   };
@@ -292,6 +335,7 @@ function autoStartHand(table: GenericTable): void {
     }, 100);
     return;
   }
+  healStrandedSeats(table);
   if (!hasFundedHuman(table.state.players, table.fundedSeats)) return;
   convertReservedToBots(table);
   const freshPlayers = table.state.players;
@@ -345,6 +389,17 @@ function makeInitialState(tableId: string, isClubTable = false, minBet = 50): Ga
 // publicCardIndicesPerPlayer: maps playerId → card indices that are face-up for ALL players.
 // Public visibility metadata is generic wire masking, not mode mechanics.
 
+// Display-only side-pot tiers for outbound states, computed with the same
+// sidePotsForShowdown helper the payout path uses so the breakdown can
+// never diverge from the money. Present only when contributions diverge
+// (>1 tier). Never fed back into resolution; stripped from inbound state
+// by construction (masked copies are per-send only).
+function sidePotsForDisplay(state: GameState): { amount: number; eligiblePlayerIds: string[] }[] | undefined {
+  const eligibleIds = state.players.filter(p => p.status !== 'folded').map(p => p.id);
+  const tiers = sidePotsForShowdown(state.players, state.pot ?? 0, eligibleIds);
+  return tiers.length > 1 ? tiers.map(t => ({ amount: t.amount, eligiblePlayerIds: t.eligibleIds })) : undefined;
+}
+
 export function maskStateForPlayer(
   state: GameState,
   forPlayerId: string,
@@ -353,8 +408,10 @@ export function maskStateForPlayer(
   const isShowdown = state.phase === 'SHOWDOWN';
   const publicState = { ...state };
   delete publicState.seatStreakOwners;
+  const displaySidePots = sidePotsForDisplay(state);
   return {
     ...publicState,
+    sidePots: displaySidePots,
     deck: [],
     // Wire-only card backs: never serialize ranks/suits before the board reveals them.
     // The authoritative state keeps the real cards for evaluation and later reveals.
@@ -743,21 +800,23 @@ function autoActOnTimeout(table: GenericTable, seat: string): void {
   afterHumanAction(table, false);
 }
 
+// Wire enrichment for outbound snapshots: attach identityId (seat→profile
+// UUID, for the block feature) and `connected` (live socket presence, for
+// the opponent disconnect indicator). Presentation-only — the enriched rows
+// are per-send copies and are never written back into table.state.
+function enrichPlayersForWire(table: GenericTable, players: Player[]): Player[] {
+  return players.map(p => {
+    const iid = table.seatToIdentityId.get(p.id);
+    const connected = table.connections.get(p.id)?.readyState === 1;
+    return { ...p, ...(iid ? { identityId: iid } : {}), connected };
+  });
+}
+
 function broadcastState(table: GenericTable): void {
-  // Detroit 2026-10-15: Force Flushed Up and Box Chevy tables to 4 players max (same as Badugi).
-  // Trims on every broadcast so 5-player tables can't persist.
-  if ((table.modeId === 'flushed_up' || table.modeId === 'box_chevy' || table.modeId === 'badugi') && table.state.players.length > 4) {
-    const midHand = table.state.phase !== 'WAITING' && table.state.phase !== 'SHOWDOWN';
-    if (!midHand) {
-      const humans = table.state.players.filter(p => (p as any).presence === 'human');
-      const others = table.state.players.filter(p => (p as any).presence !== 'human');
-      const trimmed = [...humans, ...others].slice(0, 4);
-      if (trimmed.length !== table.state.players.length) {
-        console.log(`[${table.modeId}] Runtime trim table ${table.tableId} from ${table.state.players.length} to 4 players`);
-        table.state.players = trimmed as typeof table.state.players;
-      }
-    }
-  }
+  // Detroit 2026-10-21: all generic modes are five-seat games now.
+  // The 2026-10-15 Box Chevy broadcast trim (cut any 5th seat between
+  // hands) is REMOVED — Box Chevy's five-seat phase was approved with
+  // its own design (mockup v3, b9d8d5e0), so no mode trims here.
   const spectatorCount = table.spectators.size;
   const stateWithMeta = {
     ...table.state, handId: table.handId,
@@ -779,15 +838,13 @@ function broadcastState(table: GenericTable): void {
       // Enrich players with identityId so client can resolve seat→UUID for block feature
       const enrichedState = {
         ...personalState,
-        players: personalState.players.map(p => {
-          const iid = table.seatToIdentityId.get(p.id);
-          return iid ? { ...p, identityId: iid } : p;
-        }),
+        players: enrichPlayersForWire(table, personalState.players),
       };
       ws.send(JSON.stringify({
         type: 'mode:snapshot',
         state: enrichedState,
         sessionStats: buildSessionStats(table, playerId),
+        serverNow: Date.now(),
       }));
     } catch {}
   }
@@ -796,7 +853,7 @@ function broadcastState(table: GenericTable): void {
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
   // Debounced persistence: write state ~2 s after last mutation
@@ -982,6 +1039,11 @@ function resolveShowdown(table: GenericTable): void {
       players: result.players,
       winStreaks: confirmedWinStreaks(s, result.players),
       pot: result.pot,
+      // Structured showdown summary (Detroit 2026-10-22): stamped
+      // with the settled hand's id here, where the engine owns it.
+      // Lives only for this SHOWDOWN — settleAndResetToAnte clears
+      // it when the next hand begins.
+      showdownSummary: result.summary ? { ...result.summary, handId: table.handId } : null,
       messages: [
         ...s.messages,
         ...result.messages.map(text => ({ id: makeId(), text, time: Date.now(), isResolution: true })),
@@ -1031,7 +1093,7 @@ export function resolveByFold(table: GenericTable): boolean {
     // Flushed Up requires a qualifying flush even when every opponent folds.
     // Resolve a lone non-flush through the mode's normal showdown path so its
     // post-rake pot rolls over instead of being awarded as a fold win.
-    if (table.engine.canWinUncontested && !table.engine.canWinUncontested(winner)) {
+    if (table.engine.canWinUncontested && !table.engine.canWinUncontested(winner, s)) {
       table.resolvedPot = pot;
       const { winnerPot, rake } = applyRake(pot);
       if (rake > 0) {
@@ -1191,22 +1253,45 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
       isWinner: undefined,
       isLoser: undefined,
       score: undefined,
+      // Per-hand draw-animation counters restart with the hand.
+      lastDrawCount: undefined,
+      drawSeq: 0,
+      // Rollover participant rule (Detroit 2026-10-22, stabilization
+      // package): a player who was DEALT INTO the completed hand
+      // (status 'folded' or 'active' at settle — folded, auto-folded,
+      // or still live) and still has chips returns to 'active' for
+      // the next hand, human or bot. Humans must also be funded
+      // (fundedSeats); a bot's stack is its funding (restocked
+      // above). Players at 'sitting_out' when the hand settled did
+      // not participate — intentional sit-outs, disconnected seats,
+      // and unfunded players stay parked. The first version of this
+      // repair reactivated only the human, which silenced the
+      // zero-active safety below and stranded the table in WAITING
+      // with one eligible player (Galaxy, 2026-10-22: hero active,
+      // bots parked, "At least two active players are required").
       status: (isRollover
-        ? (p.status === 'active' && newChips > 0 ? 'active' : 'sitting_out')
+        ? ((p.status === 'folded' || p.status === 'active') && newChips > 0
+          && (p.presence === 'bot' || (p.presence === 'human' && table.fundedSeats.has(p.id)))
+          ? 'active' : 'sitting_out')
         : (newChips > 0 ? 'active' : 'sitting_out')) as PlayerStatus,
     };
   });
 
   // ── Safety: rollover with zero active players (no-actors close-out) ──────
-  // If the previous hand resolved with everyone folded, the rollover branch
-  // above produces all `sitting_out` and the next hand would stall in ANTE.
-  // Detect this and fall back to non-rollover semantics: any seat with chips
-  // becomes active again so the table can deal a fresh hand.
+  // Same eligibility rule as the participant rule above, applied as a
+  // backstop: BOT seats with chips reactivate (a bot carries no
+  // sit-out intent, and a live table should not die because every
+  // participant busted or the only human is unfunded). Humans are
+  // NEVER force-reactivated here — an intentional sit-out or an
+  // unfunded seat stays parked even when nobody else is active
+  // (the previous version of this safety reactivated sat-out humans).
+  // canStartNextHand still requires a funded human, so a bots-only
+  // recovery waits in WAITING for a funded human instead of dealing.
   if (isRollover && !nextPlayers.some(p => p.status === 'active')) {
-    console.log(`[CGP][server] reset:no-active-after-rollover ${table.modeId}:${table.tableId} — reactivating eligible seats`);
+    console.log(`[CGP][server] reset:no-active-after-rollover ${table.modeId}:${table.tableId} — reactivating eligible bot seats`);
     nextPlayers = nextPlayers.map(p => ({
       ...p,
-      status: (p.chips > 0 ? 'active' : 'sitting_out') as PlayerStatus,
+      status: (p.presence === 'bot' && p.chips > 0 ? 'active' : p.status) as PlayerStatus,
     }));
   }
 
@@ -1287,6 +1372,7 @@ async function settleAndResetToAnte(table: GenericTable): Promise<void> {
     phase: canStartHand ? 'ANTE' : 'WAITING',
     currentBet: 0,
     raisesThisRound: 0,
+    showdownSummary: null,
     heroChipChange: undefined,
     activePlayerId: canStartHand ? nextPlayers[firstActIdx].id : null,
     players: nextPlayers,
@@ -1461,6 +1547,25 @@ function executeBotAction(table: GenericTable, botId: string): void {
 
     engineLog('BOT', `${table.modeId}:${table.tableId}`, { bot: botId, action: message ?? '?', phase: table.state.phase });
 
+    // Draw-animation transaction stamp for bot draws (same contract as
+    // the human draw branch): count = slots whose card identity changed.
+    if (table.state.phase.startsWith('DRAW')) {
+      const oldBot = table.state.players.find(p => p.id === botId);
+      const newBot = newState.players.find(p => p.id === botId);
+      if (oldBot && newBot && newBot.hasActed) {
+        const changed = newBot.cards.filter((c, i) => {
+          const o = oldBot.cards[i];
+          return !o || o.rank !== c.rank || o.suit !== c.suit;
+        }).length;
+        newState = {
+          ...newState,
+          players: newState.players.map(p => p.id === botId
+            ? { ...p, lastDrawCount: changed, drawSeq: (oldBot.drawSeq ?? 0) + 1 }
+            : p),
+        };
+      }
+    }
+
     table.state = newState;
     table.actionLock = false;
     broadcastState(table);
@@ -1592,8 +1697,10 @@ export function getOrCreateTable(
 
   const key = tableKey(modeId, tableId);
   if (!tables.has(key)) {
-    // Detroit 2026-10-15: Flushed Up and Box Chevy max 4 players (same as Badugi).
-    const defaultMax = (modeId === 'flushed_up' || modeId === 'box_chevy' || modeId === 'badugi') ? 4 : 5;
+    // Detroit 2026-10-21: every generic mode seats 5 — Badugi (Phase 1),
+    // Flushed Up (its five-seat phase), and Box Chevy (its own approved
+    // five-seat phase, mockup v3). The 2026-10-15 four-seat caps are gone.
+    const defaultMax = 5;
     const maxPlayers  = options.maxPlayers  ?? defaultMax;
     const botsEnabled = options.botsEnabled ?? !isPrivate;
     const stakeTier = getStakeTierId(options.stakeTier);
@@ -1659,8 +1766,9 @@ export function getOrCreateTable(
 function registerWalletSpectator(table: GenericTable, sessionId: string, ws: WebSocket, name?: string) {
   table.spectators.set(sessionId, { ws, name: name ?? 'Spectator' });
   try {
+    const specInitState = maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer);
     ws.send(JSON.stringify({ type: 'mode:init', modeId: table.modeId, playerId: '__spectator__', role: 'spectator',
-      state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer) }));
+      state: { ...specInitState, handId: table.handId, players: enrichPlayersForWire(table, specInitState.players) }, serverNow: Date.now() }));
   } catch {}
   broadcastState(table);
 }
@@ -1813,12 +1921,14 @@ export async function addGenericConnection(
     table.spectators.set(sessionId, { ws, name: playerName ?? 'Spectator' });
     engineLog('SPECTATOR_JOIN', `${modeId}:${tableId}`, { count: table.spectators.size });
     try {
+      const specInitState = maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer);
       ws.send(JSON.stringify({
         type: 'mode:init',
         playerId: '__spectator__',
         modeId,
         role: 'spectator',
-        state: maskStateForPlayer(table.state, '__spectator__', table.publicCardIndicesPerPlayer),
+        state: { ...specInitState, handId: table.handId, players: enrichPlayersForWire(table, specInitState.players) },
+        serverNow: Date.now(),
       }));
     } catch {}
     broadcastState(table);
@@ -2003,13 +2113,21 @@ export async function addGenericConnection(
   ) return null;
 
   try {
+    const initState = maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer);
     ws.send(JSON.stringify({
       type: 'mode:init',
       playerId: seat,
       modeId,
-      state: maskStateForPlayer(table.state, seat, table.publicCardIndicesPerPlayer),
+      // handId rides along exactly as broadcast snapshots carry it
+      // (snapshot serializer spreads table.handId into the state). The
+      // init payload used to omit it, so a reconnecting client's first
+      // state had handId undefined — harmless to the client, but the
+      // wire was inconsistent and hand-tracking checks sampled a
+      // missing field (found 2026-10-21 via the fu5/bc5 harnesses).
+      state: { ...initState, handId: table.handId, players: enrichPlayersForWire(table, initState.players) },
       sessionStats: buildSessionStats(table, seat),
       crewId: table.crewId ?? null,
+      serverNow: Date.now(),
     }));
   } catch {}
 
@@ -2189,6 +2307,10 @@ async function removeGenericDisconnect(tableId: string, sessionId: string, inten
       remaining: table.connections.size,
       intentional,
     });
+    // Notify remaining clients immediately — without this, opponents only
+    // learn of the disconnect on the next game action and presence-driven
+    // UI (the DC indicator) goes stale for up to a full turn timer.
+    broadcastState(table);
     return;
   }
 }
@@ -2234,8 +2356,9 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
       }
       ws.send(JSON.stringify({
         type: 'mode:snapshot',
-        state: personalState,
+        state: { ...personalState, players: enrichPlayersForWire(table, personalState.players) },
         sessionStats: buildSessionStats(table, recipientSeat),
+        serverNow: Date.now(),
       }));
     } catch {}
   }
@@ -2245,7 +2368,7 @@ async function broadcastChatFiltered(table: GenericTable, senderSeat: string): P
     if (spec.ws.readyState !== 1) continue;
     try {
       const spectatorView = maskStateForPlayer(stateWithMeta, '__spectator__', pub);
-      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: spectatorView }));
+      spec.ws.send(JSON.stringify({ type: 'mode:snapshot', state: { ...spectatorView, players: enrichPlayersForWire(table, spectatorView.players) }, serverNow: Date.now() }));
     } catch {}
   }
 
@@ -2448,7 +2571,8 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
         table.actionLock = false;
         return;
       }
-      if (!hasFundedHuman(s.players, table.fundedSeats)) {
+      healStrandedSeats(table, playerId);
+      if (!hasFundedHuman(table.state.players, table.fundedSeats)) {
         table.actionLock = false;
         return 'Rebuy before starting a new hand.';
       }
@@ -2684,7 +2808,21 @@ export function handleGenericAction(tableId: string, playerOrSessionId: string, 
       const player = newPlayers[playerIdx];
       const drawn = applyGenericDraw(player.cards, s.deck, s.discardPile || [], payload, drawCap);
       if (!drawn.ok) { table.actionLock = false; return; }
-      newPlayers[playerIdx] = { ...player, cards: drawn.cards, hasActed: true };
+      // Draw-animation transaction stamp (Detroit 2026-10-21, Flushed Up
+      // Phase 3 — the Badugi architecture): every accepted draw, stand-pat
+      // included, bumps the per-hand monotonic drawSeq and records the
+      // count, so clients animate each draw exactly once and reconnects
+      // never replay flights. The legacy engine has stamped these since
+      // the Badugi P1 fixes; generic modes never did, which left the
+      // Flushed Up / Box Chevy flight drivers keyed on a field that was
+      // always undefined.
+      newPlayers[playerIdx] = {
+        ...player,
+        cards: drawn.cards,
+        hasActed: true,
+        lastDrawCount: drawn.count,
+        drawSeq: (player.drawSeq ?? 0) + 1,
+      };
       const newState = {
         ...s,
         players: newPlayers,
@@ -2763,11 +2901,16 @@ export function updateGenericTableSettings(
   if (settings.botsEnabled !== undefined) table.botsEnabled = settings.botsEnabled;
 }
 
-export function getActiveGenericTables(): { tableId: string; modeId: string; humanCount: number; phase: string }[] {
-  const result: { tableId: string; modeId: string; humanCount: number; phase: string }[] = [];
+export function getActiveGenericTables(): { tableId: string; modeId: string; humanCount: number; playerCount: number; phase: string }[] {
+  const result: { tableId: string; modeId: string; humanCount: number; playerCount: number; phase: string }[] = [];
   for (const [, table] of Array.from(tables.entries())) {
     if (table.connections.size > 0 && !table.isPrivate) {
-      result.push({ tableId: table.tableId, modeId: table.modeId, humanCount: table.humanSeats.size, phase: table.state.phase });
+      result.push({
+        tableId: table.tableId, modeId: table.modeId, humanCount: table.humanSeats.size,
+        // Occupied seats (humans + bots) from live state — see legacy engine note.
+        playerCount: table.state.players.filter(p => p.presence === 'human' || p.presence === 'bot').length,
+        phase: table.state.phase,
+      });
     }
   }
   return result;
@@ -2922,8 +3065,8 @@ export async function initGenericEngine(): Promise<void> {
       publicCardIndicesPerPlayer: {},
       joinWindowEndsAt: 0, // join window closed for restored tables
       isPrivate: false,
-      // Detroit 2026-10-16: respect 4-player cap on restored tables (was hardcoded 5).
-      maxPlayers: (modeId === 'flushed_up' || modeId === 'box_chevy' || modeId === 'badugi') ? 4 : 5,
+      // Restored tables seat 5 in every generic mode (Detroit 2026-10-21).
+      maxPlayers: 5,
       botsEnabled: true,
       crewId: undefined,
       stakeTier: getStakeTierId(undefined),

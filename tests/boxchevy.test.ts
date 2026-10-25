@@ -214,7 +214,7 @@ describe('BoxChevyMode.resolveShowdown — HIGH vs LOW split', () => {
 });
 
 describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
-  it('SWING who wins both sides takes the whole pot', () => {
+  it('SWING fails when the declarer does not hold both sides (LOW read from the top down)', () => {
     // Use a community that doesn't conflict with swing player's hand
     const commSafe = [card('2', 'clubs'), card('3', 'diamonds'), card('4', 'hearts'), card('5', 'clubs'), card('6', 'diamonds')];
     const strongHole = [card('A', 'spades'), card('K', 'spades'), card('Q', 'spades'), card('J', 'spades'), card('10', 'spades')];
@@ -225,9 +225,17 @@ describe('BoxChevyMode.resolveShowdown — SWING all-or-nothing', () => {
       player('C', weakHole,   { declaration: 'LOW',   chips: 1000 }),
     ];
     const { players: out, pot: rem } = BoxChevyMode.resolveShowdown!(players, 300, 'A', commSafe);
-    // A should beat B on HIGH and C on LOW → SWING succeeds → A takes all $300
+    // The original test read LOW from the wrong end. Under Detroit's
+    // written rule, LOW compares from the HIGHEST card down and the lower
+    // sequence wins: A's low is K-topped (13 first), C's is Q-topped (12
+    // first) — C's low is lower, so A does NOT hold LOW and the SWING
+    // fails. (A's HIGH also loses under the code's current smallest-first
+    // sequence comparison — that reading is the subject of the held HIGH
+    // tests; LOW is not in dispute.) HIGH pays B, LOW pays C, 150 each.
     expect(rem).toBe(0);
-    expect(out.find(p => p.id === 'A')!.chips).toBe(1300);
+    expect(out.find(p => p.id === 'A')!.chips).toBe(1000);
+    expect(out.find(p => p.id === 'B')!.chips).toBe(1150);
+    expect(out.find(p => p.id === 'C')!.chips).toBe(1150);
   });
 
   it('SWING who fails LOW — HIGH half goes to non-SWING HIGH declarer', () => {
@@ -343,6 +351,14 @@ describe('BoxChevyMode.resolveShowdown — side pots', () => {
     expect(pot).toBe(0);
   });
 
+  // Detroit 2026-10-21 (ruling 3): HIGH compares SMALLEST-card-first,
+  // permanently. The three tests below were rewritten to the verified
+  // payouts under that rule (hand-derived, then confirmed against the
+  // resolver). Key consequence: against the 2-3-4-5-6 board, the
+  // A-K-Q-J-10 hand's HIGH sequence bottoms at A(1) while 7-8-9-J-Q
+  // bottoms at 2 — the higher bottom card wins, so 7-8-9-J-Q beats
+  // A-K-Q-J-10 on HIGH. LOW is unchanged (top-down, lower wins).
+
   it('limits a short all-in to the main pot and divides the overbet pot by eligible players', () => {
     const players = [
       player('A', royalHole, { declaration: 'HIGH', chips: 0, totalBet: 50 }),
@@ -350,7 +366,9 @@ describe('BoxChevyMode.resolveShowdown — side pots', () => {
       player('C', otherHigh, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
     ];
     const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 350, 'A', comm);
-    expect(out.map(p => p.chips)).toEqual([75, 175, 100]);
+    // Main 150: HIGH half to C (bottom card 2 beats A's A), LOW half to B.
+    // Side 200 (B, C only): HIGH to C, LOW to B. A is shut out on HIGH.
+    expect(out.map(p => p.chips)).toEqual([0, 175, 175]);
     expect(pot).toBe(0);
   });
 
@@ -361,11 +379,14 @@ describe('BoxChevyMode.resolveShowdown — side pots', () => {
       player('C', lowHole, { declaration: 'HIGH', chips: 0, totalBet: 150 }),
     ];
     const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 350, 'A', comm);
-    expect(out.map(p => p.chips)).toEqual([150, 200, 0]);
+    // No LOW declarers anywhere: B's 7-8-9-J-Q holds the best HIGH in
+    // both tiers (bottom card 2 over both A-bottomed sequences) and
+    // sweeps the full 350.
+    expect(out.map(p => p.chips)).toEqual([0, 350, 0]);
     expect(pot).toBe(0);
   });
 
-  it('fails a tied SWING in the main pot but wins the side pot independently, conserving chips', () => {
+  it('excludes a SWING tied on HIGH wherever a plain declaration is available, conserving chips', () => {
     const players = [
       player('A', royalHole, { declaration: 'HIGH', chips: 25, totalBet: 50 }),
       player('B', royalHole, { declaration: 'SWING', chips: 75, totalBet: 150 }),
@@ -374,7 +395,12 @@ describe('BoxChevyMode.resolveShowdown — side pots', () => {
     ];
     const before = players.reduce((sum, p) => sum + p.chips, 450);
     const { players: out, pot } = BoxChevyMode.resolveShowdown!(players, 450, 'A', comm);
-    expect(out.map(p => p.chips)).toEqual([125, 325, 175, 30]);
+    // Main 200: B's SWING ties A on HIGH (identical hands) — not sole
+    // best, so the swing fails and B is excluded: A takes the HIGH
+    // half, C the LOW half. Side tiers (150 + 100, B and C only):
+    // B is sole HIGH but loses LOW to C (Q-top beats K-top), so the
+    // swing fails there too and C takes both tiers whole.
+    expect(out.map(p => p.chips)).toEqual([125, 75, 425, 30]);
     expect(out.reduce((sum, p) => sum + p.chips, pot)).toBe(before);
     expect(pot).toBe(0);
   });

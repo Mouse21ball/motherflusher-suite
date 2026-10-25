@@ -94,11 +94,19 @@ describe("client-only Badugi practice hand", () => {
   });
 
   it("contains no account, persistence, websocket, or server effects", () => {
-    const sources = [
-      readFileSync("client/src/lib/practice/usePracticeBadugi.ts", "utf8"),
-      readFileSync("client/src/pages/PracticeBadugiPage.tsx", "utf8"),
-    ].join("\n");
-    expect(sources).not.toMatch(/localStorage|sessionStorage|WebSocket|useTableRoom|tableSession|fetch\s*\(/);
+    const hook = readFileSync("client/src/lib/practice/usePracticeBadugi.ts", "utf8");
+    const page = readFileSync("client/src/pages/PracticeBadugiPage.tsx", "utf8");
+    const sources = [hook, page].join("\n");
+    // The practice engine/hook stays fully isolated: no storage, no
+    // sockets, no network, no table-session machinery.
+    expect(hook).not.toMatch(/localStorage|sessionStorage|WebSocket|useTableRoom|tableSession|fetch\s*\(/);
+    // The page adds exactly one storage touch: the guided-first-hand
+    // completion flag (a visit-local UI marker, live 2026-10-16). It is
+    // not account or game-state persistence — and it must stay the ONLY
+    // storage key the practice surface touches.
+    expect(page).not.toMatch(/sessionStorage|WebSocket|useTableRoom|tableSession|fetch\s*\(/);
+    const storageKeys = [...page.matchAll(/localStorage\.\w+\(\s*['"]([^'"]+)['"]/g)].map(m => m[1]);
+    expect(storageKeys).toEqual(['cgp_first_hand_done']);
     expect(sources).not.toMatch(/from\s+["'][^"']*(?:server|\/storage|\/persistence)[^"']*["']/);
   });
 
@@ -265,8 +273,13 @@ describe("client-only Badugi practice hand", () => {
   it("routes practice around global profile, billing, and analytics providers", () => {
     const app = readFileSync("client/src/App.tsx", "utf8");
     expect(app).toMatch(/const isStandalonePractice = isPracticeBadugiPath\(location\)/);
-    expect(app).toMatch(/if \(isStandalonePractice\) return;/);
-    const isolatedBranch = app.slice(app.indexOf("if (isStandalonePractice) {"), app.indexOf("return (\n    <QueryClientProvider"));
+    // The bypass guard was generalized to cover the UNO prototype route
+    // too (Detroit 2026-10-13): one isBypassRoute flag drives the
+    // analytics guard, the billing-effect guard, and the render branch.
+    expect(app).toMatch(/const isBypassRoute = isStandalonePractice \|\| isProtoUno;/);
+    expect(app).toMatch(/if \(!isBypassRoute\) initAnalytics\(\);/);
+    expect(app).toMatch(/if \(isBypassRoute\) return;/);
+    const isolatedBranch = app.slice(app.indexOf("if (isBypassRoute) {"), app.indexOf("return (\n    <QueryClientProvider"));
     expect(isolatedBranch).not.toMatch(/ServerProfileProvider|WelcomeGate|ProfileManager|initAnalytics\(\)|billing\s*\.\s*initialize/);
   });
 });

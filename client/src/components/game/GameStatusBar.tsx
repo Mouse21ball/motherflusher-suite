@@ -36,6 +36,12 @@ interface GameStatusBarProps {
   sessionStats?: GameSessionStats;
   tableId?: string;
   humanCount?: number;
+  /** Configured table capacity from authoritative room settings (host_update).
+   *  Detroit 2026-10-21 (P3): the PLAYERS pill denominator comes from here —
+   *  it was a hardcoded "/ 4", which is exactly how a full five-seat table
+   *  displayed "5/4". When absent, the pill shows the count alone rather
+   *  than a fabricated denominator. */
+  maxPlayers?: number;
   onOpenChat?: () => void;
   chatUnread?: number;
   spectating?: boolean;
@@ -57,7 +63,7 @@ const HTP_MODE_ID: Record<string, 'badugi' | 'flushedup' | 'box_chevy'> = {
   box_chevy: 'box_chevy',
 };
 
-export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, onOpenChat, chatUnread = 0, spectating = false }: GameStatusBarProps) {
+export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForfeit, onLeave, sessionStats, tableId, humanCount = 1, maxPlayers, onOpenChat, chatUnread = 0, spectating = false }: GameStatusBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -74,8 +80,10 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
 
   const modeInfo = MODE_INFO[modeId];
   const isMidHand = MID_HAND.has(phase);
+  // Occupied seats (humans + bots) from live state — same definition as
+  // the lobby count (Phase 1 / P3). Placeholder rows never count.
   const activePlayers = Array.isArray(gameState?.players)
-    ? gameState.players.filter(p => p?.presence !== 'reserved').length
+    ? gameState.players.filter(p => p?.presence === 'human' || p?.presence === 'bot').length
     : 0;
   const pot = gameState?.pot ?? 0;
   const ante = gameState?.minBet ?? 0;
@@ -189,7 +197,7 @@ export function GameStatusBar({ modeId, gameState, chips, stripes, phase, onForf
         {/* Center — info pills */}
         <div className="flex items-center gap-4 flex-1 justify-center">
           <PillGroup label="MIN BET" value={`$${ante}`} />
-          <PillGroup label="PLAYERS" value={`${activePlayers} / 4`} />
+          <PillGroup label="PLAYERS" value={maxPlayers && maxPlayers > 0 ? `${activePlayers} / ${maxPlayers}` : `${activePlayers}`} />
           <PillGroup label="POT" value={`$${pot}`} valueClass="text-sm font-bold text-[#C9A227]" />
         </div>
 

@@ -4,6 +4,7 @@ import type { GameState, Player } from '@/lib/poker/types';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarColor } from '@/lib/persistence';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
+import { serverNowMs } from '@/lib/clockSync';
 
 const CARD_BACK = '/ladyluck/card-back-cgp.png';
 
@@ -216,12 +217,12 @@ export function TableTurnTimer({
   accent: string;
   variant?: 'pill' | 'ring';
 }) {
-  const [remainingMs, setRemainingMs] = useState(() => Math.max(0, deadline - Date.now()));
-  const durationRef = useRef(Math.max(1000, deadline - Date.now()));
+  const [remainingMs, setRemainingMs] = useState(() => Math.max(0, deadline - serverNowMs()));
+  const durationRef = useRef(Math.max(1000, deadline - serverNowMs()));
 
   useEffect(() => {
-    durationRef.current = Math.max(1000, deadline - Date.now());
-    const update = () => setRemainingMs(Math.max(0, deadline - Date.now()));
+    durationRef.current = Math.max(1000, deadline - serverNowMs());
+    const update = () => setRemainingMs(Math.max(0, deadline - serverNowMs()));
     update();
     const timer = window.setInterval(update, 200);
     return () => window.clearInterval(timer);

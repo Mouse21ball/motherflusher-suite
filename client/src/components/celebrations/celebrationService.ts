@@ -52,11 +52,23 @@ export function subscribeCelebrations(listener: Listener): () => void {
 }
 
 /** Observes committed authoritative snapshots. No game mode resolves payouts here. */
+// Modes whose tables own the complete winner moment themselves (winner
+// name, amount, and the winning hand, inside the table). The global host
+// must not fire for them: in Flushed Up both systems celebrated the same
+// showdown — the host's fixed full-viewport "BIG POT" title sits across
+// the top pods while the table's own WINNER overlay runs — which
+// Detroit's Galaxy QA flagged as a P1 visual failure (2026-10-21).
+const TABLE_OWNED_CELEBRATION_MODES = new Set(['flushed_up']);
+
 export function useAuthoritativeCelebrations(state: GameState, modeId: string, messageType?: string | null): void {
   const previousRef = useRef<CelebrationSnapshot | null>(null);
 
   useEffect(() => {
     publishTableActivity({ tableId: state.tableId, phase: state.phase });
+    if (TABLE_OWNED_CELEBRATION_MODES.has(modeId)) {
+      previousRef.current = snapshotForCelebrations(state);
+      return;
+    }
     const previous = previousRef.current;
     // A changed seat order changes the geometry of an in-flight payout.
     const sameSeats = !previous || JSON.stringify(Object.keys(previous.players))
