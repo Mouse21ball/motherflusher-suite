@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, hashPassword, verifyPassword } from "./storage";
+import { storage, hashPassword, verifyPassword, tokenKey } from "./storage";
+import { decideGuestInit, decideRegister, newSecret, sha256 as secretHash } from "./guestTrust";
 import {
   loginRateLimit,
   registrationRateLimit,
@@ -407,7 +408,7 @@ export async function registerRoutes(
         async () => {
           const [liveSession] = await tx.select({ token: sessions.token })
             .from(sessions)
-            .where(and(eq(sessions.token, sessionToken!), gt(sessions.expiresAt, new Date())))
+            .where(and(or(eq(sessions.token, tokenKey(sessionToken!)), eq(sessions.token, sessionToken!)), gt(sessions.expiresAt, new Date())))
             .limit(1);
           return Boolean(liveSession);
         },
@@ -1324,7 +1325,7 @@ export async function registerRoutes(
   //   as their new localStorage identity (cross-device chip restoration).
 
   const registerSchema = z.object({
-    identityId:  z.string().uuid("identityId must be a valid UUID"),
+    identityId:  z.string().uuid().optional(),   // IGNORED since the guest-auth fix; kept so older clients still parse
     email:       z.string().email("Invalid email"),
     password:    z.string().min(8, "Password must be at least 8 characters"),
     displayName: z.string().min(1).max(32).optional(),
@@ -1342,24 +1343,36 @@ export async function registerRoutes(
   app.post("/api/auth/register", registrationRateLimit, async (req, res) => {
     try {
       const parsed = registerSchema.parse(req.body);
+      const email = parsed.email.trim().toLowerCase();
 
-      // Check if email is already claimed by a different profile
-      const existing = await storage.getPlayerByEmail(parsed.email);
-      if (existing && existing.id !== parsed.identityId) {
-        res.status(409).json({ error: "Email already registered" });
-        return;
-      }
+      // GUEST-AUTH FIX (hole 2): the profile being registered comes ONLY from the caller's own session.
+      // The body's identityId is ignored — it is a public player ID, not proof of anything.
+      const rawTok = req.headers["x-session-token"];
+      const callerToken = Array.isArray(rawTok) ? rawTok[0] : rawTok;
+      const session = callerToken ? await storage.getSession(callerToken) : undefined;
+      const sessionProfile = session ? await storage.getPlayerProfile(session.playerId) : undefined;
+      const decision = decideRegister({
+        sessionPlayerId: sessionProfile?.id ?? null,
+        sessionProfileHasCredentials: Boolean(sessionProfile && (sessionProfile.email || sessionProfile.passwordHash)),
+        bodyHadIdentityId: Boolean(parsed.identityId),
+      });
+      if (decision.action === "refuse") { res.status(decision.status).json({ error: decision.error, code: decision.code }); return; }
 
-      // Ensure the guest profile exists, then link the auth credentials
-      const profile = await storage.getOrCreatePlayer(parsed.identityId, parsed.displayName);
+      const existing = await storage.getPlayerByEmail(email);
+      if (existing) { res.status(409).json({ error: "Email already registered" }); return; }
+
+      // Upgrade the caller's own guest; with no session, register a brand-new profile (never someone else's).
+      const targetId = decision.action === "upgrade-session-profile" ? decision.playerId : randomUUID();
+      const profile = await storage.getOrCreatePlayer(targetId, parsed.displayName);
       const hash = await hashPassword(parsed.password);
       const registered = await storage.registerPlayerAuth({
         id: profile.id,
-        email: parsed.email,
+        email,
         passwordHash: hash,
         displayName: parsed.displayName,
         referralCode: parsed.referralCode,
       });
+      if (callerToken) await storage.invalidateSession(callerToken);   // the guest session is replaced by the account session
 
       const level = levelFromXP(registered.xp);
       const regExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -1471,6 +1484,13 @@ export async function registerRoutes(
       // Refresh session token TTL (7 days guests, 30 days registered)
       const meTtlMs = isGuest ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
       const sessionToken = await storage.createSession(profile.id, new Date(Date.now() + meTtlMs));
+      // GUEST-AUTH FIX — migration: a legacy guest proving ownership with a live session gets its secret now.
+      let issuedSecret: string | undefined;
+      if (isGuest && !profile.guestSecretHash && req.headers["x-guest-auth"] === "2") {   // only apps that can keep it
+        issuedSecret = newSecret();
+        await storage.setGuestSecretHash(profile.id, secretHash(issuedSecret));
+        console.info("[auth:me] legacy guest secured via=session");
+      }
       res.json({
         profileId:        profile.id,
         displayName:      profile.displayName,
@@ -1491,6 +1511,7 @@ export async function registerRoutes(
         lastNameChangeAt:    profile.lastNameChangeAt?.toISOString() ?? null,
         nextResetAt,
         sessionToken,
+        ...(issuedSecret ? { guestSecret: issuedSecret } : {}),
         activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
         isAdmin:                 profile.isAdmin,
@@ -1530,19 +1551,46 @@ export async function registerRoutes(
   app.post("/api/auth/guest-init", guestInitRateLimit, async (req, res) => {
     try {
       const guestInitSchema = z.object({
-        profileId:   z.string().uuid(),
-        displayName: z.string().max(32).optional(),
+        profileId:      z.string().uuid(),
+        displayName:    z.string().max(32).optional(),
+        guestSecret:    z.string().max(128).optional(),   // issued by this endpoint or /api/auth/me
+        installationId: z.string().max(128).optional(),   // push installation ID — a second ownership proof where bound
       });
-      const { profileId, displayName } = guestInitSchema.parse(req.body);
+      const { profileId, displayName, guestSecret, installationId } = guestInitSchema.parse(req.body);
 
-      // getOrCreatePlayer ensures the profile row exists before issuing a token.
-      const profile = await storage.getOrCreatePlayer(profileId, displayName ?? "Player");
-
-      // Refuse to issue a guest token if this account has email/password auth.
-      // Those accounts must go through POST /api/auth/login.
-      if (profile.email || profile.passwordHash) {
-        res.status(403).json({ error: "Account has credentials — use /api/auth/login" });
+      // GUEST-AUTH FIX (hole 1): a player ID is public, so it never proves ownership on its own.
+      const rawTok = req.headers["x-session-token"];
+      const callerToken = Array.isArray(rawTok) ? rawTok[0] : rawTok;
+      const session = callerToken ? await storage.getSession(callerToken) : undefined;
+      const existing = await storage.getPlayerProfile(profileId);
+      const installationOwnerId = existing && installationId ? await storage.getInstallationOwner(installationId) : null;
+      const decision = decideGuestInit({
+        profile: existing ? {
+          id: existing.id,
+          hasCredentials: Boolean(existing.email || existing.passwordHash),
+          guestSecretHash: existing.guestSecretHash ?? null,
+          stripes: existing.stripes ?? 0,
+          hasPurchases: await storage.playerHasPurchases(existing.id),
+        } : null,
+        secret: guestSecret,
+        sessionPlayerId: session?.playerId ?? null,
+        installationOwnerId,
+      });
+      if (decision.action === "refuse") {
+        console.warn(`[auth:guest-init] refused code=${decision.code} ip=${req.ip ?? "unknown"} at=${new Date().toISOString()}`);
+        res.status(decision.status).json({ error: decision.error, code: decision.code });
         return;
+      }
+
+      const profile = await storage.getOrCreatePlayer(profileId, displayName ?? "Player");
+      // Only an app that can store a secret gets one (header X-Guest-Auth: 2). An old build that can't would be
+      // locked out of its own guest later; its profile stays "legacy" and follows the legacy rules instead.
+      const clientStoresSecret = req.headers["x-guest-auth"] === "2";
+      let issuedSecret: string | undefined;
+      if (clientStoresSecret && decision.action !== "resume") {   // new guest, or a legacy guest proving ownership for the first time
+        issuedSecret = newSecret();
+        await storage.setGuestSecretHash(profile.id, secretHash(issuedSecret));
+        if (decision.action === "claim") console.info(`[auth:guest-init] legacy guest secured via=${decision.via}`);
       }
 
       const level = levelFromXP(profile.xp);
@@ -1571,6 +1619,7 @@ export async function registerRoutes(
         lastNameChangeAt:    profile.lastNameChangeAt?.toISOString() ?? null,
         nextResetAt,
         sessionToken,
+        ...(issuedSecret ? { guestSecret: issuedSecret } : {}),   // shown once; the client stores it next to the identity
         activeSubscriptionTier:  profile.activeSubscriptionTier  ?? null,
         subscriptionExpiresAt:   profile.subscriptionExpiresAt?.toISOString() ?? null,
         welcomeKitClaimed:       profile.welcomeKitClaimed,
@@ -1702,6 +1751,7 @@ export async function registerRoutes(
       const hash = await hashPassword(newPassword);
       await storage.setPlayerAuth(profile.id, profile.email!, hash);
       await storage.clearPasswordResetToken(profile.id);
+      await storage.invalidateAllSessionsForPlayer(profile.id);   // a reset signs the account out on every device
 
       res.json({ message: "Password reset successfully." });
     } catch (err: any) {
@@ -1963,7 +2013,7 @@ export async function registerRoutes(
             parsed.data.installationId,
           );
         }
-        await tx.delete(sessions).where(eq(sessions.token, token));
+        await tx.delete(sessions).where(or(eq(sessions.token, tokenKey(token)), eq(sessions.token, token)));
         return revoked;
       });
       res.json({ loggedOut: true, installationRevoked });

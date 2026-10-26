@@ -15,7 +15,7 @@ import {
   analyticsEvents, playerProfiles, stripeTransactions, sessions, playerReferrals, purchaseTransactions,
   bustRescueOffers, firstPurchaseOffers, rewardedAdSessions,
   dailyBonusClaims, cosmeticItems, playerInventory, cosmeticPurchases,
-  subscriptions, subscriptionEvents,
+  subscriptions, subscriptionEvents, notificationDevices,
   crews, crewMembers, crewChatMessages, crewEvents, clubChipRequests,
   timeBankEvents,
   chipTransactions,
@@ -35,7 +35,11 @@ import {
 import { GOOGLE_SUBSCRIPTION_PRODUCT_IDS } from "@shared/billingProducts";
 import type { SubscriptionTier } from "./billing";
 import { SUBSCRIPTION_PRODUCTS } from "./billing";
-import { randomUUID, scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { randomUUID, scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
+
+// Session and reset tokens are stored as SHA-256 only — a database leak must not hand out live sessions.
+// Rows written before this change hold the raw token; they still work and are re-keyed on first use.
+export const tokenKey = (token: string): string => createHash("sha256").update(token).digest("hex");
 import { generateReferralCode } from "./referralCodes";
 import { promisify } from "util";
 import { db } from "./db";
@@ -156,6 +160,10 @@ export interface IStorage {
   createSession(playerId: string, expiresAt: Date): Promise<string>;
   getSession(token: string): Promise<Session | undefined>;
   invalidateSession(token: string): Promise<void>;
+  invalidateAllSessionsForPlayer(playerId: string): Promise<void>;
+  setGuestSecretHash(id: string, hash: string): Promise<void>;
+  playerHasPurchases(id: string): Promise<boolean>;
+  getInstallationOwner(installationId: string): Promise<string | null>;
   cleanExpiredSessions(): Promise<void>;
   // ── Purchase transactions ──────────────────────────────────────────────────
   createPurchaseTransaction(data: {
@@ -1453,7 +1461,7 @@ export class MemStorage implements IStorage {
   async setPasswordResetToken(id: string, token: string, expires: Date): Promise<void> {
     await db
       .update(playerProfiles)
-      .set({ passwordResetToken: token, passwordResetExpires: expires, updatedAt: new Date() })
+      .set({ passwordResetToken: tokenKey(token), passwordResetExpires: expires, updatedAt: new Date() })
       .where(eq(playerProfiles.id, id));
   }
 
@@ -1461,7 +1469,7 @@ export class MemStorage implements IStorage {
     const rows = await db
       .select()
       .from(playerProfiles)
-      .where(eq(playerProfiles.passwordResetToken, token))
+      .where(or(eq(playerProfiles.passwordResetToken, tokenKey(token)), eq(playerProfiles.passwordResetToken, token)))
       .limit(1);
     return rows[0];
   }
@@ -2064,26 +2072,46 @@ export class MemStorage implements IStorage {
 
   async createSession(playerId: string, expiresAt: Date): Promise<string> {
     const token = randomBytes(32).toString("hex");
-    await db.insert(sessions).values({ token, playerId, expiresAt });
+    await db.insert(sessions).values({ token: tokenKey(token), playerId, expiresAt });   // store the hash, return the raw token
     return token;
   }
 
   async getSession(token: string): Promise<Session | undefined> {
-    const rows = await db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.token, token),
-          gt(sessions.expiresAt, new Date()),
-        )
-      )
-      .limit(1);
-    return rows[0];
+    const key = tokenKey(token);
+    const rows = await db.select().from(sessions)
+      .where(and(eq(sessions.token, key), gt(sessions.expiresAt, new Date()))).limit(1);
+    if (rows[0]) return rows[0];
+    // Legacy row stored raw: accept it once and re-key it to the hash.
+    const legacy = await db.select().from(sessions)
+      .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date()))).limit(1);
+    if (!legacy[0]) return undefined;
+    await db.update(sessions).set({ token: key }).where(eq(sessions.token, token));
+    return { ...legacy[0], token: key };
   }
 
   async invalidateSession(token: string): Promise<void> {
-    await db.delete(sessions).where(eq(sessions.token, token));
+    await db.delete(sessions).where(or(eq(sessions.token, tokenKey(token)), eq(sessions.token, token)));
+  }
+
+  async invalidateAllSessionsForPlayer(playerId: string): Promise<void> {
+    await db.delete(sessions).where(eq(sessions.playerId, playerId));
+  }
+
+  async setGuestSecretHash(id: string, hash: string): Promise<void> {
+    await db.update(playerProfiles).set({ guestSecretHash: hash, updatedAt: new Date() }).where(eq(playerProfiles.id, id));
+  }
+
+  async playerHasPurchases(id: string): Promise<boolean> {
+    const [p] = await db.select({ id: purchaseTransactions.id }).from(purchaseTransactions).where(eq(purchaseTransactions.playerId, id)).limit(1);
+    if (p) return true;
+    const [s] = await db.select({ id: subscriptions.id }).from(subscriptions).where(eq(subscriptions.playerId, id)).limit(1);
+    return Boolean(s);
+  }
+
+  async getInstallationOwner(installationId: string): Promise<string | null> {
+    const [row] = await db.select({ playerId: notificationDevices.playerId }).from(notificationDevices)
+      .where(eq(notificationDevices.installationId, installationId)).limit(1);
+    return row?.playerId ?? null;
   }
 
   async cleanExpiredSessions(): Promise<void> {

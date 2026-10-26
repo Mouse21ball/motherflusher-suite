@@ -84,7 +84,9 @@ export const playerProfiles = pgTable("player_profiles", {
   chipLoanBalance:      integer("chip_loan_balance").notNull().default(0),
   chipLoanGrantedAt:    timestamp("chip_loan_granted_at"),
   // ── Password reset ──────────────────────────────────────────────────────────
-  passwordResetToken:   text("password_reset_token"),
+  passwordResetToken:   text("password_reset_token"),   // SHA-256 of the reset token (raw tokens accepted until they expire)
+  // ── Guest proof (guest-takeover fix) ────────────────────────────────────────
+  guestSecretHash:      text("guest_secret_hash"),            // SHA-256 of the guest secret; null = legacy guest, no secret issued yet
   passwordResetExpires: timestamp("password_reset_expires"),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
