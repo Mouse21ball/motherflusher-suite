@@ -32,6 +32,7 @@ export interface PlayerIdentity {
   avatarSeed: string;  // deterministic seed for avatar initials / color generation
   createdAt: number;   // unix ms — when identity was first created
   avatarId?: string | null; // selected avatar preset; null/undefined → use initials
+  guestSecret?: string | null; // GUEST-AUTH FIX: server-issued proof this device owns the guest; the ID alone proves nothing
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -125,6 +126,14 @@ export function savePlayerIdentity(identity: PlayerIdentity): void {
   safePersist(IDENTITY_KEY, identity);
   // Keep legacy name key in sync for any code that still reads it directly
   try { localStorage.setItem('poker_table_player_name', identity.name); } catch {}
+}
+
+/** Store the guest secret the server issues (guest-init or /api/auth/me). Never overwrite one with nothing. */
+export function saveGuestSecret(secret: string | null | undefined): void {
+  if (!secret) return;
+  const identity = ensurePlayerIdentity();
+  if (identity.guestSecret === secret) return;
+  savePlayerIdentity({ ...identity, guestSecret: secret });
 }
 
 export function updatePlayerName(name: string): void {
@@ -311,12 +320,12 @@ export function getAvatarColor(seed: string): string {
 // Premium cosmetic avatars (equippedAvatarId) use /cosmetics/avatars/<id>.png
 // and are NOT handled here — callers should check equippedAvatarId first.
 const FREE_AVATAR_SRCS: Record<string, string> = {
-  bear:    '/emote-bear-celebrating.png',
-  bulldog: '/emote-bulldog-cigar.png',
-  cat:     '/emote-cat-thinking.png',
-  fox:     '/emote-fox-smug.png',
-  gorilla: '/emote-gorilla-angry.png',
-  wolf:    '/emote-wolf-tilted.png',
+  bear:    '/emote-bear-celebrating.webp',
+  bulldog: '/emote-bulldog-cigar.webp',
+  cat:     '/emote-cat-thinking.webp',
+  fox:     '/emote-fox-smug.webp',
+  gorilla: '/emote-gorilla-angry.webp',
+  wolf:    '/emote-wolf-tilted.webp',
 };
 
 // Resolves the display avatar src for a player.

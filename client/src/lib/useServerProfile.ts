@@ -18,7 +18,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { ensurePlayerIdentity } from './persistence';
+import { ensurePlayerIdentity, saveGuestSecret } from './persistence';
+import { getPushInstallationId } from './pushNotifications';
 import { apiUrl } from './apiConfig';
 import { apiFetch, getSessionToken, setSessionToken } from './session';
 import { setUserId } from './analytics';
@@ -100,7 +101,7 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
 
       if (existingToken) {
         // Fast path: authenticated refresh
-        const r = await apiFetch(apiUrl('/api/auth/me'));
+        const r = await apiFetch(apiUrl('/api/auth/me'), { headers: { 'X-Guest-Auth': '2' } });   // GUEST-AUTH FIX: this build stores guest secrets
         if (r.ok) return r.json() as Promise<ServerProfile>;
         // 401 means the token expired — fall through to guest-init below
         if (r.status !== 401) throw new Error(`${r.status}`);
@@ -116,11 +117,21 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
       // Bootstrap path: no token or token expired — initialize as guest.
       // apiFetch attaches X-Session-Token automatically, but guest-init
       // doesn't require one (and will ignore it if present).
-      const r = await fetch(apiUrl('/api/auth/guest-init'), {
+      // GUEST-AUTH FIX: prove ownership with the stored guest secret, plus the device's push installation ID
+      // where one exists. A legacy guest without a secret is secured by /api/auth/me while its session is live.
+      let installationId: string | undefined;
+      try { installationId = getPushInstallationId(); } catch {}
+      const r = await apiFetch(apiUrl('/api/auth/guest-init'), {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ profileId: identity.id, displayName: identity.name }),
+        headers: { 'Content-Type': 'application/json', 'X-Guest-Auth': '2' },
+        body:    JSON.stringify({ profileId: identity.id, displayName: identity.name, guestSecret: identity.guestSecret ?? undefined, installationId }),
       });
+      if (r.status === 403) {
+        const body = await r.json().catch(() => ({} as { code?: string }));
+        // RECOVERY_REQUIRED / GUEST_PROOF_REQUIRED: this device can't prove it owns the guest. Don't loop; show sign-in.
+        try { localStorage.setItem('guest_locked', body.code ?? 'GUEST_PROOF_REQUIRED'); } catch {}
+        throw new Error(body.code ?? '403');
+      }
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json() as Promise<ServerProfile>;
     };
@@ -137,6 +148,7 @@ export function ServerProfileProvider({ children }: { children: ReactNode }) {
           }
           profileIdRef.current = data.profileId;
           if (data.sessionToken) setSessionToken(data.sessionToken);
+          if ((data as { guestSecret?: string }).guestSecret) saveGuestSecret((data as { guestSecret?: string }).guestSecret);   // GUEST-AUTH FIX
           setProfile(data);
           if (data.hasAuth) setUserId(data.profileId);
           refetchResolvers.current.splice(0).forEach(resolve => resolve(data));
