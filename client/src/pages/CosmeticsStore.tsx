@@ -566,9 +566,10 @@ export default function CosmeticsStore() {
                 </button>
               );
             })}
-            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem', textAlign: 'center', marginTop: 4 }}>
-              Tiers coming soon — everything selectable for now.
-            </div>
+            {/* Finish pass 2026-11-02: removed the "Tiers coming soon" footer —
+                unfinished copy in front of players. Tier gating itself is an
+                economy decision still awaiting Detroit's ruling (see
+                tableBackgrounds.ts); selection behavior is unchanged. */}
           </div>
         ) : tab === 'music' ? (
           /* ── Music tab ─────────────────────────────────────────────────── */
