@@ -9,6 +9,9 @@ const fuTable = readFileSync('client/src/components/flushedUp/FlushedUpTable.tsx
 const fuBar = readFileSync('client/src/components/flushedUp/FlushedUpActionBar.tsx', 'utf8');
 const fuPage = readFileSync('client/src/pages/FlushedUpGame.tsx', 'utf8');
 const bcTable = readFileSync('client/src/components/boxChevy/BoxChevyTable.tsx', 'utf8');
+// 2026-10-24: seatPosition moved verbatim into dealerOrigin.ts (dealer
+// flight origins); the geometry literals are pinned there now.
+const bcSeats = readFileSync('client/src/components/boxChevy/dealerOrigin.ts', 'utf8');
 const bcBar = readFileSync('client/src/components/boxChevy/BoxChevyActionBar.tsx', 'utf8');
 const bcPage = readFileSync('client/src/pages/BoxChevyGame.tsx', 'utf8');
 const bcEngine = readFileSync('server/boxChevyEngine.ts', 'utf8');
@@ -30,10 +33,18 @@ describe('Flushed Up — Badugi experience convergence', () => {
     expect(fuTable).toContain('timerBar(false)');
   });
 
-  it('raise selection is the shared BettingControls, used as-is', () => {
-    expect(fuBar).toContain("import { BettingControls } from '@/components/game/BettingControls'");
-    expect(fuBar).toContain('<BettingControls');
-    expect(fuBar).toContain('minBet={minBet}');
+  // Superseded for Flushed Up by Detroit 2026-10-25: FU gets Box
+  // Chevy-style bet-any-amount entry in its own bar (slider + exact
+  // typed amount). The shared BettingControls component stays frozen
+  // (pinned below) and Badugi still uses it; only FU's usage changed.
+  it('FU raise entry is in-bar slider + exact amount, on bettingMath legality', () => {
+    expect(fuBar).not.toContain("from '@/components/game/BettingControls'");
+    expect(fuBar).not.toContain('<BettingControls');
+    expect(fuBar).toContain("from '@/components/game/bettingMath'");
+    expect(fuBar).toContain('createBettingContext');
+    expect(fuBar).toContain('canRaiseTo');
+    expect(fuBar).toContain('data-testid="input-raise-slider"');
+    expect(fuBar).toContain('data-testid="input-raise-amount"');
     expect(fuPage).toContain('minBet={state.minBet ?? 50}');
   });
 
@@ -85,20 +96,24 @@ describe('Box Chevy — DECLARE honesty + qualification comms', () => {
 
 describe('Box Chevy — center-aware layout', () => {
   it('seat map: top pair + mid pair above the band, hero at 80', () => {
-    expect(bcTable).toContain("if (index === 0) return { x: 50, y: 80 }");
-    expect(bcTable).toContain('{ x: 27, y: 10.5 }');
-    expect(bcTable).toContain('{ x: 73, y: 10.5 }');
-    expect(bcTable).toContain('{ x: 18.5, y: 30.5 }');
-    expect(bcTable).toContain('{ x: 81.5, y: 30.5 }');
+    expect(bcSeats).toContain("if (index === 0) return { x: 50, y: 80 }");
+    expect(bcSeats).toContain('{ x: 27, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 73, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 18.5, y: 30.5 }');
+    expect(bcSeats).toContain('{ x: 81.5, y: 30.5 }');
+    // The table consumes the shared map — no private copy drifts back.
+    expect(bcTable).toContain("from './dealerOrigin'");
   });
 
-  it('community band is one reserved block with mini cards + pot pill', () => {
-    expect(bcTable).toContain('top-[50.5%]');
-    expect(bcTable).toContain('!w-[32px] !h-[44px]');
+  it('community band is one reserved block with cards + pot pill', () => {
+    // Detroit 2026-10-24 (final polish P2): the band rides +25px via
+    // COMMUNITY_BAND_TOP and the cards are 36x50 (budget verified in
+    // tests/bcCommunityGeometry.test.ts) — supersedes the 50.5%/32x44
+    // literals pinned here in the correction plan.
+    expect(bcTable).toContain('top: COMMUNITY_BAND_TOP');
+    expect(bcTable).toContain('!w-[36px] !h-[50px]');
     expect(bcTable).toContain('POT ${state.pot.toLocaleString()}');
-    // The community row itself is mini; the only remaining 44x62 cards
-    // are the celebration overlay's winner hands (not table geometry).
-    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[32px] !h-[44px]" />');
+    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[36px] !h-[50px]" />');
   });
 
   it('per-pod server-deadline timer bars (hero included)', () => {

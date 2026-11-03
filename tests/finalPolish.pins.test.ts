@@ -46,7 +46,16 @@ describe('Showdown summary plumbing', () => {
 
 describe('Showdown presentation (summary-driven)', () => {
   it('FU celebration reads the summary and renders comparison + other hands', () => {
-    expect(fuTable).toContain('(liveRef.current as any).showdownSummary');
+    // Detroit 2026-10-25 repair: the old pin enshrined a dead path —
+    // the summary was read off a ref that never carried it, and the
+    // celebration gated on winnerless entry-snapshot flags, so FU
+    // showdowns never celebrated on the Galaxy. The ref now carries
+    // the summary typed, and the build is settlement-gated through
+    // flushedUp/celebrationPlan (same pattern as Box Chevy).
+    expect(fuTable).toContain('showdownSummary: (liveState as any).showdownSummary ?? null');
+    expect(fuTable).toContain('fuSettlementReady(liveRef.current, entryHandId)');
+    expect(fuTable).toContain('summaryForHand(st, entryHandId)');
+    expect(fuTable).not.toContain('(liveRef.current as any).showdownSummary');
     expect(fuTable).toContain('data-testid="fu-showdown-comparison"');
     expect(fuTable).toContain('data-testid="fu-showdown-others"');
   });
@@ -57,6 +66,11 @@ describe('Showdown presentation (summary-driven)', () => {
     // the audit roster/paragraphs left the main celebration; the
     // no-winner line is pinned in stabilization.pins.test.ts.
     expect(bcTable).toContain('data-testid="bc-no-winner"');
-    expect(bcTable).toContain('(liveRef.current as any).showdownSummary');
+    // Detroit 2026-10-24 (final polish repairs): the summary is read
+    // through the readiness-gated celebrationPlan accessors (handId-
+    // fenced) rather than inline at a fixed delay.
+    expect(bcTable).toContain('summaryForHand(st, handId)');
+    const bcPlan = readFileSync('client/src/components/boxChevy/celebrationPlan.ts', 'utf8');
+    expect(bcPlan).toContain('sum.handId === handId');
   });
 });

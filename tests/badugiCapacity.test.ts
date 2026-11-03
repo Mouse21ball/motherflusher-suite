@@ -35,17 +35,22 @@ describe('Badugi capacity defaults (P3)', () => {
 
   it('Box Chevy table renders and deals to a fifth seat', () => {
     const bc = readFileSync(resolve(__dirname, '../client/src/components/boxChevy/BoxChevyTable.tsx'), 'utf8');
-    // Both opponent slices admit 4 others (proto render + deal driver).
-    expect(bc.match(/\.slice\(0, 4\)/g)?.length).toBe(2);
+    // Opponent slices admit 4 others (proto render + deal driver;
+    // 2026-10-24: the celebration rake ordering is a third — all must
+    // admit the full four opponents).
+    expect(bc.match(/\.slice\(0, 4\)/g)?.length).toBe(3);
     expect(bc).not.toContain('.slice(0, 3)');
     // Deal flights follow the actual seat count for hole cards.
     expect(bc).toContain('const holeFlights = ordered.length * 5;');
     // Center-aware spots (2026-10-22 correction plan): top pair + mid
-    // pair above the reserved community band.
-    expect(bc).toContain('{ x: 27, y: 10.5 }');
-    expect(bc).toContain('{ x: 73, y: 10.5 }');
-    expect(bc).toContain('{ x: 18.5, y: 30.5 }');
-    expect(bc).toContain('{ x: 81.5, y: 30.5 }');
+    // pair above the reserved community band. (2026-10-24: seatPosition
+    // moved verbatim to dealerOrigin.ts for the dealer-origin flights —
+    // same literals, new home.)
+    const bcSeats = readFileSync(resolve(__dirname, '../client/src/components/boxChevy/dealerOrigin.ts'), 'utf8');
+    expect(bcSeats).toContain('{ x: 27, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 73, y: 10.5 }');
+    expect(bcSeats).toContain('{ x: 18.5, y: 30.5 }');
+    expect(bcSeats).toContain('{ x: 81.5, y: 30.5 }');
   });
 
   it('Flushed Up table renders and deals to a fifth seat', () => {

@@ -34,19 +34,39 @@ export interface HeroHandValidity {
   discardsToFix: number;
   /** Draw discards still available from this phase onward (caps 3/2/1). */
   drawCapacityLeft: number;
+  /** Discard limit of the current draw round — during a BET phase, of
+   *  the NEXT draw round (0 when no draw remains). A label instruction
+   *  must never exceed this, however many discards the full fix needs. */
+  currentDrawCap: number;
   /** Fixable in principle AND within the draws that remain. */
   canStillFix: boolean;
 }
 
-/** Draw discards remaining from a phase onward (Box Chevy caps 3/2/1,
- *  draws sit between bet rounds: BET_1→DRAW_1→BET_2→DRAW_2→BET_3→
- *  DRAW_3→BET_4→DECLARE). */
+/** Draw discards remaining from a phase onward, per Box Chevy's
+ *  AUTHORITATIVE phase order (shared/modes/boxchevy.ts):
+ *  WAITING → ANTE → DEAL → DRAW_1 (cap 3) → BET_1 → DRAW_2 (cap 2) →
+ *  BET_2 → DRAW_3 (cap 1) → BET_3 → DECLARE → SHOWDOWN.
+ *  There is no BET_4 and no fourth draw. (Detroit 2026-10-24: the
+ *  previous table was written for a BET→DRAW order and overstated the
+ *  remaining capacity at every BET phase — at BET_3 it promised a
+ *  discard when zero draws remained: the phantom "fourth draw".) */
 function drawCapacityLeftFor(phase: string): number {
   switch (phase) {
-    case 'ANTE': case 'DEAL': case 'BET_1': case 'DRAW_1': return 6;
-    case 'BET_2': case 'DRAW_2': return 3;
-    case 'BET_3': case 'DRAW_3': return 1;
-    default: return 0; // BET_4, DECLARE, SHOWDOWN, WAITING
+    case 'ANTE': case 'DEAL': case 'DRAW_1': return 6;
+    case 'BET_1': case 'DRAW_2': return 3;
+    case 'BET_2': case 'DRAW_3': return 1;
+    default: return 0; // BET_3, DECLARE, SHOWDOWN, WAITING
+  }
+}
+
+/** Discard cap of the draw round in progress — or, during a BET phase,
+ *  of the draw round that comes next (0 when none remains). */
+function currentDrawCapFor(phase: string): number {
+  switch (phase) {
+    case 'ANTE': case 'DEAL': case 'DRAW_1': return 3;
+    case 'BET_1': case 'DRAW_2': return 2;
+    case 'BET_2': case 'DRAW_3': return 1;
+    default: return 0; // BET_3, DECLARE, SHOWDOWN, WAITING
   }
 }
 
@@ -110,6 +130,7 @@ export function getHeroHandValidity(
     hasUnfixableDuplicate: false,
     discardsToFix: 0,
     drawCapacityLeft: drawCapacityLeftFor(phase),
+    currentDrawCap: currentDrawCapFor(phase),
     canStillFix: false,
   };
 
@@ -136,6 +157,7 @@ export function getHeroHandValidity(
   const { duplicates, discardsToFix } = analyzeDuplicates(holeCards, communityCards);
   const unfixable = duplicates.filter(d => d.unfixable);
   const capLeft = drawCapacityLeftFor(phase);
+  const roundCap = currentDrawCapFor(phase);
   const canStillFix = unfixable.length === 0 && discardsToFix <= capLeft && capLeft > 0;
   // The exact hole cards to throw away: for a rank the board holds,
   // every hole copy goes; for a hole-only pair, all but one go.
@@ -155,9 +177,18 @@ export function getHeroHandValidity(
   } else if (!canStillFix) {
     detail = `NEEDS ${discardsToFix} DISCARD${discardsToFix === 1 ? '' : 'S'} — ONLY ${capLeft} LEFT`;
     label = 'NO MADE HAND — OUT OF DRAWS';
-  } else {
+  } else if (discardsToFix <= roundCap) {
+    // The whole fix fits THIS draw round — an immediate-repair
+    // instruction, stated whole.
     detail = `DISCARD YOUR ${throwRanks.join(' + ')} — ${discardsToFix === 1 ? 'THAT FIXES IT' : 'THOSE FIX IT'}`;
     label = `NO MADE HAND — DISCARD ${throwRanks.join(' + ')}`;
+  } else {
+    // A repair is possible only across the remaining rounds: instruct
+    // at most this round's cap and say plainly that more discards are
+    // still required later. Never present a partial set as a fix.
+    const thisRound = throwRanks.slice(0, roundCap);
+    detail = `NEEDS ${discardsToFix} DISCARDS TOTAL — ${discardsToFix - roundCap} MORE IN A LATER DRAW`;
+    label = `NO MADE HAND — DISCARD ${thisRound.join(' + ')}`;
   }
   return {
     status: 'invalid',
@@ -168,6 +199,7 @@ export function getHeroHandValidity(
     hasUnfixableDuplicate: unfixable.length > 0,
     discardsToFix,
     drawCapacityLeft: capLeft,
+    currentDrawCap: roundCap,
     canStillFix,
   };
 }
