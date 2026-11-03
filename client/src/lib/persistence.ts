@@ -320,12 +320,12 @@ export function getAvatarColor(seed: string): string {
 // Premium cosmetic avatars (equippedAvatarId) use /cosmetics/avatars/<id>.png
 // and are NOT handled here — callers should check equippedAvatarId first.
 const FREE_AVATAR_SRCS: Record<string, string> = {
-  bear:    '/emote-bear-celebrating.webp',
-  bulldog: '/emote-bulldog-cigar.webp',
-  cat:     '/emote-cat-thinking.webp',
-  fox:     '/emote-fox-smug.webp',
-  gorilla: '/emote-gorilla-angry.webp',
-  wolf:    '/emote-wolf-tilted.webp',
+  bear:    '/emote-bear-celebrating.png',
+  bulldog: '/emote-bulldog-cigar.png',
+  cat:     '/emote-cat-thinking.png',
+  fox:     '/emote-fox-smug.png',
+  gorilla: '/emote-gorilla-angry.png',
+  wolf:    '/emote-wolf-tilted.png',
 };
 
 // Resolves the display avatar src for a player.
