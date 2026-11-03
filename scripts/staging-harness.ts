@@ -2475,6 +2475,7 @@ async function main() {
   if (mode === 'a4') { console.log(`\n== A-SCENARIO AT 4 SEATS (run ${RUN}) ==`); await scenarioA(4); writeResults('a4'); return; }
   if (mode === 'a') { console.log(`\n== A-SCENARIO AT 5 SEATS (run ${RUN}) ==`); await scenarioA(5); writeResults('a'); return; }
   if (mode === 'c5') { console.log(`\n== C5 ONLY (run ${RUN}) ==`); await scenarioC5(); writeResults('c5'); return; }
+  if (mode === 'reconnect') { console.log(`\n== RECONNECT SUITE (run ${RUN}) ==`); await scenarioC(30); await scenarioC(179); await scenarioC(181); await scenarioC5(); writeResults('reconnect'); return; }
   if (mode === 'clock') { console.log(`\n== CLOCK SYNC (run ${RUN}) ==`); await scenarioClock(); writeResults('clock'); return; }
   if (mode === 'wire') { console.log(`\n== WIRE FIELDS (run ${RUN}) ==`); await scenarioWire(); writeResults('wire'); return; }
   if (mode === 'pots') { console.log(`\n== SIDE POTS (run ${RUN}) ==`); await scenarioPots(); writeResults('pots'); return; }
