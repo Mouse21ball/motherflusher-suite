@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
-import { setSessionToken } from "@/lib/session";
+import { apiFetch, setSessionToken, clearSessionToken } from "@/lib/session";
+import { useOptionalServerProfile } from "@/lib/useServerProfile";
 import { BrandBackground } from "./BrandBackground";
 import { track, setUserId, fire2 } from "@/lib/analytics";
 import { clearSavedReferralCode, getSavedReferralCode } from "@/lib/referralAttribution";
@@ -13,6 +14,9 @@ function getAgeConfirmed(): boolean {
 }
 function setAgeConfirmed(): void {
   try { localStorage.setItem(AGE_KEY, '1'); } catch {}
+}
+function getGuestLockCode(): string | null {
+  try { return localStorage.getItem('guest_locked'); } catch { return null; }
 }
 
 function getInitialPlayerName(): string {
@@ -61,6 +65,33 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
     }
   }, [name]);
 
+  // GUEST-AUTH FIX (1.9): when the server refuses this device's guest (403
+  // RECOVERY_REQUIRED / GUEST_PROOF_REQUIRED), useServerProfile leaves the
+  // profile null and records the code in localStorage. Surface the recovery
+  // path instead of landing the player in a profile-less app with no reason.
+  const serverProfile = useOptionalServerProfile();
+  const [recovering, setRecovering] = useState(false);
+  const guestLockCode = serverProfile && !serverProfile.loading && !serverProfile.profile
+    ? getGuestLockCode()
+    : null;
+
+  // A loaded profile means the lock resolved (e.g. after sign-in) — clear it.
+  useEffect(() => {
+    if (serverProfile?.profile) {
+      try { localStorage.removeItem('guest_locked'); } catch {}
+    }
+  }, [serverProfile?.profile]);
+
+  const startFreshGuest = () => {
+    try {
+      localStorage.removeItem('poker_table_identity');
+      localStorage.removeItem('guest_locked');
+      localStorage.removeItem('just_logged_out');
+    } catch {}
+    clearSessionToken();
+    window.location.reload();
+  };
+
   const onLegalPage = LEGAL_PATHS.includes(window.location.pathname);
 
   if (!ageOk && !onLegalPage) {
@@ -69,11 +100,84 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
     );
   }
   if (onLegalPage) return <>{children}</>;
+  if (guestLockCode && !recovering) {
+    return <GuestRecoveryNotice code={guestLockCode} onSignIn={() => setRecovering(true)} onStartOver={startFreshGuest} />;
+  }
+  if (guestLockCode && recovering) {
+    return <WelcomeScreen onComplete={(n, method) => {
+      // On the recovery path, "guest" means a fresh start — the locked
+      // identity can never load on this device, so wipe it and reload.
+      if (method === 'guest') { startFreshGuest(); return; }
+      try { localStorage.removeItem('guest_locked'); } catch {}
+      setPlayerName(n); fire2("signup_completed", { method, name_length: n.length });
+      void serverProfile?.refetch();
+      setName(n);
+    }} />;
+  }
   if (name && welcomeBackOpen) {
     return <WelcomeBackScreen name={name} onPlay={() => { fire2("welcome_back_dismissed", { via: "play_now" }); try { sessionStorage.setItem('cgp_welcome_back_shown', '1'); } catch {} setWelcomeBackOpen(false); }} />;
   }
   if (name) return <>{children}</>;
   return <WelcomeScreen onComplete={(n, method) => { setPlayerName(n); fire2("signup_completed", { method, name_length: n.length }); setName(n); }} />;
+}
+
+// ── Guest Recovery Notice (GUEST-AUTH FIX, 1.9) ─────────────────────────────
+// Shown when the server would not load this device's guest profile. The
+// profile still exists server-side; recovery is sign-in, or support with a
+// Google Play order ID for guests who purchased (see support playbook).
+function GuestRecoveryNotice({ code, onSignIn, onStartOver }: { code: string; onSignIn: () => void; onStartOver: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <BrandBackground variant="welcome">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-10">
+        <div
+          className="w-full max-w-sm rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5"
+          style={{
+            background: 'rgba(7,7,16,0.78)',
+            border: '1px solid rgba(240,184,41,0.18)',
+            boxShadow: '0 0 48px rgba(0,0,0,0.55), 0 0 1px rgba(240,184,41,0.12)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <h1 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.94)' }}>This guest couldn&rsquo;t be verified</h1>
+            <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.62)' }}>
+              To stop account theft, a guest profile now has to prove it belongs to this device.
+              This device couldn&rsquo;t prove it owns the guest saved here, so the profile wasn&rsquo;t loaded.
+              Nothing was deleted.
+            </p>
+            {code === 'RECOVERY_REQUIRED' ? (
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.62)' }}>
+                That guest has purchases or a subscription on it. If you ever created an account,
+                sign in and everything comes back. If you checked out as a guest, hold onto your
+                Google Play order ID (it starts with GPA) — support can restore the profile with it.
+              </p>
+            ) : (
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.62)' }}>
+                If you ever created an account, sign in and pick up right where you left off.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onSignIn}
+            className="w-full rounded-xl px-5 py-3 font-semibold"
+            style={{ background: 'rgba(240,184,41,0.92)', color: '#14100a' }}
+          >
+            Sign in
+          </button>
+          <button
+            onClick={() => { if (confirming) { onStartOver(); } else { setConfirming(true); } }}
+            className="w-full rounded-xl px-5 py-3 font-semibold"
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.85)' }}
+          >
+            {confirming
+              ? 'Tap again to confirm — the old guest won\u2019t load on this device anymore'
+              : 'Start over as a new guest'}
+          </button>
+        </div>
+      </div>
+    </BrandBackground>
+  );
 }
 
 // ── Age Gate ─────────────────────────────────────────────────────────────────
@@ -230,7 +334,7 @@ function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
         style={{ width: 'min(100%, calc(100dvh * 941 / 1672))', aspectRatio: '941 / 1672' }}
       >
         <img
-          src="/welcome-back-chain-gang.png"
+          src="/welcome-back-chain-gang.webp"
           alt="Chain Gang Poker — Welcome Back"
           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
           draggable={false}
@@ -319,11 +423,11 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
     const guest = ensurePlayerIdentity();
     setBusy(true);
     try {
-      const res = await fetch(apiUrl('/api/auth/register'), {
+      // GUEST-AUTH FIX: apiFetch sends this device's session, which is what the server registers.
+      const res = await apiFetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          identityId: guest.id,
           email: email.trim().toLowerCase(),
           password,
           displayName: dn,

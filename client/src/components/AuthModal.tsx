@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { savePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
-import { setSessionToken } from '@/lib/session';
+import { apiFetch, setSessionToken } from '@/lib/session';
 import { clearSavedReferralCode, getSavedReferralCode } from '@/lib/referralAttribution';
 
 interface AuthModalProps {
@@ -80,11 +80,11 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
 
     setBusy(true);
     try {
-      const res = await fetch(apiUrl('/api/auth/register'), {
+      // GUEST-AUTH FIX: apiFetch sends this device's session, which is what the server registers.
+      const res = await apiFetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          identityId:  guestIdentity.id,
           email:       trimEmail,
           password,
           displayName: trimName,
