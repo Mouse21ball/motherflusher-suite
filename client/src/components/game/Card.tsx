@@ -79,7 +79,7 @@ export function PlayingCard({ card, className, onClick, selectable, selected, is
         onClick={onClick}
       >
         <img
-          src="/card-back.png"
+          src="/card-back.webp"
           alt=""
           className="w-full h-full object-cover rounded-lg"
         />

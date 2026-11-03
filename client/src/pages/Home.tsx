@@ -126,7 +126,7 @@ function getTimeUntilMidnight(): string {
 // ── Mode definitions ──────────────────────────────────────────────────────────
 
 const MODES = [
-  { id: 'badugi',     name: 'BADUGI',       tagline: 'The OG draw game',      path: '/badugi',     color: '#10b981', icon: '/mode-icon-badugi.png'    },
+  { id: 'badugi',     name: 'BADUGI',       tagline: 'The OG draw game',      path: '/badugi',     color: '#10b981', icon: '/mode-icon-badugi.webp'    },
   { id: 'flushedup',  name: 'FLUSHED UP',    tagline: 'Chase the flush',        path: '/flushedup',  color: '#8b5cf6', icon: MODE_PLACEHOLDER_ASSETS.flushedUpIcon },
   { id: 'box_chevy',  name: 'BOX CHEVY',   tagline: '10 cards. No pairs. Swing.', path: '/box-chevy',  color: '#3b82f6', icon: MODE_PLACEHOLDER_ASSETS.boxChevyIcon },
   { id: 'ladyluck',   name: 'LADY LUCK',    tagline: 'Pick your suit. Run the race.', path: '/ladyluck', color: '#e53935', icon: MODE_PLACEHOLDER_ASSETS.ladyLuckIcon },
@@ -155,7 +155,7 @@ interface LiveTableEntry {
 }
 
 const LIVE_MODE_INFO: Record<string, { name: string; abbrev: string; color: string; path: string; icon: string; stakes: string }> = {
-  badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi',     icon: '/mode-icon-badugi.png',    stakes: '$25 ante' },
+  badugi:      { name: 'Badugi',        abbrev: 'B',  color: '#10b981', path: '/badugi',     icon: '/mode-icon-badugi.webp',    stakes: '$25 ante' },
   flushed_up:  { name: 'Flushed Up',    abbrev: 'FU', color: '#8b5cf6', path: '/flushedup',  icon: MODE_PLACEHOLDER_ASSETS.flushedUpIcon, stakes: '$25 ante' },
   box_chevy:   { name: 'Box Chevy',     abbrev: 'BX', color: '#3b82f6', path: '/box-chevy',  icon: MODE_PLACEHOLDER_ASSETS.boxChevyIcon, stakes: '$25 ante' },
 };

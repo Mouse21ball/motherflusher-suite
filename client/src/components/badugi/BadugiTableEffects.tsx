@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '@/lib/poker/types';
 import { sfx } from '@/lib/sounds';
 
-const CARD_BACK = '/ladyluck/card-back-cgp.png';
+const CARD_BACK = '/ladyluck/card-back-cgp.webp';
 const CHIP_COLORS = ['#C9A227', '#D4B44A', '#E8C96B', '#A07C10'] as const;
 const FLIGHT_MS = 680;
 

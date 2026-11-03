@@ -91,7 +91,7 @@ function FaceDownCard({
           background: peeked
             ? 'linear-gradient(160deg,#f5ead6 0%,#e8d5aa 55%,#d4b87a 100%)'
             : undefined,
-          backgroundImage: peeked ? undefined : "url('/ladyluck/card-back-cgp.png')",
+          backgroundImage: peeked ? undefined : "url('/ladyluck/card-back-cgp.webp')",
           backgroundSize: peeked ? undefined : 'cover',
           backgroundPosition: peeked ? undefined : 'center',
           border: canPick
@@ -1924,7 +1924,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                         ) : (
                           /* Face-down — CGP card back */
                           <img
-                            src="/ladyluck/card-back-cgp.png"
+                            src="/ladyluck/card-back-cgp.webp"
                             alt="card"
                             style={{
                               width: '100%', aspectRatio: '0.714',

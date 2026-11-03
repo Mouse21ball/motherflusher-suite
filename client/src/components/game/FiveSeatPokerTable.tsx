@@ -6,7 +6,7 @@ import { getAvatarColor } from '@/lib/persistence';
 import { TableDealAnimator } from '@/components/flushedUp/TableDealAnimator';
 import { serverNowMs } from '@/lib/clockSync';
 
-const CARD_BACK = '/ladyluck/card-back-cgp.png';
+const CARD_BACK = '/ladyluck/card-back-cgp.webp';
 
 export interface FiveSeatOpponent {
   id: string;

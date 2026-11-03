@@ -62,7 +62,7 @@ function QueenCard({
         onClick={disabled ? undefined : onSelect}
         style={{
           width: 62, height: 88, borderRadius: 8,
-          backgroundImage: selected ? undefined : "url('/ladyluck/card-back-cgp.png')",
+          backgroundImage: selected ? undefined : "url('/ladyluck/card-back-cgp.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           background: selected
