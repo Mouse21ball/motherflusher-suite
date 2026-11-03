@@ -12,8 +12,11 @@ import { ServerProfileProvider, useServerProfile } from "@/lib/useServerProfile"
 import { initAnalytics } from "@/lib/analytics";
 import { isPracticeBadugiPath } from "@/lib/practiceRoute";
 
-// UNO prototype (Detroit 2026-10-13): bypasses WelcomeGate like the practice route
+// UNO prototype (Detroit 2026-10-13): bypasses WelcomeGate like the practice route.
+// Finish pass 2026-11-02: DEV-gated like the 5-seat previews — production builds
+// never serve this route (it fell through to NotFound instead of a live prototype).
 function isProtoUnoPath(pathname: string): boolean {
+  if (!import.meta.env.DEV) return false;
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
   return path === "/proto-uno";
 }
