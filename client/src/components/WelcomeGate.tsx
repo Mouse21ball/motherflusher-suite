@@ -334,7 +334,7 @@ function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
         style={{ width: 'min(100%, calc(100dvh * 941 / 1672))', aspectRatio: '941 / 1672' }}
       >
         <img
-          src="/welcome-back-chain-gang.webp"
+          src="/welcome-back-chain-gang.png"
           alt="Chain Gang Poker — Welcome Back"
           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
           draggable={false}
