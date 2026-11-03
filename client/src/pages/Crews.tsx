@@ -58,7 +58,7 @@ function roleBadge(role: string) {
 }
 
 const BG: React.CSSProperties = {
-  backgroundImage: "url('/crews/crews-bg.png')",
+  backgroundImage: "url('/crews/crews-bg.webp')",
   backgroundSize: "cover",
   backgroundPosition: "center",
   backgroundAttachment: "fixed",
@@ -199,7 +199,7 @@ export default function CrewsPage() {
               style={{ position: "absolute", top: 14, left: 14, color: "#C9A227", fontSize: 22, lineHeight: 1, zIndex: 2 }}
               className="active:scale-90 transition-transform">←</button>
             <div style={{ paddingLeft: 16, paddingRight: 16 }}>
-              <img src="/crews/crews-title.png" alt="Crews"
+              <img src="/crews/crews-title.webp" alt="Crews"
                 style={{ width: "100%", maxWidth: 320, display: "block" }} />
               <p className="font-mono uppercase text-[11px] leading-snug mt-2"
                  style={{ color: "rgba(255,255,255,0.65)" }}>
@@ -279,8 +279,8 @@ function NoCrew({ stripes, onCreate, onJoin, onJoined }: {
       {/* ── CREATE A CLUB ── */}
       <div className="flex items-stretch w-full" style={{ borderBottom: "1px solid rgba(201,162,39,0.15)" }}>
         <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 160, position: "relative" }}>
-          <img src="/crews/icon-crew.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 75, height: 75, objectFit: "contain", position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" }} />
+          <img src="/crews/icon-crew.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 75, height: 75, objectFit: "contain", position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" }} />
         </div>
         <div className="flex-1 py-5 pr-4" style={{ background: "rgba(0,0,0,0.35)" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
@@ -317,7 +317,7 @@ function NoCrew({ stripes, onCreate, onJoin, onJoined }: {
       <button onClick={onJoin} data-testid="btn-join-crew"
         className="flex items-stretch w-full transition-all active:scale-[0.98]">
         <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 140, minHeight: 130 }}>
-          <img src="/crews/icon-code.png" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+          <img src="/crews/icon-code.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
         </div>
         <div className="flex-1 py-5 pr-4 text-left" style={{ background: "rgba(0,0,0,0.35)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

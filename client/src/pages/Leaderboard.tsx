@@ -138,7 +138,7 @@ export default function Leaderboard() {
       />
       {/* Faint CGP laurel watermark top-right */}
       <img
-        src="/profile/cgp-laurel.png"
+        src="/profile/cgp-laurel.webp"
         alt=""
         aria-hidden
         style={{
@@ -254,7 +254,7 @@ export default function Leaderboard() {
 
             {/* CGP laurel watermark on right */}
             <img
-              src="/profile/cgp-laurel.png"
+              src="/profile/cgp-laurel.webp"
               alt="" aria-hidden
               style={{
                 position: 'absolute', right: -10, top: -10,

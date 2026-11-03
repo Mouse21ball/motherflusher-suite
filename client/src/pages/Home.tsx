@@ -100,14 +100,14 @@ const HOME_MILESTONES = [
 
 function getTierBadgeAsset(tierName: string): string {
   const map: Record<string, string> = {
-    'Bronze':   '/tier-bronze.png',
-    'Silver':   '/tier-silver.png',
-    'Gold':     '/tier-gold.png',
-    'Platinum': '/tier-platinum.png',
-    'Diamond':  '/tier-diamond.png',
-    'Master':   '/tier-master.png',
+    'Bronze':   '/tier-bronze.webp',
+    'Silver':   '/tier-silver.webp',
+    'Gold':     '/tier-gold.webp',
+    'Platinum': '/tier-platinum.webp',
+    'Diamond':  '/tier-diamond.webp',
+    'Master':   '/tier-master.webp',
   };
-  return map[tierName] ?? '/tier-bronze.png';
+  return map[tierName] ?? '/tier-bronze.webp';
 }
 
 // ── Time until next daily bonus ───────────────────────────────────────────────
@@ -894,7 +894,7 @@ export default function Home() {
           {/* ══ CREW MODE — cinematic dark purple banner ══════════════════════════ */}
           <div style={{ margin: '10px 12px 0', position: 'relative', height: 140, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(168,85,247,0.20)', background: 'linear-gradient(135deg, rgba(88,28,135,0.55), rgba(40,10,60,0.40))', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
             {/* Crew art — bleeds from left */}
-            <img src="/crews/icon-crew.png" alt="" aria-hidden style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', height: 150, width: 'auto', objectFit: 'contain', filter: 'brightness(0.55) saturate(0.8) drop-shadow(0 0 40px rgba(138,43,226,0.80))', pointerEvents: 'none' }} />
+            <img src="/crews/icon-crew.webp" alt="" aria-hidden style={{ position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)', height: 150, width: 'auto', objectFit: 'contain', filter: 'brightness(0.55) saturate(0.8) drop-shadow(0 0 40px rgba(138,43,226,0.80))', pointerEvents: 'none' }} />
             {/* Radial purple glow behind icon */}
             <div style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', background: 'radial-gradient(ellipse at 25% 50%, rgba(138,43,226,0.35) 0%, transparent 70%)' }} />
             {/* Purple smoke / glow */}

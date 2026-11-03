@@ -29,7 +29,7 @@ const QUEEN_NAMES: Record<string, string> = {
 const RACE_BG = {
   minHeight: '100vh' as const,
   backgroundColor: '#0d0c1e',
-  backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')",
+  backgroundImage: "url('/ladyluck/ladyluck-race-bg.webp')",
   backgroundSize: 'cover',
   backgroundPosition: 'center top',
   backgroundRepeat: 'no-repeat',

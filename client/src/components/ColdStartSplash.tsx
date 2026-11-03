@@ -175,7 +175,7 @@ export function ColdStartSplash({ children }: ColdStartSplashProps) {
               </defs>
               <image
                 className="cgp-cold-splash__metal-illumination"
-                href="/splash-chain-gang-logo.png"
+                href="/splash-chain-gang-logo.webp"
                 x="0"
                 y="0"
                 width="941"

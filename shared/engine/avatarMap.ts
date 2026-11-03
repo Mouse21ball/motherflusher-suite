@@ -1,12 +1,12 @@
 export type AnimalAvatar = 'fox' | 'cat' | 'bear' | 'bulldog' | 'gorilla' | 'wolf';
 
 const AVATAR_MAP: Record<AnimalAvatar, string> = {
-  fox:     '/emote-fox-smug.png',
-  cat:     '/emote-cat-thinking.png',
-  bear:    '/emote-bear-celebrating.png',
-  bulldog: '/emote-bulldog-cigar.png',
-  gorilla: '/emote-gorilla-angry.png',
-  wolf:    '/emote-wolf-tilted.png',
+  fox:     '/emote-fox-smug.webp',
+  cat:     '/emote-cat-thinking.webp',
+  bear:    '/emote-bear-celebrating.webp',
+  bulldog: '/emote-bulldog-cigar.webp',
+  gorilla: '/emote-gorilla-angry.webp',
+  wolf:    '/emote-wolf-tilted.webp',
 };
 
 const SEAT_AVATARS: Record<number, AnimalAvatar> = {

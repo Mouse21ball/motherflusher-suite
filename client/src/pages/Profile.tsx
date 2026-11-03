@@ -33,12 +33,12 @@ import { startMenuReview } from '@/lib/reviewFlow';
 
 const AVATAR_OPTIONS = [
   { id: null,       label: 'Default',  src: null },
-  { id: 'bear',     label: 'Bear',     src: '/emote-bear-celebrating.png' },
-  { id: 'bulldog',  label: 'Bulldog',  src: '/emote-bulldog-cigar.png' },
-  { id: 'cat',      label: 'Cat',      src: '/emote-cat-thinking.png' },
-  { id: 'fox',      label: 'Fox',      src: '/emote-fox-smug.png' },
-  { id: 'gorilla',  label: 'Gorilla',  src: '/emote-gorilla-angry.png' },
-  { id: 'wolf',     label: 'Wolf',     src: '/emote-wolf-tilted.png' },
+  { id: 'bear',     label: 'Bear',     src: '/emote-bear-celebrating.webp' },
+  { id: 'bulldog',  label: 'Bulldog',  src: '/emote-bulldog-cigar.webp' },
+  { id: 'cat',      label: 'Cat',      src: '/emote-cat-thinking.webp' },
+  { id: 'fox',      label: 'Fox',      src: '/emote-fox-smug.webp' },
+  { id: 'gorilla',  label: 'Gorilla',  src: '/emote-gorilla-angry.webp' },
+  { id: 'wolf',     label: 'Wolf',     src: '/emote-wolf-tilted.webp' },
 ] as const;
 
 type AvatarOptionId = typeof AVATAR_OPTIONS[number]['id'];
@@ -297,7 +297,7 @@ export default function Profile() {
     <div
       className="min-h-[100dvh] text-white"
       style={{
-        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
+        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.webp')",
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',
@@ -410,7 +410,7 @@ export default function Profile() {
             <div className="flex-1 min-w-0 relative pt-1">
               {/* CGP Laurel watermark — behind text */}
               <img
-                src="/profile/cgp-laurel.png"
+                src="/profile/cgp-laurel.webp"
                 alt=""
                 aria-hidden
                 style={{
@@ -453,7 +453,7 @@ export default function Profile() {
                   data-testid="badge-rank"
                 >
                   <img
-                    src="/tier-bronze.png"
+                    src="/tier-bronze.webp"
                     alt="Bronze"
                     style={{ width: 24, height: 24, objectFit: 'contain' }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -675,7 +675,7 @@ export default function Profile() {
               <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {displayHands}
               </div>
-              <img src="/profile/icons/stat-icon-hands.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-hands.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* WIN% */}
@@ -693,7 +693,7 @@ export default function Profile() {
               <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {serverWinRate}%
               </div>
-              <img src="/profile/icons/stat-icon-winrate.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-winrate.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* NET */}
@@ -714,7 +714,7 @@ export default function Profile() {
               }}>
                 {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
               </div>
-              <img src="/profile/icons/stat-icon-net.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-net.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* CHIPS */}
@@ -732,7 +732,7 @@ export default function Profile() {
               <div style={{ fontSize: 16, fontWeight: 900, color: '#FFD700', fontFamily: 'monospace', lineHeight: 1.1, textAlign: 'center' }}>
                 ${displayChips.toLocaleString()}
               </div>
-              <img src="/profile/icons/stat-icon-chips.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-chips.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
 
             {/* STRIPES — purple tint */}
@@ -750,7 +750,7 @@ export default function Profile() {
               <div style={{ fontSize: 26, fontWeight: 900, color: '#a855f7', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
-              <img src="/profile/icons/stat-icon-stripes.png" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src="/profile/icons/stat-icon-stripes.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
           </div>
 
@@ -822,7 +822,7 @@ export default function Profile() {
                   position: 'relative',
                   width: '100%',
                   minHeight: 200,
-                  backgroundImage: "url('/profile/trophy-best-pot.png')",
+                  backgroundImage: "url('/profile/trophy-best-pot.webp')",
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   borderRadius: 16,

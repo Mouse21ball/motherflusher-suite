@@ -444,20 +444,20 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
   // ── ROOM SELECTION (no tableId) ─────────────────────────────────────────────
   if (!tableId) {
     const QUEEN_PORTRAITS: Record<string, string> = {
-      spades:   '/ladyluck/queens/queen-spades.png',
-      hearts:   '/ladyluck/queens/queen-hearts.png',
-      diamonds: '/ladyluck/queens/queen-diamonds.png',
-      clubs:    '/ladyluck/queens/queen-clubs.png',
+      spades:   '/ladyluck/queens/queen-spades.webp',
+      hearts:   '/ladyluck/queens/queen-hearts.webp',
+      diamonds: '/ladyluck/queens/queen-diamonds.webp',
+      clubs:    '/ladyluck/queens/queen-clubs.webp',
     };
     const TIER_ROWS: { id: LadyLuckRoom; color: string; horseImg: string }[] = [
-      { id: 'pony',         color: '#10b981', horseImg: '/ladyluck/horses/horse-pony.png' },
-      { id: 'thoroughbred', color: '#d97706', horseImg: '/ladyluck/horses/horse-thoroughbred.png' },
-      { id: 'champion',     color: '#dc2626', horseImg: '/ladyluck/horses/horse-champion.png' },
+      { id: 'pony',         color: '#10b981', horseImg: '/ladyluck/horses/horse-pony.webp' },
+      { id: 'thoroughbred', color: '#d97706', horseImg: '/ladyluck/horses/horse-thoroughbred.webp' },
+      { id: 'champion',     color: '#dc2626', horseImg: '/ladyluck/horses/horse-champion.webp' },
     ];
     const chipBalance = (() => { try { const v = localStorage.getItem('cgp_balance'); return v ? Number(v).toLocaleString() : '—'; } catch { return '—'; } })();
 
     return (
-      <div style={{ minHeight: '100dvh', background: '#120c08', backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
+      <div style={{ minHeight: '100dvh', background: '#120c08', backgroundImage: "url('/ladyluck/ladyluck-bg.webp')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
         <style>{`
           @keyframes ll-glow-pulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
           @keyframes ll-fade-up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -488,7 +488,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
           {/* Dark gradient overlay for title legibility */}
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.7) 100%)', pointerEvents: 'none' }} />
           {/* Crown — centered above title */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', animation: 'll-glow-pulse 3s ease-in-out infinite', display: 'block', margin: '0 auto 8px', position: 'relative', zIndex: 1 }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', animation: 'll-glow-pulse 3s ease-in-out infinite', display: 'block', margin: '0 auto 8px', position: 'relative', zIndex: 1 }} />
           {/* LADY LUCK title */}
           <div style={{
             fontFamily: 'Anton, Georgia, serif', fontSize: 54, fontWeight: 900, letterSpacing: 3,
@@ -606,8 +606,8 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
         )}
 
         {/* ── RULES FOOTER ── */}
-        <div style={{ margin: '10px 12px', background: "linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), url('/ladyluck/ladyluck-footer-bg.png') center/cover", backdropFilter: 'blur(12px)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.1)', flexShrink: 0 }} />
+        <div style={{ margin: '10px 12px', background: "linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), url('/ladyluck/ladyluck-footer-bg.webp') center/cover", backdropFilter: 'blur(12px)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.1)', flexShrink: 0 }} />
           <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, color: 'rgba(201,162,39,0.72)', lineHeight: 1.5 }}>
              Four suits race to 9 matching cards from a 52-card deck. Pick clockwise — dealer picks last. Wager chips, place side bets.{' '}
             <span style={{ color: '#C9A227', fontWeight: 700 }}>FIRST TO 9 WINS THE POT. SIDE BETS PAY 2.5×.</span>
@@ -640,7 +640,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
               style={{ background: 'rgba(18,12,8,0.96)', border: '1px solid rgba(201,162,39,0.45)', borderRadius: 18, padding: '22px 20px 18px', maxWidth: 360, width: '100%', boxShadow: '0 0 40px rgba(201,162,39,0.18), 0 8px 32px rgba(0,0,0,0.8)' }}>
               {/* Crown + title */}
               <div style={{ textAlign: 'center', marginBottom: 18 }}>
-                <img src="/crews/icon-crown.png" alt="" style={{ width: 42, height: 42, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 10px' }} />
+                <img src="/crews/icon-crown.webp" alt="" style={{ width: 42, height: 42, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 10px' }} />
                 <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 22, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 60%,#7a5a10 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                   LADY LUCK
                 </div>
@@ -725,7 +725,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       <div style={{
         minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center', backgroundAttachment: 'fixed',
       }}>
         <style>{`@keyframes ll-lob-pulse { 0%,100%{opacity:0.7} 50%{opacity:1} }`}</style>
@@ -744,12 +744,12 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
           {/* Tier badge — top right */}
           <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(0,0,0,0.6)', border: `1px solid ${tierColor}55`, borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5, zIndex: 2 }}>
-            <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: '50%', filter: `sepia(1) saturate(3) hue-rotate(${state.roomType === 'pony' ? '100deg' : state.roomType === 'thoroughbred' ? '20deg' : '-10deg'}) brightness(1.1)` }} />
+            <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: '50%', filter: `sepia(1) saturate(3) hue-rotate(${state.roomType === 'pony' ? '100deg' : state.roomType === 'thoroughbred' ? '20deg' : '-10deg'}) brightness(1.1)` }} />
             <span style={{ fontFamily: 'monospace', fontSize: 10, color: tierColor, fontWeight: 700, letterSpacing: 2 }}>{roomCfg.label}</span>
           </div>
 
           {/* Crown */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 6px', position: 'relative', zIndex: 1, animation: 'll-lob-pulse 3s ease-in-out infinite' }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 6px', position: 'relative', zIndex: 1, animation: 'll-lob-pulse 3s ease-in-out infinite' }} />
 
           {/* Title */}
           <div style={{
@@ -791,7 +791,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: isMe ? '#C9A227' : '#C9A22766', flexShrink: 0, boxShadow: isMe ? '0 0 6px #C9A22790' : 'none' }} />
                   {/* Horse avatar */}
                   <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: `2px solid ${isMe ? '#C9A227' : '#C9A22733'}`, flexShrink: 0, background: '#0d0d0d' }}>
-                    <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : isBot ? 'grayscale(1) brightness(0.5)' : 'sepia(1) saturate(2) hue-rotate(-10deg) brightness(1.0)' }} />
+                    <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : isBot ? 'grayscale(1) brightness(0.5)' : 'sepia(1) saturate(2) hue-rotate(-10deg) brightness(1.0)' }} />
                   </div>
                   {/* Name */}
                   <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 14, color: isMe ? '#C9A227' : 'rgba(255,255,255,0.75)', fontWeight: isMe ? 700 : 400 }}>
@@ -813,7 +813,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
               <div key={`open-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(201,162,39,0.06)' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
                 <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.08)', flexShrink: 0, background: '#0d0d0d' }}>
-                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1) brightness(0.28)' }} />
+                  <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1) brightness(0.28)' }} />
                 </div>
                 <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.22)' }}>Open seat</span>
               </div>
@@ -841,21 +841,21 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
           {state.startingIn !== null ? (
             <>
-              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <img src="/crews/icon-crown.webp" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
               <div style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: 4, color: '#e53935', fontWeight: 700 }}>
                 STARTING IN {state.startingIn}…
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 }}>
                 <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22750)' }} />
                 <div style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #C9A22760', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
+                  <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
                 </div>
                 <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22750)' }} />
               </div>
             </>
           ) : isHost && canStart ? (
             <>
-              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <img src="/crews/icon-crown.webp" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
               <button
                 data-testid="button-ll-start"
                 onClick={handleStart}
@@ -865,7 +865,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
             </>
           ) : (
             <>
-              <img src="/crews/icon-crown.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
+              <img src="/crews/icon-crown.webp" alt="" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 8px' }} />
               <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: 4, color: '#C9A227', marginBottom: 10 }}>
                 {isHost ? 'WAITING FOR 2+ PLAYERS...' : 'WAITING FOR HOST TO START...'}
               </div>
@@ -873,7 +873,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                 <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22750)' }} />
                 <div style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #C9A22760', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
+                  <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.2)' }} />
                 </div>
                 <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22750)' }} />
               </div>
@@ -900,14 +900,14 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
     const isDealer       = myIdx === state.dealerIndex;
     const pickerPlayer   = state.players[state.currentPickIndex] ?? null;
     const dealerAutoGets = isDealer && state.claimedSuits.length >= state.players.length - 1;
-    const tierHorseImg   = `/ladyluck/horses/horse-${state.roomType}.png`;
+    const tierHorseImg   = `/ladyluck/horses/horse-${state.roomType}.webp`;
     const tierColor      = roomCfg.color;
 
     return (
       <div style={{
         minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center', backgroundAttachment: 'fixed',
       }}>
         <style>{`
@@ -933,7 +933,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
           </div>
 
           {/* Crown */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 5px', position: 'relative', zIndex: 1, animation: 'll-sel-pulse 3s ease-in-out infinite' }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 32, height: 32, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 5px', position: 'relative', zIndex: 1, animation: 'll-sel-pulse 3s ease-in-out infinite' }} />
 
           {/* Title */}
           <div style={{
@@ -985,7 +985,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                     boxShadow: isCurrent ? '0 0 8px #C9A22755' : 'none',
                   }}>
                     <img
-                      src="/ladyluck/horses/horse-champion.png"
+                      src="/ladyluck/horses/horse-champion.webp"
                       alt=""
                       style={{ width: '100%', height: '100%', objectFit: 'cover',
                         filter: isMe
@@ -1050,7 +1050,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
                 )}
                 {/* Player avatar */}
                 <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', border: `1.5px solid ${isClaimed ? (isRed ? '#e5393580' : 'rgba(255,255,255,0.4)') : 'rgba(255,255,255,0.1)'}`, flexShrink: 0, background: '#0d0d0d' }}>
-                  <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isClaimed ? (claimer?.id === identity.id ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : 'sepia(1) saturate(2) brightness(0.9)') : 'grayscale(1) brightness(0.25)' }} />
+                  <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isClaimed ? (claimer?.id === identity.id ? 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.3)' : 'sepia(1) saturate(2) brightness(0.9)') : 'grayscale(1) brightness(0.25)' }} />
                 </div>
                 {/* Name / queen nickname */}
                 {isClaimed && claimer ? (
@@ -1083,14 +1083,14 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
   if (state.phase === 'WAGER') {
     const alreadyWagered = myPlayer?.wagered ?? false;
     const wageredCount   = state.players.filter(p => p.wagered).length;
-    const tierHorseImg   = `/ladyluck/horses/horse-${state.roomType}.png`;
+    const tierHorseImg   = `/ladyluck/horses/horse-${state.roomType}.webp`;
     const tierColor      = roomCfg.color;
 
     return (
       <div style={{
         minHeight: '100dvh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center', backgroundAttachment: 'fixed',
         overflowX: 'hidden',
       }}>
@@ -1109,7 +1109,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
             <span style={{ fontFamily: 'monospace', fontSize: 10, color: tierColor, fontWeight: 700, letterSpacing: 2 }}>{roomCfg.label}</span>
           </div>
           {/* Crown */}
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 4px', position: 'relative', zIndex: 1, animation: 'll-wag-pulse 3s ease-in-out infinite' }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 30, height: 30, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 4px', position: 'relative', zIndex: 1, animation: 'll-wag-pulse 3s ease-in-out infinite' }} />
           {/* Title */}
           <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 42, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.95, marginBottom: 7, position: 'relative', zIndex: 1 }}>LADY LUCK</div>
           {/* Subtitle */}
@@ -1325,7 +1325,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       <div style={{
         minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-race-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center top', backgroundAttachment: 'fixed',
         overflowX: 'hidden',
       }}>
@@ -1362,7 +1362,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
           {/* CENTER — crown + title + subtitle */}
           <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-            <img src="/crews/icon-crown.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-race-crown 3s ease-in-out infinite' }} />
+            <img src="/crews/icon-crown.webp" alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-race-crown 3s ease-in-out infinite' }} />
             <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 34, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.92, marginBottom: 5 }}>LADY LUCK</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <div style={{ width: 24, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22780)' }} />
@@ -1375,7 +1375,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0, alignItems: 'flex-end' }}>
             {/* CGP logo */}
             <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+              <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
               <div>
                 <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 10, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
                 <div style={{ fontFamily: 'monospace', fontSize: 5, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, whiteSpace: 'nowrap' }}>LOYALTY NEVER LEAVES</div>
@@ -1603,7 +1603,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       <div style={{
         minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-race-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center top', backgroundAttachment: 'fixed',
         overflowX: 'hidden',
       }}>
@@ -1626,14 +1626,14 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
           {/* CENTER — crown + title */}
           <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-            <img src="/crews/icon-crown.png" alt="" style={{ width: 24, height: 24, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 3px', animation: 'll-res-crown 3s ease-in-out infinite' }} />
+            <img src="/crews/icon-crown.webp" alt="" style={{ width: 24, height: 24, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 3px', animation: 'll-res-crown 3s ease-in-out infinite' }} />
             <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 40, fontWeight: 900, letterSpacing: 4, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 38%,#7a5a10 68%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 0.88, animation: 'll-title-in 0.6s ease-out both' }}>RACE OVER</div>
           </div>
 
           {/* RIGHT — CGP box */}
           <div style={{ flexShrink: 0, width: 52, display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '4px 7px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-              <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+              <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
               <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 9, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
               <div style={{ fontFamily: 'monospace', fontSize: 4.5, color: 'rgba(255,255,255,0.28)', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>LOYALTY NEVER LEAVES</div>
             </div>
@@ -1642,7 +1642,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
         {/* ── WINNER CARD ── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 14px 10px', animation: 'll-result-in 0.55s ease-out 0.1s both', flexShrink: 0 }}>
-          <img src="/crews/icon-crown.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.4)', display: 'block' }} />
+          <img src="/crews/icon-crown.webp" alt="" style={{ width: 28, height: 28, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.4)', display: 'block' }} />
           {/* Large winner parchment card */}
           <div style={{
             width: 96, height: 134,
@@ -1708,8 +1708,8 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
         {/* ── YOUR RESULT PANEL ── */}
         <div style={{ margin: '0 14px 10px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', border: `1px solid ${myDelta >= 0 ? 'rgba(16,185,129,0.35)' : 'rgba(229,57,53,0.35)'}`, borderRadius: 12, padding: '12px 14px', position: 'relative', overflow: 'hidden', animation: 'll-result-in 0.55s ease-out 0.3s both', flexShrink: 0 }}>
           {/* Horse watermarks */}
-          <img src="/ladyluck/horses/horse-thoroughbred.png" alt="" style={{ position: 'absolute', left: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', transform: 'scaleX(-1)', pointerEvents: 'none' }} />
-          <img src="/ladyluck/horses/horse-thoroughbred.png" alt="" style={{ position: 'absolute', right: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', pointerEvents: 'none' }} />
+          <img src="/ladyluck/horses/horse-thoroughbred.webp" alt="" style={{ position: 'absolute', left: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', transform: 'scaleX(-1)', pointerEvents: 'none' }} />
+          <img src="/ladyluck/horses/horse-thoroughbred.webp" alt="" style={{ position: 'absolute', right: -8, bottom: -4, width: 56, height: 56, objectFit: 'contain', opacity: 0.07, filter: 'sepia(1) saturate(2)', pointerEvents: 'none' }} />
           <div style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(201,162,39,0.6)', letterSpacing: 3, marginBottom: 5, textAlign: 'center', fontVariant: 'small-caps' }}>YOUR RESULT</div>
           <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 36, letterSpacing: 2, color: myDelta >= 0 ? '#10b981' : '#e53935', textAlign: 'center', lineHeight: 1 }}>
             {myDelta >= 0 ? '+' : ''}{myDelta.toLocaleString()}
@@ -1777,7 +1777,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       <div style={{
         minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column',
         backgroundColor: '#120c08',
-        backgroundImage: "url('/ladyluck/ladyluck-race-bg.png')", backgroundSize: 'cover',
+        backgroundImage: "url('/ladyluck/ladyluck-race-bg.webp')", backgroundSize: 'cover',
         backgroundPosition: 'center top', backgroundAttachment: 'fixed',
         overflowX: 'hidden', padding: '0 0 24px',
       }}>
@@ -1797,7 +1797,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
 
           {/* CENTER — crown + title + subtitle */}
           <div style={{ flex: 1, textAlign: 'center', padding: '0 4px' }}>
-            <img src="/crews/icon-crown.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-bet-crown 3s ease-in-out infinite' }} />
+            <img src="/crews/icon-crown.webp" alt="" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', display: 'block', margin: '0 auto 2px', animation: 'll-bet-crown 3s ease-in-out infinite' }} />
             <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 28, fontWeight: 900, letterSpacing: 3, background: 'linear-gradient(180deg,#f5d76e 0%,#C9A227 40%,#7a5a10 72%,#C9A227 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 1, marginBottom: 2 }}>LADY LUCK</div>
             <div style={{ fontFamily: 'monospace', fontSize: 7, color: 'rgba(201,162,39,0.5)', letterSpacing: 3 }}>NEXT RACE</div>
           </div>
@@ -1805,7 +1805,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
           {/* RIGHT — CGP box */}
           <div style={{ flexShrink: 0, width: 60, display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(201,162,39,0.3)', borderRadius: 7, padding: '5px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <img src="/ladyluck/horses/horse-champion.png" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
+              <img src="/ladyluck/horses/horse-champion.webp" alt="" style={{ width: 18, height: 18, objectFit: 'cover', filter: 'sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)' }} />
               <div style={{ fontFamily: 'Anton, Georgia, serif', fontSize: 9, color: '#C9A227', letterSpacing: 2 }}>CGP</div>
             </div>
           </div>

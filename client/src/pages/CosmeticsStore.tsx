@@ -400,7 +400,7 @@ export default function CosmeticsStore() {
       className="min-h-screen"
       style={{
         fontFamily: 'system-ui, sans-serif',
-        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.png')",
+        backgroundImage: "url('/cosmetics/backgrounds/cosmetics-bg.webp')",
         backgroundSize: 'cover',
         backgroundPosition: 'center 30%',
         backgroundRepeat: 'no-repeat',

@@ -32,7 +32,7 @@ describe('bot seat avatars', () => {
       name: 'Vega',
       presence: 'bot',
       status: 'active',
-      avatarUrl: '/emote-gorilla-angry.png',
+      avatarUrl: '/emote-gorilla-angry.webp',
     });
     expect(makeBotPlayer(reserved, 'Another name').avatarUrl).toBe(bot.avatarUrl);
     expect(reserved).toMatchObject({ presence: 'reserved', name: 'Open' });

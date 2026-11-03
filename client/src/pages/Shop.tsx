@@ -66,7 +66,7 @@ const TIER_DEFS: TierDef[] = [
   {
     id: 'basic', name: 'Chip Player', tier: null,
     color: '#C0C0C0', bg: 'rgba(192,192,192,0.06)', border: 'rgba(192,192,192,0.15)',
-    emblem: '/tier-bronze.png',
+    emblem: '/tier-bronze.webp',
     features: [
       '25,000 chips when you join',
       'Standard avatar',
@@ -556,7 +556,7 @@ export default function Shop() {
     <div
       className="yard-shop-page min-h-[100dvh] text-white"
       style={{
-        backgroundImage: "url('/assets/backgrounds/bg-cellblock.jpg')",
+        backgroundImage: "url('/assets/backgrounds/bg-cellblock.webp')",
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',

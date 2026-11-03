@@ -4,10 +4,10 @@ import { apiUrl } from '@/lib/apiConfig';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 
 const QUEEN_PORTRAITS: Record<string, string> = {
-  spades:   '/ladyluck/queens/queen-spades.png',
-  hearts:   '/ladyluck/queens/queen-hearts.png',
-  diamonds: '/ladyluck/queens/queen-diamonds.png',
-  clubs:    '/ladyluck/queens/queen-clubs.png',
+  spades:   '/ladyluck/queens/queen-spades.webp',
+  hearts:   '/ladyluck/queens/queen-hearts.webp',
+  diamonds: '/ladyluck/queens/queen-diamonds.webp',
+  clubs:    '/ladyluck/queens/queen-clubs.webp',
 };
 
 const SUIT_SYMBOLS: Record<string, string> = {
@@ -77,7 +77,7 @@ export default function LadyLuckHistory() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#120c08', backgroundImage: "url('/ladyluck/ladyluck-bg.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100dvh', background: '#120c08', backgroundImage: "url('/ladyluck/ladyluck-bg.webp')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', color: '#fff', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative', overflowX: 'hidden' }}>
       <style>{`
         @keyframes ll-fade-up { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
@@ -99,7 +99,7 @@ export default function LadyLuckHistory() {
         {/* ── QUEEN WIN STATS ── */}
         <div style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(14px)', border: '1px solid rgba(201,162,39,0.2)', borderRadius: 14, padding: '14px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <img src="/crews/icon-crown.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', flexShrink: 0 }} />
+            <img src="/crews/icon-crown.webp" alt="" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'sepia(1) saturate(4) hue-rotate(-10deg) brightness(1.3)', flexShrink: 0 }} />
             <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.8 }}>QUEEN WIN STATS</span>
             {totalRaces > 0 && (
               <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)' }}>{totalRaces} RACES</span>

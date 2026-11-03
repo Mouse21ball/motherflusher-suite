@@ -38,7 +38,7 @@
 .cgp-cold-splash__art {
   position: absolute;
   inset: 0;
-  background: url('/splash-chain-gang-logo.png') center / contain no-repeat;
+  background: url('/splash-chain-gang-logo.webp') center / contain no-repeat;
   opacity: .2;
   filter: brightness(.48) saturate(.62);
   animation: cgp-art-settle 5200ms ease-out 1 forwards;
