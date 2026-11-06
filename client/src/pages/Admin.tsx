@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { apiFetch } from "@/lib/session";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlayerSearch } from "@/components/admin/PlayerSearch";
@@ -334,13 +334,13 @@ export default function Admin() {
           <h1 className="text-base font-mono font-bold" data-testid="text-admin-title">Admin Dashboard</h1>
           <p className="text-[10px] font-mono text-white/40" data-testid="text-admin-who">{me.displayName}</p>
         </div>
-        <a
+        <Link
           href="/"
           className="text-white/40 hover:text-white/70 text-xs font-mono transition-colors"
           data-testid="link-admin-back"
         >
           ← Lobby
-        </a>
+        </Link>
       </div>
 
       {/* Body */}

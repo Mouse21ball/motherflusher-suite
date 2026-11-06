@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { track } from '@/lib/analytics';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import {
   isHourlyReady, getHourlyCountdown, getHourlyBonusChips,
   shouldShowStarterPack, getVipTier,
@@ -362,9 +362,9 @@ export default function BonusCenter() {
               {DISCLAIMER} This app involves no real-money gambling. No purchase is necessary to play. All rewards are virtual chips for entertainment only.
             </p>
             <div className="flex items-center gap-3 mt-3">
-              <a href="/terms"   className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors underline underline-offset-2">Terms</a>
+              <Link href="/terms"   className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors underline underline-offset-2">Terms</Link>
               <span className="text-white/10">·</span>
-              <a href="/privacy" className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors underline underline-offset-2">Privacy Policy</a>
+              <Link href="/privacy" className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors underline underline-offset-2">Privacy Policy</Link>
             </div>
           </div>
 

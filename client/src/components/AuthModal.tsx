@@ -4,6 +4,7 @@
 // so all future API calls use the account profile (chips, hands, level restored).
 
 import { useState } from 'react';
+import { Link } from 'wouter';
 import { savePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch, setSessionToken } from '@/lib/session';
@@ -273,21 +274,21 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
           </button>
 
           {tab === 'login' && (
-            <a
+            <Link
               href="/forgot-password"
               className="text-[10px] font-mono text-white/25 hover:text-white/45 text-center transition-colors -mt-1"
               data-testid="link-auth-forgot-password"
             >
               Forgot password?
-            </a>
+            </Link>
           )}
 
           {tab === 'register' && (
             <p className="text-[10px] font-mono text-white/25 text-center leading-relaxed">
               By creating an account you agree to our{' '}
-              <a href="/terms" className="underline hover:text-white/50 transition-colors">Terms</a>
+              <Link href="/terms" className="underline hover:text-white/50 transition-colors">Terms</Link>
               {' & '}
-              <a href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</a>.
+              <Link href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</Link>.
               Virtual chips have no cash value · 13+
             </p>
           )}

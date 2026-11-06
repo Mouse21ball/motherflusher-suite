@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { Link, useLocation } from "wouter";
 import { getPlayerName, setPlayerName, ensurePlayerIdentity, savePlayerIdentity } from "@/lib/persistence";
 import { apiUrl } from "@/lib/apiConfig";
 import { apiFetch, setSessionToken, clearSessionToken } from "@/lib/session";
@@ -33,6 +34,7 @@ interface WelcomeGateProps {
 const LEGAL_PATHS = ['/terms', '/privacy'];
 
 export function WelcomeGate({ children }: WelcomeGateProps) {
+  const [location] = useLocation();
   const autoDismissPending = useRef(false);
   const [ageOk, setAgeOk]   = useState(() => getAgeConfirmed());
   const [name,  setName]    = useState(getInitialPlayerName);
@@ -92,7 +94,10 @@ export function WelcomeGate({ children }: WelcomeGateProps) {
     window.location.reload();
   };
 
-  const onLegalPage = LEGAL_PATHS.includes(window.location.pathname);
+  // Wouter location (reactive): client-side navigation to /terms or /privacy
+  // must re-render the gate so the legal-page bypass engages — reading
+  // window.location.pathname here would go stale after an SPA navigation.
+  const onLegalPage = LEGAL_PATHS.includes(location);
 
   if (!ageOk && !onLegalPage) {
     return (
@@ -284,7 +289,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
           {/* Legal links footer */}
           <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.22)' }}>
             By continuing, you confirm you meet the required age and agree to the{' '}
-            <a
+            <Link
               href="/terms"
               className="underline underline-offset-2 transition-colors"
               style={{ color: 'rgba(240,184,41,0.50)' }}
@@ -292,9 +297,9 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.50)')}
             >
               Terms
-            </a>
+            </Link>
             {' & '}
-            <a
+            <Link
               href="/privacy"
               className="underline underline-offset-2 transition-colors"
               style={{ color: 'rgba(240,184,41,0.50)' }}
@@ -302,7 +307,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,184,41,0.50)')}
             >
               Privacy Policy
-            </a>
+            </Link>
             .
           </p>
         </div>
@@ -545,9 +550,9 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
               Virtual chips are for entertainment only. They have no cash value, cannot be redeemed, and cannot be withdrawn.
             </p>
             <p className="text-[9px] font-mono text-center" style={{ color: 'rgba(255,255,255,0.15)' }}>
-              <a href="/terms" className="underline hover:text-white/35 transition-colors">Terms</a>
+              <Link href="/terms" className="underline hover:text-white/35 transition-colors">Terms</Link>
               {' · '}
-              <a href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</a>
+              <Link href="/privacy" className="underline hover:text-white/35 transition-colors">Privacy Policy</Link>
               {' · '}17+
             </p>
           </div>
@@ -643,12 +648,12 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
               data-testid="button-login-submit">
               {busy ? '…' : 'Log In'}
             </button>
-            <a href="/forgot-password"
+            <Link href="/forgot-password"
               className="text-[11px] font-mono text-center transition-colors"
               style={{ color: 'rgba(255,255,255,0.22)' }}
               data-testid="link-forgot-password">
               Forgot password?
-            </a>
+            </Link>
             <button type="button" onClick={() => { setMode('register'); setError(null); }}
               className="text-[11px] font-mono text-white/25 hover:text-white/45 text-center transition-colors"
               data-testid="button-switch-to-register">
@@ -714,9 +719,9 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
             </button>
             <p className="text-[10px] font-mono text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.28)' }}>
               By creating an account you agree to our{' '}
-              <a href="/terms" className="underline hover:text-white/50 transition-colors">Terms</a>
+              <Link href="/terms" className="underline hover:text-white/50 transition-colors">Terms</Link>
               {' & '}
-              <a href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</a>.
+              <Link href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</Link>.
               {' '}Virtual chips only · No cash value · 17+
             </p>
           </form>

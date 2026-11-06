@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { getStripeGoal } from '@/lib/stripeGoal';
 import {
   ensurePlayerIdentity,
@@ -968,9 +968,9 @@ export default function Home() {
           {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
           <div style={{ padding: '14px 12px 0' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <a href="/terms" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</a>
+              <Link href="/terms" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)', letterSpacing: '0.06em' }} data-testid="link-home-footer-terms">Terms</Link>
               <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
-              <a href="/privacy" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }} data-testid="link-home-footer-privacy">Privacy</a>
+              <Link href="/privacy" style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }} data-testid="link-home-footer-privacy">Privacy</Link>
               <span style={{ color: 'rgba(255,255,255,0.30)' }}>·</span>
               <a href="https://forms.gle/Vh6Uut9bB6neHA3J8" target="_blank" rel="noopener noreferrer"
                 style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.70)' }}

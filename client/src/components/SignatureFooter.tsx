@@ -3,6 +3,8 @@
  * Used at the bottom of /terms, /privacy, and optionally splash screens.
  */
 
+import { Link } from "wouter";
+
 interface SignatureFooterProps {
   showLinks?: boolean;
 }
@@ -41,17 +43,17 @@ export function SignatureFooter({ showLinks = true }: SignatureFooterProps) {
       {/* Nav links */}
       {showLinks && (
         <div className="flex items-center gap-3 text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.20)" }}>
-          <a href="/terms" className="hover:text-white/45 transition-colors underline underline-offset-2" data-testid="link-footer-terms">
+          <Link href="/terms" className="hover:text-white/45 transition-colors underline underline-offset-2" data-testid="link-footer-terms">
             Terms
-          </a>
+          </Link>
           <span style={{ color: "rgba(255,255,255,0.10)" }}>·</span>
-          <a href="/privacy" className="hover:text-white/45 transition-colors underline underline-offset-2" data-testid="link-footer-privacy">
+          <Link href="/privacy" className="hover:text-white/45 transition-colors underline underline-offset-2" data-testid="link-footer-privacy">
             Privacy Policy
-          </a>
+          </Link>
           <span style={{ color: "rgba(255,255,255,0.10)" }}>·</span>
-          <a href="/" className="hover:text-white/45 transition-colors">
+          <Link href="/" className="hover:text-white/45 transition-colors">
             Back to Lobby
-          </a>
+          </Link>
         </div>
       )}
 

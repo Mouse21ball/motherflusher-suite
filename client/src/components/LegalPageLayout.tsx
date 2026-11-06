@@ -3,6 +3,7 @@
  * Composes BrandBackground + DGM header badge + content + SignatureFooter.
  */
 
+import { Link } from "wouter";
 import { BrandBackground } from "./BrandBackground";
 import { SignatureFooter } from "./SignatureFooter";
 
@@ -56,7 +57,7 @@ export function LegalPageLayout({
 
           {/* Page header */}
           <div className="mb-2">
-            <a
+            <Link
               href={backHref}
               className="font-mono transition-colors inline-block mb-5"
               style={{ fontSize: "12px", color: "rgba(255,255,255,0.32)" }}
@@ -65,7 +66,7 @@ export function LegalPageLayout({
               onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.32)")}
             >
               {backLabel}
-            </a>
+            </Link>
 
             <h1
               className="text-xl sm:text-2xl font-bold font-sans mb-1"

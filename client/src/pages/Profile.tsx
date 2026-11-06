@@ -4,7 +4,7 @@
 // name-change cooldown, guest countdown) preserved unchanged.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { track } from '@/lib/analytics';
 import {
   getProgression, getLevelInfo, getRankForLevel, getUnlockedAchievements,
@@ -174,10 +174,16 @@ export default function Profile() {
     setDeleteBusy(true);
     setDeleteError(null);
     try { await revokePushInstallation(serverProfile?.profileId ?? identity.id); } catch {}
+    // Delete the SERVER profile id (the same target logout's push revoke uses
+    // above): the local identity id can diverge from the account's canonical
+    // profileId (legacy migrations, claimed accounts), and the server only
+    // accepts DELETE for the session's own profile id (requireSelf) — aiming
+    // at identity.id in that state would 403 a legitimate deletion.
+    const targetId = serverProfile?.profileId ?? identity.id;
     const isGuest = !serverProfile?.hasAuth;
     if (isGuest) {
       try {
-        await apiFetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
+        await apiFetch(apiUrl(`/api/players/${targetId}`), { method: 'DELETE' });
       } catch {}
       clearAllLocalData();
       clearSessionToken();
@@ -188,7 +194,7 @@ export default function Profile() {
     }
     try {
       const { apiUrl } = await import('@/lib/apiConfig');
-      const res = await apiFetch(apiUrl(`/api/players/${identity.id}`), { method: 'DELETE' });
+      const res = await apiFetch(apiUrl(`/api/players/${targetId}`), { method: 'DELETE' });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         if (res.status !== 404) { setDeleteError(d.error ?? 'Deletion failed.'); setDeleteBusy(false); return; }
@@ -1092,9 +1098,9 @@ export default function Profile() {
 
             {/* Terms / Privacy */}
             <div className="flex items-center justify-center gap-4">
-              <a href="/terms" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-terms">Terms &amp; Disclosures</a>
+              <Link href="/terms" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-terms">Terms &amp; Disclosures</Link>
               <span style={{ color: 'rgba(255,255,255,0.60)', fontSize: 11 }}>·</span>
-              <a href="/privacy" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-privacy">Privacy Policy</a>
+              <Link href="/privacy" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.20)' }} data-testid="link-profile-privacy">Privacy Policy</Link>
             </div>
 
             {/* Virtual chips disclaimer */}
@@ -1119,16 +1125,30 @@ export default function Profile() {
 
             {/* Delete account */}
             {!deleteOpen ? (
-              <div className="flex justify-center pt-1 pb-4">
+              <div className="pt-1 pb-4">
+                {/* Danger zone — must stay unmissable (App Store 5.1.1(v)): a
+                    full-width, clearly labeled row, not a faint text link. */}
                 <button
                   onClick={() => { setDeleteOpen(true); setDeleteError(null); setDeleteConfirmText(''); }}
                   data-testid="button-delete-account-open"
-                  onMouseEnter={e => (e.currentTarget.style.color = 'rgba(220,80,80,0.55)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.12)')}
-                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.12)', fontSize: 10, fontFamily: 'monospace', letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  className="w-full flex items-center justify-between rounded-xl px-4 py-3.5"
+                  style={{ background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.30)', cursor: 'pointer' }}
                 >
-                  {serverProfile?.hasAuth ? 'Delete Account' : 'Clear Guest Data'}
+                  <span className="flex flex-col items-start" style={{ gap: 2 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(248,113,113,0.95)' }}>
+                      {serverProfile?.hasAuth ? 'Delete Account' : 'Clear Guest Data'}
+                    </span>
+                    <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)' }}>
+                      {serverProfile?.hasAuth ? 'Permanently delete your account and all data' : 'Erase all guest data stored on this device'}
+                    </span>
+                  </span>
+                  <span style={{ color: 'rgba(248,113,113,0.60)', fontSize: '0.9rem' }}>›</span>
                 </button>
+                <div className="flex justify-center" style={{ marginTop: 10 }}>
+                  <Link href="/delete-account" className="underline underline-offset-2" style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.40)' }} data-testid="link-profile-delete-account-info">
+                    How account deletion works
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.14)' }}>

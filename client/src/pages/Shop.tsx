@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import { apiUrl } from '@/lib/apiConfig';
@@ -697,9 +697,9 @@ export default function Shop() {
             <p className="text-center mt-3 leading-relaxed" style={{ fontSize: 12, color: 'rgba(255,255,255,0.70)', fontStyle: 'italic' }}>
               Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
               {' '}
-              <a href="/terms"   target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Terms of Use</a>
+              <Link href="/terms"   style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Terms of Use</Link>
               {' · '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Privacy Policy</a>
+              <Link href="/privacy" style={{ color: 'rgba(255,215,0,0.85)', textDecoration: 'underline', fontSize: 12 }}>Privacy Policy</Link>
             </p>
           </div>
 
@@ -898,9 +898,9 @@ export default function Shop() {
             <p className="text-xs font-mono text-white/70 text-center mt-3 leading-relaxed" style={{ fontSize: 12 }}>
               Subscriptions auto-renew. Cancel anytime via your app store. Virtual chips and Stripes have no real-world value.
               {' '}
-              <a href="/terms"   target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Terms of Use</a>
+              <Link href="/terms"   className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Terms of Use</Link>
               {' · '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Privacy Policy</a>
+              <Link href="/privacy" className="underline" style={{ color: 'rgba(255,215,0,0.85)', fontSize: 12 }}>Privacy Policy</Link>
             </p>
           </div>
 
