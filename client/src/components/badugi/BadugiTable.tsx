@@ -13,6 +13,8 @@ import { baselineSeqs, declarationBadge, detectDrawTransactions, replacedIndices
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { TableFelt } from '@/components/game/TableFelt';
+import { OpenSeat } from '@/components/game/OpenSeat';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
@@ -48,6 +50,8 @@ interface ProtoPlayer {
   isWinner: boolean;
   /** Human seat with no live socket (server `connected` wire field). */
   disconnected: boolean;
+  /** Server-padded empty seat (name "Open", presence open/empty). */
+  isOpen: boolean;
 }
 
 // A transient animated element flying across the table
@@ -95,6 +99,9 @@ interface ProtoState {
   showdownBeat: 'winner' | 'all' | null;
   setShowdownBeat: (beat: 'winner' | 'all' | null) => void;
   motionMode: 'full' | 'reduced' | 'off';
+  /** Self-dismiss safety net for flights whose removal timer was
+   *  cleared wholesale (e.g. the showdown-exit timer sweep). */
+  dismissFlight: (id: string) => void;
 }
 
 const DEALER_POS = { x: 50, y: 4 };
@@ -232,6 +239,9 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
+          // P1: never deal visual cards to a server-padded OPEN seat —
+          // an empty seat must read empty, not receive phantom cards.
+          if (player.name === 'Open' && ((player as any).presence === 'open' || (player as any).presence === 'empty' || player.status === 'sitting_out')) continue;
           const isHero = seatIdx === 0;
           later(i * 160, () => {
             const pos = seatPosition(seatIdx);
@@ -366,6 +376,15 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
               winCards = cards.map(c => ({ rank: c.rank, suit: c.suit }));
               handLabel = evaluateBadugi(cards as Parameters<typeof evaluateBadugi>[0])?.description ?? '';
             } catch { /* evaluation failed, show cards without label */ }
+            // P1 win clarity: name the DECIDER, not just the hand. The
+            // evaluator describes every Badugi as "X-High Badugi"; the
+            // declaration says which end actually won it, so the banner
+            // reads "8-LOW BADUGI" / "KING-HIGH BADUGI".
+            const winDecl = (winner as any).declaration as string | null;
+            if ((winDecl === 'LOW' || winDecl === 'HIGH') && handLabel.includes('-High')) {
+              const highCard = handLabel.slice(0, handLabel.indexOf('-High')).trim();
+              if (highCard) handLabel = `${highCard}-${winDecl} BADUGI`;
+            }
             // Beat 1: winner-first reveal (immediate, all motion modes)
             setShowdownBeat('winner');
             if (motionMode === 'off') {
@@ -373,27 +392,30 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
               setShowdownBeat('all');
             } else if (motionMode === 'reduced') {
               // Reduced: no rake flight, no coins — short banner beat.
-              later(1200, () => setShowdownBeat('all'));
-              later(1800, () => {
+              // P1: the reveal beat holds slightly longer before the
+              // comparison/celebration sequence moves on.
+              later(1700, () => setShowdownBeat('all'));
+              later(2400, () => {
                 setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
               });
-              later(5000, () => {
+              later(5800, () => {
                 setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
                 setShowdownBeat(null);
               });
             } else {
-              // Full: rake → celebration → return (prototype timings).
+              // Full: rake → celebration → return (prototype timings,
+              // P1: winner beat + celebration hold extended slightly).
               later(2500, () => {
                 setRake({ active: true, winnerIndex: Math.max(0, seatIdx), amount: liveState.pot });
                 sfx.chipRake();
               });
-              later(3700, () => {
+              later(4400, () => {
                 setRake({ active: false, winnerIndex: -1, amount: 0 });
                 setShowdownBeat('all');
                 setCelebration({ active: true, winnerName: winner.name, amount: liveState.pot, cards: winCards, handLabel });
                 sfx.bigWin();
               });
-              later(9200, () => {
+              later(10400, () => {
                 setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "" });
                 setShowdownBeat(null);
               });
@@ -443,6 +465,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     drewCount: (p as any).lastDrawCount ?? null,
     isWinner: !!(p as any).isWinner,
     disconnected: (p as any).presence === 'human' && (p as any).connected === false,
+    isOpen: p.name === 'Open' && ((p as any).presence === 'open' || (p as any).presence === 'empty' || p.status === 'sitting_out'),
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -464,6 +487,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     showdownBeat,
     setShowdownBeat,
     motionMode,
+    dismissFlight: removeFlight,
   };
 }
 
@@ -550,12 +574,13 @@ function DeclarationBadge({ badge, small }: { badge: 'HIGH' | 'LOW'; small?: boo
   );
 }
 
-function FlightView({ flight }: { flight: Flight }) {
+function FlightView({ flight, onDone }: { flight: Flight; onDone?: (id: string) => void }) {
   const isCard = flight.kind !== 'chip';
   const liftTime = isCard ? 0.18 : 0; // cards lift before flying (UNO two-beat)
   return (
     <motion.div
       className="absolute z-30 pointer-events-none"
+      onAnimationComplete={() => onDone?.(flight.id)}
       style={{
         left: `${flight.fromX}%`,
         top: `${flight.fromY}%`,
@@ -595,10 +620,15 @@ function FlightView({ flight }: { flight: Flight }) {
           style={{
             width: flight.toHero ? 44 : 20,
             height: flight.toHero ? 62 : 30,
-            background: flight.faceDown
-              ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)'
-              : 'linear-gradient(135deg, #f5f0ff, #d9ccff)',
-            border: '1px solid rgba(139,92,246,0.6)',
+            // P1 (2026-11-06): a card in flight is a card BACK for the
+            // whole flight — the branded CGP back, never a blank slab.
+            // (Face-up flights used to render a near-white empty card:
+            // the Flight record carries no rank/suit, so the honest
+            // in-flight visual is the back; the face lands in the hand.)
+            backgroundImage: 'url(/card-back.webp)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            border: '1px solid rgba(201,162,39,0.55)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           }}
         />
@@ -693,51 +723,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         {/* Detroit 2026-10-19 Hybrid A+B: perspective table SURFACE only.
             Dimensional feel from silhouette + layered edge + lighting —
             NEVER transforms on pods, cards, text, or buttons (they stay flat).
-            The offset dark ellipse below reads as the table's near edge/side,
-            giving a viewed-from-above-at-angle feel without touching children. */}
-        {/* Table side/edge — offset dark ellipse = near-edge thickness */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: '3%', right: '3%', top: '12%', bottom: '30%',
-            borderRadius: '50%',
-            background: 'linear-gradient(180deg, #160b2b 0%, #0f0721 100%)',
-            boxShadow: '0 10px 32px rgba(0,0,0,0.7), 0 0 0 2px rgba(120,90,20,0.36)',
-          }}
-        />
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            // Detroit 2026-10-19 refinement: slightly smaller footprint so the
-            // table frames the seats instead of dominating them. Seat %
-            // positions are on the container, so spacing is unchanged.
-            left: '3.5%', right: '3.5%', top: '10%', bottom: '34%',
-            borderRadius: '50%',
-            // Layered felt: base purple + subtle woven texture via repeating gradient
-            // Perspective light: brighter at near edge (bottom), dimmer far (top)
-            background: `
-              repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
-              repeating-linear-gradient(-45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px),
-              radial-gradient(ellipse at 50% 78%, #483184 0%, #372664 38%, #241544 68%, #190d2c 100%)
-            `,
-            // Dimensional: near-edge highlight, far-edge falloff.
-            // Detroit 2026-10-20 UI pass: felt gradient stops darkened
-            // ~15% and the near-edge highlight eased (0.14 -> 0.11) to
-            // reduce the table's visual dominance WITHOUT shrinking
-            // the footprint — seats sit on the container, so a smaller
-            // felt would leave pods floating off the surface (the look
-            // rejected 2026-10-19). Same geometry, quieter surface.
-            boxShadow: `
-              inset 0 -3px 14px rgba(255,220,150,0.11),
-              inset 0 14px 28px rgba(0,0,0,0.4),
-              inset 0 0 60px rgba(0,0,0,0.3)
-            `,
-            // Restrained gold rail: thin solid + inner pinline
-            border: '3px solid rgba(201,162,39,0.75)',
-            outline: '1px solid rgba(120,90,20,0.6)',
-            outlineOffset: '3px',
-          }}
-        />
+            P1 (2026-11-06): the surface is now the shared TableFelt — a
+            real gold rail with visible width, woven felt with warm-top /
+            deep-bottom light, and the chain mark + mode name printed in
+            the felt. Same felt footprint as the old ad-hoc ellipses, so
+            seat geometry is untouched. */}
+        <TableFelt modeName="BADUGI" />
 
         {/* Detroit 2026-10-20: floating dealer "D" marker REMOVED — the
             avatar-attached pod badge is the single dealer indicator.
@@ -770,7 +761,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
         </div>
 
         {/* Flights: cards and chips moving across the table */}
-        {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
+        {state.flights.map(f => <FlightView key={f.id} flight={f} onDone={state.dismissFlight} />)}
 
         {/* Rake-in: the visual pot stack collapses and flies to the winner */}
         {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
@@ -845,7 +836,13 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{
+                left: `${pos.x}%`, top: `${pos.y}%`,
+                // P1 win clarity: at showdown, non-winning seats recede
+                // (folded seats already sat at 0.55) so the winner's
+                // glow is unmistakable.
+                opacity: p.folded ? 0.55 : (state.phase === 'showdown' && !p.isWinner && !p.isOpen ? 0.6 : 1),
+              }}
             >
               {/* Active turn — premium layered glow (not just a border) */}
               {isActive && (
@@ -885,7 +882,11 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   transition={{ duration: 0.3 }}
                 />
               )}
-              {p.isHero ? (
+              {p.isOpen ? (
+                /* P1: an open seat reads EMPTY — dim ring + OPEN plate,
+                   never the animal portrait. */
+                <OpenSeat seatNumber={i + 1} />
+              ) : p.isHero ? (
                 <>
                   {/* HERO — vertical: avatar+name row, chips, big cards below.
                       Dealer badge integrated on the avatar corner (same as pods). */}
@@ -1242,6 +1243,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
           try {
             handLabel = evaluateBadugi(winner.cards.filter(c => !c.isHidden) as any)?.description ?? '';
           } catch { /* no label */ }
+          // P1 win clarity: name the decider — "8-LOW BADUGI" /
+          // "KING-HIGH BADUGI" (same composition as the celebration).
+          if ((winner.declaration === 'LOW' || winner.declaration === 'HIGH') && handLabel.includes('-High')) {
+            const highCard = handLabel.slice(0, handLabel.indexOf('-High')).trim();
+            if (highCard) handLabel = `${highCard}-${winner.declaration} BADUGI`;
+          }
           const noMotion = state.motionMode === 'off' || reduced;
           return (
             <motion.div
@@ -1281,7 +1288,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                 WINS ${state.pot.toLocaleString()}
               </div>
               {handLabel && (
-                <div className="text-white/60 text-[11px] font-mono mt-0.5">{handLabel}</div>
+                <div className="text-amber-200 text-[13px] font-mono font-bold mt-1 tracking-wider" style={{ textShadow: '0 0 12px rgba(240,184,41,0.45)' }}>
+                  {handLabel}{handLabel.endsWith('BADUGI') ? ' WINS' : ''}
+                </div>
               )}
               <button
                 onClick={() => state.setShowdownBeat('all')}

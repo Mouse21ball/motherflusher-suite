@@ -6,8 +6,7 @@ import { getHeroHandValidity } from '../../../../shared/modes/heroHandValidity';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const B  = (a: number) => `rgba(249,115,22,${a})`;
-const R  = (a: number) => `rgba(239,68,68,${a})`;
-const G  = (a: number) => `rgba(134,239,172,${a})`;
+const Au = (a: number) => `rgba(201,162,39,${a})`;
 const Am = (a: number) => `rgba(251,191,36,${a})`;
 const Pr = (a: number) => `rgba(168,85,247,${a})`;
 
@@ -127,26 +126,31 @@ export function BoxChevyActionBar({
     WebkitTapHighlightColor: 'transparent',
   };
 
+  // P1 (2026-11-06): ONE action-button system across all modes —
+  // primary = gold gradient, secondary = dark glass + gold border,
+  // danger = red. The blue CHECK and orange RAISE slab are gone; the
+  // mode accents survive only as felt tint / trim.
   const foldStyle: React.CSSProperties = {
     ...base, flex: 0.7,
-    background: 'rgba(12,12,12,0.9)',
-    color: canAct ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.2)',
-    border: `1px solid ${R(0.2)}`,
+    background: 'rgba(20,14,0,0.9)',
+    color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.2)',
+    border: `1px solid ${Au(0.3)}`,
     opacity: canAct ? 1 : 0.5,
   };
   const checkCallStyle: React.CSSProperties = {
     ...base,
-    background: canAct ? 'linear-gradient(135deg, #1e3a5f, #1d4ed8)' : B(0.2),
-    color: canAct ? '#93c5fd' : 'rgba(255,255,255,0.2)',
-    border: `1px solid ${B(0.3)}`,
-    boxShadow: canAct ? `0 0 10px ${B(0.25)}` : 'none',
+    background: canAct ? 'linear-gradient(135deg, #7a5500, #C9A227)' : 'rgba(60,44,0,0.5)',
+    color: canAct ? '#fff' : 'rgba(255,255,255,0.2)',
+    border: 'none',
+    boxShadow: canAct ? `0 0 18px ${Au(0.45)}, 0 4px 12px rgba(0,0,0,0.4)` : 'none',
     opacity: canAct ? 1 : 0.5,
   };
   const raiseStyle: React.CSSProperties = {
     ...base, flex: 0.9,
-    background: canAct && canRaise ? 'linear-gradient(135deg, #B45309, #F97316)' : B(0.2),
-    color: canAct && canRaise ? '#fff' : 'rgba(255,255,255,0.2)',
-    boxShadow: canAct && canRaise ? `0 0 14px ${B(0.4)}` : 'none',
+    background: 'rgba(20,14,0,0.9)',
+    color: canAct && canRaise ? '#FDE68A' : 'rgba(255,255,255,0.2)',
+    border: `1px solid ${Au(0.6)}`,
+    boxShadow: canAct && canRaise ? `0 0 12px ${Au(0.25)}` : 'none',
     opacity: canAct && canRaise ? 1 : 0.4,
   };
 
@@ -167,9 +171,9 @@ export function BoxChevyActionBar({
                 fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em',
                 textTransform: 'uppercase', cursor: 'pointer', border: 'none',
                 outline: 'none', WebkitTapHighlightColor: 'transparent',
-                background: 'linear-gradient(135deg, #1e3a5f, #1d4ed8)',
-                color: '#93c5fd',
-                boxShadow: `0 0 24px ${B(0.55)}, 0 4px 16px rgba(0,0,0,0.4)`,
+                background: 'linear-gradient(135deg, #7a5500, #C9A227)',
+                color: '#fff',
+                boxShadow: `0 0 24px ${Au(0.55)}, 0 4px 16px rgba(0,0,0,0.4)`,
               }}
             >
               DEAL ME IN
@@ -182,7 +186,7 @@ export function BoxChevyActionBar({
 
         {/* ANTE — silent, auto-fires; show "POSTING ANTE…" */}
         {phase === 'ANTE' && (
-          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.12em' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0', fontSize: 11, fontFamily: 'monospace', color: Au(0.7), letterSpacing: '0.12em' }}>
             POSTING ANTE…
           </div>
         )}
@@ -195,13 +199,13 @@ export function BoxChevyActionBar({
               letterSpacing: '0.08em', textAlign: 'center',
             }}>
               DISCARD UP TO {maxSelect}&nbsp;
-              <span style={{ color: selectedCards.size > 0 ? '#F97316' : 'rgba(255,255,255,0.3)' }}>
+              <span style={{ color: selectedCards.size > 0 ? '#FDE68A' : 'rgba(255,255,255,0.3)' }}>
                 [{selectedCards.size}/{maxSelect}]
               </span>
             </div>
             <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
               <button
-                style={{ ...base, flex: 0.7, background: 'rgba(12,12,12,0.9)', color: canAct ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)', border: `1px solid rgba(148,163,184,0.2)`, opacity: canAct ? 1 : 0.5 }}
+                style={{ ...base, flex: 0.7, background: 'rgba(20,14,0,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: `1px solid ${Au(0.3)}`, opacity: canAct ? 1 : 0.5 }}
                 disabled={!canAct}
                 onClick={canAct ? onStandPat : undefined}
                 data-testid="button-stand-pat"
@@ -211,9 +215,9 @@ export function BoxChevyActionBar({
               <button
                 style={{
                   ...base,
-                  background: canAct && selectedCards.size > 0 ? 'linear-gradient(135deg, #1e3a5f, #1d4ed8)' : B(0.15),
-                  color: canAct && selectedCards.size > 0 ? '#93c5fd' : 'rgba(255,255,255,0.25)',
-                  boxShadow: canAct && selectedCards.size > 0 ? `0 0 14px ${B(0.4)}` : 'none',
+                  background: canAct && selectedCards.size > 0 ? 'linear-gradient(135deg, #7a5500, #C9A227)' : 'rgba(60,44,0,0.5)',
+                  color: canAct && selectedCards.size > 0 ? '#fff' : 'rgba(255,255,255,0.25)',
+                  boxShadow: canAct && selectedCards.size > 0 ? `0 0 14px ${Au(0.45)}` : 'none',
                 }}
                 disabled={!canAct || selectedCards.size === 0}
                 onClick={canAct && selectedCards.size > 0 ? onDraw : undefined}
@@ -233,7 +237,7 @@ export function BoxChevyActionBar({
         )}
         {isBetPhase && isMyTurn && heroChips > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.1em', textAlign: 'center', paddingTop: 2 }}>
+            <div style={{ fontSize: 11, fontFamily: 'monospace', color: Au(0.7), letterSpacing: '0.1em', textAlign: 'center', paddingTop: 2 }}>
               {phase.replace('_', ' ')} · RAISES {raisesThisRound}/{maxRaises}
             </div>
             {canRaise && (
@@ -245,9 +249,9 @@ export function BoxChevyActionBar({
                   value={raiseAmt}
                   onChange={e => setRaiseAmt(+e.target.value)}
                   data-testid="input-raise-amount"
-                  style={{ flex: 1, accentColor: '#F97316' }}
+                  style={{ flex: 1, accentColor: '#F59E0B' }}
                 />
-                <span style={{ fontSize: 11, color: '#F97316', fontFamily: 'monospace', minWidth: 36 }}>{raiseAmt}</span>
+                <span style={{ fontSize: 11, color: '#FDE68A', fontFamily: 'monospace', minWidth: 36 }}>{raiseAmt}</span>
               </div>
             )}
             <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
@@ -285,11 +289,11 @@ export function BoxChevyActionBar({
         {isDeclare && (
           declaration === 'HIGH' || declaration === 'LOW' || declaration === 'SWING' ? (
             <div style={{ textAlign: 'center', padding: '14px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: Au(0.7), letterSpacing: '0.14em' }}>YOU DECLARED</div>
               <div style={{
                 fontSize: 20, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em',
-                color: declaration === 'HIGH' ? '#F97316' : declaration === 'LOW' ? '#86efac' : '#fbbf24',
-                textShadow: declaration === 'HIGH' ? `0 0 16px ${B(0.7)}` : declaration === 'LOW' ? `0 0 16px ${G(0.7)}` : `0 0 16px ${Am(0.7)}`,
+                color: declaration === 'HIGH' ? '#FDE68A' : declaration === 'LOW' ? '#7dd3fc' : '#fbbf24',
+                textShadow: declaration === 'HIGH' ? `0 0 16px ${Au(0.7)}` : declaration === 'LOW' ? `0 0 16px rgba(125,211,252,0.7)` : `0 0 16px ${Am(0.7)}`,
               }}>
                 {declaration}
               </div>
@@ -317,20 +321,20 @@ export function BoxChevyActionBar({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontFamily: 'monospace', color: B(0.8), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: Au(0.8), letterSpacing: '0.12em', textAlign: 'center', paddingTop: 4 }}>
                 DECLARE HIGH · LOW · SWING
               </div>
               <div className="yard-action-buttons" style={{ display: 'flex', gap: 7 }}>
                 <button onClick={() => onDeclare('HIGH')} data-testid="button-declare-high"
-                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #1e3a5f, #1d4ed8)', color: '#93c5fd', boxShadow: `0 0 22px ${B(0.6)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
+                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7a5500, #C9A227)', color: '#fff', boxShadow: `0 0 22px ${Au(0.55)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
                   HIGH
                 </button>
                 <button onClick={() => onDeclare('LOW')} data-testid="button-declare-low"
-                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', background: `linear-gradient(135deg, #064e3b, #10b981)`, color: '#fff', boxShadow: `0 0 22px ${G(0.55)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
+                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', background: 'rgba(20,14,0,0.9)', color: '#FDE68A', border: `2px solid ${Au(0.35)}`, boxShadow: `0 0 10px ${Au(0.12)}`, WebkitTapHighlightColor: 'transparent' }}>
                   LOW
                 </button>
                 <button onClick={() => onDeclare('SWING')} data-testid="button-declare-swing"
-                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', background: `linear-gradient(135deg, #6b21a8, #a855f7)`, color: '#fff', boxShadow: `0 0 22px ${Pr(0.55)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
+                  style={{ flex: 1, padding: '15px 8px', borderRadius: 12, fontSize: 14, fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', background: 'linear-gradient(135deg, #7a5500, #C9A227)', color: '#fff', border: '2px solid rgba(253,230,138,0.85)', boxShadow: `0 0 22px ${Au(0.65)}, 0 4px 14px rgba(0,0,0,0.4)`, WebkitTapHighlightColor: 'transparent' }}>
                   SWING
                 </button>
               </div>

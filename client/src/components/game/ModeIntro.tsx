@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
-import { SignatureTraceGlow } from "@/components/ui/SignatureTraceGlow";
 
 interface ModeIntroProps {
   modeId: string;
@@ -10,17 +9,52 @@ interface ModeIntroProps {
   steps: string[];
   accentColor: string;
   proTip?: string;
+  /** Called when the sheet is dismissed (after the mode is marked seen). */
+  onDismiss?: () => void;
 }
 
 const STORAGE_KEY = "poker_table_intro_seen_v2";
 
 function getSeenModes(): string[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    // A non-array stored value (older build, hand-edited storage) must read
+    // as "nothing seen" — calling .includes on it crashed mode entry.
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
 }
 
 function markSeen(modeId: string) {
   const seen = getSeenModes();
   if (!seen.includes(modeId)) { seen.push(modeId); localStorage.setItem(STORAGE_KEY, JSON.stringify(seen)); }
+}
+
+/** True once the player has dismissed this mode's intro sheet. */
+export function hasSeenModeIntro(modeId: string): boolean {
+  return getSeenModes().includes(modeId);
+}
+
+/**
+ * ModeIntroGate — the first-visit seating hold (P1, 2026-11-06).
+ *
+ * The intro sheet used to mount INSIDE the live game page, so it opened
+ * over an already-dealt hand with the turn clock running. The gate
+ * inverts that: for a first-time entrant the game page (and with it the
+ * join, the seating and the deal) does not mount at all until the sheet
+ * is dismissed. Returning players (intro already seen) pass straight
+ * through with no extra render.
+ */
+export function ModeIntroGate({ modeId, children }: { modeId: string; children: ReactNode }) {
+  const intro = MODE_INTROS[modeId];
+  const [blocked, setBlocked] = useState(() => !!intro && !hasSeenModeIntro(modeId));
+
+  if (!blocked || !intro) return <>{children}</>;
+
+  return (
+    <div style={{ height: '100dvh', background: '#0B0B0D' }}>
+      <ModeIntro modeId={modeId} {...intro} onDismiss={() => setBlocked(false)} />
+    </div>
+  );
 }
 
 // ── Progress dots ─────────────────────────────────────────────────────────────
@@ -43,15 +77,18 @@ function Dots({ total, current }: { total: number; current: number }) {
 }
 
 // ── Slide 0: What & Why ────────────────────────────────────────────────────────
+// P1 (2026-11-06): the SignatureTraceGlow wrapper is GONE from this slide.
+// Its fixed-aspect SVG rect (viewBox 100x40, preserveAspectRatio="none")
+// never matched the panel's real radius, so it painted a second, offset
+// outline around the accent panel — the double-outline edge artifact on
+// the Badugi (green) and Lady Luck (red) sheets. The panel stands alone.
 function SlideObjective({ title, objective, accentColor }: { title: string; objective: string; accentColor: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <SignatureTraceGlow variant="pulse" durationMs={720}>
-        <div className={`rounded-xl px-5 py-5 bg-gradient-to-br ${accentColor} flex flex-col gap-2`}>
-          <h2 className="text-xl font-bold text-white/90 font-sans tracking-tight" data-testid="text-intro-title">{title}</h2>
-          <p className="text-white/60 text-sm leading-relaxed">{objective}</p>
-        </div>
-      </SignatureTraceGlow>
+      <div className={`rounded-xl px-5 py-5 bg-gradient-to-br ${accentColor} flex flex-col gap-2`}>
+        <h2 className="text-xl font-bold text-white/90 font-sans tracking-tight" data-testid="text-intro-title">{title}</h2>
+        <p className="text-white/60 text-sm leading-relaxed">{objective}</p>
+      </div>
     </div>
   );
 }
@@ -102,7 +139,7 @@ function SlideProTip({ proTip, onDismiss }: { proTip: string; onDismiss: () => v
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip }: ModeIntroProps) {
+export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip, onDismiss }: ModeIntroProps) {
   const [visible, setVisible] = useState(false);
   const [page, setPage] = useState(0);
   const totalPages = proTip ? 3 : 2;
@@ -115,7 +152,8 @@ export function ModeIntro({ modeId, title, objective, steps, accentColor, proTip
   const dismiss = useCallback(() => {
     markSeen(modeId);
     setVisible(false);
-  }, [modeId]);
+    onDismiss?.();
+  }, [modeId, onDismiss]);
 
   const next = useCallback(() => {
     if (page < totalPages - 1) setPage(p => p + 1);

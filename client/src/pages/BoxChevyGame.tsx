@@ -6,7 +6,7 @@ import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
 import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
-import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { ModeIntroGate } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
@@ -300,7 +300,6 @@ function BoxChevyGameUI() {
   }, [state.chatMessages.length, chatOpen]);
   useEffect(() => { if (chatOpen) setChatUnread(0); }, [chatOpen]);
 
-  const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
   const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
 
   // Detroit 2026-10-24: ENTRY GATE. Until a valid authoritative server
@@ -339,7 +338,8 @@ function BoxChevyGameUI() {
       backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
     }} data-mode={MODE_ID}>
 
-      {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
+      {/* P1 (2026-11-06): the HOW IT WORKS sheet is gated at the route
+          (ModeIntroGate below) — it no longer opens over a dealt hand. */}
 
       {actionError && <div role="alert" className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg border border-red-500/30 bg-black/90 px-4 py-2 text-center text-xs text-red-200">{actionError}</div>}
       <BustOutModal
@@ -490,5 +490,11 @@ export default function BoxChevyGame() {
       </div>
     );
   }
-  return <BoxChevyGameUI />;
+  // P1 (2026-11-06): first-time entrants read the HOW IT WORKS sheet
+  // BEFORE the table mounts — no dealt hand, no running clock under it.
+  return (
+    <ModeIntroGate modeId={MODE_ID}>
+      <BoxChevyGameUI />
+    </ModeIntroGate>
+  );
 }

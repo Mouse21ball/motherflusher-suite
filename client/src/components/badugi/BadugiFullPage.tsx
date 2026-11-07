@@ -18,7 +18,6 @@ import { BustOutModal } from '@/components/game/BustOutModal';
 import { useHandAnalytics } from '@/lib/useHandAnalytics';
 import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
-import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
 import { XPToast } from '@/components/XPToast';
 import { useXPWatcher } from '@/lib/useXPWatcher';
 import { useGameToasts } from '@/lib/useGameToasts';
@@ -192,8 +191,10 @@ export function BadugiFullPage({
   };
 
   /* Detroit 2026-10-15: ShowdownReveal removed — prototype celebration in BadugiTable owns the winner moment */
-
-  const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID];
+  /* P1 (2026-11-06): the HOW IT WORKS sheet no longer mounts here — the
+     ModeIntroGate on the BadugiGame route holds the whole page until a
+     first-time entrant dismisses it, so it can never open over a dealt
+     hand with the clock running. */
 
   return (
     <div style={{
@@ -202,7 +203,6 @@ export function BadugiFullPage({
       backgroundImage: `url('${tableBackground.url}')`,
       backgroundSize: 'cover', backgroundPosition: 'center top',
     }} data-mode={MODE_ID}>
-      {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
 
       {/* Fixed top status bar */}
       <GameStatusBar

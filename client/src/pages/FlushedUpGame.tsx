@@ -7,7 +7,7 @@ import { ChatBox } from '@/components/game/ChatBox';
 import { ChatEmoteRow } from '@/components/game/ChatEmoteRow';
 import { BustOutModal } from '@/components/game/BustOutModal';
 import { SpectatorBanner, SpectatorWatchingBadge } from '@/components/game/SpectatorBanner';
-import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { ModeIntroGate } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
 import { DebugOverlay } from '@/components/game/DebugOverlay';
 import { XPToast } from '@/components/XPToast';
@@ -336,9 +336,6 @@ function FlushedUpGameUI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const modeIntro = (MODE_INTROS as Record<string, (typeof MODE_INTROS)[keyof typeof MODE_INTROS]>)[MODE_ID]
-    ?? MODE_INTROS.swing;
-
   const handleBack = useCallback(() => { void leaveToLobby(); }, [leaveToLobby]);
 
   /* ── Render ─────────────────────────────────────────────────────────── */
@@ -356,7 +353,8 @@ function FlushedUpGameUI() {
       }}
       data-mode={MODE_ID}
     >
-      {modeIntro && <ModeIntro modeId={MODE_ID} {...modeIntro} />}
+      {/* P1 (2026-11-06): the HOW IT WORKS sheet is gated at the route
+          (ModeIntroGate below) — it no longer opens over a dealt hand. */}
 
       {/* ── Shared game menu (consistent across all tables) ─────────── */}
       <GameStatusBar
@@ -544,5 +542,11 @@ export default function FlushedUpGame() {
       </div>
     );
   }
-  return <FlushedUpGameUI />;
+  // P1 (2026-11-06): first-time entrants read the HOW IT WORKS sheet
+  // BEFORE the table mounts — no dealt hand, no running clock under it.
+  return (
+    <ModeIntroGate modeId={MODE_ID}>
+      <FlushedUpGameUI />
+    </ModeIntroGate>
+  );
 }

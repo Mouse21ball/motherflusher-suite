@@ -170,15 +170,19 @@ export function BettingControls({
               );
             })}
           </div>
-          {/* Confirm / cancel */}
+          {/* Confirm / cancel — P1 (2026-11-06): one button system.
+              CONFIRM is a primary action (gold gradient); it used to be
+              RED, which reads as danger for a routine confirm. CANCEL
+              takes the secondary style (dark glass + gold border). */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
-            <button type="button" style={{ ...buttonStyle, minHeight: 40 }}
+            <button type="button"
+              style={{ ...buttonStyle, minHeight: 40, background: 'rgba(20,14,0,0.9)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(201,162,39,0.3)', boxShadow: 'none' }}
               onClick={() => setRaiseOpen(false)} data-testid="button-raise-cancel">
               CANCEL
             </button>
             <button type="button"
               style={{ ...buttonStyle, minHeight: 40,
-                background: validRaise ? 'linear-gradient(135deg,#7a1010,#dc2626)' : 'rgba(50,10,10,.5)',
+                background: validRaise ? 'linear-gradient(135deg,#7a5500,#C9A227)' : 'rgba(60,44,0,0.5)',
                 color: '#fff', opacity: validRaise ? 1 : 0.45 }}
               disabled={!validRaise}
               onClick={validRaise ? () => { onAction('raise', raiseTo); setRaiseOpen(false); } : undefined}

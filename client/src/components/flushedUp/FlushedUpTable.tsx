@@ -12,6 +12,8 @@ import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { TableFelt } from '@/components/game/TableFelt';
+import { OpenSeat } from '@/components/game/OpenSeat';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
@@ -45,6 +47,8 @@ interface ProtoPlayer {
   folded: boolean;
   drewCount: number | null; // null = hasn't drawn yet
   isWinner: boolean;
+  /** Server-padded empty seat (name "Open", presence open/empty). */
+  isOpen: boolean;
 }
 
 // A transient animated element flying across the table
@@ -94,6 +98,8 @@ interface ProtoState {
   /** Structured showdown summary from the server's settlement
    *  (Detroit 2026-10-22); null outside a resolved showdown. */
   summary: ShowdownSummary | null;
+  /** Self-dismiss safety net for flights whose removal timer died. */
+  dismissFlight: (id: string) => void;
 }
 
 // Key table positions (percentages) — same as Badugi
@@ -234,6 +240,8 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
+          // P1: never deal visual cards to a server-padded OPEN seat.
+          if (player.name === 'Open' && ((player as any).presence === 'open' || (player as any).presence === 'empty' || player.status === 'sitting_out')) continue;
           const isHero = seatIdx === 0;
           later(i * 160, () => {
             const pos = seatPosition(seatIdx);
@@ -378,7 +386,8 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
           setRake({ active: false, winnerIndex: -1, amount: 0 });
           setCelebration({ active: true, ...c });
           sfx.bigWin();
-          later(5500, () => {
+          // P1: hold the win moment slightly longer before it clears.
+          later(6800, () => {
             if (celebHandRef.current === entryHandId) {
               setCelebration({ active: false, winnerName: "", amount: 0, cards: [], handLabel: "", comparison: "", others: [] });
             }
@@ -441,6 +450,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     folded: p.status === 'folded',
     drewCount: (p as any).lastDrawCount ?? null,
     isWinner: !!(p as any).isWinner,
+    isOpen: p.name === 'Open' && ((p as any).presence === 'open' || (p as any).presence === 'empty' || p.status === 'sitting_out'),
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -459,6 +469,7 @@ function useLiveProtoState(liveState: GameState, myId: string): ProtoState {
     communityCards: (liveState.communityCards ?? []).map(c => ({ ...c, isHidden: false })),
     turnDeadline: (liveState as any).turnDeadline ?? null,
     summary: (liveState as any).showdownSummary ?? null,
+    dismissFlight: removeFlight,
   };
 }
 
@@ -538,12 +549,13 @@ function PotStack({ amount }: { amount: number }) {
   );
 }
 
-function FlightView({ flight }: { flight: Flight }) {
+function FlightView({ flight, onDone }: { flight: Flight; onDone?: (id: string) => void }) {
   const isCard = flight.kind !== 'chip';
   const liftTime = isCard ? 0.18 : 0; // cards lift before flying (UNO two-beat)
   return (
     <motion.div
       className="absolute z-30 pointer-events-none"
+      onAnimationComplete={() => onDone?.(flight.id)}
       style={{
         left: `${flight.fromX}%`,
         top: `${flight.fromY}%`,
@@ -582,10 +594,13 @@ function FlightView({ flight }: { flight: Flight }) {
           style={{
             width: flight.toHero ? 44 : 20,
             height: flight.toHero ? 62 : 30,
-            background: flight.faceDown
-              ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)'
-              : 'linear-gradient(135deg, #f5f0ff, #d9ccff)',
-            border: '1px solid rgba(139,92,246,0.6)',
+            // P1 (2026-11-06): a card in flight is the branded CGP card
+            // BACK for the whole flight — never a blank white slab. The
+            // Flight record carries no rank/suit; the face lands in hand.
+            backgroundImage: 'url(/card-back.webp)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            border: '1px solid rgba(201,162,39,0.55)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           }}
         />
@@ -639,6 +654,11 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
       >
         {/* Detroit 2026-10-18: floating dealer marker removed — dealer shown only by D next to their name (was disconnected/confusing) */}
         {/* Detroit 2026-10-16: Flushed Up community UI removed — engine never deals community cards (dead code). */}
+        {/* P1 (2026-11-06): the shared TableFelt — this table used to
+            float its cards and pods directly over the yard photo with
+            NO felt at all. Mode identity survives only as the faint
+            magenta tint washed into the felt. */}
+        <TableFelt modeName="FLUSHED UP" tint="rgba(217,70,239,0.05)" />
 
         {/* Center staging — pot as the centerpiece (Badugi's latitude) */}
         <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
@@ -662,7 +682,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
         </div>
 
         {/* Flights: cards and chips moving across the table */}
-        {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
+        {state.flights.map(f => <FlightView key={f.id} flight={f} onDone={state.dismissFlight} />)}
 
         {/* Rake-in: the visual pot stack collapses and flies to the winner */}
         {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
@@ -737,7 +757,11 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{
+                left: `${pos.x}%`, top: `${pos.y}%`,
+                // P1 win clarity: non-winning seats recede at showdown.
+                opacity: p.folded ? 0.55 : (state.phase === 'showdown' && !p.isWinner && !p.isOpen ? 0.6 : 1),
+              }}
             >
               {/* Active turn — premium layered glow */}
               {isActive && (
@@ -814,7 +838,11 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                     )}
                   </div>
                 );
-                return p.isHero ? (
+                return p.isOpen ? (
+                /* P1: an open seat reads EMPTY — dim ring + OPEN plate,
+                   never the animal portrait. */
+                <OpenSeat seatNumber={i + 1} />
+                ) : p.isHero ? (
                 <>
                   {/* HERO — Badugi structure: avatar (dealer badge on its
                       corner) + name row, chips, bet, timer bar; cards below. */}

@@ -14,6 +14,8 @@ import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { TableFelt } from '@/components/game/TableFelt';
+import { OpenSeat } from '@/components/game/OpenSeat';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
 import { getAvatarInitials } from '@/lib/persistence';
 import type { CardType } from '@shared/gameTypes';
@@ -60,6 +62,8 @@ interface ProtoPlayer {
   foldReason: string | null;
   isWinner: boolean;
   avatarUrl?: string;
+  /** Server-padded empty seat (name "Open", presence open/empty). */
+  isOpen: boolean;
 }
 
 // A transient animated element flying across the table
@@ -108,6 +112,9 @@ interface ProtoState {
   /** Server turn deadline (epoch ms) for the active seat — drives the
    *  per-pod timer bars (Badugi pattern). */
   turnDeadline: number | null;
+  /** Self-dismiss safety net for flights whose removal timer died —
+   *  the stranded floating card-back artifact fix. */
+  dismissFlight: (id: string) => void;
 }
 
 // Table anchors (community band, pot, muck) live in dealerOrigin.ts
@@ -300,7 +307,8 @@ function useLiveProtoState(
         }
         celebHandRef.current = handId;
         sfx.bigWin();
-        later(5300, () => {
+        // P1: hold the win moment slightly longer before it clears.
+        later(6600, () => {
           // Clear ONLY this hand's celebration — a newer hand's
           // celebration is never killed by a stale timer.
           if (celebHandRef.current === handId) { celebHandRef.current = null; setCelebration(emptyCelebration()); }
@@ -342,6 +350,8 @@ function useLiveProtoState(
           const seatIdx = i % ordered.length;
           const player = ordered[seatIdx];
           if (!player) continue;
+          // P1: never deal visual cards to a server-padded OPEN seat.
+          if (player.name === 'Open' && ((player as any).presence === 'open' || (player as any).presence === 'empty' || player.status === 'sitting_out')) continue;
           const isHero = seatIdx === 0;
           later(i * 160, () => {
             const pos = seatPosition(seatIdx);
@@ -514,6 +524,7 @@ function useLiveProtoState(
     foldReason: (p as any).foldReason ?? null,
     isWinner: !!(p as any).isWinner,
     avatarUrl: (p as any).avatarUrl ?? undefined,
+    isOpen: p.name === 'Open' && ((p as any).presence === 'open' || (p as any).presence === 'empty' || p.status === 'sitting_out'),
   }));
 
   const dealerPlayerIdx = liveState.players.findIndex(p => (p as any).isDealer);
@@ -531,10 +542,11 @@ function useLiveProtoState(
     celebration,
     communityCards: (liveState.communityCards ?? []).slice(0, commLanded === -1 ? (liveState.communityCards ?? []).length : commLanded).map(c => ({ ...c, isHidden: false })),
     turnDeadline: (liveState as any).turnDeadline ?? null,
+    dismissFlight: removeFlight,
   };
 }
 
-function FlightView({ flight }: { flight: Flight }) {
+function FlightView({ flight, onDone }: { flight: Flight; onDone?: (id: string) => void }) {
   // Detroit 2026-10-24 (Safeguard B): the gold COIN visual is reserved
   // for chip flights only. Discards ('muck') are cards — they render as
   // face-down card backs, never as coins.
@@ -545,6 +557,11 @@ function FlightView({ flight }: { flight: Flight }) {
   return (
     <motion.div
       className="absolute z-30 pointer-events-none"
+      // P1: a flight dismisses ITSELF when its animation completes, so a
+      // card can never strand on the felt if its removal timer was
+      // cleared or its hand ended mid-flight (the floating card-back
+      // artifact). Timer removal still wins in the normal case.
+      onAnimationComplete={() => onDone?.(flight.id)}
       style={{ left: `${flight.fromX}%`, top: `${flight.fromY}%`, width: size.w, height: size.h }}
       initial={{ x: '-50%', y: '-50%' }}
       animate={{ left: `${flight.toX}%`, top: `${flight.toY}%` }}
@@ -555,8 +572,14 @@ function FlightView({ flight }: { flight: Flight }) {
           className="rounded"
           style={{
             width: '100%', height: '100%',
-            background: flight.faceDown ? 'linear-gradient(135deg, #2d1b69, #1a0f2e)' : '#fff',
-            border: '1px solid rgba(139,92,246,0.4)',
+            // P1 (2026-11-06): the branded CGP card BACK for the whole
+            // flight — face-up flights used to render a blank '#fff'
+            // slab. The Flight record carries no rank/suit; the face
+            // lands in the hand / community row.
+            backgroundImage: 'url(/card-back.webp)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            border: '1px solid rgba(201,162,39,0.55)',
           }}
         />
       ) : (
@@ -619,6 +642,11 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
       <div className="flex-1 relative" style={{ perspective: '1200px' }}>
         {/* Floating dealer marker removed (Badugi/FU precedent): the
             dealer is the D badge on the dealer's avatar corner. */}
+        {/* P1 (2026-11-06): the shared TableFelt — this table used to
+            float its cards and pods directly over the yard photo with
+            NO felt at all. Mode identity survives only as the faint
+            orange tint washed into the felt. */}
+        <TableFelt modeName="BOX CHEVY" tint="rgba(249,115,22,0.05)" />
 
         {/* Center band (reserved): COMMUNITY label + five mini cards +
             pot pill, one block centered at 50.5%. Detroit 2026-10-22:
@@ -672,7 +700,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           <div className="absolute left-1/2 -translate-x-1/2 text-white/30 text-[10px] font-mono" style={{ top: MUCK_LABEL_TOP }}>🂠 muck</div>
         )}
 
-        {state.flights.map(f => <FlightView key={f.id} flight={f} />)}
+        {state.flights.map(f => <FlightView key={f.id} flight={f} onDone={state.dismissFlight} />)}
 
         {state.rake.active && state.rake.winnerIndex >= 0 && (() => {
           const wpos = seatPosition(state.rake.winnerIndex);
@@ -754,9 +782,11 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
           ) : null;
           const declarationPill = p.declaration ? (
             <span className={`text-[8px] font-mono font-bold px-1 py-px rounded-full shrink-0 ${
-              p.declaration === 'HIGH' ? 'text-blue-300 bg-blue-500/20' :
-              p.declaration === 'LOW' ? 'text-green-300 bg-green-500/20' :
-              p.declaration === 'SWING' ? 'text-purple-300 bg-purple-500/20' :
+              // P1: declaration plates align with Badugi's badge system —
+              // HIGH = gold, LOW = sky, SWING = bright gold.
+              p.declaration === 'HIGH' ? 'text-amber-300 bg-amber-500/20' :
+              p.declaration === 'LOW' ? 'text-sky-300 bg-sky-500/20' :
+              p.declaration === 'SWING' ? 'text-yellow-200 bg-yellow-500/25' :
               'text-white/40 bg-white/10'
             }`}>
               {p.declaration}
@@ -766,7 +796,11 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
             <div
               key={p.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: p.folded ? 0.55 : 1 }}
+              style={{
+                left: `${pos.x}%`, top: `${pos.y}%`,
+                // P1 win clarity: non-winning seats recede at showdown.
+                opacity: p.folded ? 0.55 : (state.phase === 'showdown' && !p.isWinner && !p.isOpen ? 0.6 : 1),
+              }}
             >
               {/* Active turn — premium layered glow (Badugi/FU pattern) */}
               {isActive && (
@@ -800,7 +834,11 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   transition={{ duration: 0.3 }}
                 />
               )}
-              {p.isHero ? (
+              {p.isOpen ? (
+                /* P1: an open seat reads EMPTY — dim ring + OPEN plate,
+                   never the animal portrait. */
+                <OpenSeat seatNumber={i + 1} />
+              ) : p.isHero ? (
                 <>
                   {/* HERO — Badugi structure: avatar (dealer badge on its
                       corner) + name row, chips, bet, timer; cards below;

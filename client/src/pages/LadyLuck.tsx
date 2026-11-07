@@ -7,7 +7,7 @@ import { ensurePlayerIdentity } from '@/lib/persistence';
 import { reportTableConnection, returnToLobby } from '@/lib/tableConnectionHealth';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { LADY_LUCK_FLIP_DURATION_MS, LADY_LUCK_SUIT_PULSE_MS } from '../../../shared/ladyluckTiming';
-import { ModeIntro, MODE_INTROS } from '@/components/game/ModeIntro';
+import { ModeIntro, MODE_INTROS, hasSeenModeIntro } from '@/components/game/ModeIntro';
 import { HowToPlay } from '@/components/ui/HowToPlay';
 import {
   LadyLuckState,
@@ -207,10 +207,13 @@ function useLLRoomData(): LLRoomData {
 
 interface LadyLuckPageProps {
   onGamePageChange: (active: boolean) => void;
-  onIntroEligible: () => void;
+  /** P1 (2026-11-06): while true, the table join is HELD — a first-time
+   *  entrant reads the HOW IT WORKS sheet before being seated, so the
+   *  sheet never opens over a live race with the clock running. */
+  joinHeld: boolean;
 }
 
-function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) {
+function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
   const { profile: serverProfile, loading: profileLoading } = useServerProfile();
   const [, navigate]          = useLocation();
   const [tableId, setTableId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('t'));
@@ -236,15 +239,12 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
     onGamePageChange(Boolean(tableId));
   }, [tableId, onGamePageChange]);
 
-  useEffect(() => {
-    if (state?.players.some(player => player.id === identity.id && player.presence === 'human')) {
-      onIntroEligible();
-    }
-  }, [state?.players, identity.id, onIntroEligible]);
-
   // ── WebSocket connection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!tableId) return;
+    // P1 (2026-11-06): first-visit join hold — no socket, no seat, no
+    // race clock for this player until the intro sheet is dismissed.
+    if (joinHeld) return;
     let ws: WebSocket | null = null;
     let alive = true;
     let stateReceived = false;
@@ -371,7 +371,7 @@ function LadyLuckPage({ onGamePageChange, onIntroEligible }: LadyLuckPageProps) 
       ws?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableId]);
+  }, [tableId, joinHeld]);
 
   const send = useCallback((msg: object) => {
     const ws = wsRef.current;
@@ -1994,23 +1994,26 @@ export default function LadyLuck() {
   const [gamePageActive, setGamePageActive] = useState(
     () => Boolean(new URLSearchParams(window.location.search).get('t')),
   );
-  const [introEligible, setIntroEligible] = useState(false);
+  // P1 (2026-11-06): the intro used to become "eligible" only AFTER the
+  // player was already seated in a running race — the sheet opened over
+  // a live clock. Now the join itself is held until a first-time entrant
+  // dismisses the sheet; the room browser stays fully usable meanwhile.
+  const [introDismissed, setIntroDismissed] = useState(false);
+  const introNeeded = !introDismissed && !hasSeenModeIntro('ladyluck');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   const handleGamePageChange = useCallback((active: boolean) => {
     setGamePageActive(active);
     if (!active) {
-      setIntroEligible(false);
       setShowHowToPlay(false);
     }
   }, []);
-  const handleIntroEligible = useCallback(() => setIntroEligible(true), []);
 
   return (
     <>
       <LadyLuckPage
         onGamePageChange={handleGamePageChange}
-        onIntroEligible={handleIntroEligible}
+        joinHeld={introNeeded}
       />
       {gamePageActive && (
         <button
@@ -2040,8 +2043,8 @@ export default function LadyLuck() {
           ? HOW TO PLAY
         </button>
       )}
-      {introEligible && gamePageActive && (
-        <ModeIntro modeId="ladyluck" {...MODE_INTROS.ladyluck} />
+      {introNeeded && gamePageActive && (
+        <ModeIntro modeId="ladyluck" {...MODE_INTROS.ladyluck} onDismiss={() => setIntroDismissed(true)} />
       )}
       {showHowToPlay && gamePageActive && (
         <HowToPlay modeId="ladyluck" onClose={() => setShowHowToPlay(false)} />

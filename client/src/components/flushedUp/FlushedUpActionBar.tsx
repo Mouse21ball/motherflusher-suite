@@ -138,21 +138,24 @@ export function FlushedUpActionBar({
     WebkitTapHighlightColor: 'transparent',
   };
 
+  // P1 (2026-11-06): ONE action-button system across all modes —
+  // primary = gold gradient, secondary = dark glass + gold border,
+  // danger = red. The magenta survives only as felt tint / trim.
   const stayBtn: React.CSSProperties = {
     ...btnBase,
-    background: 'rgba(20,12,40,0.9)',
+    background: 'rgba(20,14,0,0.9)',
     color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)',
-    border: '1px solid rgba(217,70,239,0.35)',
+    border: '1px solid rgba(201,162,39,0.3)',
     opacity: canAct ? 1 : 0.5,
   };
 
   const drawBtn: React.CSSProperties = {
     ...btnBase,
     background: canAct
-      ? 'linear-gradient(135deg, #86198F, #D946EF)'
-      : 'rgba(60,30,90,0.5)',
+      ? 'linear-gradient(135deg, #7a5500, #C9A227)'
+      : 'rgba(60,44,0,0.5)',
     color: canAct ? '#fff' : 'rgba(255,255,255,0.25)',
-    boxShadow: canAct ? '0 0 18px rgba(217,70,239,0.5), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
+    boxShadow: canAct ? '0 0 18px rgba(201,162,39,0.45), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
     opacity: (canAct && (selectedCount > 0 || true)) ? 1 : 0.5,
   };
 
@@ -184,7 +187,7 @@ export function FlushedUpActionBar({
 
         {/* Bet phase */}
         {isBetPhase && chips <= 0 && isMyTurn && (
-          <div data-testid="all-in-waiting" role="status" style={{ padding: '16px 12px', color: '#c084fc', fontFamily: 'monospace', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center' }}>
+          <div data-testid="all-in-waiting" role="status" style={{ padding: '16px 12px', color: '#fcd34d', fontFamily: 'monospace', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center' }}>
             ALL IN · WAITING FOR THE HAND TO FINISH
           </div>
         )}
@@ -193,7 +196,7 @@ export function FlushedUpActionBar({
             {canRaiseAtAll && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(240,171,252,0.8)', letterSpacing: '0.1em' }}>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(201,162,39,0.85)', letterSpacing: '0.1em' }}>
                     {currentBet > 0 ? 'RAISE TO' : 'BET AMOUNT'}
                   </span>
                   <span style={{ fontSize: 16, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A' }}>
@@ -210,7 +213,7 @@ export function FlushedUpActionBar({
                     onChange={e => setRaiseText(e.target.value)}
                     aria-label="Raise amount"
                     data-testid="input-raise-slider"
-                    style={{ flex: 1, accentColor: '#D946EF' }}
+                    style={{ flex: 1, accentColor: '#F59E0B' }}
                   />
                   <input
                     type="text"
@@ -222,8 +225,8 @@ export function FlushedUpActionBar({
                     data-testid="input-raise-amount"
                     style={{
                       width: 76, padding: '8px 6px', borderRadius: 8, textAlign: 'right',
-                      background: 'rgba(20,12,40,0.9)', color: '#FDE68A',
-                      border: '1px solid rgba(217,70,239,0.4)',
+                      background: 'rgba(20,14,0,0.9)', color: '#FDE68A',
+                      border: '1px solid rgba(201,162,39,0.4)',
                       fontFamily: 'monospace', fontSize: 13, fontWeight: 700, outline: 'none',
                     }}
                   />
@@ -232,7 +235,7 @@ export function FlushedUpActionBar({
             )}
             <div className="yard-action-buttons" style={{ display: 'flex', gap: 8 }}>
               <button
-                style={{ ...btnBase, background: 'rgba(20,12,40,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: '1px solid rgba(217,70,239,0.3)', opacity: canAct ? 1 : 0.5 }}
+                style={{ ...btnBase, background: 'rgba(20,14,0,0.9)', color: canAct ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', border: '1px solid rgba(201,162,39,0.3)', opacity: canAct ? 1 : 0.5 }}
                 disabled={!canAct}
                 onClick={canAct ? () => onAction('fold') : undefined}
                 data-testid="button-fold"
@@ -240,7 +243,7 @@ export function FlushedUpActionBar({
                 FOLD
               </button>
               <button
-                style={{ ...btnBase, background: canAct ? 'linear-gradient(135deg, #86198F, #D946EF)' : 'rgba(60,30,90,0.5)', color: canAct ? '#fff' : 'rgba(255,255,255,0.25)', opacity: canAct ? 1 : 0.5 }}
+                style={{ ...btnBase, background: canAct ? 'linear-gradient(135deg, #7a5500, #C9A227)' : 'rgba(60,44,0,0.5)', color: canAct ? '#fff' : 'rgba(255,255,255,0.25)', opacity: canAct ? 1 : 0.5 }}
                 disabled={!canAct}
                 onClick={canAct ? () => onAction(getCheckCallAction(betCtx)) : undefined}
                 data-testid={betCtx.callAmount === 0 ? 'button-check' : 'button-call'}
@@ -249,7 +252,7 @@ export function FlushedUpActionBar({
               </button>
               {canRaiseAtAll && (
                 <button
-                  style={{ ...btnBase, background: 'rgba(20,12,40,0.9)', color: '#F0ABFC', border: '1px solid rgba(217,70,239,0.6)', opacity: canAct && validRaise ? 1 : 0.45 }}
+                  style={{ ...btnBase, background: 'rgba(20,14,0,0.9)', color: '#FDE68A', border: '1px solid rgba(201,162,39,0.6)', opacity: canAct && validRaise ? 1 : 0.45 }}
                   disabled={!canAct || !validRaise}
                   onClick={canAct && validRaise ? () => onAction('raise', raiseTo) : undefined}
                   data-testid="button-raise"
@@ -290,11 +293,11 @@ export function FlushedUpActionBar({
                 outline: 'none',
                 WebkitTapHighlightColor: 'transparent',
                 background: canStart
-                  ? 'linear-gradient(135deg, #86198F, #D946EF)'
-                  : 'rgba(50,20,80,0.45)',
+                  ? 'linear-gradient(135deg, #7a5500, #C9A227)'
+                  : 'rgba(50,36,0,0.45)',
                 color: canStart ? '#fff' : 'rgba(255,255,255,0.28)',
                 boxShadow: canStart
-                  ? '0 0 24px rgba(217,70,239,0.6), 0 4px 16px rgba(0,0,0,0.4)'
+                  ? '0 0 24px rgba(201,162,39,0.55), 0 4px 16px rgba(0,0,0,0.4)'
                   : 'none',
                 opacity: canStart ? 1 : 0.65,
                 transition: 'all 0.2s',
@@ -319,7 +322,7 @@ export function FlushedUpActionBar({
           <div style={{
             textAlign: 'center', padding: '10px 0',
             fontSize: 11, fontFamily: 'monospace',
-            color: 'rgba(217,70,239,0.7)', letterSpacing: '0.12em',
+            color: 'rgba(201,162,39,0.7)', letterSpacing: '0.12em',
           }}>
             {phase === 'ANTE' ? 'POSTING ANTE...' : ''}
           </div>
