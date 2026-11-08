@@ -132,6 +132,10 @@ function buildMockState(phase: string): GameState {
 
   return {
     phase: enginePhase,
+    // P6 evidence fixture: Ghost (p3) carries a server-shaped win streak
+    // of 6 so the Fifth Glove seat marker renders in this dev preview.
+    // Presentation fixture only — production streaks come from the server.
+    winStreaks: { p3: 6 },
     pot: isShowdown ? 5200 : 2450,
     currentBet: 100,
     minBet: 50,

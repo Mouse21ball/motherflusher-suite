@@ -12,6 +12,7 @@ import { PlayingCard } from '@/components/game/Card';
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { FifthGloveBadge } from '@/components/game/FifthGloveBadge';
 import { TableFelt } from '@/components/game/TableFelt';
 import { OpenSeat } from '@/components/game/OpenSeat';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
@@ -855,6 +856,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                         initialsColor="#FDE68A"
                         size={52}
                       />
+                      <FifthGloveBadge streak={liveState.winStreaks?.[p.id] ?? 0} />
                       {isDealer && (
                         <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
                       )}
@@ -897,6 +899,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                           initialsColor="#FDE68A"
                           size={36}
                         />
+                        <FifthGloveBadge streak={liveState.winStreaks?.[p.id] ?? 0} />
                         {isDealer && (
                           <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: '#C9A227', color: '#1a0f2e', border: '1px solid rgba(0,0,0,0.4)' }}>D</span>
                         )}

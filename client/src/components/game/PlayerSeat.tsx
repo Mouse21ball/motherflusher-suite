@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { sfx } from '@/lib/sounds';
 import { useCelebrationMotion } from '@/lib/celebrationPreferences';
+import { FifthGloveBadge } from './FifthGloveBadge';
 
 /* ── Avatar color palette — 10 distinct player colors ─────────────────── */
 const AVATAR_PALETTE = [
@@ -47,6 +48,8 @@ interface PlayerSeatProps {
   hasActivePlayer?: boolean;
   /** True during the showdown stagger window before this seat is dramatically revealed */
   showdownRevealPending?: boolean;
+  /** Server-owned consecutive wins at this table (GameState.winStreaks). */
+  winStreak?: number;
   /** Render opponent pods larger for mobile readability. */
   enlarged?: boolean;
 }
@@ -57,7 +60,7 @@ const visibleCardValue = (rank: string): number => {
   return parseInt(rank, 10);
 };
 
-export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending, enlarged }: PlayerSeatProps) {
+export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, selectedCardIndices = [], onCardClick, selectableCards, showdownState, showVisibleCount, heroCardClassName, sessionHandCount, isStackLeader, lastActionLabel, justActed, anyJustActed, hasActivePlayer, showdownRevealPending, enlarged, winStreak }: PlayerSeatProps) {
   const prevCardCountRef = useRef(0);
   const [dealAnimKey, setDealAnimKey] = useState(0);
   const selfWonRef = useRef(false);
@@ -403,6 +406,7 @@ export function PlayerSeat({ player, isActive, isSelf, seatNumber, className, se
                 <div className="avatar-inner" style={{ background: av.bg, color: av.text }}>
                   {(player.name || '?')[0].toUpperCase()}
                 </div>
+                <FifthGloveBadge streak={winStreak ?? 0} size={16} />
               </div>
             );
           })()}

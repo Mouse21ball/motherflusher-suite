@@ -17,6 +17,8 @@ import {
 import { ChainMark } from '@/components/ChainMark';
 import { Settings, Link2, Pencil, User, MessageCircle, TriangleAlert, Trophy, Hourglass } from 'lucide-react';
 import { useServerProfile } from '@/lib/useServerProfile';
+import { YardLegendsAlbum } from '@/components/YardLegendsAlbum';
+import { CountDaysCalendar } from '@/components/CountDaysCalendar';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch, clearSessionToken } from '@/lib/session';
@@ -25,7 +27,6 @@ import { BlockList } from '@/components/settings/BlockList';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { resolveAvatarSrc } from '@/lib/persistence';
 import { BUILD_COMMIT } from '@/lib/buildInfo';
-import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
 import { setCelebrationMotion, useCelebrationMotion, type CelebrationMotion } from '@/lib/celebrationPreferences';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { logoutPushInstallation, revokePushInstallation } from '@/lib/pushNotifications';
@@ -48,17 +49,6 @@ type AvatarOptionId = typeof AVATAR_OPTIONS[number]['id'];
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const NAME_CHANGE_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
-
-const RARITY_COLORS: Record<string, string> = {
-  common:    'text-white/50 border-white/10 bg-white/[0.03]',
-  rare:      'text-blue-400/80 border-blue-500/20 bg-blue-500/[0.05]',
-  epic:      'text-purple-400/80 border-purple-500/25 bg-purple-500/[0.07]',
-  legendary: 'text-[#C9A227] border-[#C9A227]/30 bg-[#C9A227]/[0.07]',
-};
-
-const RARITY_LABEL: Record<string, string> = {
-  common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary',
-};
 
 const MODE_NAMES: Record<string, string> = {
   badugi: 'Badugi', flushed_up: 'Flushed Up', box_chevy: 'Box Chevy', ladyluck: 'Lady Luck',
@@ -786,7 +776,7 @@ export default function Profile() {
                   textTransform: 'uppercase',
                 }}
               >
-                {t === 'overview' ? 'OVERVIEW' : `ACHIEVEMENTS (${unlocked.length}/${ACHIEVEMENTS.length})`}
+                {t === 'overview' ? 'OVERVIEW' : `YARD LEGENDS (${unlocked.length}/${ACHIEVEMENTS.length})`}
               </button>
             ))}
           </div>
@@ -921,56 +911,11 @@ export default function Profile() {
           {/* ════════════════════════════════════════════════════════════════ */}
           {tab === 'achievements' && (
             <div className="flex flex-col gap-3">
-              {unlocked.length > 0 && (
-                <div style={{ background: 'rgba(15,10,25,0.55)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 16, padding: 16 }}>
-                  <div style={{ fontSize: 9, color: 'rgba(201,162,39,0.55)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-                    Earned ({unlocked.length})
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {unlocked.map((ach: Achievement) => {
-                      const content = (
-                        <div className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${RARITY_COLORS[ach.rarity]}`} data-testid={`achievement-${ach.id}`}>
-                          <span className="text-xl leading-none shrink-0">{ach.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.80)' }}>{ach.name}</span>
-                              <span style={{ fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.08em', opacity: 0.60, textTransform: 'uppercase' }}>{RARITY_LABEL[ach.rarity]}</span>
-                            </div>
-                            <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.30)' }}>{ach.description}</div>
-                          </div>
-                          <div style={{ fontSize: 10, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(64,200,120,0.65)' }}>+{ach.xpReward} XP</div>
-                        </div>
-                      );
-                      return newAchievementIds.includes(ach.id)
-                        ? <SignatureTraceGlow key={ach.id} variant="trace" durationMs={1600} className="w-full">{content}</SignatureTraceGlow>
-                        : <div key={ach.id}>{content}</div>;
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ background: 'rgba(15,10,25,0.55)', border: '1px solid rgba(255,215,0,0.12)', borderRadius: 16, padding: 16 }}>
-                <div style={{ fontSize: 9, color: 'rgba(201,162,39,0.55)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-                  Locked ({ACHIEVEMENTS.length - unlocked.length})
-                </div>
-                <div className="flex flex-col gap-2">
-                  {ACHIEVEMENTS.filter(a => !unlocked.find(u => u.id === a.id)).map((ach: Achievement) => (
-                    <div
-                      key={ach.id}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                      style={{ border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.01)' }}
-                      data-testid={`achievement-locked-${ach.id}`}
-                    >
-                      <span className="text-xl leading-none shrink-0 grayscale">{ach.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.60)' }}>{ach.name}</div>
-                        <div style={{ fontSize: 11, marginTop: 2, color: 'rgba(255,255,255,0.60)' }}>{ach.description}</div>
-                      </div>
-                      <div style={{ fontSize: 11, fontFamily: 'monospace', flexShrink: 0, color: 'rgba(255,255,255,0.60)' }}>+{ach.xpReward} XP</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* P6: Yard Legends album — the achievements as collectible
+                  cards (same real unlock data), plus the Count Days
+                  calendar of real daily-bonus claim days. */}
+              <YardLegendsAlbum unlocked={unlocked} newIds={newAchievementIds} />
+              <CountDaysCalendar playerId={serverProfile?.profileId ?? identity.id} />
             </div>
           )}
 

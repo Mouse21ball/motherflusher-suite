@@ -13,6 +13,7 @@ import { baselineSeqs, declarationBadge, detectDrawTransactions, replacedIndices
 import { sfx } from '@/lib/sounds';
 import { getSelectedBackground } from '@/lib/tableBackgrounds';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
+import { FifthGloveBadge } from '@/components/game/FifthGloveBadge';
 import { TableFelt } from '@/components/game/TableFelt';
 import { OpenSeat } from '@/components/game/OpenSeat';
 import { getAvatarForSeat } from '@shared/engine/avatarMap';
@@ -899,6 +900,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         initialsColor="#FDE68A"
                         size={52}
                       />
+                      <FifthGloveBadge streak={liveState.winStreaks?.[p.id] ?? 0} />
                       {isDealer && (
                         <span
                           className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
@@ -989,6 +991,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                           initialsColor="#FDE68A"
                           size={36}
                         />
+                        <FifthGloveBadge streak={liveState.winStreaks?.[p.id] ?? 0} />
                         {isDealer && (
                           <span
                             className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"

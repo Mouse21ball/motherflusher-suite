@@ -262,6 +262,7 @@ export function BadugiTable({
               showdownState={isShowdown}
               showVisibleCount={showVisibleCount}
               sessionHandCount={handCount}
+              winStreak={gameState.winStreaks?.[player.id] ?? 0}
               isStackLeader={stackLeaderId === player.id}
               lastActionLabel={actionLabels[player.id]}
               justActed={!!actionLabels[player.id]}
@@ -439,6 +440,7 @@ export function BadugiTable({
               selectableCards={selectableCards}
               showdownState={isShowdown}
               showVisibleCount={showVisibleCount}
+              winStreak={gameState.winStreaks?.[me.id] ?? 0}
               heroCardClassName={heroCardClassName}
               isStackLeader={stackLeaderId === me.id}
               className="bg-[#0B0B0D]/85 p-3 sm:p-4 rounded-xl shadow-2xl border border-white/[0.06] backdrop-blur-md pb-4 sm:pb-6"

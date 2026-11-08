@@ -1910,6 +1910,39 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/players/:id/daily-bonus/history?month=YYYY-MM
+  // P6 (2026-11-08): the player's real daily-bonus claim days for one UTC
+  // month, read from the daily_bonus_claims audit log (Count Days calendar).
+  app.get("/api/players/:id/daily-bonus/history", requireAuth, requireSelf, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const profile = await storage.getPlayerProfile(id);
+      if (!profile) { res.status(404).json({ error: "Player not found" }); return; }
+      const now = new Date();
+      const monthParam = typeof req.query.month === "string" ? req.query.month : "";
+      const m = /^(\d{4})-(\d{2})$/.exec(monthParam);
+      const year  = m ? Number(m[1]) : now.getUTCFullYear();
+      const month = m ? Number(m[2]) : now.getUTCMonth() + 1;
+      if (!m && monthParam) { res.status(400).json({ error: "month must be YYYY-MM" }); return; }
+      if (month < 1 || month > 12) { res.status(400).json({ error: "month must be YYYY-MM" }); return; }
+      const from = new Date(Date.UTC(year, month - 1, 1));
+      const to   = new Date(Date.UTC(year, month, 1));
+      const rows = await storage.getDailyBonusHistory(id, from, to);
+      res.json({
+        month: `${year}-${String(month).padStart(2, "0")}`,
+        claims: rows.map(r => ({
+          claimedAt:      r.claimedAt,
+          streakDay:      r.streakDay,
+          chipsGranted:   r.chipsGranted,
+          stripesGranted: r.stripesGranted,
+        })),
+      });
+    } catch (err) {
+      console.error("[daily-bonus] history error:", err);
+      res.status(500).json({ error: "Failed to fetch daily bonus history" });
+    }
+  });
+
   // POST /api/players/:id/daily-bonus/claim
   // Atomically credits chips + Stripes, writes audit row, updates streak.
   // 409 if already claimed today. Server validates — never trusts client.

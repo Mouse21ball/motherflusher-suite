@@ -25,6 +25,7 @@ import {
   isHourlyReady,
 } from '@/lib/retention';
 import { DailyBonusCalendarModal } from '@/components/DailyBonusCalendarModal';
+import { YardMap } from '@/components/YardMap';
 import { ChainLinks } from '@/components/ChainLinks';
 import { CommissaryWheel } from '@/components/CommissaryWheel';
 import { HourlyBonusModal } from '@/components/HourlyBonusModal';
@@ -870,6 +871,28 @@ export default function Home() {
               );
             })}
           </div>
+
+          {/* ══ THE YARD MAP (P6) — the four modes as places on the yard.
+              Same selectMode entry as the cards; the only count shown is
+              the real human total from the /api/tables feed Home polls. ══ */}
+          <YardMap
+            entries={MODE_CARD_CONFIGS.map(card => {
+              const feedId = card.id === 'flushedup' ? 'flushed_up' : card.id;
+              const humans = publicTables
+                .filter(t => t.modeId === feedId)
+                .reduce((sum, t) => sum + (t.humanCount ?? 0), 0);
+              const zone = card.id === 'badugi' ? 'Cell Block'
+                : card.id === 'flushedup' ? 'The Yard'
+                : card.id === 'ladyluck' ? 'The Chapel'
+                : 'Motor Pool';
+              return { id: card.id, title: card.title, subtitle: card.subtitle, color: card.color, bg: card.bg, zone, humans };
+            })}
+            onSelect={(id) => {
+              const card = MODE_CARD_CONFIGS.find(c => c.id === id)!;
+              const mode = MODES.find(m => m.id === card.id)!;
+              selectMode(card.id, mode.path, Boolean((card as any).directNav));
+            }}
+          />
 
           {/* ══ DAILY BONUS + MISSIONS ════════════════════════════════════════════ */}
           <div className="yard-bonus-mission-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '10px 12px 0' }}>

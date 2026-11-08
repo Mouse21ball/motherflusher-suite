@@ -155,6 +155,7 @@ export interface IStorage {
   debitStripes(playerId: string, amount: number, reason: string): Promise<boolean>;
   // ── Daily bonus ────────────────────────────────────────────────────────────
   getDailyBonusStatus(playerId: string): Promise<DailyBonusStatus>;
+  getDailyBonusHistory(playerId: string, from: Date, to: Date): Promise<DailyBonusHistoryEntry[]>;
   claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult>;
   // ── Sessions ───────────────────────────────────────────────────────────────
   createSession(playerId: string, expiresAt: Date): Promise<string>;
@@ -430,6 +431,13 @@ export interface DailyBonusStatus {
   currentStreakDay:     number; // day to claim (canClaim=true) or day already claimed (canClaim=false)
   nextClaimAvailableAt: Date;
   todaysReward:         { chips: number; stripes: number };
+}
+
+export interface DailyBonusHistoryEntry {
+  claimedAt:      Date;
+  streakDay:      number;
+  chipsGranted:   number;
+  stripesGranted: number;
 }
 
 export interface DailyBonusClaimResult {
@@ -2846,6 +2854,27 @@ export class MemStorage implements IStorage {
       nextClaimAvailableAt: tomorrowUtcMidnight(),
       todaysReward:         { chips: reward.chips, stripes: reward.stripes },
     };
+  }
+
+  // P6 (2026-11-08): real claim history from the daily_bonus_claims audit
+  // log — one row per actual claim, written atomically by claimDailyBonus.
+  // Powers the Count Days calendar; nothing here is derived or estimated.
+  async getDailyBonusHistory(playerId: string, from: Date, to: Date): Promise<DailyBonusHistoryEntry[]> {
+    const rows = await db
+      .select({
+        claimedAt:      dailyBonusClaims.claimedAt,
+        streakDay:      dailyBonusClaims.streakDay,
+        chipsGranted:   dailyBonusClaims.chipsGranted,
+        stripesGranted: dailyBonusClaims.stripesGranted,
+      })
+      .from(dailyBonusClaims)
+      .where(and(
+        eq(dailyBonusClaims.playerId, playerId),
+        gte(dailyBonusClaims.claimedAt, from),
+        lt(dailyBonusClaims.claimedAt, to),
+      ))
+      .orderBy(asc(dailyBonusClaims.claimedAt));
+    return rows;
   }
 
   async claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult> {

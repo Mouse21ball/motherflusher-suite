@@ -300,6 +300,7 @@ export function GameTable({ gameState, myId, selectedCardIndices, onCardClick, s
                 onCardClick={onCardClick}
                 selectableCards={selectableCards}
                 showdownState={gameState.phase === 'SHOWDOWN'}
+                winStreak={player ? (gameState.winStreaks?.[player.id] ?? 0) : 0}
                 className={player?.id === myId ? "bg-[#0B0B0D]/85 p-4 pt-3 rounded-xl shadow-xl border border-white/[0.05] backdrop-blur-sm" : ""}
               />
             </div>
