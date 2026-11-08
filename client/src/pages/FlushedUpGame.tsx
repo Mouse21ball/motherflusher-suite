@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useServerMode } from '@/lib/poker/engine/useServerMode';
 import { generateTableCode, saveRecentTable } from '@/lib/tableSession';
@@ -140,7 +141,7 @@ function FlushedUpHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, huma
           }}
           data-testid="button-chat-header"
         >
-          💬
+          <MessageCircle size={16} />
           {chatUnread > 0 && (
             <div style={{
               position: 'absolute', top: -4, right: -4,

@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import { Bell, Coins, Crown, Plus } from 'lucide-react';
-import { ensurePlayerIdentity, getAvatarInitials, resolveAvatarSrc } from '@/lib/persistence';
+import { ensurePlayerIdentity, getAvatarInitials, resolveAvatarSrc, resolvePlayerDisplayName } from '@/lib/persistence';
 import { getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { useYardMissionBadge } from '@/lib/yardMissionBadge';
@@ -14,7 +14,13 @@ export function YardPlayerHeader({ onBell, actions, notificationDot, readOnly = 
   const { profile } = useServerProfile();
   const cachedMissionDot = useYardMissionBadge(profile?.profileId);
   const identity = ensurePlayerIdentity();
-  const name = profile?.displayName ?? identity.name;
+  // P4: never let the generic server seed ('Player') outrank the handle
+  // the player actually picked — see resolvePlayerDisplayName.
+  const name = resolvePlayerDisplayName({
+    identityName: identity.name,
+    serverDisplayName: profile?.displayName,
+    hasAuth: profile?.hasAuth,
+  });
   const levelInfo = getLevelInfo(profile?.xp ?? 0);
   const level = profile?.level ?? levelInfo.level;
   const rank = getRankForLevel(level);

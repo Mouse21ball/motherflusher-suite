@@ -4,6 +4,7 @@
  */
 
 import { MUSIC_CATALOG, trackById } from '@/lib/musicTracks';
+import { Home, Spade, Dices, Music, type LucideIcon } from 'lucide-react';
 
 export type MusicContext = 'lobby' | 'game' | 'ladyluck';
 
@@ -14,10 +15,10 @@ interface MyMusicProps {
   equipping: boolean;
 }
 
-const CONTEXTS: { key: MusicContext; label: string; icon: string; hint: string }[] = [
-  { key: 'lobby',    label: 'Lobby',         icon: '🏠', hint: 'Home screen & menus' },
-  { key: 'game',     label: 'Game Table',    icon: '🃏', hint: 'During active hands' },
-  { key: 'ladyluck', label: 'Lady Luck Race', icon: '🎲', hint: 'Lady Luck race screen' },
+const CONTEXTS: { key: MusicContext; label: string; icon: LucideIcon; hint: string }[] = [
+  { key: 'lobby',    label: 'Lobby',         icon: Home,  hint: 'Home screen & menus' },
+  { key: 'game',     label: 'Game Table',    icon: Spade, hint: 'During active hands' },
+  { key: 'ladyluck', label: 'Lady Luck Race', icon: Dices, hint: 'Lady Luck race screen' },
 ];
 
 export function MyMusic({ ownedIds, equipped, onEquip, equipping }: MyMusicProps) {
@@ -32,7 +33,7 @@ export function MyMusic({ ownedIds, equipped, onEquip, equipping }: MyMusicProps
         border: '1px solid rgba(255,255,255,0.07)',
         borderRadius: 14,
       }}>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>🎵</div>
+        <div style={{ marginBottom: 8, color: 'rgba(255,255,255,0.35)' }}><Music size={28} /></div>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.40)', lineHeight: 1.5, margin: 0 }}>
           Purchase a track above to assign it<br />to your lobby, game, or Lady Luck screen.
         </p>
@@ -62,7 +63,7 @@ export function MyMusic({ ownedIds, equipped, onEquip, equipping }: MyMusicProps
               padding: '10px 12px 8px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
-              <span style={{ fontSize: 14 }}>{ctx.icon}</span>
+              <span style={{ display: 'inline-flex', color: 'rgba(255,255,255,0.65)' }}><ctx.icon size={14} /></span>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.80)' }}>
                   {ctx.label}

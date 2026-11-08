@@ -6,6 +6,8 @@
 
 import { useState } from 'react';
 import { apiUrl, shareOrigin } from '@/lib/apiConfig';
+import { ChainMark } from '@/components/ChainMark';
+import { Lock, Globe, Bot, Ban } from 'lucide-react';
 
 export interface TableSettings {
   maxPlayers:  number;
@@ -104,7 +106,7 @@ export function HostControls({
           borderColor: isHost ? 'rgba(201,162,39,0.40)' : 'rgba(255,255,255,0.12)',
         }}
       >
-        <span className="text-[10px] leading-none">⛓</span>
+        <ChainMark width={15} color="rgba(201,162,39,0.90)" />
         <span
           className="text-[10px] font-mono font-bold tracking-widest uppercase"
           style={{ color: isHost ? 'rgba(201,162,39,0.90)' : 'rgba(255,255,255,0.45)' }}
@@ -134,7 +136,7 @@ export function HostControls({
               style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-base leading-none">⛓</span>
+                <ChainMark width={19} color="rgba(201,162,39,0.90)" />
                 <span className="text-sm font-mono font-bold tracking-widest uppercase" style={{ color: 'rgba(201,162,39,0.90)' }}>
                   {isHost ? 'Host Controls' : 'Table Info'}
                 </span>
@@ -147,7 +149,7 @@ export function HostControls({
               {/* Invite code + share */}
               <div>
                 <label className="text-[10px] font-mono uppercase tracking-widest text-white/35 block mb-2">
-                  {tableSettings.isInviteOnly ? '🔒 Invite Code' : '🌐 Table Code'}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{tableSettings.isInviteOnly ? <><Lock size={10} /> Invite Code</> : <><Globe size={10} /> Table Code</>}</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <div
@@ -188,7 +190,7 @@ export function HostControls({
                     <div className="text-[9px] font-mono text-white/30">bots</div>
                   </div>
                   <div className="rounded-xl px-2 py-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-xs font-bold text-white/70">{tableSettings.isInviteOnly ? '🔒' : '🌐'}</div>
+                    <div className="text-xs font-bold text-white/70" style={{ display: 'flex', justifyContent: 'center' }}>{tableSettings.isInviteOnly ? <Lock size={13} /> : <Globe size={13} />}</div>
                     <div className="text-[9px] font-mono text-white/30">{tableSettings.isInviteOnly ? 'private' : 'public'}</div>
                   </div>
                 </div>
@@ -240,7 +242,7 @@ export function HostControls({
                         color: tableSettings.botsEnabled ? '#10b981' : '#ef4444',
                       }}
                     >
-                      {tableSettings.botsEnabled ? '🤖 Bots ON' : '🚫 Bots OFF'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{tableSettings.botsEnabled ? <><Bot size={13} /> Bots ON</> : <><Ban size={13} /> Bots OFF</>}</span>
                     </button>
                     <button
                       onClick={() => onSettings({ isInviteOnly: !tableSettings.isInviteOnly })}
@@ -252,7 +254,7 @@ export function HostControls({
                         color: tableSettings.isInviteOnly ? '#a78bfa' : '#10b981',
                       }}
                     >
-                      {tableSettings.isInviteOnly ? '🔒 Invite-Only' : '🌐 Public'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{tableSettings.isInviteOnly ? <><Lock size={13} /> Invite-Only</> : <><Globe size={13} /> Public</>}</span>
                     </button>
                   </div>
                 </div>

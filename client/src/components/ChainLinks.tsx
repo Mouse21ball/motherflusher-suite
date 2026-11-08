@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChainMark } from '@/components/ChainMark';
 
 // Detroit 2026-10-16: Chain Links — 7-day streak visualized as a forging chain.
 // Purple and gold, loss aversion: miss a day, the chain breaks.
@@ -81,8 +82,8 @@ export function ChainLinks({ currentDay, canClaim, onClaim }: ChainLinksProps) {
       padding: '14px 12px', backdropFilter: 'blur(16px)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontFamily: 'Oswald, Impact, sans-serif', fontWeight: 900, fontSize: 14, color: '#F0B829', letterSpacing: '1px' }}>
-          ⛓ CHAIN LINKS
+        <div style={{ fontFamily: 'Oswald, Impact, sans-serif', fontWeight: 900, fontSize: 14, color: '#F0B829', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <ChainMark width={21} color="#F0B829" /> CHAIN LINKS
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>
           Day {currentDay} of 7

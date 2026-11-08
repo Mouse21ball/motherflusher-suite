@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Coins, Crown, Gift, PartyPopper } from 'lucide-react';
 import { STARTER_PACK_CHIPS, STARTER_PACK_EMOTES, DISCLAIMER } from '@/lib/retention';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
@@ -13,13 +14,13 @@ interface StarterPackModalProps {
 
 const PACK_CONTENTS = [
   {
-    icon: '🪙',
+    icon: Coins,
     label: `${STARTER_PACK_CHIPS.toLocaleString()} Virtual Chips`,
     sub: 'Loaded across all game modes instantly',
     highlight: true,
   },
   {
-    icon: '💜',
+    icon: Crown,
     label: '250 Stripes',
     sub: 'Your starter premium currency — spend on cosmetics and Crews',
     highlight: false,
@@ -94,7 +95,7 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
 
           {/* Header */}
           <div className="flex flex-col items-center gap-1.5">
-            <div className="text-4xl leading-none">{claimed ? '🎉' : '🎁'}</div>
+            <div className="leading-none" style={{ color: '#F0B829' }}>{claimed ? <PartyPopper size={36} /> : <Gift size={36} />}</div>
             <div
               className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full"
               style={{
@@ -135,7 +136,7 @@ export function StarterPackModal({ open, onClose, onRefetchProfile }: StarterPac
                 }}
                 data-testid={`starter-item-${i}`}
               >
-                <div className="text-xl leading-none shrink-0">{item.icon}</div>
+                <div className="leading-none shrink-0" style={{ color: item.highlight ? '#F0B829' : 'rgba(201,162,39,0.85)' }}><item.icon size={20} /></div>
                 <div className="flex-1 min-w-0">
                   <div
                     className="text-sm font-bold font-sans"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { music } from '@/lib/music';
+import { Volume2, Volume1, VolumeX } from 'lucide-react';
 
 interface MusicButtonProps {
   /** Extra CSS classes */
@@ -151,7 +152,7 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left', 
               color: muted ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.75)',
             }}
           >
-            {muted ? '🔇' : volume < 0.35 ? '🔈' : '🔊'}
+            {muted ? <VolumeX size={15} /> : volume < 0.35 ? <Volume1 size={15} /> : <Volume2 size={15} />}
           </button>
 
           {/* Volume slider */}

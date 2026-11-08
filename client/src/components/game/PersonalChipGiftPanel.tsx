@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
+import { Gift } from 'lucide-react';
 
 interface GiftPlayer {
   id: string;
@@ -66,7 +67,7 @@ export function PersonalChipGiftPanel({ tableId, modeId, myId, players, onGiftSu
     <details className={inline
       ? 'relative max-w-[calc(100vw-24px)] rounded-lg border border-amber-400/25 bg-black/85 p-1.5 text-xs text-white shadow-lg'
       : 'fixed left-3 top-24 z-30 max-w-[calc(100vw-24px)] rounded-lg border border-amber-400/25 bg-black/85 p-2 text-xs text-white shadow-lg'}>
-      <summary className="cursor-pointer select-none font-mono text-amber-200">🎁 Gift 100 chips</summary>
+      <summary className="cursor-pointer select-none font-mono text-amber-200"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Gift size={12} /> Gift 100 chips</span></summary>
       <div className="mt-2 flex items-center gap-2">
         <select
           aria-label="Gift recipient"

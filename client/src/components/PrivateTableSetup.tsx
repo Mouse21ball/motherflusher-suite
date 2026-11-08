@@ -4,6 +4,8 @@
 // previous version — only JSX/CSS has been updated.
 
 import { useState } from 'react';
+import { ChainMark } from '@/components/ChainMark';
+import { Lock, Globe, Bot, Skull } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { generateTableCode } from '@/lib/tableSession';
 import { apiUrl } from '@/lib/apiConfig';
@@ -282,11 +284,11 @@ export function PrivateTableSetup({ open, onClose }: Props) {
           >
             {/* Corner ornaments */}
             <div className="absolute top-2 left-2 flex flex-col items-start" style={{ gap: 0 }}>
-              <span style={{ fontSize: '0.42rem', color: 'rgba(180,120,30,0.60)', fontFamily: 'monospace', letterSpacing: '0.08em', lineHeight: 1.4 }}>⛓ CG-17B</span>
+              <span style={{ fontSize: '0.42rem', color: 'rgba(180,120,30,0.60)', fontFamily: 'monospace', letterSpacing: '0.08em', lineHeight: 1.4, display: 'inline-flex', alignItems: 'center', gap: 3 }}><ChainMark width={11} color="rgba(180,120,30,0.60)" /> CG-17B</span>
               <span style={{ fontSize: '0.42rem', color: 'rgba(180,120,30,0.45)', fontFamily: 'monospace', letterSpacing: '0.08em', lineHeight: 1.4 }}>YARD B</span>
             </div>
             <div className="absolute top-2 right-2">
-              <span style={{ fontSize: '1rem', filter: 'drop-shadow(0 0 4px rgba(255,80,0,0.70)) sepia(100%) saturate(600%) hue-rotate(-10deg)' }}>💀</span>
+              <span style={{ display: 'inline-flex', color: '#ff7a33', filter: 'drop-shadow(0 0 4px rgba(255,80,0,0.70))' }}><Skull size={16} /></span>
             </div>
 
             {/* Close button */}
@@ -531,7 +533,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
                   position: 'relative',
                 }}
               >
-                <span style={{ fontSize: '1.3rem', flexShrink: 0, filter: isInviteOnly ? 'drop-shadow(0 0 4px rgba(160,80,255,0.60))' : 'grayscale(80%) brightness(0.5)' }}>🔒</span>
+                <span style={{ flexShrink: 0, display: 'inline-flex', color: isInviteOnly ? '#c080ff' : 'rgba(140,115,70,0.5)', filter: isInviteOnly ? 'drop-shadow(0 0 4px rgba(160,80,255,0.60))' : 'none' }}><Lock size={21} /></span>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: '0.65rem', letterSpacing: '0.08em', color: isInviteOnly ? '#c080ff' : 'rgba(120,90,30,0.55)', textTransform: 'uppercase' }}>INVITE ONLY</div>
                   <div style={{ fontSize: '0.42rem', letterSpacing: '0.1em', color: isInviteOnly ? 'rgba(180,120,255,0.65)' : 'rgba(80,60,20,0.40)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1 }}>CODE REQUIRED</div>
@@ -565,7 +567,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
                   position: 'relative',
                 }}
               >
-                <span style={{ fontSize: '1.3rem', flexShrink: 0, filter: !isInviteOnly ? 'drop-shadow(0 0 4px rgba(60,200,60,0.50))' : 'grayscale(80%) brightness(0.5)' }}>🌐</span>
+                <span style={{ flexShrink: 0, display: 'inline-flex', color: !isInviteOnly ? '#80d080' : 'rgba(140,115,70,0.5)', filter: !isInviteOnly ? 'drop-shadow(0 0 4px rgba(60,200,60,0.50))' : 'none' }}><Globe size={21} /></span>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: !isInviteOnly ? '#80d080' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>PUBLIC</div>
                   <div style={{ fontSize: 11, letterSpacing: '0.1em', color: !isInviteOnly ? 'rgba(120,200,120,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1 }}>ANYONE CAN JOIN</div>
@@ -633,7 +635,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
                   position: 'relative',
                 }}
               >
-                <span style={{ fontSize: '1.25rem', flexShrink: 0, filter: botsEnabled ? 'drop-shadow(0 0 5px rgba(40,220,100,0.60))' : 'grayscale(80%) brightness(0.5) sepia(40%)' }}>🤖</span>
+                <span style={{ flexShrink: 0, display: 'inline-flex', color: botsEnabled ? '#40d878' : 'rgba(140,115,70,0.5)', filter: botsEnabled ? 'drop-shadow(0 0 5px rgba(40,220,100,0.60))' : 'none' }}><Bot size={20} /></span>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: botsEnabled ? '#40d878' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>BOTS ON</div>
                   <div style={{ fontSize: 11, letterSpacing: '0.08em', color: botsEnabled ? 'rgba(80,220,130,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>EMPTY CELLS{'\n'}AUTO-FILLED</div>
@@ -667,7 +669,7 @@ export function PrivateTableSetup({ open, onClose }: Props) {
                   position: 'relative',
                 }}
               >
-                <span style={{ fontSize: '1.25rem', flexShrink: 0, filter: !botsEnabled ? 'drop-shadow(0 0 5px rgba(255,60,40,0.60)) sepia(100%) saturate(500%) hue-rotate(-10deg)' : 'grayscale(80%) brightness(0.5)' }}>💀</span>
+                <span style={{ flexShrink: 0, display: 'inline-flex', color: !botsEnabled ? '#f06050' : 'rgba(140,115,70,0.5)', filter: !botsEnabled ? 'drop-shadow(0 0 5px rgba(255,60,40,0.60))' : 'none' }}><Skull size={20} /></span>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 11, letterSpacing: '0.08em', color: !botsEnabled ? '#f06050' : 'rgba(120,90,30,0.60)', textTransform: 'uppercase' }}>BOTS OFF</div>
                   <div style={{ fontSize: 11, letterSpacing: '0.08em', color: !botsEnabled ? 'rgba(240,130,110,0.65)' : 'rgba(80,60,20,0.60)', fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 1, lineHeight: 1.5 }}>HUMAN INMATES{'\n'}ONLY</div>

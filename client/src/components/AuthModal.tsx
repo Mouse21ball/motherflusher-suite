@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
 import { savePlayerIdentity } from '@/lib/persistence';
+import { ChainMark } from '@/components/ChainMark';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch, setSessionToken } from '@/lib/session';
 import { clearSavedReferralCode, getSavedReferralCode } from '@/lib/referralAttribution';
@@ -139,7 +140,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">⛓️ CGP Account</span>
+          <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest flex items-center gap-1.5"><ChainMark width={17} color="rgba(255,255,255,0.30)" />CGP Account</span>
           <button
             onClick={onClose}
             className="w-7 h-7 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all"

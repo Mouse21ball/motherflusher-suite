@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Lightbulb } from "lucide-react";
 import { ReactionBar } from "./ReactionBar";
 import type { ReactionEvent } from "@/lib/poker/types";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ export function ChatEmoteRow({ onOpenChat, onReact, incomingReactions, level, ph
           style={{ background: 'rgba(201,162,39,0.04)', border: '1px solid rgba(201,162,39,0.10)' }}
           data-testid="text-phase-hint"
         >
-          <span className="text-[13px] shrink-0 mt-0.5 leading-none" aria-hidden="true">💡</span>
+          <span className="shrink-0 mt-0.5 leading-none" aria-hidden="true" style={{ color: 'rgba(201,162,39,0.65)' }}><Lightbulb size={13} /></span>
           <span className="text-[11px] leading-snug font-mono tracking-wide" style={{ color: 'rgba(201,162,39,0.65)' }}>
             {phaseHint}
           </span>

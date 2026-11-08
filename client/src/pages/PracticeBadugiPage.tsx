@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Spade, Target, RefreshCw, Bot, Trophy } from "lucide-react";
 import { useLocation } from "wouter";
 import type { CardType } from "@shared/gameTypes";
 import { evaluateBadugi } from "@shared/modes/badugi";
@@ -229,10 +230,10 @@ export default function PracticeBadugiPage() {
               <div className="text-xs font-bold uppercase tracking-widest text-amber-300/70 mb-2">Welcome to the yard</div>
               <h2 className="text-2xl font-black text-white mb-3" style={{ fontFamily: 'Oswald, Impact, sans-serif' }}>LEARN BADUGI IN 60 SECONDS</h2>
               <div className="text-left text-sm text-white/75 space-y-2 mb-5">
-                <p>🃏 <strong className="text-white">You get 4 cards.</strong> Lowest hand wins.</p>
-                <p>🎯 <strong className="text-white">No pairs, no same suits.</strong> A-2-3-4 all different suits = perfect.</p>
-                <p>🔄 <strong className="text-white">Draw up to 3 times</strong> to improve your hand.</p>
-                <p>🤖 You're playing bots. <strong className="text-white">The coach (bottom-right) guides every step.</strong></p>
+                <p><Spade size={14} className="inline -mt-0.5 mr-1 text-amber-300" /> <strong className="text-white">You get 4 cards.</strong> Lowest hand wins.</p>
+                <p><Target size={14} className="inline -mt-0.5 mr-1 text-amber-300" /> <strong className="text-white">No pairs, no same suits.</strong> A-2-3-4 all different suits = perfect.</p>
+                <p><RefreshCw size={14} className="inline -mt-0.5 mr-1 text-amber-300" /> <strong className="text-white">Draw up to 3 times</strong> to improve your hand.</p>
+                <p><Bot size={14} className="inline -mt-0.5 mr-1 text-amber-300" /> You're playing bots. <strong className="text-white">The coach (bottom-right) guides every step.</strong></p>
               </div>
               <button
                 className="w-full rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 px-6 py-4 font-black text-lg text-emerald-950 hover:from-amber-200 hover:to-yellow-300"
@@ -247,7 +248,7 @@ export default function PracticeBadugiPage() {
         {guided && handComplete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" style={{ backdropFilter: 'blur(8px)' }}>
             <div className="w-full max-w-md rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-purple-950 to-black p-8 text-center shadow-2xl">
-              <div className="text-5xl mb-3">🏆</div>
+              <div className="mb-3 flex justify-center text-amber-300"><Trophy size={48} /></div>
               <h2 className="text-3xl font-black text-amber-300 mb-2" style={{ fontFamily: 'Oswald, Impact, sans-serif' }}>FIRST HAND COMPLETE</h2>
               <p className="text-white/75 text-sm mb-1">You just played real Badugi.</p>
               <p className="text-white/75 text-sm mb-5">The yard is yours now.</p>

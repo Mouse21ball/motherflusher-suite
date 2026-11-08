@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getLevelInfo, getRankForLevel } from '@/lib/progression';
+import { PartyPopper, Trophy } from 'lucide-react';
 
 interface XPToastProps {
   xpGained: number;
@@ -35,12 +36,12 @@ export function XPToast({ xpGained, leveledUp, newLevel, newAchievementName, onD
           style={{ color: rank.color, backgroundColor: rank.bg, borderColor: rank.border }}
           data-testid="toast-level-up"
         >
-          🎉 Level Up! You're now Level {newLevel} — {rank.name}
+          <span className="flex items-center gap-2"><PartyPopper size={15} /> Level Up! You're now Level {newLevel} — {rank.name}</span>
         </div>
       )}
       {newAchievementName && (
         <div className="px-4 py-2 rounded-xl text-xs font-bold text-[#C9A227] bg-[#C9A227]/10 border border-[#C9A227]/25 shadow-xl">
-          🏆 Achievement: {newAchievementName}
+          <span className="flex items-center gap-2"><Trophy size={13} /> Achievement: {newAchievementName}</span>
         </div>
       )}
       <div

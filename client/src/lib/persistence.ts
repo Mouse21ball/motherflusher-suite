@@ -141,6 +141,38 @@ export function updatePlayerName(name: string): void {
   savePlayerIdentity({ ...identity, name });
 }
 
+/**
+ * P4 — resolve the name the HUD should actually show.
+ *
+ * Root of the "Player" HUD bug: the server profile is guest-init'd with
+ * whatever the local identity is called at first load — the generic
+ * default 'Player' — BEFORE the player picks a handle at the welcome
+ * gate. Every name-changing path (guest pick, register, login, Profile
+ * rename) writes the real handle into the LOCAL identity, so the local
+ * identity is the freshest source; the server displayName is the
+ * fallback (it catches renames synced from another device pre-login).
+ * A generic 'Player' from either source must never outrank a real
+ * handle from the other. If no real handle exists anywhere: guests
+ * read 'Guest'; a signed-in account keeps 'Player' only in the
+ * unreachable case where no name was ever recorded — we never invent
+ * a handle.
+ */
+export function resolvePlayerDisplayName(opts: {
+  identityName?: string | null;
+  serverDisplayName?: string | null;
+  hasAuth?: boolean | null;
+}): string {
+  const usable = (n?: string | null): string | null => {
+    const t = n?.trim();
+    return t && t.toLowerCase() !== 'player' ? t : null;
+  };
+  return (
+    usable(opts.identityName) ??
+    usable(opts.serverDisplayName) ??
+    (opts.hasAuth ? 'Player' : 'Guest')
+  );
+}
+
 // Legacy shims — kept so existing callers don't break
 export function getPlayerName(): string | null {
   const identity = getPlayerIdentity();

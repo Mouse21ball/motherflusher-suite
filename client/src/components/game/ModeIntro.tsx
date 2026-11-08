@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ChevronRight, ChevronLeft } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Lightbulb } from "lucide-react";
 
 interface ModeIntroProps {
   modeId: string;
@@ -120,7 +120,7 @@ function SlideProTip({ proTip, onDismiss }: { proTip: string; onDismiss: () => v
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-xl px-4 py-4 border border-[#C9A227]/20 bg-[#C9A227]/[0.04] flex gap-3 items-start">
-        <span className="text-lg shrink-0">💡</span>
+        <span className="shrink-0" style={{ color: '#C9A227' }}><Lightbulb size={18} /></span>
         <p className="text-sm text-white/60 leading-relaxed">{proTip}</p>
       </div>
       <Button

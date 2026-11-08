@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { BookOpen, Flame, Home } from "lucide-react";
+import { BookOpen, Flame, Home, Snowflake, TrendingDown, TriangleAlert } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -223,7 +223,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
               title={`${winStreak}-win streak!`}
             >
               <Flame className="w-3 h-3" />
-              <span>{sessionStats?.isHeater ? 'HEATER' : `${winStreak}🔥`}</span>
+              <span>{sessionStats?.isHeater ? 'HEATER' : `${winStreak}`}</span>
             </div>
           )}
           {lossStreak >= 2 && winStreak < 2 && (
@@ -232,7 +232,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
               data-testid="badge-loss-streak"
               title={`${lossStreak}-loss streak`}
             >
-              <span>{sessionStats?.isCold ? '❄️ COLD' : `-${lossStreak} 📉`}</span>
+              <span className="flex items-center gap-1">{sessionStats?.isCold ? <><Snowflake className="w-3 h-3" /> COLD</> : <>-{lossStreak} <TrendingDown className="w-3 h-3" /></>}</span>
             </div>
           )}
           <Sheet open={rulesOpen} onOpenChange={setRulesOpen}>
@@ -347,7 +347,7 @@ export function GameHeader({ mode, modeId, chips, phase, pot, onForfeit, session
             )}
             {sessionStats && sessionStats.dangerZone && !sessionStats.lastStand && (
               <div className="text-[11px] font-mono leading-tight" style={{ color: 'rgba(251,146,60,0.70)' }} data-testid="badge-danger-zone">
-                ⚠ LOW STACK
+                <span className="flex items-center gap-1"><TriangleAlert className="w-3 h-3" /> LOW STACK</span>
               </div>
             )}
             {sessionStats && sessionStats.protectingLead && (

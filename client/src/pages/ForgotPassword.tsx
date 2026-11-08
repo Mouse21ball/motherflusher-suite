@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ChainMark } from '@/components/ChainMark';
+import { Mail } from 'lucide-react';
 import { Link } from 'wouter';
 import { apiUrl } from '@/lib/apiConfig';
 
@@ -42,7 +44,7 @@ export default function ForgotPassword() {
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
 
         {/* Crown */}
-        <div className="text-5xl" aria-hidden="true">♛</div>
+        <div aria-hidden="true"><ChainMark width={52} color="rgba(240,184,41,0.95)" /></div>
 
         {/* Title */}
         <div className="text-center">
@@ -60,7 +62,7 @@ export default function ForgotPassword() {
 
           {success ? (
             <div className="text-center py-4 flex flex-col gap-3">
-              <div className="text-3xl">📬</div>
+              <div style={{ color: '#F0B829' }}><Mail size={30} /></div>
               <p className="text-[13px] font-mono leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}
                 data-testid="text-forgot-success">
                 Check your email for a reset link.<br />

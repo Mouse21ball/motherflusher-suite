@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Spade } from 'lucide-react';
 import { ensurePlayerIdentity } from '@/lib/persistence';
 import { apiUrl } from '@/lib/apiConfig';
 import { apiFetch } from '@/lib/session';
@@ -98,7 +99,7 @@ export function CommissaryWheel({ open, onClose }: CommissaryWheelProps) {
               border: '3px solid #F0B829', display: 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: 24,
             }}>
-              🃏
+              <Spade size={24} color="#F0B829" fill="#F0B829" />
             </div>
           </div>
         </div>

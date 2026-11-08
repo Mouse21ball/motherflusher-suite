@@ -8,6 +8,7 @@ import { lookupTable } from "@/lib/tableSession";
 import { watchRewardedAd, checkRewardedAdSession } from "@/lib/rewardedAds";
 import { useOptionalServerProfile } from "@/lib/useServerProfile";
 import { BuyInSlider } from "./BuyInSlider";
+import { Skull } from "lucide-react";
 
 interface BustOutModalProps {
   open: boolean;
@@ -403,7 +404,7 @@ export function BustOutModal({
 
         {/* Header */}
         <div className="text-center mb-4">
-          <div className="text-5xl mb-2">💀</div>
+          <div className="mb-2 flex justify-center" style={{ color: 'rgba(255,255,255,0.85)' }}><Skull size={48} strokeWidth={1.5} /></div>
           <h2 className="text-xl font-bold text-[#C9A227] tracking-wide">YOU'RE OUT</h2>
           <p className="text-xs text-white/60 font-mono mt-1">
             {sessionBusts > 1 ? `${sessionBusts}× this session` : "Stack hit zero"}

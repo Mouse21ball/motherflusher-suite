@@ -5,6 +5,8 @@ import { apiUrl } from "@/lib/apiConfig";
 import { apiFetch, setSessionToken, clearSessionToken } from "@/lib/session";
 import { useOptionalServerProfile } from "@/lib/useServerProfile";
 import { BrandBackground } from "./BrandBackground";
+import { ChainMark } from "./ChainMark";
+import { Zap, Flame, Trophy } from "lucide-react";
 import { track, setUserId, fire2 } from "@/lib/analytics";
 import { clearSavedReferralCode, getSavedReferralCode } from "@/lib/referralAttribution";
 
@@ -234,7 +236,7 @@ function AgeGate({ onConfirm }: { onConfirm: () => void }) {
               boxShadow: '0 0 20px rgba(240,184,41,0.10)',
             }}
           >
-            ⛓️
+            <ChainMark width={32} color="rgba(240,184,41,0.95)" />
           </div>
 
           {/* Title */}
@@ -363,11 +365,13 @@ function WelcomeBackScreen({ onPlay }: { name: string; onPlay: () => void }) {
 }
 
 // ── Feature list ──────────────────────────────────────────────────────────────
-const FEATURES = [
-  { icon: '⛓️', title: '4 Games You Won’t Find Anywhere Else', sub: 'Badugi · Flushed Up · Box Chevy · Lady Luck' },
-  { icon: '⚡', title: 'Real Multiplayer', sub: 'Create a private table, share the link, run it with your crew' },
-  { icon: '🔥', title: 'Streak Bonuses Every Day', sub: 'Come back daily for growing chip rewards — up to 7 days deep' },
-  { icon: '🏆', title: 'Rank Up from Bronze to Master', sub: 'XP system, 6 rank tiers, 12 achievements to unlock' },
+// P4: feature icons are brand/vector marks, not OS emoji — the chain is
+// the shared ChainMark, the rest are Lucide in brand gold.
+const FEATURES: { icon: ReactNode; title: string; sub: string }[] = [
+  { icon: <ChainMark width={19} color="rgba(240,184,41,0.9)" />, title: '4 Games You Won’t Find Anywhere Else', sub: 'Badugi · Flushed Up · Box Chevy · Lady Luck' },
+  { icon: <Zap size={16} color="rgba(240,184,41,0.9)" />, title: 'Real Multiplayer', sub: 'Create a private table, share the link, run it with your crew' },
+  { icon: <Flame size={16} color="rgba(240,184,41,0.9)" />, title: 'Streak Bonuses Every Day', sub: 'Come back daily for growing chip rewards — up to 7 days deep' },
+  { icon: <Trophy size={16} color="rgba(240,184,41,0.9)" />, title: 'Rank Up from Bronze to Master', sub: 'XP system, 6 rank tiers, 12 achievements to unlock' },
 ];
 
 type Mode = 'choose' | 'guest' | 'login' | 'register';
@@ -487,7 +491,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
             border: '1.5px solid rgba(240,184,41,0.28)',
             boxShadow: '0 0 60px rgba(240,184,41,0.14), 0 0 120px rgba(255,107,0,0.06)',
           }}>
-          <span className="text-3xl leading-none">⛓️</span>
+          <ChainMark width={42} color="rgba(240,184,41,0.95)" />
         </div>
 
         <div className="text-center mb-2">
@@ -509,7 +513,7 @@ function WelcomeScreen({ onComplete }: { onComplete: (name: string, method: "gue
           <div className="w-full rounded-2xl p-4 mb-5 space-y-3"
             style={{ backgroundColor: '#0D0D14', border: '1px solid rgba(255,255,255,0.06)' }}>
             {FEATURES.map(f => (
-              <div key={f.icon} className="flex items-start gap-3">
+              <div key={f.title} className="flex items-start gap-3">
                 <span className="text-base leading-none shrink-0 mt-0.5">{f.icon}</span>
                 <div>
                   <div className="text-sm font-semibold font-sans" style={{ color: 'rgba(255,255,255,0.75)' }}>{f.title}</div>

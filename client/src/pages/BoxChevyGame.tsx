@@ -20,7 +20,7 @@ import { GameStatusBar } from '@/components/game/GameStatusBar';
 import { BoxChevyTable } from '@/components/boxChevy/BoxChevyTable';
 import { BoxChevyActionBar } from '@/components/boxChevy/BoxChevyActionBar';
 import yardBackdrop from '@/assets/images/yard-backdrop.jpg';
-import { Crown } from 'lucide-react';
+import { Crown, MessageCircle } from 'lucide-react';
 import { PersonalChipGiftPanel } from '@/components/game/PersonalChipGiftPanel';
 import { FriendSeatActions } from '@/components/game/FriendSeatActions';
 import { apiFetch } from '@/lib/session';
@@ -113,7 +113,7 @@ function BoxChevyHeader({ onBack, onOpenChat, onOpenHowToPlay, chatUnread, human
           borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.8)',
           fontSize: 18, cursor: 'pointer',
         }}>
-          💬
+          <MessageCircle size={18} />
           {chatUnread > 0 && (
             <div style={{
               position: 'absolute', top: -4, right: -4,

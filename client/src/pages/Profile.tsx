@@ -14,6 +14,8 @@ import {
   ensurePlayerIdentity, savePlayerIdentity,
   getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips,
 } from '@/lib/persistence';
+import { ChainMark } from '@/components/ChainMark';
+import { Settings, Link2, Pencil, User, MessageCircle, TriangleAlert } from 'lucide-react';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
@@ -341,7 +343,7 @@ export default function Profile() {
           <div className="flex-1 flex items-center gap-1.5 min-w-0">
             <span style={{ color: 'rgba(201,162,39,0.65)', fontSize: 11, letterSpacing: '0.12em', fontFamily: 'monospace', fontWeight: 600 }}>LOBBY</span>
             <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>·</span>
-            <span style={{ color: 'rgba(255,255,255,0.40)', fontSize: 11 }}>⛓</span>
+            <ChainMark width={15} color="rgba(255,255,255,0.40)" />
             <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, letterSpacing: '0.12em', fontFamily: 'monospace', fontWeight: 700 }}>CGP PROFILE</span>
           </div>
 
@@ -366,7 +368,7 @@ export default function Profile() {
               color: '#FFD700', fontSize: 18, cursor: 'pointer', flexShrink: 0,
             }}
           >
-            ⚙
+            <Settings size={18} />
           </button>
         </header>
 
@@ -407,7 +409,7 @@ export default function Profile() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 15,
                 }}>
-                  🔗
+                  <Link2 size={15} />
                 </div>
               </div>
             </div>
@@ -443,7 +445,7 @@ export default function Profile() {
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,215,0,0.50)', fontSize: 15, padding: '0 2px', flexShrink: 0 }}
                     title="Change display name"
                   >
-                    ✏
+                    <Pencil size={15} />
                   </button>
                 </div>
 
@@ -509,7 +511,7 @@ export default function Profile() {
               display: 'flex', alignItems: 'center',
               padding: '0 16px', gap: 10,
             }}>
-              <span style={{ color: 'rgba(157,125,200,0.60)', fontSize: 14 }}>⛓</span>
+              <ChainMark width={17} color="rgba(157,125,200,0.60)" />
               {cosEquipped.frameId ? (
                 <span style={{ color: 'rgba(201,162,39,0.80)', fontSize: 13, fontFamily: 'monospace' }}>
                   {cosInventory.find(i => i.id === cosEquipped.frameId)?.displayName ?? cosEquipped.frameId.replace('frame_','').replace(/_/g,' ')}
@@ -570,7 +572,7 @@ export default function Profile() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 18, flexShrink: 0,
                 }}>
-                  👤
+                  <User size={18} />
                 </div>
 
                 {/* Middle */}
@@ -1003,7 +1005,7 @@ export default function Profile() {
                 cursor: 'pointer',
               }}
             >
-              ⚙️ Admin Panel
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Settings size={14} /> Admin Panel</span>
             </button>
           )}
 
@@ -1093,7 +1095,7 @@ export default function Profile() {
               style={{ background: 'rgba(15,10,25,0.40)', border: '1px solid rgba(255,255,255,0.07)' }}
             >
               <div className="flex items-center gap-3">
-                <span style={{ fontSize: '1rem' }}>💬</span>
+                <MessageCircle size={16} color="rgba(255,255,255,0.65)" />
                 <div>
                   <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>Send Feedback</div>
                   <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.28)', marginTop: 2 }}>Report a bug or suggest a feature</div>
@@ -1160,7 +1162,7 @@ export default function Profile() {
               <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.14)' }}>
                 <div>
                   <div style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(220,80,80,0.70)', marginBottom: 4 }}>
-                    {serverProfile?.hasAuth ? '⚠ Delete Account' : '⚠ Clear Guest Data'}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><TriangleAlert size={11} />{serverProfile?.hasAuth ? 'Delete Account' : 'Clear Guest Data'}</span>
                   </div>
                   <p style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)', lineHeight: 1.6 }}>
                     {serverProfile?.hasAuth

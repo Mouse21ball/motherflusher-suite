@@ -4,7 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { ensurePlayerIdentity, resolveAvatarSrc } from '@/lib/persistence';
+import { ensurePlayerIdentity, resolveAvatarSrc, resolvePlayerDisplayName } from '@/lib/persistence';
+import { ChainMark } from '@/components/ChainMark';
 import { getLevelInfo, getRankForLevel } from '@/lib/progression';
 import { AvatarWithFrame } from '@/components/ui/AvatarWithFrame';
 import { useServerProfile } from '@/lib/useServerProfile';
@@ -94,7 +95,13 @@ export default function Leaderboard() {
   const myPosition = leaderboard?.me?.rank;
   const topPct = myPosition && leaderboard?.total
     ? Math.ceil((myPosition / leaderboard.total) * 100) : null;
-  const myName = leaderboard?.me?.displayName ?? serverProfile?.displayName ?? identity.name;
+  // P4: same HUD identity rule as Home — a generic 'Player' seed never
+  // outranks the handle the player picked (see resolvePlayerDisplayName).
+  const myName = resolvePlayerDisplayName({
+    identityName: identity.name,
+    serverDisplayName: leaderboard?.me?.displayName ?? serverProfile?.displayName,
+    hasAuth: serverProfile?.hasAuth,
+  });
 
   return (
     <div
@@ -181,7 +188,7 @@ export default function Leaderboard() {
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(201,162,39,0.55)', letterSpacing: '0.12em', fontWeight: 600, flexShrink: 0 }}>
             LOBBY
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 10 }}>⛓</span>
+          <ChainMark width={15} color="rgba(255,255,255,0.15)" />
 
           {/* Centered title */}
           <div className="flex-1 min-w-0 flex flex-col items-center">

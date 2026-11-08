@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { SignatureTraceGlow } from '@/components/ui/SignatureTraceGlow';
+import { ChainMark } from '@/components/ChainMark';
 import { apiUrl } from '@/lib/apiConfig';
 import { getSessionToken } from '@/lib/session';
 import {
@@ -583,7 +584,7 @@ export default function Shop() {
             ← BACK
           </button>
 
-          <h1 className="yard-shop-title">⛓ MY CHIPS ⛓</h1>
+          <h1 className="yard-shop-title"><ChainMark width={26} color="rgba(240,184,41,0.85)" style={{ marginRight: 10 }} />MY CHIPS<ChainMark width={26} color="rgba(240,184,41,0.85)" style={{ marginLeft: 10 }} /></h1>
           <section className="yard-chip-balance-hero" aria-label="Current chip and Stripes balance">
             <div><span>YOUR CHIP BALANCE</span><strong>{(profile?.chipBalance ?? 0).toLocaleString()}</strong><small>SERVER BALANCE · PLAYABLE AT EVERY TABLE</small></div>
             <div className="yard-chip-hero-stripes"><span>STRIPES</span><strong>{(profile?.stripes ?? 0).toLocaleString()}</strong></div>

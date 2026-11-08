@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { lookupTable } from "@/lib/tableSession";
 import { DEFAULT_STAKE_TIER_ID, getStakeTierId, STAKE_TIERS, type StakeTierId } from "@shared/stakeTiers";
+import { ChainMark } from "@/components/ChainMark";
 
 const MODE_ROUTES: Record<string, string> = {
   badugi:      "/badugi",
@@ -41,13 +42,13 @@ export default function JoinTable() {
       <div className="text-center space-y-3">
         {status === "looking" && (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 rounded-xl border border-[#F0B829]/20 flex items-center justify-center animate-pulse text-xl">⛓️</div>
+            <div className="w-10 h-10 rounded-xl border border-[#F0B829]/20 flex items-center justify-center animate-pulse"><ChainMark width={21} color="rgba(240,184,41,0.85)" /></div>
             <p className="text-white/50 text-xs font-mono tracking-widest uppercase">Looking up table…</p>
           </div>
         )}
         {status === "found" && (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 rounded-xl border border-[#00C896]/30 bg-[#00C896]/10 flex items-center justify-center text-xl">⛓️</div>
+            <div className="w-10 h-10 rounded-xl border border-[#00C896]/30 bg-[#00C896]/10 flex items-center justify-center"><ChainMark width={21} color="rgba(0,200,150,0.9)" /></div>
             <p className="text-[#00C896] text-xs font-mono tracking-widest uppercase">Table found — joining…</p>
             <p className="text-[#F0B829]/70 text-[10px] font-mono tracking-widest uppercase" data-testid="text-table-lookup-stakes">
               {(() => { const tier = STAKE_TIERS.find(t => t.id === stakeTier)!; return `${tier.label} · ${tier.minBet} BB`; })()}
@@ -56,7 +57,7 @@ export default function JoinTable() {
         )}
         {status === "notfound" && (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center text-xl opacity-30">⛓️</div>
+            <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center opacity-30"><ChainMark width={21} color="rgba(255,255,255,0.6)" /></div>
             <p className="text-white/40 text-xs font-mono tracking-widest uppercase">Table not found</p>
             <button
               className="mt-2 text-[#F0B829]/60 text-xs font-mono underline underline-offset-4 hover:text-[#F0B829]/90 transition-colors"

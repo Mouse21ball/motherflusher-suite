@@ -9,6 +9,7 @@ import { useServerProfile } from '@/lib/useServerProfile';
 import { apiFetch } from '@/lib/session';
 import { apiUrl } from '@/lib/apiConfig';
 import { MusicStore } from '@/components/MusicStore';
+import { Lightbulb } from 'lucide-react';
 import { MyMusic } from '@/components/MyMusic';
 import type { MusicContext } from '@/components/MyMusic';
 import { MUSIC_TRACK_IDS, FREE_MUSIC_IDS } from '@/lib/musicTracks';
@@ -544,7 +545,7 @@ export default function CosmeticsStore() {
           className="mx-4 mt-3 px-4 py-2.5 rounded-xl text-xs"
           style={{ background: 'rgba(201,162,39,0.04)', border: '1px solid rgba(201,162,39,0.12)', color: 'rgba(201,162,39,0.80)' }}
         >
-          💡 Save your progress — link an account to keep your cosmetics permanently.
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Lightbulb size={13} /> Save your progress — link an account to keep your cosmetics permanently.</span>
         </div>
       )}
 

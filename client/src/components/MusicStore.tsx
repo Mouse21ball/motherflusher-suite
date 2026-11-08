@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { MUSIC_CATALOG } from '@/lib/musicTracks';
 import { music } from '@/lib/music';
+import { Volume2, Volume1, VolumeX, Music, Lock } from 'lucide-react';
 
 interface MusicStoreProps {
   ownedIds:     Set<string>;
@@ -67,7 +68,7 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
               fontSize: 15, color: muted ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.70)',
             }}
           >
-            {muted ? '🔇' : volume < 0.4 ? '🔈' : '🔊'}
+            {muted ? <VolumeX size={15} /> : volume < 0.4 ? <Volume1 size={15} /> : <Volume2 size={15} />}
           </button>
 
           {/* Slider */}
@@ -134,7 +135,7 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
 
               {/* Owned / lock icon */}
               <span style={{ fontSize: 13, minWidth: 16, textAlign: 'center' }}>
-                {owned ? '🎵' : '🔒'}
+                {owned ? <Music size={13} /> : <Lock size={13} />}
               </span>
 
               {/* Title + tag */}

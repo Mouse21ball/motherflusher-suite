@@ -20,14 +20,9 @@ interface TableFeltProps {
   tint?: string;
 }
 
-function ChainMark() {
-  return (
-    <svg width="46" height="26" viewBox="0 0 64 36" fill="none" aria-hidden="true">
-      <rect x="4" y="9" width="32" height="18" rx="9" transform="rotate(-28 20 18)" stroke="rgba(240,184,41,0.20)" strokeWidth="5" />
-      <rect x="28" y="9" width="32" height="18" rx="9" transform="rotate(-28 44 18)" stroke="rgba(240,184,41,0.20)" strokeWidth="5" />
-    </svg>
-  );
-}
+// P4: the felt print and every UI surface share ONE chain mark —
+// the shared ChainMark component (extracted from this felt original).
+import { ChainMark } from '@/components/ChainMark';
 
 export function TableFelt({ modeName, tint }: TableFeltProps) {
   return (
@@ -89,7 +84,7 @@ export function TableFelt({ modeName, tint }: TableFeltProps) {
         className="absolute pointer-events-none flex flex-col items-center"
         style={{ left: '50%', top: '30.5%', transform: 'translate(-50%, -50%)' }}
       >
-        <ChainMark />
+        <ChainMark width={46} color="rgba(240,184,41,0.20)" />
         <div
           style={{
             marginTop: 4,
