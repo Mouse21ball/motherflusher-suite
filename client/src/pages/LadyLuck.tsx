@@ -569,7 +569,7 @@ function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 17, color, letterSpacing: 1, lineHeight: 1 }}>{cfg.label}</div>
                     <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 3 }}>WAGER {cfg.range} CHIPS</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, color, marginTop: 2 }}>SIDE BET MAX {cfg.sideBetMax.toLocaleString()} · PAYS 2.5×</div>
+                    <div style={{ fontFamily: 'var(--font-num)', fontSize: 11, color, marginTop: 2 }}>SIDE BET MAX {cfg.sideBetMax.toLocaleString()} · PAYS 2.5×</div>
                     <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginTop: 3 }}>
                       {roomCounts[id] > 0 ? `${roomCounts[id]} players online` : 'No active tables'}
                     </div>
@@ -1211,7 +1211,7 @@ function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
               <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22755)' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#C9A227', letterSpacing: 0.5, textAlign: 'center' }}>YOUR WAGER • {room.minWager.toLocaleString()}–{room.maxWager.toLocaleString()} CHIPS</span>
+              <span style={{ fontFamily: 'var(--font-num)', fontSize: 11, color: '#C9A227', letterSpacing: 0.5, textAlign: 'center' }}>YOUR WAGER • {room.minWager.toLocaleString()}–{room.maxWager.toLocaleString()} CHIPS</span>
               <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22755)' }} />
             </div>
             {/* Amount + buttons */}
@@ -1237,7 +1237,7 @@ function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
           </div>
         ) : (
           <div style={{ margin: '10px 14px 0', background: 'rgba(16,185,129,0.1)', border: '1px solid #10b98145', borderRadius: 13, padding: '13px 14px', textAlign: 'center', flexShrink: 0 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#10b981', letterSpacing: 1 }}>✓ WAGER PLACED — {myPlayer?.wager.toLocaleString()} CHIPS</div>
+            <div style={{ fontFamily: 'var(--font-num)', fontSize: 12, color: '#10b981', letterSpacing: 1 }}>✓ WAGER PLACED — {myPlayer?.wager.toLocaleString()} CHIPS</div>
           </div>
         )}
 
@@ -1246,7 +1246,7 @@ function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#C9A22750)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A22799', letterSpacing: 2, whiteSpace: 'nowrap' }}>SIDE BET — MAX {room.maxSideBet.toLocaleString()} CHIPS • PAYS 2.5×</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontSize: 8, color: '#C9A22799', letterSpacing: 2, whiteSpace: 'nowrap' }}>SIDE BET — MAX {room.maxSideBet.toLocaleString()} CHIPS • PAYS 2.5×</span>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(270deg,transparent,#C9A22750)' }} />
           </div>
           {/* Suit buttons */}
@@ -1853,7 +1853,7 @@ function LadyLuckPage({ onGamePageChange, joinHeld }: LadyLuckPageProps) {
                       </div>
                     )}
                     {p.wagered ? (
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#10b981', letterSpacing: 0, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>✓ {p.wager.toLocaleString()}</div>
+                      <div style={{ fontFamily: 'var(--font-num)', fontSize: 11, color: '#10b981', letterSpacing: 0, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>✓ {p.wager.toLocaleString()}</div>
                     ) : (
                       <div style={{ fontFamily: 'monospace', fontSize: 11, color: p.suit ? 'rgba(201,162,39,0.75)' : 'rgba(255,255,255,0.65)', letterSpacing: 0, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.suit ? 'BETTING' : 'PICKING'}</div>
                     )}

@@ -187,7 +187,7 @@ export default function CrewsPage() {
               </div>
               <div className="text-right">
                 <div className="text-[9px] font-mono" style={{ color: GOLD_DIM }}>BANK</div>
-                <div className="font-mono font-bold text-sm" style={{ color: GOLD }}>
+                <div className="cgp-num font-bold text-sm" style={{ color: GOLD }}>
                   {(crew.chipBank ?? 0).toLocaleString()}
                 </div>
               </div>
@@ -393,9 +393,8 @@ function PublicClubsBrowser({ onJoined, stripes }: { onJoined: () => void; strip
               {club.name}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
-              <span className="font-mono text-[10px]" style={{ color: GOLD }}>#{club.clubId}</span>
               <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>{club.memberCount}/25 members</span>
-              <span className="font-mono text-[10px]" style={{ color: GOLD_DIM }}>{club.chipBank.toLocaleString()} bank</span>
+              <span className="cgp-num text-[10px]" style={{ color: GOLD_DIM }}>{club.chipBank.toLocaleString()} bank</span>
             </div>
           </div>
           <button
@@ -1003,7 +1002,7 @@ function BankTab({ crew, playerId, isOwnerOrAgent, onReload }: {
       <div className="rounded-2xl py-6 px-4 text-center"
            style={{ background: "rgba(240,184,41,0.06)", border: "1px solid rgba(240,184,41,0.2)" }}>
         <p className="font-mono text-xs tracking-widest mb-1" style={{ color: GOLD_DIM }}>CLUB BANK</p>
-        <p className="font-mono font-bold text-4xl" style={{ color: GOLD }} data-testid="bank-balance">
+        <p className="cgp-num font-bold text-4xl" style={{ color: GOLD }} data-testid="bank-balance">
           {(crew.chipBank ?? 0).toLocaleString()}
         </p>
         <p className="font-mono text-xs mt-1" style={{ color: "rgba(240,184,41,0.35)" }}>chips</p>
@@ -1551,7 +1550,7 @@ function FundBankModal({ crew, onClose, onFunded }: {
             className="w-full rounded-lg px-3 py-2 mt-1 text-xl font-mono outline-none text-center"
             style={{ background: "rgba(240,184,41,0.07)", border: "1px solid rgba(240,184,41,0.2)", color: GOLD }} />
         </div>
-        <div className="text-center text-xs font-mono" style={{ color: GOLD_DIM }}>
+        <div className="text-center text-xs cgp-num" style={{ color: GOLD_DIM }}>
           Current bank: {(crew.chipBank ?? 0).toLocaleString()} chips
         </div>
         <button onClick={handleFund} disabled={!amount || loading || parseInt(amount,10) <= 0}

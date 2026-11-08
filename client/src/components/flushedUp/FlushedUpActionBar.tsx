@@ -199,7 +199,7 @@ export function FlushedUpActionBar({
                   <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(201,162,39,0.85)', letterSpacing: '0.1em' }}>
                     {currentBet > 0 ? 'RAISE TO' : 'BET AMOUNT'}
                   </span>
-                  <span style={{ fontSize: 16, fontFamily: 'monospace', fontWeight: 800, color: '#FDE68A' }}>
+                  <span style={{ fontSize: 16, fontFamily: 'var(--font-num)', fontWeight: 800, color: '#FDE68A' }}>
                     ${raiseTo?.toLocaleString() ?? '—'}
                   </span>
                 </div>
@@ -227,7 +227,7 @@ export function FlushedUpActionBar({
                       width: 76, padding: '8px 6px', borderRadius: 8, textAlign: 'right',
                       background: 'rgba(20,14,0,0.9)', color: '#FDE68A',
                       border: '1px solid rgba(201,162,39,0.4)',
-                      fontFamily: 'monospace', fontSize: 13, fontWeight: 700, outline: 'none',
+                      fontFamily: 'var(--font-num)', fontSize: 13, fontWeight: 700, outline: 'none',
                     }}
                   />
                 </div>

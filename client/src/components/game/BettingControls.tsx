@@ -93,7 +93,7 @@ export function BettingControls({
   return (
     <section data-testid="betting-controls" aria-label="Betting controls"
       style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%',
-        padding: '6px 8px', boxSizing: 'border-box', color: '#fff', fontFamily: 'monospace', position: 'relative' }}>
+        padding: '6px 8px', boxSizing: 'border-box', color: '#fff', fontFamily: 'var(--font-num)', position: 'relative' }}>
 
       {/* Pot info — compact single line */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>

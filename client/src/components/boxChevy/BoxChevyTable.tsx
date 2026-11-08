@@ -670,6 +670,12 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   // Detroit 2026-10-24 (P2 premium polish): restrained
                   // gold edging + soft depth on the enlarged 36x50
                   // community cards. Wrapper only — card art untouched.
+                  // P3 note (2026-11-07): a trial enlargement to 44x62
+                  // was rendered and REVERTED — it exceeds the approved
+                  // growth band and breaks the geometry budget pinned in
+                  // tests/bcCommunityGeometry.test.ts (growth cap 1.15x
+                  // over 32x44; pot-flight offset floor at 740px stage).
+                  // Do not resize without re-ruling that budget.
                   style={{
                     borderRadius: 5,
                     border: '1px solid rgba(240,184,41,0.6)',
@@ -689,7 +695,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="rounded-full px-3 py-1 font-mono font-bold text-amber-200 whitespace-nowrap"
+              className="rounded-full px-3 py-1 cgp-num font-bold text-amber-200 whitespace-nowrap"
               style={{ background: 'rgba(20,10,40,0.88)', border: '1px solid rgba(240,184,41,0.55)', fontSize: 12, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}
             >
               POT ${state.pot.toLocaleString()}
@@ -863,7 +869,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   {/* Chips + bet share one line — the center-aware
                       layout buys back the vertical room the community
                       band and validity badge need (budget-verified). */}
-                  <div className="text-white/50 text-[10px] font-mono">
+                  <div className="text-white/50 text-[10px] cgp-num">
                     {p.chips.toLocaleString()}
                     {p.bet > 0 && <span className="text-amber-300"> · ${p.bet} bet</span>}
                   </div>
@@ -991,7 +997,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                         {p.name}
                       </span>
                       <div className="flex items-center gap-1 mt-px">
-                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                        <span className="text-[10px] leading-tight cgp-num text-amber-200/90 shrink-0">
                           {p.chips.toLocaleString()}
                         </span>
                         {foldPlate}
@@ -1002,7 +1008,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                       <motion.div
                         initial={{ scale: 0.5, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="text-amber-300 text-[10px] font-mono"
+                        className="text-amber-300 text-[10px] cgp-num"
                       >
                         ${p.bet}
                       </motion.div>
@@ -1145,10 +1151,10 @@ function WinnerBlock({ winner }: { winner: WinnerInfo }) {
         {/* Detroit 2026-10-16: amount removed — was fabricated (pot ÷ winners), wrong with side pots.
             Detroit 2026-10-22: the exact payout returns, sourced from the server's showdown summary. */}
         {winner.exactAmount !== undefined && (
-          <span className="text-amber-300 text-xl font-mono ml-3">+${winner.exactAmount.toLocaleString()}</span>
+          <span className="text-amber-300 text-xl cgp-num ml-3">+${winner.exactAmount.toLocaleString()}</span>
         )}
         {winner.amountText !== undefined && (
-          <span className="text-amber-300 text-sm font-mono ml-3">{winner.amountText}</span>
+          <span className="text-amber-300 text-sm cgp-num ml-3">{winner.amountText}</span>
         )}
       </div>
       {winner.side !== 'SOLE' && (

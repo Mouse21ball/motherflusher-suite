@@ -296,7 +296,7 @@ export default function BonusCenter() {
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {[
                   { icon: <Award size={17} />, label: 'VIP Badge', sub: 'Profile border + badge' },
-                  { icon: <Smile size={17} />, label: `+${vip.extraEmotes} Emotes`, sub: 'Extra table reactions/session' },
+                  { icon: <Smile size={17} />, label: `+${vip.extraEmotes} Emotes`, sub: 'Extra table reactions/session', locked: vip.extraEmotes === 0 },
                   { icon: <TrendingUp size={17} />, label: `+${vip.dailyBonusPct}% Daily`, sub: 'Daily reward multiplier', locked: vip.dailyBonusPct === 0 },
                   { icon: <Zap size={17} />, label: `+${vip.hourlyBonusPct}% Hourly`, sub: 'Hourly bonus multiplier', locked: vip.hourlyBonusPct === 0 },
                 ].map((perk, i) => (

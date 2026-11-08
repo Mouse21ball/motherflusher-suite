@@ -49,7 +49,7 @@ import { YardPlayerHeader } from '@/components/YardPlayerHeader';
 import { YardRewardFlight } from '@/components/YardRewardFlight';
 import { publishYardMissionBadge } from '@/lib/yardMissionBadge';
 import { useTableBackground } from '@/lib/useTableBackground';
-import { RefreshCw, ArrowRight, Medal, Crown, Trophy } from 'lucide-react';
+import { RefreshCw, ArrowRight, Medal, Crown, Trophy, Target } from 'lucide-react';
 import '@/yard-reskin.css';
 
 // ── Quest types (inline) ──────────────────────────────────────────────────────
@@ -769,7 +769,7 @@ export default function Home() {
                         style={{ fontFamily: 'Oswald, Impact, sans-serif', fontSize: 'clamp(21px,5vw,32px)', color: '#E5E7EB', letterSpacing: '1px', lineHeight: 1, textShadow: '0 2px 8px #0A0618', marginBottom: 4 }}>
                         {card.title}
                       </div>
-                      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>
+                      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7, maxWidth: 'calc(100% - 54px)' }}>
                         {card.subtitle}
                       </div>
                        <button className="yard-card-chevron" data-testid={`button-play-${card.id}`}
@@ -778,6 +778,7 @@ export default function Home() {
                        <div className="yard-card-utilities">
                        {htpModeId && (
                         <button
+                          className="yard-card-htp"
                           data-testid={`button-how-to-play-${card.id}`}
                            aria-label={`How to play ${card.title}`}
                           onClick={e => { e.stopPropagation(); setHowToPlayMode(htpModeId); }}
@@ -788,12 +789,14 @@ export default function Home() {
                       )}
                       {card.id === 'badugi' && (
                         <button
+                          className="yard-card-practice"
                           data-testid="button-practice-badugi"
                            aria-label="Practice Badugi"
                           onClick={e => { e.stopPropagation(); navigate('/practice/badugi'); }}
-                          style={{ marginLeft: 5, background: '#150A2Edd', border: '1px solid #C4B5FD', borderRadius: 8, minHeight: 32, padding: '4px 8px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#EDE9FE', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ background: '#150A2Edd', border: '1px solid #C4B5FD', borderRadius: 8, minHeight: 32, padding: '4px 8px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#EDE9FE', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                         >
-                           <RefreshCw size={20} aria-hidden="true" />
+                           <Target size={14} aria-hidden="true" />
+                           Practice
                         </button>
                       )}
                        </div>
@@ -817,10 +820,10 @@ export default function Home() {
             <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
               <div className="yard-missions-title">
                 DAILY MISSIONS
-                <button type="button" aria-label="Refresh daily missions" onClick={() => serverProfile?.profileId && fetchQuestData(serverProfile.profileId)}
-                  style={{ marginLeft: 'auto', minWidth: 48, minHeight: 48, display: 'grid', placeItems: 'center', border: '1px solid #A78BFA', borderRadius: 8, background: '#1E1040', color: '#EDE9FE' }}>
-                  <RefreshCw size={18} />
-                </button>
+                {/* P3: removed the floating refresh icon-button that sat at
+                    this widget's top-right (audit: stray "refresh" glyph).
+                    Mission data loads with the page; the Missions screen
+                    keeps its own labeled refresh + pull-to-refresh. */}
               </div>
               {todayQuest ? (
                 <>

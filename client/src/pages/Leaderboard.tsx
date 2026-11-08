@@ -184,17 +184,18 @@ export default function Leaderboard() {
           <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 10 }}>⛓</span>
 
           {/* Centered title */}
-          <div className="flex-1 flex flex-col items-center">
+          <div className="flex-1 min-w-0 flex flex-col items-center">
             <div style={{ fontSize: 9, color: 'rgba(201,162,39,0.50)', fontFamily: 'monospace', letterSpacing: '0.28em', textTransform: 'uppercase', lineHeight: 1 }}>
               CGP
             </div>
             <div style={{
               fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-              fontSize: 20,
-              letterSpacing: '0.10em',
+              fontSize: 18,
+              letterSpacing: '0.06em',
               textTransform: 'uppercase',
               color: '#fff',
               lineHeight: 1.1,
+              whiteSpace: 'nowrap',
               textShadow: '0 0 20px rgba(120,70,220,0.40), 0 1px 3px rgba(0,0,0,0.80)',
             }}>
               LEADERBOARD
@@ -211,7 +212,7 @@ export default function Leaderboard() {
               boxShadow: '0 0 10px rgba(0,200,140,0.15)',
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'monospace', color: '#00C896', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-num)', color: '#00C896', letterSpacing: '0.04em' }}>
               {leaderboard.total.toLocaleString()} RANKED
             </span>
           </div>}
@@ -401,8 +402,11 @@ export default function Leaderboard() {
                   size={52}
                 />
 
-                {/* Name + level */}
-                <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                {/* Name + level — stacked (P3): the meta line used to sit
+                    beside the name and starve it to ~40px, truncating every
+                    name to 2–4 chars. Name gets the full column width now;
+                    LVL · hands reads on its own line underneath. */}
+                <div className="flex-1 min-w-0 flex flex-col">
                   <span style={{
                     fontWeight: 700, fontSize: 15, fontFamily: 'sans-serif',
                     color: isMe ? '#C9A227' : isTop3 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.80)',
@@ -416,7 +420,7 @@ export default function Leaderboard() {
                       </span>
                     )}
                   </span>
-                  <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 600, flexShrink: 0, color: entryRank.color }}>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-num)', fontWeight: 600, color: entryRank.color }}>
                     LVL {entryLevel.level} · {entry.handsPlayed} hands
                   </span>
                 </div>
@@ -424,7 +428,7 @@ export default function Leaderboard() {
                 {/* Stat value */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <span style={{
-                    fontSize: 14, fontWeight: 900, fontFamily: 'monospace',
+                    fontSize: 14, fontWeight: 900, fontFamily: 'var(--font-num)',
                     color: isMe ? '#FFD700' : '#C9A227CC',
                     letterSpacing: '0.02em',
                     textShadow: isTop3 ? '0 0 8px rgba(201,162,39,0.40)' : 'none',

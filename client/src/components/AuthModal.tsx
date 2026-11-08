@@ -289,7 +289,7 @@ export function AuthModal({ open, defaultTab = 'login', onClose, onSuccess }: Au
               <Link href="/terms" className="underline hover:text-white/50 transition-colors">Terms</Link>
               {' & '}
               <Link href="/privacy" className="underline hover:text-white/50 transition-colors">Privacy Policy</Link>.
-              Virtual chips have no cash value · 13+
+              Virtual chips have no cash value · 17+
             </p>
           )}
         </form>

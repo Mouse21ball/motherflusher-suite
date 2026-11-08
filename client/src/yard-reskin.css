@@ -99,7 +99,13 @@
 .yard-bonus-mission-grid { grid-template-columns:1fr!important; }
 .yard-missions-screen { grid-column:1/-1; }
 .yard-mission-row { border:1px solid #7C3AED88!important;border-radius:10px!important;background:#150A2E99!important; }
-.yard-mission-claim { min-width:96px!important;min-height:48px!important;background:linear-gradient(135deg,#F59E0B,#B45309)!important;color:#150A2E!important;border-radius:8px!important;font-weight:900!important;font-size:14px!important; }
+.yard-mission-claim { min-width:96px!important;min-height:48px!important;border-radius:8px!important;font-weight:900!important;font-size:14px!important; }
+/* P3: the orange claim gradient is for a READY claim only. The base rule
+   used to force it with !important over the button's own state styling,
+   so an unclaimable mission (0 progress, disabled) still rendered as an
+   active orange CLAIM. Disabled (not ready / claiming) reads muted. */
+.yard-mission-claim:not(:disabled) { background:linear-gradient(135deg,#F59E0B,#B45309)!important;color:#150A2E!important; }
+.yard-mission-claim:disabled { background:rgba(255,255,255,0.07)!important;color:rgba(255,255,255,0.28)!important;box-shadow:none!important; }
 .yard-mission-claim.is-done { background:#2D1B69!important;color:#C4B5FD!important;opacity:.58; }
 .yard-shop-page { color:#EDE9FE; padding-bottom:90px; }
 .yard-shop-page button { min-height:48px; }
@@ -370,8 +376,13 @@
 .yard-game-card {aspect-ratio:4/5!important;min-height:200px}
 .yard-hero-name {max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .yard-card-chevron {position:absolute;right:12px;bottom:12px;width:48px;height:48px;display:grid;place-items:center;border:2px solid var(--card-accent);border-radius:50%;color:var(--card-accent);background:#150A2EBB;box-shadow:0 0 14px var(--card-accent);font-size:34px}
-.yard-card-utilities {position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:12px}
+.yard-card-utilities {position:absolute;top:12px;left:12px;right:12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .yard-card-utilities button {width:48px!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0!important;display:grid;place-items:center;font-size:14px!important}
+/* P3: the blanket 48px-square rule above was written for icon buttons and
+   crushed the HOW TO PLAY text pill into a 48px box — its label wrapped
+   and spilled below the border on every card. Text pills size to their
+   label on one line; icon buttons keep the 48px square. */
+.yard-card-utilities .yard-card-htp,.yard-card-utilities .yard-card-practice {width:auto!important;min-width:48px;padding:0 14px!important;display:inline-flex!important;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .yard-game-card [data-testid^="text-mode-name"] {max-width:calc(100% - 54px)}
 .yard-game-card [data-testid^="text-mode-name"] {background:linear-gradient(180deg,#E5E7EB 10%,#FDE68A 48%,#6B7280 54%,#FBBF24 100%);background-clip:text;-webkit-background-clip:text;color:transparent!important;font-weight:700;filter:drop-shadow(0 3px 0 #0A0618)}
 .yard-card-chevron {cursor:pointer}

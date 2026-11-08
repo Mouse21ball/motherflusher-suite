@@ -352,8 +352,9 @@ app.use(createApiResponseLogger(log));
 
     <h2>Children's Privacy</h2>
     <p>
-      Chain Gang Poker is not directed at children under the age of 13.
-      We do not knowingly collect personal information from children under 13.
+      Chain Gang Poker is not directed at anyone under the age of 17, the minimum age
+      enforced by the Game's age gate. We do not knowingly collect personal information
+      from anyone under 17.
       If you believe a child has provided us with personal information, please
       contact us and we will delete it promptly.
     </p>
@@ -437,9 +438,9 @@ app.use(createApiResponseLogger(log));
 
     <h2>2. Eligibility</h2>
     <p>
-      You must be at least 13 years of age to use Chain Gang Poker. If you are between 13 and 18,
-      you represent that a parent or legal guardian has reviewed and agrees to these Terms on your behalf.
-      We do not knowingly collect information from children under 13.
+      You must be at least 17 years of age to use Chain Gang Poker, the minimum age enforced
+      by the Game's age gate. If you are under 17, you may not use the Game.
+      We do not knowingly collect information from children under 17.
     </p>
 
     <h2>3. Description of the Game</h2>

@@ -281,13 +281,27 @@ export default function LadyLuckSpectate() {
   const spectators   = state?.spectatorCount ?? 0;
 
   // ── Not found ──────────────────────────────────────────────────────────────
+  // P3: branded dead-end. This used to be a bare red error line on a glass
+  // card; it now carries the Lady Luck / CGP identity, says what happened
+  // in plain words, and keeps the working route back to the rooms.
   if (notFound) {
     return (
-      <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <div style={{ ...GLASS_CARD, padding: '28px 36px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'monospace', color: '#ff6b6b', fontSize: 14, marginBottom: 16 }}>Table not found or already closed.</p>
-          <button data-testid="button-spectate-leave" onClick={() => navigate('/ladyluck')} style={{ background: '#C9A227', color: '#000', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 800, fontFamily: 'monospace', fontSize: 13, cursor: 'pointer', letterSpacing: 1 }}>
-            ← BACK TO LOBBY
+      <div style={{ ...RACE_BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: '0 20px' }}>
+        <div style={{ ...GLASS_CARD, padding: '30px 28px', textAlign: 'center', maxWidth: 340, width: '100%' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.32em', color: 'rgba(201,162,39,0.75)', textTransform: 'uppercase', marginBottom: 8 }}>
+            Chain Gang Poker
+          </div>
+          <div style={{ fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif', fontSize: 34, letterSpacing: '0.08em', color: '#C9A227', lineHeight: 1, textShadow: '0 0 22px rgba(201,162,39,0.35)', marginBottom: 14 }}>
+            LADY LUCK
+          </div>
+          <p style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 17, color: '#fff', letterSpacing: '0.04em', margin: '0 0 8px' }}>
+            THIS TABLE'S GONE
+          </p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.55, margin: '0 0 22px' }}>
+            The race already finished or the table closed. Head back to the rooms and pick another one.
+          </p>
+          <button data-testid="button-spectate-leave" onClick={() => navigate('/ladyluck')} style={{ background: 'linear-gradient(135deg, #FDE68A, #C9A227)', color: '#150A2E', border: 'none', borderRadius: 10, padding: '12px 24px', minHeight: 48, fontWeight: 800, fontFamily: 'Oswald, sans-serif', fontSize: 14, cursor: 'pointer', letterSpacing: '0.08em' }}>
+            ← BACK TO THE ROOMS
           </button>
         </div>
       </div>
@@ -507,7 +521,7 @@ export default function LadyLuckSpectate() {
 
                 {/* Wager input */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginBottom: 6, letterSpacing: 0.5 }}>
+                  <div style={{ fontFamily: 'var(--font-num)', fontSize: 11, color: 'rgba(255,255,255,0.70)', marginBottom: 6, letterSpacing: 0.5 }}>
                     AMOUNT ({sideBetMin.toLocaleString()}–{sideBetMax.toLocaleString()})
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -587,7 +601,7 @@ export default function LadyLuckSpectate() {
           {state.pot > 0 && (
             <div style={{ ...GLASS_CARD, padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.70)', letterSpacing: 0.5 }}>MAIN POT</span>
-              <span style={{ fontFamily: 'monospace', fontSize: 14, color: '#C9A227', fontWeight: 700 }}>{state.pot.toLocaleString()}</span>
+              <span style={{ fontFamily: 'var(--font-num)', fontSize: 14, color: '#C9A227', fontWeight: 700 }}>{state.pot.toLocaleString()}</span>
             </div>
           )}
         </div>

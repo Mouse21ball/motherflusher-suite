@@ -22,7 +22,7 @@ interface TableFeltProps {
 
 function ChainMark() {
   return (
-    <svg width="58" height="32" viewBox="0 0 64 36" fill="none" aria-hidden="true">
+    <svg width="46" height="26" viewBox="0 0 64 36" fill="none" aria-hidden="true">
       <rect x="4" y="9" width="32" height="18" rx="9" transform="rotate(-28 20 18)" stroke="rgba(240,184,41,0.20)" strokeWidth="5" />
       <rect x="28" y="9" width="32" height="18" rx="9" transform="rotate(-28 44 18)" stroke="rgba(240,184,41,0.20)" strokeWidth="5" />
     </svg>
@@ -80,22 +80,25 @@ export function TableFelt({ modeName, tint }: TableFeltProps) {
         }}
       />
       {/* Center-felt branding — the chain mark and mode name printed IN
-          the felt at its center, under the pot. Kept faint: it is a felt
-          print, not a UI element. */}
+          the felt. Kept faint: it is a felt print, not a UI element.
+          P3: lifted from 38% to 30.5% and shrunk — Badugi and Flushed Up
+          anchor the pot at y≈42%, and the pot label/amount used to land
+          directly on the mode-name line ("BA[POT]GI"). The print now
+          sits in the clear felt between the top seats and the pot. */}
       <div
         className="absolute pointer-events-none flex flex-col items-center"
-        style={{ left: '50%', top: '38%', transform: 'translate(-50%, -50%)' }}
+        style={{ left: '50%', top: '30.5%', transform: 'translate(-50%, -50%)' }}
       >
         <ChainMark />
         <div
           style={{
-            marginTop: 5,
-            fontFamily: 'monospace',
-            fontSize: 14,
-            fontWeight: 900,
-            letterSpacing: '0.42em',
-            transform: 'translateX(0.21em)',
-            color: 'rgba(253,230,138,0.16)',
+            marginTop: 4,
+            fontFamily: 'Oswald, sans-serif',
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: '0.34em',
+            transform: 'translateX(0.17em)',
+            color: 'rgba(253,230,138,0.18)',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
           }}
@@ -104,13 +107,13 @@ export function TableFelt({ modeName, tint }: TableFeltProps) {
         </div>
         <div
           style={{
-            marginTop: 3,
-            fontFamily: 'monospace',
-            fontSize: 8,
-            fontWeight: 700,
-            letterSpacing: '0.3em',
-            transform: 'translateX(0.15em)',
-            color: 'rgba(253,230,138,0.10)',
+            marginTop: 2,
+            fontFamily: 'Oswald, sans-serif',
+            fontSize: 7.5,
+            fontWeight: 600,
+            letterSpacing: '0.26em',
+            transform: 'translateX(0.13em)',
+            color: 'rgba(253,230,138,0.11)',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
           }}

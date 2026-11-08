@@ -81,7 +81,7 @@ function formatChipBadge(n: number): string {
 
 export default function Profile() {
   const [, navigate] = useLocation();
-  const celebrationSettingsRef = useRef<HTMLFieldSetElement>(null);
+  const celebrationSettingsRef = useRef<HTMLDivElement>(null);
   const celebrationMotion = useCelebrationMotion();
 
   // ── Data sources ───────────────────────────────────────────────────────────
@@ -472,10 +472,10 @@ export default function Profile() {
                 {/* XP bar */}
                 <div>
                   <div className="flex justify-between items-baseline mb-1">
-                    <span style={{ fontSize: 11, color: '#FFD700', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: 11, color: '#FFD700', fontFamily: 'var(--font-num)', letterSpacing: '0.04em' }}>
                       LEVEL {displayLevel} · {levelInfo.xpIntoLevel.toLocaleString()} / {levelInfo.xpNeeded.toLocaleString()} XP
                     </span>
-                    <span style={{ fontSize: 11, color: '#FFD700', fontFamily: 'monospace' }}>{progressPct}%</span>
+                    <span style={{ fontSize: 11, color: '#FFD700', fontFamily: 'var(--font-num)' }}>{progressPct}%</span>
                   </div>
                   <div style={{ height: 8, background: 'rgba(255,255,255,0.10)', borderRadius: 4, overflow: 'hidden' }}>
                     <div
@@ -715,7 +715,7 @@ export default function Profile() {
             >
               <div style={{ fontSize: 9, color: '#FFD700', letterSpacing: '0.10em', fontFamily: 'monospace', fontWeight: 700 }}>NET</div>
               <div style={{
-                fontSize: 18, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1.1, textAlign: 'center',
+                fontSize: 18, fontWeight: 900, fontFamily: 'var(--font-num)', lineHeight: 1.1, textAlign: 'center',
                 color: displayNet > 0 ? '#4ade80' : displayNet < 0 ? '#f87171' : 'rgba(255,255,255,0.80)',
               }}>
                 {displayNet >= 0 ? `+$${displayNet.toLocaleString()}` : `-$${Math.abs(displayNet).toLocaleString()}`}
@@ -735,7 +735,7 @@ export default function Profile() {
               data-testid="stat-chips"
             >
               <div style={{ fontSize: 9, color: '#FFD700', letterSpacing: '0.10em', fontFamily: 'monospace', fontWeight: 700 }}>CHIPS</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#FFD700', fontFamily: 'monospace', lineHeight: 1.1, textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#FFD700', fontFamily: 'var(--font-num)', lineHeight: 1.1, textAlign: 'center' }}>
                 ${displayChips.toLocaleString()}
               </div>
               <img src="/profile/icons/stat-icon-chips.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -753,7 +753,7 @@ export default function Profile() {
               data-testid="stat-stripes"
             >
               <div style={{ fontSize: 9, color: '#B57BE8', letterSpacing: '0.10em', fontFamily: 'monospace', fontWeight: 700 }}>STRIPES</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: '#a855f7', fontFamily: 'monospace', lineHeight: 1.1 }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#a855f7', fontFamily: 'var(--font-num)', lineHeight: 1.1 }}>
                 {(serverProfile?.stripes ?? 0).toLocaleString()}
               </div>
               <img src="/profile/icons/stat-icon-stripes.webp" alt="" aria-hidden style={{ width: 80, height: 80, objectFit: 'contain', marginTop: 8 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -868,7 +868,7 @@ export default function Profile() {
                     BEST POT
                   </div>
                   <div style={{ fontSize: 22, marginBottom: 2 }}>🏆</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#FFD700', lineHeight: 1, fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#FFD700', lineHeight: 1, fontFamily: 'var(--font-num)' }}>
                     ${progression.biggestPot.toLocaleString()}
                   </div>
                 </div>
@@ -1009,15 +1009,21 @@ export default function Profile() {
 
           <div className="flex flex-col gap-3 mt-2">
             <NotificationSettings profileId={serverProfile?.profileId ?? identity.id} />
-            <fieldset
+            {/* P3: was a <fieldset>/<legend> — a legend straddles the card's
+                top border by HTML design, which is exactly the "heading
+                sitting on the border" defect. A group div keeps the same
+                accessible grouping without the straddle. */}
+            <div
               ref={celebrationSettingsRef}
               data-testid="settings-celebration-motion"
+              role="group"
+              aria-labelledby="celebration-motion-heading"
               className="rounded-xl p-4"
               style={{ background: 'rgba(15,10,25,0.55)', border: '1px solid rgba(255,215,0,0.12)' }}
             >
-              <legend style={{ padding: '0 6px', fontSize: 10, color: 'rgba(201,162,39,0.75)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <div id="celebration-motion-heading" style={{ fontSize: 10, color: 'rgba(201,162,39,0.75)', fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
                 Celebration Animations
-              </legend>
+              </div>
               <p id="celebration-motion-description" style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)', lineHeight: 1.5, margin: '0 0 12px' }}>
                 Choose how much motion appears in celebration effects.
               </p>
@@ -1053,7 +1059,7 @@ export default function Profile() {
                   );
                 })}
               </div>
-            </fieldset>
+            </div>
 
             <button
               type="button"

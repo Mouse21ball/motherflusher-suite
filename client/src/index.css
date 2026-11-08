@@ -59,6 +59,14 @@
 
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Menlo', monospace;
+  /* P3 (2026-11-07): the numeral voice. Money/stat values must NOT be set
+     in a monospace family — a mono font gives ',' and '.' a full digit
+     cell of advance, so grouped figures render with a void around the
+     separator ("$4 . 99", "+630 ,224"). Oswald's figures are
+     proportional-ink with tabular advance: separators stay tight and
+     columns still align. Use via class .cgp-num or fontFamily:
+     'var(--font-num)' in inline styles. */
+  --font-num: 'Oswald', 'Inter', system-ui, sans-serif;
 
   --color-surface: #0B0B0D;
   --color-panel: #141417;
@@ -673,6 +681,13 @@ body.non-game-readable [style*="color: rgba(157,125,200,0."] {
   font-family: 'Oswald', 'Inter', sans-serif;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* ── Numeral utility (P3) — see the --font-num note in :root. Apply to
+   any element whose text is a money/stat value so separators stay tight. */
+.cgp-num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Hero seat parallax float — foreground depth plane separation ───────── */

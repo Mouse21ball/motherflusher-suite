@@ -88,6 +88,39 @@ function ItemPreview({ item, size = 64 }: { item: CatalogItem; size?: number }) 
   }
 
   if (item.assetPath && !imgFailed) {
+    // P3: the preview mirrors AvatarWithFrame — the component that renders
+    // a worn frame at the seats — exactly: the avatar is a circle at 76%
+    // (inset 12%) and the frame art overlays it unclipped at natural
+    // aspect. The old preview was a square cover-crop, which is not how
+    // the frame ever appears in the game.
+    if (item.category === 'frame') {
+      const disc = Math.round(size * 0.76);
+      return (
+        <div style={{
+          width: size, height: size,
+          position: 'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <div style={{
+            width: disc, height: disc, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width={disc * 0.52} height={disc * 0.52} viewBox="0 0 24 24" fill="rgba(237,233,254,0.55)" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5v0.5H4z" />
+            </svg>
+          </div>
+          <img
+            src={item.assetPath}
+            alt={item.displayName}
+            onError={() => setImgFailed(true)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
+          />
+        </div>
+      );
+    }
     return (
       <div style={{
         width: size, height: size, borderRadius: 12,
@@ -123,6 +156,29 @@ function ItemPreview({ item, size = 64 }: { item: CatalogItem; size?: number }) 
 
   const fc = FRAME_COLORS[item.id] ?? { border: '#888', glow: 'rgba(136,136,136,0.4)' };
   const padding = Math.max(3, Math.floor(size * 0.06));
+  if (item.category === 'frame') {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        border: `${padding}px solid ${fc.border}`,
+        boxShadow: `0 0 ${size * 0.2}px ${fc.glow}`,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <div style={{
+          width: '76%', height: '76%', borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 30%, #4C2A85, #1E1040 75%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width={size * 0.4} height={size * 0.4} viewBox="0 0 24 24" fill="rgba(237,233,254,0.55)" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5v0.5H4z" />
+          </svg>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: 12,
@@ -139,32 +195,36 @@ function ItemPreview({ item, size = 64 }: { item: CatalogItem; size?: number }) 
   );
 }
 
+// P3: was a ~15px-tall text badge. The card's call to action now meets the
+// 44px touch standard as a full-width chip (a span inside the card button —
+// the whole card remains the tap target that opens the detail view).
 function StateBadge({ state }: { state: 'buy' | 'owned' | 'equipped' }) {
+  const base: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '100%', minHeight: 44, marginTop: 8,
+    fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
+    borderRadius: 9,
+    fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase',
+  };
   if (state === 'equipped') return (
     <span style={{
-      fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+      ...base,
       color: '#4ade80', background: 'rgba(74,222,128,0.15)',
       border: '1px solid rgba(74,222,128,0.35)',
-      padding: '1px 5px', borderRadius: 4,
-      fontFamily: 'monospace', textTransform: 'uppercase',
     }}>✓ Equipped</span>
   );
   if (state === 'owned') return (
     <span style={{
-      fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-      color: '#60a5fa', background: 'rgba(96,165,250,0.15)',
-      border: '1px solid rgba(96,165,250,0.30)',
-      padding: '1px 5px', borderRadius: 4,
-      fontFamily: 'monospace', textTransform: 'uppercase',
-    }}>Owned</span>
+      ...base,
+      color: '#C4B5FD', background: 'rgba(124,58,237,0.20)',
+      border: '1px solid rgba(167,139,250,0.45)',
+    }}>Equip</span>
   );
   return (
     <span style={{
-      fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-      color: 'rgba(201,162,39,0.90)', background: 'rgba(201,162,39,0.12)',
-      border: '1px solid rgba(201,162,39,0.30)',
-      padding: '1px 5px', borderRadius: 4,
-      fontFamily: 'monospace', textTransform: 'uppercase',
+      ...base,
+      color: '#150A2E', background: 'linear-gradient(135deg,#FDE68A,#F59E0B)',
+      border: '1px solid #F59E0B',
     }}>Buy</span>
   );
 }
@@ -650,11 +710,11 @@ export default function CosmeticsStore() {
                       {item.displayName}
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span style={{ fontSize: 11, color: '#C9A227', fontFamily: 'monospace' }}>
+                      <span style={{ fontSize: 11, color: '#C9A227', fontFamily: 'var(--font-num)' }}>
                         ◆ {item.stripesCost}
                       </span>
-                      <StateBadge state={state} />
                     </div>
+                    <StateBadge state={state} />
                   </div>
                 </button>
               );

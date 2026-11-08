@@ -453,11 +453,12 @@ export default function Shop() {
       borderRadius: 10,
       fontWeight: 800,
       fontSize: 12,
-      letterSpacing: '0.06em',
-      padding: '10px 14px',
+      letterSpacing: '0.03em',
+      padding: '10px 8px',
       cursor: 'pointer',
       width: '100%',
       minHeight: 44,
+      whiteSpace: 'nowrap',
       transition: 'box-shadow 0.15s, transform 0.1s',
       lineHeight: 1.2,
     };
@@ -623,12 +624,12 @@ export default function Shop() {
                 letterSpacing: '0.08em',
                 lineHeight: 1,
                 marginBottom: 8,
-                background: 'linear-gradient(180deg, #F7F5FF 0%, #BFA8E7 100%)',
+                background: 'linear-gradient(180deg, #FFFFFF 0%, #D9C8FF 55%, #A98BD8 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
                 fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
-                textShadow: '0 2px 4px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.75)',
+                textShadow: '0 2px 10px rgba(0,0,0,0.55), 0 0 22px rgba(157,125,200,0.35)',
               }}
             >
               DIAMOND ELITE
@@ -643,7 +644,7 @@ export default function Shop() {
                 {billingPeriod === 'monthly' ? '/MO' : '/YR'}
               </span>
               {billingPeriod === 'yearly' && (
-                <span style={{ fontSize: 12, color: '#D8C7F2', fontFamily: 'monospace', marginLeft: 4, fontWeight: 700 }}>~$16.67/mo</span>
+                <span style={{ fontSize: 12, color: '#D8C7F2', fontFamily: 'var(--font-num)', marginLeft: 4, fontWeight: 700 }}>~$16.67/mo</span>
               )}
             </div>
 
@@ -855,7 +856,7 @@ export default function Shop() {
                           <div style={{ fontWeight: 900, fontSize: 24, color: '#C0C0C0', lineHeight: 1.1, marginBottom: 4 }}>FREE</div>
                         ) : (
                           <div className="flex items-baseline gap-1 mb-1">
-                            <span style={{ fontWeight: 900, fontSize: 22, color: '#fff', fontFamily: 'monospace' }}>
+                            <span style={{ fontWeight: 900, fontSize: 22, color: '#fff', fontFamily: 'var(--font-num)' }}>
                               {subscriptionPriceFor(tier)}
                             </span>
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
@@ -864,7 +865,7 @@ export default function Shop() {
                           </div>
                         )}
                         {tier.tier && billingPeriod === 'yearly' && tier.yearlySavings && (
-                          <div style={{ fontSize: 12, color: tier.color, fontFamily: 'monospace', marginBottom: 4 }}>{tier.yearlySavings}</div>
+                          <div style={{ fontSize: 12, color: tier.color, fontFamily: 'var(--font-num)', marginBottom: 4 }}>{tier.yearlySavings}</div>
                         )}
 
                         {/* Benefits list */}
@@ -886,7 +887,7 @@ export default function Shop() {
                       </div>
 
                       {/* RIGHT: Action button */}
-                      <div className="shrink-0" style={{ width: 90 }}>
+                      <div className="shrink-0" style={{ width: 106 }}>
                         <TierCTA tier={tier} />
                       </div>
                     </div>
@@ -979,7 +980,7 @@ export default function Shop() {
                     {/* Name + amount */}
                     <div className="flex-1 min-w-0">
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.90)' }}>{pack.name}</div>
-                      <div style={{ fontWeight: 900, fontSize: 18, color: '#C9A227', fontFamily: 'monospace', lineHeight: 1.2 }}>
+                      <div style={{ fontWeight: 900, fontSize: 18, color: '#C9A227', fontFamily: 'var(--font-num)', lineHeight: 1.2 }}>
                         {pack.stripes}◆
                       </div>
                     </div>
@@ -1042,10 +1043,10 @@ export default function Shop() {
                 FIRST-PURCHASE SPECIAL
               </div>
               <p className="text-center text-xs text-white/75 mt-1">
-                One-time offer — expires in <span className="font-mono font-bold text-[#FFB36B]" data-testid="first-purchase-countdown">{firstPurchaseCountdown}</span>
+                One-time offer — expires in <span className="cgp-num font-bold text-[#FFB36B]" data-testid="first-purchase-countdown">{firstPurchaseCountdown}</span>
               </p>
               <div className="my-4 text-center">
-                <div className="font-mono font-black text-2xl text-white">
+                <div className="cgp-num font-black text-2xl text-white">
                   {FIRST_PURCHASE_BUNDLE.chips.toLocaleString()} chips + {FIRST_PURCHASE_BUNDLE.stripes}◆
                 </div>
                 <div className="text-xl font-black text-[#FFD36B]">$1.99</div>

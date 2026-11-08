@@ -746,9 +746,9 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
               {/* Visual chip stack — grows in tiers with the pot, capped (Detroit 2026-10-13) */}
               <PotStack amount={state.pot} />
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
+              <div className="text-amber-200 text-2xl font-bold cgp-num mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
               {state.sidePots && state.sidePots.length > 1 && (
-                <div className="text-amber-200/70 text-[11px] font-mono mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                <div className="text-amber-200/70 text-[11px] cgp-num mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                   {state.sidePots.map((t, i) => `${i === 0 ? 'MAIN' : state.sidePots!.length > 2 ? `SIDE ${i}` : 'SIDE'} $${t.amount.toLocaleString()}`).join(' · ')}
                 </div>
               )}
@@ -930,12 +930,12 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                       <DeclarationBadge badge={declarationBadge(p.declaration)!} />
                     )}
                   </div>
-                  <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
+                  <div className="text-white/50 text-[10px] cgp-num">{p.chips.toLocaleString()}</div>
                   {p.bet > 0 && (
                     <motion.div
                       initial={{ scale: 0.5, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="text-amber-300 text-[10px] font-mono mt-0.5"
+                      className="text-amber-300 text-[10px] cgp-num mt-0.5"
                     >
                       ${p.bet}
                     </motion.div>
@@ -1057,7 +1057,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                         {p.name}
                       </span>
                       <div className="flex items-center gap-1 mt-px">
-                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                        <span className="text-[10px] leading-tight cgp-num text-amber-200/90 shrink-0">
                           {p.chips.toLocaleString()}
                         </span>
                         {p.folded && (
@@ -1094,7 +1094,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                       <motion.div
                         initial={{ scale: 0.5, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="text-amber-300 text-[10px] font-mono"
+                        className="text-amber-300 text-[10px] cgp-num"
                       >
                         ${p.bet}
                       </motion.div>
@@ -1284,7 +1284,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   </motion.div>
                 ))}
               </div>
-              <div className="text-amber-200 text-sm font-mono font-bold mt-2.5">
+              <div className="text-amber-200 text-sm cgp-num font-bold mt-2.5">
                 WINS ${state.pot.toLocaleString()}
               </div>
               {handLabel && (
@@ -1435,7 +1435,7 @@ export function BadugiTable({ state: liveState, myId, selectedCardIndices, onCar
                   className="mt-2"
                 >
                   <span className="text-white text-2xl font-bold font-mono">{state.celebration.winnerName}</span>
-                  <span className="text-amber-300 text-2xl font-mono ml-3">+${state.celebration.amount.toLocaleString()}</span>
+                  <span className="text-amber-300 text-2xl cgp-num ml-3">+${state.celebration.amount.toLocaleString()}</span>
                 </motion.div>
                 {/* Winning hand — shown with the celebration (Detroit 2026-10-15) */}
                 {state.celebration.cards.length > 0 && (

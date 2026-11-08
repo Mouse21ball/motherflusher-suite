@@ -672,7 +672,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
             >
               <div className="text-amber-300/70 text-[10px] font-mono tracking-widest">POT</div>
               <PotStack amount={state.pot} />
-              <div className="text-amber-200 text-2xl font-bold font-mono mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
+              <div className="text-amber-200 text-2xl font-bold cgp-num mt-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>${state.pot.toLocaleString()}</div>
             </motion.div>
           </AnimatePresence>
           {/* Muck pile — face-down discards stack here */}
@@ -866,7 +866,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ color: '#fca5a5', background: 'rgba(127,29,29,0.6)', border: '1px solid rgba(248,113,113,0.5)' }}>FOLD</span>
                     )}
                   </div>
-                  <div className="text-white/50 text-[10px] font-mono">{p.chips.toLocaleString()}</div>
+                  <div className="text-white/50 text-[10px] cgp-num">{p.chips.toLocaleString()}</div>
                   {p.bet > 0 && (
                     <motion.div
                       initial={{ scale: 0.5, opacity: 0 }}
@@ -936,7 +936,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                         {p.name}
                       </span>
                       <div className="flex items-center gap-1 mt-px">
-                        <span className="text-[10px] leading-tight font-mono text-amber-200/90 shrink-0">
+                        <span className="text-[10px] leading-tight cgp-num text-amber-200/90 shrink-0">
                           {p.chips.toLocaleString()}
                         </span>
                         {p.folded && (
@@ -948,7 +948,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                       <motion.div
                         initial={{ scale: 0.5, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="text-amber-300 text-[10px] font-mono"
+                        className="text-amber-300 text-[10px] cgp-num"
                       >
                         ${p.bet}
                       </motion.div>
@@ -1084,7 +1084,7 @@ export function FlushedUpTable({ state: liveState, myId, selectedCardIndices, on
                   className="mt-2"
                 >
                   <span className="text-white text-2xl font-bold font-mono">{state.celebration.winnerName}</span>
-                  <span className="text-amber-300 text-2xl font-mono ml-3">+${state.celebration.amount.toLocaleString()}</span>
+                  <span className="text-amber-300 text-2xl cgp-num ml-3">+${state.celebration.amount.toLocaleString()}</span>
                 </motion.div>
                 {/* Winning hand — 5 cards */}
                 {state.celebration.cards.length > 0 && (
