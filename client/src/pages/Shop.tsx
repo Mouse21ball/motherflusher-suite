@@ -40,7 +40,12 @@ const STRIPES_PACKS = [
   { id: 'stripes_mega_9999',   name: 'Mega Pack',     stripes: 15000, price: '$99.99', badge: 'WHALE PACK',           featured: false },
 ];
 
-const STRIPES_ART = [smallChipArt, mediumChipArt, largeChipArt, megaChipArt];
+// P5: five packs, five distinct arts. The old 4-art array was indexed with
+// Math.min(index, 3), so Large and Mega both rendered megaChipArt (the duffel).
+// The Starter slot now uses the existing brand chip-starter art (gold chain
+// coin stack) so every tier reads distinct: starter stack → chip stacks →
+// vault (large) → duffel (mega).
+const STRIPES_ART = ['/chip-starter.webp', smallChipArt, mediumChipArt, largeChipArt, megaChipArt];
 
 const SUBSCRIPTIONS_UNAVAILABLE_MESSAGE =
   'Subscriptions are temporarily unavailable. Please try again shortly.';
@@ -431,6 +436,10 @@ export default function Shop() {
   const eliteTier       = TIER_DEFS[2];
   const eliteCardState  = getCardState(eliteTier);
   const eliteIsActive   = eliteCardState === 'active';
+  // P5 dedupe: with the elite plan card gone, the hero also owns the
+  // grace/hold states the card used to surface — those route to subscription
+  // management, never to a fresh subscribe.
+  const eliteIsManaged  = eliteCardState === 'active' || eliteCardState === 'grace' || eliteCardState === 'hold';
   const elitePrice      = `${subscriptionPriceFor(eliteTier)}${billingPeriod === 'monthly' ? '/MO' : '/YR'}`;
   const firstPurchaseMsLeft = firstPurchaseOffer?.expiresAt
     ? Math.max(0, new Date(firstPurchaseOffer.expiresAt).getTime() - offerClock)
@@ -649,6 +658,15 @@ export default function Shop() {
               )}
             </div>
 
+            {/* Grace / hold warning (moved from the removed elite plan card) */}
+            {(eliteCardState === 'grace' || eliteCardState === 'hold') && (
+              <div className={`mb-3 py-2 px-3 rounded-xl border text-[11px] font-mono ${eliteCardState === 'grace' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                {eliteCardState === 'grace'
+                  ? 'Payment issue — update payment in your app store within 3 days to keep benefits.'
+                  : 'Benefits paused — update your payment method in your app store to restore access.'}
+              </div>
+            )}
+
             {/* Benefits */}
             <ul className="space-y-1.5 mb-5">
               {eliteTier.features.map((f, i) => (
@@ -661,10 +679,10 @@ export default function Shop() {
 
             {/* Subscribe CTA */}
             <button
-              onClick={() => eliteIsActive ? handleManageSubscription() : handleSubscribe(eliteTier)}
+              onClick={() => eliteIsManaged ? handleManageSubscription() : handleSubscribe(eliteTier)}
               disabled={
                 !!subBusy
-                || (!eliteIsActive && isIOS && appleReadinessFor(eliteTier) !== 'available')
+                || (!eliteIsManaged && isIOS && appleReadinessFor(eliteTier) !== 'available')
               }
               className="w-full transition-all duration-200 active:scale-[0.98]"
               style={{
@@ -675,7 +693,7 @@ export default function Shop() {
                 fontSize: 15,
                 color: '#fff',
                 border: 'none',
-                cursor: !eliteIsActive && isIOS && appleReadinessFor(eliteTier) !== 'available' ? 'wait' : 'pointer',
+                cursor: !eliteIsManaged && isIOS && appleReadinessFor(eliteTier) !== 'available' ? 'wait' : 'pointer',
                 boxShadow: subBusy === 'elite' ? 'none' : '0 0 24px rgba(181,123,232,0.6)',
                 letterSpacing: '0.05em',
                 fontFamily: 'Impact, "Arial Narrow Bold", Arial, sans-serif',
@@ -686,7 +704,7 @@ export default function Shop() {
             >
               {subBusy === 'elite'
                 ? '…'
-                : eliteIsActive
+                : eliteIsManaged
                   ? 'MANAGE SUBSCRIPTION'
                   : isIOS && appleReadinessFor(eliteTier) === 'loading'
                     ? 'LOADING SUBSCRIPTIONS…'
@@ -757,9 +775,12 @@ export default function Shop() {
                </div>
             )}
 
-            {/* Tier cards */}
+            {/* Tier cards — P5: Diamond Elite is NOT rendered here. Its single
+                presentation is the hero directly above (same features, price,
+                and subscribe/manage CTA); the audit flagged the hero + plan
+                card duplication as page bloat. */}
             <div className="flex flex-col gap-3">
-              {TIER_DEFS.map(tier => {
+              {TIER_DEFS.filter(tier => tier.id !== 'elite').map(tier => {
                 const cardState = getCardState(tier);
                 const isActive  = cardState === 'active';
                 const isGrace   = cardState === 'grace';

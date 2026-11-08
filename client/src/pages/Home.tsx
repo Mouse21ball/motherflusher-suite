@@ -322,12 +322,37 @@ export default function Home() {
   const levelInfo = getLevelInfo(serverProfile?.xp ?? 0);
 
 
+  // ── P5 first-run sequencing state ────────────────────────────────────────
+  // A brand-new player's first Home session used to stack every ask at once:
+  // the starter-kit modal auto-opened over the guest nudge banner and the
+  // first-hand banner, so the first thing a new player could do was
+  // claim/dismiss instead of play. The sequence is now:
+  //   1st Home session → play only (quick-join, first-hand CTA, mode cards):
+  //                      no auto-opened modal, no nudge banner.
+  //   First hand played OR 2nd Home session → the starter-kit modal, alone.
+  //   Guest nudge → only after the kit ask has had its turn, and never while
+  //                      the starter modal is open.
+  const [starterOpen,  setStarterOpen]  = useState(false);
+  const [starterShown, setStarterShown] = useState(false);
+  const [returningHomePlayer] = useState<boolean>(() => {
+    try { return localStorage.getItem('cgp_home_seen') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('cgp_home_seen', '1'); } catch {}
+  }, []);
+
   // ── Guest nudge banner (show once per device for unauthenticated guests) ─────
   const [guestNudgeDismissed, setGuestNudgeDismissed] = useState<boolean>(() => {
     try { return localStorage.getItem('cgp_guest_nudge_dismissed') === '1'; } catch { return false; }
   });
   const isGuestUser   = serverProfile !== null && serverProfile !== undefined && serverProfile.hasAuth === false;
-  const showGuestNudge = isGuestUser && !guestNudgeDismissed;
+  // P5 first-run sequencing: the guest register nudge is one of the stacked
+  // first-session asks — it yields until the starter-kit ask has had its turn
+  // (see the sequencing block at the starter-pack state below) and never
+  // renders while the starter modal itself is open.
+  const showGuestNudge = isGuestUser && !guestNudgeDismissed
+    && !(serverProfile?.welcomeKitClaimed === false && !starterShown)
+    && !starterOpen;
   const dismissGuestNudge = () => {
     try { localStorage.setItem('cgp_guest_nudge_dismissed', '1'); } catch {}
     setGuestNudgeDismissed(true);
@@ -348,8 +373,11 @@ export default function Home() {
   const [serverBonusCanClaim,  setServerBonusCanClaim]  = useState<boolean | null>(null);
   const [serverBonusStreakDay, setServerBonusStreakDay] = useState(1);
   const [hourlyOpen,        setHourlyOpen]        = useState(false);
-  const [starterOpen,       setStarterOpen]        = useState(false);
+  // starterOpen state lives in the P5 sequencing block above.
   const starterAvailable = serverProfile?.welcomeKitClaimed === false;
+  // The kit ask becomes eligible once the player has played a hand or come
+  // back for a second Home session — never during the very first session.
+  const starterEligible = starterAvailable && (returningHomePlayer || getHandHistory().length > 0);
 
   // Live tables (30s poll, used for header live count + new live section)
   const [liveTables, setLiveTables] = useState<LiveTableEntry[]>([]);
@@ -449,11 +477,15 @@ export default function Home() {
     setRefreshingMissions(false);
   }, [serverProfile?.profileId, refreshingMissions, fetchQuestData]);
 
-  // Auto-show starter pack
+  // Auto-show starter pack — P5 sequenced: only once the kit ask is eligible
+  // (first hand played or a return Home session), only once per page load,
+  // and never while another Home modal is already open — one ask at a time.
   useEffect(() => {
-    if (!serverProfile) return;
-    if (serverProfile.welcomeKitClaimed === false) setStarterOpen(true);
-  }, [serverProfile?.welcomeKitClaimed]);
+    if (!starterEligible || starterShown) return;
+    if (starterOpen || dailyBonusCalOpen || hourlyOpen) return;
+    setStarterShown(true);
+    setStarterOpen(true);
+  }, [starterEligible, starterShown, starterOpen, dailyBonusCalOpen, hourlyOpen]);
 
   // Fetch server-authoritative daily bonus status
   useEffect(() => {
@@ -535,6 +567,22 @@ export default function Home() {
 
   const stripes = serverProfile?.stripes ?? 0;
   const { label: stripeGoalLabel, progress: stripeGoalPct } = getStripeGoal(stripes);
+
+  // ── P5 quick-join ────────────────────────────────────────────────────────
+  // One-tap seat above the mode cards: the most populated open public table
+  // across the seated modes; with none open, SIT DOWN opens a fresh Badugi
+  // table through the normal mode-entry path (which seats bots fast).
+  const quickJoinTable = publicTables
+    .filter(t => t.phase === 'WAITING' && t.humanCount > 0 && t.humanCount < (t.maxPlayers ?? 5) && LIVE_MODE_INFO[t.modeId])
+    .sort((a, b) => b.humanCount - a.humanCount)[0];
+  const quickJoinInfo = quickJoinTable ? LIVE_MODE_INFO[quickJoinTable.modeId] : null;
+  const handleQuickJoin = useCallback(() => {
+    if (quickJoinTable && quickJoinInfo) {
+      handleJoinTable(quickJoinTable.modeId, quickJoinTable.tableId);
+      return;
+    }
+    void navigateToMode('badugi', '/badugi');
+  }, [quickJoinTable, quickJoinInfo, handleJoinTable, navigateToMode]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -738,6 +786,23 @@ export default function Home() {
               GET CHIPS
             </button>
           )}
+
+          {/* ══ QUICK-JOIN + HOST — P5: one-tap seat above the mode cards ══════ */}
+          <div style={{ display: 'flex', gap: 8, margin: '2px 14px 10px' }}>
+            <button type="button" onClick={handleQuickJoin} data-testid="button-quick-join"
+              style={{ flex: 1, minHeight: 52, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#F0B829,#C9A227)', color: '#150A2E', boxShadow: '0 4px 20px rgba(240,184,41,0.35)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px 10px' }}>
+              <span style={{ fontFamily: 'Oswald, Impact, sans-serif', fontWeight: 900, fontSize: 19, letterSpacing: '2px', lineHeight: 1.1 }}>SIT DOWN</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 9, letterSpacing: '0.08em', opacity: 0.75 }}>
+                {quickJoinInfo && quickJoinTable
+                  ? `${quickJoinInfo.name.toUpperCase()} · ${(quickJoinTable.playerCount ?? quickJoinTable.humanCount)}/${quickJoinTable.maxPlayers} SEATED`
+                  : 'OPEN TABLE · PLAY NOW'}
+              </span>
+            </button>
+            <button type="button" onClick={() => setShowPrivateSetup(true)} data-testid="button-host-table"
+              style={{ minHeight: 52, padding: '6px 16px', borderRadius: 12, background: 'rgba(21,10,46,0.85)', border: '1px solid rgba(240,184,41,0.55)', color: '#F0B829', fontFamily: 'Oswald, Impact, sans-serif', fontWeight: 800, fontSize: 14, letterSpacing: '1px', cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+              HOST A TABLE
+            </button>
+          </div>
 
           {/* ══ GAME MODE CARDS — 4 atmospheric stacked banners ══════════════════ */}
           {new URLSearchParams(window.location.search).has('tableExit') && (

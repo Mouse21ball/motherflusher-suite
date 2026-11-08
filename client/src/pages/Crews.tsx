@@ -262,6 +262,7 @@ export default function CrewsPage() {
 function NoCrew({ stripes, onCreate, onJoin, onJoined }: {
   stripes: number; onCreate: () => void; onJoin: () => void; onJoined: () => void;
 }) {
+  const [, navigate] = useLocation();
   return (
     <div className="flex flex-col w-full max-w-lg mx-auto pb-8">
 
@@ -298,7 +299,7 @@ function NoCrew({ stripes, onCreate, onJoin, onJoined }: {
             START YOUR OWN CLUB. INVITE UP TO 24 MEMBERS.
           </p>
           {stripes < 100 ? (
-            <button onClick={() => window.location.href = "/shop"}
+            <button onClick={() => navigate("/shop")}
               className="mt-2 font-mono uppercase text-[10px] underline tracking-wide"
               style={{ color: "#ef4444" }}>
               NEED 100 STRIPES — VISIT THE SHOP
