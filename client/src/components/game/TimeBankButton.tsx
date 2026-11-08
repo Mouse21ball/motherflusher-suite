@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Timer } from "lucide-react";
 import { apiUrl } from "@/lib/apiConfig";
 
 interface TimeBankButtonProps {
@@ -85,7 +86,7 @@ export function TimeBankButton({
         ].join(' ')}
         data-testid="button-time-bank"
       >
-        {loading ? '…' : usedThisTurn ? '⏱ Used' : '⏱ +20s'}
+        <span className="flex items-center gap-1.5"><Timer size={13} />{loading ? '…' : usedThisTurn ? 'Used' : '+20s'}</span>
       </Button>
       {error && (
         <p className="text-[12px] text-red-400/70" data-testid="time-bank-error">{error}</p>

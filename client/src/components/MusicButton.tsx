@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { music } from '@/lib/music';
-import { Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Volume2, Volume1, VolumeX, Play, Pause, Repeat } from 'lucide-react';
 
 interface MusicButtonProps {
   /** Extra CSS classes */
@@ -138,7 +138,7 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left', 
               color: 'rgba(255,255,255,0.75)',
             }}
           >
-            {playing ? '⏸' : '▶'}
+            {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
 
           {/* Mute toggle */}
@@ -190,7 +190,7 @@ export function MusicButton({ className = '', size = 36, popoverAlign = 'left', 
               fontSize: 14, lineHeight: 1,
             }}
           >
-            ↻
+            <Repeat size={14} />
           </button>
         </div>
       )}

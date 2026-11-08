@@ -15,7 +15,7 @@ import {
   getAvatarInitials, getAvatarColor, getPlayerStats, getAllChips,
 } from '@/lib/persistence';
 import { ChainMark } from '@/components/ChainMark';
-import { Settings, Link2, Pencil, User, MessageCircle, TriangleAlert } from 'lucide-react';
+import { Settings, Link2, Pencil, User, MessageCircle, TriangleAlert, Trophy, Hourglass } from 'lucide-react';
 import { useServerProfile } from '@/lib/useServerProfile';
 import { AuthModal } from '@/components/AuthModal';
 import { apiUrl } from '@/lib/apiConfig';
@@ -582,7 +582,7 @@ export default function Profile() {
                   </div>
                   {resetCountdownMs > 0 ? (
                     <div style={{ color: '#FF8C42', fontSize: 12, fontFamily: 'monospace', marginTop: 2 }}>
-                      ⏳ Progress resets in: <strong>{formatCountdown(resetCountdownMs)}</strong>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Hourglass size={11} /> Progress resets in: <strong>{formatCountdown(resetCountdownMs)}</strong></span>
                     </div>
                   ) : (
                     <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontFamily: 'monospace', marginTop: 2 }}>
@@ -869,7 +869,7 @@ export default function Profile() {
                   <div style={{ fontSize: 11, color: '#FFD700', letterSpacing: '0.12em', fontFamily: 'monospace', fontWeight: 700, marginBottom: 4 }}>
                     BEST POT
                   </div>
-                  <div style={{ fontSize: 22, marginBottom: 2 }}>🏆</div>
+                  <div style={{ marginBottom: 2, color: '#FFD700' }}><Trophy size={22} /></div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#FFD700', lineHeight: 1, fontFamily: 'var(--font-num)' }}>
                     ${progression.biggestPot.toLocaleString()}
                   </div>
@@ -1389,7 +1389,7 @@ export default function Profile() {
             <div className="px-5 py-4 space-y-3">
               {nameChangeOnCooldown ? (
                 <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(180,130,40,0.08)', border: '1px solid rgba(180,130,40,0.20)' }}>
-                  <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>⏳</div>
+                  <div style={{ marginBottom: 8, color: 'rgba(200,150,40,0.80)', display: 'flex', justifyContent: 'center' }}><Hourglass size={24} /></div>
                   <div className="text-sm font-mono font-bold" style={{ color: 'rgba(200,150,40,0.80)' }}>On Cooldown</div>
                   <div className="text-xs font-mono mt-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
                     You can change your name again in{' '}

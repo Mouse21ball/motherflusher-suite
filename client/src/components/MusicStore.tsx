@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react';
 import { MUSIC_CATALOG } from '@/lib/musicTracks';
 import { music } from '@/lib/music';
-import { Volume2, Volume1, VolumeX, Music, Lock } from 'lucide-react';
+import { Volume2, Volume1, VolumeX, Music, Lock, Play, Square } from 'lucide-react';
 
 interface MusicStoreProps {
   ownedIds:     Set<string>;
@@ -185,7 +185,7 @@ export function MusicStore({ ownedIds, stripes, onBuy, purchasing, purchasingId 
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                {previewing ? '■' : '▶'}
+                {previewing ? <Square size={11} /> : <Play size={11} />}
               </button>
 
               {/* Right badge: FREE / owned ✓ / buy button */}
