@@ -44,7 +44,7 @@ import { generateReferralCode } from "./referralCodes";
 import { promisify } from "util";
 import { db } from "./db";
 import { eq, ne, notLike, sql, and, or, gte, isNull, isNotNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
-import { handXP, hourlyChips, levelFromXP, dailyBonusBreakdown, type DailyBonusBreakdown } from "@shared/progressionRules";
+import { handXP, hourlyChips, levelFromXP, dailyBonusBreakdown, subscriptionDailyRouteBonus, type DailyBonusBreakdown } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
 
@@ -436,6 +436,10 @@ export interface DailyBonusStatus {
   todaysReward:         { chips: number; stripes: number };
   baseChips:            number; // schedule amount before multipliers
   multipliers:          DailyBonusBreakdown;
+  // Flat subscription route bonus a claim right now would ALSO credit, on
+  // top of todaysReward.chips (never multiplied; credited separately by the
+  // claim route). Surfaced so the preview total can equal the real payout.
+  subBonusChips:        number;
 }
 
 export interface DailyBonusHistoryEntry {
@@ -2905,6 +2909,7 @@ export class MemStorage implements IStorage {
       todaysReward:         { chips: breakdown.chips, stripes: reward.stripes },
       baseChips:            reward.chips,
       multipliers:          breakdown,
+      subBonusChips:        subscriptionDailyRouteBonus(rows[0].activeSubscriptionTier),
     };
   }
 

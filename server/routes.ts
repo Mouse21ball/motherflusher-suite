@@ -44,7 +44,7 @@ import {
 } from "./genericEngine";
 import { db } from "./db";
 import { sql as drizzleSql } from "drizzle-orm";
-import { levelFromXP } from "@shared/progressionRules";
+import { levelFromXP, subscriptionDailyRouteBonus } from "@shared/progressionRules";
 import { requireAuth, requireAdmin, requireSelf } from "./middleware/auth";
 import { makePubSubAuthMiddleware } from "./middleware/pubsubAuth";
 
@@ -1955,10 +1955,10 @@ export async function registerRoutes(
       void recordMeaningfulActivity(id);
 
       // ── Subscription chip bonus (credited on top of base daily bonus) ──────
+      // Flat route bonus — amount from the shared helper so the status
+      // preview and this payout can never diverge. Not multiplied.
       const tier = profile.activeSubscriptionTier;
-      const subBonusChips =
-        tier === "diamond_elite" ? 2500 :
-        tier === "gold_pro"      ? 1000 : 0;
+      const subBonusChips = subscriptionDailyRouteBonus(tier);
 
       if (subBonusChips > 0) {
         await storage.addChipsToPlayer(id, subBonusChips, { reason: 'subscription_grant', source: 'subscription' });

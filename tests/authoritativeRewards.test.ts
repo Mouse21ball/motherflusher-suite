@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   handXP, hourlyChips, levelFromXP, xpForLevel, type XPCounters,
   rankTierForLevel, dailyRankMultiplier, dailyCrewMultiplier, dailyBonusBreakdown,
-  DAILY_BONUS_MULTIPLIER_CAP,
+  DAILY_BONUS_MULTIPLIER_CAP, subscriptionDailyRouteBonus,
 } from '../shared/progressionRules';
 
 const base = (): XPCounters => ({
@@ -108,5 +108,22 @@ describe('daily bonus multipliers (P7)', () => {
     expect(b.combinedMultiplier).toBe(3.5);
     expect(b.capped).toBe(true);
     expect(b.chips).toBe(17500);
+  });
+});
+
+// P7 follow-up: the flat subscription route bonus is credited on top of the
+// multiplied bonus (claim route) and itemized in the breakdown display
+// (status preview + celebration). One shared helper pins the amounts so
+// payout and display can never diverge; the bonus itself is never
+// multiplied and is not part of dailyBonusBreakdown.
+describe('subscription daily route bonus (P7 follow-up)', () => {
+  it('pays the flat route bonus by tier', () => {
+    expect(subscriptionDailyRouteBonus('gold_pro')).toBe(1000);
+    expect(subscriptionDailyRouteBonus('diamond_elite')).toBe(2500);
+  });
+
+  it('pays nothing to non-subscribers and unknown tiers', () => {
+    expect(subscriptionDailyRouteBonus(null)).toBe(0);
+    expect(subscriptionDailyRouteBonus('free')).toBe(0);
   });
 });

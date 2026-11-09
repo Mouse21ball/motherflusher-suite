@@ -46,6 +46,10 @@ interface DailyBonusStatus {
   todaysReward:         { chips: number; stripes: number }; // chips = final, post-multiplier
   baseChips:            number;
   multipliers:          MultiplierBreakdown;
+  // Flat subscription route bonus credited ON TOP of todaysReward.chips by
+  // the claim route (never multiplied). Displayed as its own line so the
+  // preview total equals the actual payout.
+  subBonusChips:        number;
 }
 
 interface ClaimResult {
@@ -57,6 +61,9 @@ interface ClaimResult {
   newStripesBalance: number;
   baseChips:         number;
   multipliers:       MultiplierBreakdown;
+  // Flat subscription route bonus the claim route credited on top of
+  // chipsGranted (already included in newChipBalance by the server).
+  subBonusChips:     number;
 }
 
 interface Props {
@@ -101,6 +108,19 @@ function MultiplierBreakdownLine({ breakdown, subTierName }: { breakdown?: Multi
     <div className="text-[9px] font-mono text-white/35 leading-relaxed" data-testid="text-bonus-multiplier-breakdown">
       {parts.join(' × ')} = {breakdown.chips.toLocaleString()} chips
       {breakdown.capped ? ` (multiplier capped at ${fmtMult(breakdown.combinedMultiplier)})` : ''}
+    </div>
+  );
+}
+
+// The flat subscription route bonus lands on top of the multiplied bonus.
+// Itemized as its own line wherever the breakdown shows, so the displayed
+// total always equals the actual balance delta. Server-supplied amount;
+// renders nothing for non-subscribers.
+function RouteBonusLine({ chips, subTierName }: { chips?: number | null; subTierName: string | null }) {
+  if (!chips || chips <= 0) return null;
+  return (
+    <div className="text-[9px] font-mono text-white/35 leading-relaxed" data-testid="text-bonus-route-bonus">
+      {subTierName ?? 'Subscription'} route bonus +{chips.toLocaleString()} chips
     </div>
   );
 }
@@ -390,7 +410,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                           style={{ color: '#F0B829' }}
                           data-testid="text-bonus-chips-today"
                         >
-                          +{status.todaysReward.chips.toLocaleString()}
+                          +{(status.todaysReward.chips + (status.subBonusChips ?? 0)).toLocaleString()}
                         </span>
                         <span className="text-xs text-white/30 font-mono">chips</span>
                       </div>
@@ -407,6 +427,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                     {todayReward.isJackpot && <Crown className="ml-auto" size={36} color="#FBBF24" />}
                   </div>
                   <MultiplierBreakdownLine breakdown={status.multipliers} subTierName={subTierName} />
+                  <RouteBonusLine chips={status.subBonusChips} subTierName={subTierName} />
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-1 py-1">
@@ -421,7 +442,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                     {countdown || '…'}
                   </div>
                   <div className="text-[10px] font-mono text-white/20 mt-0.5">
-                    Day {activeDay} reward: +{status.todaysReward.chips.toLocaleString()} chips
+                    Day {activeDay} reward: +{(status.todaysReward.chips + (status.subBonusChips ?? 0)).toLocaleString()} chips
                     {todayReward.stripes > 0 ? ` + ${todayReward.stripes} Stripes` : ''}
                   </div>
                 </div>
@@ -450,7 +471,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                       style={{ color: '#10b981' }}
                       data-testid="text-claimed-chips"
                     >
-                      +{claimed.chipsGranted.toLocaleString()}
+                      +{(claimed.chipsGranted + (claimed.subBonusChips ?? 0)).toLocaleString()}
                     </span>
                     <span className="text-xs text-white/30 font-mono">chips</span>
                   </div>
@@ -471,6 +492,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                 <Check className="ml-auto" size={28} color="#22C55E" />
               </div>
               <MultiplierBreakdownLine breakdown={claimed.multipliers} subTierName={subTierName} />
+              <RouteBonusLine chips={claimed.subBonusChips} subTierName={subTierName} />
               <div className="flex flex-col gap-0.5 mt-1 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="text-[9px] font-mono text-white/20">
                   New balance: {claimed.newChipBalance.toLocaleString()} chips

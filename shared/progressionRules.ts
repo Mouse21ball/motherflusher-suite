@@ -105,6 +105,17 @@ export function dailyBonusBreakdown(
   };
 }
 
+// Flat subscription route bonus, credited by POST /daily-bonus/claim ON TOP
+// of the multiplied daily bonus (ledger reason 'subscription_grant').
+// Pre-dates P7 and is NOT part of the multiplier stack: never multiplied,
+// never capped. Single source of truth so the claim payout, the status
+// preview, and the breakdown display can never disagree about the amount.
+export function subscriptionDailyRouteBonus(activeSubscriptionTier: string | null): number {
+  if (activeSubscriptionTier === 'diamond_elite') return 2500;
+  if (activeSubscriptionTier === 'gold_pro') return 1000;
+  return 0;
+}
+
 export interface XPCounters {
   handsPlayed: number; handsWon: number; winStreak: number; lossStreak: number;
   biggestPot: number; badugisWon: number; modesPlayed: string[];
