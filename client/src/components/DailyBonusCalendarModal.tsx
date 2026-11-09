@@ -24,11 +24,28 @@ const SCHEDULE = [
 ] as const;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+// P7: the server returns the full multiplier breakdown it applied (or will
+// apply) — base x rank x crew x subscription, combined under a hard cap.
+// The client displays these numbers; it never computes payout amounts.
+interface MultiplierBreakdown {
+  baseChips:          number;
+  rankName:           string;
+  rankMultiplier:     number;
+  crewMemberCount:    number | null;
+  crewMultiplier:     number;
+  subMultiplier:      number;
+  combinedMultiplier: number;
+  capped:             boolean;
+  chips:              number;
+}
+
 interface DailyBonusStatus {
   canClaim:             boolean;
   currentStreakDay:     number;
   nextClaimAvailableAt: string; // ISO timestamp
-  todaysReward:         { chips: number; stripes: number };
+  todaysReward:         { chips: number; stripes: number }; // chips = final, post-multiplier
+  baseChips:            number;
+  multipliers:          MultiplierBreakdown;
 }
 
 interface ClaimResult {
@@ -38,6 +55,8 @@ interface ClaimResult {
   nextClaimAvailableAt: string;
   newChipBalance:    number;
   newStripesBalance: number;
+  baseChips:         number;
+  multipliers:       MultiplierBreakdown;
 }
 
 interface Props {
@@ -63,6 +82,27 @@ function formatCountdown(targetIso: string): string {
 function fmtChips(n: number): string {
   if (n >= 1000) return `${n / 1000}k`;
   return String(n);
+}
+
+function fmtMult(x: number): string {
+  return `${Math.round(x * 1000) / 1000}×`;
+}
+
+// P7: honest multiplier breakdown — lists only the factors actually above 1,
+// exactly as the server computed them. Renders nothing for a plain claim.
+function MultiplierBreakdownLine({ breakdown, subTierName }: { breakdown?: MultiplierBreakdown | null; subTierName: string | null }) {
+  if (!breakdown) return null;
+  const parts: string[] = [`Base ${breakdown.baseChips.toLocaleString()}`];
+  if (breakdown.rankMultiplier > 1) parts.push(`${breakdown.rankName} ${fmtMult(breakdown.rankMultiplier)}`);
+  if (breakdown.crewMultiplier > 1) parts.push(`Crew of ${breakdown.crewMemberCount} ${fmtMult(breakdown.crewMultiplier)}`);
+  if (breakdown.subMultiplier > 1) parts.push(`${subTierName ?? 'Subscription'} ${fmtMult(breakdown.subMultiplier)}`);
+  if (parts.length === 1) return null;
+  return (
+    <div className="text-[9px] font-mono text-white/35 leading-relaxed" data-testid="text-bonus-multiplier-breakdown">
+      {parts.join(' × ')} = {breakdown.chips.toLocaleString()} chips
+      {breakdown.capped ? ` (multiplier capped at ${fmtMult(breakdown.combinedMultiplier)})` : ''}
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -147,6 +187,10 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
   const canClaim       = !claimed && (status?.canClaim ?? false);
   const todayReward    = SCHEDULE[(streakDay - 1) % 7];
   const isGuest        = serverProfile ? !serverProfile.hasAuth : false;
+  // P7: display name for the subscription factor in the breakdown line.
+  const subTierName    = serverProfile?.activeSubscriptionTier === 'diamond_elite' ? 'Diamond Elite'
+    : serverProfile?.activeSubscriptionTier === 'gold_pro' ? 'Chain Pro'
+    : null;
 
   // Calendar rendering logic
   // When canClaim=true: streakDay is the day to be claimed (not yet claimed)
@@ -346,7 +390,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                           style={{ color: '#F0B829' }}
                           data-testid="text-bonus-chips-today"
                         >
-                          +{todayReward.chips.toLocaleString()}
+                          +{status.todaysReward.chips.toLocaleString()}
                         </span>
                         <span className="text-xs text-white/30 font-mono">chips</span>
                       </div>
@@ -362,6 +406,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                     </div>
                     {todayReward.isJackpot && <Crown className="ml-auto" size={36} color="#FBBF24" />}
                   </div>
+                  <MultiplierBreakdownLine breakdown={status.multipliers} subTierName={subTierName} />
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-1 py-1">
@@ -376,7 +421,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                     {countdown || '…'}
                   </div>
                   <div className="text-[10px] font-mono text-white/20 mt-0.5">
-                    Day {activeDay} reward: +{todayReward.chips.toLocaleString()} chips
+                    Day {activeDay} reward: +{status.todaysReward.chips.toLocaleString()} chips
                     {todayReward.stripes > 0 ? ` + ${todayReward.stripes} Stripes` : ''}
                   </div>
                 </div>
@@ -425,6 +470,7 @@ export function DailyBonusCalendarModal({ open, onClose, onClaimed, presentation
                 </div>
                 <Check className="ml-auto" size={28} color="#22C55E" />
               </div>
+              <MultiplierBreakdownLine breakdown={claimed.multipliers} subTierName={subTierName} />
               <div className="flex flex-col gap-0.5 mt-1 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="text-[9px] font-mono text-white/20">
                   New balance: {claimed.newChipBalance.toLocaleString()} chips

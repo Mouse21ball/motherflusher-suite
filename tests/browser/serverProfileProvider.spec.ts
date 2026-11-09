@@ -58,10 +58,17 @@ test('two consumers bootstrap one guest, then share one authenticated refetch', 
   await page.route('**/api/auth/guest-init', async route => {
     guestRequests++;
     expect(route.request().method()).toBe('POST');
-    expect(JSON.parse(route.request().postData()!)).toEqual({
-      profileId: identity.id,
-      displayName: identity.name,
-    });
+    // P7 cleanup (2026-11-08): since the Oct 26 guest-auth patch the
+    // client also sends its push installationId in this body
+    // (client/src/lib/useServerProfile.ts) — the live code is correct;
+    // this expectation was stale. guestSecret stays absent here because
+    // the seeded identity has none (undefined fields drop out of JSON).
+    const body = JSON.parse(route.request().postData()!);
+    expect(Object.keys(body).sort()).toEqual(['displayName', 'installationId', 'profileId']);
+    expect(body.profileId).toBe(identity.id);
+    expect(body.displayName).toBe(identity.name);
+    expect(typeof body.installationId).toBe('string');
+    expect(body.installationId.length).toBeGreaterThan(0);
     await guestGate;
     await route.fulfill({ json: serverProfile('First guest', 'guest-token') });
   });

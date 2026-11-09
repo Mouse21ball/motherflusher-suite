@@ -119,7 +119,8 @@ interface ProtoState {
 }
 
 // Table anchors (community band, pot, muck) live in dealerOrigin.ts
-// (Detroit 2026-10-24 polish: band +25px, community cards 36x50,
+// (band position: Detroit 2026-10-24 polish, +25px; community cards
+// 44x62 since the P7 re-derivation 2026-11-08 — see dealerOrigin.ts;
 // budget pinned by tests/bcCommunityGeometry.test.ts).
 
 // Card sizes — hero bigger (5 cards need to fit).
@@ -669,14 +670,17 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2 }}
                   // Detroit 2026-10-24 (P2 premium polish): restrained
-                  // gold edging + soft depth on the enlarged 36x50
-                  // community cards. Wrapper only — card art untouched.
-                  // P3 note (2026-11-07): a trial enlargement to 44x62
-                  // was rendered and REVERTED — it exceeds the approved
-                  // growth band and breaks the geometry budget pinned in
-                  // tests/bcCommunityGeometry.test.ts (growth cap 1.15x
-                  // over 32x44; pot-flight offset floor at 740px stage).
-                  // Do not resize without re-ruling that budget.
+                  // gold edging + soft depth on the community cards.
+                  // Wrapper only — card art untouched.
+                  // Size history: 32x44 → 36x50 (Oct 24 growth band) →
+                  // 44x62 (P7, 2026-11-08: Detroit authorized re-deriving
+                  // the geometry for pip legibility; the size AND its
+                  // dependents — pot flight target, deal spread, muck
+                  // label — moved together this time. A P3 trial that
+                  // changed the cards alone desynced the pot-flight
+                  // offset and was reverted. Derivation + budget:
+                  // dealerOrigin.ts + tests/bcCommunityGeometry.test.ts.
+                  // Keep this class in sync with COMMUNITY_CARD_W/H.
                   style={{
                     borderRadius: 5,
                     border: '1px solid rgba(240,184,41,0.6)',
@@ -685,7 +689,7 @@ export function BoxChevyTable({ state: liveState, myId, selectedCardIndices, onC
                     lineHeight: 0,
                   }}
                 >
-                  <PlayingCard card={card} className="!w-[36px] !h-[50px]" />
+                  <PlayingCard card={card} className="!w-[44px] !h-[62px]" />
                 </motion.div>
               ))}
             </AnimatePresence>

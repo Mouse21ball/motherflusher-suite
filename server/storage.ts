@@ -44,7 +44,7 @@ import { generateReferralCode } from "./referralCodes";
 import { promisify } from "util";
 import { db } from "./db";
 import { eq, ne, notLike, sql, and, or, gte, isNull, isNotNull, lt, lte, gt, desc, ilike, asc, inArray, notInArray } from "drizzle-orm";
-import { handXP, hourlyChips, levelFromXP } from "@shared/progressionRules";
+import { handXP, hourlyChips, levelFromXP, dailyBonusBreakdown, type DailyBonusBreakdown } from "@shared/progressionRules";
 import { LEADERBOARD_LIMIT, type LeaderboardResponse } from "@shared/leaderboard";
 import { applyRake } from "./utils/rake";
 
@@ -430,7 +430,12 @@ export interface DailyBonusStatus {
   canClaim:             boolean;
   currentStreakDay:     number; // day to claim (canClaim=true) or day already claimed (canClaim=false)
   nextClaimAvailableAt: Date;
+  // P7: todaysReward.chips is the FINAL amount after rank x crew x
+  // subscription multipliers (what a claim right now would grant);
+  // `multipliers` is the full server-computed breakdown for honest display.
   todaysReward:         { chips: number; stripes: number };
+  baseChips:            number; // schedule amount before multipliers
+  multipliers:          DailyBonusBreakdown;
 }
 
 export interface DailyBonusHistoryEntry {
@@ -447,6 +452,9 @@ export interface DailyBonusClaimResult {
   nextClaimAvailableAt: Date;
   newChipBalance:       number;
   newStripesBalance:    number;
+  // P7: the exact breakdown the server applied (base x rank x crew x sub).
+  baseChips:            number;
+  multipliers:          DailyBonusBreakdown;
 }
 
 export interface BanStatus {
@@ -559,6 +567,21 @@ function computeNextStreakDay(lastBonusClaimedAt: Date | null, currentStreakDay:
   const yesterday = utcDateStr(new Date(Date.now() - 86_400_000));
   if (lastDate === yesterday) return currentStreakDay >= 7 ? 1 : currentStreakDay + 1;
   return 1;
+}
+
+// P7: subscription daily chip multiplier for a stored tier. Monthly product
+// IDs are the canonical source per tier — monthly and yearly subscribers
+// share the same dailyChipMultiplier value in SUBSCRIPTION_PRODUCTS.
+// Shared by getDailyBonusStatus and claimDailyBonus so display and payout
+// can never diverge.
+function subscriptionDailyMultiplier(activeSubscriptionTier: string | null): number {
+  const subProductKey =
+    activeSubscriptionTier === 'diamond_elite' ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly
+    : activeSubscriptionTier === 'gold_pro'    ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly
+    : null;
+  return subProductKey
+    ? (SUBSCRIPTION_PRODUCTS[subProductKey]?.dailyChipMultiplier ?? 1)
+    : 1;
 }
 
 // ─── Cosmetic catalog seed ────────────────────────────────────────────────────
@@ -2828,11 +2851,28 @@ export class MemStorage implements IStorage {
 
   // ── Daily bonus ─────────────────────────────────────────────────────────────
 
+  // P7: real stored member_count of the player's active crew — null when
+  // the player is not in a crew or the crew is disbanded. member_count is
+  // maintained on join/leave/kick (see join/leaveCrew) and capped at 25.
+  private async _activeCrewMemberCount(dbLike: any, crewId: string | null): Promise<number | null> {
+    if (!crewId) return null;
+    const [crew] = await dbLike
+      .select({ memberCount: crews.memberCount })
+      .from(crews)
+      .where(and(eq(crews.id, crewId), isNull(crews.disbandedAt)))
+      .limit(1);
+    return crew ? crew.memberCount : null;
+  }
+
   async getDailyBonusStatus(playerId: string): Promise<DailyBonusStatus> {
+    await this.ensureHistoricalXP(playerId);
     const rows = await db
       .select({
-        lastBonusClaimedAt: playerProfiles.lastBonusClaimedAt,
-        bonusStreakDay:     playerProfiles.bonusStreakDay,
+        lastBonusClaimedAt:     playerProfiles.lastBonusClaimedAt,
+        bonusStreakDay:         playerProfiles.bonusStreakDay,
+        xp:                     playerProfiles.xp,
+        activeSubscriptionTier: playerProfiles.activeSubscriptionTier,
+        currentCrewId:          playerProfiles.currentCrewId,
       })
       .from(playerProfiles)
       .where(eq(playerProfiles.id, playerId))
@@ -2848,11 +2888,23 @@ export class MemStorage implements IStorage {
     const rewardDay  = displayDay;
     const reward     = DAILY_BONUS_SCHEDULE[rewardDay - 1];
 
+    // P7: preview the exact breakdown a claim right now would apply, so the
+    // client displays the server's numbers — never its own computation.
+    const crewMemberCount = await this._activeCrewMemberCount(db, rows[0].currentCrewId);
+    const breakdown = dailyBonusBreakdown(
+      reward.chips,
+      levelFromXP(rows[0].xp),
+      crewMemberCount,
+      subscriptionDailyMultiplier(rows[0].activeSubscriptionTier),
+    );
+
     return {
       canClaim,
       currentStreakDay:     displayDay,
       nextClaimAvailableAt: tomorrowUtcMidnight(),
-      todaysReward:         { chips: reward.chips, stripes: reward.stripes },
+      todaysReward:         { chips: breakdown.chips, stripes: reward.stripes },
+      baseChips:            reward.chips,
+      multipliers:          breakdown,
     };
   }
 
@@ -2878,6 +2930,7 @@ export class MemStorage implements IStorage {
   }
 
   async claimDailyBonus(playerId: string): Promise<DailyBonusClaimResult> {
+    await this.ensureHistoricalXP(playerId);
     const result = await db.transaction(async (tx) => {
       const rows = await tx
         .select({
@@ -2887,6 +2940,8 @@ export class MemStorage implements IStorage {
           bonusStreakDay:          playerProfiles.bonusStreakDay,
           totalBonusClaims:       playerProfiles.totalBonusClaims,
           activeSubscriptionTier: playerProfiles.activeSubscriptionTier,
+          xp:                      playerProfiles.xp,
+          currentCrewId:           playerProfiles.currentCrewId,
         })
         .from(playerProfiles)
         .where(eq(playerProfiles.id, playerId))
@@ -2905,18 +2960,20 @@ export class MemStorage implements IStorage {
       const reward            = DAILY_BONUS_SCHEDULE[newStreakDay - 1];
       const now               = new Date();
 
-      // Apply subscription daily chip multiplier from the catalog.
-      // Monthly product IDs are the canonical source per tier — monthly and yearly
-      // subscribers share the same dailyChipMultiplier value in SUBSCRIPTION_PRODUCTS.
-      const subTier = player.activeSubscriptionTier;
-      const subProductKey =
-        subTier === 'diamond_elite' ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.diamondEliteMonthly
-        : subTier === 'gold_pro'    ? GOOGLE_SUBSCRIPTION_PRODUCT_IDS.goldProMonthly
-        : null;
-      const chipMultiplier = subProductKey
-        ? (SUBSCRIPTION_PRODUCTS[subProductKey]?.dailyChipMultiplier ?? 1)
-        : 1;
-      const chipsAwarded      = Math.round(reward.chips * chipMultiplier);
+      // P7: server-authoritative multiplier stack — rank (from stored XP)
+      // x crew (from stored crew member_count) x subscription (catalog),
+      // combined multiplicatively under a hard cap. Stripes are NOT
+      // multiplied (unchanged from the pre-P7 subscription-only behavior).
+      // Design + math: ~/workspace/cgp-p7/MULTIPLIER-MATH.md.
+      const chipMultiplier = subscriptionDailyMultiplier(player.activeSubscriptionTier);
+      const crewMemberCount = await this._activeCrewMemberCount(tx, player.currentCrewId);
+      const breakdown = dailyBonusBreakdown(
+        reward.chips,
+        levelFromXP(player.xp),
+        crewMemberCount,
+        chipMultiplier,
+      );
+      const chipsAwarded      = breakdown.chips;
 
       const newChipBalance    = player.chipBalance + chipsAwarded;
       const newStripesBalance = player.stripes + reward.stripes;
@@ -2961,7 +3018,15 @@ export class MemStorage implements IStorage {
           streakDay:       newStreakDay,
           chipsGranted:    chipsAwarded,
           stripesGranted:  reward.stripes,
-          chipMultiplier,
+          chipMultiplier, // subscription factor (original meaning preserved)
+          // P7: full applied breakdown, so the faucet stays auditable.
+          baseChips:          reward.chips,
+          rankTier:           breakdown.rankName,
+          rankMultiplier:     breakdown.rankMultiplier,
+          crewMemberCount:    breakdown.crewMemberCount,
+          crewMultiplier:     breakdown.crewMultiplier,
+          combinedMultiplier: breakdown.combinedMultiplier,
+          multiplierCapped:   breakdown.capped,
         },
       });
 
@@ -2972,6 +3037,8 @@ export class MemStorage implements IStorage {
         nextClaimAvailableAt: tomorrowUtcMidnight(),
         newChipBalance,
         newStripesBalance,
+        baseChips:            reward.chips,
+        multipliers:          breakdown,
       };
     });
     // Auto-repay outstanding chip loan from daily bonus earnings

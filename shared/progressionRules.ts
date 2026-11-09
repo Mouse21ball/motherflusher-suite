@@ -13,6 +13,98 @@ export function hourlyChips(level: number): number {
   return Math.round(500 * (1 + pct / 100));
 }
 
+// ─── Rank tiers + daily-bonus multipliers (P7, 2026-11-08) ───────────────────
+// Rank tier names/thresholds mirror client/src/lib/progression.ts RANK_TIERS
+// (Bronze 1 / Silver 11 / Gold 21 / Platinum 36 / Diamond 51 / Master 71).
+// The daily rank multiplier makes real the percentages the game already
+// advertises in the VIP ladder (client/src/lib/retention.ts: Silver +10%,
+// Gold +20%, Platinum+ +25% — the same bands hourlyChips already pays on the
+// hourly bonus) and extends the two higher ranks to the free-player ceiling:
+// Diamond +35%, Master +50% (top free rank = 1.5x, by design).
+// Full design + economy math: ~/workspace/cgp-p7/MULTIPLIER-MATH.md.
+export interface RankTierDef {
+  name: string;
+  minLevel: number;
+  dailyMultiplier: number;
+}
+
+export const RANK_TIER_DEFS: RankTierDef[] = [
+  { name: 'Bronze',   minLevel: 1,  dailyMultiplier: 1.0  },
+  { name: 'Silver',   minLevel: 11, dailyMultiplier: 1.1  },
+  { name: 'Gold',     minLevel: 21, dailyMultiplier: 1.2  },
+  { name: 'Platinum', minLevel: 36, dailyMultiplier: 1.25 },
+  { name: 'Diamond',  minLevel: 51, dailyMultiplier: 1.35 },
+  { name: 'Master',   minLevel: 71, dailyMultiplier: 1.5  },
+];
+
+export function rankTierForLevel(level: number): RankTierDef {
+  let tier = RANK_TIER_DEFS[0];
+  for (const t of RANK_TIER_DEFS) {
+    if (level >= t.minLevel) tier = t;
+    else break;
+  }
+  return tier;
+}
+
+export function dailyRankMultiplier(level: number): number {
+  return rankTierForLevel(level).dailyMultiplier;
+}
+
+// Crew factor: computed ONLY from real stored crew data — the player's crew
+// membership and that crew's stored member_count (maintained on join/leave/
+// kick in storage; crews cap at 25). A one-member "crew" is just the captain
+// alone and earns no factor. There are no crew tiers/levels in the data, so
+// none are invented here — size bands only.
+export function dailyCrewMultiplier(crewMemberCount: number | null): number {
+  if (crewMemberCount === null || crewMemberCount < 2) return 1;
+  if (crewMemberCount <= 4) return 1.05;
+  if (crewMemberCount <= 9) return 1.075;
+  return 1.1;
+}
+
+// Hard ceiling on the COMBINED daily-bonus multiplier (rank x crew x
+// subscription). Diamond Elite alone is 3x today; a 3.0 cap would make rank
+// and crew worthless to Diamond subscribers. 3.5 keeps bounded headroom over
+// today's maximum faucet while the free-player ceiling stays 1.5 x 1.1 = 1.65.
+export const DAILY_BONUS_MULTIPLIER_CAP = 3.5;
+
+export interface DailyBonusBreakdown {
+  baseChips: number;
+  rankName: string;
+  rankMultiplier: number;
+  crewMemberCount: number | null;
+  crewMultiplier: number;
+  subMultiplier: number;
+  combinedMultiplier: number; // after the cap
+  capped: boolean;
+  chips: number;              // final chips granted (single final rounding)
+}
+
+// Pure + server-authoritative: the server computes this at claim time from
+// stored profile/crew data; the client only displays the returned breakdown.
+export function dailyBonusBreakdown(
+  baseChips: number,
+  level: number,
+  crewMemberCount: number | null,
+  subMultiplier: number,
+): DailyBonusBreakdown {
+  const tier = rankTierForLevel(level);
+  const crewMultiplier = dailyCrewMultiplier(crewMemberCount);
+  const raw = tier.dailyMultiplier * crewMultiplier * subMultiplier;
+  const combinedMultiplier = Math.min(raw, DAILY_BONUS_MULTIPLIER_CAP);
+  return {
+    baseChips,
+    rankName: tier.name,
+    rankMultiplier: tier.dailyMultiplier,
+    crewMemberCount,
+    crewMultiplier,
+    subMultiplier,
+    combinedMultiplier,
+    capped: raw > DAILY_BONUS_MULTIPLIER_CAP,
+    chips: Math.round(baseChips * combinedMultiplier),
+  };
+}
+
 export interface XPCounters {
   handsPlayed: number; handsWon: number; winStreak: number; lossStreak: number;
   biggestPot: number; badugisWon: number; modesPlayed: string[];

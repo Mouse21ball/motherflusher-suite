@@ -107,13 +107,14 @@ describe('Box Chevy — center-aware layout', () => {
 
   it('community band is one reserved block with cards + pot pill', () => {
     // Detroit 2026-10-24 (final polish P2): the band rides +25px via
-    // COMMUNITY_BAND_TOP and the cards are 36x50 (budget verified in
-    // tests/bcCommunityGeometry.test.ts) — supersedes the 50.5%/32x44
-    // literals pinned here in the correction plan.
+    // COMMUNITY_BAND_TOP and the cards were 36x50 — supersedes the
+    // 50.5%/32x44 literals pinned here in the correction plan.
+    // P7 re-derivation 2026-11-08 (defect #14): cards are now 44x62 with
+    // dependents re-derived (budget in tests/bcCommunityGeometry.test.ts).
     expect(bcTable).toContain('top: COMMUNITY_BAND_TOP');
-    expect(bcTable).toContain('!w-[36px] !h-[50px]');
+    expect(bcTable).toContain('!w-[44px] !h-[62px]');
     expect(bcTable).toContain('POT ${state.pot.toLocaleString()}');
-    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[36px] !h-[50px]" />');
+    expect(bcTable).toContain('<PlayingCard card={card} className="!w-[44px] !h-[62px]" />');
   });
 
   it('per-pod server-deadline timer bars (hero included)', () => {
